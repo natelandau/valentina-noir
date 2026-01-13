@@ -1,0 +1,50 @@
+---
+name: Pull Request Linter
+
+on:
+    pull_request_target:
+        types:
+            - opened
+            - edited
+            - synchronize
+        branches:
+            - main
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    lint:
+        permissions:
+            pull-requests: read
+            statuses: write
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Lint Pull Request
+              uses: amannn/action-semantic-pull-request@v6
+              with:
+                  validateSingleCommit: true
+                  wip: true
+                  types: |
+                      fix
+                      feat
+                      docs
+                      style
+                      refactor
+                      perf
+                      test
+                      build
+                      ci
+                  requireScope: false
+                  subjectPattern: ^(?![A-Z]).+$
+                  subjectPatternError: |
+                      The subject "{subject}" found in the pull request title "{title}"
+                      didn't match the configured pattern. Please ensure that the subject
+                      doesn't start with an uppercase character.
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

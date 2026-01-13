@@ -1,0 +1,69 @@
+[project]
+    copyright = "Copyright &copy; 2026 Nathaniel Landau"
+    dev_addr  = "localhost:8000"
+    docs_dir  = "docs"
+    extra_css = ["css/material.css", "css/mkdocstrings.css"]
+    repo_name = "natelandau/valentina-noir"
+    repo_url  = "https://github.com/natelandau/valentina-noir"
+    site_dir  = "_site"
+    site_name = "Valentina Noir"
+    site_url  = "https://valentina-noir.com"
+
+    [project.theme]
+        features = [
+            "navigation.footer",
+            "navigation.indexes",
+            "navigation.sections",
+            "navigation.tabs",
+            "navigation.top",
+            "search.highlight",
+        ]
+        language = "en"
+        [project.theme.icon]
+            logo = "lucide/dices"
+
+        [[project.theme.palette]]
+            media       = "(prefers-color-scheme)"
+            toggle.icon = "lucide/sun-moon"
+            toggle.name = "Switch to light mode"
+
+        # Palette toggle for light mode
+        [[project.theme.palette]]
+            media       = "(prefers-color-scheme: light)"
+            scheme      = "default"
+            toggle.icon = "lucide/sun"
+            toggle.name = "Switch to dark mode"
+
+        # Palette toggle for dark mode
+        [[project.theme.palette]]
+            media       = "(prefers-color-scheme: dark)"
+            scheme      = "slate"
+            toggle.icon = "lucide/moon"
+            toggle.name = "Switch to system preference"
+
+    [project.extra]
+        generator = false
+        [[project.extra.social]]
+            icon = "fontawesome/solid/paper-plane"
+            link = "mailto:support@valentina-noir.com"
+
+        [[project.extra.social]]
+            icon = "fontawesome/brands/github"
+            link = "https://github.com/natelandau/valentina-noir"
+
+    [project.markdown_extensions.abbr]
+    [project.markdown_extensions.admonition]
+    [project.markdown_extensions.def_list]
+    [project.markdown_extensions.footnotes]
+    [project.markdown_extensions.tables]
+    [project.markdown_extensions.pymdownx.emoji]
+        emoji_generator = "zensical.extensions.emoji.to_svg"
+        emoji_index     = "zensical.extensions.emoji.twemoji"
+    [project.markdown_extensions.pymdownx.highlight]
+        line_spans          = "__span"
+        pygments_lang_class = true
+    [project.markdown_extensions.pymdownx.superfences]
+        custom_fences = [
+            { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+        ]
+    [project.markdown_extensions.pymdownx.inlinehilite]

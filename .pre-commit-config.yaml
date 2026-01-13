@@ -1,0 +1,148 @@
+---
+# https://pre-commit.com
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit, manual]
+fail_fast: true
+repos:
+  - repo: "https://github.com/commitizen-tools/commitizen"
+    rev: v4.11.3
+    hooks:
+      - id: commitizen
+      - id: commitizen-branch
+        stages: [pre-push]
+
+  - repo: "https://github.com/pre-commit/pygrep-hooks"
+    rev: v1.10.0
+    hooks:
+      - id: python-check-mock-methods
+      - id: python-no-eval
+      - id: python-no-log-warn
+      - id: python-use-type-annotations
+      - id: rst-backticks
+      - id: rst-directive-colons
+      - id: rst-inline-touching-normal
+      - id: text-unicode-replacement-char
+
+    # Use this hook over check-json because it supports comments in JSON5.
+  - repo: "https://gitlab.com/bmares/check-json5"
+    rev: v1.0.1
+    hooks:
+      - id: check-json5
+        exclude: .devcontainer/|.vscode/
+
+  - repo: "https://github.com/pre-commit/pre-commit-hooks"
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      # - id: check-json
+      # exclude: .devcontainer/|.vscode/
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-vcs-permalinks
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: detect-private-key
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+        types: [python]
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+        types: [python]
+
+  - repo: "https://github.com/adrienverge/yamllint.git"
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        files: ^.*\.(yaml|yml)$
+        entry: yamllint --strict --config-file .yamllint.yml
+
+  - repo: "https://github.com/astral-sh/ruff-pre-commit"
+    rev: v0.14.11
+    hooks:
+      - id: ruff
+        exclude: tests/
+        args: [--no-fix]
+      - id: ruff-format
+        args: [--check]
+
+  - repo: "https://github.com/adhtruong/mirrors-typos"
+    rev: v1.42.0
+    hooks:
+      - id: typos
+        args: ["--force-exclude"]
+        stages: [commit-msg, pre-commit]
+
+  - repo: "https://github.com/djlint/djLint"
+    rev: v1.36.4
+    hooks:
+      - id: djlint
+        args: ["--configuration", "pyproject.toml"]
+
+  - repo: "https://github.com/gitleaks/gitleaks"
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: "https://github.com/python-jsonschema/check-jsonschema"
+    rev: 0.36.0
+    hooks:
+      - id: check-github-workflows
+        args: ["--verbose"]
+
+  - repo: "https://github.com/crate-ci/committed"
+    rev: v1.1.10
+    hooks:
+      - id: committed
+        stages: [commit-msg]
+
+  - repo: "https://github.com/tsvikas/sync-with-uv"
+    rev: v0.5.0
+    hooks:
+      - id: sync-with-uv
+
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck --check-sourced --severity=warning
+        language: system
+        types: [shell]
+
+      - id: mypy
+        name: mypy
+        entry: mypy --config-file pyproject.toml
+        exclude: "tests/|duties.py|scripts/"
+        language: system
+        types: [python]
+
+      - id: pytest
+        name: pytest
+        entry: duty test
+        language: system
+        pass_filenames: false
+        files: |
+          (?x)^(
+          src/|
+          tests/|
+          uv\.lock|
+          pyproject\.toml
+          )
+
+ci:
+  autofix_commit_msg: |
+    fix: auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: false
+  autoupdate_commit_msg: "build: pre-commit autoupdate"
+  autoupdate_schedule: quarterly
+  skip: [pytest, deptry, mypy, shellcheck]
+  submodules: false

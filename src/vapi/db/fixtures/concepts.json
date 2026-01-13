@@ -1,0 +1,333 @@
+[
+    {
+        "name": "Ascetic",
+        "description": "Disciplined martial artists who harnesses their inner chi to perform incredible feats and attacks.",
+        "examples": ["Martial Artist", "Dojo Owner", "Competitor", "Athlete", "Bodybuilder", "Body Hacker"],
+        "max_specialties": 2,
+        "specialties": [
+            {
+                "name": "Focus",
+                "type": "PASSIVE",
+                "description": "Gathering their Chi, the monk can resist gases, poisons, psionic attacks, and hold their breath one turn per existing `stamina`+ `willpower`.  Monks are immune to the vampiric discipline of `Dominate`."
+            },
+            {
+                "name": "Iron hand",
+                "type": "ACTION",
+                "description": "Deliver a single punch, once per scene, with damage augmented by spending `willpower`, `1` point per damage level."
+            }
+        ],
+        "favored_ability_names": ["Brawl", "Athletics"]
+    },
+    {
+        "name": "Berserker",
+        "description": "Fierce warriors who tap into their primal rage to gain incredible strength and combat prowess.",
+        "examples": [
+            "Gang member",
+            "Hooligan",
+            "Anarchist",
+            "Rebel",
+            "Terrorist",
+            "Underground Fight League Member",
+            "Flame Jumper",
+            "Mole people",
+            "Goon"
+        ],
+        "max_specialties": 1,
+        "specialties": [
+            {
+                "name": "Frenzy",
+                "type": "PASSIVE",
+                "description": "Ignore the first inflicted health levels of damage with no penalty up until `Mauled`, and cannot be stunned.  Barbarians also gain an automatic success on any strength roll once per turn, equal to a permanent dot in Potence."
+            }
+        ],
+        "favored_ability_names": ["Brawl", "Melee"]
+    },
+    {
+        "name": "Businessman",
+        "description": "Astute and savvy individuals focused on commerce and negotiation, skilled in the art of deal-making and resource management.",
+        "examples": [
+            "Professional",
+            "Salesman",
+            "Girlboss",
+            "Entrepreneur",
+            "Small Business Owner",
+            "Finance Bro",
+            "LinkedIn Influencer",
+            "Middle Manager",
+            "Storekeeper",
+            "Barista",
+            "In Marketing"
+        ],
+        "max_specialties": 2,
+        "specialties": [
+            {
+                "name": "Persuasion",
+                "type": "PASSIVE",
+                "description": "The Businessman can enthrall his enemies and win them over with her powers of facts and logic.  This is less of a fast power and more of a sustained one."
+            },
+            {
+                "name": "Wealth",
+                "type": "PASSIVE",
+                "description": "The businessman has access to $$$ and knows how to make more of it. Start with a `Resources` of `2`."
+            }
+        ],
+        "favored_ability_names": ["Finance", "Technology"]
+    },
+    {
+        "name": "Crusader",
+        "description": "Dedicated sentinels sworn to a code of conduct, armed with divine, academic, and martial skills.",
+        "examples": ["Government Agent", "Lawyer", "Judge", "Zealot", "Terrorist", "Inquisitor"],
+        "max_specialties": 2,
+        "specialties": [
+            {
+                "name": "Incorruptible",
+                "type": "PASSIVE",
+                "description": "Heal 1 health level to a target once per turn.  Any First Aid/medicine roles are also automatically granted one success. Starts with a `Faith` of `1`, equivalent to a Discipline.  Crusaders can repel supernatural beings for every success on a Faith role. "
+            },
+            {
+                "name": "Weapon of Choice",
+                "type": "ACTION",
+                "description": "Crusaders choose a single weapon they are loyal to and stick with it. Can re-roll any single roll with this weapon once per turn. Can also gain a new specialization at `3`, `4` and `5` dots, granting an additional die whenever a specialized weapon is used. "
+            }
+        ],
+        "favored_ability_names": ["Melee", "Awareness", "Firearms"]
+    },
+    {
+        "name": "Healer",
+        "description": "Devout servants of gods or higher powers, with the ability to heal and protect.",
+        "examples": [
+            "Doctor",
+            "Veterinarian",
+            "Mortician",
+            "Priest",
+            "Rabbi",
+            "Medicine Man",
+            "EMT",
+            "Lifeguard",
+            "RN",
+            "Dentist",
+            "Clinician",
+            "Masseuse",
+            "Chemical Hacker",
+            "New-Ager"
+        ],
+        "max_specialties": 1,
+        "specialties": [
+            {
+                "name": "Heal",
+                "type": "ACTION",
+                "description": "Heal 3 health levels to a target once per turn.  Any First Aid/medicine roles are also automatically granted one success."
+            },
+            {
+                "name": "True Faith",
+                "type": "PASSIVE",
+                "description": "Starts with a `Faith` of `3`, equivalent to a Discipline.  Clerics can repel supernatural beings for every success on a Faith role."
+            }
+        ],
+        "favored_ability_names": ["Medicine"]
+    },
+    {
+        "name": "Performer",
+        "description": "Charismatic performers and spellcasters who use their artistry and magic to inspire and manipulate.",
+        "examples": [
+            "Musician",
+            "Online Influencer",
+            "Street Poet",
+            "Stand-up Comic",
+            "Performance Artist",
+            "Visual Artist",
+            "Fine Artist"
+        ],
+        "max_specialties": 1,
+        "specialties": [
+            {
+                "name": "Fast Talk",
+                "type": "ACTION",
+                "description": "Performers have an automatic success on any `charisma`, `expression` or `performance` roll, and can immediately command attention. This works even in combat, functionally freezing enemies, including groups, for the first turn. Note that the performer needs to keep doing their act for this to work, they can't drop their guitar and pick up a gun without ruining the effect."
+            }
+        ],
+        "favored_ability_names": ["Etiquette", "Performance", "Persuasion"]
+    },
+    {
+        "name": "Scientist",
+        "description": "Experts who draw power from their study of esoteric knowledge, with unique and potent abilities and gear.",
+        "examples": [
+            "Debunker",
+            "Psychologist",
+            "Egyptologist",
+            "Filmographer",
+            "Data Scientist",
+            "Hematologist",
+            "Cryptozoologist",
+            "Grad Student",
+            "Weird Physicist"
+        ],
+        "max_specialties": 1,
+        "specialties": [
+            {
+                "name": "Delicate Equipment",
+                "type": "PASSIVE",
+                "description": "Choose any Thaumaturgical Paths from the Vampire or Sorcerer book. Apply `3` dots spread however. These should be represented as Tools or scientific equipment that generate the effect. The Lure of Flames might be an experimental flamethrower or backpack-mounted Laser, Lightning might be some weather equipment, and so on. The equipment can be carried gear, but must be present to create the effect."
+            }
+        ],
+        "favored_ability_names": ["Academics", "Science"]
+    },
+    {
+        "name": "Shaman",
+        "description": "Nature-focused spiritualists who wield the power of the natural world.",
+        "examples": [
+            "Environmentalist",
+            "Tribal",
+            "New Age",
+            "Artist",
+            "Riverkeeper",
+            "Green Warden",
+            "Nature Guide",
+            "Photographer",
+            "Self-Documentarian"
+        ],
+        "max_specialties": 2,
+        "specialties": [
+            {
+                "name": "Familiar",
+                "type": "PASSIVE",
+                "description": "A trained animal that can carry out simple commands."
+            },
+            {
+                "name": "Friend of Animals",
+                "type": "ACTION",
+                "description": "Per `Animalism` level `1`"
+            },
+            {
+                "name": "Spirit Sight",
+                "type": "ACTION",
+                "description": "Sees the dead, naturalistic spirits, places of power. Can detect supernatural beings, and penetrate spells, illusions and glamour on a `perception` + `occult` roll with a difficulty of `4`."
+            },
+            {
+                "name": "Read Auras",
+                "type": "PASSIVE",
+                "description": "Learn various qualities of a person from their aura"
+            },
+            {
+                "name": "Astral Projection",
+                "type": "ACTION",
+                "description": "Free your mind to travel the world in astral form"
+            },
+            {
+                "name": "Remove Frenzy",
+                "type": "ACTION",
+                "description": "Can cool vampires frenzy, werewolves' rage, etc. They become passive for two turns."
+            }
+        ],
+        "favored_ability_names": ["Animal Ken", "Occult"]
+    },
+    {
+        "name": "Soldier",
+        "description": "Skilled warriors with a wide range of combat abilities and weapon expertise.",
+        "examples": [
+            "Marine",
+            "Veteran",
+            "Mercenary",
+            "Hired Muscle",
+            "Hitman",
+            "Amateur/Pro Fighter",
+            "Martial Artist",
+            "Police",
+            "Security"
+        ],
+        "max_specialties": 1,
+        "specialties": [
+            {
+                "name": "Firearms",
+                "type": "PASSIVE",
+                "description": "Can re-roll any single Firearms roll once per turn. Can also specialize in new firearms at `3`, `4` and `5` dots, granting an additional dice whenever a specialized weapon is used."
+            },
+            {
+                "name": "Hand-to-hand Specialist",
+                "type": "PASSIVE",
+                "description": "Can re-roll any single `Brawl` roll once per turn. Can also gain a new specialization at `3`, `4` and `5` dots, granting an additional die whenever a specialized martial arts style is used."
+            },
+            {
+                "name": "Melee Specialist",
+                "type": "PASSIVE",
+                "description": "Can re-roll any single `Melee` roll once per turn. Can also gain a new specialization at `3`, `4` and `5`, granting an additional die whenever a specialized melee weapon is used."
+            }
+        ],
+        "favored_ability_names": ["Firearms", "Melee"]
+    },
+    {
+        "name": "Tracker",
+        "description": "Skilled hunters and trackers with a deep connection to the wilderness and survival skills, or the equivalent for the urban jungle.",
+        "examples": [
+            "Survivalist",
+            "Urban Tracker",
+            "Forester",
+            "Ranger",
+            "Wildlife Biologist",
+            "Ecologist",
+            "Environmentalist",
+            "Forester",
+            "Ranger",
+            "Wildlife Biologist",
+            "Ecologist",
+            "Environmentalist"
+        ],
+        "max_specialties": 2,
+        "specialties": [
+            {
+                "name": "Camouflage",
+                "type": "ACTION",
+                "description": "The Tracker can camouflage into their preferred environment given 1 turn of preparation.  This is not invisibility!  They can be detected on a `Perception` (or `Focus`) roll with a difficulty of `8`. Any attacks made from this position are considered surprise attacks."
+            },
+            {
+                "name": "Surprise Attack",
+                "type": "ACTION",
+                "description": "Surprise attacks do an additional `3` successes of damage. This is a first-strike ability and subsequent attacks are no longer a surprise unless they can be plausibly silent."
+            }
+        ],
+        "favored_ability_names": ["Stealth", "Survival", "Awareness"]
+    },
+    {
+        "name": "Tradesman",
+        "description": "Skilled artisans or laborers who excel in a specific trade or craft, such as blacksmithing, carpentry, or alchemy, often creating items of great value.",
+        "examples": ["Construction", "Carpenter", "Plumber", "Key Grip", "Truck Driver", "Uber Driver", "Union Man"],
+        "max_specialties": 2,
+        "specialties": [
+            {
+                "name": "Hardiness",
+                "type": "PASSIVE",
+                "description": "The equivalent of `Fortitude` `1`.  All attacks sustained automatically soak `1` success at no cost."
+            },
+            {
+                "name": "Handy",
+                "type": "PASSIVE",
+                "description": "Free dot in `Repair` and `Crafts`."
+            }
+        ],
+        "favored_ability_names": ["Craft", "Survival"]
+    },
+    {
+        "name": "Under-worlder",
+        "description": "Sneaky and dexterous individuals skilled in stealth, lock picking, and traps.",
+        "examples": ["Burglar", "Lockpicker", "Hacker", "Safe-Cracker", "Getaway Car Driver", "Forger", "Fence", "Spy"],
+        "max_specialties": 3,
+        "specialties": [
+            {
+                "name": "Tools of the Trade",
+                "type": "PASSIVE",
+                "description": "The character has an object: (a set of lockpicks, a laser drill, a getaway car, a printing press) -- when used, decreases the difficulty by `2`. This means, for example, a Forger will have a standard difficulty of 4 to attempt any forgery, provided they have their printing press, and a cat burglar can get in anywhere, with his rope and lockpicks."
+            },
+            {
+                "name": "Professional",
+                "type": "PASSIVE",
+                "description": "Any single `security` roll is done at a `-1` difficulty."
+            },
+            {
+                "name": "Lay Low",
+                "type": "PASSIVE",
+                "description": "They give off no paper trail, have multiple alternative identities, and their documents will stand up to anything short of a sustained FBI investigation. Granted the background `Arcane` at `2` dots."
+            }
+        ],
+        "favored_ability_names": ["Subterfuge", "Streetwise", "Larceny"]
+    }
+]

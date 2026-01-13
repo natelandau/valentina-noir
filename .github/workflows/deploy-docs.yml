@@ -1,0 +1,63 @@
+---
+name: "Documentation Build and Deploy"
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - ".github/workflows/deploy-docs.yml"
+            - "mkdocs.yml"
+            - "docs/**"
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build-docs:
+        name: Build Documentation
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Python, uv, and the package
+              uses: ./.github/actions/setup_python_env
+              with:
+                  python-version: "3.13"
+                  install-groups: "--only-group docs"
+
+            - name: Build documentation
+              shell: bash
+              run: uv run --only-group docs zensical build --clean
+
+            - name: Adjust permissions
+              shell: bash
+              run: |
+                  chmod -c -R +rX _site/ | while read line; do
+                      echo "::warning title=Invalid file permissions automatically fixed::$line"
+                  done
+
+            - name: Upload artifact
+              uses: actions/upload-pages-artifact@v4
+              with:
+                  path: _site
+
+    deploy-docs:
+        name: Deploy Documentation
+        runs-on: ubuntu-latest
+        needs: build-docs
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v4

@@ -1,0 +1,1 @@
+"""Character inventory domain."""

@@ -1,0 +1,101 @@
+[
+    {
+        "name": "Black Furies",
+        "description": "The Black Furies is a tribe known for circumventing or shattering obstacles, be it physical barriers or metaphorical ones, like the 'glass ceiling'. They generally put importance on justice, especially justice for those who are disadvantaged due to the actions of others. For Black Furies, nothing is more disgusting than those who use their position to harm those less fortunate.\n\nThey want to set the balance right, and they go all the way to do so, in a way that justifies the furies part of their name. Even within the Garou, they have a reputation of escalating situations when a compromise wouldn't give them an immediate outcome. If they are provoked too much, they might pursue justice at all costs. For example, they may see no use in convincing a chemical company to dump less pollution into the water if they could burn the entire building to the ground.",
+        "renown": "GLORY",
+        "patron_spirit": "Gorgon",
+        "favor": "Black Furies player can add a die to a pool used to oppose or circumvent someone or something in a position of power (relative to themselves or someone in their care).",
+        "ban": "If a Black Fury let an injustice persist when they could've prevented or addressed it, they may recover only a single Willpower at the start of the next session, instead of their Composure or Resolve rating.",
+        "link": "https://wta.paradoxwikis.com/Black_Furies"
+    },
+    {
+        "name": "Bone Gnawers",
+        "description": "The Bone Gnawers seek to uncover everything hidden, be it secrets, shortcuts, or anything that they can use to their advantage. Skilled at hiding in plain sight, they generally exist within groups of lower socioeconomic status and are usually invisible to those who see themselves above those groups. Moving unnoticed among the masses, they are often considered to be castoffs, which holds true even within Garou culture. It's no surprise that they often find themselves to be a part of the countercultures or one with the disadvantaged parts of society.",
+        "renown": "HONOR",
+        "patron_spirit": "Rat",
+        "favor": "Bone Gnawers player can add a die to a pool used to hide in plain sight or to find a shortcut.",
+        "ban": "If a Bone Gnawer passes up a significant opportunity to give the disadvantaged a leg up, they regain only a single point of Willpower at the beginning of the next session, instead of their Composure or Resolve rating.",
+        "link": "https://wta.paradoxwikis.com/Bone_Gnawers"
+    },
+    {
+        "name": "Children of Gaia",
+        "description": "Children of Gaia usually work to understand the greater mystery of Gaia, which makes them often drawn to the Umbra. Existential questions, such as those about the nature of werewolf service to Gaia, define the tribe and its pursuit of knowledge. The Children of Gaia also frequently see themselves as the conscience that must accompany Garou's Rage, as without this conscience the Garou would be left to be monsters that the world sees when Delirium falters. This does not mean that they are pacifists - instead, they usually view Rage as a force of nature, like a hurricane or a flood - one that can destroy, but such destruction might have positive effects in the end to the balance of the world, and to Gaia herself.",
+        "renown": "WISDOM",
+        "patron_spirit": "Unicorn",
+        "favor": "Children of Gaia player can add a die to a pool used to understand the greater mystery of Gaia.",
+        "ban": "If Children of Gaia must lie, misdirect or otherwise hide the truth for personal gain, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Children_of_Gaia"
+    },
+    {
+        "name": "Galestalkers",
+        "description": "With their name deriving from the wind that crosses the tundra, Galestalkers are usually known as tireless trackers that never lose their pursuit of their target. Even though all Garou are predators capable of hunting down prey, the pursuit and kill are what Galestalkers excel at even in comparison to other werewolves. They will generally undergo great lengths to bring back whatever they're pursuing in their hunt, and the pack knows they can be relied upon with the tasks they've been given. Their word is their bond, and while Galestalkers' core trait may be to hunt and kill, they will bring back a captured prey if it was their promise.",
+        "renown": "HONOR",
+        "patron_spirit": "North Wind",
+        "favor": "Galestalkers can add one die to a pool directly related to the pursuit of their prey.",
+        "ban": "For any day the Galestalker does not partake of fresh kill (be it who they are hunting or not), they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Galestalkers"
+    },
+    {
+        "name": "Ghost Council",
+        "description": "The Ghost Council are the seekers of mystery, with their identity strongly tied to a journey (either physical, or metaphorical) in search for the next great discovery. Ghosts (as they are called individually) seek their objectives for strong, personal reasons that often get misunderstood, given they're considered to be secretive and even suspicious by the general Garou society. In their pursuit of knowledge, they collect secrets to get better results in their fight for Gaia.\n\nTo many Ghosts, the goal is to gather a deeper understanding of their purpose and the nature of Garou and the world around them. The journey is a crucial part of it, as it allows for discoveries along the way. At the same time, it's a chance for Ghost Council to find which paths are avoided by other tribes, unearthing taboos and things purposefully left behind by other werewolves - which leads to Garou society often viewing them as having suspect motives, including a pursuit of power. With some secrets best left untouched, Ghosts believing in ends justifying the means when it comes to pursuit of knowledge might seem subversive to Garou who care about maintaining the balance in more conventional ways.",
+        "renown": "WISDOM",
+        "patron_spirit": "Horned Serpent",
+        "favor": "Ghost Council can add one die to Investigation, Occult, or Subterfuge dice pools related to revealing a kept secret.",
+        "ban": "If there is a scene where the Ghost Council has the opportunity to satisfy their curiosity but does not, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Ghost_Council"
+    },
+    {
+        "name": "Glass Walkers",
+        "description": "While most Garou are good at breaking things to pieces, the Glass Walkers shine where something needs to be built up from scratch. Known for their proficiency in applied science and familiarity with technology (and spirits that inhabit it), Glass Walkers are excellent at problem solving and tinkering, especially when it comes to modern technological issues. Their skill of making a machine function often comes from coaxing the spirits that inhabit them, unfamiliar to other Garou. Among the tribe members, there are many engineers, technicians, and inventors.\n\nThe Glass Walkers are highly adaptable, having appropriated tools of the modern world to navigate the Apocalypse. In their perspective it's worth to use these tools for the good of Gaia, enhanced versality and firepower against one's enemies. While in play, Glass Walkers may often research unknown devices and processes, build things from scratch - like a security system for the caern, as well as hack and repurpose everything that once served their foes.\n\nSince history has been recorded, the Glass Walkers have close relationships with humans instead of setting themselves apart from them, as other tribes often do.",
+        "renown": "WISDOM",
+        "patron_spirit": "Spider",
+        "favor": "Glass Walkers can add one die to Technology or Science dice pools related to building or repairing things.",
+        "ban": "If Glass Walkers destroy any complex machines such as vehicles, computers, or assembly equipment, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Glass_Walkers"
+    },
+    {
+        "name": "Hart Wardens",
+        "description": "The Hart Wardens are usually the protectors and caretakers of nature. They may focus on preserving the more remote and undiscovered places of the world, or cultivate a place important to them or a culture they associate with, such as a farm, a plot of land, or a caern and its surroundings. The Hart Wardens can draw out the potential from any area, revitalizing it into everything from a tiny, well-kept garden to a sprawling forest. With a great passion about what they care for and their own mythmaking, their gatherings often turn to celebrations of history about their tribe and the Garou in general.",
+        "renown": "GLORY",
+        "patron_spirit": "Stag",
+        "favor": "Hart Wardens can add one die to dice pools using Survival, Animal Ken, or nature-related Craft.",
+        "ban": "If harm comes to someone under the Hart Warden's hospitality, said Hart Warden gains only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Hart_Wardens"
+    },
+    {
+        "name": "Red Talons",
+        "description": "The Red Talons are the only modern tribe with a substantial amount of their First Change occurrences happening among wolves. With wolf population worldwide being destroyed by human greed and entitlement and their natural territory being gradually chipped away, Red Talons feel like they're backed into a metaphorical (or, sometimes, literal) corner. This causes anger, which then gets turned into energy that Red Talons invest toward giving a voice to those who lack words, or advocating for those who have no tools of mankind. Sometimes, it's also energy to tear down human constructs that they consider defiling to Gaia. Considered to be one of the most radical tribes, they may so far as to cull populations of humans, if they find their growing numbers a threat to natural balance.",
+        "renown": "HONOR",
+        "patron_spirit": "Griffin",
+        "favor": "Red Talon can add one die one a Brawl test if their Health is below half.",
+        "ban": "If during a session a Red Talon uses Academics, Driving, Finance, Firearms, Science or, Technology dice pool to repair or utilize something instead of subvert or destroy it, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Red_Talons"
+    },
+    {
+        "name": "Shadow Lords",
+        "description": "The Shadow Lords' creed constitutes of dominance and submission. The role of the strong is to dominate, the role of the weak is to roll over and show their throat - and true strength lies in discovering how to exploit your enemies' weaknesses. There's no surprise that the tribe is composed of some of the best strategists and warlords among Garou. Their pragmatic (if not ruthless) approach to planning leads them to great heights, but also often makes other Garou nervous around their tribe members, wondering if they're constantly on the lookout of weak points or about to scrutinize them for their faults.\n\nA perfect Shadow Lord is both powerful and cunning. Their power can take many forms, from political power in their communities to sheer strength in a fight against a rival werewolf. Outsmarting their opponent or convincing them of one's own superiority is just as important, as being cunning leads to power Shadow Lords prefer - not the direct one, but behind the most recognized leaders.\n\nAlthough they have a reputation of schemers, Shadow Lords are often great at attending to plans in great detail, often making them very accomplished and respected pack members.",
+        "renown": "GLORY",
+        "patron_spirit": "Thunder",
+        "favor": "Shadow Lords can add one die to Animal Ken, Intimidation, or Subterfuge dice pools related to threats or when exploiting weaknesses.",
+        "ban": "If Shadow Lords suffers defeat in conflict by any Garou of lesser total Renown, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Shadow_Lords"
+    },
+    {
+        "name": "Silent Striders",
+        "description": "The Silent Striders are known as travelers and news bearers among the Garou. Among wolves, they often follow where prey leads the pack, while among humans they have been historically associated with migratory or diasporic cultures. Long time ago, they were 'cursed' by a powerful spirit - an event now largely forgotten, and not wholly understood - which led them to a wandering lifestyle as werewolf messengers. This does not make for an easy life, especially after the Garou Nation shattered and with the ever-growing Apocalypse around them, but Silent Striders are master travelers - uniquely suited to find their way where others don't want them and finding their way back out safely.\n\n  In their travels, Silent Striders prefer the non-direct approach. They see traversing the land first and assessing its features in their own pace to be a safer method than diving in headfirst. Due to this, they can often be well-versed in a wide variety of cultures and customs, as well as acquire a wide net of relationships on their way. The area that they travel doesn't have to be big - for example, they may be only tasked with bearing news from one pack of werewolves to another. To many, the arrival of the Silent Striders in their territory is a bad omen. Often carrying messages that need to be delivered in person, they have a reputation of bearers of bad news. Because of all these features, they often don't become a part of the pack for long - and if they do, it may be with the intention of learning something new, or gaining something someone distant may need in the future. It can be a lonely path, even among others",
+        "renown": "WISDOM",
+        "patron_spirit": "Owl",
+        "favor": "Silent Striders can add one die to Athletics or Stealth dice pools related to traversal, escape or, infiltration.",
+        "ban": "If Silent Striders causes, participates in, or even witnesses death but doesn't perform a commemorative rite to acknowledge it, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Silent_Striders"
+    },
+    {
+        "name": "Silver Fangs",
+        "description": "The Silver Fangs are the closest to a noble lineage that Garou culture has, often assuming the role of leaders in werewolf society. With a legacy of aristocracy, decisiveness and unification of begrudged Garou in times of need, few can argue their ability as leaders, even though other tribes are rarely keen to admit it. With great power comes great responsibility, however - and if positive achievements in Garou history can be attributed to Silver Fangs, so can they be blamed for the less fortunate events, with some werewolves openly blaming them for the collapse of Garou Nation and the failure of averting the Apocalypse.\n\nYounger Garou often discredit the lineage of the Silver Fangs entirely - and this also includes young Silver Fangs themselves, questioning their 'hereditary aristocracy' and merit that may come with it. Elders, on the other hand, recount stories of the legendary Garou within the tribe, and may attach more responsibility to its members. The Silver Fangs are aware of risks associated with this role, and so, they have a complicated relationship with Harano and Hauglosk. One Silver Fang may fall into the fanatical rage and violence and become a tyrant, while another gives in to the inevitable losses and falls into Harano.\n\nThis tribe also has a deep and complex relationship with the spirit world. Many spirits still honor the ancient pacts forged by Silver Fangs legends. The spirit's respect for Silver Fangs runs deep, although it can be a double-edged sword, as simple spirits do not understand the reasonings in ethically weighted choices of Garou leaders.",
+        "renown": "HONOR",
+        "patron_spirit": "Falcon",
+        "favor": "Silver Fangs can add one die to Persuasion or Leadership dice pools related to making others follow their suggestions or orders.",
+        "ban": "If Silver Fangs takes an action that causes them to risk embarrassment or losing Renown, they gain only one point of Willpower at the start of the next session.",
+        "link": "https://wta.paradoxwikis.com/Silver_Fangs"
+    }
+]

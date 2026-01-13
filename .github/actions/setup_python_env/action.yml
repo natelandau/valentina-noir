@@ -1,0 +1,41 @@
+---
+name: Install uv, Python, and project dependencies
+description: Install uv, Python, and project dependencies using cached uv and Python installations
+
+inputs:
+  python-version:
+    description: >
+      Version range or exact version of a Python version to use, using SemVer's version range syntax.
+    required: false
+    default: "3.13"
+
+  install-groups:
+    description: "Groups to install with uv sync"
+    required: false
+    default: "--all-extras --all-groups"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup uv with cache
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "latest"
+        enable-cache: true
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install the project
+      shell: bash
+      run: uv sync ${{ inputs.install-groups }}
+
+    - name: Debug Python version
+      shell: bash
+      run: |
+        echo "Input python-version: ${{ inputs.python-version }}"
+        echo "Python version: $(python --version)"
+        echo "Python location: $(which python)"
+        echo "uv Python version: $(uv python --version)"
+
+    - name: Minimize uv cache
+      shell: bash
+      run: uv cache prune --ci

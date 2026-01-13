@@ -1,0 +1,2876 @@
+[
+    {
+        "name": "Attributes",
+        "description": "The inborn, most raw aptitudes and potential a character possesses",
+        "game_versions": ["V4", "V5"],
+        "show_when_empty": false,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+        "order": 1,
+        "categories": [
+            // Physical
+            {
+                "name": "Physical",
+                "description": "Measure of physical ability. Used to resolve all actions involving fighting, lifting things, running, etc.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 1,
+                "initial_cost": 5,
+                "upgrade_cost": 5,
+                "traits": [
+                    {
+                        "name": "Strength",
+                        "description": "Indicates how much weight the character can carry, shove or lift. Strength figures into jumping and leaping, and it also measures the raw damage you can deliver in a fight.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Dexterity",
+                        "description": "Represents a number of physical aptitudes, including agility, speed and manual deftness. Characters with a high Dexterity have good hand-eye coordination. Generally, they're graceful and light on their feet to boot. Dexterity influences accuracy in combat, as well as the ability to do precision work with one's hands.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Stamina",
+                        "description": "Indicates the physical ability to withstand great strain over a long period of time (such as running for hours on end or going without food for days), but it's also a matter of inner resistance (such as holding up in the face of torture or shrugging off dire wounds to finish a mission)",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    }
+                ]
+            },
+            // Social
+            {
+                "name": "Social",
+                "description": "Measure of charm, attractiveness, and presence. Used to resolve all tasks concerned with trying to coerce, seduce, convince or con someone into doing something.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 2,
+                "initial_cost": 5,
+                "upgrade_cost": 5,
+                "traits": [
+                    {
+                        "name": "Charisma",
+                        "description": "Represents the character's ability to charm, influence and persuade others. Charisma is also a measure of the character's ability to inspire others, as well as their ability to resist the effects of others' charms.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Manipulation",
+                        "description": "Represents the character's ability to control and influence others. Manipulation is a measure of the character's ability to coerce, persuade or deceive others.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Appearance",
+                        "description": "Represents the character's physical appearance. Appearance is a measure of the character's ability to attract and influence others.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Composure",
+                        "description": "How well the character can maintain and command their own emotions. As well as how easily they can calm nerves and the anxieties of others. It also represents their ability to stay calm-headed in heated situations such as verbal fights and even firefights..",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    }
+                ]
+            },
+            // Mental
+            {
+                "name": "Mental",
+                "description": "Measure of brains, reasoning ability, wits and cunning. Used to resolve all tasks concerned with trying to notice something, puzzle out a clue or think quickly.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 3,
+                "initial_cost": 5,
+                "upgrade_cost": 5,
+                "traits": [
+                    {
+                        "name": "Intelligence",
+                        "description": "The ability to gather knowledge through research or reason as well as apply logic to an ongoing problem. They have an easier time recalling information they have gathered before and can analyze information from the world around them or the books they've read.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Wits",
+                        "description": "The character's ability to think quickly on their feet and make decisions based on the information around them or from prior knowledge. Wits allow the character to pick up sounds and smells around them. It is also representative of a character's street smarts and know what to say in the heat of the moment.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Perception",
+                        "description": "Represents the character's ability to notice things, puzzle out a clue or think quickly. Perception is a measure of the character's ability to see through lies, spot hidden dangers or think quickly on their feet.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Resolve",
+                        "description": "The raw determination of a character and how strong their focus truly is. Allowing the character to create a mental block from any distractions, showcasing their mental fortitude and concentration",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V5"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Abilities",
+        "description": "Any skills or aptitudes that your character possesses that make them better at certain activities, whether learned skills or inborn affinities.",
+        "game_versions": ["V4", "V5"],
+        "show_when_empty": false,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+        "order": 2,
+        "categories": [
+            // Physical
+            {
+                "name": "Physical",
+                "description": "Physical abilities your character can work out on their own or develop intuitively.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 4,
+                "initial_cost": 3,
+                "upgrade_cost": 2,
+                "traits": [
+                    {
+                        "name": "Athletics",
+                        "description": "Running, jumping, and climbing are all actions within Athletics. Dodging a well-thrown punch in the heat of combat and throwing an item or weapon is also Athletics.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Brawl",
+                        "description": "Combat focused on using the body as a weapon rather than an item.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Craft",
+                        "game_versions": ["V5"],
+                        "description": "Creating, building, or shaping items such as artwork but also making a makeshift catapult.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Dodge",
+                        "game_versions": ["V4"],
+                        "description": "The character's ability to avoid attacks or projectiles by moving out of the way or ducking.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Drive",
+                        "description": "Driving vehicles specifically under duress and adverse or difficult conditions. Also used for working on cars or general mechanic skills.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Firearms",
+                        "description": "Using ranged weaponry such as bows and guns as well as gunsmithing and repair of said items.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Larceny",
+                        "description": "Lockpicking a locked door or breaking in other ways, pickpocketing and sleight of hand.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Melee",
+                        "description": "Combat focused around using handheld weaponry such as a lead pipe or a baseball bat.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Stealth",
+                        "description": "Blending into surroundings to either not be seen or not be recognized, allows characters to move around without alerting anyone of their presence either by sight or sound.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Survival",
+                        "description": "Using nature to find shelter, tracking animals or people, and general survival in the wilderness.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Primal-Urge",
+                        "character_classes": ["WEREWOLF"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Repair",
+                        "description": null,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Security",
+                        "description": null,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    }
+                ]
+            },
+            // Social
+            {
+                "name": "Social",
+                "description": "Social abilities your character can use to interact with others.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 5,
+                "initial_cost": 3,
+                "upgrade_cost": 2,
+                "traits": [
+                    {
+                        "name": "Animal Ken",
+                        "description": "Understanding and reading animal behavior to handle them and work with them.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Empathy",
+                        "game_versions": ["V4"],
+                        "description": null,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Etiquette",
+                        "description": "The ability to interact in social settings or blend into different groups.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Insight",
+                        "description": "Reading body language and other cues to discern emotions, thoughts, or motives.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Intimidation",
+                        "description": "Using menacing presence or direct force to ensure compliance, submission, or fear from others. As well as using threats to persuade them to back down.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Leadership",
+                        "description": "Motivating, inspiring, or commanding the character's followers.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Performance",
+                        "game_versions": ["V4", "V5"],
+                        "description": "Showcasing the character's art in front of a crowd regardless of size. Singing, acting, and oration are all examples of this.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Persuasion",
+                        "game_versions": ["V4", "V5"],
+                        "description": "Convincing or swaying others to do the character's will or at least agree with their stance.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Streetwise",
+                        "description": "Knowledge of the streets in criminal and urban societies, being able to locate a gang or dealer, knowing which shortcut will be the fastest.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Subterfuge",
+                        "description": "Deceiving others to complete the character's desires or agree with them or manipulating the truth to further their goals.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    }
+                ]
+            },
+            // Mental
+            {
+                "name": "Mental",
+                "description": "Mental acuity and learned skills that require focus and concentration.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 6,
+                "initial_cost": 3,
+                "upgrade_cost": 2,
+                "traits": [
+                    {
+                        "name": "Academics",
+                        "game_versions": ["V4", "V5"],
+                        "description": "Topics surrounding the humanities and liberal arts.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Alertness",
+                        "description": "The character's ability to notice things, puzzle out a clue or think quickly.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Awareness",
+                        "description": "Vigilant to their surroundings and the ability to understand/react to threats.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Bureaucracy",
+                        "description": "Understanding and navigating the rules and regulations of a government or organization.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Enigmas",
+                        "character_classes": ["WEREWOLF", "MAGE"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Finance",
+                        "description": "Knowing how to move and make money legally or not, being able to handle finances and their taxes.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Investigation",
+                        "description": "Being able to find and follow clues, decipher their meaning and solve a mystery.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Law",
+                        "game_versions": ["V4"],
+                        "description": null,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Linguistics",
+                        "description": null,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Medicine",
+                        "description": "Handling mortal injuries and diagnosing/treating diseases.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Meditation",
+                        "character_classes": ["MAGE"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Occult",
+                        "description": "Mystical knowledge of the supernatural and rituals.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Politics",
+                        "description": "Knowing the inner workings of the government, mortal or not.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Science",
+                        "description": "Scientific knowledge and theory of the real world.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    },
+                    {
+                        "name": "Technology",
+                        "game_versions": ["V4", "V5"],
+                        "description": "Internet and computer comprehension, hacking and breaking into secure information through the use of technology.",
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": true
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Other",
+        "description": "",
+        "game_versions": ["V4", "V5"],
+        "show_when_empty": false,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+        "order": 3,
+        "categories": [
+            // Disciplines
+            {
+                "name": "Disciplines",
+                "description": "The supernatural powers a vampire possesses.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "GHOUL"],
+                "order": 1,
+                "initial_cost": 10,
+                "upgrade_cost": 7,
+                "traits": [
+                    {
+                        "name": "Animalism",
+                        "description": "Utilized by those who desire a close and supernatural bond with the animal world as well as a vampire's own Beast.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "link": "https://vtm.paradoxwikis.com/Animalism",
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Auspex",
+                        "description": "Enables users to hone their senses both physical and psychic in order to bolster their awareness, perceptions, or even see visions of the future.",
+                        "link": "https://vtm.paradoxwikis.com/Auspex",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Blood Sorcery",
+                        "description": "A type of blood magic that allows the practitioners to manipulate the blood, mortal or vampiric.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "link": "https://vtm.paradoxwikis.com/Blood_Sorcery",
+                        "game_versions": ["V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Celerity",
+                        "description": "Powers up the movement of the user, enabling them to have unnatural quickness in their movement and supernatural reflexes.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Celerity",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Chimerstry",
+                        "description": "The art of conjuration that converts the vampire's will into phantoms that confound the senses and technology alike",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Dominate",
+                        "description": "Allows the user to use mind control through eye contact and spoken word as well as manipulate memories of their victims.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Dominate",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Fortitude",
+                        "description": "Strengthens the user's physical and mental resistance.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Fortitude",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Necromancy",
+                        "description": "Learn to command the souls of the undead to your bidding.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Obfuscate",
+                        "description": "The art of not being seen even in crowds either through being wholly unseen or by blending in.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Obfuscate",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Oblivion",
+                        "description": "Has two branches: one allows the user to manipulate shadows at will and the other enables necromancy or usage of spirits, though both tap into the Abyss.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V5"],
+                        "link": "https://vtm.paradoxwikis.com/Oblivion",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Quietus",
+                        "description": "Based on elements of blood alteration, vitae control, and pestilence, Quietus focuses on weakening and injuring a target so that she may be more easily destroyed.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Potence",
+                        "description": "Strengthens the user's physical prowess.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Potence",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Presence",
+                        "description": "Enables the user to use subtle manipulation, control, and swaying of emotions to guide others towards a goal.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Presence",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Protean",
+                        "description": "Grants the ability to change one's shape, grow claws, meld into the earth, or become fog.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Protean",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Serpentis",
+                        "description": "Provides shapechanging abilities, though it also encompasses corruption and other characteristics associated with their God and his victories over Apep",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Thaumaturgy",
+                        "description": "The art of refining and altering one's blood to improve one's physical and mental abilities as well as granting the ability to transform into mist or cloud, among other abilities.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Thin Blood Alchemy",
+                        "description": "The art of refining and altering one's blood to improve one's physical and mental abilities as well as granting the ability to transform into mist or cloud, among other abilities.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V5"],
+                        "link": "https://vtm.paradoxwikis.com/Thin-blood_Alchemy",
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Vicissitude",
+                        "description": "The creation of mixtures of blood, emotions, and other varied ingredients to activate unique effects or even copy other Disciplines.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V4"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    }
+                ]
+            },
+            // Spheres
+            {
+                "name": "Spheres",
+                "description": "Magic abilities and mystical powers.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["MAGE"],
+                "order": 2,
+                "initial_cost": 10,
+                "upgrade_cost": 7,
+                "traits": [
+                    {
+                        "name": "Correspondence",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Entropy",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Forces",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Life",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Matter",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Mind",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Prime",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Spirit",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Time",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    }
+                ]
+            },
+            // Edges
+            {
+                "name": "Edges",
+                "description": "Supernature abilities granted to Hunters",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["HUNTER"],
+                "order": 3,
+                "initial_cost": 7, // TODO: check if this is correct
+                "upgrade_cost": 3, // TODO: check if this is correct
+                "traits": []
+            },
+            // Gifts
+            {
+                "name": "Gifts",
+                "description": "Supernature abilities granted to Werewolves.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["WEREWOLF"],
+                "order": 4,
+                "initial_cost": 7,
+                "upgrade_cost": 3,
+                "traits": []
+            },
+            // Other
+            {
+                "name": "Other",
+                "description": null,
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 1,
+                "traits": [
+                    {
+                        "name": "Arete",
+                        "character_classes": ["MAGE"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false,
+                        "initial_cost": 10,
+                        "upgrade_cost": 10
+                    },
+                    {
+                        "name": "Quintessence",
+                        "character_classes": ["MAGE"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false,
+                        "initial_cost": 10, // TODO: check if this is correct
+                        "upgrade_cost": 10 // TODO: check if this is correct
+                    },
+                    {
+                        "name": "Paradox",
+                        "character_classes": ["MAGE"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Willpower",
+                        "game_versions": ["V4"], // V5 characters use composure and resolve instead
+                        "description": "Willpower is a tracker, with both a maximum rating and a temporary amount of points to be used. It represents the character's confidence and determination to accomplish a task.",
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": true,
+                        "initial_cost": 1,
+                        "upgrade_cost": 1,
+                        "link": "https://vtm.paradoxwikis.com/Willpower"
+                    },
+                    {
+                        "name": "Humanity",
+                        "character_classes": ["VAMPIRE", "GHOUL", "MORTAL", "HUNTER"],
+                        "description": "Represents how close a character remains to their human nature, to specific people vital to them, and how easily they slip away from human concerns and instead towards the whims of the Beast",
+                        "game_versions": ["V4", "V5"],
+                        "link": "https://vtm.paradoxwikis.com/Humanity",
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false,
+                        "initial_cost": 2,
+                        "upgrade_cost": 2
+                    },
+                    {
+                        "name": "Blood Pool",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "description": null,
+                        "game_versions": ["V4"],
+                        "max_value": 40,
+                        "min_value": 0,
+                        "show_when_zero": false,
+                        "initial_cost": 1, // TODO: check if this is correct
+                        "upgrade_cost": 1 // TODO: check if this is correct
+                    },
+                    {
+                        "name": "Blood Potency",
+                        "description": "As time passes the kindred's blood thickens from age within the boundaries of their Generation's limit. While the stronger they become with age, there is a downside that it will take more blood to satisfy the vampire. Kindred generally raise Blood Potency by 1 every 100 years while active but even intense or dangerous experiences can expedite the process. On the reverse side, Kindred in torpor loses one point for every 50 years inactive. It can never rise nor lower beyond the cap determined by their Generation.",
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "game_versions": ["V5"],
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": true,
+                        "link": "https://vtm.paradoxwikis.com/Blood_Potency",
+                        "initial_cost": 1, // TODO: check if this is correct
+                        "upgrade_cost": 1 // TODO: check if this is correct
+                    },
+                    {
+                        "name": "Hunger",
+                        "character_classes": ["VAMPIRE"],
+                        "game_versions": ["V5"],
+                        "description": "The drive for vampires to feed, taking the place of every other drive, urge, and pleasure. Hunger calls to vampires constantly, whispering and screaming in equal measure of its need and desire for blood.",
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": true,
+                        "initial_cost": 0,
+                        "upgrade_cost": 0,
+                        "link": "https://vtm.paradoxwikis.com/Hunger_system"
+                    },
+                    {
+                        "name": "Conviction",
+                        "character_classes": ["HUNTER"],
+                        "max_value": 10,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "show_when_zero": true,
+                        "initial_cost": 2, // TODO: check if this is correct
+                        "upgrade_cost": 2 // TODO: check if this is correct
+                    },
+                    {
+                        "name": "Gnosis",
+                        "character_classes": ["WEREWOLF"],
+                        "max_value": 10,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "show_when_zero": true,
+                        "initial_cost": 2,
+                        "upgrade_cost": 2
+                    },
+                    {
+                        "name": "Rage",
+                        "description": "Rage is one of the most defining traits of the Garou. The hearts and souls of the Garou are consumed by Rage, and through it's manifestation is how they perform terrifying acts of brutality.",
+                        "link": "https://wta.paradoxwikis.com/Rage_system",
+                        "character_classes": ["WEREWOLF"],
+                        "max_value": 5,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "show_when_zero": true,
+                        "initial_cost": 0,
+                        "upgrade_cost": 0
+                    }
+                ]
+            },
+            // Resonance
+            {
+                "name": "Resonance",
+                "description": null,
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["MAGE"],
+                "order": 2,
+                "initial_cost": 2, // TODO: check if this is correct
+                "upgrade_cost": 2, // TODO: check if this is correct
+                "traits": [
+                    {
+                        "name": "Dynamic",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Entropic",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Static",
+                        "description": null,
+                        "character_classes": ["MAGE"],
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "max_value": 5,
+                        "show_when_zero": false
+                    }
+                ]
+            },
+            // Renown
+            {
+                "name": "Renown",
+                "description": null,
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["WEREWOLF"],
+                "order": 3,
+                "traits": [
+                    {
+                        "name": "Glory",
+                        "character_classes": ["WEREWOLF"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Honor",
+                        "character_classes": ["WEREWOLF"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Wisdom",
+                        "character_classes": ["WEREWOLF"],
+                        "max_value": 5,
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "min_value": 0,
+                        "show_when_zero": false
+                    }
+                ]
+            },
+            // Virtues
+            {
+                "name": "Virtues",
+                "description": null,
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                "order": 4,
+                "initial_cost": 2, // TODO: check if this is correct for all traits
+                "upgrade_cost": 2, // TODO: check if this is correct for all traits
+                "traits": [
+                    {
+                        "name": "Mercy",
+                        "character_classes": ["HUNTER"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Vision",
+                        "character_classes": ["HUNTER"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Zeal",
+                        "character_classes": ["HUNTER"],
+                        "description": null,
+                        "game_versions": ["V4", "V5"],
+                        "max_value": 10,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Conscience",
+                        "character_classes": ["MORTAL", "VAMPIRE", "GHOUL"],
+                        "description": null,
+                        "game_versions": ["V4"],
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Self-Control",
+                        "character_classes": ["MORTAL", "VAMPIRE", "GHOUL"],
+                        "description": null,
+                        "game_versions": ["V4"],
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    },
+                    {
+                        "name": "Courage",
+                        "character_classes": ["MORTAL", "VAMPIRE", "GHOUL"],
+                        "description": null,
+                        "game_versions": ["V4"],
+                        "max_value": 5,
+                        "min_value": 0,
+                        "show_when_zero": false
+                    }
+                ]
+            }
+        ]
+    },
+    // Advantages
+    {
+        "name": "Advantages",
+        "description": "Benefits a character has over 'normal' folk.",
+        "game_versions": ["V4", "V5"],
+        "show_when_empty": false,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+        "order": 4,
+        "initial_cost": 2,
+        "upgrade_cost": 3,
+        "categories": [
+            // Backgrounds
+            {
+                "name": "Backgrounds",
+                "description": "Backgrounds describe advantages of relationship, circumstance, and opportunity: material possessions, social networks, and the like.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["MAGE"],
+                "order": 2,
+                "initial_cost": 2,
+                "upgrade_cost": 3,
+                "traits": [
+                    {
+                        "name": "Allies",
+                        "description": "A group who will support or aid the Character. Family, friends, or an organization that has loyalty. Build them between (\u2022 - \u2022\u2022\u2022) Effectiveness and (\u2022-\u2022\u2022\u2022) Reliability, the maximum amount of total points is 6. Effectiveness defines how proficient they are at a task. Reliability determines how dependable they are.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 6,
+                        "advantage_category_name": "Allies"
+                    },
+                    {
+                        "name": "Contacts",
+                        "description": "Individuals who can get the character information, items or other things of value.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Contacts"
+                    },
+                    {
+                        "name": "Fame",
+                        "description": "Mortal fame is a dangerous game, the character might have once been a pop singer, actress, or other celebrity. There is a downside as people may remember the character as their face is plastered on a nearby billboard. Fame can be bought to apply in Vampire society as well.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Fame"
+                    },
+                    {
+                        "name": "Influence",
+                        "description": "They have sway in mortal communities, be they political, through financial status and prestige, or manipulation. By default, this merit only applies to a specific group or region of the city.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Influence"
+                    },
+                    {
+                        "name": "Safe House",
+                        "description": "Represents the degree of security and distinction beyond a place to sleep and eat. Without dots in this background, the character still has a place to call home but it is not secure or special in any way.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Hidden Armory",
+                        "description": "Each dot adds one pistol and one firearm inside the safe house, safely concealed.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Cell",
+                        "description": "Allows two prisoners to be stored inside. Each additional dot either allows the character to store twice as many prisoners or adds +1 to the attempts to escape.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Watchmen",
+                        "description": "Each dot supplies 4 Average Mortals and one Gifted Mortal to watch over the safe house.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Laboratory",
+                        "description": "Each dot of this merit contributes to dice rolls related to one Science or Technology specialty or for Alchemy pools.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Library",
+                        "description": "Each dot of this merit contributes to dice rolls for one Academics, Investigation or Occult specialty. Small safe houses are limited to one dot.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Location",
+                        "description": "The place in which this safe house resides gives a +2 dice bonus (or +2 enemies Difficulty) on relevant rolls. Example, living in the heart of downtown allows the character to have a +2 bonus to etiquette rolls to pick up local rumors.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Luxury",
+                        "description": "Rich and full of value, the safe house is well decorated with high-end d\u00e9cor and items. +2 dice bonus to Social tests when mortals are inside the safe house. Without at least 3 dots in Resources, these items are stolen or illegally obtained.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Postern",
+                        "description": "The safe house has some kind of secret exit that allows them a safe passage out. For each dot of this merit add one die to pools of evasion or escaping surveillance near the safe house.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Security System",
+                        "description": "For each dot of this merit, add one die to pools to resist unwelcome guests into the safe house.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Warding",
+                        "description": "This safe house possesses some type of magic warding that repels supernatural entities. Each dot of this merit adds one die to pools to resist supernatural scrying and whatever else the Storyteller allows.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Holy Ground",
+                        "description": "The safe house has significance to the character's cult, granting them the ability to call upon a large group of cultists to protect their safe house once per story",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Shrine",
+                        "description": "A shrine is present in the safe house, adding a bonus equivalent to the dots in searching, preparing or otherwise obtaining Ritual or Ceremony ingredients.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Business Establishment",
+                        "description": "The safe house is rented out to a business or is run as a business by the Kindred themselves. This gives both benefits and drawbacks, such as a ready stream of income but also being very much on the grid and local enforcement being aware of the location. This reduces the safe house's base dots by one for pools involving the safe house's privacy and defenses against either (pick one) financial or criminal intrusions. Dots in this merit roughly equal Resources but do not stack onto existing Resources for the character",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 3,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Furcus",
+                        "description": "The safe house is located on veins of the earth or a frayed spot in the Veil. Each dot in this merit adds one die to Rituals or Ceremony dice pools used at the furcus",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Machine Shop",
+                        "description": "Each dot of this merit adds one dice to the pool for Craft rolls. It also adds this to other tests related to building, repairing, or disassembling machinery or equipment.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Surgery",
+                        "description": "Each dot of this merit adds one die to the pool for Medicine. It also adds this to other tests related to surgery, healing, or medical treatments.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Panic Room",
+                        "description": "The ability to house individuals and breaching this requires a base Difficulty of 5, this can also be applied to those held captive. Each extra dot allows either twice as many individuals with a cap of 32 in large safe houses or adds +1 to the breach/escape Difficulty. This is not available to 1 dot safe houses.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Herd",
+                        "description": "A group of vessels that the character may feed from without concern, though they are less loyal than retainers. They can slake Hunger worth the dot value of the Herd each week freely and no roll is required.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Herd"
+                    },
+                    {
+                        "name": "Mask",
+                        "description": "A fake identity that allows the character to keep their true selves away from mortal's prying eyes, including getting bank accounts, a birth certificate and everything else a vampire might need to masquerade as a human or for a mortal to hide their true identity.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 2,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Zeroed",
+                        "description": "All of the character's past self has been purged from all systems as if they never existed. The character must have a 2-dot mask in order to take this.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Cobbler",
+                        "description": "The ability to create or source out masks. Making a mask takes 3 days per dot. The character must have a 2-dot mask in order to take this.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Faked Death",
+                        "description": "As long as you keep a low profile and a new identity nobody from your old life is going to be looking for yo including Enemies, Stalkers, and orgs. You do maintain a limited relationship with any Contacts. The character must have a 2-dot mask in order to take this.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Mawla",
+                        "description": "Another kindred who has taken them under their wing to mentor them.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Mawla"
+                    },
+                    {
+                        "name": "Resources",
+                        "description": "Cash flow, be it from stock trading or inheritance to working as a barista at night.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Resources"
+                    },
+                    {
+                        "name": "Retainers",
+                        "description": "Loyal followers who will do the character's bidding.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Retainers"
+                    },
+                    {
+                        "name": "Status",
+                        "description": "The character has built a name for themselves in their Faction.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Status"
+                    },
+                    {
+                        "name": "City Secrets",
+                        "description": "This grants knowledge about the city's Kindred power structure. If this secret is about mortal business it's only a way to explain Influence. This information can be sold at a high price, but its value lies in protection as the people involved may not want this information sold off and will do their best to keep you happy, for a time anyway. This can only be taken at a maximum of three times with each being a different secret.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Status"
+                    },
+                    {
+                        "name": "Mentor",
+                        "description": "A similar character type or group who has taken the character under their wing.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Mentor"
+                    },
+                    {
+                        "name": "Generous",
+                        "description": "You can call upon your mentor for a valuable favor once per story. This does not run the usual risk of offending your mentor but you lose a dot from this background each time you do",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Mentor"
+                    },
+                    {
+                        "name": "Spirit Guide (Arcanum)",
+                        "description": "Your mentor is some kind of ghost or unearthly being that you studied and formed a rapport with. You have the ability to summon them. They are unable to aid with corporeal matters like law enforcement or politics but they do have reliable knowledge on ghosts.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mentor"
+                    },
+                    {
+                        "name": "Spirit Pact",
+                        "description": "Loyal spirit who will aid the Garou.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Spirit Pact"
+                    },
+                    {
+                        "name": "Host",
+                        "description": "The spirit has a physical body it hosts. Spirits without the Companion trait still must be summoned.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Spirit Pact"
+                    },
+                    {
+                        "name": "Companion",
+                        "description": "The spirit can accompany the character whenever they go long as nothing prevents it such as spiritual wards. Without a physical host communication is restricted to the Umbra or other means.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Spirit Pact"
+                    }
+                ]
+            },
+            // Merits
+            {
+                "name": "Merits",
+                "description": "Merits are special abilities or advantages that are rare or unique in the general population.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["MAGE"],
+                "order": 2,
+                "initial_cost": 3,
+                "upgrade_cost": 2,
+                "traits": [
+                    {
+                        "name": "Linguistics",
+                        "description": "Each dot of Linguistics allows the character to read, write and speak fluently in another language outside of the default two they already know, which is their native language and the language of the Domain.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Linguistics"
+                    },
+                    {
+                        "name": "Dead Tongues",
+                        "description": "The character adds 2 bonus dice when attempting to translate an extinct language.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Linguistics"
+                    },
+                    {
+                        "name": "Beautiful",
+                        "description": "Add one die to related Social pools",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Stunning",
+                        "description": "Add two dice to related Social pools",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 4,
+                        "max_value": 4,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Semblance of the Methuselah",
+                        "description": "With an appearance strikingly similar to a methuselah, gain one die on rolls to impress, intimidate or attract the attention who recognize your face. As well as gain other bonuses such as status or additional die when meeting the methuselah they resemble",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 2,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Clement Lupus",
+                        "description": "The lupus form appears more dog-like than wolf-like and no human onlookers assume they are a wolf.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Famous Face",
+                        "description": "Appear as someone famous and gain two dice in social tests where this works to their benefit. Take a two-dice penalty whenever they attempt to hide in a crowd or avoid recognition",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Ing\u00e9nue",
+                        "description": "They appear innocent and blameless, add two dice to any rolls related to avoiding suspicion or deflecting blame at the Storytellers' discretion",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Remarkable Feature",
+                        "description": "Possessing a rare, memorable feature such as eye color or unusual complexion. Add two-dice to social interactions with strangers and take a one-die penalty to disguise yourself.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Up All Night",
+                        "description": "Treat Humanity as one higher (Max 10), or two dots higher if taken at four dots when using Blush of Life, eating, drinking, or sexual intercourse",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 4,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "High Functioning Addict",
+                        "description": "Add one die to either Physical, Social, or Mental pool when the last feeding had the drug of their desire.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Substance Abuse"
+                    },
+                    {
+                        "name": "Custodian of History",
+                        "description": "Grants +1 to all relevant Skill tests pertaining to a chosen period or character in Kindred lore.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Archaic Flaws"
+                    },
+                    {
+                        "name": "Bond Resistance",
+                        "description": "Add one die to resist Blood Bonds per level of this merit.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Short Bond",
+                        "description": "Bonds decrease by two levels each month if not reinforced.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Unbondable",
+                        "description": "Unable to be bonded",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 4,
+                        "max_value": 4,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Bonds of Fealty",
+                        "description": "Their Dominate powers do not require eye contacts on those bound to them. The character must have Dominate in order to take this.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Enduring Bond",
+                        "description": "The bonds they create last longer, only weakening every other month",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Bloodhound",
+                        "description": "Able to sniff out resonances without tasting them.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Iron Gullet",
+                        "description": "Able to consume rancid, defractionated, or otherwise unedible blood to other vampires.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Vessel Recognition",
+                        "description": "With a Resolve + Awareness test at Difficulty 2 they can tell if a mortal has been fed on recently. A critical win lets them sense if the feed is recurring, meaning there is a chance it's a herd member",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Eat Food",
+                        "description": "Can consume food but still with no nourishment.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Cold Dead Hunger",
+                        "description": "Add two dice to resist Hunger frenzy.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Pack Diablerie",
+                        "description": "The character will always be the one to take the soul unless they otherwise choose during Diablerie. Additionally, if they help another consume the soul, they gain 5 experience points to spend in the same manner as if they'd committed the Diablerie themselves",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Luck of the Devil",
+                        "description": "Once per session when misfortune occurs it can be redirected towards someone close to them for the victim to take the fall",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 4,
+                        "max_value": 4,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Nuit Mode",
+                        "description": "The Kindred's body does not revert to it's death-state each night, enabling them to keep new haircuts and body modifications. They can mend these changes anytime as if they were Aggravated damage. This does not work for characters with BP higher than 1",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Object of Power",
+                        "description": "Posesss a rare but powerful item. \u2022 Reroll one die per story, excluding Hunger. \u2022\u2022 Gain one bonus die to all Level 1 Ritual tests. \u2022\u2022\u2022 Free premonition warning once per session, when someone will cause them harm.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Moon-Quickened",
+                        "description": "The first time the character howls at the moon during any night, they restore one point of Superficial Willpower dam",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Moon-Riled",
+                        "description": "he first time the character howls at the moon during any night, they gain an additional point of Rage.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Blood Empathy",
+                        "description": "The ghoul can feel if their regnant is in danger or otherwise, needs them immediately, this does not allow for telepathic communication.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["GHOUL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Unseemly Aura",
+                        "description": "Their aura has become indistinguishable from a Kindred.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["GHOUL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Unholy Will",
+                        "description": "With two dots, add one die to any pool when resisting or contesting against an individual with True Faith when related to their faith. The character also suffers one less point of damage from holy sources. At four dots, add two dice and suffer two fewer points of damage.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 4,
+                        "advantage_category_name": "Psychological"
+                    },
+                    {
+                        "name": "False Love",
+                        "description": "With a NPC as an obsession, when in their presence treat the character's treat Humanity as one higher (Max 10) for purposes of using Blush of Life, eating, drinking, or sexual intercourse. Gain three Stains if they die.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Psychological"
+                    },
+                    {
+                        "name": "Consanguineous Sense",
+                        "description": "You can detect whether another Kindred is in your direct bloodline. This does not tell you their Generation.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Blood Ties"
+                    },
+                    {
+                        "name": "Consanguineous Influence",
+                        "description": "You gain a bonus die when using Mental Disciplines on a vampire of your own Clan, or a direct descendant or ancestor. You gain 2 bonus dice instead on those within 2 generations of you such as your grandsire.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Blood Ties"
+                    },
+                    {
+                        "name": "Sins of the Father",
+                        "description": "You show no signs if you commit diablerie on a direct descendant or ancestor. This extends to all members of your clan if taken at three dots.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 3,
+                        "advantage_category_name": "Blood Ties"
+                    },
+                    {
+                        "name": "Check the Trunk",
+                        "description": "Easy access to an armory or cache of tools, none of these items can exceed the value of something a Resources 2 character could access. Add two dice to Preparation Rolls.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Side Hustler",
+                        "description": "Once per session they can get their hands on an item, information, or access to an event as if they had two dots in the related Resources, Contacts, or Influence.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Tempered Will",
+                        "description": "They are always aware when someone is attempting to use Dominate or Presence against them. They may add two additional dice to resistance pools once per session, which can only be taken by those with no dots in Dominate or Presence.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "GHOUL"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Untouchable",
+                        "description": "Once per story they are able to escape all official punishment for a crime that would otherwise see them destroyed, exiled, or incarcerated.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 5,
+                        "max_value": 5,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Mystic of the Void",
+                        "description": "Choose a single Oblivion Power they do not know. They count as knowing that power for the purpose of prerequisites to learning Oblivion Ceremonies. Hecata and Lasombra can choose three Oblivion Powers they do not know instead of just one",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 2,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Forbidden Texts",
+                        "description": "The character has acquired writings from an expert. Upon choosing this merit, the character picks a monster type, and gains a 2 dice bonus on all research tests on the subject of that monster. The subject in question will most likely want the writings back.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "The World of Academia"
+                    },
+                    {
+                        "name": "Thesis",
+                        "description": "The character chooses an additional Specialty, though not tied to any Skill but applying to any of them when used in a research test. The Storyteller needs to approve this specialty, which must be tied to academics and not the supernatural.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "The World of Academia"
+                    },
+                    {
+                        "name": "Part of the Furniture",
+                        "description": "Once per session, when interacting with campus staff, or while on campus, the character may add 2 dice to any single pool.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "The World of Academia"
+                    },
+                    {
+                        "name": "Solo Cooking",
+                        "description": "Heal one extra Superficial Health at the beginning of a session if the Hunter has time to prepare a meal before the session begins.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Nutritionist"
+                    },
+                    {
+                        "name": "Cell Chef",
+                        "description": "The entire cell heals one extra Superficial Health at the beginning of a session if the Hunter has time to prepare a meal before the session begins. Any Hunters separated from the cell at the start of session would not receive this benefit.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Nutritionist"
+                    },
+                    {
+                        "name": "Always Prepared",
+                        "description": "The character is efficient and practical, and adds 2 bonus dice to Preparedness dice pools.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mental Feats"
+                    },
+                    {
+                        "name": "Eidetic Memory",
+                        "description": "The character benefits from photographic memory, only requiring a bit of study before they can recall a text or details verbatim. They gain 2 bonus dice on any test related to recall for things such as codes, directions, maps, facial recognition, formulae, and rote behaviors.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mental Feats"
+                    },
+                    {
+                        "name": "Unseemly Aura",
+                        "description": "Monsters will occasionally believe the character to be one of their own or another supernatural creature entirely.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Supernatural Situations"
+                    },
+                    {
+                        "name": "Caern Access",
+                        "description": "The character can access a Caern belonging to another sept, as long as they do not interfere with them or put the caern in danger.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Caern"
+                    },
+                    {
+                        "name": "Awakened Caern",
+                        "description": "Add one to the caern value of the first caern the character joins or finds. This Merit does not stack, it is up to the Storyteller if other members can chip in to accumulate the five dots of this Merit.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 5,
+                        "max_value": 5,
+                        "advantage_category_name": "Caern"
+                    },
+                    {
+                        "name": "Day Job",
+                        "description": "Efforts to hide Garou nature by using the job receive a bonus die to relevant pools, such as subterfuge or persuasion.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Day Job"
+                    },
+                    {
+                        "name": "Corroborate Day Job",
+                        "description": "Same benefits as Day Job, but in addition the character's coworkers back up work claims. Add two dice to pools as above instead of one.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Day Job"
+                    },
+                    {
+                        "name": "Improviser",
+                        "description": "You suffer two dice less penalties for performing Rites in suboptimal conditions",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Rites"
+                    },
+                    {
+                        "name": "Moot Caller",
+                        "description": "Select 5 social rites, you\u2019ve mastered them. If allowed during a moot, you can assist in any rite so long as it is performed at a moot or substantially similar gathering of Garou.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Rites"
+                    },
+                    {
+                        "name": "Rite Master",
+                        "description": "Add one die to any pools involving Rite knowledge or performance",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Rites"
+                    }
+                ]
+            },
+            // Flaws
+            {
+                "name": "Flaws",
+                "description": "Flaws are liabilities or disadvantages that pose challenges to a character's  existence.",
+                "game_versions": ["V4", "V5"],
+                "show_when_empty": false,
+                "character_classes": ["MAGE"],
+                "order": 2,
+                "initial_cost": 2,
+                "upgrade_cost": 3,
+                "traits": [
+                    {
+                        "name": "Illiterate",
+                        "description": "The Character cannot read nor write and their Science and Academics Skills may not go beyond 1 dot.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Linguistics"
+                    },
+                    {
+                        "name": "El Mala Educaci\u00f3n",
+                        "description": "Requires the `Dead Tongues` merit. The character makes some mistakes because of their lackluster education in the language. The Danger rating increases by 1 on total failures or critical results when they attempt to translate any extinct language",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Linguistics"
+                    },
+                    {
+                        "name": "Ugly",
+                        "description": "Lose one die from related Social pools",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Repulsive",
+                        "description": "Lose two dice from related Social pools",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Stench",
+                        "description": "Their breath and body odor are supernaturally foul. Lose one die from seduction and similar Social pools, and lose two from Stealth pools unless they are upwind.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Transparent",
+                        "description": "Unable to lie due to a terrible poker face or a strong urge to be truthful. Lose one die in any pools requiring Subterfuge, they cannot take any dots in Subterfuge either.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Unblinking Visage",
+                        "description": "Treat Humanity as two lower (Min 0) when using Blush of Life, eating, drinking, or sexual intercourse.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Looks"
+                    },
+                    {
+                        "name": "Addiction",
+                        "description": "Unless the action is to immediately gain their drug, lose one die to all pools if in the last scene they did not indulge on the drug of their choice.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Substance Abuse"
+                    },
+                    {
+                        "name": "Hopeless Addiction",
+                        "description": "Unless the action is to immediately gain their drug, lose two dice to all pools if in the last scene they did not indulge on the drug of their choice.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Substance Abuse"
+                    },
+                    {
+                        "name": "Living in the Past",
+                        "description": "Unable to grasp modern society's mindset, one or more of the character's convictions reflect outdated views.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Archaic Flaws"
+                    },
+                    {
+                        "name": "Archaic",
+                        "description": "Cannot use computers, cellphones, and the character's Technology rating is always 0",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Archaic Flaws"
+                    },
+                    {
+                        "name": "Grief Phobia",
+                        "description": "Lose one die to all tests made while in the presence of a phobic stimulus",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Archaic Flaws"
+                    },
+                    {
+                        "name": "Old Tricks",
+                        "description": "All specialties are required to be Archaic.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Archaic Flaws"
+                    },
+                    {
+                        "name": "Bond Junkie",
+                        "description": "The bond is sweeter to the character, they lose one die when acting against Blood Bonds.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Long Bond",
+                        "description": "Bonds fade slower, decreasing by one level every 3 months without reinforcement.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Bondslave",
+                        "description": "Bond instantly to another kindred with just one drink, not three.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Two Masters",
+                        "description": "Be Blood Bound to two individuals at the same time.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Bonding"
+                    },
+                    {
+                        "name": "Prey Exclusion",
+                        "description": "Unable to feed from a certain group and take Stains as if breaking a Chronicle Tenet when they do.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Methuselah's Thirst",
+                        "description": "Hunger can only be slaked to 0 by Supernatural blood.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Farmer",
+                        "description": "Must spend 2 Willpower Points to feed on human blood. Ventrue may not take this.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Organovore",
+                        "description": "Slake only by consuming human flesh and organs.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Vein Tapper",
+                        "description": "Finding the act of feeding to be personal, they go out of their way to feed from the unaware, drugged or unconscious victims.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Outdated Preference",
+                        "description": "Either capture and force mortals to adhere to their wanted preference, or always spend 1 WP to feed.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Feeding"
+                    },
+                    {
+                        "name": "Folkloric Bane",
+                        "description": "Take Aggravated Damage when touching a specific object rooted in the mythos of what harms them. Examples: Holy water (as if fire), Weapon wielded by a devout believer in their faith, weapon adorned with moonstone or moonstone itself, etc",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Folkloric Block",
+                        "description": "Must spend Willpower or move away from a specific object the creatures are known to fear in their Mythos. Examples: Holy symbols presented by a believer, silver brandished, wolfbanes, etc",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Folkloric Tell",
+                        "description": "The character bears an indicator that makes them appear unsettling to others, regardless if they associate it with werewolves or not. Those who feel the folkloric tell distrust them, reducing the character's dice pool by one for all Social tests other than Intimidation. Examples: People hear howls in their presence, their shadow looks wolf-like in human form and human-like in wolf form, etc",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Stigmata",
+                        "description": "Bleed from wounds on the hands, feet, and forehead when at Hunger 4.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Stake Bait",
+                        "description": "When staked they meet Final Death.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Starving Decay",
+                        "description": "When their Hunger is 3 or higher their body shrivels and decays. Take a two-dice penalty to Physical tests, and social interactions with mortals, this Flaw can risk the Masquerade.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Twice Cursed",
+                        "description": "Take the Clan's variant Bane in addition to the regular Bane. The Storyteller can prohibit this flaw if the second Bane wouldn't mesh with the chronicle.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Additional Ban",
+                        "description": "Choose another tribe and suffer its Ban as well as the one from your actual tribe. The Storyteller can prohibit this Flaw if the second Ban would cause problems for, or lack impact in, the chronicle.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Moon-Thrall",
+                        "description": "Whenever the character sees the moon for the first time of the night, they must change form to glabro or hispo with any required Rage checks made.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Crone's Curse",
+                        "description": "The character appears at least a decade older than they actually are which reduces their health tracker by one.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["GHOUL", "WEREWOLF"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Baneful Blood",
+                        "description": "The character experiences the bane of their first domitor, this does not change if they get a new domitor. The domitor must be of Clan Lasombra, Malkavian, Ministry, Nosferatu, Ravnos, Salubri, or Toreador.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["GHOUL"],
+                        "min_value": 2,
+                        "max_value": 3,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Distressing Fangs",
+                        "description": "Having developed fangs like kindred, the character suffers one die on Social pools with mortals.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["GHOUL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mythic"
+                    },
+                    {
+                        "name": "Beacon of Profanity",
+                        "description": "Mortals with any amount of True Faith can sense your presence, regardless of True Faith level.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Psychological"
+                    },
+                    {
+                        "name": "Disease Vector",
+                        "description": "When feeding from a sick mortal, the illness is always contracted and will be passed onto the next vessel.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Contagion"
+                    },
+                    {
+                        "name": "Plaguebringer",
+                        "description": "The Kindred carries a disease that cannot be removed from their vitae. At one dot the disease is minor with visible traces, at two dots the disease can be potentially fatal if not treated. It is passed through the bite.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 2,
+                        "advantage_category_name": "Contagion"
+                    },
+                    {
+                        "name": "Knowledge Hungry",
+                        "description": "At character creation pick a topic that your character desires to study. When they come across the methods to learn these things, they must make a Willpower roll at Difficulty 3 to resist.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Prestation Debts",
+                        "description": "They owe other Kindred boons, even if these boons are paid off the Kindred lords over them. The Boon-owning Kindred keeps a one-die bonus in Social combat against the one who owes it",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Other"
+                    },
+                    {
+                        "name": "Enemy",
+                        "description": "The opposite to Allies, and are rated two dots less than their effectiveness.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 6,
+                        "advantage_category_name": "Allies"
+                    },
+                    {
+                        "name": "Dark Secret",
+                        "description": "What they've done is still a secret, except to one or two very motivated enemies.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 2,
+                        "advantage_category_name": "Fame"
+                    },
+                    {
+                        "name": "Infamy",
+                        "description": "They've done something atrocious and others know.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Fame"
+                    },
+                    {
+                        "name": "Banned from",
+                        "description": "Small cities are one dot, medium cities are two dots, large cities are three dots.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Fame"
+                    },
+                    {
+                        "name": "Infamous Partner",
+                        "description": "A spouse, lover or someone else significant to the character has Infamy that will sometimes tarnish the reputation of the character by association.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Fame"
+                    },
+                    {
+                        "name": "Disliked",
+                        "description": "Subtract one die from Social tests involving groups outside of the character's loyal followers.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Influence"
+                    },
+                    {
+                        "name": "Despised",
+                        "description": "One group/region of the city goes out of its way to destroy the character's plans.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Influence"
+                    },
+                    {
+                        "name": "Creepy Safe House",
+                        "description": "Take a two-dice penalty on Social pools in the safe house with human guests.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Haunted Safe House",
+                        "description": "There is a supernatural manifestation taking hold over the safe house with the penalties defined by the Storyteller. It should at least give a one-die penalty or bonus to affected pools used in the safe house per dot of Haunted.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Compromised Safe House",
+                        "description": "This safe house is on a watchlist and may have been raided at some point, adding two dice to pools to penetrate or watch the safe house.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Interfering Roommate",
+                        "description": "The safe house isn't private, with someone else also using it for legitimate purpose, keeping an eye on the character. Suspicious or outright criminal activity will be reported to relevant authorities.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Safe House"
+                    },
+                    {
+                        "name": "Obvious Predator",
+                        "description": "A predatory vibe removes two dice from any hunting pool except Physical stalking, chasing, and killing. Lose on die from any Social test intended to calm humans. Cannot maintain a Herd.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Herd"
+                    },
+                    {
+                        "name": "Known Corpse",
+                        "description": "People know the vampire died recently and react in turn if they see them.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Known Blankbody",
+                        "description": "The character's name, history, associates, and more are all in several agency databases. Inquisition can recognize them as a vampire.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Serial Error",
+                        "description": "A mistake has been made in the characters background checks showing that they'd recently died, are on a dangerous watchlist, or otherwise likely to be called or detained by the police. This also applies to any database lookups on their identity.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Person of Interest",
+                        "description": "The character has become a person of interest and with their biometrics and information having been logged as a potential terrorist in agency databases.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mask"
+                    },
+                    {
+                        "name": "Adversary",
+                        "description": "Another kindred who perhaps liked the character, but now goes out of their way to ruin their lives in any way they can. Rated two levels higher than the Mawla value.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 5,
+                        "advantage_category_name": "Mawla"
+                    },
+                    {
+                        "name": "Secret Master",
+                        "description": "Your Mawla gives you tasks that must be completed quietly. The character must have a Mawla to take this.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mawla"
+                    },
+                    {
+                        "name": "Shameful Childe",
+                        "description": "Embraced a childe but abandoned them.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mawla"
+                    },
+                    {
+                        "name": "Touchstone Embraced by your Enemies",
+                        "description": "A former Touchstone didn't die or change as a person, someone Embraced them. This is a single Neonate, but they have allies and confrontation carries the risk of Stains.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mawla"
+                    },
+                    {
+                        "name": "Destitute",
+                        "description": "No money, no home, and no monetary value beyond themselves.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Resources"
+                    },
+                    {
+                        "name": "Stalkers",
+                        "description": "Something about the character tends to attract others who get a little bit too attached and just won't let go. Be it a former retainer or a past lover, should they get rid of them, another soon appears.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Retainers"
+                    },
+                    {
+                        "name": "Suspect",
+                        "description": "Breaking the rules or weaseling out of something owed has netted this character the ire of this faction. Stay out of sight and mind and nothing will happen until they prove their worth again but until then take a 2 dice penalty to Social tests with the offended Factions.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Status"
+                    },
+                    {
+                        "name": "Shunned",
+                        "description": "Despised by a faction, a line was crossed that never should have been, and now members of this group actively work against them at any opportunity.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Status"
+                    },
+                    {
+                        "name": "Falling Grades",
+                        "description": "Reduce social pools by two when dealing with campus staff.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "The World of Academia"
+                    },
+                    {
+                        "name": "Dangerous Knowledge",
+                        "description": "Upon purchasing this merit, the Storyteller chooses a monster type. When making research or perception-related tests on that monster type, if the result is a total failure or a critical, the Danger rating increases by 1.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "The World of Academia"
+                    },
+                    {
+                        "name": "Malnourished",
+                        "description": "The character is too busy, poor or inept to eat properly, and their Health is calculated as Stamina + 2 instead of Stamina + 3",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Nutritionist"
+                    },
+                    {
+                        "name": "Disordered Sleep",
+                        "description": "Sleep catches the character at the least convenient time possible, due to their messy sleep schedule. In situations where they are studying, waiting, or keeping watch, they must roll a die, and fall asleep if the result is a failure. It is up to the Storyteller to define the impact, but it generally means the character can't complete a task, misses a detail, or is easy to ambush.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Mental Feats"
+                    },
+                    {
+                        "name": "Living on the Edge",
+                        "description": "When confronted with a risky temptation that the character hasn't done before, they suffer a two-dice penalty for all actions till they participate or the scene ends.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 2,
+                        "max_value": 2,
+                        "advantage_category_name": "Psychologist Traits"
+                    },
+                    {
+                        "name": "Weak-Willed",
+                        "description": "Even when they are aware that someone is attempting to sway they may not use the active resistance systems to avoid the attempts.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Psychologist Traits"
+                    },
+                    {
+                        "name": "Crone's Curse",
+                        "description": "The character appears at least a decade older than they actually are which reduces their health tracker by one.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 3,
+                        "max_value": 3,
+                        "advantage_category_name": "Supernatural Situations"
+                    },
+                    {
+                        "name": "Stigmata",
+                        "description": "Select either Health or Willpower damage at character creation, this Flaw may also be taken a second time for the other type of damage. The Hunter bleeds from open wounds on their hands, feet and forehead whenever they suffer physical or Willpower damage. However, this does not trigger when they spend Willpower.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["HUNTER", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 2,
+                        "advantage_category_name": "Supernatural Situations"
+                    },
+                    {
+                        "name": "Adversary",
+                        "description": "A rival of the same character class who wants to do the you or your cell harm.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 3,
+                        "advantage_category_name": "Mentor"
+                    },
+                    {
+                        "name": "Credit Hungry",
+                        "description": "On any task where you call upon your mentor for aid, they will take credit for all achievements but not negative consequences",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Mentor"
+                    },
+                    {
+                        "name": "Caern Pariah",
+                        "description": "The character is unwelcome in any and all caerns on their turf. Either needing to pay to use them through dangerous jobs or acts or resorting to sneaking in, which can be disaster if they are caught. This does not apply to a caern whose sept you belong to, though it can be a reason for someone else to want you gone.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Caern"
+                    },
+                    {
+                        "name": "Pact Condition",
+                        "description": "The pact requires performing or avoiding certain actions in exchange for aid. Failing to do so angers the spirits and it does not count as an ally until penance has been made.",
+                        "game_version": ["V4", "V5"],
+                        "show_when_empty": false,
+                        "character_classes": ["WEREWOLF"],
+                        "min_value": 1,
+                        "max_value": 1,
+                        "advantage_category_name": "Spirit Pact"
+                    }
+                ]
+            }
+        ]
+    }
+]

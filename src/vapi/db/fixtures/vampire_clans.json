@@ -1,0 +1,306 @@
+[
+    {
+        "name": "Assamite",
+        "description": "The Assamites are renowned for their prowess as stealthy assassins. Operating independently, the members of Banu Haqim (as the Assamites call themselves) act as mercenaries, accepting blood payment and remaining free from the control of sect leaders. When a target realizes an Assamite is hunting them, it is often too late. This reputation makes Assamites feared and reviled by other clans.",
+        "disciplines_to_link": ["Celerity", "Obfuscate", "Quietus"],
+        "game_versions": ["V4"]
+    },
+    {
+        "name": "Banu Haqim",
+        "description": "The Judges of the Banu Haqim are torn between their hereditary thirst for vampiric Blood and their passion for justice. Stern adjudicators, they are fiercely devoted to upholding a moral code, and Embrace mortals capable of assessing and handling threats, enforcing laws and traditions, and punishing transgressors.",
+        "disciplines_to_link": ["Blood Sorcery", "Celerity", "Obfuscate"],
+        "bane": {
+            "name": "Blood Addiction",
+            "description": "When the Banu Haqim slakes at least one Hunger level from another vampire, they must make a Hunger Frenzy test at difficulty 2 plus Bane Severity. If they fail, they must gorge themselves on vitae, in turn opening the door to possible Diablerie."
+        },
+        "variant_bane": {
+            "name": "Noxious Blood",
+            "description": "The Blood of the Banu Haqim is toxic to mortals, but not to other vampires. Due to this mortals receive Aggravated Damage equal to the Bane Severity of the vampire for each Rouse Check's worth of Blood consumed. Their Blood cannot be used to heal mortal injuries. In amounts below the amount needed to Blood Bond, it does not harm them, even if directly injected into them."
+        },
+        "compulsion": {
+            "name": "Judgment",
+            "description": "Urged to punish a wrongdoer, the vampire must slake one Hunger from anyone that acts against their own Convictions. Failing to do so results in a three-dice penalty to all rolls until the Compulsion is satisfied or the scene ends. Should the victim be a vampire, the Bane applies."
+        },
+        "game_versions": ["V5"],
+        "link": "https://vtm.paradoxwikis.com/Banu_Haqim"
+    },
+    {
+        "name": "Brujah",
+        "description": "The Brujah are a clan of radicals and troublemakers, Embracing those willing to put someone in their place if the situation calls for it. Most see themselves as warriors with a cause, and these Rebels are guided by their passions, strength, and dedication to their ideals - whatever those may be.",
+        "bane": {
+            "name": "Violent Temper",
+            "description": "A rage is simmering in the back of the mind with a Brujah with the slightest provocation able to send them into a frenzied rage. Subtracts dice equal to the Bane Severity of the Brujah against Fury Frenzy."
+        },
+        "variant_bane": {
+            "name": "Violence",
+            "description": "When a messy critical occurs as the result of any Skill test outside of combat, a Brujah vampire causes damage to the subject of their interaction equal to their Bane Severity, in addition to any other result of the Hunger dice. The type of damage is dependent on the situation either physical or mental. The damage is Aggravated unless the player spends a point of Willpower to turn it into Superficial."
+        },
+        "compulsion": {
+            "name": "Rebellion",
+            "description": "The Brujah craves to take a stance against those who represent the status quo. This does not relent until they have gone against orders, expectations, or changed someone's mind. During this Compulsion, they suffer a -2 to dice all pools."
+        },
+        "disciplines_to_link": ["Celerity", "Potence", "Presence"],
+        "game_versions": ["V4", "V5"],
+        "link": "https://vtm.paradoxwikis.com/Brujah"
+    },
+    {
+        "name": "Caitiff",
+        "description": "Clanless and curse-less, the only trait that the Caitiff share is not having inherited the bane of the other Cainites and finding themselves outcast by Kindred belonging to any true lineage.",
+        "bane": {
+            "name": "Outcast",
+            "description": "Untouched by their ancestors, the Caitiff do not share a common Bane. The character begins with the Flaw Suspect at 1 dot and they may not purchase positive status during Character Creation. The Storyteller may impose a 1-2 dice penalty to social tests against Kindred who know they are Caitiff. To improve a Discipline, the cost is 6 times the level of experience points."
+        },
+        "game_versions": ["V4", "V5"],
+        "link": "https://vtm.paradoxwikis.com/Caitiff"
+    },
+    {
+        "name": "Followers of Set",
+        "description": "Refused admission by the Camarilla and welcomed among the Anarchs. Both liars and liberators, seekers of freedom from chains through pain, pleasure, and any other means, occult cultists and preachers, standing between refusal of social norms and true depravity.",
+        "disciplines_to_link": ["Obfuscate", "Presence", "Serpentis"],
+        "game_versions": ["V4"]
+    },
+    {
+        "name": "Gangrel",
+        "description": "The clan closest to their inner Beast, from feral soldiers to folkloric travelers and free spirits, from inhabitants of the urban jungle to boardroom sharks.",
+        "disciplines_to_link": ["Animalism", "Fortitude", "Protean"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Bestial Features",
+            "description": "In Frenzy, Gangrel gains animalistic features equal to their Bane Severity. These features last for one more night afterward, each feature reducing one Attribute by 1 point. The Gangrel may choose to Ride the Wave in order to only have one feature manifest and only lose one Attribute point."
+        },
+        "variant_bane": {
+            "name": "Survival Instincts",
+            "description": "Subtract dice equal to the Bane Severity in any roll to resist fear Frenzy. The pool cannot be below one die."
+        },
+        "compulsion": {
+            "name": "Feral Impulses",
+            "description": "Unleash the animal hidden in their Blood. This urges the Gangrel to regress into an animalistic state where speech becomes difficult, clothes become too constrictive and arguments and best settled with claws and teeth. For one scene the Gangrel suffers a -3 dice penalty to all rolls involving Manipulation and Intelligence as they are only able to speak one word sentences during this Compulsion."
+        },
+        "link": "https://vtm.paradoxwikis.com/Gangrel"
+    },
+    {
+        "name": "Giovanni",
+        "description": null,
+        "disciplines_to_link": ["Dominate", "Necromancy", "Potence"],
+        "game_versions": ["V4"]
+    },
+    {
+        "name": "Hecata",
+        "description": "Necromancers, Graverobbers, Lazarenes. The Hecata are as much a Family as they are a Clan; the only true Independents in these nights, the separate Clans of Death, including the Giovanni, Cappadocians, Samedi and others have now united as the Hecata. For them, the Family is everything; and if you are not one of them, you will never know how deep the Blood runs.",
+        "disciplines_to_link": ["Oblivion", "Fortitude", "Auspex"],
+        "game_versions": ["V5"],
+        "bane": {
+            "name": "Painful Kiss",
+            "description": "Hecata may only take harmful drinks from mortals which result in blood loss. Unwilling mortals that are able to escape will make the attempt, even those who are convinced or willing must succeed in a Stamina + Resolve test against Difficulty 2 + Bane Severity in order to not recoil. Vampires who are willingly bit must make a Frenzy test against Difficulty 3 to avoid terror Frenzy."
+        },
+        "variant_bane": {
+            "name": "Decay",
+            "description": "Hecata suffer additional dots in Flaws equal to their Bane Severity spread as they see fit across Retainer, Haven, and Resources Flaws. These Flaws can either be taken at Character Creation or removed by paying twice the amount of Background dots. Additionally, any purchase of dots in these Advantages costs an additional amount of experience points equal to their Bane Severity."
+        },
+        "compulsion": {
+            "name": "Morbidity",
+            "description": "The vampire must move something from life to death or vice versa, any action not taken to end or resurrect something suffers a two-dice penalty. The subject does not have to be a living thing and can instead be an object or more abstract such as ideas or conversation points. This Compulsion lasts until they manage to kill or return something to life."
+        },
+        "link": "https://vtm.paradoxwikis.com/Hecata"
+    },
+    {
+        "name": "Lasombra",
+        "description": "Winners at life, religious figures, manipulative shadow masters, social climbers, ruthless fighters; once a pillar of the Sabbat, they've now begun defecting to the ranks of the Camarilla.",
+        "disciplines_to_link": ["Dominate", "Oblivion", "Potence"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Distorted Image",
+            "description": "In reflections or recordings (live or not) the Lasombra appear to be distorted; those who know what vampires are know precisely what's going on, while others might be confused but know something is wrong. This does not however, hide their identity with any certainty and they are not likely to be caught more often on surveillance than any other Kindred. In addition to this, modern technology which includes making a phone call requires a Technology test at Difficulty 2 + Bane Severity as microphones struggle with them as much as cameras. Avoiding any electronic vampire detection system is also done with a penalty equal to their Bane Severity."
+        },
+        "variant_bane": {
+            "name": "Callousness",
+            "description": "Whenever making a Remorse test remove a number of dice equal to the Bane Severity. The dice pool cannot be reduced below 1."
+        },
+        "compulsion": {
+            "name": "Ruthlessness",
+            "description": "The next time the vampire fails an action they receive a two-dice penalty to all rolls until a future attempt at the same action succeeds. This penalty applies to future attempts of the same action still."
+        },
+        "link": "https://vtm.paradoxwikis.com/Lasombra"
+    },
+    {
+        "name": "Malkavian",
+        "description": "Seers and jesters affected by supernatural madness, psychological masters, oracles concealing and revealing truths and themselves.",
+        "disciplines_to_link": ["Auspex", "Dominate", "Obfuscate"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Fractured Perspective",
+            "description": "When suffering a Bestial Failure or a Compulsion, their mental derangement comes to the forefront. Suffers a penalty equal to their Bane Severity to one category of dice pools (Physical, Social or Mental) for the entire scene. The penalty and nature of the affliction are decided between the player and Storyteller during character creation."
+        },
+        "variant_bane": {
+            "name": "Unnatural Manifestations",
+            "description": "Using Discipline powers within close proximity of mortals scares them and any social interactions other than Intimidation suffer a dice penalty equal to their Bane Severity. This is not Masquerade-breaking, but the dislike remains for the duration of one scene. Other vampires subject to this recognize the Malkavian as a vampire but suffer no penalty."
+        },
+        "compulsion": {
+            "name": "Delusion",
+            "description": "Whether it's figments of their imagination or extrasensory perception of the truths. For one scene, the Malkavian suffers a 2 dice penalty to rolls involving Dexterity, Manipulation, Composure, and Wits. As well as rolls to resist terror Frenzy"
+        },
+        "link": "https://vtm.paradoxwikis.com/Malkavian"
+    },
+    {
+        "name": "The Ministry",
+        "description": "The rebranded Followers of Set, refused admission by the Camarilla and welcomed among the Anarchs. Both liars and liberators, seekers of freedom from chains through pain, pleasure, and any other means, occult cultists and preachers, standing between refusal of social norms and true depravity.",
+        "disciplines_to_link": ["Protean", "Presence", "Obfuscate"],
+        "bane": {
+            "name": "Abhors the Light",
+            "description": "When a Minister is exposed to direct illumination, be it naturally caused or artificial, they receive a penalty equal to their Bane Severity to all dice pools while subject to the light. They also add their Bane Severity to Aggravated damage taken from sunlight."
+        },
+        "variant_bane": {
+            "name": "Cold-Blooded",
+            "description": "They can only use Blush of Life if they have recently fed from a living vessel in the same scene or up to roughly an hour ago, Storytellers discretion. When they do so, it requires a number of Rouse Checks equal to their Bane Severity rather than just one."
+        },
+        "compulsion": {
+            "name": "Transgression",
+            "description": "The Minister suffers a burning desire to influence those around them to shatter the chains of their own making. They suffer a two-dice penalty to all dice pools that do not relate to enticing someone or themselves to break a Chronicle or personal Conviction. The Compulsion ends once the Minister causes someone, or themselves, at least one stain."
+        },
+        "game_versions": ["V5"],
+        "link": "https://vtm.paradoxwikis.com/The_Ministry"
+    },
+    {
+        "name": "Nosferatu",
+        "description": "Permanently afflicted by supernatural hideousness, they hide in the dark as gatherers of secrets, information procurers, hackers, elusive enforcers, often with a connection to rats and outcasts.",
+        "disciplines_to_link": ["Animalism", "Obfuscate", "Potence"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Repulsiveness",
+            "description": "Cursed by their blood, when they are Embraced they are twisted into revolting monsters. They can never raise their rating in the Looks merits and instead must take the flaw 'Repulsive'. Any attempt to disguise themselves incurs a penalty equal to the character's Bane Severity, this also includes the use of Disciplines such as Mask of a Thousand Faces. However, most Nosferatu do not breach the Masquerade by being seen, they are instead perceived as gross or terrifying."
+        },
+        "variant_bane": {
+            "name": "Infestation",
+            "description": "The Haven of a Nosferatu is always infested with vermin, any attempt to do something that requires concentration takes a two plus Bane Severity penalty, as well as the same penalty to social tests at storyteller's discretion. Additionally, when a Nosferatu spends a scene at an enclosed location, the vermin appears and causes the same penalty though reduced to equal only the Bane Severity. Any attempt to control these vermin with Animalism is done at a penalty equal to Bane Severity."
+        },
+        "compulsion": {
+            "name": "Cryptophilia",
+            "description": "Consumed by a hunger for private secrets, the Nosferatu seeks to obtain knowledge no matter big or small as long as it's not a well-known bit of information. During this, they also refuse to give up their secrets except in strict trade for something greater than their own. Any action not actively working towards gaining them a secret they take a two-dice penalty. This Compulsion does not end till they learn a secret they deem to be useful, sharing this secret is entirely optional."
+        },
+        "link": "https://vtm.paradoxwikis.com/Nosferatu"
+    },
+    {
+        "name": "Ravnos",
+        "description": "A nomadic clan of masters of misdirection, these rogues and illusionists prefer to not bare fangs for something they can obtain with subtler methods.",
+        "disciplines_to_link": ["Animalism", "Chimerstry", "Fortitude"],
+        "game_versions": ["V4"],
+        "bane": {
+            "name": "Doomed",
+            "description": "Anytime they daysleep within the same place more than once in seven nights, roll a number of dice equal to their Bane Severity. If they receive any 10's they then take 1 Aggravated damage for each as they are scorched from within. What constitutes as the same place is defined by the chronicle, but generally will need a mile distance between the two resting places before the bane is triggered. Mobile havens do work as long as the haven is moved a mile away. Due to this, the Ravnos may not take the No Haven Flaw."
+        },
+        "variant_bane": {
+            "name": "Unbirth Name",
+            "description": "If a Ravnos' unbirth name is used against them, the name-wielding opponent receives a bonus equal to the Ravnos' Bane Severity to resist their Discipline powers. Additionally, the Ravnos affected receives the same penalty to resist supernatural powers used by the opponent."
+        },
+        "compulsion": {
+            "name": "Tempting Fate",
+            "description": "When faced with their next problem, the Daredevil must attempt the solution with the most dangerous or daring of actions, anything less incurs a two-dice penalty. Context appropriate flashy or risky attempts may even net bonus dice. They are free to convince others to follow them in their actions but may as well go it alone. This Compulsion persists until the problem is solved or further attempts become impossible to accomplish."
+        },
+        "link": "https://vtm.paradoxwikis.com/Ravnos"
+    },
+    {
+        "name": "Salubri",
+        "description": "Few exist in the modern nights; unlike other clans they are not embraced on a whim. They instead are carefully chosen by their sire to complete a task through their inquisitive nature, nigh-pious with the tenacity to survive through difficulties.",
+        "disciplines_to_link": ["Dominate", "Fortitude", "Auspex"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Hunted",
+            "description": "Their vitae has a unique trait where, when another clan partakes in their Blood, they find it difficult to pull away. Once a non-Salubri has consumed at least one Hunger level worth, they must make a Hunger Frenzy test at difficulty 2 + the Salubri's Bane Severity (3 + the Salubri's Bane Severity for Banu Haqim). If they fail, they will continue to consume the Salubri until pried off. Additionally, each Salubri has a third eye, and while it's not always human-like, it's always present and cannot be obscured by supernatural powers. In addition to this, whenever they activate a Discipline, the eye weeps vitae, with its intensity correlating to the level of the Discipline used. The Blood flowing from the eye can trigger a Hunger Frenzy test from nearby vampires with Hunger 4 or more."
+        },
+        "variant_bane": {
+            "name": "Asceticism",
+            "description": "Whenever their Hunger is below three, the Salubri suffer a penalty equal to their Bane Severity to any Discipline dice pools. The bleeding third eye still remains."
+        },
+        "compulsion": {
+            "name": "Affective Empathy",
+            "description": "Overwhelmed with empathy for a personal problem of someone else, any action not taken to help the person mitigate their suffering is at a two-dice penalty. This Compulsion continues until the sufferer's burden is eased, a more critical problem arises, or the scene ends."
+        },
+        "link": "https://vtm.paradoxwikis.com/Salubri"
+    },
+    {
+        "name": "Thin Blood",
+        "description": "With the thickness of vitae dwindling, the Duskborn are too far removed from Caine to share his curse or reap the full benefits of vampirism. Thrust into the world of the night and disliked by True Kindred, they must survive the night by finding a way in or a way out.",
+        "disciplines_to_link": ["Thin Blood Alchemy"],
+        "game_versions": ["V5"],
+        "bane": null,
+        "variant_bane": null,
+        "compulsion": null,
+        "link": "https://vtm.paradoxwikis.com/Thin_Blood"
+    },
+    {
+        "name": "Toreador",
+        "description": "Seekers of emotion, romance, cruelty, beauty… anything that can remind them of lost humanity and sentiment. Artists, divas, social butterflies, appraisers and lovers of beauty.",
+        "disciplines_to_link": ["Auspex", "Celerity", "Presence"],
+        "game_versions": ["V4", "V5"],
+        "link": "https://vtm.paradoxwikis.com/Toreador",
+        "bane": {
+            "name": "Aesthetic Fixation",
+            "description": "A desire for beauty takes control over the Toreador and when in lesser surroundings they suffer. When they are within settings they find less than beautiful, they take a penalty equal to their Bane Severity when using Disciplines"
+        },
+        "variant_bane": {
+            "name": "Agonizing Empathy",
+            "description": "Whenever their feeding causes Aggravated damage to a mortal, the vampire suffers the same damage in return but cannot receive more than their Bane Severity. This damage is generally Aggravated. The damage itself is reflected as vivid bruising wherever they bit their victim as internal bleeding takes place."
+        },
+        "compulsion": {
+            "name": "Obsession",
+            "description": "Utterly obsessed with a single thing, the Toreador cannot speak of anything but that object. Be it a person, a piece of artwork, a blood splatter in the right lighting, or the sunrise itself, they cannot take their attention from it. Any other actions receive a two-dice penalty. This Compulsion lasts until they can no longer perceive the object or the scene ends."
+        }
+    },
+    {
+        "name": "Tremere",
+        "description": "Scholars and counselors of the occult; heavily hit by the Second Inquisition, the warlocks guard their secrets of sorcery, hoarding and searching for knowledge.",
+        "disciplines_to_link": ["Auspex", "Dominate", "Thaumaturgy", "Blood Sorcery"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Deficient Blood",
+            "description": "Before the fall of Vienna, they were defined by their rigid hierarchy of Blood Bonds within the Pyramid. After the fall, their Blood weakened and rejected all prior connections. Tremere are unable to Blood Bond other Kindred, though they can still be Bound by other clans. Tremere can still Blood Bond mortals to do their bidding, but their corrupted vitae must be drunk an additional amount of times equal to their Bane Severity."
+        },
+        "variant_bane": {
+            "name": "Stolen Blood ",
+            "description": "When performing a Blood Surge they need to make Rouse Checks equal to their Bane Severity. If these Rouse Checks increase their Hunger to 5 or higher, they can choose whether to back off their Blood Surge or perform it to then hit Hunger 5 afterward immediately."
+        },
+        "compulsion": {
+            "name": "Perfectionism",
+            "description": "Nothing but the best will satisfy them, anything less than exceptional still instills a profound sense of failure. When afflicted by this, the Warlock suffers a two-dice penalty to all dice pools. The penalty is reduced to one die when actions are being repeated and removed entirely on a second repeat. This does not end till they managed to score a critical win on a Skill roll or the scene ends."
+        },
+        "link": "https://vtm.paradoxwikis.com/Tremere"
+    },
+    {
+        "name": "Tzimisce",
+        "description": "The Dragons of Kindred, this clan embraces to own. They do not care if their charges live well, but aim simply to control. Those who are loyal to the Tzimisce are often so more out of fear than love.",
+        "disciplines_to_link": ["Animalism", "Dominate", "Protean"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Grounded",
+            "description": "Each Tzimisce must select a specific charge, be it physical location, a group of people, or something even more esoteric. Each night they must sleep surrounded by their charge, if they do not, they sustain aggravated Willpower damage equal to their Bane Severity upon waking the following night."
+        },
+        "variant_bane": {
+            "name": "Cursed Courtesy",
+            "description": "If they wish to enter a place of residence uninvited they must spend Willpower equal to their Bane Severity, this penalty also applies to their Discipline pools while they are there. The invitation inside can only be made by someone who lives there and this does not occur in uninhabited homes or public places. Tzimisce with this Bane cannot take the uninvited Folkloric Block."
+        },
+        "compulsion": {
+            "name": "Covetousness",
+            "description": "When afflicted with this compulsion they become obsessed with owning something in the scene, be it an object, or property to a living person. Whatever it is, they must add it to their collection and any action taken not towards this purpose incurs a two-dice penalty. This penalty continues until ownership is established or the object of their desire is unobtainable"
+        },
+        "link": "https://vtm.paradoxwikis.com/Tzimisce"
+    },
+    {
+        "name": "Ventrue",
+        "description": "Vampiric aristocracy, guardians of the Traditions and a pillar of the Camarilla, businessmen and politicians, sometimes archaic traditionalists, sometimes true entrepreneurs.",
+        "disciplines_to_link": ["Dominate", "Fortitude", "Presence"],
+        "game_versions": ["V4", "V5"],
+        "bane": {
+            "name": "Rarefied Tastes",
+            "description": "When the Ventrue drinks the blood of a mortal who does not fall within their preference, they must spend Willpower equal to their Bane Severity else they will vomit the blood from their bodies unable to slake their hunger. Their preferences range within the clan, some looking for descendants of a certain nationality to soldiers suffering from PTSD. With a Resolve + Awareness test, they can sense if a mortal they seek to feed from fits within their preference. At character creation, their preference should be selected. "
+        },
+        "variant_bane": {
+            "name": "Hierarchy",
+            "description": "The Ventrue suffer a penalty equal to their Bane Severity to their Discipline dice pools when using them against a vampire of a lower generation. They must also spend Willpower equal to this penalty if they wish to directly attack other vampires of a lower generation."
+        },
+        "compulsion": {
+            "name": "Arrogance",
+            "description": "Fueled by the beast and their natural desire for power, the Ventrue must force someone to obey a command given. The order cannot be given through supernatural means such as Dominate. Until they satisfy the requirements, they receive a two-dice penalty for any actions not directly related to leadership"
+        },
+        "link": "https://vtm.paradoxwikis.com/Ventrue"
+    }
+]
