@@ -33,7 +33,7 @@ jobs:
         strategy:
             fail-fast: true
             matrix:
-                python-version: ["3.13", "3.14"]
+                python-version: ["3.14"]
         steps:
             - name: Checkout repository
               uses: actions/checkout@v6
@@ -53,7 +53,7 @@ jobs:
               run: uv run duty test
 
             - name: Upload coverage to Codecov
-              if: ${{ inputs.run-coverage && matrix.python-version == '3.13' }}
+              if: ${{ inputs.run-coverage && matrix.python-version == '3.14' }}
               uses: codecov/codecov-action@v5
               with:
                   files: .cache/coverage.xml

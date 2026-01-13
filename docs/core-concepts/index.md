@@ -19,12 +19,6 @@ Valentina Noir is based on a customized version of the World of Darkness system.
 -   [Dice rolling system](rolling-dice/)
 -   [Experience system](experience/)
 
----
-
----
-
----
-
 ## World of Darkness Editions
 
 We support the following World of Darkness editions and do our best to support character's created for each of these editions.
