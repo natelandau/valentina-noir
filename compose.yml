@@ -1,0 +1,50 @@
+---
+services:
+  api:
+    build: .
+    hostname: vapi
+    container_name: vapi
+    env_file:
+      - .env
+      - .env.secret
+    environment:
+      - VAPI_MONGO_URI=mongodb://mongodb:27017/
+      - VAPI_REDIS__URL=redis://:redispassword@redis:6379/0
+    volumes:
+      - .dev:/app/.dev
+    depends_on:
+      - redis
+      - mongodb
+    ports:
+      - 8000:8000
+    develop:
+      watch:
+        - action: rebuild
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./uv.lock
+          target: /app/uv.lock
+        - action: rebuild
+          path: ./pyproject.toml
+          target: /app/pyproject.toml
+        - action: rebuild
+          path: ./Dockerfile
+
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning --requirepass redispassword
+    volumes:
+      - .dev/redis:/data
+    attach: false # suppress logs to console
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    volumes:
+      - .dev/mongodb:/data/db
+    attach: false # suppress logs to console

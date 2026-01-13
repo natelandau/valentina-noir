@@ -1,0 +1,22 @@
+[
+    {
+        "name": "Ragabash",
+        "description": "Ragabash are known as the tricksters of Garou society, those who are given the greatest ability to challenge tradition and question the way things are done. They may be impulsive or lighthearted, willing to point out others flaws. They can also be crafty or cynical, mocking the traditions that brought the Garou to where they are now. Their goal is generally to make others appear dumb or put the status quo into question, and they may accomplish this through practical jokes or with disrespecting a vain opponent with clever wordplay."
+    },
+    {
+        "name": "Theurge",
+        "description": "Theurge are known as the mystics of Garou society, the auspice with the greatest skill for interacting with spirits. They may be eerie, sage, or both. They may be daydreamers or visionaries, while others are ritualists working with purpose. Their connection with the spirit world may be from time-tested, traditional, or experimental methods. Some affect strange objects, or some beguile the spirits with subtle movements of the body."
+    },
+    {
+        "name": "Philodox",
+        "description": "Philodox are known as the judges and arbiters for Garou society, they are the ones with the responsibilities to mediate conflict. They interpret the ways of the Garou and know the letter of the Litany. They may be gentle or thunderous, looking for all the facts or strictly committed to the rules and customs instead of the circumstances. They may be judgmental or compassionate. Some look for insightful courses inspired by centuries of legend and lore; others gather facts and create plans that change as new information is discovered."
+    },
+    {
+        "name": "Galliard",
+        "description": "Galliard are known as the storytellers and lore-keepers of the Garou. They are the ones who maintain the oral records of the Garou and uphold the spirit of the Litany. These Garou might be obnoxious spot-light stealers or the subdued storyteller. The accomplishments of their pack may be embellished or they instead recite everything down to the most minute detail. Some find fulfillment in the performance itself, while others find it in telling gripping stories."
+    },
+    {
+        "name": "Ahroun",
+        "description": "The Ahrouns are known to be the warriors of Garou Society. During times of war, they are often looked towards for their leadership. Ahrouns may be frenzied creature of fangs and claws, or they may be tactical predators inflicting terror through methodical approaches. Their packmates might see them as inspiring due to their fearlessness or dislike them as reckless gorehounds."
+    }
+]

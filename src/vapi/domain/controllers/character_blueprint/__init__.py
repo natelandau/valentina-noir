@@ -1,0 +1,1 @@
+"""Character sheet domain."""

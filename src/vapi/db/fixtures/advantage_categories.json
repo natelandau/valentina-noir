@@ -1,0 +1,157 @@
+[
+    {
+        "name": "Linguistics",
+        "description": "Merits covering language and ability to communicate/understand spoken or written language.",
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Looks",
+        "description": "Related to the appearance, supernaturally influenced or not, of the character.",
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Substance Abuse",
+        "description": "Find comfort in substances to cope with the world.",
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Archaic Flaws",
+        "description": "May only be taken by Ancilla or older vampires.",
+        "character_classes": ["VAMPIRE"]
+    },
+    {
+        "name": "Bonding",
+        "description": "These can be used together to change how the Blood Bond works. Some were introduced in Gehenna War",
+        "character_classes": ["VAMPIRE"]
+    },
+    {
+        "name": "Feeding",
+        "description": "Related to the act of feeding, taking one does not mean the character must take the others.",
+        "character_classes": ["VAMPIRE"]
+    },
+    {
+        "name": "Mythic",
+        "description": "Related to mythos of the character's class.",
+        "character_classes": ["VAMPIRE", "WEREWOLF", "GHOUL"]
+    },
+    {
+        "name": "Psychological",
+        "description": "Some of these merits are related to cults or other beliefs.",
+        "character_classes": ["VAMPIRE"]
+    },
+    { "name": "Contagion", "description": "Related to blood-borne illnesses.", "character_classes": ["VAMPIRE"] },
+    { "name": "Blood Ties", "description": null, "character_classes": ["VAMPIRE"] },
+    {
+        "name": "Other",
+        "description": null,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Allies",
+        "description": "Individuals who are willing to help a character or another human who has a vendetta against them.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Contacts",
+        "description": "Individuals who can get the character information, items or other things of value.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Fame",
+        "description": "The public notoriety of a character, for good or bad.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Influence",
+        "description": "The ability they have to influence how other groups react or act.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Safe House",
+        "description": "Represents the degree of security and distinction beyond a place to sleep and eat. Without dots in this background, the character still has a place to call home but it is not secure or special in any way.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Herd",
+        "description": "Merits and flaws pertaining to the vampire's ability to have free access to mortal blood through forming a group of willing vessels.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE"]
+    },
+    {
+        "name": "Mask",
+        "description": "The status of the kindred's identification.",
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    { "name": "Mawla", "description": "Relationship with other Vampires", "character_classes": ["VAMPIRE"] },
+    {
+        "name": "Resources",
+        "description": "Ready access to money",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Retainers",
+        "description": "Loyal servants or assistants; they can be paid employees, longtime stewards, ghouls, blood bonds, etc.",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Status",
+        "description": "Reputation and standing within their community or faction",
+        "requires_parent": true,
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "The World of Academia",
+        "description": "Merits gained from higher education.",
+        "character_classes": ["HUNTER", "MORTAL"]
+    },
+    {
+        "name": "Nutritionist",
+        "description": "The ability to use food to heal either themselves or others",
+        "character_classes": ["HUNTER", "MORTAL"]
+    },
+    {
+        "name": "Mental Feats",
+        "description": "Merits & Flaws pertaining to the Hunter's mental flexibility and aptitude, and the consequences of pushing them too far.",
+        "character_classes": ["HUNTER", "MORTAL"]
+    },
+    {
+        "name": "Psychologist Traits",
+        "description": "Flaws related to either the toll being a Hunter takes on one's mind or just a personality that places them in danger before they'd ever become a Hunter.",
+        "character_classes": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Supernatural Situations",
+        "description": "Sometimes Hunters are touched by the supernatural, but these Merits and Flaws do not make them anything other than mortal. Hunters with these Merits do not count as monstrous or Unnatural in relation to the Endowment Edges.",
+        "character_classes": ["HUNTER", "MORTAL"]
+    },
+    {
+        "name": "Mentor",
+        "description": "Relationship with either one or a group who look out for them, offer them guidance, information, or aid in other ways once in awhile. Generally a group costs one more dot than a single mentor of the equivalent level, for example, a cell of three experienced Hunters might be a four dot group",
+        "requires_parent": true,
+        "character_classes": ["WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"]
+    },
+    {
+        "name": "Caern",
+        "description": "Merits that cover Caern, an important core to werewolf society and practices. They are nodes of spiritual energy and finding, maintaining and defending one can take a lot effort. These Merits allow a character to get a headstart.",
+        "character_classes": ["WEREWOLF"]
+    },
+    {
+        "name": "Day Job",
+        "description": "The character holds down a job that can serve as an alibi or protection for their true nature. However, these Merits don't necessarily give worthy income; that would be `Resources`.",
+        "character_classes": ["WEREWOLF"]
+    },
+    { "name": "Rites", "description": "Related to the performance of Rites.", "character_classes": ["WEREWOLF"] },
+    {
+        "name": "Spirit Pact",
+        "description": "The Garou has entered into a mutual pact with a lesser spirit. The spirit will act as an ally and provide help with the best of its abilities when summoned.",
+        "requires_parent": true,
+        "character_classes": ["WEREWOLF"]
+    }
+]

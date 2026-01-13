@@ -1,0 +1,1 @@
+"""Character generation module."""
