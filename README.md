@@ -1,8 +1,8 @@
-[![Changelog](https://img.shields.io/github/v/release/natelandau/valentina-noir?include_prereleases&label=changelog)](https://github.com/natelandau/valentina-noir/releases)[![Tests](https://github.com/natelandau/valentina-noir/actions/workflows/automated-tests.yml/badge.svg)](https://github.com/natelandau/valentina-noir/actions/workflows/automated-tests.yml)[![codecov](https://codecov.io/gh/natelandau/valentina-noir/graph/badge.svg?token=jxh4KfYKk7)](https://codecov.io/gh/natelandau/valentina-noir)
+[![Changelog](https://img.shields.io/github/v/release/natelandau/valentina-noir?include_prereleases&label=changelog)](https://github.com/natelandau/valentina-noir/releases) [![Tests](https://github.com/natelandau/valentina-noir/actions/workflows/automated-tests.yml/badge.svg)](https://github.com/natelandau/valentina-noir/actions/workflows/automated-tests.yml) [![codecov](https://codecov.io/gh/natelandau/valentina-noir/graph/badge.svg?token=jxh4KfYKk7)](https://codecov.io/gh/natelandau/valentina-noir)
 
 # Valentina Noir
 
-Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games.
+Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games. Developer documentation is available at [docs.valentina-noir.com](https://docs.valentina-noir.com).
 
 ## Technologies
 
