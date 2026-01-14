@@ -60,12 +60,13 @@ async def test_cached_route_with_default_ttl(
 
 async def test_uncached_route_returns_no_cache_header(
     client: AsyncClient,
+    token_company_user: dict[str, str],
 ) -> None:
     """Verify route with cache=False returns no-cache Cache-Control header."""
     # Given a request to the health endpoint which has cache=False
 
     # When making a request to the uncached endpoint
-    response = await client.get(urls.System.HEALTH)
+    response = await client.get(urls.System.HEALTH, headers=token_company_user)
 
     # Then the response should have cache-control header with no-cache
     assert response.status_code == HTTP_200_OK
