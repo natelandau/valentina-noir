@@ -159,6 +159,9 @@ async def base_company() -> Company:
     if not company:
         company = CompanyFactory().build(is_archived=False, name="Base Company")
         await company.save()
+    else:
+        company.settings = CompanyFactory().build().settings
+        await company.save()
 
     return company
 

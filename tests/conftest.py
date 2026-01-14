@@ -55,7 +55,6 @@ def anyio_backend():
 def patch_settings():
     """Patch the settings to use the test mongo client."""
     settings.mongo.uri = TEST_MONGO_URI
-    settings.mongo.database_name = TEST_DATABASE_NAME
     settings.log.level = LogLevel.WARNING
     settings.log.file_path = None
     settings.log.request_log_fields = ["path", "method"]
@@ -139,6 +138,8 @@ async def _cleanup_non_constant_db_data(
         DictionaryTerm,
         Note,
         QuickRoll,
+        S3Asset,
+        Trait,
         User,
     )
 
@@ -156,6 +157,8 @@ async def _cleanup_non_constant_db_data(
         Note,
         QuickRoll,
         User,
+        S3Asset,
+        Trait,
     ]:
         if model == Company and base_company_id:
             await model.find(Company.id != base_company_id).delete_many()
@@ -169,6 +172,8 @@ async def _cleanup_non_constant_db_data(
             await model.find(CampaignBook.id != base_campaign_book_id).delete_many()
         elif model == CampaignChapter and base_campaign_chapter_id:
             await model.find(CampaignChapter.id != base_campaign_chapter_id).delete_many()
+        elif model == Trait:
+            await model.find(Trait.is_custom == True).delete_many()
         else:
             await model.delete_all()
 
@@ -198,24 +203,35 @@ async def cleanup_database(
         )
 
 
+@pytest.fixture(scope="session")
+def worker_id(request):
+    """Get xdist worker ID."""
+    if hasattr(request.config, "workerinput"):
+        return request.config.workerinput["workerid"]
+    return "master"
+
+
 @pytest.fixture(autouse=True, scope="session")
-async def init_test_database(request) -> AsyncMongoClient:
+async def init_test_database(request, worker_id: str) -> AsyncMongoClient:
     """Initialize the database."""
     settings.mongo.uri = TEST_MONGO_URI
-    settings.mongo.database_name = TEST_DATABASE_NAME
+
+    db_name = f"vapi-pytest-{worker_id}" if worker_id != "master" else "vapi-pytest"
+    settings.mongo.database_name = db_name
+
     client = AsyncMongoClient(TEST_MONGO_URI, tz_aware=True, serverSelectionTimeoutMS=1800)
 
     # Initialize beanie with the Sample document class and a database
     await init_database(
         client=client,
-        database=client[TEST_DATABASE_NAME],
+        database=client[db_name],
     )
 
     # Bootstrap the database with constants
     await bootstrap_async(do_setup_database=False)
 
     yield client
-    await client.drop_database(TEST_DATABASE_NAME)
+    await client.drop_database(db_name)
     await client.close()
 
 
@@ -228,7 +244,9 @@ async def fx_redis(redis_service: RedisService) -> AsyncGenerator[Redis]:
 
 
 @pytest.fixture(name="client")
-async def fx_client(redis: Redis, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
+async def fx_client(
+    redis: Redis, monkeypatch: pytest.MonkeyPatch, init_test_database: AsyncMongoClient
+) -> AsyncIterator[AsyncClient]:
     """Create an async HTTP client that connects to the app."""
     from httpx import ASGITransport, AsyncClient
 
