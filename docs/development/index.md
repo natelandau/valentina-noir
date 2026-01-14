@@ -2,6 +2,8 @@
 
 Valentina Noir is a REST API for building World of Darkness tabletop gaming applications. This guide covers the essential concepts for integrating with the API.
 
+When you're read to start making requests, read the **[full API Documentation](https://api.valentina-noir.com/docs)** for detailed information on the API endpoints and how to use them.
+
 ## Getting Started
 
 1. At this time, API keys are only available to developers who have been granted access by the Valentina Noir team. Please contact us at [support@valentina-noir.com](mailto:support@valentina-noir.com) to request an API key.
