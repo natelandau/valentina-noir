@@ -23,7 +23,7 @@ We use [uv](https://docs.astral.sh/uv/) for dependency management. To start deve
 3. Navigate to the repository: `cd valentina-noir`
 4. Install dependencies with uv: `uv sync --all-groups`
 5. Activate your virtual environment: `source .venv/bin/activate`
-6. Install [prek](https://prek.j178.dev/) git hooks: `prek install` y
+6. Install [prek](https://prek.j178.dev/) git hooks: `prek install`
 
 ## Running the development environment
 

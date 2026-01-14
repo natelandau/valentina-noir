@@ -68,10 +68,12 @@ jobs:
                   fi
                   echo "CURRENT_TAG=refs/tags/${TAG}" >> $GITHUB_ENV
 
-            - name: Build the package
-              shell: bash
-              run: uv build
+            # DEPRECATED: We do not offer valentina-noir as a package
+            # - name: Build the package
+            #   shell: bash
+            #   run: uv build
 
+            # DEPRECATED: This release notes generation is no longer used
             # - name: Release Notes
             #   run: git log $(git describe HEAD~ --tags --abbrev=0)..HEAD --pretty='format:* %h %s' --no-merges >> ".github/RELEASE-TEMPLATE.md"
 
@@ -86,9 +88,6 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   body: ${{join(fromJson(steps.generate_notes.outputs.notes).notes, '')}}
-                  files: |
-                      dist/*-${{env.PROJECT_VERSION}}-py3-none-any.whl
-                      dist/*-${{env.PROJECT_VERSION}}.tar.gz
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

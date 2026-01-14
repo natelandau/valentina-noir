@@ -43,6 +43,7 @@ jobs:
               with:
                   python-version: ${{ matrix.python-version }}
 
+            # DEPRECATED: We do not use the MongoDB GitHub Action b/c it ran into rate limit issues with Docker Hub
             # - name: Start MongoDB
             #   uses: supercharge/mongodb-github-action@1.12.1
             #   with:

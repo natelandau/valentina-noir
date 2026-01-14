@@ -325,11 +325,10 @@ class RateLimitMiddleware(ASGIMiddleware):
             str: The identifier for the request.
         """
         api_key = request.headers.get(AUTH_HEADER_KEY, None)
-
-        encryption_key = (
-            settings.rate_limit.encryption_key or settings.authentication_encryption_key
-        )
         if api_key:
+            encryption_key = (
+                settings.rate_limit.encryption_key or settings.authentication_encryption_key
+            )
             return hmac.new(
                 key=encryption_key.encode(),
                 msg=api_key.encode("utf-8"),
@@ -337,9 +336,12 @@ class RateLimitMiddleware(ASGIMiddleware):
             ).hexdigest()[:16]
 
         return (
-            request.headers.get(AUTH_HEADER_KEY)
-            or request.headers.get("X-Forwarded-For")
-            or request.headers.get("X-Real-IP")
+            request.headers.get("X-Forwarded-For", None)
+            or request.headers.get("x-forwarded-for", None)
+            or request.headers.get("X-Real-IP", None)
+            or request.headers.get("x-real-ip", None)
+            or request.headers.get("CF-Connecting-IP", None)
+            or request.headers.get("cf-connecting-ip", None)
             or getattr(request.client, "host", "anonymous")
         )
 
