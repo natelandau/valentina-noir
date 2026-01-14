@@ -17,7 +17,6 @@ from litestar.openapi.spec import (
     Contact,
     ExternalDocumentation,
     License,
-    Link,
     OpenAPIHeader,
     SecurityScheme,
     Server,
