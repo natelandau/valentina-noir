@@ -22,6 +22,7 @@ pytestmark = pytest.mark.anyio
 
 test_data = {
     "GET": [
+        vapi_urls.System.HEALTH,
         vapi_urls.Dictionaries.LIST,
         vapi_urls.Dictionaries.DETAIL,
         vapi_urls.Characters.LIST,
@@ -148,7 +149,7 @@ async def test_no_company_permission(
 
     for method, urls in test_data.items():
         for url in urls:
-            if url == vapi_urls.Companies.LIST:
+            if url in [vapi_urls.Companies.LIST, vapi_urls.System.HEALTH]:
                 continue
             base_url = url.replace(":str", "").format(
                 company_id=base_company.id,

@@ -30,7 +30,6 @@ class SystemController(Controller):
         cache=False,
         summary="Check system health",
         description="Verify the API and its dependencies are operational. Returns database and cache connectivity status. No authentication required.",
-        exclude_from_auth=True,
     )
     async def check_system_health(self) -> Response[dto.SystemHealth]:
         """Check database available and returns app config info."""
