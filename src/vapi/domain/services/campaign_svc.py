@@ -2,27 +2,12 @@
 
 from __future__ import annotations
 
-from vapi.constants import MAX_DANGER, MAX_DESPERATION
 from vapi.db.models import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
 
 
 class CampaignService:
     """Campaign service."""
-
-    def validate_desperation_level(self, desperation_level: int) -> int:
-        """Validate the desperation level."""
-        if desperation_level < 0 or desperation_level > MAX_DESPERATION:
-            msg = f"Desperation level must be between 0 and {MAX_DESPERATION}"
-            raise ValidationError(detail=msg)
-        return desperation_level
-
-    def validate_danger_level(self, danger_level: int) -> int:
-        """Validate the danger level."""
-        if danger_level < 0 or danger_level > MAX_DANGER:
-            msg = f"Danger level must be between 0 and {MAX_DANGER}"
-            raise ValidationError(detail=msg)
-        return danger_level
 
     async def get_next_book_number(self, campaign: Campaign) -> int:
         """Get the next book number for a campaign."""

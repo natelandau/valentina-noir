@@ -21,26 +21,6 @@ pytestmark = pytest.mark.anyio
 class TestCampaignService:
     """Test the campaign service."""
 
-    async def test_validate_desperation_level(self) -> None:
-        """Test the validate_desperation_level method."""
-        service = CampaignService()
-        with pytest.raises(ValidationError):
-            service.validate_desperation_level(-1)
-        with pytest.raises(ValidationError):
-            service.validate_desperation_level(MAX_DESPERATION + 1)
-        assert service.validate_desperation_level(0) == 0
-        assert service.validate_desperation_level(MAX_DESPERATION) == MAX_DESPERATION
-
-    async def test_validate_danger_level(self) -> None:
-        """Test the validate_danger_level method."""
-        service = CampaignService()
-        with pytest.raises(ValidationError):
-            service.validate_danger_level(-1)
-        with pytest.raises(ValidationError):
-            service.validate_danger_level(MAX_DANGER + 1)
-        assert service.validate_danger_level(0) == 0
-        assert service.validate_danger_level(MAX_DANGER) == MAX_DANGER
-
     async def test_get_next_book_number_first_book(
         self,
         campaign_factory: Callable[[], Campaign],

@@ -15,14 +15,12 @@ from vapi.db.models import Campaign, CampaignBook
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.guards import (
-    developer_company_user_guard,
-    user_storyteller_guard,
-)
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import dto
+from .guards import user_can_manage_campaign
 
 
 class CampaignBookController(Controller):
@@ -78,7 +76,7 @@ class CampaignBookController(Controller):
         summary="Create book",
         operation_id="createCampaignBook",
         description="Create a new book within a campaign. The book number is assigned automatically based on existing books. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         dto=dto.PostBookDTO,
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
@@ -98,7 +96,7 @@ class CampaignBookController(Controller):
         summary="Update book",
         operation_id="updateCampaignBook",
         description="Modify a book's properties. Only include fields that need to be changed. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         dto=dto.PatchBookDTO,
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
@@ -117,7 +115,7 @@ class CampaignBookController(Controller):
         summary="Delete book",
         operation_id="deleteCampaignBook",
         description="Remove a book from a campaign. Remaining books will be automatically renumbered. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
     async def delete_book(self, book: CampaignBook) -> None:
@@ -130,7 +128,7 @@ class CampaignBookController(Controller):
         summary="Renumber book",
         operation_id="renumberCampaignBook",
         description="Change a book's position in the campaign sequence. Other books will be automatically reordered. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
     async def renumber_book(
