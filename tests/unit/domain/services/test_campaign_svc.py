@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vapi.constants import MAX_DANGER, MAX_DESPERATION
 from vapi.domain.services import CampaignService
 from vapi.lib.exceptions import ValidationError
 

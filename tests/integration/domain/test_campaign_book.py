@@ -9,10 +9,8 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
-    HTTP_403_FORBIDDEN,
 )
 
-from vapi.constants import UserRole
 from vapi.db.models import Campaign, CampaignBook
 from vapi.domain.urls import Campaigns
 
