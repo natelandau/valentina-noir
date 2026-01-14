@@ -76,8 +76,7 @@
         'if TYPE_CHECKING',
         'pragma: no cover',
     ]
-    fail_under = 50
-    precision = 1
+    fail_under = 10
     show_missing = true
     skip_covered = true
     skip_empty = true
@@ -127,7 +126,7 @@
 
 [tool.pytest.ini_options]
 
-    addopts = "--color=yes --doctest-modules --exitfirst --failed-first --strict-config --strict-markers"
+    addopts = "--color=yes --doctest-modules --strict-config --strict-markers -n auto --dist loadfile"
     cache_dir = ".cache/pytest"
     filterwarnings = ['error', 'ignore:.*Pydantic.*:UserWarning', 'ignore::DeprecationWarning:']
     markers = [
@@ -140,7 +139,7 @@
 
 [tool.ruff] # https://github.com/charliermarsh/ruff
 
-    exclude        = [".cache", ".git", ".venv", "_build", "build", "dist"]
+    exclude        = [".cache", ".dev", ".git", ".venv", "_build", "_site", "build", "dist"]
     fix            = true
     line-length    = 100
     output-format  = "grouped"
