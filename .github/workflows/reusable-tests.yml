@@ -61,7 +61,7 @@ jobs:
 
             - name: Run tests
               shell: bash
-              run: uv run duty test
+              run: uv run duty test -- -n 0
 
             - name: Upload coverage to Codecov
               if: ${{ inputs.run-coverage && matrix.python-version == '3.14' }}
