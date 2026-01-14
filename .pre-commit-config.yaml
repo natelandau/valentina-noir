@@ -135,14 +135,3 @@ repos:
           uv\.lock|
           pyproject\.toml
           )
-
-ci:
-  autofix_commit_msg: |
-    fix: auto fixes from pre-commit.com hooks
-
-    for more information, see https://pre-commit.ci
-  autofix_prs: false
-  autoupdate_commit_msg: "build: pre-commit autoupdate"
-  autoupdate_schedule: quarterly
-  skip: [pytest, deptry, mypy, shellcheck]
-  submodules: false

@@ -24,8 +24,7 @@ flowchart LR
         direction TB
         T1[Token]
         T2[Token]
-        T3[Token]
-        T4[...]
+        T3[...]
     end
 
     Refill[Refill Rate] -->|adds tokens| bucket

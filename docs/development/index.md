@@ -1,4 +1,4 @@
-# Development
+# Developing Your Client
 
 Valentina Noir is a REST API for building World of Darkness tabletop gaming applications. This guide covers the essential concepts for integrating with the API.
 
