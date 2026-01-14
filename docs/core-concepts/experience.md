@@ -4,7 +4,7 @@ icon: lucide/star
 
 # Experience
 
-In Valentina Noir, experience is granted to the player, not to specific characters and is tracked at the campaign level. Players may play multiple characters and are able to share their experience between them.
+In Valentina Noir, experience is granted to the player, not to specific characters, and is tracked at the campaign level. Players may play multiple characters and are able to share their experience between them.
 
 Experience can be spent on the following:
 

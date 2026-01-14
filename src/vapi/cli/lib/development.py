@@ -189,7 +189,8 @@ def write_api_keys_to_file(api_key_users: list[APIKeyUser]) -> None:
     """Write the API keys to a file."""
     DEV_FOLDER.mkdir(parents=True, exist_ok=True)
 
-    API_KEYS_FILE.unlink()
+    if API_KEYS_FILE.exists():
+        API_KEYS_FILE.unlink()
     API_KEYS_FILE.touch(exist_ok=True)
 
     for user in api_key_users:

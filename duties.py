@@ -158,6 +158,7 @@ def update(ctx: Context) -> None:
     ctx.run(["uv", "lock", "--upgrade"], title="update uv lock")
     ctx.run(["uv", "sync"], title="update uv sync")
     ctx.run(["prek", "autoupdate"], title="prek autoupdate")
+    ctx.run(["uvx", "uv-upx", "upgrade", "run"], title="uv-upx upgrade")
 
 
 @duty()

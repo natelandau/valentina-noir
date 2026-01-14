@@ -17,7 +17,7 @@ When you include an `Idempotency-Key` header with your request, the API will:
 3. If not cached, process the request and cache the response for 1 hour
 
 ```mermaid
-flowchart TD
+flowchart LR
     A[Client sends request with Idempotency-Key] --> B{Key exists in cache?}
     B -->|Yes| C{Request body matches?}
     C -->|Yes| D[Return cached response]

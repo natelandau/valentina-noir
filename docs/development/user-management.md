@@ -8,9 +8,9 @@ icon: lucide/users
 
 User authorization controls what actions end-users can perform within your application. Unlike [developer authentication](authentication.md) which secures API access, user authorization governs in-game permissions for players, storytellers, and administrators.
 
-!!! important "Your Responsibility"
+!!! warning "Your Responsibility"
 
-    Valentina Noir does not authenticate end-users directly. Your application is responsible for authenticating users through your own system (OAuth, passwords, etc.) and then linking them to Valentina user accounts.
+    **Valentina Noir does not authenticate end-users directly.** Your application is responsible for authenticating users through your own system (OAuth, passwords, etc.) and then linking them to Valentina user accounts.
 
 ## Cross-Client Access
 
