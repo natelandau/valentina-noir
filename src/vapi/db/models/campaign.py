@@ -58,8 +58,8 @@ class CampaignBook(CampaignBase):
 class Campaign(CampaignBase):
     """Campaign model."""
 
-    desperation: Annotated[int | None, Field(le=MAX_DESPERATION, default=0)] = 0
-    danger: Annotated[int | None, Field(le=MAX_DANGER, default=0)] = 0
+    desperation: Annotated[int | None, Field(le=MAX_DESPERATION, ge=0, default=0)] = 0
+    danger: Annotated[int | None, Field(le=MAX_DANGER, ge=0, default=0)] = 0
 
     company_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 

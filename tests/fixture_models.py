@@ -517,9 +517,21 @@ async def company_factory() -> CompanyFactory:
         CompanyFactory: A company factory object.
     """
 
-    async def _company_factory(**kwargs: Any) -> Company:
+    async def _company_factory(
+        dev_admin_id: PydanticObjectId | str = None, **kwargs: Any
+    ) -> Company:
         company = CompanyFactory().build(**kwargs)
         await company.save()
+
+        if dev_admin_id:
+            developer = await Developer.get(dev_admin_id)
+            developer.companies.append(
+                CompanyPermissions(
+                    company_id=company.id, name=company.name, permission=CompanyPermission.ADMIN
+                )
+            )
+            await developer.save()
+
         return company
 
     return _company_factory

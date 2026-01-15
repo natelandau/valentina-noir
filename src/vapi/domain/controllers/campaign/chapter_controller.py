@@ -15,14 +15,12 @@ from vapi.db.models import CampaignBook, CampaignChapter
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.guards import (
-    developer_company_user_guard,
-    user_storyteller_guard,
-)
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import dto
+from .guards import user_can_manage_campaign
 
 
 class CampaignChapterController(Controller):
@@ -81,7 +79,7 @@ class CampaignChapterController(Controller):
         summary="Create chapter",
         operation_id="createCampaignChapter",
         description="Create a new chapter within a book. The chapter number is assigned automatically based on existing chapters. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         dto=dto.PostChapterDTO,
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
@@ -102,7 +100,7 @@ class CampaignChapterController(Controller):
         summary="Update chapter",
         operation_id="updateCampaignChapter",
         description="Modify a chapter's properties. Only include fields that need to be changed. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         dto=dto.PatchChapterDTO,
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
@@ -123,7 +121,7 @@ class CampaignChapterController(Controller):
         summary="Delete chapter",
         operation_id="deleteCampaignChapter",
         description="Remove a chapter from a book. Remaining chapters will be automatically renumbered. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
     async def delete_chapter(self, chapter: CampaignChapter) -> None:
@@ -136,7 +134,7 @@ class CampaignChapterController(Controller):
         summary="Renumber chapter",
         operation_id="renumberCampaignChapter",
         description="Change a chapter's position within a book. Other chapters will be automatically reordered. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
     async def renumber_chapter(

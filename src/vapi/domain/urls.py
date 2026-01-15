@@ -98,8 +98,6 @@ class Campaigns:
     UPDATE = DETAIL
     DELETE = DETAIL
     STATISTICS = f"{DETAIL}/statistics"
-    SET_DESPERATION = f"{DETAIL}/desperation"
-    SET_DANGER = f"{DETAIL}/danger"
 
     # Campaign assets
     ASSETS = f"{DETAIL}/assets"

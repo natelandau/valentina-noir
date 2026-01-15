@@ -7,23 +7,20 @@ from typing import Annotated
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.dto import DTOData  # noqa: TC002
-from litestar.handlers import delete, get, patch, post, put
+from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 from pydantic import ValidationError as PydanticValidationError
 
 from vapi.db.models import Campaign, Company
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import CampaignService
 from vapi.domain.utils import patch_internal_objects
-from vapi.lib.guards import (
-    developer_company_user_guard,
-    user_storyteller_guard,
-)
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import dto
+from .guards import user_can_manage_campaign
 
 
 class CampaignController(Controller):
@@ -79,7 +76,7 @@ class CampaignController(Controller):
         summary="Create campaign",
         operation_id="createCampaign",
         description="Create a new campaign. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         dto=dto.PostCampaignDTO,
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
@@ -104,7 +101,7 @@ class CampaignController(Controller):
         summary="Update campaign",
         operation_id="updateCampaign",
         description="Modify a campaign's properties. Only include fields that need to be changed. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         dto=dto.PatchCampaignDTO,
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
@@ -124,40 +121,10 @@ class CampaignController(Controller):
         summary="Delete campaign",
         operation_id="deleteCampaign",
         description="Remove a campaign from the system. Associated characters and content will no longer be accessible. Requires storyteller privileges.",
-        guards=[user_storyteller_guard],
+        guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_eapi_key_cache,
     )
     async def delete_campaign(self, campaign: Campaign) -> None:
         """Delete a campaign by ID."""
         campaign.is_archived = True
         await campaign.save()
-
-    @put(
-        path=urls.Campaigns.SET_DESPERATION,
-        summary="Set desperation level",
-        operation_id="setDesperationLevel",
-        description="Update the campaign's desperation level.",
-        guards=[user_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
-    )
-    async def set_desperation(self, campaign: Campaign, desperation: int) -> Campaign:
-        """Set desperation for a campaign."""
-        service = CampaignService()
-        campaign.desperation = service.validate_desperation_level(desperation)
-        await campaign.save()
-        return campaign
-
-    @put(
-        path=urls.Campaigns.SET_DANGER,
-        summary="Set danger level",
-        operation_id="setDangerLevel",
-        description="Update the campaign's danger level.",
-        guards=[user_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
-    )
-    async def set_danger(self, campaign: Campaign, danger: int) -> Campaign:
-        """Set danger for a campaign."""
-        service = CampaignService()
-        campaign.danger = service.validate_danger_level(danger)
-        await campaign.save()
-        return campaign
