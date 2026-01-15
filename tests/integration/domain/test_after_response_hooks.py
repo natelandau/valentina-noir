@@ -86,7 +86,8 @@ class TestAfterResponseHooks:
         assert audit.developer_id == base_developer_company_owner.id
         assert audit.summary == "Create user"
         assert (
-            audit.handler == "vapi.domain.controllers.user.controllers.UserController.create_user"
+            audit.handler
+            == "vapi.domain.controllers.user.user_controller.UserController.create_user"
         )
         assert audit.handler_name == "create_user"
         assert audit.operation_id == "createUser"

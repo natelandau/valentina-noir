@@ -53,7 +53,7 @@ async def test_get_password_hash() -> None:
 async def test_verify_password(
     valid_password: str,
     tested_password: str,
-    expected_result: bool,  # noqa: FBT001
+    expected_result: bool,
 ) -> None:
     """Test that the encryption key is formatted correctly."""
     secret_str_hash = await crypt.get_password_hash(valid_password)

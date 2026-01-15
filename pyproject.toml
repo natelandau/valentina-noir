@@ -189,6 +189,7 @@
             "ERA001",  # Commented out code
             "F403",
             "F405",    # May be undefined from type imports
+            "FBT001",  # Boolean-typed positional argument in function definition
             "PGH003",  # Use specific rule codes when ignoring type issues
             "PLC0415", # Imports should be at top of file
             "PLR0913",
