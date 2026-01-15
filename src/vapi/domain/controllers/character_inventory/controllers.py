@@ -14,13 +14,11 @@ from pydantic import ValidationError as PydanticValidationError
 from vapi.db.models import Character, CharacterInventory
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import dto
-
-# TODO: Add guards for player ownership or storyteller for patches and deletions.
 
 
 class CharacterInventoryController(Controller):
@@ -76,6 +74,7 @@ class CharacterInventoryController(Controller):
         description="Add a new item to a character's inventory. Specify the item type, name, description, and any mechanical properties.",
         dto=dto.PostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
         self, *, character: Character, data: DTOData[CharacterInventory]
@@ -95,6 +94,7 @@ class CharacterInventoryController(Controller):
         description="Modify an inventory item's properties. Only include fields that need to be changed.",
         dto=dto.PatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def update_inventory_item(
         self,
@@ -117,6 +117,7 @@ class CharacterInventoryController(Controller):
         operation_id="deleteCharacterInventoryItem",
         description="Remove an item from a character's inventory. This action cannot be undone.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_inventory_item(self, *, inventory_item: CharacterInventory) -> None:
         """Delete an inventory item by ID."""

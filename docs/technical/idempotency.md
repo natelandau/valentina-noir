@@ -31,14 +31,18 @@ flowchart LR
 
 Add the `Idempotency-Key` header to any `POST`, `PUT`, or `PATCH` request:
 
-```shell
+```yaml
 POST /api/v1/companies/{company_id}/users/{user_id}/campaigns HTTP/1.1
+---
 Host: api.valentina-noir.com
 Content-Type: application/json
 X-API-KEY: your-api-key
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 
-{"name": "My Campaign"}
+{
+    "name": "My Campaign"
+    ...
+}
 ```
 
 ## Key Format

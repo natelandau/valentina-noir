@@ -38,7 +38,7 @@ This means you can make rapid requests in bursts up to the bucket capacity, then
 
 Every response includes rate limit headers:
 
-```
+```yaml
 RateLimit-Policy: "default";q=50;w=60
 RateLimit: "default";r=47;t=0
 ```
@@ -65,7 +65,7 @@ Describes your current rate limit status:
 
 Given these headers:
 
-```
+```yaml
 RateLimit-Policy: "default";q=50;w=60
 RateLimit: "default";r=10;t=0
 ```

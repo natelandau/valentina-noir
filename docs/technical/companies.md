@@ -51,12 +51,12 @@ This hierarchical structure ensures every request is scoped to a specific compan
 
 Create a new company to establish a separate namespace for a gaming group:
 
-```shell
+```yaml
 POST /api/v1/companies HTTP/1.1
+---
 Host: api.valentina-noir.com
 X-API-KEY: your-api-key-here
 Content-Type: application/json
-
 {
     "name": "My Gaming Group"
     ...

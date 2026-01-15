@@ -28,7 +28,6 @@ from vapi.constants import AUTH_HEADER_KEY
 
 from .tags import APITags
 
-# TODO: Update the description
 API_DESCRIPTION = dedent("""\
         Welcome to the detailed API documentation for Valentina Noir where each endpoint is documented in detail.
 

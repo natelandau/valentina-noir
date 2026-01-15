@@ -26,8 +26,8 @@ Administrators for each company are able to configure the following settings to 
 
 ## Character Management
 
-**Free Trait Updates** - Determines when a player can update traits and values for their own character _without needing to spend experience points_. Useful if errors were made during character creation or the Storyteller grants a skill to a character during the game.
+**Free Trait Updates** - Determines when a player can update traits and values for their own character _without needing to spend experience points_. Useful if errors were made during character creation or the Storyteller grants a skill to a character during the game. **Note:** This setting only applies to the character owner - Storytellers and admins can change a trait's value on any character at any time bypassing the experience point cost.
 
--   `UNRESTRICTED` - The player who owns the character can change a trait's value on any character at any time bypassing the experience point cost. (Default)
+-   `UNRESTRICTED` - The player who owns the character can change a trait's value at any time bypassing the experience point cost. (Default)
 -   `WITHIN 24 HOURS` - The player who owns the character can change a trait's value for free within `24 hours` of the character being created.
 -   `STORYTELLER ONLY` - Only the storyteller can change add a new trait or change a trait's value bypassing the experience point cost.

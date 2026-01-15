@@ -20,8 +20,9 @@ At this time, API keys are only available to developers who have been granted ac
 
 Include the `X-API-KEY` header with every request:
 
-```shell
+```yaml
 GET /api/v1/companies HTTP/1.1
+---
 Host: api.valentina-noir.com
 X-API-KEY: your-api-key-here
 ```

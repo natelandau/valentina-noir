@@ -24,7 +24,6 @@ from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import dto
 
-# TODO: Add guards for player ownership or storyteller for create, update and delete.
 CREATE_CHARACTER_DOCUMENTATION = """\
 Create a new character within a campaign. Provide character details and initial trait values. The character is associated with both a creator and a player user.
 """
