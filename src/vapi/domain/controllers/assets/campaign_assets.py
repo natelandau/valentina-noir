@@ -68,7 +68,7 @@ class CampaignAssetsController(BaseAssetsController):
         summary="Upload a campaign asset",
         operation_id="uploadCampaignAsset",
         description="Upload an asset for a campaign.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def handle_file_upload(
         self,
@@ -90,7 +90,7 @@ class CampaignAssetsController(BaseAssetsController):
         summary="Delete a campaign asset",
         operation_id="deleteCampaignAsset",
         description="Delete an asset for a campaign.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_campaign_asset(self, campaign: Campaign, asset: S3Asset) -> None:
         """Delete a campaign asset."""

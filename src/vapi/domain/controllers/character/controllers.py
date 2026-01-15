@@ -117,7 +117,7 @@ class CharacterController(Controller):
         summary="Create character",
         operation_id="createCharacter",
         description=CREATE_CHARACTER_DOCUMENTATION,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_character(
         self,
@@ -165,7 +165,7 @@ class CharacterController(Controller):
         description="Modify a character's properties such as name, biography, or other details. Only include fields that need to be changed. Use trait-specific endpoints to modify character traits.",
         dto=dto.CharacterPatchDTO,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_character(
         self,
@@ -192,7 +192,7 @@ class CharacterController(Controller):
         operation_id="deleteCharacter",
         description="Remove a character from the campaign. The character's data will no longer be accessible.",
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_character(self, character: Character) -> None:
         """Delete a character."""

@@ -77,7 +77,7 @@ class DictionaryTermController(Controller):
         operation_id="createDictionaryTerm",
         description="Add a new term to the company's dictionary. Include the term, definition, and optional synonyms for discovery.",
         dto=dto.DictionaryTermPostDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_dictionary_term(
         self, company: Company, data: DTOData[DictionaryTerm]
@@ -98,7 +98,7 @@ class DictionaryTermController(Controller):
         operation_id="updateDictionaryTerm",
         description="Modify a dictionary term's definition or synonyms. Only include fields that need to be changed.",
         dto=dto.DictionaryTermPatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_dictionary_term(
         self, dictionary_term: DictionaryTerm, data: DTOData[DictionaryTerm]
@@ -121,7 +121,7 @@ class DictionaryTermController(Controller):
         summary="Delete dictionary term",
         operation_id="deleteDictionaryTerm",
         description="Remove a term from the company's dictionary. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_dictionary_term(self, dictionary_term: DictionaryTerm) -> None:
         """Delete a dictionary term by ID."""

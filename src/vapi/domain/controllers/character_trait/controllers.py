@@ -81,7 +81,7 @@ class CharacterTraitController(Controller):
         summary="Assign trait to character",
         operation_id="assignTraitToCharacter",
         description="Assign an existing trait to a character with an initial value. The trait must not already exist on the character and the value must not exceed the trait's maximum.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def assign_trait_to_character(
         self,
@@ -97,7 +97,7 @@ class CharacterTraitController(Controller):
         summary="Create custom trait",
         operation_id="createCustomTrait",
         description="Create a new custom trait unique to this character. Specify the trait name, category, and optional cost configuration. Custom traits are useful for specializations or homebrew content.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_custom_trait(
         self,
@@ -114,7 +114,7 @@ class CharacterTraitController(Controller):
         operation_id="increaseCharacterTraitValue",
         description="Increase a character trait's value. The value cannot exceed the trait's maximum.",
         guards=[user_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def increase_character_trait_value(
         self,
@@ -131,7 +131,7 @@ class CharacterTraitController(Controller):
         operation_id="decreaseCharacterTraitValue",
         description="Decrease a character trait's value. The value cannot go below zero.",
         guards=[user_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def decrease_character_trait_value(
         self,
@@ -149,7 +149,7 @@ class CharacterTraitController(Controller):
         description="Purchase trait dots with experience points. The XP will be spent from the users' campaign experience points.",
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def purchase_character_trait_xp(
         self,
@@ -172,7 +172,7 @@ class CharacterTraitController(Controller):
         description="Refund trait dots with experience points. By downgrading the number of dots on the trait, the user will be refunded the experience points spent on the trait dots. The XP will be added to the user's campaign experience points.",
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def refund_character_trait_xp(
         self,
@@ -195,7 +195,7 @@ class CharacterTraitController(Controller):
         description="Purchase starting points with experience points. The XP will be spent from the users' campaign experience points.",
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def purchase_character_trait_starting_points(
         self,
@@ -218,7 +218,7 @@ class CharacterTraitController(Controller):
         description="Refund starting points with experience points. The XP will be added to the user's campaign experience points.",
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def refund_character_trait_starting_points(
         self,
@@ -239,7 +239,7 @@ class CharacterTraitController(Controller):
         summary="Remove trait from character",
         operation_id="deleteCharacterTrait",
         description="Remove a trait from a character. If the trait is custom, it will also be deleted. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_character_trait(
         self,

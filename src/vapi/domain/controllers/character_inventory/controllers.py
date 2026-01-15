@@ -75,7 +75,7 @@ class CharacterInventoryController(Controller):
         operation_id="createCharacterInventoryItem",
         description="Add a new item to a character's inventory. Specify the item type, name, description, and any mechanical properties.",
         dto=dto.PostDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_inventory_item(
         self, *, character: Character, data: DTOData[CharacterInventory]
@@ -94,7 +94,7 @@ class CharacterInventoryController(Controller):
         operation_id="updateCharacterInventoryItem",
         description="Modify an inventory item's properties. Only include fields that need to be changed.",
         dto=dto.PatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_inventory_item(
         self,
@@ -116,7 +116,7 @@ class CharacterInventoryController(Controller):
         summary="Delete inventory item",
         operation_id="deleteCharacterInventoryItem",
         description="Remove an item from a character's inventory. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_inventory_item(self, *, inventory_item: CharacterInventory) -> None:
         """Delete an inventory item by ID."""

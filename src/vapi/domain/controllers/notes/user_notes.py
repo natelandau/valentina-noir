@@ -68,7 +68,7 @@ class UserNoteController(BaseNoteController):
         operation_id="createUserNote",
         description="Attach a new note to a user. Notes support markdown formatting for rich text content.",
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_user_note(self, *, user: User, data: DTOData[Note]) -> Note:
         """Create a user note."""
@@ -80,7 +80,7 @@ class UserNoteController(BaseNoteController):
         operation_id="updateUserNote",
         description="Modify a user note's content. Only include fields that need to be changed.",
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_user_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a user note by ID."""
@@ -91,7 +91,7 @@ class UserNoteController(BaseNoteController):
         summary="Delete user note",
         operation_id="deleteUserNote",
         description="Remove a note from a user. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_user_note(self, *, note: Note) -> None:
         """Delete a user note by ID."""

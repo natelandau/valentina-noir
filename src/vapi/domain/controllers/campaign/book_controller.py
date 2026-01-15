@@ -78,7 +78,7 @@ class CampaignBookController(Controller):
         description="Create a new book within a campaign. The book number is assigned automatically based on existing books. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
         dto=dto.PostBookDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_book(self, *, campaign: Campaign, data: DTOData[CampaignBook]) -> CampaignBook:
         """Create a book."""
@@ -98,7 +98,7 @@ class CampaignBookController(Controller):
         description="Modify a book's properties. Only include fields that need to be changed. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
         dto=dto.PatchBookDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_book(self, book: CampaignBook, data: DTOData[CampaignBook]) -> CampaignBook:
         """Update a book by ID."""
@@ -116,7 +116,7 @@ class CampaignBookController(Controller):
         operation_id="deleteCampaignBook",
         description="Remove a book from a campaign. Remaining books will be automatically renumbered. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_book(self, book: CampaignBook) -> None:
         """Delete a book by ID."""
@@ -129,7 +129,7 @@ class CampaignBookController(Controller):
         operation_id="renumberCampaignBook",
         description="Change a book's position in the campaign sequence. Other books will be automatically reordered. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def renumber_book(
         self, book: CampaignBook, data: dto.BookChapterNumberDTO

@@ -82,7 +82,7 @@ class UserController(Controller):
         description="Create a new user within a company. The user will be automatically added to the company's user list. Requires admin-level access to the company.",
         guards=[developer_company_admin_guard],
         dto=dto.PostUserDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_user(self, data: DTOData[User], company: Company) -> User:
         """Create a new user."""
@@ -104,7 +104,7 @@ class UserController(Controller):
         description="Modify a user's properties. Only include fields that need to be changed. Requires admin-level access to the company.",
         guards=[developer_company_admin_guard],
         dto=dto.PatchUserDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_user(self, user: User, data: DTOData[User]) -> User:
         """Update a user by ID."""
@@ -123,7 +123,7 @@ class UserController(Controller):
         operation_id="deleteUser",
         description="Remove a user from the company. The user will be removed from the company's user list. Requires admin-level access to the company.",
         guards=[developer_company_admin_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_user(self, user: User, company: Company) -> None:
         """Delete a user by ID."""

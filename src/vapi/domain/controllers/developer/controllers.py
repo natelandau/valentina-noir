@@ -48,7 +48,7 @@ class DeveloperController(Controller):
         summary="Regenerate API key",
         operation_id="regenerateDeveloperMeApiKey",
         description="Generate a new API key for your account. The current key will be immediately invalidated and all cached authentication data will be cleared.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
         """Generate a new API key for an Developer."""
@@ -69,7 +69,7 @@ class DeveloperController(Controller):
         operation_id="updateDeveloperMe",
         description="Modify your developer profile. Only include fields that need to be changed; omitted fields remain unchanged.",
         dto=dto.PatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_developer(
         self, *, developer: Developer, data: DTOData[Developer]

@@ -44,7 +44,7 @@ class ExperienceController(Controller):
         summary="Add XP",
         operation_id="addXp",
         description="Award experience points to a user for a specific campaign. The XP is added to both current and total XP pools.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_xp_to_campaign_experience(
         self, company: Company, user: User, data: dto.ExperienceAddRemove
@@ -64,7 +64,7 @@ class ExperienceController(Controller):
         summary="Remove XP",
         operation_id="removeXp",
         description="Deduct experience points from a user's current XP pool. Returns an error if the user has insufficient XP.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_xp_from_campaign_experience(
         self, company: Company, user: User, data: dto.ExperienceAddRemove
@@ -84,7 +84,7 @@ class ExperienceController(Controller):
         summary="Add cool points",
         operation_id="addCpToCampaignExperience",
         description="Award cool points to a user for a specific campaign. Cool points are converted to XP automatically based on the configured exchange rate.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_cp_to_campaign_experience(
         self, company: Company, user: User, data: dto.ExperienceAddRemove
