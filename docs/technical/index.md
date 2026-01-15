@@ -1,3 +1,7 @@
+---
+icon: lucide/code
+---
+
 # Developing Your Client
 
 Valentina Noir is a REST API for building World of Darkness tabletop gaming applications. This guide covers the essential concepts for integrating with the API.
@@ -16,16 +20,18 @@ When you're read to start making requests, read the **[full API Documentation](h
 
 All requests require the `X-API-KEY` header:
 
-```shell
+```yaml
 GET /api/v1/companies HTTP/1.1
+---
 Host: api.valentina-noir.com
 X-API-KEY: your-api-key-here
 ```
 
 For `POST`, `PUT`, and `PATCH` requests, include an `Idempotency-Key` header to enable safe retries:
 
-```shell
+```yaml
 POST /api/v1/companies/{company_id}/users HTTP/1.1
+---
 Host: api.valentina-noir.com
 X-API-KEY: your-api-key-here
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
@@ -36,7 +42,7 @@ Content-Type: application/json
 
 All API endpoints use the following base URL:
 
-```
+```shell
 https://api.valentina-noir.com/api/v1
 ```
 

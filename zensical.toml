@@ -9,8 +9,43 @@
     site_name = "Valentina Noir"
     site_url  = "https://valentina-noir.com"
 
+    # IMPORTANT: Do not reorder these nav items.
+    nav = [
+        { "Home" = ["index.md"] },
+        { "Core Concepts" = [
+            "concepts/index.md",
+            { "Characters" = "concepts/characters.md" },
+            { "Character Blueprint" = "concepts/character_blueprint.md" },
+            { "Character Concepts" = "concepts/character_concepts.md" },
+            { "Company Settings" = "concepts/company_settings.md" },
+            { "Experience" = "concepts/experience.md" },
+            { "Dice Rolling" = "concepts/dice.md" },
+            { "Storytellers" = "concepts/storytellers.md" }
+        ] },
+        { "Technical Details" = [
+            "technical/index.md",
+            { "Authentication" = "technical/authentication.md" },
+            { "Companies" = "technical/companies.md" },
+            { "Error Handling" = "technical/errors.md" },
+            { "Idempotency" = "technical/idempotency.md" },
+            { "Pagination" = "technical/pagination.md" },
+            { "Rate Limiting" = "technical/rate_limits.md" },
+            { "User Management" = "technical/user_management.md" },
+        ] },
+        { "Full API Reference" = [
+            "https://api.valentina-noir.com/docs",
+        ] },
+        { "Roadmap" = [
+            "roadmap/index.md",
+        ] },
+    ]
+
     [project.theme]
+        font.text = "Inter"
+        font.code = "Source Code Pro"
         features = [
+            "content.code.annotate",
+            "content.code.copy",
             "navigation.footer",
             "navigation.indexes",
             "navigation.sections",
@@ -53,6 +88,7 @@
 
     [project.markdown_extensions.abbr]
     [project.markdown_extensions.admonition]
+    [project.markdown_extensions.pymdownx.details]
     [project.markdown_extensions.def_list]
     [project.markdown_extensions.footnotes]
     [project.markdown_extensions.tables]

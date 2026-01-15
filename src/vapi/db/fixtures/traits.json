@@ -25,7 +25,8 @@
                         "game_versions": ["V4", "V5"],
                         "min_value": 1,
                         "max_value": 5,
-                        "show_when_zero": true
+                        "show_when_zero": true,
+                        "link": "https://vtm.paradoxwikis.com/Strength"
                     },
                     {
                         "name": "Dexterity",

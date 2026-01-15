@@ -2,3 +2,11 @@
 .md-main__inner {
   margin-bottom: 1.5rem;
 }
+
+/* Make the grid full width. */
+
+/*
+.md-grid {
+  max-width: initial;
+}
+*/
