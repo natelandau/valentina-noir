@@ -98,12 +98,11 @@ class LogLevel(Enum):
     CRITICAL = "CRITICAL"
 
 
-class PermissionsManageTraits(Enum):
+class PermissionsFreeTraitChanges(Enum):
     """Permissions for updating character trait values."""
 
     UNRESTRICTED = "UNRESTRICTED"  # Default
     WITHIN_24_HOURS = "WITHIN_24_HOURS"
-    CHARACTER_OWNER = "CHARACTER_OWNER"
     STORYTELLER = "STORYTELLER"
 
 

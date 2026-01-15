@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import timedelta
+from typing import TYPE_CHECKING, assert_never
 
 from beanie.operators import In
 from pydantic import ValidationError as PydanticValidationError
 
-from vapi.constants import CharacterClass
+from vapi.constants import CharacterClass, PermissionsFreeTraitChanges, UserRole
 from vapi.db.models import Character, CharacterTrait, Trait
-from vapi.lib.exceptions import ConflictError, ValidationError
+from vapi.lib.exceptions import ConflictError, PermissionDeniedError, ValidationError
+from vapi.utils.time import time_now
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from .validation_svc import GetModelByIdValidationService
@@ -17,6 +19,7 @@ from .validation_svc import GetModelByIdValidationService
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
+    from vapi.db.models import Company, User
     from vapi.domain.controllers.character_trait.dto import CharacterTraitCreateCustomDTO
 
 
@@ -27,7 +30,7 @@ class CharacterTraitService:
     instead of relying on model hooks.
     """
 
-    def _is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
+    def _guard_is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
         """Check if increasing the trait value is safe.
 
         Args:
@@ -42,7 +45,7 @@ class CharacterTraitService:
             msg = f"Trait can not be raised above max value of {character_trait.trait.max_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
 
-    def _is_safe_decrease(self, character_trait: CharacterTrait, decrease_by: int) -> None:
+    def _guard_is_safe_decrease(self, character_trait: CharacterTrait, decrease_by: int) -> None:
         """Check if decreasing the trait value is safe.
 
         Args:
@@ -53,6 +56,60 @@ class CharacterTraitService:
         if new_value < character_trait.trait.min_value:  # type: ignore [attr-defined]
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
+
+    def guard_user_can_manage_character(self, character: Character, user: User) -> bool:
+        """Guard to check if the user is able to update traits on the given character.  Users must be a storyteller or admin or the owner of the character.
+
+        Args:
+            character: The character to check the permissions for.
+            user: The user to check the permissions for.
+
+        Returns:
+            True if the user is able to update traits on the given character, False otherwise.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to update traits on the given character.
+        """
+        if character.user_player_id == user.id or user.role in [
+            UserRole.STORYTELLER,
+            UserRole.ADMIN,
+        ]:
+            return True
+        raise PermissionDeniedError(detail="User does not own this character")
+
+    def _guard_permissions_free_trait_changes(
+        self, company: Company, character: Character, user: User
+    ) -> bool:
+        """Guard to check if the user has permissions to update traits without spending experience points.
+
+        Args:
+            company: The company to check the permissions for.
+            character: The character to check the permissions for.
+            user: The user to check the permissions for.
+
+        Returns:
+            True if the user has permissions to update traits without spending experience points, False otherwise.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to update traits without spending experience points.
+        """
+        if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
+            return True
+
+        match company.settings.permission_free_trait_changes:
+            case PermissionsFreeTraitChanges.UNRESTRICTED:
+                return True
+            case PermissionsFreeTraitChanges.STORYTELLER:
+                if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
+                    return True
+            case PermissionsFreeTraitChanges.WITHIN_24_HOURS:
+                if character.date_created + timedelta(days=1) > time_now():
+                    return True
+
+            case _:
+                assert_never(company.settings.permission_free_trait_changes)
+
+        raise PermissionDeniedError(detail="No rights to access this resource")
 
     async def calculate_upgrade_cost(
         self, character_trait: CharacterTrait, increase_by: int
@@ -195,18 +252,29 @@ class CharacterTraitService:
         await self.update_werewolf_total_renown(character_trait)
 
     async def add_constant_trait_to_character(
-        self, character: Character, trait_id: PydanticObjectId, value: int
+        self,
+        *,
+        company: Company,
+        character: Character,
+        user: User,
+        trait_id: PydanticObjectId,
+        value: int,
     ) -> CharacterTrait:
         """Add a constant trait to a character.
 
         Args:
+            company: The company to check the permissions for.
             character: The character to add the trait to.
+            user: The user adding the trait.
             trait_id: The ID of the trait to add.
             value: The value to add to the trait.
 
         Returns:
             The character trait that was added.
         """
+        self.guard_user_can_manage_character(character, user)
+        self._guard_permissions_free_trait_changes(company, character, user)
+
         trait = await GetModelByIdValidationService().get_trait_by_id(trait_id)
 
         # Idempotent operation - if the trait already exists, update the value
@@ -243,17 +311,31 @@ class CharacterTraitService:
         return character_trait
 
     async def create_custom_trait(
-        self, character: Character, data: CharacterTraitCreateCustomDTO
+        self,
+        *,
+        company: Company,
+        character: Character,
+        user: User,
+        data: CharacterTraitCreateCustomDTO,
     ) -> CharacterTrait:
         """Create a custom trait and add it to a character.
 
         Args:
+            company: The company to check the permissions for.
             character: The character to create the trait for.
+            user: The user creating the trait.
             data: The data to create the trait with.
 
         Returns:
             The character trait that was created.
+
+        Raises:
+            ConflictError: If the trait already exists on the character.
+            ValidationError: If the trait cannot be created.
         """
+        self.guard_user_can_manage_character(character, user)
+        self._guard_permissions_free_trait_changes(company, character, user)
+
         all_character_traits = await CharacterTrait.find(
             CharacterTrait.character_id == character.id,
             fetch_links=True,
@@ -289,18 +371,29 @@ class CharacterTraitService:
         return character_trait
 
     async def increase_character_trait_value(
-        self, character_trait: CharacterTrait, num_dots: int
+        self,
+        *,
+        company: Company,
+        character: Character,
+        user: User,
+        character_trait: CharacterTrait,
+        num_dots: int,
     ) -> CharacterTrait:
         """Increase a character trait value.
 
         Args:
+            company: The company to check the permissions for.
+            character: The character to increase the trait for.
+            user: The user increasing the trait.
             character_trait: The trait to increase.
             num_dots: The amount to increase the trait by.
 
         Returns:
             The character trait that was increased.
         """
-        self._is_safe_increase(character_trait, num_dots)
+        self.guard_user_can_manage_character(character, user)
+        self._guard_permissions_free_trait_changes(company, character, user)
+        self._guard_is_safe_increase(character_trait, num_dots)
 
         character_trait.value += num_dots
         await character_trait.save()
@@ -308,18 +401,33 @@ class CharacterTraitService:
         return character_trait
 
     async def decrease_character_trait_value(
-        self, character_trait: CharacterTrait, num_dots: int
+        self,
+        *,
+        company: Company,
+        character: Character,
+        user: User,
+        character_trait: CharacterTrait,
+        num_dots: int,
     ) -> CharacterTrait:
         """Decrease a character trait value.
 
         Args:
+            company: The company to check the permissions for.
+            character: The character to decrease the trait for.
+            user: The user decreasing the trait.
             character_trait: The trait to decrease.
             num_dots: The amount to decrease the trait by.
 
         Returns:
             The character trait that was decreased.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to decrease the trait.
+            ValidationError: If the trait cannot be lowered below min value.
         """
-        self._is_safe_decrease(character_trait, num_dots)
+        self.guard_user_can_manage_character(character, user)
+        self._guard_permissions_free_trait_changes(company, character, user)
+        self._guard_is_safe_decrease(character_trait, num_dots)
 
         character_trait.value -= num_dots
         await character_trait.save()
@@ -327,19 +435,26 @@ class CharacterTraitService:
         return character_trait
 
     async def purchase_trait_value_with_xp(
-        self, character: Character, character_trait: CharacterTrait, num_dots: int
+        self,
+        *,
+        character: Character,
+        user: User,
+        character_trait: CharacterTrait,
+        num_dots: int,
     ) -> CharacterTrait:
         """Purchase a character trait value with xp.
 
         Args:
             character: The character to purchase the trait for.
+            user: The user purchasing the trait.
             character_trait: The trait to purchase.
             num_dots: The amount to purchase the trait by.
 
         Returns:
             The character trait that was purchased.
         """
-        self._is_safe_increase(character_trait, num_dots)
+        self.guard_user_can_manage_character(character, user)
+        self._guard_is_safe_increase(character_trait, num_dots)
 
         cost = await self.calculate_upgrade_cost(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
@@ -352,16 +467,30 @@ class CharacterTraitService:
         return character_trait
 
     async def refund_trait_value_with_xp(
-        self, character: Character, character_trait: CharacterTrait, num_dots: int
+        self,
+        *,
+        character: Character,
+        user: User,
+        character_trait: CharacterTrait,
+        num_dots: int,
     ) -> CharacterTrait:
         """Refund a character trait value with xp.
 
         Args:
             character: The character to refund the trait for.
+            user: The user refunding the trait.
             character_trait: The trait to refund.
             num_dots: The amount to refund the trait by.
+
+        Returns:
+            The character trait that was refunded.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to refund the trait.
+            ValidationError: If the trait cannot be refunded below min value.
         """
-        self._is_safe_decrease(character_trait, num_dots)
+        self.guard_user_can_manage_character(character, user)
+        self._guard_is_safe_decrease(character_trait, num_dots)
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
         await target_user.add_xp(character.campaign_id, savings, update_total=False)
@@ -372,19 +501,25 @@ class CharacterTraitService:
         return character_trait
 
     async def purchase_trait_increase_with_starting_points(
-        self, character: Character, character_trait: CharacterTrait, num_dots: int
+        self, *, user: User, character: Character, character_trait: CharacterTrait, num_dots: int
     ) -> CharacterTrait:
         """Purchase a character trait value with starting points.
 
         Args:
+            user: The user purchasing the trait.
             character: The character to purchase the trait for.
             character_trait: The trait to purchase.
             num_dots: The amount to purchase the trait by.
 
         Returns:
             The character trait that was purchased.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to purchase the trait.
+            ValidationError: If the trait cannot be purchased above max value.
         """
-        self._is_safe_increase(character_trait, num_dots)
+        self.guard_user_can_manage_character(character, user)
+        self._guard_is_safe_increase(character_trait, num_dots)
 
         cost = await self.calculate_upgrade_cost(character_trait, num_dots)
         if character.starting_points < cost:
@@ -399,19 +534,26 @@ class CharacterTraitService:
         return character_trait
 
     async def refund_trait_decrease_with_starting_points(
-        self, character: Character, character_trait: CharacterTrait, num_dots: int
+        self, *, user: User, character: Character, character_trait: CharacterTrait, num_dots: int
     ) -> CharacterTrait:
         """Refund a character trait value with starting points.
 
         Args:
+            user: The user refunding the trait.
             character: The character to refund the trait for.
             character_trait: The trait to refund.
             num_dots: The amount to refund the trait by.
 
         Returns:
             The character trait that was refunded.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to refund the trait.
+            ValidationError: If the trait cannot be refunded below min value.
         """
-        self._is_safe_decrease(character_trait, num_dots)
+        self.guard_user_can_manage_character(character, user)
+        self._guard_is_safe_decrease(character_trait, num_dots)
+
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
         character.starting_points += savings
         await character.save()

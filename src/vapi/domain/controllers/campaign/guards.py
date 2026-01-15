@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, assert_never
 from vapi.constants import PermissionManageCampaign, UserRole
 from vapi.db.models import Company
 from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError
-from vapi.lib.guards import user_json_from_store
+from vapi.lib.guards import user_json_from_cache
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -23,7 +23,7 @@ async def user_can_manage_campaign(connection: ASGIConnection, _: BaseRouteHandl
     if not company or company.is_archived:
         raise NotFoundError(detail=f"Company '{company_id}' not found")
 
-    user = await user_json_from_store(connection)
+    user = await user_json_from_cache(connection)
 
     match company.settings.permission_manage_campaign:
         case PermissionManageCampaign.UNRESTRICTED:

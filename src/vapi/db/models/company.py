@@ -9,8 +9,8 @@ from vapi.constants import (
     DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES,
     DEFAULT_CHARACTER_AUTGEN_XP_COST,
     PermissionManageCampaign,
+    PermissionsFreeTraitChanges,
     PermissionsGrantXP,
-    PermissionsManageTraits,
 )
 
 from .base import BaseDocument, HashedBaseModel
@@ -39,8 +39,8 @@ class CompanySettings(HashedBaseModel):
         default=PermissionManageCampaign.UNRESTRICTED
     )
     permission_grant_xp: PermissionsGrantXP = Field(default=PermissionsGrantXP.UNRESTRICTED)
-    permission_manage_traits: PermissionsManageTraits = Field(
-        default=PermissionsManageTraits.UNRESTRICTED
+    permission_free_trait_changes: PermissionsFreeTraitChanges = Field(
+        default=PermissionsFreeTraitChanges.UNRESTRICTED
     )
 
 

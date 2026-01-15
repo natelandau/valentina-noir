@@ -10,8 +10,8 @@ from vapi.config import settings
 from vapi.constants import (
     DiceSize,
     PermissionManageCampaign,
+    PermissionsFreeTraitChanges,
     PermissionsGrantXP,
-    PermissionsManageTraits,
     RollResultType,
     UserRole,
 )
@@ -36,7 +36,7 @@ async def test_get_company_options(
     assert response.json()["companies"] == {
         "PermissionManageCampaign": [x.name for x in PermissionManageCampaign],
         "PermissionsGrantXP": [x.name for x in PermissionsGrantXP],
-        "PermissionsManageTraits": [x.name for x in PermissionsManageTraits],
+        "PermissionsFreeTraitChanges": [x.name for x in PermissionsFreeTraitChanges],
     }
     assert response.json()["users"] == {
         "UserRole": [x.name for x in UserRole],

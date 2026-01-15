@@ -570,12 +570,13 @@ async def character_factory(base_company, base_user, base_campaign) -> Character
     async def _character_factory(
         company_id: PydanticObjectId | str = base_company.id,
         user_player_id: PydanticObjectId | str = base_user.id,
+        user_creator_id: PydanticObjectId | str = base_user.id,
         campaign_id: PydanticObjectId | str = base_campaign.id,
         **kwargs: Any,
     ) -> Character:
         return await _create_character(
             company_id=company_id,
-            user_creator_id=user_player_id,
+            user_creator_id=user_creator_id,
             user_player_id=user_player_id,
             campaign_id=campaign_id,
             **kwargs,

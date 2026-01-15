@@ -19,8 +19,8 @@ from vapi.constants import (
     HunterEdgeType,
     InventoryItemType,
     PermissionManageCampaign,
+    PermissionsFreeTraitChanges,
     PermissionsGrantXP,
-    PermissionsManageTraits,
     RollResultType,
     UserRole,
 )
@@ -66,7 +66,7 @@ class OptionsController(Controller):
             "companies": {
                 "PermissionManageCampaign": [x.name for x in PermissionManageCampaign],
                 "PermissionsGrantXP": [x.name for x in PermissionsGrantXP],
-                "PermissionsManageTraits": [x.name for x in PermissionsManageTraits],
+                "PermissionsFreeTraitChanges": [x.name for x in PermissionsFreeTraitChanges],
             },
             "characters": {
                 "AbilityFocus": [x.name for x in AbilityFocus],
