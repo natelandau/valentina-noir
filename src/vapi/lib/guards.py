@@ -117,8 +117,8 @@ async def _confirm_user_role_from_store(
     return True
 
 
-async def user_json_from_store(connection: ASGIConnection) -> User:
-    """Get a user from the store or the database."""
+async def user_json_from_cache(connection: ASGIConnection) -> User:
+    """Get a user from the cache with fallback to the database."""
     user_id = connection.path_params.get("user_id")
     if not user_id:
         raise ClientError(detail="User ID is required")
@@ -197,7 +197,7 @@ async def developer_company_owner_guard(connection: ASGIConnection, _: BaseRoute
 async def user_storyteller_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
     """Guard for campaign storytellers."""
     company_id = connection.path_params.get("company_id")
-    user = await user_json_from_store(connection)
+    user = await user_json_from_cache(connection)
     if (
         UserRole(user.role) not in [UserRole.STORYTELLER, UserRole.ADMIN]
         or str(user.company_id) != company_id
@@ -207,7 +207,7 @@ async def user_storyteller_guard(connection: ASGIConnection, _: BaseRouteHandler
 
 async def user_admin_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
     """Guard for campaign administrators."""
-    user = await user_json_from_store(connection)
+    user = await user_json_from_cache(connection)
     company_id = connection.path_params.get("company_id")
     if UserRole(user.role) not in [UserRole.ADMIN] or str(user.company_id) != company_id:
         raise PermissionDeniedError
@@ -225,7 +225,7 @@ async def user_character_player_or_storyteller_guard(
     if not character or character.is_archived:
         raise NotFoundError(detail=f"Character '{character_id}' not found")
 
-    user = await user_json_from_store(connection)
+    user = await user_json_from_cache(connection)
 
     if (
         UserRole(user.role) not in [UserRole.STORYTELLER, UserRole.ADMIN]

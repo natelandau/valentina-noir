@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 from beanie import PydanticObjectId
@@ -15,7 +15,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType, GameVersion
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType, GameVersion, UserRole
 from vapi.db.models import (
     Character,
     CharacterConcept,
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.models import User
+    from vapi.db.models import Campaign, Company, User
 
 pytestmark = pytest.mark.anyio
 
@@ -51,132 +51,583 @@ EXCLUDE_CHARACTER_FIELDS = {
 }
 
 
-class TestCharacterController:
-    """Test character controller."""
+@pytest.fixture
+async def get_company_user_and_campaign(
+    company_factory: Callable[[dict[str, ...]], Company],
+    user_factory: Callable[[dict[str, ...]], User],
+    campaign_factory: Callable[[dict[str, ...]], Campaign],
+) -> tuple[Company, User]:
+    """Get a company and user."""
+    company = await company_factory()
+    user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+    campaign = await campaign_factory(company_id=company.id)
+
+    yield company, user, campaign
+
+    await user.delete()
+    await company.delete()
+    await campaign.delete()
+
+
+class TestCharacterList:
+    """Test character list endpoints."""
 
     async def test_list_characters_no_results(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        base_character: Character,
-        token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can list characters."""
-        await base_character.delete()
+        company, user, campaign = get_company_user_and_campaign
 
-        response = await client.get(build_url(CharacterURL.LIST), headers=token_company_admin)
+        response = await client.get(
+            build_url(
+                CharacterURL.LIST, company_id=company.id, user_id=user.id, campaign_id=campaign.id
+            ),
+            headers=token_global_admin,
+        )
         assert response.status_code == HTTP_200_OK
         assert response.json()["items"] == []
 
-    async def test_list_characters_with_results(
+    async def test_list_characters_with_results_no_filters(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        base_user: User,
-        base_character: Character,
-        token_company_admin: dict[str, str],
-        user_factory: Callable[[dict[str, Any]], User],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can list characters."""
-        await base_character.delete()
-
-        second_user = await user_factory()
-        mortal_player_alive_baseuser = await character_factory(
-            character_class="MORTAL", type="PLAYER", user_player_id=base_user.id
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
         )
-        mage_storyteller_dead_seconduser = await character_factory(
-            character_class="MAGE", type="STORYTELLER", status="DEAD", user_player_id=second_user.id
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=PydanticObjectId(),
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
         )
 
-        # Confirm listing all characters
-        response = await client.get(build_url(CharacterURL.LIST), headers=token_company_admin)
-        assert response.status_code == HTTP_200_OK
-        assert response.json()["items"] == [
-            mortal_player_alive_baseuser.model_dump(
-                mode="json",
-                exclude=EXCLUDE_CHARACTER_FIELDS,
-            ),
-            mage_storyteller_dead_seconduser.model_dump(
-                mode="json",
-                exclude=EXCLUDE_CHARACTER_FIELDS,
-            ),
-        ]
-
-        # Confirm listing characters by user_player_id
+        # When we list characters
         response = await client.get(
-            build_url(CharacterURL.LIST),
-            headers=token_company_admin,
-            params={"user_player_id": str(second_user.id)},
-        )
-        assert response.status_code == HTTP_200_OK
-        assert response.json()["items"] == [
-            mage_storyteller_dead_seconduser.model_dump(
-                mode="json",
-                exclude=EXCLUDE_CHARACTER_FIELDS,
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
             ),
-        ]
-
-        # Confirm listing characters by user_creator_id and type
-        response = await client.get(
-            build_url(CharacterURL.LIST),
-            headers=token_company_admin,
-            params={"user_creator_id": str(base_user.id), "character_type": "STORYTELLER"},
-        )
-        assert response.status_code == HTTP_200_OK
-        assert response.json()["items"] == []
-
-        # Confirm listing characters by character_class
-        response = await client.get(
-            build_url(CharacterURL.LIST),
-            headers=token_company_admin,
-            params={"character_class": "MAGE"},
-        )
-        assert response.status_code == HTTP_200_OK
-        assert response.json()["items"] == [
-            mage_storyteller_dead_seconduser.model_dump(
-                mode="json",
-                exclude=EXCLUDE_CHARACTER_FIELDS,
-            ),
-        ]
-
-        # Confirm listing characters by status
-        response = await client.get(
-            build_url(CharacterURL.LIST),
-            headers=token_company_admin,
-            params={"status": "DEAD"},
+            headers=token_global_admin,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json()["items"] == [
-            mage_storyteller_dead_seconduser.model_dump(
-                mode="json",
-                exclude=EXCLUDE_CHARACTER_FIELDS,
-            ),
+            character1.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
+            character_dead.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
+            character_storyteller.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
+            character_different_user.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
         ]
 
-        # Confirm listing characters by character_type
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
+    async def test_list_characters_with_results_specify_user_player_id(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify we can list characters."""
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
+        )
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=PydanticObjectId(),
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
+        )
+
+        # When we list characters
         response = await client.get(
-            build_url(CharacterURL.LIST),
-            headers=token_company_admin,
-            params={"character_type": "STORYTELLER"},
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
+            ),
+            headers=token_global_admin,
+            params={"user_player_id": str(second_user_id)},
         )
         assert response.status_code == HTTP_200_OK
         assert response.json()["items"] == [
-            mage_storyteller_dead_seconduser.model_dump(
-                mode="json",
-                exclude=EXCLUDE_CHARACTER_FIELDS,
-            ),
+            character_different_user.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
         ]
+
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
+    async def test_list_characters_with_results_specify_user_creator_id(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify we can list characters."""
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
+        )
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_creator_id=second_user_id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=PydanticObjectId(),
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
+        )
+
+        # When we list characters
+        response = await client.get(
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
+            ),
+            headers=token_global_admin,
+            params={"user_creator_id": str(second_user_id)},
+        )
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == [
+            character_different_user.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
+        ]
+
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
+    async def test_list_characters_with_results_specify_user_type(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify we can list characters."""
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.VAMPIRE,
+        )
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+            character_class=CharacterClass.VAMPIRE,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_creator_id=second_user_id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=PydanticObjectId(),
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+
+        # When we list characters
+        response = await client.get(
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
+            ),
+            headers=token_global_admin,
+            params={"character_type": CharacterType.STORYTELLER.value},
+        )
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == [
+            character_storyteller.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
+        ]
+
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
+    async def test_list_characters_with_results_specify_character_class(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify we can list characters."""
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.VAMPIRE,
+        )
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+            character_class=CharacterClass.VAMPIRE,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_creator_id=second_user_id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=PydanticObjectId(),
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+
+        # When we list characters
+        response = await client.get(
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
+            ),
+            headers=token_global_admin,
+            params={"character_class": CharacterClass.VAMPIRE.value},
+        )
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == [
+            character1.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
+            character_storyteller.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
+        ]
+
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
+    async def test_list_characters_with_results_specify_character_status(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify we can list characters."""
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.VAMPIRE,
+        )
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+            character_class=CharacterClass.VAMPIRE,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_creator_id=second_user_id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=PydanticObjectId(),
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
+            type=CharacterType.PLAYER,
+            character_class=CharacterClass.MORTAL,
+        )
+
+        # When we list characters
+        response = await client.get(
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
+            ),
+            headers=token_global_admin,
+            params={"status": CharacterStatus.DEAD.value},
+        )
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == [
+            character_dead.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
+        ]
+
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
+
+class TestCharacterController:
+    """Test character controller."""
 
     async def test_get_character(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can get a character."""
         character = await character_factory()
@@ -195,9 +646,9 @@ class TestCharacterController:
     async def test_get_character_not_found(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we get a 404 when getting a character that doesn't exist."""
         response = await client.get(
@@ -210,10 +661,10 @@ class TestCharacterController:
     async def test_patch_character(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can patch a character."""
         character = await character_factory()
@@ -243,10 +694,10 @@ class TestCharacterController:
     async def test_delete_character(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can delete a character."""
         character = await character_factory()
@@ -274,9 +725,9 @@ class TestVampireAttributes:
     async def test_create_character_vampire(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can create a vampire character."""
         vampire_clan = await VampireClan.find_one(
@@ -318,10 +769,10 @@ class TestVampireAttributes:
     async def test_update_vampire_sire_and_generation(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can update a vampire character's sire and generation."""
         character = await character_factory(character_class="VAMPIRE")
@@ -355,10 +806,10 @@ class TestVampireAttributes:
     async def test_update_character_vampire_clan(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can update a vampire character's clan."""
         # Given a vampire character and a new clan
@@ -400,10 +851,10 @@ class TestVampireAttributes:
     async def test_update_vampire_bane_and_compulsion(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can update a vampire character's bane and compulsion."""
         # Given a vampire character with a bane and compulsion
@@ -441,9 +892,9 @@ class TestWerewolfAttributes:
     async def test_create_character_werewolf(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can create a werewolf character."""
         werewolf_tribe = await WerewolfTribe.find_one({"is_archived": False})
@@ -486,10 +937,10 @@ class TestWerewolfAttributes:
     async def test_update_character_werewolf(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can update a werewolf character."""
         new_tribe = await WerewolfTribe.find_one({"is_archived": False})
@@ -528,10 +979,10 @@ class TestWerewolfAttributes:
     async def test_patch_werewolf_gifts_and_rites(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Test werewolf gifts and rites can be patched."""
         # Given a werewolf character with full werewolf attributes
@@ -576,10 +1027,10 @@ class TestWerewolfAttributes:
     async def test_patch_werewolf_tribe(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Test werewolf tribe and auspice can be patched."""
         # Given a werewolf character with full werewolf attributes
@@ -633,9 +1084,9 @@ class TestHunterAttributes:
     async def test_create_character_hunter(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we can create a hunter character."""
         # Given hunter edges and perks
@@ -689,10 +1140,10 @@ class TestHunterAttributes:
     async def test_patch_hunter(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        debug: Callable[[...], None],
     ) -> None:
         """Test patch hunter attributes."""
         # Given a character
@@ -741,10 +1192,10 @@ class TestCharacterCreate:
     async def test_create_character(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
         all_traits_in_section: Callable[[str], list[Trait]],
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Test create character endpoint."""
         # given valid create character data
@@ -818,10 +1269,10 @@ class TestCharacterCreate:
     async def test_create_character_invalid_parameters(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        json_data: dict[str, Any],
-        debug: Callable[[Any], None],
+        json_data: dict[str, ...],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify we get a 400 when creating a character with invalid parameters."""
         correct_json_data = {
@@ -848,11 +1299,11 @@ class TestCharacterCreate:
     async def test_invalid_user_player(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         base_user: User,
         token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
-        user_factory: Callable[[dict[str, Any]], User],
+        debug: Callable[[...], None],
+        user_factory: Callable[[dict[str, ...]], User],
     ) -> None:
         """Test no invalid user player."""
         archived_user = await user_factory(is_archived=True)
@@ -876,11 +1327,11 @@ class TestCharacterCreate:
     async def test_create_character_with_everything(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        user_factory: Callable[[dict[str, Any]], User],
+        user_factory: Callable[[dict[str, ...]], User],
         all_traits_in_section: Callable[[str], list[Trait]],
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Test create character endpoint with everything."""
         user_player = await user_factory()

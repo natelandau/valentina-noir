@@ -20,7 +20,7 @@ from vapi.lib.guards import (
     global_admin_guard,
     user_admin_guard,
     user_character_player_or_storyteller_guard,
-    user_json_from_store,
+    user_json_from_cache,
     user_storyteller_guard,
 )
 
@@ -153,7 +153,7 @@ class TestIsValidCharacter:
 
 
 class TestUserJsonFromStore:
-    """Test user_json_from_store function."""
+    """Test user_json_from_cache function."""
 
     async def test_returns_user_from_cache(
         self,
@@ -172,7 +172,7 @@ class TestUserJsonFromStore:
         mock_connection.app.stores.get.return_value = mock_store
 
         # When we get the user from store
-        result = await user_json_from_store(mock_connection)
+        result = await user_json_from_cache(mock_connection)
 
         # Then the user is returned from cache
         assert result.id == base_user.id
@@ -194,7 +194,7 @@ class TestUserJsonFromStore:
         mock_connection.app.stores.get.return_value = mock_store
 
         # When we get the user from store
-        result = await user_json_from_store(mock_connection)
+        result = await user_json_from_cache(mock_connection)
 
         # Then the user is returned from db and cached
         assert result.id == base_user.id
@@ -211,7 +211,7 @@ class TestUserJsonFromStore:
 
         # When/Then we expect a ClientError
         with pytest.raises(ClientError, match="User ID is required"):
-            await user_json_from_store(mock_connection)
+            await user_json_from_cache(mock_connection)
 
     async def test_raises_client_error_when_user_not_found(
         self,
@@ -230,7 +230,7 @@ class TestUserJsonFromStore:
 
         # When/Then we expect a ClientError
         with pytest.raises(ClientError, match="not found"):
-            await user_json_from_store(mock_connection)
+            await user_json_from_cache(mock_connection)
 
 
 class TestDeveloperCompanyUserGuard:
