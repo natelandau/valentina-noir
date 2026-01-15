@@ -68,7 +68,6 @@ repos:
     rev: v0.14.11
     hooks:
       - id: ruff
-        exclude: tests/
         args: [--no-fix]
       - id: ruff-format
         args: [--check]

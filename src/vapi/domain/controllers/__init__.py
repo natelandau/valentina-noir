@@ -35,7 +35,7 @@ from .oauth.controllers import OAuth2Controller
 from .options.controllers import OptionsController
 from .statistics.controllers import StatisticsController
 from .system.controllers import SystemController
-from .user.controllers import ExperienceController, QuickRollController, UserController
+from .user import ExperienceController, QuickRollController, UserController
 
 __all__ = (
     "BookAssetsController",
