@@ -69,7 +69,7 @@ class CharacterAssetsController(BaseAssetsController):
         summary="Upload a character asset",
         operation_id="uploadCharacterAsset",
         description="Upload an asset for a character.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def handle_file_upload(
@@ -92,7 +92,7 @@ class CharacterAssetsController(BaseAssetsController):
         summary="Delete a character asset",
         operation_id="deleteCharacterAsset",
         description="Delete an asset for a character.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_character_asset(self, character: Character, asset: S3Asset) -> None:
         """Delete a character asset."""

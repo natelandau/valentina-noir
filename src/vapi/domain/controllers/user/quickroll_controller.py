@@ -74,7 +74,7 @@ class QuickRollController(Controller):
         description="Create a new quick roll for a user. Define the traits that make up the dice pool. Quick roll names must be unique per user.",
         dto=dto.PostQuickRollDTO,
         return_dto=dto.ReturnQuickRollDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_user_quickroll(self, *, user: User, data: DTOData[QuickRoll]) -> QuickRoll:
         """Create a user quick roll."""
@@ -97,7 +97,7 @@ class QuickRollController(Controller):
         description="Modify a quick roll's name or trait configuration. Only include fields that need to be changed.",
         dto=dto.PatchQuickRollDTO,
         return_dto=dto.ReturnQuickRollDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_user_quickroll(
         self, *, quickroll: QuickRoll, data: DTOData[QuickRoll]
@@ -120,7 +120,7 @@ class QuickRollController(Controller):
         summary="Delete quick roll",
         operation_id="deleteUserQuickroll",
         description="Remove a quick roll from a user. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_user_quickroll(self, *, quickroll: QuickRoll) -> None:
         """Delete a user quick roll by ID."""

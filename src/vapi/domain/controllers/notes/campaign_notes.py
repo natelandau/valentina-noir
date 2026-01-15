@@ -68,7 +68,7 @@ class CampaignNoteController(BaseNoteController):
         operation_id="createCampaignNote",
         description="Attach a new note to a campaign. Notes support markdown formatting for rich text content.",
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_campaign_note(self, *, campaign: Campaign, data: DTOData[Note]) -> Note:
         """Create a campaign note."""
@@ -80,7 +80,7 @@ class CampaignNoteController(BaseNoteController):
         operation_id="updateCampaignNote",
         description="Modify a campaign note's content. Only include fields that need to be changed.",
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_campaign_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a campaign note by ID."""
@@ -91,7 +91,7 @@ class CampaignNoteController(BaseNoteController):
         summary="Delete campaign note",
         operation_id="deleteCampaignNote",
         description="Remove a note from a campaign. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_campaign_note(self, *, note: Note) -> None:
         """Delete a campaign note by ID."""

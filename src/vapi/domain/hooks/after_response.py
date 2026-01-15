@@ -43,7 +43,7 @@ async def add_audit_log(request: Request) -> None:
     ).insert()
 
 
-async def audit_log_and_delete_eapi_key_cache(request: Request) -> None:
+async def audit_log_and_delete_api_key_cache(request: Request) -> None:
     """Add an audit log and delete the response cache."""
     await add_audit_log(request)
     await delete_response_cache_for_api_key(request)

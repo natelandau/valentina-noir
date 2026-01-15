@@ -84,7 +84,7 @@ class WerewolfSpecialsController(Controller):
         return_dto=blueprint_dto.WerewolfGiftDTO,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_werewolf_gift(self, character: Character, gift: WerewolfGift) -> WerewolfGift:
         """Add a werewolf gift to a character."""
@@ -100,7 +100,7 @@ class WerewolfSpecialsController(Controller):
         description="Remove a werewolf gift from a character.",
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_werewolf_gift(self, character: Character, gift: WerewolfGift) -> None:
         """Remove a werewolf gift from a character."""
@@ -150,7 +150,7 @@ class WerewolfSpecialsController(Controller):
         return_dto=blueprint_dto.WerewolfRiteDTO,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_werewolf_rite(self, character: Character, rite: WerewolfRite) -> WerewolfRite:
         """Add a werewolf rite to a character."""
@@ -166,7 +166,7 @@ class WerewolfSpecialsController(Controller):
         description="Remove a werewolf rite from a character.",
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_werewolf_rite(self, character: Character, rite: WerewolfRite) -> None:
         """Remove a werewolf rite from a character."""

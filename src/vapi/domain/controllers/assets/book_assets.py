@@ -69,7 +69,7 @@ class BookAssetsController(BaseAssetsController):
         summary="Upload a book asset",
         operation_id="uploadBookAsset",
         description="Upload an asset for a book.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def handle_file_upload(
         self,
@@ -91,7 +91,7 @@ class BookAssetsController(BaseAssetsController):
         summary="Delete a book asset",
         operation_id="deleteBookAsset",
         description="Delete an asset for a book.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_book_asset(self, book: CampaignBook, asset: S3Asset) -> None:
         """Delete a book asset."""

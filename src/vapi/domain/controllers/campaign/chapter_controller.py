@@ -81,7 +81,7 @@ class CampaignChapterController(Controller):
         description="Create a new chapter within a book. The chapter number is assigned automatically based on existing chapters. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
         dto=dto.PostChapterDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_chapter(
         self, *, book: CampaignBook, data: DTOData[CampaignChapter]
@@ -102,7 +102,7 @@ class CampaignChapterController(Controller):
         description="Modify a chapter's properties. Only include fields that need to be changed. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
         dto=dto.PatchChapterDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_chapter(
         self, chapter: CampaignChapter, data: DTOData[CampaignChapter]
@@ -122,7 +122,7 @@ class CampaignChapterController(Controller):
         operation_id="deleteCampaignChapter",
         description="Remove a chapter from a book. Remaining chapters will be automatically renumbered. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_chapter(self, chapter: CampaignChapter) -> None:
         """Delete a chapter by ID."""
@@ -135,7 +135,7 @@ class CampaignChapterController(Controller):
         operation_id="renumberCampaignChapter",
         description="Change a chapter's position within a book. Other chapters will be automatically reordered. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def renumber_chapter(
         self, chapter: CampaignChapter, data: dto.BookChapterNumberDTO

@@ -70,7 +70,7 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="createChapterNote",
         description="Attach a new note to a chapter. Notes support markdown formatting for rich text content.",
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_chapter_note(self, *, chapter: CampaignChapter, data: DTOData[Note]) -> Note:
         """Create a chapter note."""
@@ -82,7 +82,7 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="updateChapterNote",
         description="Modify a chapter note's content. Only include fields that need to be changed.",
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_chapter_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a chapter note by ID."""
@@ -93,7 +93,7 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Delete chapter note",
         operation_id="deleteChapterNote",
         description="Remove a note from a chapter. This action cannot be undone.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_chapter_note(self, *, note: Note) -> None:
         """Delete a chapter note by ID."""

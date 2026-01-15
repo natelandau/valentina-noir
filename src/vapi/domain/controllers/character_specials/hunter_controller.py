@@ -131,7 +131,7 @@ class HunterSpecialsController(Controller):
         description="Add a hunter edge to a character.",
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_hunter_edge(
         self,
@@ -149,7 +149,7 @@ class HunterSpecialsController(Controller):
         description="Remove a hunter edge from a character.",
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_hunter_edge(
         self,
@@ -167,7 +167,7 @@ class HunterSpecialsController(Controller):
         description="Add a hunter edge perk to a character.",
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_hunter_edge_perk(
         self,
@@ -186,7 +186,7 @@ class HunterSpecialsController(Controller):
         description="Remove a hunter edge perk from a character.",
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_hunter_edge_perk(
         self, character: Character, edge: HunterEdge, perk: HunterEdgePerk

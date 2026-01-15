@@ -51,7 +51,7 @@ class CharacterGenerationController(Controller):
         operation_id="autogenerateCharacter",
         description=docs.AUTOGEN_DOCUMENTATION,
         guards=[user_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def autogenerate_character_all_random(
         self,
@@ -109,7 +109,7 @@ class CharacterGenerationController(Controller):
         summary="Start player character generation",
         operation_id="startChargenSession",
         description=docs.CHARGEN_START_DOCUMENTATION,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def start_chargen(
         self,
@@ -151,7 +151,7 @@ class CharacterGenerationController(Controller):
         summary="Finalize character selection",
         operation_id="finalizeChargenSession",
         description=docs.CHARGEN_FINALIZE_DOCUMENTATION,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def finalize_chargen(
         self,

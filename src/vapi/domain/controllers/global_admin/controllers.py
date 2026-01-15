@@ -79,7 +79,7 @@ class GlobalAdminController(Controller):
         operation_id="createDeveloper",
         description="Create a new developer account. The new developer will receive an API key for authentication. Requires global admin privileges.",
         dto=dto.DeveloperCreateDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_developer(self, *, data: DTOData[Developer]) -> Developer:
         """Create an Developer."""
@@ -98,7 +98,7 @@ class GlobalAdminController(Controller):
         operation_id="updateDeveloper",
         description="Modify a developer account's properties. Only include fields that need to be changed. Requires global admin privileges.",
         dto=dto.DeveloperPatchDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_developer(
         self,
@@ -121,7 +121,7 @@ class GlobalAdminController(Controller):
         summary="Delete developer",
         operation_id="deleteDeveloper",
         description="Remove a developer account from the system. The developer's API key will be invalidated immediately. Requires global admin privileges.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_developer(self, *, developer: Developer, request: Request) -> None:
         """Delete an Developer by ID."""
@@ -136,7 +136,7 @@ class GlobalAdminController(Controller):
         summary="Regenerate developer API key",
         operation_id="regenerateDeveloperApiKey",
         description="Generate a new API key for a developer. Their current key will be immediately invalidated. Requires global admin privileges.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
         """Generate a new API key for an Developer."""
@@ -159,7 +159,7 @@ class GlobalAdminController(Controller):
         summary="Grant company access",
         operation_id="addCompanyPermission",
         description="Add a company permission to a developer, allowing them to access company resources. Specify the permission level (user, admin, or owner). Requires global admin privileges.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_company(
         self,
@@ -189,7 +189,7 @@ class GlobalAdminController(Controller):
         summary="Update company permission",
         operation_id="updateCompanyPermission",
         description="Change a developer's permission level for a company they already have access to. Requires global admin privileges.",
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_company_permission(
         self,
@@ -222,7 +222,7 @@ class GlobalAdminController(Controller):
         operation_id="removeCompanyPermission",
         description="Remove a developer's access to a company entirely. They will no longer be able to access any resources within that company. Requires global admin privileges.",
         status_code=HTTP_200_OK,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_company(
         self,

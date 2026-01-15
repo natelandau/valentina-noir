@@ -97,7 +97,7 @@ class CompanyController(Controller):
         description="Create a new company in the system. Only global administrators can create companies. After creation, use the developer permission endpoints to grant other developers access.",
         guards=[global_admin_guard],
         dto=dto.PostCompanyDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_company(self, data: DTOData[Company]) -> Company:
         """Create a company."""
@@ -117,7 +117,7 @@ class CompanyController(Controller):
         description="Modify an existing company's properties. Requires admin-level access to the company. Only include fields that need to be changed; omitted fields remain unchanged.",
         guards=[developer_company_admin_guard],
         dto=dto.PatchCompanyDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_company(self, company: Company, data: DTOData[Company]) -> Company:
         """Update a company."""
@@ -136,7 +136,7 @@ class CompanyController(Controller):
         operation_id="deleteCompany",
         description="Delete a company from the system. This is a destructive action and requires owner-level access to the company.",
         guards=[developer_company_owner_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_company(self, company: Company) -> None:
         """Delete a company."""
@@ -150,7 +150,7 @@ class CompanyController(Controller):
         operation_id="addDeveloperToCompany",
         description="Add or update a developer's permission level for this company. Requires owner-level access. Valid permission levels are 'user' and 'admin'. You cannot modify your own permissions or grant owner-level access through this endpoint.",
         guards=[developer_company_owner_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_developer_to_company(
         self,
@@ -168,7 +168,7 @@ class CompanyController(Controller):
         operation_id="deleteDeveloperFromCompany",
         description="Remove a developer's access to this company entirely. Requires owner-level access. You cannot revoke your own access as the owner.",
         guards=[developer_company_owner_guard],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_developer_from_company(
         self,

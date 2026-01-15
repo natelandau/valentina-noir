@@ -78,7 +78,7 @@ class CampaignController(Controller):
         description="Create a new campaign. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
         dto=dto.PostCampaignDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_campaign(
         self,
@@ -103,7 +103,7 @@ class CampaignController(Controller):
         description="Modify a campaign's properties. Only include fields that need to be changed. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
         dto=dto.PatchCampaignDTO,
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def update_campaign(self, campaign: Campaign, data: DTOData[Campaign]) -> Campaign:
         """Update a campaign by ID."""
@@ -122,7 +122,7 @@ class CampaignController(Controller):
         operation_id="deleteCampaign",
         description="Remove a campaign from the system. Associated characters and content will no longer be accessible. Requires storyteller privileges.",
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_eapi_key_cache,
+        after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_campaign(self, campaign: Campaign) -> None:
         """Delete a campaign by ID."""

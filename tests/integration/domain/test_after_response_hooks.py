@@ -30,7 +30,7 @@ pytestmark = pytest.mark.anyio
 class TestAfterResponseHooks:
     """Test the after response hooks."""
 
-    async def test_audit_log_and_delete_eapi_key_cache(
+    async def test_audit_log_and_delete_api_key_cache(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
