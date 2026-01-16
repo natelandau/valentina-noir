@@ -32,6 +32,14 @@ def is_docker() -> bool:
     )
 
 
+class SAQSettings(BaseModel):
+    """SAQ settings."""
+
+    use_server_lifespan: bool = Field(default=True)
+    web_enabled: bool = Field(default=True)
+    processes: int = Field(default=1)
+
+
 class AWSSettings(BaseModel):
     """AWS settings."""
 
@@ -145,6 +153,7 @@ class LoggingSettings(BaseModel):
     level: LogLevel = Field(default=LogLevel.INFO)
     file_path: Path | None = Field(default=None)
     time_in_console: bool = Field(default=True)
+    saq_level: LogLevel = Field(default=LogLevel.INFO)
     asgi_server_level: LogLevel = Field(default=LogLevel.INFO)
     root_level: LogLevel = Field(default=LogLevel.INFO)
     request_log_fields: list[str] = Field(
@@ -186,6 +195,7 @@ class Settings(BaseSettings):
     server: Server = Server()
     stores: StoresSettings = StoresSettings()
     aws: AWSSettings = AWSSettings()
+    saq: SAQSettings = SAQSettings()
 
     @computed_field  # type: ignore [prop-decorator]
     @property

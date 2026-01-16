@@ -358,6 +358,11 @@ def get_logging_config() -> LoggingConfig:
                 "level": settings.log.asgi_server_level.value,
                 "handlers": handler_call_list,
             },
+            "saq": {
+                "propagate": False,
+                "level": settings.log.saq_level.value,
+                "handlers": handler_call_list,
+            },
             "vapi": {
                 "propagate": False,
                 "level": settings.log.level.value,
