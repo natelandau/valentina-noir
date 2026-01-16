@@ -253,9 +253,9 @@ class TestUpdateNote:
         mock_dto_data = MagicMock()
         mock_dto_data.update_instance.return_value = updated_note
 
-        # Given mock patch_internal_objects
+        # Given mock patch_dto_data_internal_objects
         mocker.patch(
-            "vapi.domain.controllers.notes.base.patch_internal_objects",
+            "vapi.domain.controllers.notes.base.patch_dto_data_internal_objects",
             new_callable=AsyncMock,
             return_value=(note, mock_dto_data),
         )
@@ -279,7 +279,7 @@ class TestUpdateNote:
         mock_dto_data.update_instance.return_value = note
 
         mocker.patch(
-            "vapi.domain.controllers.notes.base.patch_internal_objects",
+            "vapi.domain.controllers.notes.base.patch_dto_data_internal_objects",
             new_callable=AsyncMock,
             return_value=(note, mock_dto_data),
         )
@@ -299,7 +299,7 @@ class TestUpdateNote:
         mock_dto_data.update_instance.return_value = note
 
         mocker.patch(
-            "vapi.domain.controllers.notes.base.patch_internal_objects",
+            "vapi.domain.controllers.notes.base.patch_dto_data_internal_objects",
             new_callable=AsyncMock,
             return_value=(note, mock_dto_data),
         )

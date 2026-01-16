@@ -16,7 +16,7 @@ from .character_trait_svc import CharacterTraitService
 from .company_svc import CompanyService
 from .diceroll_svc import DiceRollService
 from .dictionary_svc import DictionaryService
-from .user_svc import UserQuickRollService, UserXPService
+from .user_svc import UserQuickRollService, UserService, UserXPService
 from .validation_svc import GetModelByIdValidationService
 
 __all__ = (
@@ -33,5 +33,6 @@ __all__ = (
     "DictionaryService",
     "GetModelByIdValidationService",
     "UserQuickRollService",
+    "UserService",
     "UserXPService",
 )

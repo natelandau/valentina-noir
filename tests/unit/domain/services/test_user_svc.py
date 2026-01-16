@@ -8,17 +8,163 @@ import pytest
 from beanie import PydanticObjectId
 
 from vapi.constants import PermissionsGrantXP, UserRole
-from vapi.db.models import QuickRoll, Trait
-from vapi.db.models.user import CampaignExperience
-from vapi.domain.services import UserQuickRollService, UserXPService
+from vapi.db.models import QuickRoll, Trait, User
+from vapi.db.models.user import CampaignExperience, DiscordProfile
+from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO
+from vapi.domain.services import UserQuickRollService, UserService, UserXPService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from vapi.db.models import Campaign, Company, User
+    from vapi.db.models import Campaign, Company
 
 pytestmark = pytest.mark.anyio
+
+
+class TestUserService:
+    """Test the user service."""
+
+    async def test_validate_user_can_manage_user_self(
+        self,
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Test the validate_user_can_manage_user method."""
+        # Given objects
+        user = await user_factory()
+        requesting_user = user
+
+        # When we validate the user can manage the user
+        service = UserService()
+        await service.validate_user_can_manage_user(
+            requesting_user_id=requesting_user.id,
+            user_to_manage_id=user.id,
+        )
+        # Then no exception is raised
+        assert True
+
+    async def test_validate_user_can_manage_user_admin_user(
+        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+    ) -> None:
+        """Test the validate_user_can_manage_user method when the user is not the same as the requesting user."""
+        # Given objects
+        target_user = await user_factory()
+        requesting_user = await user_factory(role=UserRole.ADMIN)
+
+        # When we validate the user can manage the user
+        service = UserService()
+        await service.validate_user_can_manage_user(
+            requesting_user_id=requesting_user.id,
+            user_to_manage_id=target_user.id,
+        )
+        # Then no exception is raised
+        assert True
+
+    async def test_validate_user_can_manage_user_player_user(
+        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+    ) -> None:
+        """Test the validate_user_can_manage_user method when the user is a player user."""
+        # Given objects
+        target_user = await user_factory()
+        requesting_user = await user_factory(role=UserRole.PLAYER)
+
+        # When we validate the user can manage the user
+        # Then a PermissionDeniedError is raised
+        service = UserService()
+        with pytest.raises(PermissionDeniedError, match="not authorized to manage this user"):
+            await service.validate_user_can_manage_user(
+                requesting_user_id=requesting_user.id,
+                user_to_manage_id=target_user.id,
+            )
+
+    async def test_validate_user_can_manage_user_user_not_found(
+        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+    ) -> None:
+        """Test the validate_user_can_manage_user method when the user is not found."""
+        # Given objects
+        target_user = await user_factory()
+        service = UserService()
+        with pytest.raises(ValidationError, match=r"User .* not found"):
+            await service.validate_user_can_manage_user(
+                requesting_user_id=PydanticObjectId(),
+                user_to_manage_id=target_user.id,
+            )
+
+    async def test_create_user_success(
+        self,
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        mocker: Any,
+        debug: Callable[[...], None],
+    ) -> None:
+        """Test the create_user method."""
+        # Given objects
+        company = await company_factory()
+        requesting_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        data = UserPostDTO(
+            name="Test User",
+            email="test@example.com",
+            role=UserRole.PLAYER,
+            discord_profile=DiscordProfile(global_name="global name"),
+            requesting_user_id=requesting_user.id,
+        )
+        spy = mocker.spy(UserService, "validate_user_can_manage_user")
+
+        # When we create the user
+        service = UserService()
+        new_user = await service.create_user(company=company, data=data)
+
+        # Then the user is created
+        assert new_user.name == "Test User"
+        assert new_user.email == "test@example.com"
+        assert new_user.role == UserRole.PLAYER
+        assert new_user.discord_profile.global_name == "global name"
+        assert new_user.company_id == company.id
+
+        await company.sync()
+        assert new_user.id in company.user_ids
+
+        spy.assert_called_once()
+
+    async def test_update_user_success(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        mocker: Any,
+        debug: Callable[[...], None],
+    ) -> None:
+        """Test the update_user method."""
+        # Given objects
+        spy = mocker.spy(UserService, "validate_user_can_manage_user")
+        company = await company_factory()
+        target_user = await User(
+            name="Test User",
+            email="test@example.com",
+            role=UserRole.PLAYER,
+            company_id=company.id,
+            discord_profile=DiscordProfile(id="1234567890", global_name="global name"),
+        ).insert()
+
+        data = UserPatchDTO(
+            name="Test User Updated",
+            discord_profile=DiscordProfile(global_name="global name updated"),
+            requesting_user_id=target_user.id,
+        )
+
+        # When we update the user
+        service = UserService()
+        updated_user = await service.update_user(user=target_user, data=data)
+
+        # Then the user is updated
+        assert updated_user.name == "Test User Updated"
+        assert updated_user.email == "test@example.com"
+        assert updated_user.role == UserRole.PLAYER
+        assert updated_user.discord_profile.global_name == "global name updated"
+        assert updated_user.discord_profile.id == "1234567890"
+        assert updated_user.company_id == company.id
+
+        spy.assert_called_once()
 
 
 class TestUserQuickRollService:
@@ -26,8 +172,8 @@ class TestUserQuickRollService:
 
     async def test_validate_quickroll_success(
         self,
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the validate_quickroll method."""
         # Given objects
@@ -49,7 +195,7 @@ class TestUserQuickRollService:
         assert validated_quickroll.trait_ids == [trait1.id, trait2.id]
 
     async def test_validate_quickroll_name_already_exists(
-        self, user_factory: Callable[[], User], debug: Callable[[Any], None]
+        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
     ) -> None:
         """Test the validate_quickroll method when the name already exists."""
         # Given objects
@@ -71,7 +217,7 @@ class TestUserQuickRollService:
             await service.validate_quickroll(quickroll2)
 
     async def test_validate_quickroll_invalid_trait_ids(
-        self, user_factory: Callable[[], User], debug: Callable[[Any], None]
+        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
     ) -> None:
         """Test the validate_quickroll method when the trait ids are invalid."""
         # Given objects
@@ -110,10 +256,10 @@ class TestUserXPService:
     )
     async def test_validate_user_can_grant_xp(
         self,
-        user_factory: Callable[[], User],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        debug: Callable[[Any], None],
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        campaign_factory: Callable[[...], Campaign],
+        debug: Callable[[...], None],
         user_role: UserRole,
         permission_grant_xp: PermissionsGrantXP,
         same_user: bool,
@@ -149,11 +295,11 @@ class TestUserXPService:
 
     async def test_add_xp_to_campaign_experience_success(
         self,
-        company_factory: Callable[[], Company],
-        user_factory: Callable[[], User],
-        campaign_factory: Callable[[], Campaign],
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        campaign_factory: Callable[[...], Campaign],
         mocker: Any,
-        debug: Callable[[Any], None],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the add_xp_to_campaign_experience method."""
         # Given objects
@@ -184,10 +330,10 @@ class TestUserXPService:
 
     async def test_add_xp_to_campaign_experience_user_not_found(
         self,
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        company_factory: Callable[[...], Company],
+        campaign_factory: Callable[[...], Campaign],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the add_xp_to_campaign_experience method when the user is not found."""
         # Given objects
@@ -208,10 +354,10 @@ class TestUserXPService:
 
     async def test_add_xp_to_campaign_experience_campaign_not_found(
         self,
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        company_factory: Callable[[...], Company],
+        campaign_factory: Callable[[...], Campaign],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the add_xp_to_campaign_experience method when the campaign is not found."""
         # Given objects
@@ -232,10 +378,10 @@ class TestUserXPService:
 
     async def add_cp_to_campaign_experience_success(
         self,
-        user_factory: Callable[[], User],
-        campaign_factory: Callable[[], Campaign],
-        company_factory: Callable[[], Company],
-        debug: Callable[[Any], None],
+        user_factory: Callable[[...], User],
+        campaign_factory: Callable[[...], Campaign],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
         mocker: Any,
     ) -> None:
         """Test the add_cp_to_campaign_experience method."""
@@ -266,10 +412,10 @@ class TestUserXPService:
 
     async def test_add_cp_to_campaign_experience_user_not_found(
         self,
-        campaign_factory: Callable[[], Campaign],
-        company_factory: Callable[[], Company],
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        campaign_factory: Callable[[...], Campaign],
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the add_cp_to_campaign_experience method when the user is not found."""
         # Given objects
@@ -290,9 +436,9 @@ class TestUserXPService:
 
     async def test_add_cp_to_campaign_experience_campaign_not_found(
         self,
-        company_factory: Callable[[], Company],
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the add_cp_to_campaign_experience method when the campaign is not found."""
         # Given objects
@@ -312,10 +458,10 @@ class TestUserXPService:
 
     async def test_remove_xp_from_campaign_experience_success(
         self,
-        company_factory: Callable[[], Company],
-        user_factory: Callable[[], User],
-        campaign_factory: Callable[[], Campaign],
-        debug: Callable[[Any], None],
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        campaign_factory: Callable[[...], Campaign],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the remove_xp_from_campaign_experience method."""
         # Given objects
@@ -352,10 +498,10 @@ class TestUserXPService:
 
     async def test_remove_xp_from_campaign_experience_user_not_found(
         self,
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        company_factory: Callable[[...], Company],
+        campaign_factory: Callable[[...], Campaign],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the remove_xp_from_campaign_experience method when the user is not found."""
         # Given objects
@@ -374,9 +520,9 @@ class TestUserXPService:
 
     async def test_remove_xp_from_campaign_experience_campaign_not_found(
         self,
-        company_factory: Callable[[], Company],
-        user_factory: Callable[[], User],
-        debug: Callable[[Any], None],
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
     ) -> None:
         """Test the remove_xp_from_campaign_experience method when the campaign is not found."""
         # Given objects

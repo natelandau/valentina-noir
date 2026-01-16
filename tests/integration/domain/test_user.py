@@ -11,11 +11,11 @@ from litestar.status_codes import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
-    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.db.models import AuditLog, QuickRoll, Trait
+from vapi.constants import UserRole
+from vapi.db.models import AuditLog, QuickRoll, Trait, User
 from vapi.db.models.user import CampaignExperience
 from vapi.domain.urls import Users as UsersURL
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.models import Campaign, Company, Developer, User
+    from vapi.db.models import Campaign, Company, Developer
 
 pytestmark = pytest.mark.anyio
 
@@ -246,177 +246,327 @@ class TestExperienceController:
 class TestUserController:
     """Test UserController."""
 
-    async def test_user_company_user(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        base_user: User,
-        token_company_user: dict[str, str],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test user company admin."""
-        # create user via the api
-        response = await client.post(
-            build_url(UsersURL.CREATE),
-            headers=token_company_user,
-            json={"name": "Test User", "email": "test@test.com", "role": "ADMIN"},
-        )
-        assert response.status_code == HTTP_403_FORBIDDEN
+    class TestListUsers:
+        """Test ListUsers."""
 
-        # get user
-        response = await client.get(build_url(UsersURL.DETAIL), headers=token_company_user)
-        assert response.status_code == HTTP_200_OK
-        assert response.json() == base_user.model_dump(
-            mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
-        )
+        async def test_list_users_no_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Test list users no results."""
+            # Given a company
+            company = await company_factory()
 
-        # update user
-        response = await client.patch(
-            build_url(UsersURL.UPDATE),
-            headers=token_company_user,
-            json={
-                "name": "Test User Updated",
-                "email": "test@test.com",
-                "role": "ADMIN",
-            },
-        )
-        assert response.status_code == HTTP_403_FORBIDDEN
+            # When we list users
+            response = await client.get(
+                build_url(UsersURL.LIST, company_id=company.id), headers=token_global_admin
+            )
 
-        # delete user
-        response = await client.delete(build_url(UsersURL.DELETE), headers=token_company_user)
-        assert response.status_code == HTTP_403_FORBIDDEN
+            # Then we get no users
+            assert response.status_code == HTTP_200_OK
+            assert response.json() == {"items": [], "limit": 10, "offset": 0, "total": 0}
 
-        # list users
-        response = await client.get(build_url(UsersURL.LIST), headers=token_company_user)
-        assert response.status_code == HTTP_200_OK
-        assert len(response.json()["items"]) == 1
-        assert response.json()["items"][0] == base_user.model_dump(
-            mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
-        )
+            # Cleanup
+            await company.delete()
 
-    @pytest.mark.parametrize("developer_role", [("company_admin"), ("company_owner")])
-    async def test_user_company_admin_and_owner(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        base_user: User,
-        base_company: Company,
-        developer_role: str,
-        token_company_admin: dict[str, str],
-        token_company_owner: dict[str, str],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test user company admin and owner permissions."""
-        token = token_company_admin if developer_role == "company_admin" else token_company_owner
+        async def test_list_users_with_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Test list users with results."""
+            # Given objects
+            company = await company_factory()
+            user1 = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+            user2 = await user_factory(company_id=company.id, role=UserRole.PLAYER)
+            user3 = await user_factory(company_id=PydanticObjectId())
 
-        # create user
-        response = await client.post(
-            build_url(UsersURL.CREATE),
-            headers=token,
-            json={
-                "name": "Test User",
-                "email": "test@test.com",
-                "role": "ADMIN",
-                "discord_profile": {"username": "discord_username"},
-            },
-        )
-        assert response.status_code == HTTP_201_CREATED
-        assert response.json()["discord_profile"]["username"] == "discord_username"
-        user_id = response.json()["id"]
+            # When we list users
+            response = await client.get(
+                build_url(UsersURL.LIST, company_id=company.id), headers=token_global_admin
+            )
 
-        await base_company.sync()
-        assert PydanticObjectId(user_id) in base_company.user_ids
+            # Then we get the users
+            assert response.status_code == HTTP_200_OK
+            assert response.json() == {
+                "items": [
+                    user1.model_dump(
+                        mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
+                    ),
+                    user2.model_dump(
+                        mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
+                    ),
+                ],
+                "limit": 10,
+                "offset": 0,
+                "total": 2,
+            }
 
-        # get user
-        response = await client.get(build_url(UsersURL.DETAIL, user_id=user_id), headers=token)
-        assert response.status_code == HTTP_200_OK
-        assert response.json()["id"] == user_id
-        assert response.json()["discord_profile"]["username"] == "discord_username"
+            # Cleanup
+            await company.delete()
+            await user1.delete()
+            await user2.delete()
+            await user3.delete()
 
-        # update user
-        response = await client.patch(
-            build_url(UsersURL.UPDATE, user_id=user_id),
-            headers=token,
-            json={
-                "name": "Test User Updated",
-                "email": "test@test.com",
-                "role": "ADMIN",
-                "discord_profile": {"email": "jim@example.com"},
-            },
-        )
-        assert response.status_code == HTTP_200_OK
-        assert response.json()["id"] == user_id
-        assert response.json()["name"] == "Test User Updated"
-        assert response.json()["email"] == "test@test.com"
-        assert response.json()["role"] == "ADMIN"
-        assert response.json()["discord_profile"]["username"] == "discord_username"
-        assert response.json()["discord_profile"]["email"] == "jim@example.com"
+        async def test_list_users_with_results_user_role_filter(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Test list users with results."""
+            # Given objects
+            company = await company_factory()
+            user1 = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+            user2 = await user_factory(company_id=company.id, role=UserRole.PLAYER)
+            user3 = await user_factory(company_id=PydanticObjectId(), user_role=UserRole.ADMIN)
 
-        # delete user
-        response = await client.delete(build_url(UsersURL.DELETE, user_id=user_id), headers=token)
-        assert response.status_code == HTTP_204_NO_CONTENT
+            # When we list users
+            response = await client.get(
+                build_url(UsersURL.LIST, company_id=company.id),
+                headers=token_global_admin,
+                params={"user_role": UserRole.ADMIN.value},
+            )
 
-        # get user fails because it is archived
-        response = await client.get(build_url(UsersURL.DETAIL, user_id=user_id), headers=token)
-        assert response.status_code == HTTP_404_NOT_FOUND
+            # Then we get the users
+            assert response.status_code == HTTP_200_OK
+            assert response.json() == {
+                "items": [
+                    user1.model_dump(
+                        mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
+                    ),
+                ],
+                "limit": 10,
+                "offset": 0,
+                "total": 1,
+            }
 
-        await base_company.sync()
-        assert PydanticObjectId(user_id) not in base_company.user_ids
+            # Cleanup
+            await company.delete()
+            await user1.delete()
+            await user2.delete()
+            await user3.delete()
 
-        # list users
-        response = await client.get(build_url(UsersURL.LIST), headers=token)
-        assert response.status_code == HTTP_200_OK
-        assert len(response.json()["items"]) == 1
-        assert response.json()["items"][0] == base_user.model_dump(
-            mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
-        )
+    class TestGetUser:
+        """Test GetUser."""
 
-    async def test_user_validation_error(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        base_user: User,
-        token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test user validation error."""
-        response = await client.post(
-            build_url(UsersURL.CREATE),
-            headers=token_company_admin,
-            json={"email": "test"},
-        )
-        assert response.status_code == HTTP_400_BAD_REQUEST
-        # debug(response.json())
-        assert response.json()["detail"] == "Object missing required field `name`"
+        async def test_get_user_no_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+        ) -> None:
+            """Test get user no results."""
+            # When we get a user
+            response = await client.get(
+                build_url(UsersURL.DETAIL, user_id=PydanticObjectId()), headers=token_global_admin
+            )
+            assert response.status_code == HTTP_404_NOT_FOUND
 
-        response = await client.patch(
-            build_url(UsersURL.UPDATE),
-            headers=token_company_admin,
-            json={"email": "test"},
-        )
-        assert response.status_code == HTTP_400_BAD_REQUEST
-        # debug(response.json())
-        assert response.json()["invalid_parameters"] == [
-            {
-                "field": ["email"],
-                "message": "value is not a valid email address: An email address must have an @-sign.",
-            },
-        ]
-        # Cleanup after test
-        await base_user.delete()
+        async def test_get_user_with_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Test get user with results."""
+            # Given objects
+            company = await company_factory()
+            user = await user_factory(company_id=company.id)
+            # When we get a user
+            response = await client.get(
+                build_url(UsersURL.DETAIL, user_id=user.id, company_id=company.id),
+                headers=token_global_admin,
+            )
+            assert response.status_code == HTTP_200_OK
+            assert response.json() == user.model_dump(
+                mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
+            )
 
-    async def test_user_not_found(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test user not found."""
-        response = await client.get(
-            build_url(UsersURL.DETAIL, user_id=PydanticObjectId()), headers=token_company_admin
-        )
-        assert response.status_code == HTTP_404_NOT_FOUND
+        async def test_get_user_no_results_company_federation(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Test get user no results."""
+            # Given objects
+            company = await company_factory()
+            user = await user_factory(company_id=company.id)
+            company2 = await company_factory()
+
+            # When we get a user
+            response = await client.get(
+                build_url(UsersURL.DETAIL, user_id=user.id, company_id=company2.id),
+                headers=token_global_admin,
+            )
+            assert response.status_code == HTTP_404_NOT_FOUND
+
+    class TestCreateUser:
+        """Test CreateUser."""
+
+        async def test_create_user_no_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Test create user no results."""
+            # Given objects
+            company = await company_factory()
+            user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+
+            # When we create a user
+            response = await client.post(
+                build_url(UsersURL.CREATE, company_id=company.id),
+                headers=token_global_admin,
+                json={
+                    "name": "Test User",
+                    "email": "test@test.com",
+                    "role": "ADMIN",
+                    "discord_profile": {"username": "discord_username"},
+                    "requesting_user_id": str(user.id),
+                },
+            )
+
+            # Then we get the user
+            assert response.status_code == HTTP_201_CREATED
+            new_user = await User.get(response.json()["id"])
+            assert response.json() == new_user.model_dump(
+                mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
+            )
+
+            # Then we cleanup
+            await company.delete()
+            await user.delete()
+            await new_user.delete()
+
+    class TestUpdateUser:
+        """Test UpdateUser."""
+
+        async def test_update_user_no_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Test update user no results."""
+            # Given objects
+            company = await company_factory()
+            user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+
+            # When we update a user
+            response = await client.patch(
+                build_url(UsersURL.UPDATE, user_id=user.id, company_id=company.id),
+                headers=token_global_admin,
+                json={
+                    "name": "Test User Updated",
+                    "email": "test@test.com",
+                    "role": "ADMIN",
+                    "discord_profile": {"username": "discord_username"},
+                    "requesting_user_id": str(user.id),
+                },
+            )
+
+            # Then we get the user
+            assert response.status_code == HTTP_200_OK
+            await user.sync()
+            assert response.json() == user.model_dump(
+                mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
+            )
+
+            assert user.name == "Test User Updated"
+            assert user.email == "test@test.com"
+            assert user.role == UserRole.ADMIN
+            assert user.discord_profile.username == "discord_username"
+
+            # Then we cleanup
+            await company.delete()
+            await user.delete()
+
+        async def test_user_validation_error(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Test user validation error."""
+            company = await company_factory()
+            user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+
+            # When we patch a user with an invalid email
+            response = await client.patch(
+                build_url(UsersURL.UPDATE, user_id=user.id, company_id=company.id),
+                headers=token_global_admin,
+                json={"email": "test", "requesting_user_id": str(user.id)},
+            )
+            assert response.status_code == HTTP_400_BAD_REQUEST
+            # debug(response.json())
+            assert response.json()["invalid_parameters"] == [
+                {
+                    "field": "email",
+                    "message": "value is not a valid email address: An email address must have an @-sign.",
+                },
+            ]
+
+    class TestDeleteUser:
+        """Test DeleteUser."""
+
+        async def test_delete_user_no_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Test delete user no results."""
+            # Given objects
+            company = await company_factory()
+            user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+
+            # When we delete a user
+            response = await client.delete(
+                build_url(UsersURL.DELETE, user_id=user.id, company_id=company.id),
+                headers=token_global_admin,
+                params={"requesting_user_id": str(user.id)},
+            )
+
+            # Then we get the user
+            assert response.status_code == HTTP_204_NO_CONTENT
+            await user.sync()
+            assert user.is_archived
+            assert user.archive_date is not None
+
+            await company.sync()
+            assert user.id not in company.user_ids
+
+            # Then we cleanup
+            await company.delete()
+            await user.delete()
 
 
 class TestQuickRollController:

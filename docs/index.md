@@ -19,15 +19,11 @@ Valentina Noir is designed to be an aid in running World of Darkness campaigns f
 
 -   Support for v4 and v5 of the World of Darkness system
 -   Full support for vampires, werewolves, hunters, and mortals. Basic support for mages.
--   Dicerolling and gameplay mechanics
+-   Dice rolling and gameplay mechanics
 -   Character auto-generation
 -   Storyteller NPC and character creation
 -   Campaign and story tracking
--   Configurable dictionary of game terms and concepts
+-   Dictionary of game terms and concepts
 -   Multi-tenant support
 -   Statistics and analytics
--   Settings to configure gameplay and rulesets
-
-## Full API Reference
-
-Read the **[full API Documentation](https://api.valentina-noir.com/docs)**..
+-   Settings to configure gameplay and rules

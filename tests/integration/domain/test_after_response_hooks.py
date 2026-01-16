@@ -11,7 +11,7 @@ import pytest
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 
 from vapi.config import settings
-from vapi.constants import AUTH_HEADER_KEY
+from vapi.constants import AUTH_HEADER_KEY, UserRole
 from vapi.db.models import AuditLog
 from vapi.domain.urls import Users as UsersURL
 from vapi.lib.crypt import hmac_sha256_hex
@@ -39,6 +39,7 @@ class TestAfterResponseHooks:
         token_company_owner: dict[str, str],
         base_developer_company_owner: Developer,
         redis: Redis,
+        user_factory: Callable[[dict[str, ...]], User],
         debug: Callable[[...], None],
     ) -> None:
         """Verify audit log and delete api key cache hook."""
@@ -64,6 +65,8 @@ class TestAfterResponseHooks:
 
         ## CREATE A NEW USER AND CREATE AN AUDIT LOG AND CLEAR THE CACHE ##
         # When we create a user
+
+        requesting_user = await user_factory(company_id=base_company.id, role=UserRole.ADMIN)
         response = await client.post(
             build_url(UsersURL.CREATE),
             headers=token_company_owner,
@@ -72,6 +75,7 @@ class TestAfterResponseHooks:
                 "email": "test@test.com",
                 "role": "ADMIN",
                 "discord_profile": {"username": "discord_username"},
+                "requesting_user_id": str(requesting_user.id),
             },
         )
         assert response.status_code == HTTP_201_CREATED
@@ -92,10 +96,7 @@ class TestAfterResponseHooks:
         assert audit.handler_name == "create_user"
         assert audit.operation_id == "createUser"
         assert audit.method == "POST"
-        assert (
-            audit.description
-            == "Create a new user within a company. The user will be automatically added to the company's user list. Requires admin-level access to the company."
-        )
+        assert audit.description.startswith("Create a new user within a company")
         assert audit.method == "POST"
         assert audit.url == f"http://testserver/api/v1/companies/{base_company.id}/users"
         assert audit.request_json == {
@@ -103,9 +104,13 @@ class TestAfterResponseHooks:
             "email": "test@test.com",
             "role": "ADMIN",
             "discord_profile": {"username": "discord_username"},
+            "requesting_user_id": str(requesting_user.id),
         }
         assert (
             audit.request_body
-            == '{"name":"Test User","email":"test@test.com","role":"ADMIN","discord_profile":{"username":"discord_username"}}'
+            == f'{{"name":"Test User","email":"test@test.com","role":"ADMIN","discord_profile":{{"username":"discord_username"}},"requesting_user_id":"{requesting_user.id!s}"}}'
         )
         assert audit.path_params == {"company_id": str(base_company.id)}
+
+        # cleanup
+        await requesting_user.delete()

@@ -15,7 +15,7 @@ from vapi.db.models import Company, DictionaryTerm
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DictionaryService
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
@@ -107,7 +107,9 @@ class DictionaryTermController(Controller):
         service = DictionaryService()
         service.verify_is_company_dictionary_term(dictionary_term)
 
-        dictionary_term, data = await patch_internal_objects(original=dictionary_term, data=data)
+        dictionary_term, data = await patch_dto_data_internal_objects(
+            original=dictionary_term, data=data
+        )
         try:
             updated_dictionary_term = data.update_instance(dictionary_term)
             await updated_dictionary_term.save()
