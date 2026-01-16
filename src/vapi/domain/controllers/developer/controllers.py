@@ -12,7 +12,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from vapi.db.models import Developer  # noqa: TC001
 from vapi.domain import deps, hooks, urls
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
@@ -75,7 +75,7 @@ class DeveloperController(Controller):
         self, *, developer: Developer, data: DTOData[Developer]
     ) -> Developer:
         """Update the current developer."""
-        developer, data = await patch_internal_objects(original=developer, data=data)
+        developer, data = await patch_dto_data_internal_objects(original=developer, data=data)
         updated_developer = data.update_instance(developer)
         try:
             await updated_developer.save()

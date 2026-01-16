@@ -139,8 +139,7 @@ async function getAllUsers(apiKey, companyId) {
 
 ## Best Practices
 
-1. **Use the maximum limit for bulk operations** - When fetching all items, use `limit=100` to minimize the number of requests
-2. **Cache the total count** - The `total` field can be used to display pagination UI without additional requests
-3. **Handle empty results** - An empty `items` array with `total=0` indicates no matching records
-4. **Don't exceed the total** - Requests with `offset >= total` will return an empty `items` array
-5. **Consider rate limits** - When iterating through large datasets, be mindful of [rate limits](rate-limiting.md)
+1. **Cache the total count** - The `total` field can be used to display pagination UI without additional requests
+2. **Handle empty results** - An empty `items` array with `total=0` indicates no matching records
+3. **Don't exceed the total** - Requests with `offset >= total` will return an empty `items` array
+4. **Consider rate limits** - When iterating through large datasets, be mindful of [rate limits](rate-limiting.md)

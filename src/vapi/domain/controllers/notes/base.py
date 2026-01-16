@@ -11,7 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from vapi.db.models import Note
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
@@ -111,7 +111,7 @@ class BaseNoteController(Controller, ABC):
         Returns:
             Note: The updated note document.
         """
-        note, data = await patch_internal_objects(original=note, data=data)
+        note, data = await patch_dto_data_internal_objects(original=note, data=data)
         updated_note = data.update_instance(note)
         try:
             await updated_note.save()

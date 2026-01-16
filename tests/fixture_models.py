@@ -552,8 +552,9 @@ async def user_factory(base_company, debug) -> UserFactory:
         await user.save()
 
         company = await Company.get(company_id)
-        company.user_ids.append(user.id)
-        await company.save()
+        if company:
+            company.user_ids.append(user.id)
+            await company.save()
         return user
 
     return _user_factory

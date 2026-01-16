@@ -17,7 +17,7 @@ from vapi.db.models import Company, Developer
 from vapi.db.models.developer import CompanyPermissions
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.exceptions import ConflictError, ValidationError
 from vapi.lib.guards import global_admin_guard
 from vapi.lib.stores import delete_authentication_cache_for_api_key
@@ -107,7 +107,7 @@ class GlobalAdminController(Controller):
         data: DTOData[Developer],
     ) -> Developer:
         """Update an Developer by ID."""
-        developer, data = await patch_internal_objects(original=developer, data=data)
+        developer, data = await patch_dto_data_internal_objects(original=developer, data=data)
         updated_developer = data.update_instance(developer)
         try:
             await updated_developer.save()

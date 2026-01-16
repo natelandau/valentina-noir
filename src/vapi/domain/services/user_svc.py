@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from vapi.constants import PermissionsGrantXP, UserRole
 from vapi.db.models import Company, QuickRoll, User
-from vapi.domain.utils import validate_trait_ids_from_mixed_sources
+from vapi.domain.utils import patch_document_from_dict, validate_trait_ids_from_mixed_sources
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
 from .validation_svc import GetModelByIdValidationService
@@ -15,6 +15,67 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
     from vapi.db.models.user import CampaignExperience
+    from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO
+
+
+class UserService:
+    """User service."""
+
+    async def validate_user_can_manage_user(
+        self,
+        requesting_user_id: PydanticObjectId,
+        user_to_manage_id: PydanticObjectId | None = None,
+    ) -> None:
+        """Validate if the user can manage the user.
+
+        Args:
+            user_to_manage_id: The ID of the user to manage.
+            requesting_user_id: The ID of the user requesting to manage the user.
+
+        Raises:
+            ValidationError: If the requesting user is not found.
+            PermissionDeniedError: If the requesting user is not authorized to manage the user.
+        """
+        if user_to_manage_id and requesting_user_id == user_to_manage_id:
+            return
+
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        if requesting_user.role not in [UserRole.ADMIN]:
+            raise PermissionDeniedError(
+                detail="Requesting user is not authorized to manage this user",
+            )
+
+    async def create_user(self, company: Company, data: UserPostDTO) -> User:
+        """Create a user."""
+        await self.validate_user_can_manage_user(
+            requesting_user_id=data.requesting_user_id,
+        )
+
+        new_user = User(
+            name=data.name,
+            email=data.email,
+            role=data.role,
+            company_id=company.id,
+            discord_profile=data.discord_profile,
+        )
+        await new_user.save()
+
+        company.user_ids.append(new_user.id)
+        await company.save()
+
+        return new_user
+
+    async def update_user(self, user: User, data: UserPatchDTO) -> User:
+        """Update a user."""
+        await self.validate_user_can_manage_user(
+            requesting_user_id=data.requesting_user_id,
+            user_to_manage_id=user.id,
+        )
+
+        user = patch_document_from_dict(document=user, data=data.model_dump(exclude_unset=True))
+        await user.save()
+
+        return user
 
 
 class UserQuickRollService:

@@ -14,7 +14,7 @@ from pydantic import ValidationError as PydanticValidationError
 from vapi.db.models import Campaign, Company
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
@@ -107,7 +107,7 @@ class CampaignController(Controller):
     )
     async def update_campaign(self, campaign: Campaign, data: DTOData[Campaign]) -> Campaign:
         """Update a campaign by ID."""
-        campaign, data = await patch_internal_objects(original=campaign, data=data)
+        campaign, data = await patch_dto_data_internal_objects(original=campaign, data=data)
         updated_campaign = data.update_instance(campaign)
         try:
             await updated_campaign.save()

@@ -6,42 +6,32 @@ from typing import Annotated
 
 from beanie import PydanticObjectId  # noqa: TC002
 from litestar.plugins.pydantic import PydanticDTO
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
+from vapi.constants import UserRole
 from vapi.db.models import QuickRoll, User
-from vapi.db.models.user import CampaignExperience
+from vapi.db.models.user import CampaignExperience, DiscordProfile
 from vapi.lib.dto import dto_config
 
 
-class PostUserDTO(PydanticDTO[User]):
-    """User create DTO."""
+class UserPostDTO(BaseModel):
+    """User post/patch DTO."""
 
-    config = dto_config(
-        exclude={
-            "id",
-            "date_created",
-            "date_modified",
-            "company_id",
-            "campaign_experience",
-            "discord_oauth",
-        }
-    )
+    name: Annotated[str, Field(examples=["John Doe"])]
+    email: EmailStr = Field(examples=["john.doe@example.com"])
+    role: UserRole = Field(examples=[UserRole.PLAYER])
+    discord_profile: Annotated[DiscordProfile, Field(default=DiscordProfile())]
+    requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 
-class PatchUserDTO(PydanticDTO[User]):
-    """User update DTO."""
+class UserPatchDTO(BaseModel):
+    """User post/patch DTO."""
 
-    config = dto_config(
-        partial=True,
-        exclude={
-            "id",
-            "date_created",
-            "date_modified",
-            "company_id",
-            "campaign_experience",
-            "discord_oauth",
-        },
-    )
+    name: Annotated[str | None, Field(examples=["John Doe"])] = None
+    email: Annotated[EmailStr | None, Field(examples=["john.doe@example.com"])] = None
+    role: Annotated[UserRole | None, Field(examples=[UserRole.PLAYER])] = None
+    discord_profile: Annotated[DiscordProfile | None, Field(default=DiscordProfile())] = None
+    requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 
 class ReturnUserDTO(PydanticDTO[User]):

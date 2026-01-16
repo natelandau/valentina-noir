@@ -17,7 +17,7 @@ from vapi.db.models import Campaign, Character, Company, User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard, user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
@@ -172,7 +172,7 @@ class CharacterController(Controller):
         data: DTOData[Character],
     ) -> Character:
         """Update a character."""
-        character, data = await patch_internal_objects(original=character, data=data)
+        character, data = await patch_dto_data_internal_objects(original=character, data=data)
         updated_character = data.update_instance(character)
 
         service = CharacterService()

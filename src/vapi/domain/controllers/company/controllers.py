@@ -19,7 +19,7 @@ from vapi.db.models.developer import CompanyPermissions  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
-from vapi.domain.utils import patch_internal_objects
+from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
@@ -122,7 +122,7 @@ class CompanyController(Controller):
     async def update_company(self, company: Company, data: DTOData[Company]) -> Company:
         """Update a company."""
         try:
-            company, data = await patch_internal_objects(original=company, data=data)
+            company, data = await patch_dto_data_internal_objects(original=company, data=data)
             updated_company = data.update_instance(company)
             await updated_company.save()
         except PydanticValidationError as e:
