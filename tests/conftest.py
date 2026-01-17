@@ -74,6 +74,9 @@ def patch_settings():
     settings.aws.s3_bucket_name = "MOCK_S3_BUCKET_NAME"
     settings.aws.cloudfront_origin_path = "MOCK_ORIGIN_PATH"
     settings.aws.cloudfront_url = "MOCK_URL"
+    settings.saq.web_enabled = False
+    settings.saq.processes = 1
+    settings.saq.use_server_lifespan = True
 
     # Clear any stray instances of the lru_cache
     try:
@@ -244,11 +247,10 @@ async def fx_redis(redis_service: RedisService) -> AsyncGenerator[Redis]:
 
 
 @pytest.fixture(name="client")
-async def fx_client(
-    redis: Redis, monkeypatch: pytest.MonkeyPatch, init_test_database: AsyncMongoClient
-) -> AsyncIterator[AsyncClient]:
+async def fx_client(redis: Redis, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     """Create an async HTTP client that connects to the app."""
     from httpx import ASGITransport, AsyncClient
+    from litestar_saq.cli import get_saq_plugin
 
     from vapi.asgi import create_app
     from vapi.config.base import RedisSettings
@@ -260,9 +262,13 @@ async def fx_client(
     cache_config = app.response_cache_config
     assert cache_config is not None
 
+    saq_plugin = get_saq_plugin(app)
     app_plugin = app.plugins.get(ApplicationCore)
     monkeypatch.setattr(app_plugin, "redis", redis)
     monkeypatch.setattr(app.stores.get(cache_config.store), "_redis", redis)
+    if saq_plugin._config.queue_instances is not None:
+        for queue in saq_plugin._config.queue_instances.values():
+            monkeypatch.setattr(queue, "redis", redis)
 
     # Patch settings.redis.get_client to return our test Redis instance
     monkeypatch.setattr(RedisSettings, "get_client", lambda self: redis)

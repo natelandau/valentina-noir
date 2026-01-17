@@ -73,7 +73,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         app_config.openapi_config = create_openapi_config()
 
-        app_config.plugins.extend([plugins.granian, plugins.oauth])
+        app_config.plugins.extend([plugins.granian, plugins.oauth, plugins.saq])
 
         app_config.type_encoders = {PydanticObjectId: str}
         app_config.type_decoders = [

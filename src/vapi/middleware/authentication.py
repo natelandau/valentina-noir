@@ -72,4 +72,4 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
         raise NotAuthorizedError(detail="Unauthorized API key")
 
 
-auth_mw = DefineMiddleware(TokenAuthMiddleware, exclude=["schema", "docs", "^/public/"])
+auth_mw = DefineMiddleware(TokenAuthMiddleware, exclude=["schema", "docs", "^/public/", "^/saq"])
