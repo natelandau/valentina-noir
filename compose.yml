@@ -5,10 +5,9 @@ services:
     hostname: vapi
     container_name: vapi
     env_file:
-      - .env
       - .env.secret
     environment:
-      - VAPI_MONGO_URI=mongodb://mongodb:27017/
+      - VAPI_MONGO__URI=mongodb://mongodb:27017/
       - VAPI_REDIS__URL=redis://:redispassword@redis:6379/0
     volumes:
       - .dev:/app/.dev
