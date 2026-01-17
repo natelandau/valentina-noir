@@ -36,8 +36,11 @@ class SAQSettings(BaseModel):
     """SAQ settings."""
 
     use_server_lifespan: bool = Field(default=True)
-    web_enabled: bool = Field(default=True)
+    web_enabled: bool = Field(default=False)
     processes: int = Field(default=1)
+    enabled: bool = Field(default=True)
+    admin_username: str = Field(default="admin")
+    admin_password: str = Field(default="admin")
 
 
 class AWSSettings(BaseModel):

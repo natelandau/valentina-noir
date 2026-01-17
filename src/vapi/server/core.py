@@ -59,7 +59,8 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         )
         from vapi.lib.log_config import get_logging_config, middleware_logging_config
         from vapi.lib.stores import response_cache_key_builder
-        from vapi.middleware.authentication import auth_mw
+        from vapi.middleware.api_key_auth import api_key_auth_mw
+        from vapi.middleware.basic_auth import basic_auth_mw
         from vapi.middleware.cache_control_headers import cache_control_middleware
         from vapi.middleware.idempotency import idempotency_middleware
         from vapi.middleware.rate_limit import rate_limit_middleware
@@ -73,7 +74,9 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         app_config.openapi_config = create_openapi_config()
 
-        app_config.plugins.extend([plugins.granian, plugins.oauth, plugins.saq])
+        app_config.plugins.extend([plugins.granian, plugins.oauth])
+        if settings.saq.enabled:
+            app_config.plugins.append(plugins.saq)
 
         app_config.type_encoders = {PydanticObjectId: str}
         app_config.type_decoders = [
@@ -88,7 +91,8 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         app_config.middleware.extend(
             [
-                auth_mw,
+                basic_auth_mw,
+                api_key_auth_mw,
                 rate_limit_middleware,
                 idempotency_middleware,
                 cache_control_middleware,

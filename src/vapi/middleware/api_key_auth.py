@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("vapi")
 
-__all__ = ("auth_mw",)
+__all__ = ("api_key_auth_mw",)
 
 
 class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
@@ -72,4 +72,6 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
         raise NotAuthorizedError(detail="Unauthorized API key")
 
 
-auth_mw = DefineMiddleware(TokenAuthMiddleware, exclude=["schema", "docs", "^/public/", "^/saq"])
+api_key_auth_mw = DefineMiddleware(
+    TokenAuthMiddleware, exclude=["schema", "docs", "^/public/", "^/saq"]
+)

@@ -55,6 +55,25 @@ We use [Duty](https://pawamoy.github.io/duty/) as a task runner.
 -   `duty dev-clean` - Clean the development environment
 -   `duty dev-setup` - Set up the development environment in `.dev` including storage for logs, the development database, and Redis instance all of which are mounted as volumes.
 
+## Running Tests
+
+To run all tests in the project, use the following command:
+
+```bash
+duty test -- -n 0
+```
+
+This will run all tests in the project in parallel using [pytest-xdist](https://pytest-xdist.readthedocs.io/en/stable/).
+
+During development, it is often useful to run tests in serial mode and with more verbose output. You can do this by running pytest directly and appending these flags to the command:
+
+-   `-n 0` - Run tests in serial mode
+-   `-v` - Verbose output. Append more `-v`s for more verbose output.
+-   `-s` - Show test output as it runs.
+-   `-x` - Stop running tests on the first failure.
+
+Run `pytest --help` for more information and options.
+
 ## Development Guidelines
 
 When developing for valentina, please follow these guidelines:
