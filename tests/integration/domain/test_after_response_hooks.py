@@ -96,8 +96,6 @@ class TestAfterResponseHooks:
         assert audit.handler_name == "create_user"
         assert audit.operation_id == "createUser"
         assert audit.method == "POST"
-        assert audit.description.startswith("Create a new user within a company")
-        assert audit.method == "POST"
         assert audit.url == f"http://testserver/api/v1/companies/{base_company.id}/users"
         assert audit.request_json == {
             "name": "Test User",

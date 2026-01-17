@@ -1,18 +1,20 @@
-"""Tasks for SAQ."""
+"""Tasks for SAQ.
+
+This module contains the tasks for the SAQ plugin which are run at scheduled intervals.  Keep in
+mind that the tasks are run in a separate process from the main application.
+"""
 
 import logging
 from datetime import timedelta
 
-from rich.console import Console
 from saq.types import Context
 
 from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
-console = Console()
 
 
-async def database_cleanup(_: Context) -> None:
+async def purge_db_expired_items(_: Context) -> None:
     """Purge old audit logs."""
     from beanie.odm.operators.find.comparison import LT
 
@@ -32,8 +34,11 @@ async def database_cleanup(_: Context) -> None:
     )
     from vapi.lib.database import init_database
 
-    logger.info("Start database cleanup.", extra={"component": "saq", "task": "database_cleanup"})
+    logger.info(
+        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
+    )
 
+    # We need to initialize the database here b/c the tasks are run in a separate process from the main application.
     await init_database()
     cutoff_date = time_now() - timedelta(days=30)
 
@@ -58,7 +63,7 @@ async def database_cleanup(_: Context) -> None:
             msg,
             extra={
                 "component": "saq",
-                "task": "database_cleanup",
+                "task": "purge_db_expired_items",
                 "num_purged": deleted.deleted_count,
             },
         )
@@ -68,10 +73,14 @@ async def database_cleanup(_: Context) -> None:
     msg = "Purge old AuditLogs."
     logger.info(
         msg,
-        extra={"component": "saq", "task": "database_cleanup", "num_purged": deleted.deleted_count},
+        extra={
+            "component": "saq",
+            "task": "purge_db_expired_items",
+            "num_purged": deleted.deleted_count,
+        },
     )
 
     logger.info(
         "Database cleanup completed.",
-        extra={"component": "saq", "task": "database_cleanup"},
+        extra={"component": "saq", "task": "purge_db_expired_items"},
     )

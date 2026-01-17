@@ -77,6 +77,9 @@ def patch_settings():
     settings.saq.web_enabled = False
     settings.saq.processes = 1
     settings.saq.use_server_lifespan = True
+    settings.saq.enabled = False
+    settings.saq.admin_username = "test_admin"
+    settings.saq.admin_password = "test_password"  # noqa: S105
 
     # Clear any stray instances of the lru_cache
     try:
@@ -262,11 +265,11 @@ async def fx_client(redis: Redis, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
     cache_config = app.response_cache_config
     assert cache_config is not None
 
-    saq_plugin = get_saq_plugin(app)
+    saq_plugin = get_saq_plugin(app) if settings.saq.enabled else None
     app_plugin = app.plugins.get(ApplicationCore)
     monkeypatch.setattr(app_plugin, "redis", redis)
     monkeypatch.setattr(app.stores.get(cache_config.store), "_redis", redis)
-    if saq_plugin._config.queue_instances is not None:
+    if saq_plugin and saq_plugin._config.queue_instances is not None:
         for queue in saq_plugin._config.queue_instances.values():
             monkeypatch.setattr(queue, "redis", redis)
 

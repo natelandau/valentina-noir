@@ -11,11 +11,11 @@ saq_settings = SAQConfig(
     queue_configs=[
         QueueConfig(
             dsn=settings.redis.url,
-            name="database-cleanup",
-            tasks=["vapi.server.tasks.database_cleanup"],
+            name="purge-db-expired-items",
+            tasks=["vapi.lib.scheduled_tasks.purge_db_expired_items"],
             scheduled_tasks=[
                 CronJob(
-                    function="vapi.server.tasks.database_cleanup",
+                    function="vapi.lib.scheduled_tasks.purge_db_expired_items",
                     unique=True,
                     cron="0 4 * * *",
                     timeout=300,
