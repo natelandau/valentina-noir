@@ -37,27 +37,10 @@ def _sanitize_binary_body(message: str) -> str:
     return MULTIPART_BOUNDARY_PATTERN.sub("", sanitized)
 
 
-class StandardFormatter(logging.Formatter):
-    """Standard formatter with binary content sanitization."""
+class BaseFormatter(logging.Formatter):
+    """Base formatter with shared functionality for binary sanitization and extra fields."""
 
-    def format(self, record: logging.LogRecord) -> str:
-        """Format the log record, sanitizing binary content."""
-        # Sanitize binary content from the message before formatting
-        original_msg = record.msg
-        record.msg = _sanitize_binary_body(str(record.msg))
-
-        output = super().format(record)
-
-        # Restore original message to avoid side effects
-        record.msg = original_msg
-
-        return output
-
-
-class ColorFormatter(logging.Formatter):
-    """Color formatter."""
-
-    def_keys: ClassVar[list[str]] = [
+    _DEFAULT_KEYS: ClassVar[set[str]] = {
         "args",
         "asctime",
         "created",
@@ -81,7 +64,59 @@ class ColorFormatter(logging.Formatter):
         "taskName",
         "thread",
         "threadName",
-    ]
+    }
+
+    def _get_extra_fields(self, record: logging.LogRecord) -> dict[str, Any]:
+        """Extract extra fields from log record that are not standard logging attributes."""
+        return {k: v for k, v in record.__dict__.items() if k not in self._DEFAULT_KEYS}
+
+    def _sanitize_and_format(self, record: logging.LogRecord) -> str:
+        """Sanitize the record message and format using the parent formatter.
+
+        Subclasses should override this to use custom formatters while still
+        benefiting from binary sanitization.
+
+        Args:
+            record: The log record to format.
+
+        Returns:
+            Formatted log string (without extra fields).
+        """
+        original_msg = record.msg
+        record.msg = _sanitize_binary_body(str(record.msg))
+
+        output = super().format(record)
+
+        record.msg = original_msg
+        return output
+
+    def _append_extras(self, output: str, record: logging.LogRecord) -> str:
+        """Append extra fields to the formatted output.
+
+        Args:
+            output: The already-formatted log string.
+            record: The log record containing potential extra fields.
+
+        Returns:
+            Log string with extra fields appended.
+        """
+        extra = self._get_extra_fields(record)
+        if extra:
+            output += " " + str(extra)
+        return output
+
+
+class StandardFormatter(BaseFormatter):
+    """Standard formatter with binary content sanitization."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record, sanitizing binary content."""
+        output = self._sanitize_and_format(record)
+        return self._append_extras(output, record)
+
+
+class ColorFormatter(BaseFormatter):
+    """Color formatter with ANSI escape codes for terminal output."""
 
     _LEVEL_COLORS: ClassVar[list[tuple[int, str]]] = [
         (logging.DEBUG, "\x1b[40;1m"),
@@ -101,30 +136,26 @@ class ColorFormatter(logging.Formatter):
         for level, color in _LEVEL_COLORS
     }
 
-    def format(self, record: logging.LogRecord) -> str:
-        """Format the log record."""
-        formatter = self._FORMATS.get(record.levelno)
-        if formatter is None:
-            formatter = self._FORMATS[logging.DEBUG]
+    def _sanitize_and_format(self, record: logging.LogRecord) -> str:
+        """Sanitize and format record using level-specific colored formatter."""
+        formatter = self._FORMATS.get(record.levelno, self._FORMATS[logging.DEBUG])
 
         if record.exc_info:
             text = formatter.formatException(record.exc_info)
             record.exc_text = f"\x1b[31m{text}\x1b[0m"
 
-        # Sanitize binary content from the message before formatting
         original_msg = record.msg
         record.msg = _sanitize_binary_body(str(record.msg))
 
         output = formatter.format(record)
 
-        # Restore original message to avoid side effects
         record.msg = original_msg
+        return output
 
-        # Add extra fields to the output
-        extra = {k: v for k, v in record.__dict__.items() if k not in self.def_keys}
-        if len(extra) > 0:
-            output += " " + str(extra)
-
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record with colors."""
+        output = self._sanitize_and_format(record)
+        output = self._append_extras(output, record)
         record.exc_text = None
         return output
 
