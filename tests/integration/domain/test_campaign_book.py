@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 from litestar.status_codes import (
@@ -28,10 +28,10 @@ async def test_book_controller(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     base_user_storyteller: User,
-    build_url: Callable[[str, Any], str],
+    build_url: Callable[[str, ...], str],
     base_campaign: Campaign,
     base_campaign_book: CampaignBook,
-    debug: Callable[[Any], None],
+    debug: Callable[[...], None],
 ) -> None:
     """Verify the campaign controller."""
     # when we create a book
@@ -114,8 +114,8 @@ async def test_renumber_book(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     base_user_storyteller: User,
-    campaign_book_factory: Callable[[Any], CampaignBook],
-    build_url: Callable[[str, Any], str],
+    campaign_book_factory: Callable[[...], CampaignBook],
+    build_url: Callable[[str, ...], str],
 ) -> None:
     """Verify the renumber_book function."""
     await CampaignBook.delete_all()
