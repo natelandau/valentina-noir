@@ -42,9 +42,9 @@ class GlobalAdminController(Controller):
     return_dto = dto.DeveloperReturnDTO
 
     @get(
-        path=urls.GlobalAdmin.LIST,
+        path=urls.GlobalAdmin.DEVELOPERS,
         summary="List developers",
-        operation_id="listDevelopers",
+        operation_id="globalAdminListDevelopers",
         description="Retrieve a paginated list of all developer accounts in the system. Requires global admin privileges.",
         cache=True,
     )
@@ -63,9 +63,9 @@ class GlobalAdminController(Controller):
         return OffsetPagination(items=developers, limit=limit, offset=offset, total=count)
 
     @get(
-        path=urls.GlobalAdmin.DETAIL,
+        path=urls.GlobalAdmin.DEVELOPER_DETAIL,
         summary="Get developer",
-        operation_id="getDeveloper",
+        operation_id="globalAdminGetDeveloper",
         description="Retrieve detailed information about a specific developer account. Requires global admin privileges.",
         cache=True,
     )
@@ -74,9 +74,9 @@ class GlobalAdminController(Controller):
         return developer
 
     @post(
-        path=urls.GlobalAdmin.CREATE,
+        path=urls.GlobalAdmin.DEVELOPER_CREATE,
         summary="Create developer",
-        operation_id="createDeveloper",
+        operation_id="globalAdminCreateDeveloper",
         description="Create a new developer account. The new developer will receive an API key for authentication. Requires global admin privileges.",
         dto=dto.DeveloperCreateDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -93,9 +93,9 @@ class GlobalAdminController(Controller):
         return developer
 
     @patch(
-        path=urls.GlobalAdmin.UPDATE,
+        path=urls.GlobalAdmin.DEVELOPER_UPDATE,
         summary="Update developer",
-        operation_id="updateDeveloper",
+        operation_id="globalAdminUpdateDeveloper",
         description="Modify a developer account's properties. Only include fields that need to be changed. Requires global admin privileges.",
         dto=dto.DeveloperPatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -117,9 +117,9 @@ class GlobalAdminController(Controller):
         return updated_developer
 
     @delete(
-        path=urls.GlobalAdmin.DELETE,
+        path=urls.GlobalAdmin.DEVELOPER_DELETE,
         summary="Delete developer",
-        operation_id="deleteDeveloper",
+        operation_id="globalAdminDeleteDeveloper",
         description="Remove a developer account from the system. The developer's API key will be invalidated immediately. Requires global admin privileges.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -132,9 +132,9 @@ class GlobalAdminController(Controller):
 
     # ############################# API Key #############################
     @post(
-        path=urls.GlobalAdmin.NEW_KEY,
+        path=urls.GlobalAdmin.DEVELOPER_NEW_KEY,
         summary="Regenerate developer API key",
-        operation_id="regenerateDeveloperApiKey",
+        operation_id="globalAdminRegenerateDeveloperApiKey",
         description="Generate a new API key for a developer. Their current key will be immediately invalidated. Requires global admin privileges.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -155,9 +155,9 @@ class GlobalAdminController(Controller):
 
     # ############################# Company Permissions #############################
     @post(
-        path=urls.GlobalAdmin.COMPANY_PERMISSIONS,
+        path=urls.GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
         summary="Grant company access",
-        operation_id="addCompanyPermission",
+        operation_id="globalAdminAddCompanyPermission",
         description="Add a company permission to a developer, allowing them to access company resources. Specify the permission level (user, admin, or owner). Requires global admin privileges.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -185,9 +185,9 @@ class GlobalAdminController(Controller):
         return developer
 
     @patch(
-        path=urls.GlobalAdmin.COMPANY_PERMISSIONS,
+        path=urls.GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
         summary="Update company permission",
-        operation_id="updateCompanyPermission",
+        operation_id="globalAdminUpdateCompanyPermission",
         description="Change a developer's permission level for a company they already have access to. Requires global admin privileges.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -217,9 +217,9 @@ class GlobalAdminController(Controller):
         return developer
 
     @delete(
-        path=urls.GlobalAdmin.COMPANY_PERMISSIONS,
+        path=urls.GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
         summary="Revoke company access",
-        operation_id="removeCompanyPermission",
+        operation_id="globalAdminRemoveCompanyPermission",
         description="Remove a developer's access to a company entirely. They will no longer be able to access any resources within that company. Requires global admin privileges.",
         status_code=HTTP_200_OK,
         after_response=hooks.audit_log_and_delete_api_key_cache,

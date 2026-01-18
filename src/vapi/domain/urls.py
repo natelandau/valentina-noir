@@ -15,13 +15,15 @@ class GlobalAdmin:
     """Global admin management endpoints."""
 
     BASE = f"{URL_ROOT_PATH}/admin"
-    LIST = BASE
-    DETAIL = f"{BASE}/{{developer_id:str}}"
-    CREATE = BASE
-    UPDATE = DETAIL
-    DELETE = DETAIL
-    NEW_KEY = f"{DETAIL}/new-key"
-    COMPANY_PERMISSIONS = f"{DETAIL}/company-permission/{{company_id:str}}/{{permission:str}}"
+    DEVELOPERS = f"{BASE}/developers"
+    DEVELOPER_DETAIL = f"{DEVELOPERS}/{{developer_id:str}}"
+    DEVELOPER_CREATE = DEVELOPERS
+    DEVELOPER_UPDATE = DEVELOPER_DETAIL
+    DEVELOPER_DELETE = DEVELOPER_DETAIL
+    DEVELOPER_NEW_KEY = f"{DEVELOPER_DETAIL}/new-key"
+    DEVELOPER_COMPANY_PERMISSIONS = (
+        f"{DEVELOPER_DETAIL}/company-permission/{{company_id:str}}/{{permission:str}}"
+    )
 
 
 class Developers:

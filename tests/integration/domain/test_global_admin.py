@@ -36,7 +36,7 @@ async def test_admin_list_developers(
 
     new_developer = await developer_factory()
 
-    response = await client.get(build_url(GlobalAdmin.LIST), headers=token_global_admin)
+    response = await client.get(build_url(GlobalAdmin.DEVELOPERS), headers=token_global_admin)
     assert response.status_code == HTTP_200_OK
 
     json_data = response.json()
@@ -67,7 +67,7 @@ async def test_get_developer(
 ) -> None:
     """Verify the admin can get an Developer."""
     response = await client.get(
-        build_url(GlobalAdmin.DETAIL, developer_id=base_developer_global_admin.id),
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=base_developer_global_admin.id),
         headers=token_global_admin,
     )
     assert response.status_code == HTTP_200_OK
@@ -86,7 +86,7 @@ async def test_post_developer(
 ) -> None:
     """Verify the admin can post an Developer."""
     response = await client.post(
-        build_url(GlobalAdmin.CREATE),
+        build_url(GlobalAdmin.DEVELOPER_CREATE),
         headers=token_global_admin,
         json={"username": "test user", "email": "test@test.com", "is_global_admin": False},
     )
@@ -118,7 +118,7 @@ async def test_patch_developer(
     new_developer = await developer_factory(username="original")
 
     response = await client.patch(
-        build_url(GlobalAdmin.DETAIL, developer_id=new_developer.id),
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=new_developer.id),
         headers=token_global_admin,
         json={"username": "patched"},
     )
@@ -148,7 +148,7 @@ async def test_delete_developer(
     """Verify the admin can delete an Developer."""
     new_developer = await developer_factory()
     response = await client.delete(
-        build_url(GlobalAdmin.DETAIL, developer_id=new_developer.id),
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=new_developer.id),
         headers=token_global_admin,
     )
     assert response.status_code == HTTP_204_NO_CONTENT
@@ -176,7 +176,7 @@ async def test_new_api_key(
 
     # When the admin generates a new API key
     response = await client.post(
-        build_url(GlobalAdmin.NEW_KEY, developer_id=new_developer.id),
+        build_url(GlobalAdmin.DEVELOPER_NEW_KEY, developer_id=new_developer.id),
         headers=token_global_admin,
     )
 
@@ -215,7 +215,7 @@ async def test_add_company_permission(
 
     response = await client.post(
         build_url(
-            GlobalAdmin.COMPANY_PERMISSIONS,
+            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
             developer_id=new_developer.id,
             company_id=base_company.id,
             permission=CompanyPermission.OWNER.name,
@@ -253,7 +253,7 @@ async def test_add_company_permission_already_exists(
     """Verify the admin cannot add a company permission to an Developer that already exists."""
     response = await client.post(
         build_url(
-            GlobalAdmin.COMPANY_PERMISSIONS,
+            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
             developer_id=base_developer_company_admin.id,
             company_id=base_company.id,
             permission=CompanyPermission.OWNER.name,
@@ -274,7 +274,7 @@ async def test_update_company_permission(
     """Verify the admin can update a company permission for an Developer."""
     response = await client.patch(
         build_url(
-            GlobalAdmin.COMPANY_PERMISSIONS,
+            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
             developer_id=base_developer_company_admin.id,
             company_id=base_company.id,
             permission=CompanyPermission.OWNER.name,
@@ -325,7 +325,7 @@ async def test_remove_company_permission(
     ####################################
     response = await client.delete(
         build_url(
-            GlobalAdmin.COMPANY_PERMISSIONS,
+            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
             developer_id=developer.id,
             company_id=company2.id,
             permission=CompanyPermission.USER.name,
