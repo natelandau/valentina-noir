@@ -12,13 +12,13 @@ from vapi.lib.dto import dto_config
 class PostCompanyDTO(PydanticDTO[Company]):
     """Company post DTO."""
 
-    config = dto_config(exclude={"id", "date_created", "date_modified"})
+    config = dto_config(exclude={"id", "date_created", "date_modified", "user_ids"})
 
 
 class PatchCompanyDTO(PydanticDTO[Company]):
     """Company patch DTO."""
 
-    config = dto_config(partial=True, exclude={"id", "date_created", "date_modified"})
+    config = dto_config(partial=True, exclude={"id", "date_created", "date_modified", "user_ids"})
 
 
 class CompanyDTO(PydanticDTO[Company]):
