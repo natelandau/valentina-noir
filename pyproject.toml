@@ -26,7 +26,7 @@
     license = { file = "LICENSE" }
     name = "vapi"
     readme = "README.md"
-    requires-python = ">=3.13"
+    requires-python = ">=3.13,<3.14"
     version = "0.4.0"
 
     [project.scripts]

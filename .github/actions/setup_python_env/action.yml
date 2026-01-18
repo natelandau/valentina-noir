@@ -7,7 +7,7 @@ inputs:
     description: >
       Version range or exact version of a Python version to use, using SemVer's version range syntax.
     required: false
-    default: "3.14"
+    default: "3.13"
 
   install-groups:
     description: "Groups to install with uv sync"
