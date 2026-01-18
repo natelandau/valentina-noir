@@ -1,3 +1,13 @@
+## v0.6.0 (2026-01-18)
+
+### Feat
+
+- **admin**: add namespace to admin endpoints (#21)
+
+### Fix
+
+- remove oauth from openapi schema (#20)
+
 ## v0.5.0 (2026-01-18)
 
 ### Feat
