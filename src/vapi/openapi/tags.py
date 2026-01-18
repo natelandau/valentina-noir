@@ -100,8 +100,6 @@ class APITags:
         name="Global Admin", description="System-wide administration endpoints"
     )
 
-    OAUTH = TagMetadata(name="OAuth", description="Authentication and authorization")
-
     OPTIONS = TagMetadata(name="Options", description="Configuration options and settings")
 
     STATISTICS = TagMetadata(name="Statistics", description="Game statistics and analytics")
