@@ -1,6 +1,6 @@
 """Domain module."""
 
-from litestar import Controller
+from litestar import Controller, Router
 
 from .controllers import (
     BookAssetsController,
@@ -35,6 +35,7 @@ from .controllers import (
     UserController,
     UserNoteController,
     WerewolfSpecialsController,
+    html_static_files_router,
 )
 
 __all__ = (
@@ -70,9 +71,10 @@ __all__ = (
     "UserController",
     "UserNoteController",
     "WerewolfSpecialsController",
+    "html_static_files_router",
 )
 
-route_handlers: list[type[Controller]] = [
+route_handlers: list[type[Controller] | Router] = [
     BookAssetsController,
     CampaignAssetsController,
     CampaignBookController,
@@ -105,4 +107,5 @@ route_handlers: list[type[Controller]] = [
     UserController,
     UserNoteController,
     WerewolfSpecialsController,
+    html_static_files_router,
 ]

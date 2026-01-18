@@ -1,12 +1,5 @@
 """Domain controllers."""
 
-from .assets import (
-    BookAssetsController,
-    CampaignAssetsController,
-    ChapterAssetsController,
-    CharacterAssetsController,
-    UserAssetsController,
-)
 from .campaign import (
     CampaignBookController,
     CampaignChapterController,
@@ -33,6 +26,14 @@ from .notes import (
 )
 from .oauth.controllers import OAuth2Controller
 from .options.controllers import OptionsController
+from .s3_assets import (
+    BookAssetsController,
+    CampaignAssetsController,
+    ChapterAssetsController,
+    CharacterAssetsController,
+    UserAssetsController,
+)
+from .static import html_static_files_router
 from .statistics.controllers import StatisticsController
 from .system.controllers import SystemController
 from .user import ExperienceController, QuickRollController, UserController
@@ -70,4 +71,5 @@ __all__ = (
     "UserController",
     "UserNoteController",
     "WerewolfSpecialsController",
+    "html_static_files_router",
 )
