@@ -17,7 +17,6 @@ from vapi.db.models.user import User
 from vapi.domain import deps, urls
 from vapi.domain.controllers.oauth import lib
 from vapi.lib.exceptions import ImproperlyConfiguredError, InternalServerError
-from vapi.openapi.tags import APITags
 from vapi.server.oauth import AccessTokenState, OAuth2AuthorizeCallback
 
 oauth2_authorize_callback = OAuth2AuthorizeCallback(
@@ -29,7 +28,6 @@ oauth2_authorize_callback = OAuth2AuthorizeCallback(
 class OAuth2Controller(Controller):
     """OAuth2 controller."""
 
-    tags = [APITags.OAUTH.name]
     dependencies = {
         "user": Provide(deps.provide_user_by_id),
     }
@@ -37,6 +35,7 @@ class OAuth2Controller(Controller):
     @get(
         path=urls.OAuth.DISCORD_LOGIN_REDIRECT,
         exclude_from_auth=True,
+        include_in_schema=False,
         summary="Redirect to Discord login",
         operation_id="redirectToDiscordLogin",
         description="Initiate the Discord OAuth flow by redirecting the user to Discord's authorization page. Use this for browser-based authentication flows.",
@@ -52,6 +51,7 @@ class OAuth2Controller(Controller):
     @get(
         path=urls.OAuth.DISCORD_LOGIN_URL,
         exclude_from_auth=True,
+        include_in_schema=False,
         summary="Get Discord login URL",
         operation_id="getDiscordLoginUrl",
         description="Retrieve the Discord authorization URL for a user. Use this when you need to handle the redirect manually or display a login button.",
@@ -86,6 +86,7 @@ class OAuth2Controller(Controller):
     @get(
         path=urls.OAuth.DISCORD_REFRESH,
         exclude_from_auth=True,
+        include_in_schema=False,
         summary="Refresh Discord connection",
         operation_id="refreshDiscordConnection",
         description="Refresh an expired Discord OAuth token and update the user's Discord profile data. Call this when the token has expired to maintain the Discord integration.",
