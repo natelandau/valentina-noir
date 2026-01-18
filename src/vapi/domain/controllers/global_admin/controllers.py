@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime  # noqa: TC003
 from typing import TYPE_CHECKING, Annotated
 
 from litestar.controller import Controller
@@ -77,7 +78,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPER_CREATE,
         summary="Create developer",
         operation_id="globalAdminCreateDeveloper",
-        description="Create a new developer account. The new developer will receive an API key for authentication. Requires global admin privileges.",
+        description="Create a new developer account. This creates the account but does not create an API key or grant access to any companies. **Be certain to generate an API key after account creation.**\n\nRequires global admin privileges.",
         dto=dto.DeveloperCreateDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -133,12 +134,14 @@ class GlobalAdminController(Controller):
     # ############################# API Key #############################
     @post(
         path=urls.GlobalAdmin.DEVELOPER_NEW_KEY,
-        summary="Regenerate developer API key",
-        operation_id="globalAdminRegenerateDeveloperApiKey",
-        description="Generate a new API key for a developer. Their current key will be immediately invalidated. Requires global admin privileges.",
+        summary="Create API key",
+        operation_id="globalAdminCreateDeveloperApiKey",
+        description="Generate a new API key for a developer. Their current key will be immediately invalidated.\n\n**Be certain to save the api key as it will not be displayed again.**\n\nRequires global admin privileges.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
+    async def new_api_key(
+        self, *, developer: Developer, request: Request
+    ) -> dict[str, str | list[CompanyPermissions] | datetime]:
         """Generate a new API key for an Developer."""
         new_api_key = await developer.generate_api_key()
 
@@ -148,9 +151,12 @@ class GlobalAdminController(Controller):
             "id": str(developer.id),
             "username": developer.username,
             "email": developer.email,
+            "date_created": developer.date_created,
+            "date_modified": developer.date_modified,
             "api_key": new_api_key,
             "is_global_admin": str(developer.is_global_admin),
             "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "companies": developer.companies,
         }
 
     # ############################# Company Permissions #############################
