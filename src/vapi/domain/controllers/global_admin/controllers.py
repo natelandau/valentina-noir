@@ -53,13 +53,22 @@ class GlobalAdminController(Controller):
         self,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
+        is_global_admin: Annotated[
+            bool | None, Parameter(description="Filter by global admin status.")
+        ] = None,
     ) -> OffsetPagination[Developer]:
         """List all Developers."""
-        query = {
-            "is_archived": False,
-        }
-        count = await Developer.find(query).count()
-        developers = await Developer.find(query).skip(offset).limit(limit).sort("name").to_list()
+        filters = [
+            Developer.is_archived == False,
+        ]
+
+        if is_global_admin is not None:
+            filters.append(Developer.is_global_admin == is_global_admin)
+
+        count = await Developer.find(*filters).count()
+        developers = (
+            await Developer.find(*filters).sort("username").skip(offset).limit(limit).to_list()
+        )
 
         return OffsetPagination(items=developers, limit=limit, offset=offset, total=count)
 
