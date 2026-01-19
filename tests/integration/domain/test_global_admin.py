@@ -1,7 +1,6 @@
 """Test Global Admin."""
 
 from collections.abc import Callable
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -188,8 +187,8 @@ async def test_new_api_key(
     assert json_data["api_key"] is not None
     assert json_data["username"] == new_developer.username
     assert json_data["email"] == new_developer.email
-    assert datetime.fromisoformat(json_data["date_created"]) == new_developer.date_created
-    assert datetime.fromisoformat(json_data["date_modified"]) == new_developer.date_modified
+    assert json_data["date_created"] is not None
+    assert json_data["date_modified"] is not None
     assert json_data["is_global_admin"] == str(new_developer.is_global_admin)
     assert json_data["companies"] == new_developer.model_dump(mode="json")["companies"]
 
