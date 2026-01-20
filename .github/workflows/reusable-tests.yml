@@ -59,6 +59,10 @@ jobs:
                   # Wait for MongoDB to be ready
                   sleep 5
 
+            - name: Confirm we have docker available
+              shell: bash
+              run: docker info
+
             - name: Run tests
               shell: bash
               run: |
