@@ -57,6 +57,7 @@ class CompanyPermission(Enum):
     USER = "USER"
     ADMIN = "ADMIN"
     OWNER = "OWNER"
+    REVOKE = "REVOKE"
 
 
 class DiceSize(Enum):
