@@ -53,8 +53,8 @@ class User(BaseDocument):
     role: UserRole = Field(default=UserRole.PLAYER)
     company_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
-    discord_profile: Annotated[DiscordProfile, Field(default=DiscordProfile())]
-    discord_oauth: Annotated[DiscordOauth, Field(default=DiscordOauth())]
+    discord_profile: Annotated[DiscordProfile, Field(default_factory=DiscordProfile)]
+    discord_oauth: Annotated[DiscordOauth, Field(default_factory=DiscordOauth)]
 
     campaign_experience: list[CampaignExperience] = Field(default_factory=list)
 

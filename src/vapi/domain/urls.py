@@ -21,9 +21,6 @@ class GlobalAdmin:
     DEVELOPER_UPDATE = DEVELOPER_DETAIL
     DEVELOPER_DELETE = DEVELOPER_DETAIL
     DEVELOPER_NEW_KEY = f"{DEVELOPER_DETAIL}/new-key"
-    DEVELOPER_COMPANY_PERMISSIONS = (
-        f"{DEVELOPER_DETAIL}/company-permission/{{company_id:str}}/{{permission:str}}"
-    )
 
 
 class Developers:
@@ -45,8 +42,7 @@ class Companies:
     UPDATE = DETAIL
     DELETE = DETAIL
     STATISTICS = f"{DETAIL}/statistics"
-    DEVELOPER_UPDATE = f"{DETAIL}/update-developer"
-    DEVELOPER_DELETE = f"{DETAIL}/delete-developer"
+    DEVELOPER_ACCESS = f"{DETAIL}/access"
 
 
 class Users:

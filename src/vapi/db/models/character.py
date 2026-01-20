@@ -224,8 +224,9 @@ class Character(BaseDocument):
 
     character_trait_ids: list[PydanticObjectId] = Field(default_factory=list)
 
-    vampire_attributes: VampireAttributes = VampireAttributes()
-    werewolf_attributes: WerewolfAttributes = WerewolfAttributes()
+    vampire_attributes: VampireAttributes = Field(default_factory=VampireAttributes)
+    werewolf_attributes: WerewolfAttributes = Field(default_factory=WerewolfAttributes)
+
     mage_attributes: MageAttributes | None = None
     hunter_attributes: HunterAttributes | None = None
 

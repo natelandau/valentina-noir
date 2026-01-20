@@ -1,4 +1,4 @@
-"""Developer controllers."""
+"""Global admin controllers."""
 
 from __future__ import annotations
 
@@ -10,16 +10,13 @@ from litestar.di import Provide
 from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from litestar.status_codes import HTTP_200_OK
 from pydantic import ValidationError as PydanticValidationError
 
-from vapi.constants import CompanyPermission
-from vapi.db.models import Company, Developer
-from vapi.db.models.developer import CompanyPermissions
+from vapi.db.models import Developer
+from vapi.db.models.developer import CompanyPermissions  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.utils import patch_dto_data_internal_objects
-from vapi.lib.exceptions import ConflictError, ValidationError
 from vapi.lib.guards import global_admin_guard
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
@@ -167,92 +164,3 @@ class GlobalAdminController(Controller):
             "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "companies": developer.companies,
         }
-
-    # ############################# Company Permissions #############################
-    @post(
-        path=urls.GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-        summary="Grant company access",
-        operation_id="globalAdminAddCompanyPermission",
-        description="Add a company permission to a developer, allowing them to access company resources. Specify the permission level (user, admin, or owner). Requires global admin privileges.",
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def add_company(
-        self,
-        *,
-        developer: Developer,
-        company: Company,
-        permission: Annotated[
-            CompanyPermission,
-            Parameter(title="Permission", description="Company permission to add to the Developer"),
-        ],
-    ) -> Developer:
-        """Add a company to an Developer."""
-        if any(x.company_id == company.id for x in developer.companies):
-            raise ConflictError(detail="Company already added to Developer")
-
-        developer.companies.append(
-            CompanyPermissions(
-                company_id=company.id, name=company.name, permission=CompanyPermission(permission)
-            )
-        )
-
-        await developer.save()
-        return developer
-
-    @patch(
-        path=urls.GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-        summary="Update company permission",
-        operation_id="globalAdminUpdateCompanyPermission",
-        description="Change a developer's permission level for a company they already have access to. Requires global admin privileges.",
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def update_company_permission(
-        self,
-        *,
-        developer: Developer,
-        company: Company,
-        permission: Annotated[
-            CompanyPermission,
-            Parameter(title="Permission", description="Company permission to add to the Developer"),
-        ],
-    ) -> Developer:
-        """Update a company permission for an Developer."""
-        if not any(x.company_id == company.id for x in developer.companies):
-            raise ValidationError(
-                detail="Company not added to Developer",
-                invalid_parameters=[
-                    {"field": "company_id", "message": "Company not added to Developer"},
-                ],
-            )
-
-        company_permission = next(x for x in developer.companies if x.company_id == company.id)
-        company_permission.permission = CompanyPermission(permission)
-        await developer.save()
-
-        return developer
-
-    @delete(
-        path=urls.GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-        summary="Revoke company access",
-        operation_id="globalAdminRemoveCompanyPermission",
-        description="Remove a developer's access to a company entirely. They will no longer be able to access any resources within that company. Requires global admin privileges.",
-        status_code=HTTP_200_OK,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def remove_company(
-        self,
-        *,
-        developer: Developer,
-        company: Company,
-        permission: Annotated[  # noqa: ARG002
-            CompanyPermission,
-            Parameter(
-                title="Permission",
-                description="Company permission to remove from the Developer",
-            ),
-        ],
-    ) -> Developer:
-        """Remove a company from an Developer."""
-        developer.companies = [x for x in developer.companies if x.company_id != company.id]
-        await developer.save()
-        return developer

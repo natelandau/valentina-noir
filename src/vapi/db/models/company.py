@@ -51,4 +51,4 @@ class Company(BaseDocument):
     description: Annotated[str | None, Field(min_length=3, default=None)]
     email: EmailStr
     user_ids: list[PydanticObjectId] = Field(default_factory=list)
-    settings: CompanySettings = Field(default=CompanySettings())
+    settings: CompanySettings = Field(default_factory=CompanySettings)

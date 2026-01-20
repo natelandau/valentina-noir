@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from beanie import PydanticObjectId  # noqa: TC002
-from beanie.operators import In
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.dto import DTOData  # noqa: TC002
@@ -14,8 +12,9 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 from pydantic import ValidationError as PydanticValidationError
 
+from vapi.constants import CompanyPermission
 from vapi.db.models import Company, Developer
-from vapi.db.models.developer import CompanyPermissions  # noqa: TC001
+from vapi.db.models.developer import CompanyPermissions
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
@@ -24,7 +23,6 @@ from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
     developer_company_user_guard,
-    global_admin_guard,
 )
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
@@ -40,7 +38,7 @@ class CompanyController(Controller):
     tags = [APITags.COMPANIES.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "developer": Provide(deps.provide_developer_from_request),
+        "requesting_developer": Provide(deps.provide_developer_from_request),
     }
     return_dto = dto.CompanyDTO
 
@@ -48,7 +46,7 @@ class CompanyController(Controller):
         path=urls.Companies.LIST,
         summary="List companies",
         operation_id="listCompanies",
-        description="Retrieve a paginated list of companies. Global admins see all active companies. Regular developers only see companies they have been granted access to.",
+        description="Retrieve a paginated list of companies you have access to.",
         cache=True,
     )
     async def list_companies(
@@ -56,25 +54,15 @@ class CompanyController(Controller):
         *,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-        developer: Developer,
+        requesting_developer: Developer,
     ) -> OffsetPagination[Company]:
         """List all companies."""
-        if developer.is_global_admin:
-            count = await Company.find(Company.is_archived == False).count()
-            companies = (
-                await Company.find(Company.is_archived == False).skip(offset).limit(limit).to_list()
-            )
-            return OffsetPagination(items=companies, limit=limit, offset=offset, total=count)
-
-        company_ids = [perm.company_id for perm in developer.companies]
-        count = await Company.find(
-            In(Company.id, company_ids),
-            Company.is_archived == False,
-        ).count()
-        companies = await Company.find(
-            In(Company.id, company_ids),
-            Company.is_archived == False,
-        ).to_list()
+        service = CompanyService()
+        count, companies = await service.list_companies(
+            requesting_developer=requesting_developer,
+            limit=limit,
+            offset=offset,
+        )
 
         return OffsetPagination(items=companies, limit=limit, offset=offset, total=count)
 
@@ -86,20 +74,23 @@ class CompanyController(Controller):
         guards=[developer_company_user_guard],
         cache=True,
     )
-    async def get_company(self, *, company: Company) -> Company:
+    async def get_company(self, *, requesting_developer: Developer, company: Company) -> Company:
         """Retrieve a company by ID."""
+        service = CompanyService()
+        service.can_developer_access_company(developer=requesting_developer, company_id=company.id)
         return company
 
     @post(
         path=urls.Companies.CREATE,
         summary="Create company",
         operation_id="createCompany",
-        description="Create a new company in the system. Only global administrators can create companies. After creation, use the developer permission endpoints to grant other developers access.",
-        guards=[global_admin_guard],
+        description="Create a new company in the system. You will automatically be granted `OWNER` permission for the new company.",
         dto=dto.PostCompanyDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def create_company(self, data: DTOData[Company]) -> Company:
+    async def create_company(
+        self, requesting_developer: Developer, data: DTOData[Company]
+    ) -> Company:
         """Create a company."""
         try:
             company_data = data.create_instance()
@@ -107,6 +98,15 @@ class CompanyController(Controller):
             await company.save()
         except PydanticValidationError as e:
             raise_from_pydantic_validation_error(e)
+
+        company_permissions = CompanyPermissions(
+            company_id=company.id,
+            name=company.name,
+            permission=CompanyPermission.OWNER,
+        )
+
+        requesting_developer.companies.append(company_permissions)
+        await requesting_developer.save()
 
         return company
 
@@ -143,45 +143,22 @@ class CompanyController(Controller):
         company.is_archived = True
         await company.save()
 
-    ### COMPANY PERMISSIONS ###
     @post(
-        path=urls.Companies.DEVELOPER_UPDATE,
+        path=urls.Companies.DEVELOPER_ACCESS,
         summary="Grant developer access",
         operation_id="addDeveloperToCompany",
-        description="Add or update a developer's permission level for this company. Requires owner-level access. Valid permission levels are 'user' and 'admin'. You cannot modify your own permissions or grant owner-level access through this endpoint.",
+        description="Add, update, or revoke a developer's permission level for this company. Requires company owner-level access. Valid permission levels are 'user' and 'admin'. You cannot modify your own permissions or grant owner-level access through this endpoint.",
         guards=[developer_company_owner_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def add_developer_to_company(
-        self,
-        company: Company,
-        developer: Developer,
-        data: dto.CompanyPermissionsDTO,
+    async def developer_company_permissions(
+        self, company: Company, requesting_developer: Developer, data: dto.CompanyPermissionsDTO
     ) -> CompanyPermissions:
-        """Add a developer to a company."""
+        """Add, update, or revoke a developer's permission level for this company."""
         service = CompanyService()
-        return await service.add_developer_to_company(company, developer, data)
-
-    @delete(
-        path=urls.Companies.DEVELOPER_DELETE,
-        summary="Revoke developer access",
-        operation_id="deleteDeveloperFromCompany",
-        description="Remove a developer's access to this company entirely. Requires owner-level access. You cannot revoke your own access as the owner.",
-        guards=[developer_company_owner_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def delete_developer_from_company(
-        self,
-        *,
-        company: Company,
-        developer: Developer,
-        developer_id: Annotated[
-            PydanticObjectId,
-            Parameter(
-                title="Developer ID", description="ID of the developer to delete from the company"
-            ),
-        ],
-    ) -> None:
-        """Delete a developer from a company."""
-        service = CompanyService()
-        await service.delete_developer_from_company(company, developer, developer_id)
+        return await service.control_company_permissions(
+            company=company,
+            requesting_developer=requesting_developer,
+            target_developer_id=data.developer_id,
+            new_permission=data.permission,
+        )

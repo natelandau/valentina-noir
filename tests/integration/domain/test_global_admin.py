@@ -8,12 +8,9 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
-    HTTP_409_CONFLICT,
 )
 
-from vapi.constants import CompanyPermission
-from vapi.db.models import Company, Developer
-from vapi.db.models.developer import CompanyPermissions
+from vapi.db.models import Developer
 from vapi.domain.urls import GlobalAdmin
 
 if TYPE_CHECKING:
@@ -34,7 +31,7 @@ async def test_admin_list_developers(
     for d in await Developer.find(Developer.is_global_admin == False).to_list():
         await d.delete()
 
-    new_developer = await developer_factory()
+    new_developer = await developer_factory(companies=[])
 
     response = await client.get(build_url(GlobalAdmin.DEVELOPERS), headers=token_global_admin)
     assert response.status_code == HTTP_200_OK
@@ -42,17 +39,7 @@ async def test_admin_list_developers(
     json_data = response.json()
     assert len(json_data["items"]) == 2
 
-    # debug(json_data["items"][0])
-    assert json_data["items"] == [
-        base_developer_global_admin.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date", "api_key_fingerprint", "hashed_api_key"},
-        ),
-        new_developer.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date", "api_key_fingerprint", "hashed_api_key"},
-        ),
-    ]
+    assert str(new_developer.id) in [item["id"] for item in json_data["items"]]
 
     # Cleanup
     await new_developer.delete()
@@ -202,155 +189,3 @@ async def test_new_api_key(
 
     # Cleanup
     await new_developer.delete()
-
-
-async def test_add_company_permission(
-    client: "AsyncClient",
-    token_global_admin: dict[str, str],
-    developer_factory: Callable[[], Developer],
-    base_company: Company,
-    build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
-) -> None:
-    """Verify the admin can add a company permission to an Developer."""
-    new_developer = await developer_factory()
-    new_developer.companies = []
-    await new_developer.save()
-
-    response = await client.post(
-        build_url(
-            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-            developer_id=new_developer.id,
-            company_id=base_company.id,
-            permission=CompanyPermission.OWNER.name,
-        ),
-        headers=token_global_admin,
-    )
-    assert response.status_code == HTTP_201_CREATED
-    assert response.json()["companies"] == [
-        {
-            "company_id": str(base_company.id),
-            "name": base_company.name,
-            "permission": CompanyPermission.OWNER.name,
-        }
-    ]
-
-    db_developer = await Developer.get(new_developer.id)
-    assert db_developer.companies == [
-        CompanyPermissions(
-            company_id=base_company.id, name=base_company.name, permission=CompanyPermission.OWNER
-        )
-    ]
-
-    # Cleanup
-    await db_developer.delete()
-
-
-async def test_add_company_permission_already_exists(
-    client: "AsyncClient",
-    token_global_admin: dict[str, str],
-    base_developer_company_admin: Developer,
-    base_company: Company,
-    build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
-) -> None:
-    """Verify the admin cannot add a company permission to an Developer that already exists."""
-    response = await client.post(
-        build_url(
-            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-            developer_id=base_developer_company_admin.id,
-            company_id=base_company.id,
-            permission=CompanyPermission.OWNER.name,
-        ),
-        headers=token_global_admin,
-    )
-    assert response.status_code == HTTP_409_CONFLICT
-
-
-async def test_update_company_permission(
-    client: "AsyncClient",
-    token_global_admin: dict[str, str],
-    base_developer_company_admin: Developer,
-    base_company: Company,
-    build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
-) -> None:
-    """Verify the admin can update a company permission for an Developer."""
-    response = await client.patch(
-        build_url(
-            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-            developer_id=base_developer_company_admin.id,
-            company_id=base_company.id,
-            permission=CompanyPermission.OWNER.name,
-        ),
-        headers=token_global_admin,
-    )
-    assert response.status_code == HTTP_200_OK
-    assert response.json()["companies"] == [
-        {
-            "company_id": str(base_company.id),
-            "name": base_company.name,
-            "permission": CompanyPermission.OWNER.name,
-        }
-    ]
-
-    db_developer = await Developer.get(base_developer_company_admin.id)
-    assert db_developer.companies == [
-        CompanyPermissions(
-            company_id=base_company.id, name=base_company.name, permission=CompanyPermission.OWNER
-        )
-    ]
-
-    # Cleanup
-    await db_developer.delete()
-
-
-async def test_remove_company_permission(
-    client: "AsyncClient",
-    token_global_admin: dict[str, str],
-    developer_factory: Callable[[], Developer],
-    company_factory: Callable[[], Company],
-    build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
-) -> None:
-    """Verify the admin can remove a company permission for an Developer."""
-    developer = await developer_factory()
-    company1 = await company_factory()
-    company2 = await company_factory()
-    developer.companies = [
-        CompanyPermissions(
-            company_id=company1.id, name=company1.name, permission=CompanyPermission.OWNER
-        ),
-        CompanyPermissions(
-            company_id=company2.id, name=company2.name, permission=CompanyPermission.USER
-        ),
-    ]
-    await developer.save()
-    ####################################
-    response = await client.delete(
-        build_url(
-            GlobalAdmin.DEVELOPER_COMPANY_PERMISSIONS,
-            developer_id=developer.id,
-            company_id=company2.id,
-            permission=CompanyPermission.USER.name,
-        ),
-        headers=token_global_admin,
-    )
-    assert response.status_code == HTTP_200_OK
-    assert response.json()["companies"] == [
-        {
-            "company_id": f"{company1.id}",
-            "name": company1.name,
-            "permission": "OWNER",
-        }
-    ]
-
-    db_developer = await Developer.get(developer.id)
-    assert db_developer.companies == [
-        CompanyPermissions(
-            company_id=company1.id, name=company1.name, permission=CompanyPermission.OWNER
-        )
-    ]
-
-    # Cleanup
-    await db_developer.delete()

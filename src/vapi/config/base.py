@@ -27,9 +27,15 @@ def is_docker() -> bool:
     """Check if the current process is running in a Docker container."""
     cgroup_path = Path("/proc/self/cgroup")
     dockerenv_path = Path("/.dockerenv")
-    return dockerenv_path.exists() or (
-        cgroup_path.is_file() and any("docker" in line for line in cgroup_path.open())
-    )
+
+    if dockerenv_path.exists():
+        return True
+
+    if cgroup_path.is_file():
+        with cgroup_path.open() as f:
+            return any("docker" in line for line in f)
+
+    return False
 
 
 class SAQSettings(BaseModel):
