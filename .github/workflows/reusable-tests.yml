@@ -43,11 +43,9 @@ jobs:
               with:
                   python-version: ${{ matrix.python-version }}
 
-            # DEPRECATED: We do not use the MongoDB GitHub Action b/c it ran into rate limit issues with Docker Hub
-            # - name: Start MongoDB
-            #   uses: supercharge/mongodb-github-action@1.12.1
-            #   with:
-            #       mongodb-version: "8.0"
+            - name: Confirm we have docker available
+              shell: bash
+              run: docker info
 
             - name: Start MongoDB
               id: start-mongodb
@@ -58,10 +56,6 @@ jobs:
 
                   # Wait for MongoDB to be ready
                   sleep 5
-
-            - name: Confirm we have docker available
-              shell: bash
-              run: docker info
 
             - name: Run tests
               shell: bash
