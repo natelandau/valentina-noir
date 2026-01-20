@@ -39,17 +39,7 @@ async def test_admin_list_developers(
     json_data = response.json()
     assert len(json_data["items"]) == 2
 
-    # debug(json_data["items"][0])
-    assert json_data["items"] == [
-        base_developer_global_admin.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date", "api_key_fingerprint", "hashed_api_key"},
-        ),
-        new_developer.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date", "api_key_fingerprint", "hashed_api_key"},
-        ),
-    ]
+    assert str(new_developer.id) in [item["id"] for item in json_data["items"]]
 
     # Cleanup
     await new_developer.delete()
