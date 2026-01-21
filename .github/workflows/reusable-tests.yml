@@ -47,16 +47,6 @@ jobs:
               shell: bash
               run: docker info
 
-            - name: Start MongoDB
-              id: start-mongodb
-              run: |
-                  # Start MongoDB in a Docker container
-                  CONTAINER_ID=$(docker run --rm -p=27017:27017 --detach mongo:latest --port=27017)
-                  echo "DOCKER_CONTAINER_ID=$CONTAINER_ID" >> "$GITHUB_OUTPUT"
-
-                  # Wait for MongoDB to be ready
-                  sleep 5
-
             - name: Run tests
               shell: bash
               run: |
@@ -69,10 +59,6 @@ jobs:
                   files: .cache/coverage.xml
               env:
                   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-            - name: Shutdown MongoDB
-              if: ${{always() && steps.start-mongodb.outputs.DOCKER_CONTAINER_ID}}
-              run: docker stop ${{steps.start-mongodb.outputs.DOCKER_CONTAINER_ID}}
 
     lint-project:
         runs-on: ubuntu-latest

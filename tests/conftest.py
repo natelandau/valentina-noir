@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import docker
 import pytest
-from nclutils import console
 from nclutils.pytest_fixtures import clean_stderr, debug  # noqa: F401
 from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
@@ -14,13 +12,14 @@ from redis.asyncio import Redis
 from vapi.cli.bootstrap import bootstrap_async
 from vapi.config import settings
 from vapi.constants import LogLevel
-from vapi.lib.database import init_database, test_db_connection
+from vapi.lib.database import init_database
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
 
     from beanie import PydanticObjectId
     from httpx import AsyncClient
+    from pytest_databases.docker.mongodb import MongoDBService
     from pytest_databases.docker.redis import RedisService
 
     from vapi.db.models import (
@@ -32,8 +31,10 @@ if TYPE_CHECKING:
         User,
     )
 
+
 pytest_plugins = (
     "pytest_databases.docker.redis",
+    "pytest_databases.docker.mongodb",
     "tests.fixtures",
     "tests.fixture_models",
     "tests.mocks",
@@ -54,7 +55,6 @@ def anyio_backend():
 @pytest.fixture(scope="session", autouse=True)
 def patch_settings():
     """Patch the settings to use the test mongo client."""
-    settings.mongo.uri = TEST_MONGO_URI
     settings.log.level = LogLevel.WARNING
     settings.log.file_path = None
     settings.log.request_log_fields = ["path", "method"]
@@ -88,38 +88,6 @@ def patch_settings():
         get_discord_oauth_client.cache_clear()
     except Exception:  # noqa: BLE001, S110
         pass
-
-
-@pytest.fixture(scope="session", autouse=True)
-def start_mongo_container():
-    """Create a Docker client and start a MongoDB container if mongodb is not running.
-
-    This fixture is automatically run before all tests.
-    """
-    container = None
-    if not test_db_connection():
-        console.print("Creating Docker client")
-        client = docker.from_env()
-        console.print("Creating MongoDB container")
-        container = client.containers.run(
-            image="mongo:latest",
-            ports={"27017/tcp": 27017},
-            name="vapi-pytest-mongo",
-            detach=True,
-            auto_remove=True,
-        )
-        console.print(f"MongoDB container created: {container.id}")
-
-        if not test_db_connection():
-            pytest.exit(
-                "\n\n-----\nMongoDB is not running\nrun `docker compose up` in the tests directory to start it\n-----\n"
-            )
-
-    yield
-
-    if container:
-        console.print("Stopping MongoDB container")
-        container.stop()
 
 
 async def _cleanup_non_constant_db_data(
@@ -218,14 +186,18 @@ def worker_id(request):
 
 
 @pytest.fixture(autouse=True, scope="session")
-async def init_test_database(request, worker_id: str) -> AsyncMongoClient:
+async def init_test_database(
+    mongodb_service: MongoDBService,
+    request,
+    worker_id: str,
+) -> AsyncMongoClient:
     """Initialize the database."""
-    settings.mongo.uri = TEST_MONGO_URI
+    settings.mongo.uri = f"mongodb://{mongodb_service.username}:{mongodb_service.password}@{mongodb_service.host}:{mongodb_service.port}"
 
     db_name = f"vapi-pytest-{worker_id}" if worker_id != "master" else "vapi-pytest"
     settings.mongo.database_name = db_name
 
-    client = AsyncMongoClient(TEST_MONGO_URI, tz_aware=True, serverSelectionTimeoutMS=1800)
+    client = AsyncMongoClient(settings.mongo.uri, tz_aware=True, serverSelectionTimeoutMS=1800)
 
     # Initialize beanie with the Sample document class and a database
     await init_database(
