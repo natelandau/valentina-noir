@@ -1306,6 +1306,9 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+mongodb = [
+    { name = "pymongo" },
+]
 redis = [
     { name = "redis" },
 ]
@@ -1817,7 +1820,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-clarity" },
     { name = "pytest-cov" },
-    { name = "pytest-databases", extra = ["redis"] },
+    { name = "pytest-databases", extra = ["mongodb", "redis"] },
     { name = "pytest-mock" },
     { name = "pytest-repeat" },
     { name = "pytest-sugar" },
@@ -1868,7 +1871,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-clarity", specifier = ">=1.0.1" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "pytest-databases", extras = ["redis"], specifier = ">=0.16.0" },
+    { name = "pytest-databases", extras = ["mongodb", "redis"], specifier = ">=0.16.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "pytest-repeat", specifier = ">=0.9.4" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },

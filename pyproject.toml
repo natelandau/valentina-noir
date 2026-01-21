@@ -48,7 +48,7 @@
         "prek>=0.2.30",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.0.0",
-        "pytest-databases[redis]>=0.16.0",
+        "pytest-databases[mongodb,redis]>=0.16.0",
         "pytest-mock>=3.15.1",
         "pytest-repeat>=0.9.4",
         "pytest-sugar>=1.1.1",
