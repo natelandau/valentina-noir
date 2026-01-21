@@ -15,6 +15,7 @@ class Note(BaseDocument):
 
     title: Annotated[str, Field(min_length=3, max_length=50)]
     content: Annotated[str, Field(min_length=3)]
+    company_id: PydanticObjectId
 
     # Note is attached to
     user_id: PydanticObjectId | None = None

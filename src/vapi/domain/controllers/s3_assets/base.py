@@ -18,7 +18,7 @@ from vapi.lib.guards import developer_company_user_guard
 from . import dto
 
 if TYPE_CHECKING:
-    from vapi.constants import AssetType
+    from vapi.constants import S3AssetType
 
 
 class BaseAssetsController(Controller, ABC):
@@ -30,7 +30,7 @@ class BaseAssetsController(Controller, ABC):
     async def _list_assets(
         self,
         parent_id: PydanticObjectId,
-        asset_type: AssetType | None = None,
+        asset_type: S3AssetType | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> OffsetPagination[S3Asset]:
@@ -100,16 +100,14 @@ class BaseAssetsController(Controller, ABC):
             mime_type=data.content_type,
         )
 
-    async def _delete_asset(
-        self, asset: S3Asset, parent: Character | User | Campaign | CampaignBook | CampaignChapter
-    ) -> None:
+    async def _delete_asset(self, asset: S3Asset) -> None:
         """Delete an asset and remove it from the parent.
 
         Args:
             asset: The asset to delete.
-            parent: The parent to remove the asset from.
 
         Returns:
             None.
         """
-        await AWSS3Service().delete_asset(asset, parent)
+        service = AWSS3Service()
+        await service.delete_asset(asset)

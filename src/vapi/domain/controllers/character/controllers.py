@@ -15,6 +15,7 @@ from pydantic import ValidationError as PydanticValidationError
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType  # noqa: TC001
 from vapi.db.models import Campaign, Character, Company, User
 from vapi.domain import deps, hooks, urls
+from vapi.domain.handlers import CharacterArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService
 from vapi.domain.utils import patch_dto_data_internal_objects
@@ -195,5 +196,4 @@ class CharacterController(Controller):
     )
     async def delete_character(self, character: Character) -> None:
         """Delete a character."""
-        character.is_archived = True
-        await character.save()
+        await CharacterArchiveHandler(character=character).handle()

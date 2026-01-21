@@ -151,7 +151,7 @@ class CharacterInventory(BaseDocument):
     class Settings:
         """Settings for the CharacterInventory model."""
 
-        indexes: ClassVar[list[str]] = ["character_id"]
+        indexes: ClassVar[list[str]] = ["character_id", "type"]
 
 
 class Character(BaseDocument):

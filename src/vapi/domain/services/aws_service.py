@@ -14,11 +14,19 @@ from vapi.constants import (
     AWS_ONE_DAY_CACHE_HEADER,
     AWS_ONE_HOUR_CACHE_HEADER,
     AWS_ONE_YEAR_CACHE_HEADER,
-    AssetType,
+    S3AssetParentType,
+    S3AssetType,
 )
-from vapi.db.models import Campaign, CampaignBook, CampaignChapter, Character, S3Asset, User
+from vapi.db.models import S3Asset
+from vapi.db.models.base import BaseDocument
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
-from vapi.utils.assets import determine_asset_type, sanitize_filename
+from vapi.utils.assets import (
+    add_asset_to_parent,
+    determine_asset_type,
+    determine_parent_type,
+    remove_asset_from_parent,
+    sanitize_filename,
+)
 from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
@@ -41,6 +49,11 @@ class AWSS3Service:
         self.aws_access_key_id = settings.aws.access_key_id
         self.aws_secret_access_key = settings.aws.secret_access_key
         self.bucket_name = settings.aws.s3_bucket_name
+        self.prefix = (
+            settings.aws.cloudfront_origin_path.rstrip("/") + "/"
+            if settings.aws.cloudfront_origin_path
+            else ""
+        )
 
         if not self.aws_access_key_id or not self.aws_secret_access_key or not self.bucket_name:
             msg = "AWS"
@@ -58,19 +71,19 @@ class AWSS3Service:
     def _generate_aws_key(
         self,
         company_id: PydanticObjectId,
-        parent_type: str,
+        parent_type: S3AssetParentType,
         parent_object_id: PydanticObjectId,
         extension: str,
-        asset_type: AssetType,
+        asset_type: S3AssetType,
     ) -> str:
         """Build the full key for an object in the S3 bucket.
 
         Args:
             company_id (PydanticObjectId): ID of the company.
-            parent_type (str): Type of the parent object.
+            parent_type (S3AssetParentType): Type of the parent object.
             parent_object_id (PydanticObjectId): ID of the parent object.
             extension (str): Extension of the file.
-            asset_type (AssetType): Type of the asset.
+            asset_type (S3AssetType): Type of the asset.
 
         Returns:
             str: The full key for the object in the S3 bucket.
@@ -93,9 +106,9 @@ class AWSS3Service:
 
         def _build_key_prefix(
             company_id: PydanticObjectId,
-            parent_type: str,
+            parent_type: S3AssetParentType,
             parent_object_id: PydanticObjectId,
-            asset_type: AssetType,
+            asset_type: S3AssetType,
         ) -> str:
             """Generate a key prefix for an object to be uploaded to Amazon S3.
 
@@ -105,19 +118,14 @@ class AWSS3Service:
 
             Args:
                 company_id (PydanticObjectId): ID of the company.
-                parent_type (str): Type of the parent object.
+                parent_type (S3AssetParentType): Type of the parent object.
                 parent_object_id (PydanticObjectId): ID of the parent object.
-                asset_type (AssetType): Type of the asset.
+                asset_type (S3AssetType): Type of the asset.
 
             Returns:
                 str: The generated key prefix.
             """
-            prefix = (
-                settings.aws.cloudfront_origin_path.rstrip("/") + "/"
-                if settings.aws.cloudfront_origin_path
-                else ""
-            )
-            return f"{prefix}{company_id}/{parent_type}/{parent_object_id}/{asset_type.value}"
+            return f"{self.prefix}{company_id}/{parent_type.value}/{parent_object_id}/{asset_type.value}"
 
         key_prefix = _build_key_prefix(
             company_id=company_id,
@@ -149,6 +157,19 @@ class AWSS3Service:
             msg = "Failed to delete object from AWS S3"
             raise AWSS3Error(detail=msg) from e
 
+    def _generate_public_url(self, key: str) -> str:
+        """Get the public URL for any object in the S3 bucket by its key.
+
+        Args:
+            key: Key of the object in the S3 bucket.
+
+        Returns:
+            Public URL for the object.
+        """
+        key_for_url = key.replace(self.prefix, "") if settings.aws.cloudfront_origin_path else key
+
+        return f"{settings.aws.cloudfront_url.rstrip('/')}/{key_for_url}"
+
     def _get_cache_control(self, mime_type: str) -> str:
         """Determine appropriate cache control header based on MIME type.
 
@@ -173,43 +194,36 @@ class AWSS3Service:
         # Default: cache for 1 hour
         return AWS_ONE_HOUR_CACHE_HEADER
 
-    async def _upload_to_s3(self, key: str, data: bytes, mime_type: str, filename: str) -> None:
+    async def _upload_to_s3(self, asset: S3Asset, data: bytes) -> None:
         """Upload data to the S3 bucket.
 
         Args:
-            key: Key of the object to upload to the S3 bucket.
+            asset: S3Asset document to upload to the S3 bucket.
             data: Data to upload to the S3 bucket.
-            mime_type: MIME type of the data.
-            filename: Original filename.
         """
-        cache_control = self._get_cache_control(mime_type)
+        cache_control = self._get_cache_control(asset.mime_type)
         try:
             self.s3.put_object(
-                Key=key,
+                Key=asset.s3_key,
                 Bucket=self.bucket,
                 Body=data,
-                ContentType=mime_type,
+                ContentType=asset.mime_type,
                 CacheControl=cache_control,
-                ContentDisposition=f'inline; filename="{filename}"',
+                ContentDisposition=f'inline; filename="{asset.original_filename}"',
                 Metadata={
                     "uploaded-via": settings.slug,
-                    "original-filename": filename,
+                    "original-filename": asset.original_filename,
                 },
             )
         except (ClientError, FileNotFoundError) as e:
             msg = "Failed to upload file to AWS S3"
             raise AWSS3Error(detail=msg) from e
 
-    async def delete_asset(
-        self,
-        asset: S3Asset,
-        parent: Character | User | Campaign | CampaignBook | CampaignChapter,
-    ) -> bool:
-        """Delete an asset from the S3 bucket.
+    async def delete_asset(self, asset: S3Asset) -> bool:
+        """Delete an asset from the S3 bucket, remove it from the parent and delete the database record.
 
         Args:
             asset: S3Asset document to delete from the S3 bucket.
-            parent: Parent document to remove the asset from (must have asset_ids attribute).
 
         Returns:
             bool: True if the deletion is successful, False otherwise.
@@ -218,45 +232,46 @@ class AWSS3Service:
             AWSS3Error: If the deletion fails.
             AttributeError: If the parent document does not have the asset_ids attribute.
         """
-        try:
-            self._delete_object_from_s3(key=asset.s3_key)
-        except AWSS3Error as e:
-            msg = f"Failed to delete asset {asset.s3_key} from AWS S3"
-            raise AWSS3Error(detail=msg) from e
+        if self.object_exists(asset):
+            try:
+                self._delete_object_from_s3(key=asset.s3_key)
+            except AWSS3Error as e:
+                msg = f"Failed to delete asset {asset.s3_key} from AWS S3"
+                raise AWSS3Error(detail=msg) from e
 
-        asset.is_archived = True
-        await asset.save()
-
-        if not hasattr(parent, "asset_ids"):
-            msg = f"{parent.__class__.__name__} does not have 'asset_ids' attribute"
-            raise AttributeError(msg)
-
-        if parent.asset_ids is None:
-            parent.asset_ids = []
-
-        parent.asset_ids.remove(asset.id)
-        await parent.save()
+        await remove_asset_from_parent(asset=asset)
+        await asset.delete()
 
         return True
 
-    def get_url(self, key: str) -> str:
-        """Get the public URL for any object in the S3 bucket by its key.
+    def object_exists(self, asset: S3Asset) -> bool:  # pragma: no cover
+        """Check if an object exists in the S3 bucket.
+
+        Attempt to load the object from the S3 bucket using the provided key.
+        If the object does not exist, or an error occurs, log the error and return False.
 
         Args:
-            key: Key of the object in the S3 bucket.
+            asset (S3Asset): S3Asset document to check in the S3 bucket.
 
         Returns:
-            Public URL for the object.
+            bool: True if the object exists, False otherwise.
         """
-        prefix = settings.aws.cloudfront_origin_path.rstrip("/") + "/"
-        key_for_url = key.replace(prefix, "")
+        try:
+            self.s3.head_object(Bucket=self.bucket, Key=asset.s3_key)
+        except ClientError:
+            msg = "Object does not exist in the S3 bucket"
+            logger.exception(
+                msg,
+                extra={"component": "aws_service", "asset_id": asset.id, "s3_key": asset.s3_key},
+            )
+            return False
 
-        return f"{settings.aws.cloudfront_url.rstrip('/')}/{key_for_url}"
+        return True
 
     async def upload_asset(
         self,
         *,
-        parent: Character | User | Campaign | CampaignBook | CampaignChapter,
+        parent: BaseDocument | None = None,
         company_id: PydanticObjectId,
         upload_user_id: PydanticObjectId,
         data: bytes,
@@ -264,8 +279,6 @@ class AWSS3Service:
         mime_type: str,
     ) -> S3Asset:
         """Upload an asset and attach it to a parent document.
-
-        Asset type is automatically determined from the MIME type.
 
         Args:
             parent: Parent document to attach the asset to (must have asset_ids attribute).
@@ -279,9 +292,9 @@ class AWSS3Service:
             The created S3Asset document
         """
         asset_type = determine_asset_type(mime_type)
+        parent_type = determine_parent_type(parent=parent)
         extension = Path(filename).suffix.lstrip(".")
         filename = sanitize_filename(filename)
-        parent_type = parent.__class__.__name__.lower()
 
         s3_key = self._generate_aws_key(
             company_id=company_id,
@@ -291,8 +304,6 @@ class AWSS3Service:
             asset_type=asset_type,
         )
 
-        await self._upload_to_s3(key=s3_key, data=data, mime_type=mime_type, filename=filename)
-
         asset = S3Asset(
             asset_type=asset_type,
             mime_type=mime_type,
@@ -300,21 +311,14 @@ class AWSS3Service:
             parent_id=parent.id,
             s3_key=s3_key,
             s3_bucket=settings.aws.s3_bucket_name,
-            public_url=self.get_url(s3_key),
+            public_url=self._generate_public_url(s3_key),
             uploaded_by=upload_user_id,
             company_id=company_id,
             original_filename=filename,
         )
         await asset.insert()
+        await self._upload_to_s3(asset=asset, data=data)
 
-        if not hasattr(parent, "asset_ids"):
-            msg = f"{parent.__class__.__name__} does not have 'asset_ids' attribute"
-            raise AttributeError(msg)
-
-        if parent.asset_ids is None:
-            parent.asset_ids = []
-
-        parent.asset_ids.append(asset.id)
-        await parent.save()
+        await add_asset_to_parent(asset=asset)
 
         return asset

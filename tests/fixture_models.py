@@ -15,15 +15,29 @@ from vapi.cli.lib.factories import (
     DeveloperFactory,
     UserFactory,
 )
-from vapi.constants import AUTH_HEADER_KEY, CharacterClass, CompanyPermission, GameVersion, UserRole
+from vapi.constants import (
+    AUTH_HEADER_KEY,
+    CharacterClass,
+    CompanyPermission,
+    GameVersion,
+    InventoryItemType,
+    S3AssetParentType,
+    S3AssetType,
+    UserRole,
+)
 from vapi.db.models import (
     Campaign,
     CampaignBook,
     CampaignChapter,
     Character,
+    CharacterConcept,
+    CharacterInventory,
     Company,
     Developer,
+    DictionaryTerm,
+    Note,
     QuickRoll,
+    S3Asset,
     Trait,
     TraitCategory,
     User,
@@ -706,6 +720,37 @@ async def dice_roll_factory(base_company) -> DiceRollFactory:
 
 
 @pytest.fixture
+async def note_factory(base_company) -> Note:
+    """Create a note factory for testing.
+
+    Returns:
+        NoteFactory: A note factory object.
+    """
+    created_notes = []  # Track all created notes
+
+    async def _note_factory(**kwargs: Any) -> Note:
+        data = {
+            "title": "Test Note",
+            "content": "Test content",
+            "company_id": base_company.id,
+        }
+
+        for key, value in kwargs.items():
+            data[key] = value  # noqa: PERF403
+
+        note = Note(**data)
+        await note.save()
+        created_notes.append(note)  # Track the created note
+        return note
+
+    yield _note_factory
+
+    # Cleanup: delete all notes created during the test
+    for note in created_notes:
+        await note.delete()
+
+
+@pytest.fixture
 async def trait_factory() -> TraitFactory:
     """Create a trait factory for testing.
 
@@ -786,6 +831,7 @@ async def quickroll_factory(base_user) -> QuickRoll:
     Returns:
         QuickRoll: A quick roll object.
     """
+    created_quickrolls = []  # Track all created quickrolls
 
     async def _quickroll_factory(**kwargs: Any) -> QuickRoll:
         """Create a quick roll for testing."""
@@ -801,6 +847,150 @@ async def quickroll_factory(base_user) -> QuickRoll:
             is_archived=kwargs.get("is_archived", False),
         )
         await quickroll.save()
+        created_quickrolls.append(quickroll)
         return quickroll
 
-    return _quickroll_factory
+    yield _quickroll_factory
+
+    # Cleanup: delete all quickrolls created during the test
+    for quickroll in created_quickrolls:
+        await quickroll.delete()
+
+
+@pytest.fixture
+async def s3asset_factory(base_company, base_user) -> S3Asset:
+    """Create a note factory for testing.
+
+    Returns:
+        NoteFactory: A note factory object.
+    """
+    created_assets = []  # Track all created assets
+
+    async def _s3asset_factory(**kwargs: Any) -> S3Asset:
+        data = {
+            "asset_type": S3AssetType.IMAGE,
+            "mime_type": "image/jpeg",
+            "original_filename": "test.jpg",
+            "parent_type": S3AssetParentType.UNKNOWN,
+            "parent_id": None,
+            "company_id": base_company.id,
+            "uploaded_by": base_user.id,
+            "s3_key": "test-key",
+            "s3_bucket": "test-bucket",
+            "public_url": "https://example.com/test.jpg",
+            "is_archived": False,
+        }
+
+        for key, value in kwargs.items():
+            data[key] = value  # noqa: PERF403
+
+        s3asset = S3Asset(**data)
+        await s3asset.save()
+        created_assets.append(s3asset)
+        return s3asset
+
+    yield _s3asset_factory
+
+    # Cleanup: delete all assets created during the test
+    for s3asset in created_assets:
+        await s3asset.delete()
+
+
+@pytest.fixture
+async def inventory_item_factory(base_character) -> CharacterInventory:
+    """Create a inventory item factory for testing.
+
+    Returns:
+        InventoryItemFactory: A inventory item factory object.
+    """
+    created_items = []  # Track all created items
+
+    async def _inventory_item_factory(**kwargs: Any) -> CharacterInventory:
+        data = {
+            "character_id": base_character.id,
+            "name": "Test Item",
+            "description": "Test description",
+            "type": InventoryItemType.EQUIPMENT,
+            "is_archived": False,
+        }
+
+        for key, value in kwargs.items():
+            data[key] = value  # noqa: PERF403
+
+        inventory_item = CharacterInventory(**data)
+        await inventory_item.save()
+        created_items.append(inventory_item)
+        return inventory_item
+
+    yield _inventory_item_factory
+
+    # Cleanup: delete all assets created during the test
+    for inventory_item in created_items:
+        await inventory_item.delete()
+
+
+@pytest.fixture
+async def dictionary_term_factory(base_company) -> DictionaryTerm:
+    """Create a dictionary term factory for testing.
+
+    Returns:
+        DictionaryTermFactory: A dictionary term factory object.
+    """
+    created_terms = []  # Track all created terms
+
+    async def _dictionary_term_factory(**kwargs: Any) -> DictionaryTerm:
+        data = {
+            "term": "Test Term",
+            "definition": "Test definition",
+            "link": "https://example.com/test",
+            "synonyms": ["Test Synonym", "Test Synonym 2"],
+            "company_id": base_company.id,
+            "is_archived": False,
+        }
+
+        for key, value in kwargs.items():
+            data[key] = value  # noqa: PERF403
+
+        dictionary_term = DictionaryTerm(**data)
+        await dictionary_term.save()
+        created_terms.append(dictionary_term)
+        return dictionary_term
+
+    yield _dictionary_term_factory
+
+    # Cleanup: delete all terms created during the test
+    for dictionary_term in created_terms:
+        await dictionary_term.delete()
+
+
+@pytest.fixture
+async def character_concept_factory() -> CharacterConcept:
+    """Create a character concept factory for testing.
+
+    Returns:
+        CharacterConceptFactory: A character concept factory object.
+    """
+    created_concepts = []  # Track all created concepts
+
+    async def _character_concept_factory(**kwargs: Any) -> CharacterConcept:
+        data = {
+            "name": "Test Concept",
+            "description": "Test description",
+            "examples": ["Test example", "Test example 2"],
+            "company_id": None,
+            "is_archived": False,
+        }
+
+        for key, value in kwargs.items():
+            data[key] = value  # noqa: PERF403
+
+        character_concept = CharacterConcept(**data)
+        await character_concept.save()
+        created_concepts.append(character_concept)
+        return character_concept
+
+    yield _character_concept_factory
+
+    # Cleanup: delete all concepts created during the test
+    for character_concept in created_concepts:
+        await character_concept.delete()

@@ -14,7 +14,8 @@ from vapi.constants import (
     AWS_ONE_DAY_CACHE_HEADER,
     AWS_ONE_HOUR_CACHE_HEADER,
     AWS_ONE_YEAR_CACHE_HEADER,
-    AssetType,
+    S3AssetParentType,
+    S3AssetType,
 )
 from vapi.db.models import S3Asset
 from vapi.domain.services.aws_service import AWSS3Service
@@ -52,9 +53,9 @@ class TestGenerateAwsKey:
         """Test generating a full key for an object in the S3 bucket."""
         service = AWSS3Service()
         company_id = PydanticObjectId()
-        parent_type = "character"
+        parent_type = S3AssetParentType.CHARACTER
         parent_object_id = PydanticObjectId()
-        asset_type = AssetType.IMAGE
+        asset_type = S3AssetType.IMAGE
 
         # When: Generating the AWS key
         aws_key = service._generate_aws_key(
@@ -74,21 +75,21 @@ class TestGenerateAwsKey:
 
         assert (
             key_prefix
-            == f"{settings.aws.cloudfront_origin_path.rstrip('/')}/{company_id}/{parent_type}/{parent_object_id}/{asset_type.value}"
+            == f"{settings.aws.cloudfront_origin_path.rstrip('/')}/{company_id}/{parent_type.value}/{parent_object_id}/{asset_type.value}"
         )
         assert self.FILENAME_PATTERN.match(filename) is not None
 
     @pytest.mark.no_clean_db
     async def test_generate_aws_key_without_origin_path(self, debug: Callable[[...], None]) -> None:
         """Test generating a full key for an object in the S3 bucket without the origin path."""
-        service = AWSS3Service()
-        company_id = PydanticObjectId()
-        parent_type = "character"
-        parent_object_id = PydanticObjectId()
-        asset_type = AssetType.IMAGE
-
         original_origin_path = settings.aws.cloudfront_origin_path
         settings.aws.cloudfront_origin_path = None
+
+        service = AWSS3Service()
+        company_id = PydanticObjectId()
+        parent_type = S3AssetParentType.CHARACTER
+        parent_object_id = PydanticObjectId()
+        asset_type = S3AssetType.IMAGE
 
         # When: Generating the AWS key
         aws_key = service._generate_aws_key(
@@ -106,7 +107,9 @@ class TestGenerateAwsKey:
         key_prefix = match.group(1)
         filename = match.group(2)
 
-        assert key_prefix == f"{company_id}/{parent_type}/{parent_object_id}/{asset_type.value}"
+        assert (
+            key_prefix == f"{company_id}/{parent_type.value}/{parent_object_id}/{asset_type.value}"
+        )
         assert self.FILENAME_PATTERN.match(filename) is not None
 
         # Restore the original origin path to avoid affecting other tests
@@ -114,20 +117,20 @@ class TestGenerateAwsKey:
 
 
 class TestGetUrl:
-    """Test the get_url method."""
+    """Test the _generate_public_url method."""
 
     @pytest.mark.no_clean_db
-    async def test_get_url(self) -> None:
+    async def test__generate_public_url(self) -> None:
         """Test getting the URL for an object in the S3 bucket."""
         service = AWSS3Service()
-        url = service.get_url(key="test.txt")
+        url = service._generate_public_url(key="test.txt")
         assert url == f"{settings.aws.cloudfront_url.rstrip('/')}/test.txt"
 
     @pytest.mark.no_clean_db
-    async def test_get_url_without_origin_path(self) -> None:
+    async def test__generate_public_url_without_origin_path(self) -> None:
         """Test getting the URL for an object in the S3 bucket with the origin path."""
         service = AWSS3Service()
-        url = service.get_url(
+        url = service._generate_public_url(
             key=f"{settings.aws.cloudfront_origin_path.rstrip('/')}/something/1/test.txt"
         )
         assert url == f"{settings.aws.cloudfront_url.rstrip('/')}/something/1/test.txt"
@@ -277,9 +280,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.IMAGE
+        assert asset.asset_type == S3AssetType.IMAGE
         assert asset.mime_type == "image/jpeg"
-        assert asset.parent_type == "character"
+        assert asset.parent_type == S3AssetParentType.CHARACTER
         assert asset.parent_id == character.id
         assert asset.company_id == base_company.id
         assert asset.uploaded_by == user.id
@@ -312,9 +315,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.AUDIO
+        assert asset.asset_type == S3AssetType.AUDIO
         assert asset.mime_type == "audio/mpeg"
-        assert asset.parent_type == "user"
+        assert asset.parent_type == S3AssetParentType.USER
         assert asset.parent_id == user.id
         assert asset.uploaded_by == uploader.id
 
@@ -346,9 +349,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.VIDEO
+        assert asset.asset_type == S3AssetType.VIDEO
         assert asset.mime_type == "video/mp4"
-        assert asset.parent_type == "campaign"
+        assert asset.parent_type == S3AssetParentType.CAMPAIGN
         assert asset.parent_id == campaign.id
 
         # Then: Campaign has the asset ID in asset_ids
@@ -379,9 +382,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.DOCUMENT
+        assert asset.asset_type == S3AssetType.DOCUMENT
         assert asset.mime_type == "application/pdf"
-        assert asset.parent_type == "campaignbook"
+        assert asset.parent_type == S3AssetParentType.CAMPAIGN_BOOK
         assert asset.parent_id == book.id
 
         # Then: CampaignBook has the asset ID in asset_ids
@@ -412,9 +415,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.TEXT
+        assert asset.asset_type == S3AssetType.TEXT
         assert asset.mime_type == "text/plain"
-        assert asset.parent_type == "campaignchapter"
+        assert asset.parent_type == S3AssetParentType.CAMPAIGN_CHAPTER
         assert asset.parent_id == chapter.id
 
         # Then: CampaignChapter has the asset ID in asset_ids
@@ -424,14 +427,14 @@ class TestUploadAsset:
     @pytest.mark.parametrize(
         ("mime_type", "expected_type"),
         [
-            ("image/jpeg", AssetType.IMAGE),
-            ("image/png", AssetType.IMAGE),
-            ("audio/mpeg", AssetType.AUDIO),
-            ("video/mp4", AssetType.VIDEO),
-            ("text/plain", AssetType.TEXT),
-            ("application/pdf", AssetType.DOCUMENT),
-            ("application/zip", AssetType.ARCHIVE),
-            ("application/octet-stream", AssetType.OTHER),
+            ("image/jpeg", S3AssetType.IMAGE),
+            ("image/png", S3AssetType.IMAGE),
+            ("audio/mpeg", S3AssetType.AUDIO),
+            ("video/mp4", S3AssetType.VIDEO),
+            ("text/plain", S3AssetType.TEXT),
+            ("application/pdf", S3AssetType.DOCUMENT),
+            ("application/zip", S3AssetType.ARCHIVE),
+            ("application/octet-stream", S3AssetType.OTHER),
         ],
     )
     async def test_upload_asset_determines_asset_type(
@@ -440,9 +443,9 @@ class TestUploadAsset:
         user_factory: Callable[..., User],
         base_company: Company,
         mime_type: str,
-        expected_type: AssetType,
+        expected_type: S3AssetType,
     ) -> None:
-        """Verify upload_asset sets correct AssetType based on MIME type."""
+        """Verify upload_asset sets correct S3AssetType based on MIME type."""
         # Given: A character and user
         character = await character_factory()
         user = await user_factory()
@@ -490,44 +493,6 @@ class TestUploadAsset:
         assert '"' not in asset.original_filename
         assert ";" not in asset.original_filename
 
-    async def test_upload_asset_raises_error_without_asset_ids(
-        self,
-        user_factory: Callable[..., User],
-        base_company: Company,
-        mocker: MockerFixture,
-    ) -> None:
-        """Verify upload_asset raises AttributeError when parent lacks asset_ids."""
-        # Given: A user and a mock parent without asset_ids attribute
-        user = await user_factory()
-        parent = await user_factory()
-
-        # Remove asset_ids attribute from parent
-        mocker.patch.object(
-            type(parent), "asset_ids", new_callable=mocker.PropertyMock, side_effect=AttributeError
-        )
-        delattr(type(parent), "asset_ids") if hasattr(type(parent), "asset_ids") else None
-
-        # Create a simple mock object without asset_ids
-        class MockParent:
-            id = parent.id
-
-            async def save(self) -> None:
-                pass
-
-        mock_parent = MockParent()
-
-        # When/Then: Uploading raises AttributeError
-        service = AWSS3Service()
-        with pytest.raises(AttributeError, match="does not have 'asset_ids' attribute"):
-            await service.upload_asset(
-                parent=mock_parent,  # type: ignore[arg-type]
-                company_id=base_company.id,
-                upload_user_id=user.id,
-                data=b"test data",
-                filename="test.jpg",
-                mime_type="image/jpeg",
-            )
-
 
 class TestDeleteObjectFromS3:
     """Test the _delete_object_from_s3 method."""
@@ -570,6 +535,29 @@ class TestDeleteObjectFromS3:
 class TestDeleteAsset:
     """Test the delete_asset method."""
 
+    async def test_delete_asset_without_parent(
+        self,
+        character_factory: Callable[..., Character],
+        user_factory: Callable[..., User],
+        s3asset_factory: Callable[..., S3Asset],
+        base_company: Company,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify delete_asset removes asset from S3 and archives it."""
+        # Given: A character with an asset
+        asset = await s3asset_factory(parent_type=S3AssetParentType.UNKNOWN, parent_id=None)
+
+        # Patch the S3 deletion
+        mocker.patch.object(AWSS3Service, "_delete_object_from_s3")
+
+        # When: Deleting the asset
+        service = AWSS3Service()
+        result = await service.delete_asset(asset)
+
+        # Then: Asset is archived and removed from character
+        assert result is True
+        assert await S3Asset.get(asset.id) is None
+
     async def test_delete_asset_character(
         self,
         character_factory: Callable[..., Character],
@@ -583,10 +571,10 @@ class TestDeleteAsset:
         character = await character_factory()
 
         asset = S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type="character",
+            parent_type=S3AssetParentType.CHARACTER,
             parent_id=character.id,
             company_id=base_company.id,
             uploaded_by=user.id,
@@ -604,12 +592,11 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset, parent=character)
+        result = await service.delete_asset(asset)
 
         # Then: Asset is archived and removed from character
         assert result is True
-        await asset.sync()
-        assert asset.is_archived is True
+        assert await S3Asset.get(asset.id) is None
         await character.sync()
         assert asset.id not in character.asset_ids
 
@@ -625,10 +612,10 @@ class TestDeleteAsset:
         uploader = await user_factory()
 
         asset = S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type="user",
+            parent_type=S3AssetParentType.USER,
             parent_id=user.id,
             company_id=base_company.id,
             uploaded_by=uploader.id,
@@ -646,12 +633,11 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset, parent=user)
+        result = await service.delete_asset(asset)
 
         # Then: Asset is archived and removed from user
         assert result is True
-        await asset.sync()
-        assert asset.is_archived is True
+        assert await S3Asset.get(asset.id) is None
         await user.sync()
         assert asset.id not in user.asset_ids
 
@@ -668,10 +654,10 @@ class TestDeleteAsset:
         user = await user_factory()
 
         asset = S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type="campaign",
+            parent_type=S3AssetParentType.CAMPAIGN,
             parent_id=campaign.id,
             company_id=base_company.id,
             uploaded_by=user.id,
@@ -689,12 +675,11 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset, parent=campaign)
+        result = await service.delete_asset(asset)
 
         # Then: Asset is archived and removed from campaign
         assert result is True
-        await asset.sync()
-        assert asset.is_archived is True
+        assert await S3Asset.get(asset.id) is None
         await campaign.sync()
         assert asset.id not in campaign.asset_ids
 
@@ -711,10 +696,10 @@ class TestDeleteAsset:
         character = await character_factory()
 
         asset = S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type="character",
+            parent_type=S3AssetParentType.CHARACTER,
             parent_id=character.id,
             company_id=base_company.id,
             uploaded_by=user.id,
@@ -737,42 +722,4 @@ class TestDeleteAsset:
         # When/Then: Deleting raises AWSS3Error
         service = AWSS3Service()
         with pytest.raises(AWSS3Error):
-            await service.delete_asset(asset, parent=character)
-
-    async def test_delete_asset_raises_without_asset_ids(
-        self,
-        user_factory: Callable[..., User],
-        base_company: Company,
-        mocker: MockerFixture,
-    ) -> None:
-        """Verify delete_asset raises AttributeError when parent lacks asset_ids."""
-        # Given: An asset and a mock parent without asset_ids
-        user = await user_factory()
-
-        asset = S3Asset(
-            asset_type=AssetType.IMAGE,
-            mime_type="image/jpeg",
-            original_filename="test.jpg",
-            parent_type="mock",
-            parent_id=user.id,
-            company_id=base_company.id,
-            uploaded_by=user.id,
-            s3_key="test-key",
-            s3_bucket="test-bucket",
-            public_url="https://example.com/test.jpg",
-        )
-        await asset.insert()
-
-        # Create a mock parent without asset_ids
-        class MockParent:
-            id = user.id
-
-        mock_parent = MockParent()
-
-        # Patch the S3 deletion
-        mocker.patch.object(AWSS3Service, "_delete_object_from_s3")
-
-        # When/Then: Deleting raises AttributeError
-        service = AWSS3Service()
-        with pytest.raises(AttributeError, match="does not have 'asset_ids' attribute"):
-            await service.delete_asset(asset, parent=mock_parent)  # type: ignore[arg-type]
+            await service.delete_asset(asset)

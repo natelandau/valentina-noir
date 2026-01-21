@@ -18,7 +18,14 @@ from vapi.db.models.company import CompanySettings
 
 fake = Faker()
 
-__all__ = ("CompanyFactory", "DeveloperFactory", "UserFactory")
+__all__ = (
+    "CampaignBookFactory",
+    "CampaignChapterFactory",
+    "CampaignFactory",
+    "CompanyFactory",
+    "DeveloperFactory",
+    "UserFactory",
+)
 
 
 def generate_word_with_min_length(*, min_length: int = 3, part_of_speech: str = "noun") -> str:
@@ -95,6 +102,10 @@ class CompanyFactory(BeanieDocumentFactory[Company]):
     @classmethod
     def settings(cls) -> CompanySettings:
         return CompanySettings()
+
+    @classmethod
+    def asset_ids(cls) -> list:
+        return []
 
 
 class UserFactory(BeanieDocumentFactory[User]):

@@ -176,7 +176,7 @@ class HunterCreed(Enum):
     UNDERGROUN = "UNDERGROUND"
 
 
-class AssetType(Enum):
+class S3AssetType(Enum):
     """Asset type."""
 
     IMAGE = "image"
@@ -186,3 +186,18 @@ class AssetType(Enum):
     DOCUMENT = "document"
     ARCHIVE = "archive"
     OTHER = "other"
+
+
+class S3AssetParentType(Enum):
+    """S3 asset parent type.
+
+    The values are the lowercase class name of the parent database model.
+    """
+
+    CHARACTER = "character"
+    CAMPAIGN = "campaign"
+    CAMPAIGN_BOOK = "campaignbook"
+    CAMPAIGN_CHAPTER = "campaignchapter"
+    USER = "user"
+    COMPANY = "company"
+    UNKNOWN = "unknown"

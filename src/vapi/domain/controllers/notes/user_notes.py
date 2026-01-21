@@ -9,7 +9,7 @@ from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.db.models import Note, User  # noqa: TC001
+from vapi.db.models import Company, Note, User  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination  # noqa: TC001
 from vapi.openapi.tags import APITags
@@ -23,8 +23,8 @@ class UserNoteController(BaseNoteController):
 
     tags = [APITags.USERS_NOTES.name]
     dependencies = {
-        "user": Provide(deps.provide_user_by_id_and_company),
         "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
         "developer": Provide(deps.provide_developer_from_request),
         "note": Provide(deps.provide_note_by_id),
     }
@@ -70,9 +70,9 @@ class UserNoteController(BaseNoteController):
         dto=dto.NotePostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def create_user_note(self, *, user: User, data: DTOData[Note]) -> Note:
+    async def create_user_note(self, *, company: Company, user: User, data: DTOData[Note]) -> Note:
         """Create a user note."""
-        return await self._create_note(user.id, data)
+        return await self._create_note(company_id=company.id, parent_id=user.id, data=data)
 
     @patch(
         path=urls.Users.NOTE_UPDATE,

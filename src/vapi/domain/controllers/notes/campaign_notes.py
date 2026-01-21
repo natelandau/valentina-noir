@@ -9,7 +9,7 @@ from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.db.models import Campaign, Note  # noqa: TC001
+from vapi.db.models import Campaign, Company, Note  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination  # noqa: TC001
 from vapi.openapi.tags import APITags
@@ -70,9 +70,11 @@ class CampaignNoteController(BaseNoteController):
         dto=dto.NotePostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def create_campaign_note(self, *, campaign: Campaign, data: DTOData[Note]) -> Note:
+    async def create_campaign_note(
+        self, *, company: Company, campaign: Campaign, data: DTOData[Note]
+    ) -> Note:
         """Create a campaign note."""
-        return await self._create_note(campaign.id, data)
+        return await self._create_note(company_id=company.id, parent_id=campaign.id, data=data)
 
     @patch(
         path=urls.Campaigns.NOTE_UPDATE,

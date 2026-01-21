@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.9.25-python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:0.9.26-python3.13-bookworm-slim
 
 # Set labels
 LABEL org.opencontainers.image.source=https://github.com/natelandau/valentina-noir

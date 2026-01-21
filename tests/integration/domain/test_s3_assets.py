@@ -14,7 +14,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import AssetType
+from vapi.constants import S3AssetParentType, S3AssetType
 from vapi.db.models import S3Asset
 from vapi.domain.urls import Campaigns, Characters, Users
 
@@ -51,7 +51,7 @@ async def test_list_assets(
     assets = []
     for i in range(3):
         asset = await S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename=f"somefile{i}.jpg",
             parent_type="character",
@@ -67,7 +67,7 @@ async def test_list_assets(
 
     # And assets that should not be returned
     asset = await S3Asset(
-        asset_type=AssetType.TEXT,
+        asset_type=S3AssetType.TEXT,
         mime_type="image/jpeg",
         original_filename="somefile.txt",
         parent_type="character",
@@ -82,7 +82,7 @@ async def test_list_assets(
     await character.save()
 
     await S3Asset(
-        asset_type=AssetType.IMAGE,
+        asset_type=S3AssetType.IMAGE,
         mime_type="image/jpeg",
         original_filename="somefile.jpg",
         parent_type="character",
@@ -98,7 +98,7 @@ async def test_list_assets(
     response = await client.get(
         build_url(Characters.ASSETS, character_id=character.id),
         headers=token_company_admin,
-        params={"asset_type": AssetType.IMAGE.value},
+        params={"asset_type": S3AssetType.IMAGE.value},
     )
     # debug(response.json())
 
@@ -127,7 +127,7 @@ async def test_get_asset(
     """Get an asset."""
     user = await user_factory()
     asset = await S3Asset(
-        asset_type=AssetType.TEXT,
+        asset_type=S3AssetType.TEXT,
         mime_type="text/plain",
         original_filename="somefile.txt",
         parent_type="user",
@@ -166,7 +166,7 @@ async def test_get_asset_not_parent(
     user = await user_factory()
     campaign_chapter = await campaign_chapter_factory()
     asset = await S3Asset(
-        asset_type=AssetType.TEXT,
+        asset_type=S3AssetType.TEXT,
         mime_type="text/plain",
         original_filename="somefile.txt",
         parent_type="campaignchapter",
@@ -241,9 +241,9 @@ async def test_upload_image(
     db_asset = await S3Asset.get(response_json["id"])
     assert db_asset is not None
     assert db_asset.id == PydanticObjectId(response_json["id"])
-    assert db_asset.asset_type == AssetType.TEXT
+    assert db_asset.asset_type == S3AssetType.TEXT
     assert db_asset.mime_type == "text/plain"
-    assert db_asset.parent_type == "campaign"
+    assert db_asset.parent_type == S3AssetParentType.CAMPAIGN
     assert db_asset.parent_id == campaign.id
     assert db_asset.company_id == campaign.company_id
     assert db_asset.uploaded_by == user.id
@@ -264,10 +264,10 @@ async def test_delete_image(
     user = await user_factory()
     book = await campaign_book_factory()
     asset = await S3Asset(
-        asset_type=AssetType.TEXT,
+        asset_type=S3AssetType.TEXT,
         mime_type="text/plain",
         original_filename="somefile.txt",
-        parent_type="campaignbook",
+        parent_type=S3AssetParentType.CAMPAIGN_BOOK,
         parent_id=book.id,
         company_id=base_company.id,
         uploaded_by=user.id,
@@ -291,6 +291,5 @@ async def test_delete_image(
     await book.sync()
     assert book.asset_ids == []
 
-    # And the asset is archived
-    await asset.sync()
-    assert asset.is_archived
+    # And the asset is deleted
+    assert await S3Asset.get(asset.id) is None
