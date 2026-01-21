@@ -74,12 +74,14 @@ class BaseNoteController(Controller, ABC):
 
     async def _create_note(
         self,
+        company_id: PydanticObjectId,
         parent_id: PydanticObjectId,
         data: DTOData[Note],
     ) -> Note:
         """Create a new note attached to a parent entity.
 
         Args:
+            company_id (PydanticObjectId): The ID of the company.
             parent_id (PydanticObjectId): The ID of the parent document.
             data (DTOData[Note]): The note data from the request.
             request (Request): The Litestar request object.
@@ -88,7 +90,9 @@ class BaseNoteController(Controller, ABC):
             Note: The created note document.
         """
         try:
-            note_data = data.create_instance(**{self.parent_ref_field: parent_id})
+            note_data = data.create_instance(
+                **{self.parent_ref_field: parent_id, "company_id": company_id}
+            )
             note = Note(**note_data.model_dump(exclude_unset=True))
             await note.save()
         except PydanticValidationError as e:

@@ -63,19 +63,21 @@ class TestCharacterNotes:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_character: Character,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify listing notes returns only non-archived notes."""
-        note1 = Note(title="Note 1", content="Content 1", character_id=base_character.id)
-        await note1.save()
-        note2 = Note(title="Note 2", content="Content 2", character_id=base_character.id)
-        await note2.save()
-        archived_note = Note(
+        note1 = await note_factory(
+            title="Note 1", content="Content 1", character_id=base_character.id
+        )
+        note2 = await note_factory(
+            title="Note 2", content="Content 2", character_id=base_character.id
+        )
+        await note_factory(
             title="Archived Note",
             content="Content",
             character_id=base_character.id,
             is_archived=True,
         )
-        await archived_note.save()
 
         response = await client.get(
             build_url(Characters.NOTES, character_id=base_character.id),
@@ -94,10 +96,12 @@ class TestCharacterNotes:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_character: Character,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify getting a single note by ID."""
-        note = Note(title="Note 1", content="Content 1", character_id=base_character.id)
-        await note.save()
+        note = await note_factory(
+            title="Note 1", content="Content 1", character_id=base_character.id
+        )
 
         response = await client.get(
             build_url(Characters.NOTE_DETAIL, note_id=note.id),
@@ -167,12 +171,12 @@ class TestCharacterNotes:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_character: Character,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify updating an existing note."""
-        note = Note(
+        note = await note_factory(
             title="Original Title", content="Original Content", character_id=base_character.id
         )
-        await note.save()
 
         response = await client.patch(
             build_url(Characters.NOTE_UPDATE, note_id=note.id),
@@ -192,10 +196,10 @@ class TestCharacterNotes:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_character: Character,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify 400 when updating a note with invalid parameters."""
-        note = Note(title="Note", content="Content", character_id=base_character.id)
-        await note.save()
+        note = await note_factory(title="Note", content="Content", character_id=base_character.id)
 
         response = await client.patch(
             build_url(Characters.NOTE_UPDATE, note_id=note.id),
@@ -213,10 +217,12 @@ class TestCharacterNotes:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_character: Character,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify soft-deleting a note."""
-        note = Note(title="Note to Delete", content="Content", character_id=base_character.id)
-        await note.save()
+        note = await note_factory(
+            title="Note to Delete", content="Content", character_id=base_character.id
+        )
 
         response = await client.delete(
             build_url(Characters.NOTE_DELETE, note_id=note.id),

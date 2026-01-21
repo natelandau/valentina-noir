@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.constants import AssetType, InventoryItemType
+from vapi.constants import InventoryItemType, S3AssetType
 from vapi.db.models import (
     Campaign,
     CampaignBook,
@@ -50,7 +50,7 @@ class TestProvideS3AssetById:
         """Verify returning an S3 asset when found by ID."""
         # Given an S3 asset exists in the database
         s3_asset = await S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/png",
             parent_type="character",
             parent_id=PydanticObjectId(),
@@ -75,7 +75,7 @@ class TestProvideS3AssetById:
         """Verify raising NotFoundError when S3 asset is archived."""
         # Given an archived S3 asset exists in the database
         s3_asset = await S3Asset(
-            asset_type=AssetType.IMAGE,
+            asset_type=S3AssetType.IMAGE,
             mime_type="image/png",
             parent_type="character",
             parent_id=PydanticObjectId(),
@@ -777,14 +777,20 @@ class TestProvideInventoryItemById:
 class TestProvideNoteById:
     """Test provide_note_by_id dependency."""
 
-    async def test_returns_note_when_found(self, base_character: Character) -> None:
+    async def test_returns_note_when_found(
+        self,
+        base_character: Character,
+        base_company: Company,
+        note_factory: Callable[..., Note],
+    ) -> None:
         """Verify returning a note when found by ID."""
         # Given a note exists
-        note = await Note(
+        note = await note_factory(
             title="Test Note",
             content="Test content for the note",
             character_id=base_character.id,
-        ).insert()
+            company_id=base_company.id,
+        )
 
         # When we provide the note by ID
         result = await deps.provide_note_by_id(note.id)
@@ -801,15 +807,18 @@ class TestProvideNoteById:
         with pytest.raises(NotFoundError, match="Note not found"):
             await deps.provide_note_by_id(non_existent_id)
 
-    async def test_raises_not_found_when_archived(self, base_character: Character) -> None:
+    async def test_raises_not_found_when_archived(
+        self, base_character: Character, base_company: Company, note_factory: Callable[..., Note]
+    ) -> None:
         """Verify raising NotFoundError when note is archived."""
         # Given an archived note exists
-        note = await Note(
+        note = await note_factory(
             title="Archived Note",
             content="Archived content for the note",
             character_id=base_character.id,
+            company_id=base_company.id,
             is_archived=True,
-        ).insert()
+        )
 
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Note not found"):

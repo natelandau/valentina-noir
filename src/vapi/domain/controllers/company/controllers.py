@@ -16,6 +16,7 @@ from vapi.constants import CompanyPermission
 from vapi.db.models import Company, Developer
 from vapi.db.models.developer import CompanyPermissions
 from vapi.domain import deps, hooks, urls
+from vapi.domain.handlers import CompanyArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
 from vapi.domain.utils import patch_dto_data_internal_objects
@@ -140,8 +141,7 @@ class CompanyController(Controller):
     )
     async def delete_company(self, company: Company) -> None:
         """Delete a company."""
-        company.is_archived = True
-        await company.save()
+        await CompanyArchiveHandler(company=company).handle()
 
     @post(
         path=urls.Companies.DEVELOPER_ACCESS,

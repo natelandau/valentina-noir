@@ -13,6 +13,7 @@ from litestar.params import Parameter
 from vapi.constants import UserRole  # noqa: TC001
 from vapi.db.models import Company, User
 from vapi.domain import deps, hooks, urls
+from vapi.domain.handlers import UserArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
 from vapi.lib.guards import developer_company_user_guard
@@ -118,5 +119,4 @@ class UserController(Controller):
         company.user_ids = [x for x in company.user_ids if x != user.id]
         await company.save()
 
-        user.is_archived = True
-        await user.save()
+        await UserArchiveHandler(user=user).handle()

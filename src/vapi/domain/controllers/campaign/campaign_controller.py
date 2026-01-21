@@ -13,6 +13,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from vapi.db.models import Campaign, Company
 from vapi.domain import deps, hooks, urls
+from vapi.domain.handlers import CampaignArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard
@@ -126,5 +127,4 @@ class CampaignController(Controller):
     )
     async def delete_campaign(self, campaign: Campaign) -> None:
         """Delete a campaign by ID."""
-        campaign.is_archived = True
-        await campaign.save()
+        await CampaignArchiveHandler(campaign=campaign).handle()

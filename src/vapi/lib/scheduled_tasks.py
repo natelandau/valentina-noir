@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from saq.types import Context
 
+from vapi.domain.services import AWSS3Service
 from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
@@ -24,12 +25,15 @@ async def purge_db_expired_items(_: Context) -> None:
         CampaignBook,
         CampaignChapter,
         Character,
+        CharacterConcept,
         CharacterInventory,
         Company,
+        DiceRoll,
         DictionaryTerm,
         Note,
         QuickRoll,
         S3Asset,
+        Trait,
         User,
     )
     from vapi.lib.database import init_database
@@ -43,17 +47,19 @@ async def purge_db_expired_items(_: Context) -> None:
     cutoff_date = time_now() - timedelta(days=30)
 
     for model in [
-        Character,
-        CharacterInventory,
-        DictionaryTerm,
-        Company,
-        Note,
-        QuickRoll,
         Campaign,
         CampaignBook,
         CampaignChapter,
+        Character,
+        CharacterConcept,
+        CharacterInventory,
+        Company,
+        DiceRoll,
+        DictionaryTerm,
+        Note,
+        QuickRoll,
+        Trait,
         User,
-        S3Asset,
     ]:
         deleted = await model.find(
             model.is_archived == True, LT(model.date_modified, cutoff_date)
@@ -77,6 +83,23 @@ async def purge_db_expired_items(_: Context) -> None:
             "component": "saq",
             "task": "purge_db_expired_items",
             "num_purged": deleted.deleted_count,
+        },
+    )
+
+    aws_service = AWSS3Service()
+    assets = await S3Asset.find(
+        S3Asset.is_archived == True, LT(S3Asset.date_modified, cutoff_date)
+    ).to_list()
+    for asset in assets:
+        await aws_service.delete_asset(asset)
+
+    msg = "Purge old S3Assets."
+    logger.info(
+        msg,
+        extra={
+            "component": "saq",
+            "task": "purge_db_expired_items",
+            "num_purged": len(assets),
         },
     )
 

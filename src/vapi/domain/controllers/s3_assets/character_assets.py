@@ -8,7 +8,7 @@ from litestar.enums import RequestEncodingType
 from litestar.handlers import delete, get, post
 from litestar.params import Body, Parameter
 
-from vapi.constants import AssetType
+from vapi.constants import S3AssetType
 from vapi.db.models import Character, Company, S3Asset, User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
@@ -42,7 +42,7 @@ class CharacterAssetsController(BaseAssetsController):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         asset_type: Annotated[
-            AssetType | None, Parameter(description="Filter assets by type.")
+            S3AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
     ) -> OffsetPagination[S3Asset]:
         """List all character assets."""
@@ -94,6 +94,6 @@ class CharacterAssetsController(BaseAssetsController):
         description="Delete an asset for a character.",
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def delete_character_asset(self, character: Character, asset: S3Asset) -> None:
+    async def delete_character_asset(self, asset: S3Asset) -> None:
         """Delete a character asset."""
-        return await self._delete_asset(asset, parent=character)
+        await self._delete_asset(asset=asset)

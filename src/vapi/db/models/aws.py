@@ -3,20 +3,21 @@
 from typing import ClassVar
 
 from beanie import PydanticObjectId
+from pydantic import Field
 
-from vapi.constants import AssetType
+from vapi.constants import S3AssetParentType, S3AssetType
 from vapi.db.models.base import BaseDocument
 
 
 class S3Asset(BaseDocument):
     """S3 asset model."""
 
-    asset_type: AssetType
+    asset_type: S3AssetType
     mime_type: str
     original_filename: str
 
-    parent_type: str  # "character", "campaign", "chronicle", etc.
-    parent_id: PydanticObjectId
+    parent_type: S3AssetParentType = Field(default=S3AssetParentType.UNKNOWN)
+    parent_id: PydanticObjectId | None = None
     company_id: PydanticObjectId
     uploaded_by: PydanticObjectId
 
