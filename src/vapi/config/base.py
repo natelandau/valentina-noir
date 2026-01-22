@@ -63,7 +63,7 @@ class Server(BaseModel):
     """Server settings."""
 
     host: str = Field(default_factory=lambda: "0.0.0.0" if is_docker() else "127.0.0.1")  # noqa: S104
-    port: int | None = None
+    port: int = Field(default=8000)
     scheme: str = Field(default="https")
     keep_alive: int = Field(default=65)  # 65 seconds > AWS timeout
     reload: bool = Field(default=False)
