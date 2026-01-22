@@ -14,6 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
+from . import docs
 from .base import BaseAssetsController
 
 
@@ -34,7 +35,7 @@ class ChapterAssetsController(BaseAssetsController):
         path=urls.Campaigns.CHAPTER_ASSETS,
         summary="List chapter assets",
         operation_id="listChapterAssets",
-        description="List all assets for a chapter.",
+        description=docs.LIST_ASSETS_DESCRIPTION,
         cache=True,
     )
     async def list_chapter_assets(
@@ -58,7 +59,7 @@ class ChapterAssetsController(BaseAssetsController):
         path=urls.Campaigns.CHAPTER_ASSET_DETAIL,
         summary="Get a chapter asset",
         operation_id="getChapterAsset",
-        description="Get an asset for a chapter.",
+        description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
     async def get_chapter_asset(self, chapter: CampaignChapter, asset: S3Asset) -> S3Asset:
@@ -69,7 +70,7 @@ class ChapterAssetsController(BaseAssetsController):
         path=urls.Campaigns.CHAPTER_ASSET_UPLOAD,
         summary="Upload a chapter asset",
         operation_id="uploadChapterAsset",
-        description="Upload an asset for a chapter.",
+        description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def handle_file_upload(
@@ -91,7 +92,7 @@ class ChapterAssetsController(BaseAssetsController):
         path=urls.Campaigns.CHAPTER_ASSET_DELETE,
         summary="Delete a chapter asset",
         operation_id="deleteChapterAsset",
-        description="Delete an asset for a chapter.",
+        description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_chapter_asset(self, asset: S3Asset) -> None:

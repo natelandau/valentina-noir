@@ -28,7 +28,7 @@ from vapi.lib.guards import (
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 
 logger = logging.getLogger("vapi")
 
@@ -47,7 +47,7 @@ class CompanyController(Controller):
         path=urls.Companies.LIST,
         summary="List companies",
         operation_id="listCompanies",
-        description="Retrieve a paginated list of companies you have access to.",
+        description=docs.LIST_COMPANIES_DESCRIPTION,
         cache=True,
     )
     async def list_companies(
@@ -71,7 +71,7 @@ class CompanyController(Controller):
         path=urls.Companies.DETAIL,
         summary="Get company",
         operation_id="getCompany",
-        description="Retrieve detailed information about a specific company. Requires at least user-level access to the company.",
+        description=docs.GET_COMPANY_DESCRIPTION,
         guards=[developer_company_user_guard],
         cache=True,
     )
@@ -85,7 +85,7 @@ class CompanyController(Controller):
         path=urls.Companies.CREATE,
         summary="Create company",
         operation_id="createCompany",
-        description="Create a new company in the system. You will automatically be granted `OWNER` permission for the new company.",
+        description=docs.CREATE_COMPANY_DESCRIPTION,
         dto=dto.PostCompanyDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -115,7 +115,7 @@ class CompanyController(Controller):
         path=urls.Companies.UPDATE,
         summary="Update company",
         operation_id="updateCompany",
-        description="Modify an existing company's properties. Requires admin-level access to the company. Only include fields that need to be changed; omitted fields remain unchanged.",
+        description=docs.UPDATE_COMPANY_DESCRIPTION,
         guards=[developer_company_admin_guard],
         dto=dto.PatchCompanyDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -135,7 +135,7 @@ class CompanyController(Controller):
         path=urls.Companies.DELETE,
         summary="Delete company",
         operation_id="deleteCompany",
-        description="Delete a company from the system. This is a destructive action and requires owner-level access to the company.",
+        description=docs.DELETE_COMPANY_DESCRIPTION,
         guards=[developer_company_owner_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -147,7 +147,7 @@ class CompanyController(Controller):
         path=urls.Companies.DEVELOPER_ACCESS,
         summary="Grant developer access",
         operation_id="addDeveloperToCompany",
-        description="Add, update, or revoke a developer's permission level for this company. Requires company owner-level access. Valid permission levels are 'user' and 'admin'. You cannot modify your own permissions or grant owner-level access through this endpoint.",
+        description=docs.DEVELOPER_ACCESS_DESCRIPTION,
         guards=[developer_company_owner_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )

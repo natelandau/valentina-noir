@@ -13,7 +13,7 @@ from vapi.domain.services import UserXPService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 
 
 class ExperienceController(Controller):
@@ -32,7 +32,7 @@ class ExperienceController(Controller):
         path=urls.Users.EXPERIENCE_CAMPAIGN,
         summary="Get campaign experience",
         operation_id="getCampaignExperience",
-        description="Retrieve a user's experience points and cool points for a specific campaign. Creates the experience record if it doesn't exist.",
+        description=docs.GET_CAMPAIGN_EXPERIENCE_DESCRIPTION,
         cache=True,
     )
     async def get_campaign_experience(self, user: User, campaign: Campaign) -> CampaignExperience:
@@ -43,7 +43,7 @@ class ExperienceController(Controller):
         path=urls.Users.XP_ADD,
         summary="Add XP",
         operation_id="addXp",
-        description="Award experience points to a user for a specific campaign. The XP is added to both current and total XP pools.",
+        description=docs.ADD_XP_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_xp_to_campaign_experience(
@@ -63,7 +63,7 @@ class ExperienceController(Controller):
         path=urls.Users.XP_REMOVE,
         summary="Remove XP",
         operation_id="removeXp",
-        description="Deduct experience points from a user's current XP pool. Returns an error if the user has insufficient XP.",
+        description=docs.REMOVE_XP_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def remove_xp_from_campaign_experience(
@@ -83,7 +83,7 @@ class ExperienceController(Controller):
         path=urls.Users.CP_ADD,
         summary="Add cool points",
         operation_id="addCpToCampaignExperience",
-        description="Award cool points to a user for a specific campaign. Cool points are converted to XP automatically based on the configured exchange rate.",
+        description=docs.ADD_CP_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def add_cp_to_campaign_experience(

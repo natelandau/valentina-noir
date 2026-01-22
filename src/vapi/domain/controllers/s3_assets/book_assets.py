@@ -14,6 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
+from . import docs
 from .base import BaseAssetsController
 
 
@@ -33,7 +34,7 @@ class BookAssetsController(BaseAssetsController):
         path=urls.Campaigns.BOOK_ASSETS,
         summary="List book assets",
         operation_id="listBookAssets",
-        description="List all assets for a book.",
+        description=docs.LIST_ASSETS_DESCRIPTION,
         cache=True,
     )
     async def list_book_assets(
@@ -57,7 +58,7 @@ class BookAssetsController(BaseAssetsController):
         path=urls.Campaigns.BOOK_ASSET_DETAIL,
         summary="Get a book asset",
         operation_id="getBookAsset",
-        description="Get an asset for a book.",
+        description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
     async def get_book_asset(self, book: CampaignBook, asset: S3Asset) -> S3Asset:
@@ -68,7 +69,7 @@ class BookAssetsController(BaseAssetsController):
         path=urls.Campaigns.BOOK_ASSET_UPLOAD,
         summary="Upload a book asset",
         operation_id="uploadBookAsset",
-        description="Upload an asset for a book.",
+        description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def handle_file_upload(
@@ -90,7 +91,7 @@ class BookAssetsController(BaseAssetsController):
         path=urls.Campaigns.BOOK_ASSET_DELETE,
         summary="Delete a book asset",
         operation_id="deleteBookAsset",
-        description="Delete an asset for a book.",
+        description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_book_asset(self, asset: S3Asset) -> None:

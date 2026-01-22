@@ -20,7 +20,7 @@ from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 
 
 class DictionaryTermController(Controller):
@@ -38,7 +38,7 @@ class DictionaryTermController(Controller):
         path=urls.Dictionaries.LIST,
         summary="List dictionary terms",
         operation_id="listDictionaryTerms",
-        description="Retrieve a paginated list of dictionary terms for a company. Optionally search by term name or synonym. Terms provide definitions for game concepts and lore.",
+        description=docs.LIST_DICTIONARY_TERMS_DESCRIPTION,
         cache=True,
     )
     async def list_dictionary_terms(
@@ -64,7 +64,7 @@ class DictionaryTermController(Controller):
         path=urls.Dictionaries.DETAIL,
         summary="Get dictionary term",
         operation_id="getDictionaryTerm",
-        description="Retrieve a specific dictionary term including its definition and synonyms.",
+        description=docs.GET_DICTIONARY_TERM_DESCRIPTION,
         cache=True,
     )
     async def get_dictionary_term(self, dictionary_term: DictionaryTerm) -> DictionaryTerm:
@@ -75,7 +75,7 @@ class DictionaryTermController(Controller):
         path=urls.Dictionaries.CREATE,
         summary="Create dictionary term",
         operation_id="createDictionaryTerm",
-        description="Add a new term to the company's dictionary. Include the term, definition, and optional synonyms for discovery.",
+        description=docs.CREATE_DICTIONARY_TERM_DESCRIPTION,
         dto=dto.DictionaryTermPostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -96,7 +96,7 @@ class DictionaryTermController(Controller):
         path=urls.Dictionaries.UPDATE,
         summary="Update dictionary term",
         operation_id="updateDictionaryTerm",
-        description="Modify a dictionary term's definition or synonyms. Only include fields that need to be changed.",
+        description=docs.UPDATE_DICTIONARY_TERM_DESCRIPTION,
         dto=dto.DictionaryTermPatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -122,7 +122,7 @@ class DictionaryTermController(Controller):
         path=urls.Dictionaries.DELETE,
         summary="Delete dictionary term",
         operation_id="deleteDictionaryTerm",
-        description="Remove a term from the company's dictionary. This action cannot be undone.",
+        description=docs.DELETE_DICTIONARY_TERM_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_dictionary_term(self, dictionary_term: DictionaryTerm) -> None:

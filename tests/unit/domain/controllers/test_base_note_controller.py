@@ -77,6 +77,7 @@ class TestListNotes:
         self, base_character: Character, note_factory: Callable[..., Note]
     ) -> None:
         """Verify _list_notes returns paginated results."""
+        await Note.delete_all()
         # Given a controller and notes attached to a character
         controller = ConcreteNoteController(parent_name="character")
         await note_factory(title="Note 1", content="Content 1", character_id=base_character.id)
@@ -95,6 +96,7 @@ class TestListNotes:
         self, base_character: Character, note_factory: Callable[..., Note]
     ) -> None:
         """Verify _list_notes excludes archived notes."""
+        await Note.delete_all()
         # Given a controller with both active and archived notes
         controller = ConcreteNoteController(parent_name="character")
         await note_factory(title="Active Note", content="Content", character_id=base_character.id)
@@ -118,15 +120,21 @@ class TestListNotes:
         self, base_character: Character, note_factory: Callable[..., Note]
     ) -> None:
         """Verify _list_notes respects limit and offset parameters."""
+        await Note.delete_all()
         # Given a controller with multiple notes
         controller = ConcreteNoteController(parent_name="character")
         for i in range(5):
             await note_factory(
                 title=f"Note {i}", content=f"Content {i}", character_id=base_character.id
             )
+        await note_factory(
+            title="Archived Note",
+            content="Content",
+            parent_id=PydanticObjectId(),
+        )
 
         # When we list with limit=2 and offset=1
-        result = await controller._list_notes(base_character.id, limit=2, offset=1)
+        result = await controller._list_notes(parent_id=base_character.id, limit=2, offset=1)
 
         # Then we get 2 items starting from offset 1
         assert result.total == 5
@@ -141,7 +149,7 @@ class TestListNotes:
         random_id = PydanticObjectId()
 
         # When we list notes for a parent with no notes
-        result = await controller._list_notes(random_id, limit=10, offset=0)
+        result = await controller._list_notes(parent_id=random_id, limit=10, offset=0)
 
         # Then we get empty results
         assert result.total == 0

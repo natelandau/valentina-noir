@@ -19,7 +19,7 @@ from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 
 
 class QuickRollController(Controller):
@@ -38,7 +38,7 @@ class QuickRollController(Controller):
         path=urls.Users.QUICKROLLS,
         summary="List quick rolls",
         operation_id="listUserQuickrolls",
-        description="Retrieve a paginated list of quick rolls saved by a user. Quick rolls are pre-configured dice pools for frequently used trait combinations.",
+        description=docs.LIST_QUICKROLLS_DESCRIPTION,
         cache=True,
         return_dto=dto.ReturnQuickRollDTO,
     )
@@ -59,7 +59,7 @@ class QuickRollController(Controller):
         path=urls.Users.QUICKROLL_DETAIL,
         summary="Get quick roll",
         operation_id="getUserQuickroll",
-        description="Retrieve details of a specific quick roll including its associated traits.",
+        description=docs.GET_QUICKROLL_DESCRIPTION,
         cache=True,
         return_dto=dto.ReturnQuickRollDTO,
     )
@@ -71,7 +71,7 @@ class QuickRollController(Controller):
         path=urls.Users.QUICKROLL_CREATE,
         summary="Create quick roll",
         operation_id="createUserQuickroll",
-        description="Create a new quick roll for a user. Define the traits that make up the dice pool. Quick roll names must be unique per user.",
+        description=docs.CREATE_QUICKROLL_DESCRIPTION,
         dto=dto.PostQuickRollDTO,
         return_dto=dto.ReturnQuickRollDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -94,7 +94,7 @@ class QuickRollController(Controller):
         path=urls.Users.QUICKROLL_UPDATE,
         summary="Update quick roll",
         operation_id="updateUserQuickroll",
-        description="Modify a quick roll's name or trait configuration. Only include fields that need to be changed.",
+        description=docs.UPDATE_QUICKROLL_DESCRIPTION,
         dto=dto.PatchQuickRollDTO,
         return_dto=dto.ReturnQuickRollDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -119,7 +119,7 @@ class QuickRollController(Controller):
         path=urls.Users.QUICKROLL_DELETE,
         summary="Delete quick roll",
         operation_id="deleteUserQuickroll",
-        description="Remove a quick roll from a user. This action cannot be undone.",
+        description=docs.DELETE_QUICKROLL_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_user_quickroll(self, *, quickroll: QuickRoll) -> None:

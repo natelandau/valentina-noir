@@ -15,6 +15,7 @@ from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 
+from . import docs
 from .base import BaseAssetsController
 
 
@@ -33,7 +34,7 @@ class CharacterAssetsController(BaseAssetsController):
         path=urls.Characters.ASSETS,
         summary="List character assets",
         operation_id="listCharacterAssets",
-        description="List all assets for a character.",
+        description=docs.LIST_ASSETS_DESCRIPTION,
         cache=True,
     )
     async def list_character_assets(
@@ -57,7 +58,7 @@ class CharacterAssetsController(BaseAssetsController):
         path=urls.Characters.ASSET_DETAIL,
         summary="Get a character asset",
         operation_id="getCharacterAsset",
-        description="Get an asset for a character.",
+        description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
     async def get_character_asset(self, character: Character, asset: S3Asset) -> S3Asset:
@@ -68,7 +69,7 @@ class CharacterAssetsController(BaseAssetsController):
         path=urls.Characters.ASSET_UPLOAD,
         summary="Upload a character asset",
         operation_id="uploadCharacterAsset",
-        description="Upload an asset for a character.",
+        description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
         guards=[user_character_player_or_storyteller_guard],
     )
@@ -91,7 +92,7 @@ class CharacterAssetsController(BaseAssetsController):
         path=urls.Characters.ASSET_DELETE,
         summary="Delete a character asset",
         operation_id="deleteCharacterAsset",
-        description="Delete an asset for a character.",
+        description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_character_asset(self, asset: S3Asset) -> None:

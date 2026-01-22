@@ -13,7 +13,7 @@ from vapi.domain import urls
 from vapi.lib.database import test_db_connection
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 
 logger = logging.getLogger("vapi")
 
@@ -29,7 +29,7 @@ class SystemController(Controller):
         media_type=MediaType.JSON,
         cache=False,
         summary="Check system health",
-        description="Verify the API and its dependencies are operational. Returns database and cache connectivity status. No authentication required.",
+        description=docs.HEALTH_CHECK_DESCRIPTION,
     )
     async def check_system_health(self) -> Response[dto.SystemHealth]:
         """Check database available and returns app config info."""

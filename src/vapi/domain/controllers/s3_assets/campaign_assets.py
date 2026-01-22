@@ -14,6 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
+from . import docs
 from .base import BaseAssetsController
 
 
@@ -32,7 +33,7 @@ class CampaignAssetsController(BaseAssetsController):
         path=urls.Campaigns.ASSETS,
         summary="List campaign assets",
         operation_id="listCampaignAssets",
-        description="List all assets for a campaign.",
+        description=docs.LIST_ASSETS_DESCRIPTION,
         cache=True,
     )
     async def list_campaign_assets(
@@ -56,7 +57,7 @@ class CampaignAssetsController(BaseAssetsController):
         path=urls.Campaigns.ASSET_DETAIL,
         summary="Get a campaign asset",
         operation_id="getCampaignAsset",
-        description="Get an asset for a campaign.",
+        description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
     async def get_campaign_asset(self, campaign: Campaign, asset: S3Asset) -> S3Asset:
@@ -67,7 +68,7 @@ class CampaignAssetsController(BaseAssetsController):
         path=urls.Campaigns.ASSET_UPLOAD,
         summary="Upload a campaign asset",
         operation_id="uploadCampaignAsset",
-        description="Upload an asset for a campaign.",
+        description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def handle_file_upload(
@@ -89,7 +90,7 @@ class CampaignAssetsController(BaseAssetsController):
         path=urls.Campaigns.ASSET_DELETE,
         summary="Delete a campaign asset",
         operation_id="deleteCampaignAsset",
-        description="Delete an asset for a campaign.",
+        description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_campaign_asset(self, asset: S3Asset) -> None:

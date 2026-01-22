@@ -23,11 +23,7 @@ from vapi.lib.guards import developer_company_user_guard, user_character_player_
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
-
-CREATE_CHARACTER_DOCUMENTATION = """\
-Create a new character within a campaign. Provide character details and initial trait values. The character is associated with both a creator and a player user.
-"""
+from . import docs, dto
 
 
 class CharacterController(Controller):
@@ -47,7 +43,7 @@ class CharacterController(Controller):
         path=urls.Characters.LIST,
         summary="List characters",
         operation_id="listCharacters",
-        description="Retrieve a paginated list of characters within a campaign. Filter by player, creator, class, type, or status.",
+        description=docs.LIST_CHARACTERS_DESCRIPTION,
         cache=True,
     )
     async def list_characters(  # noqa: PLR0913
@@ -105,7 +101,7 @@ class CharacterController(Controller):
         path=urls.Characters.DETAIL,
         summary="Get character",
         operation_id="getCharacter",
-        description="Retrieve detailed information about a specific character including traits, status, and biographical data.",
+        description=docs.GET_CHARACTER_DESCRIPTION,
         cache=True,
     )
     async def get_character(self, character: Character) -> Character:
@@ -116,7 +112,7 @@ class CharacterController(Controller):
         path=urls.Characters.CREATE,
         summary="Create character",
         operation_id="createCharacter",
-        description=CREATE_CHARACTER_DOCUMENTATION,
+        description=docs.CREATE_CHARACTER_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_character(
@@ -162,7 +158,7 @@ class CharacterController(Controller):
         path=urls.Characters.UPDATE,
         summary="Update character",
         operation_id="updateCharacter",
-        description="Modify a character's properties such as name, biography, or other details. Only include fields that need to be changed. Use trait-specific endpoints to modify character traits.",
+        description=docs.UPDATE_CHARACTER_DESCRIPTION,
         dto=dto.CharacterPatchDTO,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -190,7 +186,7 @@ class CharacterController(Controller):
         path=urls.Characters.DELETE,
         summary="Delete character",
         operation_id="deleteCharacter",
-        description="Remove a character from the campaign. The character's data will no longer be accessible.",
+        description=docs.DELETE_CHARACTER_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )

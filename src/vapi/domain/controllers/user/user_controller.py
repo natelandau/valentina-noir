@@ -19,7 +19,7 @@ from vapi.domain.services import UserService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 
 
 class UserController(Controller):
@@ -39,7 +39,7 @@ class UserController(Controller):
         path=urls.Users.LIST,
         summary="List users",
         operation_id="listUsers",
-        description="Retrieve a paginated list of users within a company. Optionally filter by user role.",
+        description=docs.LIST_USERS_DESCRIPTION,
         cache=True,
     )
     async def list_users(
@@ -65,7 +65,7 @@ class UserController(Controller):
         path=urls.Users.DETAIL,
         summary="Get user",
         operation_id="getUser",
-        description="Retrieve detailed information about a specific user including their role and campaign experience.",
+        description=docs.GET_USER_DESCRIPTION,
         cache=True,
     )
     async def get_user(self, user: User) -> User:
@@ -76,7 +76,7 @@ class UserController(Controller):
         path=urls.Users.CREATE,
         summary="Create user",
         operation_id="createUser",
-        description="Create a new user within a company. The user will be automatically added to the company's user list. Requires admin-level access to the company.\n\nThe Discord profile is optional and is not used to authenticate the user.\n\nOnly users with admin-level access to the company can create new users.",
+        description=docs.CREATE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -89,7 +89,7 @@ class UserController(Controller):
         path=urls.Users.UPDATE,
         summary="Update user",
         operation_id="updateUser",
-        description="Modify a user's properties. Only include fields that need to be changed.\n\nOnly users with admin-level access to the company can update other users' properties.",
+        description=docs.UPDATE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -102,7 +102,7 @@ class UserController(Controller):
         path=urls.Users.DELETE,
         summary="Delete user",
         operation_id="deleteUser",
-        description="Remove a user from the company. The user will be removed from the company's user list. Requires admin-level access to the company.\n\nOnly users with admin-level access to the company can delete other users.",
+        description=docs.DELETE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )

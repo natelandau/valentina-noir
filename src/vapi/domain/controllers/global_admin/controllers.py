@@ -22,7 +22,7 @@ from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -43,7 +43,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPERS,
         summary="List developers",
         operation_id="globalAdminListDevelopers",
-        description="Retrieve a paginated list of all developer accounts in the system. Requires global admin privileges.",
+        description=docs.LIST_DEVELOPERS_DESCRIPTION,
         cache=True,
     )
     async def list_developers(
@@ -73,7 +73,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPER_DETAIL,
         summary="Get developer",
         operation_id="globalAdminGetDeveloper",
-        description="Retrieve detailed information about a specific developer account. Requires global admin privileges.",
+        description=docs.GET_DEVELOPER_DESCRIPTION,
         cache=True,
     )
     async def retrieve_developer(self, *, developer: Developer) -> Developer:
@@ -84,7 +84,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPER_CREATE,
         summary="Create developer",
         operation_id="globalAdminCreateDeveloper",
-        description="Create a new developer account. This creates the account but does not create an API key or grant access to any companies. **Be certain to generate an API key after account creation.**\n\nRequires global admin privileges.",
+        description=docs.CREATE_DEVELOPER_DESCRIPTION,
         dto=dto.DeveloperCreateDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -103,7 +103,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPER_UPDATE,
         summary="Update developer",
         operation_id="globalAdminUpdateDeveloper",
-        description="Modify a developer account's properties. Only include fields that need to be changed. Requires global admin privileges.",
+        description=docs.UPDATE_DEVELOPER_DESCRIPTION,
         dto=dto.DeveloperPatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -127,7 +127,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPER_DELETE,
         summary="Delete developer",
         operation_id="globalAdminDeleteDeveloper",
-        description="Remove a developer account from the system. The developer's API key will be invalidated immediately. Requires global admin privileges.",
+        description=docs.DELETE_DEVELOPER_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_developer(self, *, developer: Developer, request: Request) -> None:
@@ -142,7 +142,7 @@ class GlobalAdminController(Controller):
         path=urls.GlobalAdmin.DEVELOPER_NEW_KEY,
         summary="Create API key",
         operation_id="globalAdminCreateDeveloperApiKey",
-        description="Generate a new API key for a developer. Their current key will be immediately invalidated.\n\n**Be certain to save the api key as it will not be displayed again.**\n\nRequires global admin privileges.",
+        description=docs.CREATE_API_KEY_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def new_api_key(

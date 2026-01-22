@@ -12,7 +12,7 @@ from vapi.domain import deps, urls
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import dto, lib
+from . import docs, dto, lib
 
 
 class StatisticsController(Controller):
@@ -31,7 +31,7 @@ class StatisticsController(Controller):
         path=urls.Companies.STATISTICS,
         summary="Get company statistics",
         operation_id="getCompanyStatistics",
-        description="Retrieve aggregated dice roll statistics for a company. Includes success rates, critical frequencies, and most-used traits.",
+        description=docs.GET_COMPANY_STATISTICS_DESCRIPTION,
     )
     async def get_company_statistics(
         self, company: Company, num_top_traits: int = 5
@@ -48,7 +48,7 @@ class StatisticsController(Controller):
         path=urls.Users.STATISTICS,
         summary="Get user statistics",
         operation_id="getUserStatistics",
-        description="Retrieve aggregated dice roll statistics for a specific user. Includes success rates, critical frequencies, and most-used traits.",
+        description=docs.GET_USER_STATISTICS_DESCRIPTION,
     )
     async def get_user_statistics(self, user: User, num_top_traits: int = 5) -> dto.RollStatistics:
         """Get user roll statistics."""
@@ -63,7 +63,7 @@ class StatisticsController(Controller):
         path=urls.Characters.STATISTICS,
         summary="Get character statistics",
         operation_id="getCharacterStatistics",
-        description="Retrieve aggregated dice roll statistics for a specific character. Includes success rates, critical frequencies, and most-used traits.",
+        description=docs.GET_CHARACTER_STATISTICS_DESCRIPTION,
     )
     async def get_character_statistics(
         self, character: Character, num_top_traits: int = 5
@@ -80,7 +80,7 @@ class StatisticsController(Controller):
         path=urls.Campaigns.STATISTICS,
         summary="Get campaign statistics",
         operation_id="getCampaignStatistics",
-        description="Retrieve aggregated dice roll statistics for a specific campaign. Includes success rates, critical frequencies, and most-used traits.",
+        description=docs.GET_CAMPAIGN_STATISTICS_DESCRIPTION,
     )
     async def get_campaign_statistics(
         self, campaign: Campaign, num_top_traits: int = 5

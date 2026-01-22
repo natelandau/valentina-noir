@@ -14,6 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
+from . import docs
 from .base import BaseAssetsController
 
 
@@ -31,7 +32,7 @@ class UserAssetsController(BaseAssetsController):
         path=urls.Users.ASSETS,
         summary="List user assets",
         operation_id="listUserAssets",
-        description="List all assets for a user.",
+        description=docs.LIST_ASSETS_DESCRIPTION,
         cache=True,
     )
     async def list_user_assets(
@@ -55,7 +56,7 @@ class UserAssetsController(BaseAssetsController):
         path=urls.Users.ASSET_DETAIL,
         summary="Get a user asset",
         operation_id="getUserAsset",
-        description="Get an asset for a user.",
+        description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
     async def get_user_asset(self, user: User, asset: S3Asset) -> S3Asset:
@@ -66,7 +67,7 @@ class UserAssetsController(BaseAssetsController):
         path=urls.Users.ASSET_UPLOAD,
         summary="Upload a user asset",
         operation_id="uploadUserAsset",
-        description="Upload an asset for a user.",
+        description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def handle_file_upload(
@@ -87,7 +88,7 @@ class UserAssetsController(BaseAssetsController):
         path=urls.Users.ASSET_DELETE,
         summary="Delete a user asset",
         operation_id="deleteUserAsset",
-        description="Delete an asset for a user.",
+        description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_user_asset(self, asset: S3Asset) -> None:
