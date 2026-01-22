@@ -1,3 +1,16 @@
+## v0.7.0 (2026-01-22)
+
+### Feat
+
+- handle archive of models with dependents (#26)
+- add filters to developer list endpoint (#24)
+
+### Fix
+
+- **company**: improve company access controls (#25)
+- **company**: disallow setting user_ids (#23)
+- **admin**: improve developer creation response (#22)
+
 ## v0.6.0 (2026-01-18)
 
 ### Feat
