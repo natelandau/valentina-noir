@@ -118,6 +118,9 @@ class TestCharacterService:
             with pytest.raises(ValidationError, match=r"Vampire clan.*not found"):
                 await service.assign_vampire_clan_attributes(character)
 
+            # Cleanup
+            await character.delete()
+
         async def test_assign_vampire_clan_attributes_clan_found(self) -> None:
             """Test the assign_vampire_clan_attributes method."""
             character = Character(
@@ -144,6 +147,9 @@ class TestCharacterService:
             assert character.vampire_attributes.bane == clan.bane
             assert character.vampire_attributes.compulsion == clan.compulsion
 
+            # Cleanup
+            await character.delete()
+
         async def test_assign_vampire_clan_attributes_skips_non_vampire(self) -> None:
             """Verify method returns early for non-vampire characters."""
             # Given a mortal character
@@ -163,6 +169,9 @@ class TestCharacterService:
             # When we call assign_vampire_clan_attributes
             # Then no error should be raised (method returns early)
             await service.assign_vampire_clan_attributes(character)
+
+            # Cleanup
+            await character.delete()
 
     class TestAssignWerewolfAttributes:
         """Test the assign_werewolf_attributes method."""
@@ -187,6 +196,9 @@ class TestCharacterService:
             # When we assign werewolf attributes without then a ValidationError should be raised
             with pytest.raises(ValidationError):
                 await service.assign_werewolf_attributes(character)
+
+            # Cleanup
+            await character.delete()
 
         async def test_assign_werewolf_attributes_tribe_not_found(self) -> None:
             """Verify ValidationError is raised when tribe is not found."""
@@ -213,6 +225,9 @@ class TestCharacterService:
             with pytest.raises(ValidationError, match=r"Werewolf tribe.*not found"):
                 await service.assign_werewolf_attributes(character)
 
+            # Cleanup
+            await character.delete()
+
         async def test_assign_werewolf_attributes_auspice_not_found(self) -> None:
             """Verify ValidationError is raised when auspice is not found."""
             # Given a werewolf character with non-existent auspice
@@ -237,6 +252,9 @@ class TestCharacterService:
             # Then a ValidationError should be raised
             with pytest.raises(ValidationError, match=r"Werewolf auspice.*not found"):
                 await service.assign_werewolf_attributes(character)
+
+            # Cleanup
+            await character.delete()
 
         async def test_assign_werewolf_attributes_success(self) -> None:
             """Verify werewolf attributes are assigned correctly when tribe and auspice exist."""
@@ -264,6 +282,9 @@ class TestCharacterService:
             assert character.werewolf_attributes.tribe_name == tribe.name
             assert character.werewolf_attributes.auspice_name == auspice.name
 
+            # Cleanup
+            await character.delete()
+
         async def test_assign_werewolf_attributes_skips_non_werewolf(self) -> None:
             """Verify method returns early for non-werewolf characters."""
             # Given a mortal character
@@ -283,6 +304,9 @@ class TestCharacterService:
             # When we call assign_werewolf_attributes
             # Then no error should be raised (method returns early)
             await service.assign_werewolf_attributes(character)
+
+            # Cleanup
+            await character.delete()
 
     class TestValidateUniqueName:
         """Test the validate_unique_name method."""
@@ -321,6 +345,9 @@ class TestCharacterService:
                 for p in exc_info.value.extension.get("invalid_parameters", [])
             )
 
+            # Cleanup
+            await new_character.delete()
+
         async def test_validate_unique_name_different_company(
             self,
             character_factory: Callable[[dict[str, Any]], Character],
@@ -348,6 +375,9 @@ class TestCharacterService:
             # When we validate the unique name
             # Then no error should be raised
             await service.validate_unique_name(new_character)
+
+            # Cleanup
+            await new_character.delete()
 
         async def test_validate_unique_name_same_character(
             self, character_factory: Callable[[dict[str, Any]], Character]

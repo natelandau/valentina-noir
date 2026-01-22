@@ -22,7 +22,6 @@ pytestmark = pytest.mark.anyio
         ),
     ],
 )
-@pytest.mark.no_clean_db
 async def test_get_encryption_key(secret_key: str, expected_value: str) -> None:
     """Test that the encryption key is formatted correctly."""
     secret = crypt.get_encryption_key(secret_key)
@@ -30,7 +29,6 @@ async def test_get_encryption_key(secret_key: str, expected_value: str) -> None:
     assert expected_value == decoded.decode()
 
 
-@pytest.mark.no_clean_db
 async def test_get_password_hash() -> None:
     """Test that the encryption key is formatted correctly."""
     secret_str = "This is a password!"  # noqa: S105
@@ -49,7 +47,6 @@ async def test_get_password_hash() -> None:
         ("SuperS3cret123456789!!", "Invalid!!", False),
     ],
 )
-@pytest.mark.no_clean_db
 async def test_verify_password(
     valid_password: str,
     tested_password: str,
@@ -62,7 +59,6 @@ async def test_verify_password(
     assert is_valid == expected_result
 
 
-@pytest.mark.no_clean_db
 async def test_hmac_sha256_hex() -> None:
     """Test that the hmac_sha256_hex function is working correctly."""
     assert (

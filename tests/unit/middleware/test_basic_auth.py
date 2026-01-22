@@ -42,7 +42,6 @@ def _encode_basic_auth(username: str, password: str) -> str:
 class TestBasicAuthMiddlewarePathFiltering:
     """Test path-based filtering logic."""
 
-    @pytest.mark.no_clean_db
     async def test_non_saq_path_passes_through(self, mocker: MockerFixture) -> None:
         """Verify non-SAQ paths return empty AuthenticationResult."""
         # Given a connection to a non-SAQ path
@@ -56,7 +55,6 @@ class TestBasicAuthMiddlewarePathFiltering:
         assert result.user is None
         assert result.auth is None
 
-    @pytest.mark.no_clean_db
     async def test_root_path_passes_through(self, mocker: MockerFixture) -> None:
         """Verify root path returns empty AuthenticationResult."""
         # Given a connection to the root path
@@ -79,7 +77,6 @@ class TestBasicAuthMiddlewarePathFiltering:
             "/saq/api/jobs",
         ],
     )
-    @pytest.mark.no_clean_db
     async def test_saq_paths_require_auth(
         self, path: str, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -106,7 +103,6 @@ class TestBasicAuthMiddlewarePathFiltering:
 class TestBasicAuthMiddlewareAuthentication:
     """Test authentication logic."""
 
-    @pytest.mark.no_clean_db
     async def test_missing_authorization_header_raises_error(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -128,7 +124,6 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert exc_info.value.headers["WWW-Authenticate"] == 'Basic realm="SAQ Admin"'
 
-    @pytest.mark.no_clean_db
     async def test_non_basic_auth_scheme_raises_error(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -152,7 +147,6 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Authentication required" in exc_info.value.detail
 
-    @pytest.mark.no_clean_db
     async def test_invalid_base64_encoding_raises_error(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -176,7 +170,6 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Invalid credentials format" in exc_info.value.detail
 
-    @pytest.mark.no_clean_db
     async def test_wrong_username_raises_error(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -199,7 +192,6 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Invalid credentials" in exc_info.value.detail
 
-    @pytest.mark.no_clean_db
     async def test_wrong_password_raises_error(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -222,7 +214,6 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Invalid credentials" in exc_info.value.detail
 
-    @pytest.mark.no_clean_db
     async def test_empty_admin_username_rejects_all(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -245,7 +236,6 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Invalid credentials" in exc_info.value.detail
 
-    @pytest.mark.no_clean_db
     async def test_valid_credentials_returns_user(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -268,7 +258,6 @@ class TestBasicAuthMiddlewareAuthentication:
         assert result.user == {"username": "admin", "is_admin": True}
         assert result.auth == "admin"
 
-    @pytest.mark.no_clean_db
     async def test_credentials_with_colon_in_password(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -294,7 +283,6 @@ class TestBasicAuthMiddlewareAuthentication:
 class TestBasicAuthMiddlewareTimingAttacks:
     """Test timing attack protection."""
 
-    @pytest.mark.no_clean_db
     async def test_constant_time_comparison_used(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -37,34 +37,37 @@ class TestDictionaryService:
         assert DictionaryService().verify_is_company_dictionary_term(dictionary_term)
 
     async def test_list_all_dictionary_terms(
-        self, company_factory: Callable[[], Company], debug: Callable[[Any], None]
+        self,
+        company_factory: Callable[[], Company],
+        debug: Callable[[Any], None],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Test the list_all_dictionary_terms method."""
         await DictionaryTerm.delete_all()
         company = await company_factory()
-        company_term = await DictionaryTerm(
+        company_term = await dictionary_term_factory(
             term="Foo",
             definition="Foo is a bar.",
             company_id=company.id,
             is_global=False,
-        ).insert()
-        global_term = await DictionaryTerm(
+        )
+        global_term = await dictionary_term_factory(
             term="Bar",
             definition="Bar is a baz.",
             is_global=True,
-        ).insert()
-        non_company_term = await DictionaryTerm(
+        )
+        non_company_term = await dictionary_term_factory(
             term="Baz",
             definition="Baz is a qux.",
             is_global=False,
             company_id=PydanticObjectId(),
-        ).insert()
-        archived_term = await DictionaryTerm(
+        )
+        archived_term = await dictionary_term_factory(
             term="Qux",
             definition="Qux is a quux.",
             company_id=company.id,
             is_archived=True,
-        ).insert()
+        )
 
         # When we list all dictionary terms
         count, dictionary_terms = await DictionaryService().list_all_dictionary_terms(
@@ -80,37 +83,40 @@ class TestDictionaryService:
         assert dictionary_terms == [global_term, company_term]
 
     async def test_list_all_dictionary_terms_with_term(
-        self, company_factory: Callable[[], Company], debug: Callable[[Any], None]
+        self,
+        company_factory: Callable[[], Company],
+        debug: Callable[[Any], None],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Test the list_all_dictionary_terms method."""
         await DictionaryTerm.delete_all()
         company = await company_factory()
-        company_term = await DictionaryTerm(
+        company_term = await dictionary_term_factory(
             term="Foo",
             definition="Foo is a bar.",
             company_id=company.id,
             synonyms=["Bar"],
-        ).insert()
-        await DictionaryTerm(
+        )
+        await dictionary_term_factory(
             term="Baz",
             definition="Baz is a qux.",
             company_id=company.id,
-        ).insert()
-        global_term = await DictionaryTerm(
+        )
+        global_term = await dictionary_term_factory(
             term="Bar",
             definition="Bar is a baz.",
             is_global=True,
-        ).insert()
-        await DictionaryTerm(
+        )
+        await dictionary_term_factory(
             term="Qux",
             definition="Qux is a quux.",
             is_global=True,
-        ).insert()
-        await DictionaryTerm(
+        )
+        await dictionary_term_factory(
             term="Baz",
             definition="Baz is a qux.",
             company_id=PydanticObjectId(),
-        ).insert()
+        )
 
         # When we list all dictionary terms
         count, dictionary_terms = await DictionaryService().list_all_dictionary_terms(
@@ -121,39 +127,42 @@ class TestDictionaryService:
         assert dictionary_terms == [global_term, company_term]
 
     async def test_list_all_dictionary_terms_skip_and_limit(
-        self, company_factory: Callable[[], Company], debug: Callable[[Any], None]
+        self,
+        company_factory: Callable[[], Company],
+        debug: Callable[[Any], None],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Test the list_all_dictionary_terms method."""
         await DictionaryTerm.delete_all()
         company = await company_factory()
-        company_term_1 = await DictionaryTerm(
+        company_term_1 = await dictionary_term_factory(
             term="Foo",
             definition="Foo is a bar.",
             company_id=company.id,
             synonyms=["Bar"],
-        ).insert()
-        company_term_2 = await DictionaryTerm(
+        )
+        company_term_2 = await dictionary_term_factory(
             term="Baz",
             definition="Baz is a qux.",
             company_id=company.id,
             is_global=True,
-        ).insert()
-        await DictionaryTerm(
+        )
+        await dictionary_term_factory(
             term="Bar",
             definition="Bar is a baz.",
             is_global=True,
-        ).insert()
-        await DictionaryTerm(
+        )
+        await dictionary_term_factory(
             term="Qux",
             definition="Qux is a quux.",
             is_global=True,
-        ).insert()
-        await DictionaryTerm(
+        )
+        await dictionary_term_factory(
             term="Qux",
             definition="Qux is a quux.",
             company_id=company.id,
             is_archived=True,
-        ).insert()
+        )
 
         # When we list all dictionary terms
         count, dictionary_terms = await DictionaryService().list_all_dictionary_terms(

@@ -592,16 +592,13 @@ class TestQuickRollController:
         token_company_admin: dict[str, str],
         base_user: User,
         debug: Callable[[Any], None],
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
     ) -> None:
         """Verify we can list quick rolls."""
-        quickroll1 = QuickRoll(name="B Quick Roll 1", user_id=base_user.id)
-        await quickroll1.save()
-        quickroll2 = QuickRoll(name="A Quick Roll 2", user_id=base_user.id)
-        await quickroll2.save()
-        quickroll3 = QuickRoll(name="Quick Roll 3", user_id=base_user.id, is_archived=True)
-        await quickroll3.save()
-        quickroll4 = QuickRoll(name="Quick Roll 4", user_id=PydanticObjectId())
-        await quickroll4.save()
+        quickroll1 = await quickroll_factory(name="B Quick Roll 1", user_id=base_user.id)
+        quickroll2 = await quickroll_factory(name="A Quick Roll 2", user_id=base_user.id)
+        await quickroll_factory(name="Quick Roll 3", user_id=base_user.id, is_archived=True)
+        await quickroll_factory(name="Quick Roll 4", user_id=PydanticObjectId())
 
         response = await client.get(build_url(UsersURL.QUICKROLLS), headers=token_company_admin)
         assert response.status_code == HTTP_200_OK
@@ -623,10 +620,10 @@ class TestQuickRollController:
         token_company_admin: dict[str, str],
         base_user: User,
         debug: Callable[[Any], None],
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
     ) -> None:
         """Verify we can get a quick roll."""
-        quickroll = QuickRoll(name="Quick Roll 1", user_id=base_user.id)
-        await quickroll.save()
+        quickroll = await quickroll_factory(name="Quick Roll 1", user_id=base_user.id)
         response = await client.get(
             build_url(UsersURL.QUICKROLL_DETAIL, quickroll_id=quickroll.id),
             headers=token_company_admin,
@@ -636,7 +633,6 @@ class TestQuickRollController:
             mode="json",
             exclude={"is_archived", "archive_date"},
         )
-        await quickroll.delete()
 
     async def test_get_user_quickroll_not_found(
         self,
@@ -690,20 +686,24 @@ class TestQuickRollController:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_user: User,
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify we can patch a quick roll."""
         trait1 = await Trait.find_one(Trait.is_archived == False)
         trait2 = await Trait.find_one(Trait.is_archived == False, Trait.name != trait1.name)
-        quickroll = QuickRoll(
+        quickroll = await quickroll_factory(
             name="Quick Roll 1", user_id=base_user.id, trait_ids=[trait1.id, trait2.id]
         )
-        await quickroll.save()
+
+        # When we patch the quick roll
         response = await client.patch(
             build_url(UsersURL.QUICKROLL_UPDATE, quickroll_id=quickroll.id),
             headers=token_company_admin,
             json={"name": "Updated Quick Roll 2"},
         )
+
+        # Then we get the updated quick roll
         assert response.status_code == HTTP_200_OK
         await quickroll.sync()
         assert response.json() == quickroll.model_dump(
@@ -718,16 +718,21 @@ class TestQuickRollController:
         build_url: Callable[[str, Any], str],
         token_company_admin: dict[str, str],
         base_user: User,
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify we can delete a quick roll."""
-        quickroll = QuickRoll(name="Quick Roll 1", user_id=base_user.id)
-        await quickroll.save()
+        quickroll = await quickroll_factory(name="Quick Roll 1", user_id=base_user.id)
+
+        # When we delete the quick roll
         response = await client.delete(
             build_url(UsersURL.QUICKROLL_DELETE, quickroll_id=quickroll.id),
             headers=token_company_admin,
         )
+
+        # Then we get the deleted quick roll
         assert response.status_code == HTTP_204_NO_CONTENT
+        # Then the quick roll should be archived
         await quickroll.sync()
         assert quickroll.is_archived
         assert quickroll.archive_date is not None

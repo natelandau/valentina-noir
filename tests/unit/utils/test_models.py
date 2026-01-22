@@ -66,7 +66,6 @@ class ModelWithListNested(BaseModel):
 class TestCreateModelWithoutFields:
     """Tests for the create_model_without_fields function."""
 
-    @pytest.mark.no_clean_db
     def test_exclude_single_field(self) -> None:
         """Verify excluding a single field from a model."""
         # Given: A simple model and a field to exclude
@@ -80,7 +79,6 @@ class TestCreateModelWithoutFields:
         assert "age" in new_model.model_fields
         assert "email" not in new_model.model_fields
 
-    @pytest.mark.no_clean_db
     def test_exclude_multiple_fields(self) -> None:
         """Verify excluding multiple fields from a model."""
         # Given: A simple model and multiple fields to exclude
@@ -94,7 +92,6 @@ class TestCreateModelWithoutFields:
         assert "age" not in new_model.model_fields
         assert "email" not in new_model.model_fields
 
-    @pytest.mark.no_clean_db
     def test_model_name_is_set(self) -> None:
         """Verify the new model has the specified name."""
         # Given: A model and a new name
@@ -106,7 +103,6 @@ class TestCreateModelWithoutFields:
         # Then: Model should have the specified name
         assert new_model.__name__ == new_name
 
-    @pytest.mark.no_clean_db
     def test_add_new_fields(self) -> None:
         """Verify adding new fields to the model."""
         # Given: A model and new fields to add
@@ -127,7 +123,6 @@ class TestCreateModelWithoutFields:
         assert "new_optional" in new_model.model_fields
         assert "new_default" in new_model.model_fields
 
-    @pytest.mark.no_clean_db
     def test_exclude_and_add_fields(self) -> None:
         """Verify excluding and adding fields simultaneously."""
         # Given: Fields to exclude and add
@@ -143,7 +138,6 @@ class TestCreateModelWithoutFields:
         assert "email" not in new_model.model_fields
         assert "phone" in new_model.model_fields
 
-    @pytest.mark.no_clean_db
     def test_nested_model_exclusion(self) -> None:
         """Verify excluding fields from nested models."""
         # Given: Nested exclusions
@@ -160,7 +154,6 @@ class TestCreateModelWithoutFields:
         assert "city" in address_annotation.model_fields
         assert "internal_id" not in address_annotation.model_fields
 
-    @pytest.mark.no_clean_db
     def test_model_can_be_instantiated(self) -> None:
         """Verify the created model can be instantiated."""
         # Given: A new model
@@ -173,7 +166,6 @@ class TestCreateModelWithoutFields:
         assert instance.name == "Test"
         assert instance.age == 25
 
-    @pytest.mark.no_clean_db
     def test_preserves_required_fields(self) -> None:
         """Verify required fields remain required in new model."""
         # Given: A model with required fields
@@ -184,7 +176,6 @@ class TestCreateModelWithoutFields:
         assert new_model.model_fields["name"].is_required()
         assert new_model.model_fields["age"].is_required()
 
-    @pytest.mark.no_clean_db
     def test_preserves_optional_fields(self) -> None:
         """Verify optional fields remain optional in new model."""
         # Given: A model with optional field
@@ -198,7 +189,6 @@ class TestCreateModelWithoutFields:
 class TestReconstructField:
     """Tests for the _reconstruct_field function."""
 
-    @pytest.mark.no_clean_db
     def test_preserves_required_field(self) -> None:
         """Verify required field remains required."""
         # Given: A required field info
@@ -210,7 +200,6 @@ class TestReconstructField:
         # Then: Field should be required (default is PydanticUndefined or ...)
         assert new_field.default is PydanticUndefined or new_field.default is ...
 
-    @pytest.mark.no_clean_db
     def test_preserves_optional_field_default(self) -> None:
         """Verify optional field preserves default value."""
         # Given: An optional field info
@@ -222,7 +211,6 @@ class TestReconstructField:
         # Then: Field should have None as default
         assert new_field.default is None
 
-    @pytest.mark.no_clean_db
     def test_preserves_description(self) -> None:
         """Verify field description is preserved."""
 
@@ -238,7 +226,6 @@ class TestReconstructField:
         # Then: Description should be preserved
         assert new_field.description == "The user's name"
 
-    @pytest.mark.no_clean_db
     def test_preserves_default_factory(self) -> None:
         """Verify default_factory is preserved."""
         # Given: A field with default_factory
@@ -250,7 +237,6 @@ class TestReconstructField:
         # Then: default_factory should be preserved
         assert new_field.default_factory is not None
 
-    @pytest.mark.no_clean_db
     def test_preserves_examples(self) -> None:
         """Verify field examples are preserved."""
 
@@ -270,7 +256,6 @@ class TestReconstructField:
 class TestExtractFieldMetadata:
     """Tests for the _extract_field_metadata function."""
 
-    @pytest.mark.no_clean_db
     def test_extracts_alias(self) -> None:
         """Verify alias is extracted."""
 
@@ -286,7 +271,6 @@ class TestExtractFieldMetadata:
         # Then: alias should be in metadata
         assert metadata["alias"] == "userName"
 
-    @pytest.mark.no_clean_db
     def test_extracts_deprecated(self) -> None:
         """Verify deprecated flag is extracted."""
 
@@ -302,7 +286,6 @@ class TestExtractFieldMetadata:
         # Then: deprecated should be in metadata
         assert metadata["deprecated"] is True
 
-    @pytest.mark.no_clean_db
     def test_returns_empty_dict_for_no_metadata(self) -> None:
         """Verify empty dict returned for field without extractable metadata."""
         # Given: A field without alias or deprecated
@@ -315,7 +298,6 @@ class TestExtractFieldMetadata:
         assert "alias" not in metadata
         assert "deprecated" not in metadata
 
-    @pytest.mark.no_clean_db
     def test_returns_dict_type(self) -> None:
         """Verify function returns a dict."""
         # Given: Any field info
@@ -327,7 +309,6 @@ class TestExtractFieldMetadata:
         # Then: Should return a dict
         assert isinstance(metadata, dict)
 
-    @pytest.mark.no_clean_db
     def test_pydantic_v2_constraints_in_metadata(self) -> None:
         """Verify Pydantic v2 stores constraints in metadata attribute."""
         # Given: A field with constraints - Pydantic v2 stores these in metadata
@@ -342,7 +323,6 @@ class TestExtractFieldMetadata:
 class TestProcessNestedType:
     """Tests for the _process_nested_type function."""
 
-    @pytest.mark.no_clean_db
     def test_processes_direct_basemodel(self) -> None:
         """Verify direct BaseModel types are processed."""
         # Given: A nested model type and exclusions
@@ -356,7 +336,6 @@ class TestProcessNestedType:
         assert "street" in result.model_fields
         assert "internal_id" not in result.model_fields
 
-    @pytest.mark.no_clean_db
     def test_processes_optional_basemodel(self) -> None:
         """Verify Optional[BaseModel] types are processed."""
         # Given: An optional nested model type
@@ -369,7 +348,6 @@ class TestProcessNestedType:
         # Then: Should return Optional with processed model
         assert result is not None
 
-    @pytest.mark.no_clean_db
     def test_processes_list_of_basemodel(self) -> None:
         """Verify list[BaseModel] types are processed."""
         # Given: A list of nested models type
@@ -382,7 +360,6 @@ class TestProcessNestedType:
         # Then: Should return list with processed model
         assert result is not None
 
-    @pytest.mark.no_clean_db
     def test_returns_none_for_simple_types(self) -> None:
         """Verify None is returned for non-model types."""
         # Given: A simple type
@@ -392,7 +369,6 @@ class TestProcessNestedType:
         # Then: Should return None
         assert result is None
 
-    @pytest.mark.no_clean_db
     def test_returns_none_for_int(self) -> None:
         """Verify None is returned for int types."""
         # Given: An int type
@@ -406,7 +382,6 @@ class TestProcessNestedType:
 class TestEndToEnd:
     """End-to-end tests for model creation scenarios."""
 
-    @pytest.mark.no_clean_db
     def test_complex_model_transformation(self) -> None:
         """Verify complex model with multiple transformations."""
 
@@ -436,7 +411,6 @@ class TestEndToEnd:
         name_field = new_model.model_fields["name"]
         assert name_field.description == "User name"
 
-    @pytest.mark.no_clean_db
     def test_created_model_validates_types(self) -> None:
         """Verify created model validates types correctly."""
         # Given: A new model
@@ -450,7 +424,6 @@ class TestEndToEnd:
         with pytest.raises(ValueError, match="validation error"):
             new_model(name="John", age="not_an_int")
 
-    @pytest.mark.no_clean_db
     def test_model_json_serialization(self) -> None:
         """Verify created model can serialize to JSON."""
         # Given: A new model instance
@@ -465,7 +438,6 @@ class TestEndToEnd:
         assert "30" in json_data
         assert "email" not in json_data
 
-    @pytest.mark.no_clean_db
     def test_model_schema_generation(self) -> None:
         """Verify created model generates correct schema."""
         # Given: A new model

@@ -14,6 +14,8 @@ from vapi.domain.services import CharacterBlueprintService
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from vapi.db.models import CharacterTrait
+
 pytestmark = pytest.mark.anyio
 
 
@@ -177,7 +179,10 @@ class TestListSheetCategoryTraits:
     """Test the list_sheet_category_traits method."""
 
     async def test_list_sheet_category_traits(
-        self, character_factory: Callable[[dict[str, ...]], Character]
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
         """Verify that the list_sheet_category_traits method works."""
         sheet_section = await CharSheetSection.find_one(
@@ -198,7 +203,7 @@ class TestListSheetCategoryTraits:
 
         # Given a custom trait in the same category
         character = await character_factory()
-        custom_trait = await Trait(
+        custom_trait = await trait_factory(
             name="custom trait",
             description="custom trait description",
             game_versions=[GameVersion.V5],
@@ -211,7 +216,7 @@ class TestListSheetCategoryTraits:
             upgrade_cost=2,
             character_classes=[CharacterClass.VAMPIRE],
             is_custom=True,
-        ).insert()
+        )
 
         # When listing all trait traits for the category
         service = CharacterBlueprintService()
@@ -224,9 +229,6 @@ class TestListSheetCategoryTraits:
         assert count == len(all_v5_traits)
         assert traits == all_v5_traits[:10]
         assert custom_trait.id not in [trait.id for trait in traits]
-
-        # cleanup
-        await custom_trait.delete()
 
     async def test_list_sheet_category_traits_character_class(self) -> None:
         """Verify that the list_sheet_category_traits method works."""
@@ -294,7 +296,9 @@ class TestListSheetCategoryTraits:
         assert traits == all_v5_traits[1:3]
 
     async def test_list_sheet_category_traits_character_id(
-        self, character_factory: Callable[[dict[str, ...]], Character]
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        trait_factory: Callable[[dict[str, ...]], Trait],
     ) -> None:
         """Verify that the list_sheet_category_traits method works."""
         sheet_section = await CharSheetSection.find_one(
@@ -315,7 +319,7 @@ class TestListSheetCategoryTraits:
 
         # Given a custom trait in the same category
         character = await character_factory()
-        custom_trait = await Trait(
+        custom_trait = await trait_factory(
             name="custom trait",
             description="custom trait description",
             game_versions=[GameVersion.V5],
@@ -328,7 +332,7 @@ class TestListSheetCategoryTraits:
             upgrade_cost=2,
             character_classes=[CharacterClass.VAMPIRE],
             is_custom=True,
-        ).insert()
+        )
 
         # When listing all trait traits for the category
         service = CharacterBlueprintService()
@@ -342,9 +346,6 @@ class TestListSheetCategoryTraits:
         assert count == len(all_v5_traits) + 1
         assert traits == [*all_v5_traits, custom_trait]
         assert custom_trait.id in [trait.id for trait in traits]
-
-        # cleanup
-        await custom_trait.delete()
 
 
 class TestListAllTraits:

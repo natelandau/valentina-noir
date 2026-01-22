@@ -32,6 +32,7 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_roll_minimal(
         self,
+        dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
         debug: Callable[[Any], None],
     ) -> None:
         """Test the create_complete_dice_roll method."""
@@ -56,6 +57,9 @@ class TestDiceRollService:
         # Then the dice roll is returned
         assert result.id is not None
         assert result.result is not None
+
+        # Cleanup
+        await dice_roll.delete()
 
     async def test_create_complete_dice_roll_every_field(
         self,
@@ -89,6 +93,9 @@ class TestDiceRollService:
         assert result.id is not None
         assert result.result is not None
 
+        # Cleanup
+        await dice_roll.delete()
+
     async def test_create_complete_dice_invalid_trait_ids(
         self,
         debug: Callable[[Any], None],
@@ -109,6 +116,9 @@ class TestDiceRollService:
         service = DiceRollService()
         with pytest.raises(ValidationError, match="Trait not found"):
             await service.create_complete_dice_roll(dice_roll)
+
+        # Cleanup
+        await dice_roll.delete()
 
     async def test_create_complete_dice_roll_character_not_found(
         self,
@@ -134,6 +144,9 @@ class TestDiceRollService:
         with pytest.raises(ValidationError, match=r"Character.*not found"):
             await service.create_complete_dice_roll(dice_roll)
 
+        # Cleanup
+        await dice_roll.delete()
+
     async def test_create_complete_dice_roll_campaign_not_found(
         self,
         debug: Callable[[Any], None],
@@ -157,6 +170,9 @@ class TestDiceRollService:
         service = DiceRollService()
         with pytest.raises(ValidationError, match=r"Campaign.*not found"):
             await service.create_complete_dice_roll(dice_roll)
+
+        # Cleanup
+        await dice_roll.delete()
 
     async def test_roll_quickroll(
         self,
@@ -199,6 +215,9 @@ class TestDiceRollService:
         assert result.trait_ids == quickroll.trait_ids
         assert result.difficulty == 6
         assert result.dice_size == DiceSize.D10
+
+        # Cleanup
+        await result.delete()
 
     async def test_roll_quickroll_no_matching_traits(
         self,

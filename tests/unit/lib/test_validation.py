@@ -24,7 +24,6 @@ pytestmark = pytest.mark.anyio
         ("test\nwith\nnewlines", "test\nwith\nnewlines"),
     ],
 )
-@pytest.mark.no_clean_db
 def test_empty_string_to_none(*, value: str, expected: str | None) -> None:
     """Verify converting empty or whitespace-only strings to None."""
     assert validation.empty_string_to_none(value=value) == expected

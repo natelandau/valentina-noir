@@ -183,7 +183,7 @@ class Settings(BaseSettings):
         env_prefix=ENVAR_PREFIX,
         extra="ignore",
         case_sensitive=False,
-        env_file=[".env", ".env.secret"],
+        env_file=[".env.secret"],
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
     )

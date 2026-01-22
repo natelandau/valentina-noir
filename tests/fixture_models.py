@@ -486,6 +486,7 @@ async def base_character(base_company, base_user, base_campaign) -> Character:
     return character
 
 
+#########################################################################
 @pytest.fixture
 async def developer_factory(base_company: Company) -> DeveloperFactory:
     """Create a developer factory for testing.
@@ -493,6 +494,7 @@ async def developer_factory(base_company: Company) -> DeveloperFactory:
     Returns:
         DeveloperFactory: A developer factory object.
     """
+    created_developers = []  # Track all created developers
 
     async def _developer_factory(
         permission: CompanyPermission = CompanyPermission.USER,
@@ -518,9 +520,14 @@ async def developer_factory(base_company: Company) -> DeveloperFactory:
             **kwargs,
         )
         await developer.save()
+        created_developers.append(developer)
         return developer
 
-    return _developer_factory
+    yield _developer_factory
+
+    # Cleanup: delete all developers created during the test
+    for developer in created_developers:
+        await developer.delete()
 
 
 @pytest.fixture
@@ -530,12 +537,14 @@ async def company_factory() -> CompanyFactory:
     Returns:
         CompanyFactory: A company factory object.
     """
+    created_companies = []  # Track all created companies
 
     async def _company_factory(
         dev_admin_id: PydanticObjectId | str = None, **kwargs: Any
     ) -> Company:
         company = CompanyFactory().build(**kwargs)
         await company.save()
+        created_companies.append(company)
 
         if dev_admin_id:
             developer = await Developer.get(dev_admin_id)
@@ -548,7 +557,11 @@ async def company_factory() -> CompanyFactory:
 
         return company
 
-    return _company_factory
+    yield _company_factory
+
+    # Cleanup: delete all companies created during the test
+    for company in created_companies:
+        await company.delete()
 
 
 @pytest.fixture
@@ -558,6 +571,7 @@ async def user_factory(base_company, debug) -> UserFactory:
     Returns:
         UserFactory: A user factory object.
     """
+    created_users = []  # Track all created users
 
     async def _user_factory(
         company_id: PydanticObjectId | str = base_company.id, **kwargs: Any
@@ -569,9 +583,14 @@ async def user_factory(base_company, debug) -> UserFactory:
         if company:
             company.user_ids.append(user.id)
             await company.save()
+        created_users.append(user)
         return user
 
-    return _user_factory
+    yield _user_factory
+
+    # Cleanup: delete all users created during the test
+    for user in created_users:
+        await user.delete()
 
 
 @pytest.fixture
@@ -581,6 +600,7 @@ async def character_factory(base_company, base_user, base_campaign) -> Character
     Returns:
         CharacterFactory: A character factory object.
     """
+    created_characters = []  # Track all created characters
 
     async def _character_factory(
         company_id: PydanticObjectId | str = base_company.id,
@@ -589,15 +609,21 @@ async def character_factory(base_company, base_user, base_campaign) -> Character
         campaign_id: PydanticObjectId | str = base_campaign.id,
         **kwargs: Any,
     ) -> Character:
-        return await _create_character(
+        character = await _create_character(
             company_id=company_id,
             user_creator_id=user_creator_id,
             user_player_id=user_player_id,
             campaign_id=campaign_id,
             **kwargs,
         )
+        created_characters.append(character)
+        return character
 
-    return _character_factory
+    yield _character_factory
+
+    # Cleanup: delete all characters created during the test
+    for character in created_characters:
+        await character.delete()
 
 
 @pytest.fixture
@@ -607,15 +633,21 @@ async def campaign_factory(base_company) -> CampaignFactory:
     Returns:
         CampaignFactory: A campaign factory object.
     """
+    created_campaigns = []  # Track all created campaigns
 
     async def _campaign_factory(
         company_id: PydanticObjectId | str = base_company.id, **kwargs: Any
     ) -> Campaign:
         campaign = CampaignFactory().build(**kwargs, company_id=company_id)
         await campaign.save()
+        created_campaigns.append(campaign)
         return campaign
 
-    return _campaign_factory
+    yield _campaign_factory
+
+    # Cleanup: delete all campaigns created during the test
+    for campaign in created_campaigns:
+        await campaign.delete()
 
 
 @pytest.fixture
@@ -625,6 +657,7 @@ async def campaign_book_factory(base_campaign: Campaign) -> CampaignBookFactory:
     Returns:
         CampaignBookFactory: A campaign book factory object.
     """
+    created_campaign_books = []  # Track all created campaign books
 
     async def _campaign_book_factory(**kwargs: Any) -> CampaignBook:
         """Create a campaign book for testing.
@@ -655,9 +688,14 @@ async def campaign_book_factory(base_campaign: Campaign) -> CampaignBookFactory:
             **kwargs, campaign_id=campaign_id, number=number
         )
         await campaign_book.save()
+        created_campaign_books.append(campaign_book)
         return campaign_book
 
-    return _campaign_book_factory
+    yield _campaign_book_factory
+
+    # Cleanup: delete all campaign books created during the test
+    for campaign_book in created_campaign_books:
+        await campaign_book.delete()
 
 
 @pytest.fixture
@@ -667,6 +705,7 @@ async def campaign_chapter_factory(base_campaign_book: CampaignBook) -> Campaign
     Returns:
         CampaignChapterFactory: A campaign chapter factory object.
     """
+    created_campaign_chapters = []  # Track all created campaign chapters
 
     async def _campaign_chapter_factory(**kwargs: Any) -> CampaignChapter:
         """Create a campaign book for testing.
@@ -695,9 +734,14 @@ async def campaign_chapter_factory(base_campaign_book: CampaignBook) -> Campaign
 
         campaign_chapter = CampaignChapterFactory().build(**kwargs, book_id=book_id, number=number)
         await campaign_chapter.save()
+        created_campaign_chapters.append(campaign_chapter)
         return campaign_chapter
 
-    return _campaign_chapter_factory
+    yield _campaign_chapter_factory
+
+    # Cleanup: delete all campaign chapters created during the test
+    for campaign_chapter in created_campaign_chapters:
+        await campaign_chapter.delete()
 
 
 @pytest.fixture
@@ -707,16 +751,23 @@ async def dice_roll_factory(base_company) -> DiceRollFactory:
     Returns:
         DiceRollFactory: A dice roll factory object.
     """
+    created_dice_rolls = []  # Track all created dice rolls
 
     async def _dice_roll_factory(**kwargs: Any) -> DiceRollFactory:
+        """Create a dice roll for testing."""
         if not kwargs.get("company_id"):
             kwargs["company_id"] = base_company.id
 
         dice_roll = DiceRollFactory().build(**kwargs)
         await dice_roll.save()
+        created_dice_rolls.append(dice_roll)
         return dice_roll
 
-    return _dice_roll_factory
+    yield _dice_roll_factory
+
+    # Cleanup: delete all dice rolls created during the test
+    for dice_roll in created_dice_rolls:
+        await dice_roll.delete()
 
 
 @pytest.fixture
@@ -757,6 +808,7 @@ async def trait_factory() -> TraitFactory:
     Returns:
         TraitFactory: A trait factory object.
     """
+    created_traits = []  # Track all created traits
 
     async def _trait_factory(**kwargs: Any) -> Trait:
         if not kwargs.get("parent_category_id"):
@@ -768,9 +820,14 @@ async def trait_factory() -> TraitFactory:
 
         trait = TraitFactory().build(**kwargs)
         await trait.save()
+        created_traits.append(trait)
         return trait
 
-    return _trait_factory
+    yield _trait_factory
+
+    # Cleanup: delete all traits created during the test
+    for trait in created_traits:
+        await trait.delete()
 
 
 @pytest.fixture
@@ -946,6 +1003,7 @@ async def dictionary_term_factory(base_company) -> DictionaryTerm:
             "synonyms": ["Test Synonym", "Test Synonym 2"],
             "company_id": base_company.id,
             "is_archived": False,
+            "is_global": True,
         }
 
         for key, value in kwargs.items():

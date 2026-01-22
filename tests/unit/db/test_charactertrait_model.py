@@ -1,11 +1,15 @@
 """Unit tests for the charactertrait db model."""
 
-from collections.abc import Callable
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import pytest
 
 from vapi.db.models import Character, CharacterTrait, Trait
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 pytestmark = pytest.mark.anyio
 
@@ -15,17 +19,18 @@ class TestModelHooks:
 
     async def test_sync_id_to_character_on_save(
         self,
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        debug: Callable[[...], None],
     ) -> None:
-        """Verify that the character's character trait id is removed from the character."""
+        """Verify that the character trait is synced to the character."""
         character = await character_factory()
         trait = await Trait.find_one(Trait.is_archived == False)
 
         # Add the character trait id to the character
-        character_trait = await CharacterTrait(
+        character_trait = await character_trait_factory(
             character_id=character.id, trait=trait, value=1
-        ).insert()
+        )
 
         # Verify that the character trait id is added to the character
         await character.sync()
@@ -35,14 +40,17 @@ class TestModelHooks:
 
     async def test_remove_id_from_character_on_delete(
         self,
-        character_factory: Callable[[dict[str, Any]], Character],
-        debug: Callable[[Any], None],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify that the character trait id is removed from the character."""
         character = await character_factory()
         trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = CharacterTrait(character_id=character.id, trait=trait, value=1)
-        await character_trait.insert()
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=trait, value=1
+        )
+
         await character.sync()
         if character_trait.id not in character.character_trait_ids:
             character.character_trait_ids.append(character_trait.id)
@@ -55,5 +63,3 @@ class TestModelHooks:
         await character.sync()
         assert character_trait.id not in character.character_trait_ids
         assert len(character.character_trait_ids) == 0
-
-        await character.delete()

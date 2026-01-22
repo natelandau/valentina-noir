@@ -384,6 +384,7 @@ class TestGuardIsSafeIncreaseDecrease:
         expected: int,
         current_value: int,
         trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
         """Verify that the cost to upgrade is correct for the initial cost.
 
@@ -394,24 +395,22 @@ class TestGuardIsSafeIncreaseDecrease:
             initial_cost=initial_cost, upgrade_cost=upgrade_cost, max_value=5, is_custom=True
         )
 
-        character_trait = CharacterTrait(
+        character_trait = await character_trait_factory(
             character_id=PydanticObjectId(),
             trait=trait,
             value=current_value,
         )
         assert await service.calculate_upgrade_cost(character_trait, increase_by) == expected
 
-        # cleanup non-constant trait
-        await trait.delete()
-
     async def test_calculate_upgrade_cost_over_max_value(
         self,
         trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
         """Verify that a validation error is raised if the trait is raised above the max value."""
         service = CharacterTraitService()
         trait = await trait_factory(max_value=5, is_custom=True)
-        character_trait = CharacterTrait(
+        character_trait = await character_trait_factory(
             character_id=PydanticObjectId(),
             trait=trait,
             value=4,
@@ -419,9 +418,6 @@ class TestGuardIsSafeIncreaseDecrease:
 
         with pytest.raises(ValidationError):
             await service.calculate_upgrade_cost(character_trait, 2)
-
-        # cleanup non-constant trait
-        await trait.delete()
 
 
 class TestCalculateCosts:
@@ -443,6 +439,7 @@ class TestCalculateCosts:
         expected: int,
         current_value: int,
         trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
         """Verify that the cost to downgrade is correct for the initial cost."""
         service = CharacterTraitService()
@@ -453,33 +450,28 @@ class TestCalculateCosts:
             min_value=0,
             is_custom=True,
         )
-        character_trait = CharacterTrait(
+        character_trait = await character_trait_factory(
             character_id=PydanticObjectId(),
             trait=trait,
             value=current_value,
         )
         assert await service.calculate_downgrade_savings(character_trait, decrease_by) == expected
 
-        # cleanup non-constant trait
-        await trait.delete()
-
     async def test_calculate_downgrade_savings_below_min_value(
         self,
         trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
         """Verify that a validation error is raised if the trait is lowered below the min value."""
         service = CharacterTraitService()
         trait = await trait_factory(min_value=0, is_custom=True)
-        character_trait = CharacterTrait(
+        character_trait = await character_trait_factory(
             character_id=PydanticObjectId(),
             trait=trait,
             value=1,
         )
         with pytest.raises(ValidationError):
             await service.calculate_downgrade_savings(character_trait, 3)
-
-        # cleanup non-constant trait
-        await trait.delete()
 
 
 class TestUpdateCharacterWillpower:

@@ -40,6 +40,7 @@ async def test_list_assets(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     base_company: Company,
+    s3asset_factory: Callable[..., S3Asset],
     build_url: Callable[[str, ...], str],
     character_factory: Callable[[...], Character],
     user_factory: Callable[[...], User],
@@ -49,50 +50,22 @@ async def test_list_assets(
     user = await user_factory()
     character = await character_factory()
     assets = []
-    for i in range(3):
-        asset = await S3Asset(
+    for _ in range(3):
+        asset = await s3asset_factory(
             asset_type=S3AssetType.IMAGE,
-            mime_type="image/jpeg",
-            original_filename=f"somefile{i}.jpg",
-            parent_type="character",
-            parent_id=character.id,
-            company_id=base_company.id,
             uploaded_by=user.id,
-            public_url=f"https://example.com/somefile{i}.jpg",
-            s3_key="test-key",
-            s3_bucket="test-bucket",
-        ).insert()
+            parent_id=character.id,
+            parent_type=S3AssetParentType.CHARACTER,
+        )
         assets.append(asset)
         character.asset_ids.append(asset.id)
 
     # And assets that should not be returned
-    asset = await S3Asset(
-        asset_type=S3AssetType.TEXT,
-        mime_type="image/jpeg",
-        original_filename="somefile.txt",
-        parent_type="character",
-        parent_id=character.id,
-        company_id=base_company.id,
-        uploaded_by=user.id,
-        public_url="https://example.com/somefile.txt",
-        s3_key="test-key",
-        s3_bucket="test-bucket",
-    ).insert()
+    asset = await s3asset_factory(asset_type=S3AssetType.TEXT, uploaded_by=user.id)
     character.asset_ids.append(asset.id)
     await character.save()
 
-    await S3Asset(
-        asset_type=S3AssetType.IMAGE,
-        mime_type="image/jpeg",
-        original_filename="somefile.jpg",
-        parent_type="character",
-        parent_id=PydanticObjectId(),
-        company_id=base_company.id,
-        uploaded_by=user.id,
-        public_url="https://example.com/somefile.jpg",
-        s3_key="test-key",
-        s3_bucket="test-bucket",
-    ).insert()
+    await s3asset_factory(asset_type=S3AssetType.IMAGE, uploaded_by=user.id)
 
     # When: Listing assets
     response = await client.get(
@@ -120,24 +93,19 @@ async def test_get_asset(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     base_company: Company,
+    s3asset_factory: Callable[..., S3Asset],
     build_url: Callable[[str, ...], str],
     user_factory: Callable[[...], User],
     debug: Callable[[...], None],
 ) -> None:
     """Get an asset."""
     user = await user_factory()
-    asset = await S3Asset(
+    asset = await s3asset_factory(
         asset_type=S3AssetType.TEXT,
-        mime_type="text/plain",
-        original_filename="somefile.txt",
-        parent_type="user",
-        parent_id=user.id,
-        company_id=base_company.id,
         uploaded_by=user.id,
-        public_url="https://example.com/somefile.txt",
-        s3_key="test-key",
-        s3_bucket="test-bucket",
-    ).insert()
+        parent_id=user.id,
+        parent_type=S3AssetParentType.USER,
+    )
     user.asset_ids = [asset.id]
     await user.save()
 
@@ -157,6 +125,7 @@ async def test_get_asset_not_parent(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     base_company: Company,
+    s3asset_factory: Callable[..., S3Asset],
     build_url: Callable[[str, ...], str],
     campaign_chapter_factory: Callable[[...], CampaignChapter],
     user_factory: Callable[[...], User],
@@ -165,18 +134,13 @@ async def test_get_asset_not_parent(
     """Verify getting an asset that is not the parent."""
     user = await user_factory()
     campaign_chapter = await campaign_chapter_factory()
-    asset = await S3Asset(
+    asset = await s3asset_factory(
         asset_type=S3AssetType.TEXT,
-        mime_type="text/plain",
-        original_filename="somefile.txt",
-        parent_type="campaignchapter",
+        parent_type=S3AssetParentType.CAMPAIGN_CHAPTER,
         parent_id=PydanticObjectId(),
         company_id=base_company.id,
         uploaded_by=user.id,
-        public_url="https://example.com/somefile.txt",
-        s3_key="test-key",
-        s3_bucket="test-bucket",
-    ).insert()
+    )
     campaign_chapter.asset_ids = [asset.id]
     await campaign_chapter.save()
 
@@ -249,11 +213,15 @@ async def test_upload_image(
     assert db_asset.uploaded_by == user.id
     assert db_asset.public_url == response_json["public_url"]
 
+    # cleanup
+    await db_asset.delete()
+
 
 async def test_delete_image(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     base_company: Company,
+    s3asset_factory: Callable[..., S3Asset],
     build_url: Callable[[str, ...], str],
     debug: Callable[[...], None],
     campaign_book_factory: Callable[[...], CampaignBook],
@@ -263,18 +231,11 @@ async def test_delete_image(
     # Given: A user and character
     user = await user_factory()
     book = await campaign_book_factory()
-    asset = await S3Asset(
-        asset_type=S3AssetType.TEXT,
-        mime_type="text/plain",
-        original_filename="somefile.txt",
+    asset = await s3asset_factory(
         parent_type=S3AssetParentType.CAMPAIGN_BOOK,
         parent_id=book.id,
-        company_id=base_company.id,
         uploaded_by=user.id,
-        public_url="https://example.com/somefile.txt",
-        s3_key="test-key",
-        s3_bucket="test-bucket",
-    ).insert()
+    )
     book.asset_ids = [asset.id]
     await book.save()
 

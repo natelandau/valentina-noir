@@ -49,6 +49,7 @@ class TestCharacterNotes:
         base_character: Character,
     ) -> None:
         """Verify listing notes returns empty when no notes exist."""
+        await Note.delete_all()
         response = await client.get(
             build_url(Characters.NOTES, character_id=base_character.id),
             headers=token_company_admin,
@@ -66,6 +67,7 @@ class TestCharacterNotes:
         note_factory: Callable[..., Note],
     ) -> None:
         """Verify listing notes returns only non-archived notes."""
+        await Note.delete_all()
         note1 = await note_factory(
             title="Note 1", content="Content 1", character_id=base_character.id
         )

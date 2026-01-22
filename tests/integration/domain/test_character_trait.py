@@ -194,11 +194,12 @@ class TestAddConstantTraitToCharacter:
 class TestCustomTraits:
     """Test custom traits."""
 
+    @pytest.mark.clean_db
     async def test_create_custom(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         debug: Callable[[...], None],
     ) -> None:
         """Verify that creating a custom trait works."""
@@ -216,7 +217,7 @@ class TestCustomTraits:
 
         response = await client.post(
             build_url(Characters.TRAIT_CREATE),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json=custom_trait_data,
         )
         assert response.status_code == HTTP_201_CREATED

@@ -35,13 +35,18 @@ class TestDictionaryController:
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
         base_company: Company,
+        dictionary_term_factory: Callable[[dict[str, Any]], DictionaryTerm],
         debug: Callable[[Any], None],
     ) -> None:
         """Test list dictionary terms."""
-        term1 = DictionaryTerm(term="Foo", definition="Foo is a bar.", company_id=base_company.id)
-        await term1.save()
-        term2 = DictionaryTerm(term="Bar", definition="Bar is a baz.", company_id=base_company.id)
-        await term2.save()
+        await DictionaryTerm.delete_all()
+
+        term1 = await dictionary_term_factory(
+            term="Foo", definition="Foo is a bar.", company_id=base_company.id
+        )
+        term2 = await dictionary_term_factory(
+            term="Bar", definition="Bar is a baz.", company_id=base_company.id
+        )
 
         response = await client.get(build_url(Dictionaries.LIST), headers=token_company_user)
         assert response.status_code == HTTP_200_OK
@@ -61,11 +66,13 @@ class TestDictionaryController:
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
         base_company: Company,
+        dictionary_term_factory: Callable[[dict[str, Any]], DictionaryTerm],
         debug: Callable[[Any], None],
     ) -> None:
         """Test get dictionary term."""
-        term = DictionaryTerm(term="Foo", definition="Foo is a bar.", company_id=base_company.id)
-        await term.save()
+        term = await dictionary_term_factory(
+            term="Foo", definition="Foo is a bar.", company_id=base_company.id
+        )
 
         response = await client.get(
             build_url(Dictionaries.DETAIL, dictionary_term_id=term.id), headers=token_company_user
@@ -100,6 +107,9 @@ class TestDictionaryController:
         assert dictionary_term.link == "https://example.com"
         assert dictionary_term.is_global == False
 
+        # Cleanup
+        await dictionary_term.delete()
+
     async def test_create_dictionary_term_invalid_data(
         self,
         client: AsyncClient,
@@ -125,11 +135,16 @@ class TestDictionaryController:
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
         base_company: Company,
+        dictionary_term_factory: Callable[[dict[str, Any]], DictionaryTerm],
         mocker: Any,
     ) -> None:
         """Test update dictionary term."""
-        term = DictionaryTerm(term="Foo", definition="Foo is a bar.", company_id=base_company.id)
-        await term.save()
+        term = await dictionary_term_factory(
+            term="Foo",
+            definition="Foo is a bar.",
+            company_id=base_company.id,
+            is_global=False,
+        )
         spy = mocker.spy(DictionaryService, "verify_is_company_dictionary_term")
 
         response = await client.patch(
@@ -153,11 +168,17 @@ class TestDictionaryController:
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
         base_company: Company,
+        dictionary_term_factory: Callable[[dict[str, Any]], DictionaryTerm],
         debug: Callable[[Any], None],
     ) -> None:
         """Test update dictionary term invalid data."""
-        term = DictionaryTerm(term="Foo", definition="Foo is a bar.", company_id=base_company.id)
-        await term.save()
+        term = await dictionary_term_factory(
+            term="Foo",
+            definition="Foo is a bar.",
+            company_id=base_company.id,
+            link=None,
+            is_global=False,
+        )
 
         # When we update the dictionary term with invalid data
         response = await client.patch(
@@ -174,13 +195,18 @@ class TestDictionaryController:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
+        dictionary_term_factory: Callable[[dict[str, Any]], DictionaryTerm],
         token_company_user: dict[str, str],
         base_company: Company,
         mocker: Any,
     ) -> None:
         """Test delete dictionary term."""
-        term = DictionaryTerm(term="Foo", definition="Foo is a bar.", company_id=base_company.id)
-        await term.save()
+        term = await dictionary_term_factory(
+            term="Foo",
+            definition="Foo is a bar.",
+            company_id=base_company.id,
+            is_global=False,
+        )
         spy = mocker.spy(DictionaryService, "verify_is_company_dictionary_term")
 
         # When we delete the dictionary term

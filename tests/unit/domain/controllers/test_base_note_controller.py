@@ -296,6 +296,9 @@ class TestUpdateNote:
         assert result.title == "Updated Title"
         assert result.content == "Updated Content"
 
+        # Cleanup
+        await result.delete()
+
     async def test_update_note_clears_cache(
         self, base_character: Character, mocker: Any, note_factory: Callable[..., Note]
     ) -> None:
