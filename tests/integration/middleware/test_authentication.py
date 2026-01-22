@@ -103,7 +103,6 @@ test_data = {
 }
 
 
-@pytest.mark.no_clean_db
 async def test_no_auth(
     client: AsyncClient,
     debug: Callable[[Any], None],
@@ -136,7 +135,6 @@ async def test_no_auth(
             assert response.status_code == HTTP_401_UNAUTHORIZED
 
 
-@pytest.mark.no_clean_db
 async def test_no_company_permission(
     client: AsyncClient,
     base_company: Company,

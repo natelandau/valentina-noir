@@ -45,7 +45,6 @@ class TestGenerateAwsKey:
     FILENAME_PATTERN = re.compile(rf"^\d{{8}}T\d{{6}}[a-f0-9]{{32}}\.{EXTENSION}$")
     SPLIT_KEY_PATTERN = re.compile(r"^(.+)/(.+)$")
 
-    @pytest.mark.no_clean_db
     async def test_generate_aws_key(
         self,
         debug: Callable[[...], None],
@@ -79,7 +78,6 @@ class TestGenerateAwsKey:
         )
         assert self.FILENAME_PATTERN.match(filename) is not None
 
-    @pytest.mark.no_clean_db
     async def test_generate_aws_key_without_origin_path(self, debug: Callable[[...], None]) -> None:
         """Test generating a full key for an object in the S3 bucket without the origin path."""
         original_origin_path = settings.aws.cloudfront_origin_path
@@ -119,14 +117,12 @@ class TestGenerateAwsKey:
 class TestGetUrl:
     """Test the _generate_public_url method."""
 
-    @pytest.mark.no_clean_db
     async def test__generate_public_url(self) -> None:
         """Test getting the URL for an object in the S3 bucket."""
         service = AWSS3Service()
         url = service._generate_public_url(key="test.txt")
         assert url == f"{settings.aws.cloudfront_url.rstrip('/')}/test.txt"
 
-    @pytest.mark.no_clean_db
     async def test__generate_public_url_without_origin_path(self) -> None:
         """Test getting the URL for an object in the S3 bucket with the origin path."""
         service = AWSS3Service()
@@ -149,7 +145,6 @@ class TestGetCacheControl:
             "image/svg+xml",
         ],
     )
-    @pytest.mark.no_clean_db
     def test_get_cache_control_images(self, mime_type: str) -> None:
         """Verify image MIME types return 1 year cache with immutable."""
         # Given: An AWS S3 service
@@ -170,7 +165,6 @@ class TestGetCacheControl:
             "audio/mp3",
         ],
     )
-    @pytest.mark.no_clean_db
     def test_get_cache_control_audio(self, mime_type: str) -> None:
         """Verify audio MIME types return 1 year cache with immutable."""
         # Given: An AWS S3 service
@@ -191,7 +185,6 @@ class TestGetCacheControl:
             "video/avi",
         ],
     )
-    @pytest.mark.no_clean_db
     def test_get_cache_control_video(self, mime_type: str) -> None:
         """Verify video MIME types return 1 year cache with immutable."""
         # Given: An AWS S3 service
@@ -212,7 +205,6 @@ class TestGetCacheControl:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ],
     )
-    @pytest.mark.no_clean_db
     def test_get_cache_control_documents(self, mime_type: str) -> None:
         """Verify document MIME types return 1 day cache."""
         # Given: An AWS S3 service
@@ -236,7 +228,6 @@ class TestGetCacheControl:
             "application/vnd.ms-excel",  # Doesn't match document patterns
         ],
     )
-    @pytest.mark.no_clean_db
     def test_get_cache_control_default(self, mime_type: str) -> None:
         """Verify unrecognized MIME types return default 1 hour cache."""
         # Given: An AWS S3 service
@@ -497,7 +488,6 @@ class TestUploadAsset:
 class TestDeleteObjectFromS3:
     """Test the _delete_object_from_s3 method."""
 
-    @pytest.mark.no_clean_db
     def test_delete_object_from_s3_success(self, mocker: MockerFixture) -> None:
         """Verify _delete_object_from_s3 succeeds when S3 returns DeleteMarker True."""
         # Given: A mocked S3 client that returns DeleteMarker True
@@ -515,7 +505,6 @@ class TestDeleteObjectFromS3:
             Bucket=settings.aws.s3_bucket_name, Key="test-key"
         )
 
-    @pytest.mark.no_clean_db
     def test_delete_object_from_s3_raises_on_client_error(self, mocker: MockerFixture) -> None:
         """Verify _delete_object_from_s3 raises AWSS3Error on ClientError."""
         # Given: A mocked S3 client that raises ClientError
@@ -562,6 +551,7 @@ class TestDeleteAsset:
         self,
         character_factory: Callable[..., Character],
         user_factory: Callable[..., User],
+        s3asset_factory: Callable[..., S3Asset],
         base_company: Company,
         mocker: MockerFixture,
     ) -> None:
@@ -570,7 +560,7 @@ class TestDeleteAsset:
         user = await user_factory()
         character = await character_factory()
 
-        asset = S3Asset(
+        asset = await s3asset_factory(
             asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
@@ -582,7 +572,6 @@ class TestDeleteAsset:
             s3_bucket="test-bucket",
             public_url="https://example.com/test.jpg",
         )
-        await asset.insert()
 
         character.asset_ids = [asset.id]
         await character.save()
@@ -603,6 +592,7 @@ class TestDeleteAsset:
     async def test_delete_asset_user(
         self,
         user_factory: Callable[..., User],
+        s3asset_factory: Callable[..., S3Asset],
         base_company: Company,
         mocker: MockerFixture,
     ) -> None:
@@ -611,7 +601,7 @@ class TestDeleteAsset:
         user = await user_factory()
         uploader = await user_factory()
 
-        asset = S3Asset(
+        asset = await s3asset_factory(
             asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
@@ -623,7 +613,6 @@ class TestDeleteAsset:
             s3_bucket="test-bucket",
             public_url="https://example.com/test.jpg",
         )
-        await asset.insert()
 
         user.asset_ids = [asset.id]
         await user.save()
@@ -645,6 +634,7 @@ class TestDeleteAsset:
         self,
         campaign_factory: Callable[..., Campaign],
         user_factory: Callable[..., User],
+        s3asset_factory: Callable[..., S3Asset],
         base_company: Company,
         mocker: MockerFixture,
     ) -> None:
@@ -653,7 +643,7 @@ class TestDeleteAsset:
         campaign = await campaign_factory()
         user = await user_factory()
 
-        asset = S3Asset(
+        asset = await s3asset_factory(
             asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
@@ -665,7 +655,6 @@ class TestDeleteAsset:
             s3_bucket="test-bucket",
             public_url="https://example.com/test.jpg",
         )
-        await asset.insert()
 
         campaign.asset_ids = [asset.id]
         await campaign.save()
@@ -687,6 +676,7 @@ class TestDeleteAsset:
         self,
         character_factory: Callable[..., Character],
         user_factory: Callable[..., User],
+        s3asset_factory: Callable[..., S3Asset],
         base_company: Company,
         mocker: MockerFixture,
     ) -> None:
@@ -695,7 +685,7 @@ class TestDeleteAsset:
         user = await user_factory()
         character = await character_factory()
 
-        asset = S3Asset(
+        asset = await s3asset_factory(
             asset_type=S3AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
@@ -707,7 +697,6 @@ class TestDeleteAsset:
             s3_bucket="test-bucket",
             public_url="https://example.com/test.jpg",
         )
-        await asset.insert()
 
         character.asset_ids = [asset.id]
         await character.save()

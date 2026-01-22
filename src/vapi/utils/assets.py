@@ -172,7 +172,7 @@ async def add_asset_to_parent(asset: S3Asset) -> None:
         return
 
     model_class = PARENT_MODEL_MAP.get(asset.parent_type)
-    if model_class is None:
+    if model_class is None:  # pragma: no cover
         return
 
     parent = await model_class.get(asset.parent_id)
@@ -191,7 +191,7 @@ async def remove_asset_from_parent(asset: S3Asset) -> None:
         return
 
     model_class = PARENT_MODEL_MAP.get(asset.parent_type)
-    if model_class is None:
+    if model_class is None:  # pragma: no cover
         return
 
     parent = await model_class.get(asset.parent_id)

@@ -14,7 +14,6 @@ from vapi.server.core import ApplicationCore
 pytestmark = pytest.mark.anyio
 
 
-@pytest.mark.no_clean_db
 def test_cache_key_builder(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify that the cache key builder is working correctly."""
     api_key = "test"

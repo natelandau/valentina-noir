@@ -7,14 +7,13 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vapi.constants import UserRole
-from vapi.db.models import User
 from vapi.db.models.user import DiscordProfile
 from vapi.domain.utils import patch_document_from_dict
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from vapi.db.models import Company
+    from vapi.db.models import Company, User
 
 pytestmark = pytest.mark.anyio
 
@@ -23,12 +22,15 @@ class TestPatchDocumentFromDict:
     """Test patch_document_from_dict function."""
 
     async def test_patch_document_from_dict(
-        self, company_factory: Callable[[...], Company], debug: Callable[[...], None]
+        self,
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+        user_factory: Callable[[...], User],
     ) -> None:
         """Verify patch_document_from_dict updates a document from a dictionary."""
         # Given a user
         company = await company_factory()
-        user = await User(
+        user = await user_factory(
             name="Test User",
             email="test@example.com",
             role=UserRole.PLAYER,
@@ -43,7 +45,7 @@ class TestPatchDocumentFromDict:
                 email="test@example.com",
                 verified=True,
             ),
-        ).insert()
+        )
 
         # Given a dictionary of data to patch the user with
         data = {

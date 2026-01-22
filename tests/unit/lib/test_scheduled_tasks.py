@@ -150,3 +150,7 @@ class TestPurgeDBExpiredItems:
         # Then new audit logs are not deleted
         db_object = await AuditLog.get(audit_log_new.id)
         assert db_object is not None
+
+        # cleanup
+        await audit_log_old.delete()
+        await audit_log_new.delete()

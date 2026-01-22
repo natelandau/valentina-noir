@@ -13,7 +13,7 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import RollResultType
-from vapi.db.models import QuickRoll, Trait
+from vapi.db.models import DiceRoll, QuickRoll, Trait
 from vapi.domain.controllers.dicerolls.dto import QuickRollDTO
 from vapi.domain.urls import DiceRolls
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.models import Campaign, Character, CharacterTrait, Company, DiceRoll, User
+    from vapi.db.models import Campaign, Character, CharacterTrait, Company, User
 
 pytestmark = pytest.mark.anyio
 
@@ -151,6 +151,7 @@ class TestDiceRoll:
         dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
     ) -> None:
         """Test the dice roll controller list filter."""
+        await DiceRoll.delete_all()
         dice_roll_character = await dice_roll_factory(character_id=base_character.id)
         dice_roll_campaign = await dice_roll_factory(campaign_id=base_campaign.id)
         dice_roll_user = await dice_roll_factory(user_id=base_user.id)
@@ -207,17 +208,17 @@ class TestDiceRoll:
         base_character: Character,
         base_campaign: Campaign,
         character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
         debug: Callable[[Any], None],
     ) -> None:
         """Test the create diceroll from quickroll endpoint."""
         character_trait1 = await character_trait_factory()
         character_trait2 = await character_trait_factory()
-        quickroll = QuickRoll(
+        quickroll = await quickroll_factory(
             name="Quick Roll 1",
             user_id=base_user.id,
             trait_ids=[character_trait1.trait.id, character_trait2.trait.id],
         )
-        await quickroll.save()
 
         quickroll_dto = QuickRollDTO(
             quickroll_id=quickroll.id,

@@ -138,13 +138,13 @@ class TestUserService:
         # Given objects
         spy = mocker.spy(UserService, "validate_user_can_manage_user")
         company = await company_factory()
-        target_user = await User(
+        target_user = await user_factory(
             name="Test User",
             email="test@example.com",
             role=UserRole.PLAYER,
             company_id=company.id,
             discord_profile=DiscordProfile(id="1234567890", global_name="global name"),
-        ).insert()
+        )
 
         data = UserPatchDTO(
             name="Test User Updated",
@@ -195,18 +195,20 @@ class TestUserQuickRollService:
         assert validated_quickroll.trait_ids == [trait1.id, trait2.id]
 
     async def test_validate_quickroll_name_already_exists(
-        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+        self,
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
     ) -> None:
         """Test the validate_quickroll method when the name already exists."""
         # Given objects
         user = await user_factory()
         trait1 = await Trait.find_one(Trait.is_archived == False)
         trait2 = await Trait.find_one(Trait.is_archived == False, Trait.id != trait1.id)
-        quickroll1 = QuickRoll(
+        await quickroll_factory(
             name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, trait2.id]
         )
-        await quickroll1.save()
-        quickroll2 = QuickRoll(
+        quickroll2 = await quickroll_factory(
             name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, trait2.id]
         )
 
@@ -217,13 +219,16 @@ class TestUserQuickRollService:
             await service.validate_quickroll(quickroll2)
 
     async def test_validate_quickroll_invalid_trait_ids(
-        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+        self,
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
     ) -> None:
         """Test the validate_quickroll method when the trait ids are invalid."""
         # Given objects
         user = await user_factory()
         trait1 = await Trait.find_one(Trait.is_archived == False)
-        quickroll = QuickRoll(
+        quickroll = await quickroll_factory(
             name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, PydanticObjectId()]
         )
 

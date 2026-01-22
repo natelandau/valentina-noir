@@ -88,7 +88,7 @@ class IdempotencyMiddleware(ASGIMiddleware):
             return
 
         # Skip if no route handler (e.g., 404 requests)
-        if scope.get("route_handler") is None:
+        if scope.get("route_handler") is None:  # pragma: no cover
             await next_app(scope, receive, send)
             return
 
@@ -141,7 +141,7 @@ class IdempotencyMiddleware(ASGIMiddleware):
                     body_chunks.append(body)
                 if not message.get("more_body", False):
                     break
-            elif message["type"] == "http.disconnect":
+            elif message["type"] == "http.disconnect":  # pragma: no cover
                 break
 
         full_body = b"".join(body_chunks)

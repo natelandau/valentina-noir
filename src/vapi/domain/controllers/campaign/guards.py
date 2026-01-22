@@ -32,7 +32,7 @@ async def user_can_manage_campaign(connection: ASGIConnection, _: BaseRouteHandl
         case PermissionManageCampaign.STORYTELLER:
             if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
                 return
-        case _:
+        case _:  # pragma: no cover
             assert_never(company.settings.permission_manage_campaign)
 
     raise PermissionDeniedError(detail="No rights to access this resource")

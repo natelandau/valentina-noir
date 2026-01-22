@@ -18,7 +18,6 @@ pytestmark = pytest.mark.anyio
         (1.20056789, 0, 2),
     ],
 )
-@pytest.mark.no_clean_db
 def test_round_up(value: float, decimals: int, expected: float) -> None:
     """Test the round_up function."""
     assert math.round_up(value, decimals) == expected
@@ -29,7 +28,6 @@ def test_round_up(value: float, decimals: int, expected: float) -> None:
     [(1), (100), (50)],
 )
 @pytest.mark.repeat(20)
-@pytest.mark.no_clean_db
 def test_random_num(*, ceiling: int) -> None:
     """Test the random_num function."""
     assert math.random_num(ceiling) in range(1, ceiling + 1)

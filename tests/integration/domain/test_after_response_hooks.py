@@ -12,7 +12,7 @@ from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 
 from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY, UserRole
-from vapi.db.models import AuditLog
+from vapi.db.models import AuditLog, User
 from vapi.domain.urls import Users as UsersURL
 from vapi.lib.crypt import hmac_sha256_hex
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
     from redis.asyncio import Redis
 
-    from vapi.db.models import Company, Developer, User
+    from vapi.db.models import Company, Developer
 
 pytestmark = pytest.mark.anyio
 
@@ -30,6 +30,7 @@ pytestmark = pytest.mark.anyio
 class TestAfterResponseHooks:
     """Test the after response hooks."""
 
+    @pytest.mark.clean_db
     async def test_audit_log_and_delete_api_key_cache(
         self,
         client: AsyncClient,
@@ -80,6 +81,7 @@ class TestAfterResponseHooks:
         )
         assert response.status_code == HTTP_201_CREATED
         assert response.json()["discord_profile"]["username"] == "discord_username"
+        created_user = await User.get(response.json()["id"])
 
         # Then: the response cache should be deleted
         cached_keys = [key async for key in redis.scan_iter(match=f"{cache_prefix}:*")]
@@ -112,3 +114,5 @@ class TestAfterResponseHooks:
 
         # cleanup
         await requesting_user.delete()
+        await created_user.delete()
+        await audit.delete()

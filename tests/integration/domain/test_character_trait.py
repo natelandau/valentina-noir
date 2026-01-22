@@ -37,24 +37,23 @@ class TestFetchingCharacterTraits:
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
-        base_character: Character,
+        character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         trait_factory: Callable[[dict[str, ...]], Trait],
         token_company_admin: dict[str, str],
         debug: Callable[[...], None],
     ) -> None:
         """Test character trait controller."""
+        character = await character_factory()
         trait_categories = await TraitCategory.find(TraitCategory.is_archived == False).to_list()
         trait1 = await trait_factory(parent_category_id=trait_categories[0].id)
         trait2 = await trait_factory(parent_category_id=trait_categories[1].id)
 
-        character_trait1 = await character_trait_factory(
-            character_id=base_character.id, trait=trait1
-        )
-        await character_trait_factory(character_id=base_character.id, trait=trait2)
+        character_trait1 = await character_trait_factory(character_id=character.id, trait=trait1)
+        await character_trait_factory(character_id=character.id, trait=trait2)
 
         response = await client.get(
-            build_url(Characters.TRAITS),
+            build_url(Characters.TRAITS, character_id=character.id),
             headers=token_company_admin,
             params={"parent_category_id": str(trait_categories[0].id)},
         )
@@ -194,11 +193,12 @@ class TestAddConstantTraitToCharacter:
 class TestCustomTraits:
     """Test custom traits."""
 
+    @pytest.mark.clean_db
     async def test_create_custom(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         debug: Callable[[...], None],
     ) -> None:
         """Verify that creating a custom trait works."""
@@ -216,7 +216,7 @@ class TestCustomTraits:
 
         response = await client.post(
             build_url(Characters.TRAIT_CREATE),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json=custom_trait_data,
         )
         assert response.status_code == HTTP_201_CREATED

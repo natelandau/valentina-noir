@@ -36,7 +36,6 @@ pytestmark = pytest.mark.anyio
 class TestSyncCounts:
     """Tests for the SyncCounts dataclass."""
 
-    @pytest.mark.no_clean_db
     def test_default_values(self) -> None:
         """Verify SyncCounts initializes with zero counts."""
         # Given: A new SyncCounts instance
@@ -47,7 +46,6 @@ class TestSyncCounts:
         assert counts.updated == 0
         assert counts.total == 0
 
-    @pytest.mark.no_clean_db
     def test_custom_values(self) -> None:
         """Verify SyncCounts accepts custom values."""
         # Given: Custom values
@@ -62,7 +60,6 @@ class TestSyncCounts:
 class TestTraitSyncResult:
     """Tests for the TraitSyncResult dataclass."""
 
-    @pytest.mark.no_clean_db
     def test_default_values(self) -> None:
         """Verify TraitSyncResult initializes with default SyncCounts."""
         # Given: A new TraitSyncResult instance
@@ -75,7 +72,6 @@ class TestTraitSyncResult:
         assert result.categories.created == 0
         assert result.traits.created == 0
 
-    @pytest.mark.no_clean_db
     def test_custom_values(self) -> None:
         """Verify TraitSyncResult accepts custom SyncCounts."""
         # Given: Custom SyncCounts
@@ -95,7 +91,6 @@ class TestTraitSyncResult:
 class TestJSONWithCommentsDecoder:
     """Tests for the JSONWithCommentsDecoder class."""
 
-    @pytest.mark.no_clean_db
     def test_decode_json_without_comments(self) -> None:
         """Verify decoding standard JSON without comments."""
         # Given: Standard JSON
@@ -108,7 +103,6 @@ class TestJSONWithCommentsDecoder:
         assert result["name"] == "test"
         assert result["value"] == 42
 
-    @pytest.mark.no_clean_db
     def test_decode_json_with_single_line_comments(self) -> None:
         """Verify decoding JSON with single-line comments."""
         # Given: JSON with single-line comments
@@ -124,7 +118,6 @@ class TestJSONWithCommentsDecoder:
         assert result["name"] == "test"
         assert result["value"] == 42
 
-    @pytest.mark.no_clean_db
     def test_decode_json_with_multi_line_comments(self) -> None:
         """Verify decoding JSON with multi-line comments."""
         # Given: JSON with multi-line comments
@@ -142,7 +135,6 @@ class TestJSONWithCommentsDecoder:
         assert result["name"] == "test"
         assert result["value"] == 42
 
-    @pytest.mark.no_clean_db
     def test_decode_json_with_mixed_comments(self) -> None:
         """Verify decoding JSON with both comment types."""
         # Given: JSON with both comment types
@@ -159,7 +151,6 @@ class TestJSONWithCommentsDecoder:
         assert result["name"] == "test"
         assert result["value"] == 42
 
-    @pytest.mark.no_clean_db
     def test_decode_preserves_strings_with_slashes(self) -> None:
         """Verify strings containing slashes are preserved."""
         # Given: JSON with strings containing slashes
@@ -175,7 +166,6 @@ class TestJSONWithCommentsDecoder:
 class TestDocumentDiffersFromFixture:
     """Tests for the document_differs_from_fixture function."""
 
-    @pytest.mark.no_clean_db
     def test_identical_documents(self) -> None:
         """Verify identical documents return False."""
         # Given: A mock document and matching fixture
@@ -190,7 +180,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return False (no difference)
         assert result is False
 
-    @pytest.mark.no_clean_db
     def test_differing_string_field(self) -> None:
         """Verify differing string fields return True."""
         # Given: A mock document with different name
@@ -205,7 +194,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return True (difference found)
         assert result is True
 
-    @pytest.mark.no_clean_db
     def test_differing_numeric_field(self) -> None:
         """Verify differing numeric fields return True."""
         # Given: A mock document with different value
@@ -220,7 +208,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return True
         assert result is True
 
-    @pytest.mark.no_clean_db
     def test_fixture_field_not_in_document(self) -> None:
         """Verify fixture fields not in document are ignored."""
         # Given: A document missing a fixture field
@@ -234,7 +221,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return False (missing fields are skipped)
         assert result is False
 
-    @pytest.mark.no_clean_db
     def test_enum_comparison(self) -> None:
         """Verify enum values are compared correctly."""
 
@@ -252,7 +238,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return False (enum value matches string)
         assert result is False
 
-    @pytest.mark.no_clean_db
     def test_list_comparison(self) -> None:
         """Verify list values are compared correctly."""
         # Given: A document with matching list
@@ -266,7 +251,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return False
         assert result is False
 
-    @pytest.mark.no_clean_db
     def test_list_comparison_different(self) -> None:
         """Verify different lists return True."""
         # Given: A document with different list
@@ -280,7 +264,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return True
         assert result is True
 
-    @pytest.mark.no_clean_db
     def test_pydantic_model_comparison(self) -> None:
         """Verify Pydantic models are compared correctly."""
 
@@ -298,7 +281,6 @@ class TestDocumentDiffersFromFixture:
         # Then: Should return False
         assert result is False
 
-    @pytest.mark.no_clean_db
     def test_none_comparison(self) -> None:
         """Verify None values are compared correctly."""
         # Given: A document with None value
@@ -316,7 +298,6 @@ class TestDocumentDiffersFromFixture:
 class TestGetDifferingFields:
     """Tests for the get_differing_fields function."""
 
-    @pytest.mark.no_clean_db
     def test_no_differences(self) -> None:
         """Verify no differences returns empty dict."""
         # Given: A matching document and fixture
@@ -331,7 +312,6 @@ class TestGetDifferingFields:
         # Then: Should return empty dict
         assert result == {}
 
-    @pytest.mark.no_clean_db
     def test_single_difference(self) -> None:
         """Verify single difference is returned correctly."""
         # Given: A document with one different field
@@ -348,7 +328,6 @@ class TestGetDifferingFields:
         assert "name" in result
         assert result["name"] == ("Different", "Test")
 
-    @pytest.mark.no_clean_db
     def test_multiple_differences(self) -> None:
         """Verify multiple differences are returned correctly."""
         # Given: A document with multiple different fields
@@ -365,7 +344,6 @@ class TestGetDifferingFields:
         assert result["name"] == ("Different", "Test")
         assert result["value"] == (99, 42)
 
-    @pytest.mark.no_clean_db
     def test_missing_document_field(self) -> None:
         """Verify missing document fields are skipped."""
         # Given: A document missing a fixture field
@@ -380,7 +358,6 @@ class TestGetDifferingFields:
         assert "missing_field" not in result
         assert result == {}
 
-    @pytest.mark.no_clean_db
     def test_enum_difference(self) -> None:
         """Verify enum differences are normalized."""
 
@@ -402,7 +379,6 @@ class TestGetDifferingFields:
 class TestLinkDisciplinesToClan:
     """Tests for the link_disciplines_to_clan function."""
 
-    @pytest.mark.no_clean_db
     async def test_no_disciplines_to_link(self, mocker: MockerFixture) -> None:
         """Verify returns False when no disciplines to link."""
         # Given: A clan with no disciplines
@@ -416,7 +392,6 @@ class TestLinkDisciplinesToClan:
         # Then: Should return False
         assert result is False
 
-    @pytest.mark.no_clean_db
     async def test_links_new_discipline(self, mocker: MockerFixture) -> None:
         """Verify linking a new discipline to a clan."""
         # Given: A clan and a discipline to link
@@ -442,7 +417,6 @@ class TestLinkDisciplinesToClan:
         assert discipline_id in clan.discipline_ids
         clan.save.assert_called()
 
-    @pytest.mark.no_clean_db
     async def test_removes_unlisted_discipline(self, mocker: MockerFixture) -> None:
         """Verify removing a discipline not in fixture."""
         # Given: A clan with a discipline not in fixture
@@ -467,7 +441,6 @@ class TestLinkDisciplinesToClan:
         assert result is True
         assert discipline_id not in clan.discipline_ids
 
-    @pytest.mark.no_clean_db
     async def test_raises_on_missing_discipline(self, mocker: MockerFixture) -> None:
         """Verify raises Abort when discipline not found."""
         # Given: A clan with a non-existent discipline ID
@@ -488,7 +461,6 @@ class TestLinkDisciplinesToClan:
 class TestGiftLinkToTribeAndAuspice:
     """Tests for the gift_link_to_tribe_and_auspice function."""
 
-    @pytest.mark.no_clean_db
     async def test_no_tribe_or_auspice(self) -> None:
         """Verify returns False when no tribe or auspice in fixture."""
         # Given: A gift and fixture without tribe/auspice
@@ -503,7 +475,6 @@ class TestGiftLinkToTribeAndAuspice:
         # Then: Should return False
         assert result is False
 
-    @pytest.mark.no_clean_db
     async def test_links_gift_to_tribe(self) -> None:
         """Verify linking a gift to a tribe."""
         # Given: A gift and tribe to link
@@ -536,7 +507,6 @@ class TestGiftLinkToTribeAndAuspice:
         tribe.save.assert_called()
         gift.save.assert_called()
 
-    @pytest.mark.no_clean_db
     async def test_links_gift_to_auspice(self) -> None:
         """Verify linking a gift to an auspice."""
         # Given: A gift and auspice to link
@@ -567,7 +537,6 @@ class TestGiftLinkToTribeAndAuspice:
         assert gift.auspice_id == auspice_id
         assert gift_id in auspice.gift_ids
 
-    @pytest.mark.no_clean_db
     async def test_raises_on_missing_tribe(self) -> None:
         """Verify raises Abort when tribe not found."""
         # Given: A fixture with non-existent tribe
@@ -583,7 +552,6 @@ class TestGiftLinkToTribeAndAuspice:
         with pytest.raises(click.Abort):
             await gift_link_to_tribe_and_auspice(gift, fixture_gift, tribes, auspices)
 
-    @pytest.mark.no_clean_db
     async def test_raises_on_missing_auspice(self) -> None:
         """Verify raises Abort when auspice not found."""
         # Given: A fixture with non-existent auspice
@@ -599,7 +567,6 @@ class TestGiftLinkToTribeAndAuspice:
         with pytest.raises(click.Abort):
             await gift_link_to_tribe_and_auspice(gift, fixture_gift, tribes, auspices)
 
-    @pytest.mark.no_clean_db
     async def test_removes_old_tribe_link(self, mocker: MockerFixture) -> None:
         """Verify removing old tribe link when changing tribes."""
         # Given: A gift linked to old tribe, being linked to new tribe
@@ -643,7 +610,6 @@ class TestGiftLinkToTribeAndAuspice:
 class TestSyncSingleSection:
     """Tests for the sync_single_section function."""
 
-    @pytest.mark.no_clean_db
     async def test_creates_new_section(self, mocker: MockerFixture) -> None:
         """Verify creating a new section when not found."""
         # Given: A fixture section not in database
@@ -667,7 +633,6 @@ class TestSyncSingleSection:
         assert updated is False
         mock_section_instance.save.assert_called_once()
 
-    @pytest.mark.no_clean_db
     async def test_updates_existing_section(self, mocker: MockerFixture) -> None:
         """Verify updating an existing section with differences."""
         # Given: An existing section with different values
@@ -700,7 +665,6 @@ class TestSyncSingleSection:
         assert updated is True
         existing_section.save.assert_called_once()
 
-    @pytest.mark.no_clean_db
     async def test_no_update_when_identical(self, mocker: MockerFixture) -> None:
         """Verify no update when section matches fixture."""
         # Given: An existing section matching fixture
@@ -731,7 +695,6 @@ class TestSyncSingleSection:
 class TestSyncSingleCategory:
     """Tests for the sync_single_category function."""
 
-    @pytest.mark.no_clean_db
     async def test_creates_new_category(self, mocker: MockerFixture) -> None:
         """Verify creating a new category when not found."""
         # Given: A fixture category not in database
@@ -758,7 +721,6 @@ class TestSyncSingleCategory:
         assert updated is False
         mock_category_instance.save.assert_called_once()
 
-    @pytest.mark.no_clean_db
     async def test_updates_existing_category(self, mocker: MockerFixture) -> None:
         """Verify updating an existing category with differences."""
         # Given: An existing category with different values
@@ -798,7 +760,6 @@ class TestSyncSingleCategory:
 class TestSyncSingleTrait:
     """Tests for the sync_single_trait function."""
 
-    @pytest.mark.no_clean_db
     async def test_creates_new_trait(self, mocker: MockerFixture) -> None:
         """Verify creating a new trait when not found."""
         # Given: A fixture trait not in database
@@ -835,7 +796,6 @@ class TestSyncSingleTrait:
         assert mock_trait_instance.initial_cost == 3
         assert mock_trait_instance.upgrade_cost == 5
 
-    @pytest.mark.no_clean_db
     async def test_updates_existing_trait(self, mocker: MockerFixture) -> None:
         """Verify updating an existing trait with differences."""
         # Given: An existing trait with different values
@@ -871,7 +831,6 @@ class TestSyncSingleTrait:
         assert updated is True
         existing_trait.save.assert_called_once()
 
-    @pytest.mark.no_clean_db
     async def test_links_to_advantage_category(self, mocker: MockerFixture) -> None:
         """Verify linking trait to advantage category."""
         # Given: A new trait with advantage_category_name
@@ -909,7 +868,6 @@ class TestSyncSingleTrait:
 class TestSyncCategoryTraits:
     """Tests for the sync_category_traits function."""
 
-    @pytest.mark.no_clean_db
     async def test_syncs_multiple_traits(self, mocker: MockerFixture) -> None:
         """Verify syncing multiple traits within a category."""
         # Given: A category with multiple traits
@@ -940,7 +898,6 @@ class TestSyncCategoryTraits:
         assert counts.created == 1
         assert counts.updated == 1
 
-    @pytest.mark.no_clean_db
     async def test_empty_traits_list(self) -> None:
         """Verify handling category with no traits."""
         # Given: A category with no traits
@@ -960,7 +917,6 @@ class TestSyncCategoryTraits:
 class TestSyncSectionCategories:
     """Tests for the sync_section_categories function."""
 
-    @pytest.mark.no_clean_db
     async def test_syncs_categories_and_traits(self, mocker: MockerFixture) -> None:
         """Verify syncing categories and their traits within a section."""
         # Given: A section with categories and traits
@@ -1006,7 +962,6 @@ class TestSyncSectionCategories:
         assert trait_counts.total == 3
         assert trait_counts.created == 3
 
-    @pytest.mark.no_clean_db
     async def test_empty_categories_list(self) -> None:
         """Verify handling section with no categories."""
         # Given: A section with no categories

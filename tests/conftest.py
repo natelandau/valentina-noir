@@ -162,11 +162,8 @@ async def cleanup_database(
     base_campaign_book: CampaignBook,
     base_campaign_chapter: CampaignChapter,
 ) -> AsyncGenerator[None]:
-    """Cleanup the database before the test when '@pytest.mark.clean_db()' is called and clean up non-constant data from the database after the test unless '@pytest.mark.no_clean_db()' is called."""
+    """Cleanup the database before the test when '@pytest.mark.clean_db()' is called and clean up non-constant data from the database after the test unless '()' is called."""
     if "clean_db" in request.keywords:
-        await _cleanup_non_constant_db_data()
-    yield  # Wait for the test to complete
-    if "no_clean_db" not in request.keywords:
         await _cleanup_non_constant_db_data(
             base_company_id=base_company.id,
             base_user_id=base_user.id,

@@ -22,6 +22,8 @@ async def test_dictionary_term_to_lowercase() -> None:
     assert term.synonyms == ["bar", "qux"]
     assert term.definition == "Foo is a bar."
 
+    await term.delete()
+
 
 async def test_dictionary_term_must_have_definition_or_link() -> None:
     """Test the dictionary term must have a definition or a link."""

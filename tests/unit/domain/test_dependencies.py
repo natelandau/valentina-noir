@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.constants import InventoryItemType, S3AssetType
+from vapi.constants import InventoryItemType
 from vapi.db.models import (
     Campaign,
     CampaignBook,
@@ -46,21 +46,12 @@ pytestmark = pytest.mark.anyio
 class TestProvideS3AssetById:
     """Test provide_s3_asset_by_id dependency."""
 
-    async def test_returns_s3_asset_when_found(self) -> None:
+    async def test_returns_s3_asset_when_found(
+        self, s3asset_factory: Callable[..., S3Asset]
+    ) -> None:
         """Verify returning an S3 asset when found by ID."""
         # Given an S3 asset exists in the database
-        s3_asset = await S3Asset(
-            asset_type=S3AssetType.IMAGE,
-            mime_type="image/png",
-            parent_type="character",
-            parent_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
-            uploaded_by=PydanticObjectId(),
-            original_filename="somefile.txt",
-            s3_key="test.png",
-            s3_bucket="test-bucket",
-            public_url="https://test.com/test.png",
-        ).insert()
+        s3_asset = await s3asset_factory()
         result = await deps.provide_s3_asset_by_id(s3_asset.id)
         assert result.id == s3_asset.id
 
@@ -71,22 +62,12 @@ class TestProvideS3AssetById:
         with pytest.raises(NotFoundError, match="S3 asset not found"):
             await deps.provide_s3_asset_by_id(non_existent_id)
 
-    async def test_raises_not_found_when_archived(self) -> None:
+    async def test_raises_not_found_when_archived(
+        self, s3asset_factory: Callable[..., S3Asset]
+    ) -> None:
         """Verify raising NotFoundError when S3 asset is archived."""
         # Given an archived S3 asset exists in the database
-        s3_asset = await S3Asset(
-            asset_type=S3AssetType.IMAGE,
-            mime_type="image/png",
-            parent_type="character",
-            parent_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
-            uploaded_by=PydanticObjectId(),
-            original_filename="somefile.txt",
-            s3_key="test.png",
-            s3_bucket="test-bucket",
-            public_url="https://test.com/test.png",
-            is_archived=True,
-        ).insert()
+        s3_asset = await s3asset_factory(is_archived=True)
         with pytest.raises(NotFoundError, match="S3 asset not found"):
             await deps.provide_s3_asset_by_id(s3_asset.id)
 
@@ -431,15 +412,12 @@ class TestProvideCharacterBlueprintSectionById:
 class TestProvideCharacterConceptById:
     """Test provide_character_concept_by_id dependency."""
 
-    async def test_returns_concept_when_found_for_company(self, base_company: Company) -> None:
+    async def test_returns_concept_when_found_for_company(
+        self, base_company: Company, character_concept_factory: Callable[..., CharacterConcept]
+    ) -> None:
         """Verify returning a company-specific character concept when found."""
         # Given a company-specific character concept exists
-        concept = await CharacterConcept(
-            name="Test Concept",
-            description="Test description",
-            examples=["example1"],
-            company_id=base_company.id,
-        ).insert()
+        concept = await character_concept_factory(company_id=base_company.id)
 
         # When we provide the concept by ID
         result = await deps.provide_character_concept_by_id(base_company, concept.id)
@@ -447,15 +425,12 @@ class TestProvideCharacterConceptById:
         # Then the concept is returned
         assert result.id == concept.id
 
-    async def test_returns_concept_when_global(self, base_company: Company) -> None:
+    async def test_returns_concept_when_global(
+        self, base_company: Company, character_concept_factory: Callable[..., CharacterConcept]
+    ) -> None:
         """Verify returning a global character concept (company_id is None)."""
         # Given a global character concept exists
-        concept = await CharacterConcept(
-            name="Global Concept",
-            description="Global description",
-            examples=["example1"],
-            company_id=None,
-        ).insert()
+        concept = await character_concept_factory(company_id=None)
 
         # When we provide the concept by ID with any company
         result = await deps.provide_character_concept_by_id(base_company, concept.id)
@@ -473,18 +448,15 @@ class TestProvideCharacterConceptById:
             await deps.provide_character_concept_by_id(base_company, non_existent_id)
 
     async def test_raises_not_found_when_wrong_company(
-        self, company_factory: Callable[..., Company]
+        self,
+        company_factory: Callable[..., Company],
+        character_concept_factory: Callable[..., CharacterConcept],
     ) -> None:
         """Verify raising NotFoundError when concept belongs to different company."""
         # Given a concept belongs to a specific company
         company_a = await company_factory()
         company_b = await company_factory()
-        concept = await CharacterConcept(
-            name="Company A Concept",
-            description="Description",
-            examples=["example1"],
-            company_id=company_a.id,
-        ).insert()
+        concept = await character_concept_factory(company_id=company_a.id)
 
         # When/Then we expect a NotFoundError when using different company
         with pytest.raises(NotFoundError, match="Character concept not found"):
@@ -670,16 +642,11 @@ class TestProvideDictionaryTermById:
     """Test provide_dictionary_term_by_id dependency."""
 
     async def test_returns_dictionary_term_when_found_for_company(
-        self, base_company: Company
+        self, base_company: Company, dictionary_term_factory: Callable[..., DictionaryTerm]
     ) -> None:
         """Verify returning a company-specific dictionary term when found."""
         # Given a company-specific dictionary term exists
-        term = await DictionaryTerm(
-            term="Test Term",
-            definition="Test definition",
-            company_id=base_company.id,
-            is_global=False,
-        ).insert()
+        term = await dictionary_term_factory(company_id=base_company.id, is_global=False)
 
         # When we provide the term by ID
         result = await deps.provide_dictionary_term_by_id(base_company, term.id)
@@ -687,14 +654,12 @@ class TestProvideDictionaryTermById:
         # Then the term is returned
         assert result.id == term.id
 
-    async def test_returns_dictionary_term_when_global(self, base_company: Company) -> None:
+    async def test_returns_dictionary_term_when_global(
+        self, base_company: Company, dictionary_term_factory: Callable[..., DictionaryTerm]
+    ) -> None:
         """Verify returning a global dictionary term."""
         # Given a global dictionary term exists
-        term = await DictionaryTerm(
-            term="Global Term",
-            definition="Global definition",
-            is_global=True,
-        ).insert()
+        term = await dictionary_term_factory(is_global=True)
 
         # When we provide the term by ID with any company
         result = await deps.provide_dictionary_term_by_id(base_company, term.id)
@@ -712,18 +677,20 @@ class TestProvideDictionaryTermById:
             await deps.provide_dictionary_term_by_id(base_company, non_existent_id)
 
     async def test_raises_not_found_when_wrong_company_and_not_global(
-        self, company_factory: Callable[..., Company]
+        self,
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify raising NotFoundError when term belongs to different company and not global."""
         # Given a term belongs to a specific company
         company_a = await company_factory()
         company_b = await company_factory()
-        term = await DictionaryTerm(
+        term = await dictionary_term_factory(
             term="Company A Term",
             definition="Definition",
             company_id=company_a.id,
             is_global=False,
-        ).insert()
+        )
 
         # When/Then we expect a NotFoundError when using different company
         with pytest.raises(NotFoundError, match="Dictionary term not found"):
@@ -733,15 +700,17 @@ class TestProvideDictionaryTermById:
 class TestProvideInventoryItemById:
     """Test provide_inventory_item_by_id dependency."""
 
-    async def test_returns_inventory_item_when_found(self, base_character: Character) -> None:
+    async def test_returns_inventory_item_when_found(
+        self, base_character: Character, inventory_item_factory: Callable[..., CharacterInventory]
+    ) -> None:
         """Verify returning an inventory item when found by ID."""
         # Given an inventory item exists
-        item = await CharacterInventory(
+        item = await inventory_item_factory(
             character_id=base_character.id,
             name="Test Item",
             description="Test description",
             type=InventoryItemType.EQUIPMENT,
-        ).insert()
+        )
 
         # When we provide the item by ID
         result = await deps.provide_inventory_item_by_id(item.id)
@@ -758,16 +727,18 @@ class TestProvideInventoryItemById:
         with pytest.raises(NotFoundError, match="Inventory item not found"):
             await deps.provide_inventory_item_by_id(non_existent_id)
 
-    async def test_raises_not_found_when_archived(self, base_character: Character) -> None:
+    async def test_raises_not_found_when_archived(
+        self, base_character: Character, inventory_item_factory: Callable[..., CharacterInventory]
+    ) -> None:
         """Verify raising NotFoundError when inventory item is archived."""
         # Given an archived inventory item exists
-        item = await CharacterInventory(
+        item = await inventory_item_factory(
             character_id=base_character.id,
             name="Archived Item",
             description="Test description",
             type=InventoryItemType.EQUIPMENT,
             is_archived=True,
-        ).insert()
+        )
 
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Inventory item not found"):

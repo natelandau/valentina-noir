@@ -21,7 +21,6 @@ pytestmark = pytest.mark.anyio
         ("Café World", None, False, "cafe-world"),
     ],
 )
-@pytest.mark.no_clean_db
 def test_slugify(*, value: str, separator: str | None, allow_unicode: bool, expected: str) -> None:
     """Verify that the slugify function is working correctly."""
     assert (
@@ -40,13 +39,11 @@ def test_slugify(*, value: str, separator: str | None, allow_unicode: bool, expe
         (11, True, "`11`"),
     ],
 )
-@pytest.mark.no_clean_db
 def test_convert_int_to_emoji(*, num: int, as_shortcode: bool, expected: str) -> None:
     """Verify that the convert_int_to_emoji function is working correctly."""
     assert strings.convert_int_to_emoji(num=num, as_shortcode=as_shortcode) == expected
 
 
-@pytest.mark.no_clean_db
 def test_random_string(debug) -> None:
     """Test random_string()."""
     returned = strings.random_string(10)

@@ -9,6 +9,7 @@ import pytest
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_409_CONFLICT
 
 from vapi.constants import IDEMPOTENCY_KEY_HEADER, IGNORE_RATE_LIMIT_HEADER_KEY
+from vapi.db.models import Campaign
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -62,6 +63,10 @@ class TestIdempotencyMiddleware:
         assert response1.json()["id"] == response2.json()["id"]
         assert response1.json()["name"] == response2.json()["name"]
 
+        # cleanup
+        await Campaign.find(Campaign.id == response1.json()["id"]).delete()
+        await Campaign.find(Campaign.id == response2.json()["id"]).delete()
+
     async def test_post_with_same_key_different_body_raises_conflict(
         self,
         client: AsyncClient,
@@ -101,6 +106,9 @@ class TestIdempotencyMiddleware:
         assert response2.status_code == HTTP_409_CONFLICT
         assert "different request body" in response2.json()["detail"]
 
+        # cleanup
+        await Campaign.find(Campaign.id == response1.json()["id"]).delete()
+
     async def test_post_without_idempotency_key_creates_new_resources(
         self,
         client: AsyncClient,
@@ -137,6 +145,10 @@ class TestIdempotencyMiddleware:
         # Then it should create a new resource (no caching without the header)
         assert response2.status_code == HTTP_201_CREATED
         assert response1.json()["id"] != response2.json()["id"]
+
+        # cleanup
+        await Campaign.find(Campaign.id == response1.json()["id"]).delete()
+        await Campaign.find(Campaign.id == response2.json()["id"]).delete()
 
     async def test_get_request_ignores_idempotency_header(
         self,

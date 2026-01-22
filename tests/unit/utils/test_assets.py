@@ -66,12 +66,10 @@ class TestSanitizeFilename:
             ("   ", "upload"),
         ],
     )
-    @pytest.mark.no_clean_db
     def test_sanitize_filename_basic(self, filename: str, expected: str) -> None:
         """Verify filename sanitization removes dangerous characters."""
         assert assets.sanitize_filename(filename) == expected
 
-    @pytest.mark.no_clean_db
     def test_sanitize_filename_long_filename_without_extension(self) -> None:
         """Verify long filenames without extension are truncated to max length."""
         # Given: A filename exceeding 200 characters
@@ -84,7 +82,6 @@ class TestSanitizeFilename:
         assert len(result) == 200
         assert result == "a" * 200
 
-    @pytest.mark.no_clean_db
     def test_sanitize_filename_long_filename_with_extension(self) -> None:
         """Verify long filenames preserve extension when truncated."""
         # Given: A filename with extension exceeding 200 characters
@@ -99,7 +96,6 @@ class TestSanitizeFilename:
         assert result.endswith(".pdf")
         assert result == "a" * 196 + ".pdf"
 
-    @pytest.mark.no_clean_db
     def test_sanitize_filename_combined_dangerous_patterns(self) -> None:
         """Verify multiple dangerous patterns are all sanitized."""
         # Given: A filename with multiple dangerous patterns
@@ -147,7 +143,6 @@ class TestDetermineS3AssetType:
             ("TEXT/MARKDOWN", S3AssetType.TEXT),
         ],
     )
-    @pytest.mark.no_clean_db
     def test_determine_asset_type_by_prefix(self, mime_type: str, expected: S3AssetType) -> None:
         """Verify asset type is determined by MIME type prefix."""
         assert assets.determine_asset_type(mime_type) == expected
@@ -176,7 +171,6 @@ class TestDetermineS3AssetType:
             ),
         ],
     )
-    @pytest.mark.no_clean_db
     def test_determine_asset_type_documents(self, mime_type: str, expected: S3AssetType) -> None:
         """Verify document MIME types are correctly identified."""
         assert assets.determine_asset_type(mime_type) == expected
@@ -191,7 +185,6 @@ class TestDetermineS3AssetType:
             ("application/x-7z-compressed", S3AssetType.ARCHIVE),
         ],
     )
-    @pytest.mark.no_clean_db
     def test_determine_asset_type_archives(self, mime_type: str, expected: S3AssetType) -> None:
         """Verify archive MIME types are correctly identified."""
         assert assets.determine_asset_type(mime_type) == expected
@@ -205,7 +198,6 @@ class TestDetermineS3AssetType:
             "application/unknown",
         ],
     )
-    @pytest.mark.no_clean_db
     def test_determine_asset_type_other(self, mime_type: str) -> None:
         """Verify unrecognized MIME types return OTHER."""
         assert assets.determine_asset_type(mime_type) == S3AssetType.OTHER

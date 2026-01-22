@@ -28,6 +28,7 @@ async def create_dice_rolls(
     base_user: User,
     base_campaign: Campaign,
     base_character: Character,
+    dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
 ) -> Callable[..., Awaitable[tuple[Trait, Trait, Trait]]]:
     """Create dice rolls."""
 
@@ -49,7 +50,7 @@ async def create_dice_rolls(
                 Trait.name != trait2.name,
             )
 
-        roll = DiceRoll(
+        await dice_roll_factory(
             company_id=base_company.id,
             user_id=base_user.id if with_user else None,
             campaign_id=base_campaign.id if with_campaign else None,
@@ -68,8 +69,8 @@ async def create_dice_rolls(
                 desperation_roll=[],
             ),
         )
-        await roll.save()
-        roll2 = DiceRoll(
+
+        await dice_roll_factory(
             company_id=base_company.id,
             user_id=base_user.id if with_user else None,
             campaign_id=base_campaign.id if with_campaign else None,
@@ -88,7 +89,6 @@ async def create_dice_rolls(
                 desperation_roll=[],
             ),
         )
-        await roll2.save()
         return trait1, trait2, trait3
 
     return _inner
