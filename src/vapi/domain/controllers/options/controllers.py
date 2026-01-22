@@ -35,6 +35,8 @@ from vapi.domain.handlers.character_autogeneration.utils import (
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
+from . import docs
+
 logger = logging.getLogger("vapi")
 
 
@@ -57,7 +59,7 @@ class OptionsController(Controller):
         path=urls.Options.LIST,
         summary="Get available options",
         operation_id="getCompanyOptions",
-        description="Retrieve all available options and enumerations for use in forms and UI components. Includes character types, classes, concepts, clans, tribes, and permission levels organized by category.",
+        description=docs.GET_OPTIONS_DESCRIPTION,
         cache=600,
     )
     async def get_company_options(self) -> dict[str, dict[str, list[str] | dict[str, str]]]:

@@ -17,7 +17,7 @@ from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -36,7 +36,7 @@ class DeveloperController(Controller):
         path=urls.Developers.ME,
         summary="Get current developer",
         operation_id="getDeveloperMe",
-        description="Retrieve the developer profile associated with the current API key. Use this to verify authentication and view your account details.",
+        description=docs.GET_ME_DESCRIPTION,
         cache=True,
     )
     async def me(self, *, developer: Developer) -> Developer:
@@ -47,7 +47,7 @@ class DeveloperController(Controller):
         path=urls.Developers.NEW_KEY,
         summary="Regenerate API key",
         operation_id="regenerateDeveloperMeApiKey",
-        description="Generate a new API key for your account. The current key will be immediately invalidated and all cached authentication data will be cleared.",
+        description=docs.REGENERATE_API_KEY_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
@@ -67,7 +67,7 @@ class DeveloperController(Controller):
         path=urls.Developers.UPDATE,
         summary="Update current developer",
         operation_id="updateDeveloperMe",
-        description="Modify your developer profile. Only include fields that need to be changed; omitted fields remain unchanged.",
+        description=docs.UPDATE_ME_DESCRIPTION,
         dto=dto.PatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )

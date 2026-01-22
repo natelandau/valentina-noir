@@ -21,7 +21,7 @@ from vapi.lib.guards import (
 )
 from vapi.openapi.tags import APITags
 
-from . import dto  # noqa: TC001
+from . import docs, dto
 
 
 class CharacterTraitController(Controller):
@@ -40,7 +40,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAITS,
         summary="List character traits",
         operation_id="listCharacterTraits",
-        description="Retrieve a paginated list of traits assigned to a character. Each trait includes the base trait definition and the character's current value.",
+        description=docs.LIST_CHARACTER_TRAITS_DESCRIPTION,
         cache=True,
     )
     async def list_character_traits(
@@ -67,7 +67,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_DETAIL,
         summary="Get character trait",
         operation_id="getCharacterTrait",
-        description="Retrieve a specific character trait including the base trait definition and current value.",
+        description=docs.GET_CHARACTER_TRAIT_DESCRIPTION,
         cache=True,
     )
     async def get_character_trait(self, character_trait: CharacterTrait) -> CharacterTrait:
@@ -78,7 +78,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_ASSIGN,
         summary="Assign trait to character",
         operation_id="assignTraitToCharacter",
-        description="Assign a trait to a character with an initial value. The trait must not already exist on the character and the value must not exceed the trait's maximum.\n\n**Note:** This endpoint is only available for storyteller users and character owners and respects the [company's free trait changes setting](https://docs.valentina-noir.com/core-concepts/company-settings/).",
+        description=docs.ASSIGN_TRAIT_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def assign_trait_to_character(
@@ -102,7 +102,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_CREATE,
         summary="Create custom trait",
         operation_id="createCustomTrait",
-        description="Create a new custom trait unique to this character. Specify the trait name, category, and optional cost configuration. Custom traits are useful for specializations or homebrew content.\n\n**Note:** This endpoint is only available for storyteller users and character owners and respects the [company's free trait changes setting](https://docs.valentina-noir.com/core-concepts/company-settings/).",
+        description=docs.CREATE_CUSTOM_TRAIT_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def create_custom_trait(
@@ -125,7 +125,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_INCREASE,
         summary="Increase trait value",
         operation_id="increaseCharacterTraitValue",
-        description="Increase a character trait's value. The value cannot exceed the trait's maximum.\n\n**Note:** This endpoint is only available for storyteller users and character owners and respects the [company's free trait changes setting](https://docs.valentina-noir.com/core-concepts/company-settings/).",
+        description=docs.INCREASE_TRAIT_VALUE_DESCRIPTION,
         guards=[user_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -151,7 +151,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_DECREASE,
         summary="Decrease trait value",
         operation_id="decreaseCharacterTraitValue",
-        description="Decrease a character trait's value. The value cannot go below zero.\n\n**Note:** This endpoint is only available for storyteller users and character owners and respects the [company's free trait changes setting](https://docs.valentina-noir.com/core-concepts/company-settings/).",
+        description=docs.DECREASE_TRAIT_VALUE_DESCRIPTION,
         guards=[user_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -177,7 +177,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_XP_PURCHASE,
         summary="Increase trait value with xp",
         operation_id="purchaseCharacterTraitXp",
-        description="Purchase trait dots with experience points. The XP will be spent from the users' campaign experience points.\n\n**Note:** This endpoint is only available for storyteller users and character owners.",
+        description=docs.PURCHASE_TRAIT_XP_DESCRIPTION,
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -202,7 +202,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_XP_REFUND,
         summary="Decrease trait value with xp",
         operation_id="refundCharacterTraitXp",
-        description="Refund trait dots with experience points. By downgrading the number of dots on the trait, the user will be refunded the experience points spent on the trait dots. The XP will be added to the user's campaign experience points.\n\n**Note:** This endpoint is only available for storyteller users and character owners.",
+        description=docs.REFUND_TRAIT_XP_DESCRIPTION,
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -227,7 +227,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_STARTINGPOINTS_PURCHASE,
         summary="Purchase starting points",
         operation_id="purchaseCharacterTraitStartingPoints",
-        description="Purchase starting points with experience points. The XP will be spent from the users' campaign experience points.\n\n**Note:** This endpoint is only available for storyteller users and character owners.",
+        description=docs.PURCHASE_STARTING_POINTS_DESCRIPTION,
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -252,7 +252,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_STARTINGPOINTS_REFUND,
         summary="Refund starting points",
         operation_id="refundCharacterTraitStartingPoints",
-        description="Refund starting points with experience points. The XP will be added to the user's campaign experience points.\n\n**Note:** This endpoint is only available for storyteller users and character owners.",
+        description=docs.REFUND_STARTING_POINTS_DESCRIPTION,
         tags=[APITags.EXPERIENCE.name],
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -277,7 +277,7 @@ class CharacterTraitController(Controller):
         path=urls.Characters.TRAIT_DELETE,
         summary="Remove trait from character",
         operation_id="deleteCharacterTrait",
-        description="Remove a trait from a character. If the trait is custom, it will also be deleted. **This action cannot be undone.**\n\n**Note:** This endpoint is only available for storyteller users and character owners.",
+        description=docs.DELETE_CHARACTER_TRAIT_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_character_trait(

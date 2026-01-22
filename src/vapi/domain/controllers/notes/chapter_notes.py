@@ -14,7 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination  # noqa: TC001
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 from .base import BaseNoteController
 
 
@@ -40,7 +40,7 @@ class CampaignChapterNoteController(BaseNoteController):
         path=urls.Campaigns.CHAPTER_NOTES,
         summary="List chapter notes",
         operation_id="listChapterNotes",
-        description="Retrieve a paginated list of notes attached to a chapter. Notes can contain session summaries or session-specific details.",
+        description=docs.LIST_NOTES_DESCRIPTION,
         cache=True,
     )
     async def list_chapter_notes(
@@ -57,7 +57,7 @@ class CampaignChapterNoteController(BaseNoteController):
         path=urls.Campaigns.CHAPTER_NOTE_DETAIL,
         summary="Get chapter note",
         operation_id="getChapterNote",
-        description="Retrieve a specific note attached to a chapter.",
+        description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
     async def get_chapter_note(self, *, note: Note) -> Note:
@@ -68,7 +68,7 @@ class CampaignChapterNoteController(BaseNoteController):
         path=urls.Campaigns.CHAPTER_NOTE_CREATE,
         summary="Create chapter note",
         operation_id="createChapterNote",
-        description="Attach a new note to a chapter. Notes support markdown formatting for rich text content.",
+        description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -82,7 +82,7 @@ class CampaignChapterNoteController(BaseNoteController):
         path=urls.Campaigns.CHAPTER_NOTE_UPDATE,
         summary="Update chapter note",
         operation_id="updateChapterNote",
-        description="Modify a chapter note's content. Only include fields that need to be changed.",
+        description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -94,7 +94,7 @@ class CampaignChapterNoteController(BaseNoteController):
         path=urls.Campaigns.CHAPTER_NOTE_DELETE,
         summary="Delete chapter note",
         operation_id="deleteChapterNote",
-        description="Remove a note from a chapter. This action cannot be undone.",
+        description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_chapter_note(self, *, note: Note) -> None:

@@ -32,7 +32,7 @@ from vapi.domain.services import CharacterBlueprintService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import dto, schemas
+from . import docs, dto, schemas
 
 
 class CharacterBlueprintSectionController(Controller):
@@ -49,7 +49,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.SECTIONS,
         summary="List sheet sections",
         operation_id="listCharacterBlueprintSections",
-        description="Retrieve character sheet sections for a game version. Sections organize trait categories (e.g., Attributes, Abilities, Backgrounds). Optionally filter by character class.",
+        description=docs.LIST_SECTIONS_DESCRIPTION,
         cache=True,
         return_dto=dto.CharacterSheetDTO,
     )
@@ -81,7 +81,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.SECTION_DETAIL,
         summary="Get sheet section",
         operation_id="getCharacterBlueprintSection",
-        description="Retrieve a specific character sheet section including its metadata and ordering.",
+        description=docs.GET_SECTION_DESCRIPTION,
         cache=True,
         return_dto=dto.CharacterSheetDTO,
         dependencies={
@@ -99,7 +99,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.CATEGORIES,
         summary="List trait categories",
         operation_id="listCharacterBlueprintCategories",
-        description="Retrieve trait categories within a sheet section for a game version. Categories group related traits (e.g., Physical, Social, Mental attributes). Optionally filter by character class.",
+        description=docs.LIST_CATEGORIES_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitCategoryDTO,
         dependencies={
@@ -137,7 +137,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.CATEGORY_DETAIL,
         summary="Get trait category",
         operation_id="getCharacterBlueprintCategory",
-        description="Retrieve a specific trait category including its cost configuration and metadata.",
+        description=docs.GET_CATEGORY_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitCategoryDTO,
         dependencies={
@@ -153,7 +153,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.CATEGORY_TRAITS,
         summary="List category traits",
         operation_id="listCharacterBlueprintCategoryTraits",
-        description="Retrieve traits within a category for a game version. These are the individual traits that can be assigned to characters (e.g., Strength, Firearms, Resources). Optionally filter by character class or character ID for custom traits.",
+        description=docs.LIST_CATEGORY_TRAITS_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitDTO,
         dependencies={
@@ -200,7 +200,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.TRAIT_DETAIL,
         summary="Get trait",
         operation_id="getCharacterBlueprintCategoryTrait",
-        description="Retrieve a specific trait including its value range, cost configuration, and metadata.",
+        description=docs.GET_TRAIT_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitDTO,
         dependencies={
@@ -216,7 +216,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.TRAITS,
         summary="List all traits",
         operation_id="listAllCharacterBlueprintTraits",
-        description="Retrieve all system traits regardless of game version or character class. Excludes custom character-specific traits. Useful for building trait selection interfaces or validating trait references.",
+        description=docs.LIST_ALL_TRAITS_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitDTO,
     )
@@ -260,7 +260,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.CONCEPTS,
         summary="List concepts",
         operation_id="listCharacterBlueprintConcepts",
-        description="Retrieve all concepts.",
+        description=docs.LIST_CONCEPTS_DESCRIPTION,
         cache=True,
         return_dto=dto.ConceptDTO,
     )
@@ -287,7 +287,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.CONCEPT_DETAIL,
         summary="Get concept",
         operation_id="getCharacterBlueprintConcept",
-        description="Retrieve a specific concept including its name, description, and examples.",
+        description=docs.GET_CONCEPT_DESCRIPTION,
         cache=True,
         return_dto=dto.ConceptDTO,
         dependencies={
@@ -304,7 +304,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.VAMPIRE_CLANS,
         summary="List vampire clans",
         operation_id="listCharacterBlueprintVampireClans",
-        description="Retrieve all vampire clans.",
+        description=docs.LIST_VAMPIRE_CLANS_DESCRIPTION,
         cache=True,
         return_dto=dto.VampireClanDTO,
     )
@@ -337,7 +337,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.VAMPIRE_CLAN_DETAIL,
         summary="Get vampire clan",
         operation_id="getCharacterBlueprintVampireClan",
-        description="Retrieve a specific vampire clan including its name, description, and examples.",
+        description=docs.GET_VAMPIRE_CLAN_DESCRIPTION,
         cache=True,
         return_dto=dto.VampireClanDTO,
         dependencies={
@@ -354,7 +354,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_TRIBES,
         summary="List werewolf tribes",
         operation_id="listCharacterBlueprintWerewolfTribes",
-        description="Retrieve all werewolf tribes.",
+        description=docs.LIST_WEREWOLF_TRIBES_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfTribeDTO,
     )
@@ -387,7 +387,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_TRIBE_DETAIL,
         summary="Get werewolf tribe",
         operation_id="getCharacterBlueprintWerewolfTribe",
-        description="Retrieve a specific werewolf tribe including its name, description, and examples.",
+        description=docs.GET_WEREWOLF_TRIBE_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfTribeDTO,
         dependencies={
@@ -404,7 +404,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_AUSPICES,
         summary="List werewolf auspices",
         operation_id="listCharacterBlueprintWerewolfAuspices",
-        description="Retrieve all werewolf auspices.",
+        description=docs.LIST_WEREWOLF_AUSPICES_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfAuspiceDTO,
     )
@@ -437,7 +437,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_AUSPIE_DETAIL,
         summary="Get werewolf auspice",
         operation_id="getCharacterBlueprintWerewolfAuspice",
-        description="Retrieve a specific werewolf auspice including its name, description, and examples.",
+        description=docs.GET_WEREWOLF_AUSPICE_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfAuspiceDTO,
         dependencies={
@@ -454,7 +454,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_GIFTS,
         summary="List werewolf gifts",
         operation_id="listCharacterBlueprintWerewolfGifts",
-        description="Retrieve all werewolf gifts.",
+        description=docs.LIST_WEREWOLF_GIFTS_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfGiftDTO,
     )
@@ -499,7 +499,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_GIFT_DETAIL,
         summary="Get werewolf gift",
         operation_id="getCharacterBlueprintWerewolfGift",
-        description="Retrieve a specific werewolf gift including its name, description, and examples.",
+        description=docs.GET_WEREWOLF_GIFT_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfGiftDTO,
         dependencies={
@@ -516,7 +516,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_RITES,
         summary="List werewolf rites",
         operation_id="listCharacterBlueprintWerewolfRites",
-        description="Retrieve all werewolf rites.",
+        description=docs.LIST_WEREWOLF_RITES_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfRiteDTO,
     )
@@ -541,7 +541,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.WEREWOLF_RITE_DETAIL,
         summary="Get werewolf rite",
         operation_id="getCharacterBlueprintWerewolfRite",
-        description="Retrieve a specific werewolf rite including its name, description, and examples.",
+        description=docs.GET_WEREWOLF_RITE_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.WerewolfRiteDTO,
         dependencies={
@@ -558,7 +558,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.HUNTER_EDGES,
         summary="List hunter edges",
         operation_id="listCharacterBlueprintHunterEdges",
-        description="Retrieve all hunter edges.",
+        description=docs.LIST_HUNTER_EDGES_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.HunterEdgeDTO,
     )
@@ -589,7 +589,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.HUNTER_EDGE_DETAIL,
         summary="Get hunter edge",
         operation_id="getCharacterBlueprintHunterEdge",
-        description="Retrieve a specific hunter edge including its name, description, and examples.",
+        description=docs.GET_HUNTER_EDGE_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.HunterEdgeDTO,
         dependencies={
@@ -604,7 +604,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.HUNTER_EDGE_PERKS,
         summary="List hunter edge perks",
         operation_id="listCharacterBlueprintHunterEdgePerks",
-        description="Retrieve all hunter edge perks.",
+        description=docs.LIST_HUNTER_EDGE_PERKS_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.HunterEdgePerkDTO,
         dependencies={
@@ -635,7 +635,7 @@ class CharacterBlueprintSectionController(Controller):
         path=urls.CharacterBlueprints.HUNTER_EDGE_PERK_DETAIL,
         summary="Get hunter edge perk",
         operation_id="getCharacterBlueprintHunterEdgePerk",
-        description="Retrieve a specific hunter edge perk including its name, description, and examples.",
+        description=docs.GET_HUNTER_EDGE_PERK_BLUEPRINT_DESCRIPTION,
         cache=True,
         return_dto=dto.HunterEdgePerkDTO,
         dependencies={

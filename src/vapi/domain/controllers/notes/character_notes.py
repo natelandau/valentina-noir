@@ -14,7 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination  # noqa: TC001
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 from .base import BaseNoteController
 
 
@@ -38,7 +38,7 @@ class CharacterNoteController(BaseNoteController):
         path=urls.Characters.NOTES,
         summary="List character notes",
         operation_id="listCharacterNotes",
-        description="Retrieve a paginated list of notes attached to a character. Notes can contain backstory elements, session events, or storyteller comments.",
+        description=docs.LIST_NOTES_DESCRIPTION,
         cache=True,
     )
     async def list_character_notes(
@@ -54,7 +54,7 @@ class CharacterNoteController(BaseNoteController):
         path=urls.Characters.NOTE_DETAIL,
         summary="Get character note",
         operation_id="getCharacterNote",
-        description="Retrieve a specific note attached to a character.",
+        description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
     async def get_note(self, note: Note) -> Note:
@@ -65,7 +65,7 @@ class CharacterNoteController(BaseNoteController):
         path=urls.Characters.NOTE_CREATE,
         summary="Create character note",
         operation_id="createCharacterNote",
-        description="Attach a new note to a character. Notes support markdown formatting for rich text content.",
+        description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -79,7 +79,7 @@ class CharacterNoteController(BaseNoteController):
         path=urls.Characters.NOTE_UPDATE,
         summary="Update character note",
         operation_id="updateCharacterNote",
-        description="Modify a character note's content. Only include fields that need to be changed.",
+        description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -91,7 +91,7 @@ class CharacterNoteController(BaseNoteController):
         path=urls.Characters.NOTE_DELETE,
         summary="Delete character note",
         operation_id="deleteCharacterNote",
-        description="Remove a note from a character. This action cannot be undone.",
+        description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_note(self, note: Note) -> None:

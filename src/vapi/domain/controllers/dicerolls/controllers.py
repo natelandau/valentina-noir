@@ -19,7 +19,7 @@ from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 
 
 class DiceRollController(Controller):
@@ -37,7 +37,7 @@ class DiceRollController(Controller):
         path=urls.DiceRolls.LIST,
         summary="List dice rolls",
         operation_id="listDiceRolls",
-        description="Retrieve a paginated list of dice roll records. Filter by user, character, or campaign to view specific roll history.",
+        description=docs.LIST_DICEROLLS_DESCRIPTION,
     )
     async def list_dicerolls(
         self,
@@ -71,7 +71,7 @@ class DiceRollController(Controller):
         path=urls.DiceRolls.DETAIL,
         summary="Get dice roll",
         operation_id="getDiceRoll",
-        description="Retrieve details of a specific dice roll including the result, dice pool, and difficulty.",
+        description=docs.GET_DICEROLL_DESCRIPTION,
     )
     async def get_diceroll(self, company: Company, diceroll_id: PydanticObjectId) -> DiceRoll:
         """Get a dice roll by ID."""
@@ -90,7 +90,7 @@ class DiceRollController(Controller):
         dto=dto.PostDTO,
         cache=False,
         summary="Roll dice",
-        description="Execute a dice roll with the specified pool size, difficulty, and optional desperation dice. Optionally associate the roll with a character and campaign.",
+        description=docs.CREATE_DICEROLL_DESCRIPTION,
     )
     async def create_diceroll(
         self, company: Company, user: User, data: DTOData[DiceRoll]
@@ -106,7 +106,7 @@ class DiceRollController(Controller):
         operation_id="createQuickRoll",
         cache=False,
         summary="Execute quick roll",
-        description="Roll dice using a saved quick roll configuration. The dice pool is calculated from the character's trait values for the traits defined in the quick roll.",
+        description=docs.QUICKROLL_DESCRIPTION,
     )
     async def create_quickroll(
         self,

@@ -20,7 +20,7 @@ from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 from .guards import user_can_manage_campaign
 
 
@@ -41,7 +41,7 @@ class CampaignController(Controller):
         path=urls.Campaigns.LIST,
         summary="List campaigns",
         operation_id="listCampaigns",
-        description="Retrieve a paginated list of campaigns. Campaigns are containers for characters, books, chapters, etc.",
+        description=docs.LIST_CAMPAIGNS_DESCRIPTION,
         cache=True,
     )
     async def list_campaigns(
@@ -65,7 +65,7 @@ class CampaignController(Controller):
         path=urls.Campaigns.DETAIL,
         summary="Get campaign",
         operation_id="getCampaign",
-        description="Retrieve detailed information about a specific campaign including desperation and danger levels.",
+        description=docs.GET_CAMPAIGN_DESCRIPTION,
         cache=True,
     )
     async def get_campaign(self, *, campaign: Campaign) -> Campaign:
@@ -76,7 +76,7 @@ class CampaignController(Controller):
         path=urls.Campaigns.CREATE,
         summary="Create campaign",
         operation_id="createCampaign",
-        description="Create a new campaign. Requires storyteller privileges.",
+        description=docs.CREATE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PostCampaignDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -101,7 +101,7 @@ class CampaignController(Controller):
         path=urls.Campaigns.UPDATE,
         summary="Update campaign",
         operation_id="updateCampaign",
-        description="Modify a campaign's properties. Only include fields that need to be changed. Requires storyteller privileges.",
+        description=docs.UPDATE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PatchCampaignDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -121,7 +121,7 @@ class CampaignController(Controller):
         path=urls.Campaigns.DELETE,
         summary="Delete campaign",
         operation_id="deleteCampaign",
-        description="Remove a campaign from the system. Associated characters and content will no longer be accessible. Requires storyteller privileges.",
+        description=docs.DELETE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )

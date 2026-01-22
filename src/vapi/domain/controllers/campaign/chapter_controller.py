@@ -19,7 +19,7 @@ from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 from .guards import user_can_manage_campaign
 
 
@@ -42,7 +42,7 @@ class CampaignChapterController(Controller):
         path=urls.Campaigns.CHAPTERS,
         summary="List chapters",
         operation_id="listCampaignChapters",
-        description="Retrieve a paginated list of chapters within a book. Chapters represent individual game sessions or story segments.",
+        description=docs.LIST_CHAPTERS_DESCRIPTION,
         cache=True,
     )
     async def list_chapters(
@@ -67,7 +67,7 @@ class CampaignChapterController(Controller):
         path=urls.Campaigns.CHAPTER_DETAIL,
         summary="Get chapter",
         operation_id="getCampaignChapter",
-        description="Retrieve detailed information about a specific chapter.",
+        description=docs.GET_CHAPTER_DESCRIPTION,
         cache=True,
     )
     async def get_chapter(self, *, chapter: CampaignChapter) -> CampaignChapter:
@@ -78,7 +78,7 @@ class CampaignChapterController(Controller):
         path=urls.Campaigns.CHAPTER_CREATE,
         summary="Create chapter",
         operation_id="createCampaignChapter",
-        description="Create a new chapter within a book. The chapter number is assigned automatically based on existing chapters. Requires storyteller privileges.",
+        description=docs.CREATE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PostChapterDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -99,7 +99,7 @@ class CampaignChapterController(Controller):
         path=urls.Campaigns.CHAPTER_UPDATE,
         summary="Update chapter",
         operation_id="updateCampaignChapter",
-        description="Modify a chapter's properties. Only include fields that need to be changed. Requires storyteller privileges.",
+        description=docs.UPDATE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PatchChapterDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -120,7 +120,7 @@ class CampaignChapterController(Controller):
         path=urls.Campaigns.CHAPTER_DELETE,
         summary="Delete chapter",
         operation_id="deleteCampaignChapter",
-        description="Remove a chapter from a book. Remaining chapters will be automatically renumbered. Requires storyteller privileges.",
+        description=docs.DELETE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -133,7 +133,7 @@ class CampaignChapterController(Controller):
         path=urls.Campaigns.CHAPTER_NUMBER,
         summary="Renumber chapter",
         operation_id="renumberCampaignChapter",
-        description="Change a chapter's position within a book. Other chapters will be automatically reordered. Requires storyteller privileges.",
+        description=docs.RENUMBER_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )

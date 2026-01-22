@@ -14,7 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination  # noqa: TC001
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 from .base import BaseNoteController
 
 
@@ -39,7 +39,7 @@ class CampaignBookNoteController(BaseNoteController):
         path=urls.Campaigns.BOOK_NOTES,
         summary="List book notes",
         operation_id="listBookNotes",
-        description="Retrieve a paginated list of notes attached to a book. Notes can contain session summaries, plot points, or other book-level information.",
+        description=docs.LIST_NOTES_DESCRIPTION,
         cache=True,
     )
     async def list_book_notes(
@@ -56,7 +56,7 @@ class CampaignBookNoteController(BaseNoteController):
         path=urls.Campaigns.BOOK_NOTE_DETAIL,
         summary="Get book note",
         operation_id="getBookNote",
-        description="Retrieve a specific note attached to a book.",
+        description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
     async def get_book_note(self, *, note: Note) -> Note:
@@ -67,7 +67,7 @@ class CampaignBookNoteController(BaseNoteController):
         path=urls.Campaigns.BOOK_NOTE_CREATE,
         summary="Create book note",
         operation_id="createBookNote",
-        description="Attach a new note to a book. Notes support markdown formatting for rich text content.",
+        description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -81,7 +81,7 @@ class CampaignBookNoteController(BaseNoteController):
         path=urls.Campaigns.BOOK_NOTE_UPDATE,
         summary="Update book note",
         operation_id="updateBookNote",
-        description="Modify a book note's content. Only include fields that need to be changed.",
+        description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -93,7 +93,7 @@ class CampaignBookNoteController(BaseNoteController):
         path=urls.Campaigns.BOOK_NOTE_DELETE,
         summary="Delete book note",
         operation_id="deleteBookNote",
-        description="Remove a note from a book. This action cannot be undone.",
+        description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_book_note(self, *, note: Note) -> None:

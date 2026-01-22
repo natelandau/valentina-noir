@@ -18,7 +18,7 @@ from vapi.lib.guards import developer_company_user_guard, user_character_player_
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 
 
 class CharacterInventoryController(Controller):
@@ -38,7 +38,7 @@ class CharacterInventoryController(Controller):
         path=urls.Characters.INVENTORY,
         summary="List inventory items",
         operation_id="listCharacterInventoryItems",
-        description="Retrieve a paginated list of items in a character's inventory. Items can be equipment, consumables, or other possessions.",
+        description=docs.LIST_INVENTORY_ITEMS_DESCRIPTION,
         cache=True,
     )
     async def list_inventory_items(
@@ -60,7 +60,7 @@ class CharacterInventoryController(Controller):
         path=urls.Characters.INVENTORY_DETAIL,
         summary="Get inventory item",
         operation_id="getCharacterInventoryItem",
-        description="Retrieve detailed information about a specific inventory item.",
+        description=docs.GET_INVENTORY_ITEM_DESCRIPTION,
         cache=True,
     )
     async def get_inventory_item(self, *, inventory_item: CharacterInventory) -> CharacterInventory:
@@ -71,7 +71,7 @@ class CharacterInventoryController(Controller):
         path=urls.Characters.INVENTORY_CREATE,
         summary="Create inventory item",
         operation_id="createCharacterInventoryItem",
-        description="Add a new item to a character's inventory. Specify the item type, name, description, and any mechanical properties.",
+        description=docs.CREATE_INVENTORY_ITEM_DESCRIPTION,
         dto=dto.PostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
         guards=[user_character_player_or_storyteller_guard],
@@ -91,7 +91,7 @@ class CharacterInventoryController(Controller):
         path=urls.Characters.INVENTORY_UPDATE,
         summary="Update inventory item",
         operation_id="updateCharacterInventoryItem",
-        description="Modify an inventory item's properties. Only include fields that need to be changed.",
+        description=docs.UPDATE_INVENTORY_ITEM_DESCRIPTION,
         dto=dto.PatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
         guards=[user_character_player_or_storyteller_guard],
@@ -115,7 +115,7 @@ class CharacterInventoryController(Controller):
         path=urls.Characters.INVENTORY_DELETE,
         summary="Delete inventory item",
         operation_id="deleteCharacterInventoryItem",
-        description="Remove an item from a character's inventory. This action cannot be undone.",
+        description=docs.DELETE_INVENTORY_ITEM_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
         guards=[user_character_player_or_storyteller_guard],
     )

@@ -20,7 +20,7 @@ from vapi.domain.services import CharacterEdgeService
 from vapi.lib.guards import developer_company_user_guard, user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 
-from . import dto  # noqa: TC001
+from . import docs, dto
 
 
 class HunterSpecialsController(Controller):
@@ -40,7 +40,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGES,
         summary="List hunter edges",
         operation_id="listCharacterHunterEdges",
-        description="Retrieve a paginated list of hunter edges for a character.",
+        description=docs.LIST_HUNTER_EDGES_DESCRIPTION,
         cache=True,
     )
     async def list_hunter_edges(
@@ -69,7 +69,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_DETAIL,
         summary="Get character edge and perks",
         operation_id="getCharacterHunterEdge",
-        description="Retrieve a specific character's edge and its perks.",
+        description=docs.GET_HUNTER_EDGE_DESCRIPTION,
         cache=True,
     )
     async def get_hunter_edge(
@@ -85,7 +85,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_PERKS,
         summary="List hunter edge perks",
         operation_id="listCharacterHunterEdgePerks",
-        description="Retrieve a paginated list of hunter edge perks for a character.",
+        description=docs.LIST_HUNTER_EDGE_PERKS_DESCRIPTION,
         cache=True,
     )
     async def list_hunter_edge_perks(
@@ -112,7 +112,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_PERK_DETAIL,
         summary="Get hunter edge perk",
         operation_id="getCharacterHunterEdgePerk",
-        description="Retrieve a specific hunter edge perk.",
+        description=docs.GET_HUNTER_EDGE_PERK_DESCRIPTION,
         cache=True,
     )
     async def get_hunter_edge_perk(
@@ -128,7 +128,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_ADD,
         summary="Add a hunter edge to a character",
         operation_id="addCharacterHunterEdge",
-        description="Add a hunter edge to a character.",
+        description=docs.ADD_HUNTER_EDGE_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -146,7 +146,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_REMOVE,
         summary="Remove a hunter edge from a character",
         operation_id="removeCharacterHunterEdge",
-        description="Remove a hunter edge from a character.",
+        description=docs.REMOVE_HUNTER_EDGE_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -164,7 +164,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_PERK_ADD,
         summary="Add a hunter edge perk to a character",
         operation_id="addCharacterHunterEdgePerk",
-        description="Add a hunter edge perk to a character.",
+        description=docs.ADD_HUNTER_EDGE_PERK_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -183,7 +183,7 @@ class HunterSpecialsController(Controller):
         path=urls.Characters.EDGE_PERK_REMOVE,
         summary="Remove a hunter edge perk from a character",
         operation_id="removeCharacterHunterEdgePerk",
-        description="Remove a hunter edge perk from a character.",
+        description=docs.REMOVE_HUNTER_EDGE_PERK_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,

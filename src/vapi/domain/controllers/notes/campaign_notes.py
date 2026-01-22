@@ -14,7 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination  # noqa: TC001
 from vapi.openapi.tags import APITags
 
-from . import dto
+from . import docs, dto
 from .base import BaseNoteController
 
 
@@ -38,7 +38,7 @@ class CampaignNoteController(BaseNoteController):
         path=urls.Campaigns.NOTES,
         summary="List campaign notes",
         operation_id="listCampaignNotes",
-        description="Retrieve a paginated list of notes attached to a campaign. Notes can contain session summaries, plot points, or other campaign-level information.",
+        description=docs.LIST_NOTES_DESCRIPTION,
         cache=True,
     )
     async def list_campaign_notes(
@@ -55,7 +55,7 @@ class CampaignNoteController(BaseNoteController):
         path=urls.Campaigns.NOTE_DETAIL,
         summary="Get campaign note",
         operation_id="getCampaignNote",
-        description="Retrieve a specific note attached to a campaign.",
+        description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
     async def get_campaign_note(self, *, note: Note) -> Note:
@@ -66,7 +66,7 @@ class CampaignNoteController(BaseNoteController):
         path=urls.Campaigns.NOTE_CREATE,
         summary="Create campaign note",
         operation_id="createCampaignNote",
-        description="Attach a new note to a campaign. Notes support markdown formatting for rich text content.",
+        description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -80,7 +80,7 @@ class CampaignNoteController(BaseNoteController):
         path=urls.Campaigns.NOTE_UPDATE,
         summary="Update campaign note",
         operation_id="updateCampaignNote",
-        description="Modify a campaign note's content. Only include fields that need to be changed.",
+        description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -92,7 +92,7 @@ class CampaignNoteController(BaseNoteController):
         path=urls.Campaigns.NOTE_DELETE,
         summary="Delete campaign note",
         operation_id="deleteCampaignNote",
-        description="Remove a note from a campaign. This action cannot be undone.",
+        description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
     async def delete_campaign_note(self, *, note: Note) -> None:

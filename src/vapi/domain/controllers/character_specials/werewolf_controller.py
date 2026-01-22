@@ -21,6 +21,8 @@ from vapi.domain.services import CharacterGiftsService, CharacterRitesService
 from vapi.lib.guards import developer_company_user_guard, user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 
+from . import docs
+
 
 class WerewolfSpecialsController(Controller):
     """Werewolf controller."""
@@ -40,7 +42,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.GIFTS,
         summary="List werewolf gifts",
         operation_id="listCharacterWerewolfGifts",
-        description="Retrieve all werewolf gifts.",
+        description=docs.LIST_WEREWOLF_GIFTS_DESCRIPTION,
         cache=True,
         return_dto=blueprint_dto.WerewolfGiftDTO,
     )
@@ -65,7 +67,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.GIFT_DETAIL,
         summary="Get werewolf gift",
         operation_id="getCharacterWerewolfGift",
-        description="Retrieve a specific werewolf gift.",
+        description=docs.GET_WEREWOLF_GIFT_DESCRIPTION,
         cache=True,
         return_dto=blueprint_dto.WerewolfGiftDTO,
     )
@@ -80,7 +82,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.GIFT_ADD,
         summary="Add a werewolf gift to a character",
         operation_id="addCharacterWerewolfGift",
-        description="Add a werewolf gift to a character.",
+        description=docs.ADD_WEREWOLF_GIFT_DESCRIPTION,
         return_dto=blueprint_dto.WerewolfGiftDTO,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
@@ -97,7 +99,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.GIFT_REMOVE,
         summary="Remove a werewolf gift from a character",
         operation_id="removeCharacterWerewolfGift",
-        description="Remove a werewolf gift from a character.",
+        description=docs.REMOVE_WEREWOLF_GIFT_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -112,7 +114,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.RITES,
         summary="List werewolf rites",
         operation_id="listCharacterWerewolfRites",
-        description="Retrieve all werewolf rites.",
+        description=docs.LIST_WEREWOLF_RITES_DESCRIPTION,
         cache=True,
         return_dto=blueprint_dto.WerewolfRiteDTO,
     )
@@ -131,7 +133,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.RITE_DETAIL,
         summary="Get werewolf rite",
         operation_id="getCharacterWerewolfRite",
-        description="Retrieve a specific werewolf rite.",
+        description=docs.GET_WEREWOLF_RITE_DESCRIPTION,
         cache=True,
         return_dto=blueprint_dto.WerewolfRiteDTO,
     )
@@ -146,7 +148,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.RITE_ADD,
         summary="Add a werewolf rite to a character",
         operation_id="addCharacterWerewolfRite",
-        description="Add a werewolf rite to a character.",
+        description=docs.ADD_WEREWOLF_RITE_DESCRIPTION,
         return_dto=blueprint_dto.WerewolfRiteDTO,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
@@ -163,7 +165,7 @@ class WerewolfSpecialsController(Controller):
         path=urls.Characters.RITE_REMOVE,
         summary="Remove a werewolf rite from a character",
         operation_id="removeCharacterWerewolfRite",
-        description="Remove a werewolf rite from a character.",
+        description=docs.REMOVE_WEREWOLF_RITE_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.audit_log_and_delete_api_key_cache,

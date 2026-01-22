@@ -19,7 +19,7 @@ from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import dto
+from . import docs, dto
 from .guards import user_can_manage_campaign
 
 
@@ -41,7 +41,7 @@ class CampaignBookController(Controller):
         path=urls.Campaigns.BOOKS,
         summary="List books",
         operation_id="listCampaignBooks",
-        description="Retrieve a paginated list of books within a campaign.",
+        description=docs.LIST_BOOKS_DESCRIPTION,
         cache=True,
     )
     async def list_books(
@@ -64,7 +64,7 @@ class CampaignBookController(Controller):
         path=urls.Campaigns.BOOK_DETAIL,
         summary="Get book",
         operation_id="getCampaignBook",
-        description="Retrieve detailed information about a specific book.",
+        description=docs.GET_BOOK_DESCRIPTION,
         cache=True,
     )
     async def get_book(self, *, book: CampaignBook) -> CampaignBook:
@@ -75,7 +75,7 @@ class CampaignBookController(Controller):
         path=urls.Campaigns.BOOK_CREATE,
         summary="Create book",
         operation_id="createCampaignBook",
-        description="Create a new book within a campaign. The book number is assigned automatically based on existing books. Requires storyteller privileges.",
+        description=docs.CREATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PostBookDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -95,7 +95,7 @@ class CampaignBookController(Controller):
         path=urls.Campaigns.BOOK_UPDATE,
         summary="Update book",
         operation_id="updateCampaignBook",
-        description="Modify a book's properties. Only include fields that need to be changed. Requires storyteller privileges.",
+        description=docs.UPDATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PatchBookDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
@@ -114,7 +114,7 @@ class CampaignBookController(Controller):
         path=urls.Campaigns.BOOK_DELETE,
         summary="Delete book",
         operation_id="deleteCampaignBook",
-        description="Remove a book from a campaign. Remaining books will be automatically renumbered. Requires storyteller privileges.",
+        description=docs.DELETE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
@@ -127,7 +127,7 @@ class CampaignBookController(Controller):
         path=urls.Campaigns.BOOK_NUMBER,
         summary="Renumber book",
         operation_id="renumberCampaignBook",
-        description="Change a book's position in the campaign sequence. Other books will be automatically reordered. Requires storyteller privileges.",
+        description=docs.RENUMBER_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
