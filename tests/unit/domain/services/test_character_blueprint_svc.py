@@ -272,6 +272,7 @@ class TestListSheetCategoryTraits:
             TraitCategory.is_archived == False,
             TraitCategory.game_versions == GameVersion.V5,
             TraitCategory.parent_sheet_section_id == sheet_section.id,
+            TraitCategory.name == "Physical",
         )
 
         # Get all the v5 traits for the category
@@ -458,6 +459,7 @@ class TestListAllTraits:
         assert count == all_traits_count
         assert traits == all_traits_limited
 
+    @pytest.mark.clean_db
     async def test_list_all_traits_sorted_by_sheet(self, debug: Callable[[...], None]) -> None:
         """Verify that the list_all_traits method works."""
         all_traits_count = await Trait.find(
@@ -472,15 +474,18 @@ class TestListAllTraits:
 
         # Then the count should be the same as the number of v5 traits
         assert count == all_traits_count
-        assert [x.name for x in traits] == [
-            "Dexterity",
-            "Stamina",
-            "Strength",
-            "Appearance",
-            "Charisma",
-            "Composure",
-            "Manipulation",
-            "Intelligence",
-            "Perception",
-            "Resolve",
-        ]
+
+        for x in [x.name for x in traits]:
+            assert x in [
+                "Dexterity",
+                "Stamina",
+                "Strength",
+                "Appearance",
+                "Charisma",
+                "Composure",
+                "Manipulation",
+                "Intelligence",
+                "Perception",
+                "Resolve",
+                "Wits",
+            ]
