@@ -36,6 +36,7 @@ class CharacterPatchDTO(PydanticDTO[Character]):
             "is_chargen",
             "is_temporary",
             "starting_points",
+            "asset_ids",
         },
         partial=True,
         max_nested_depth=2,
@@ -82,6 +83,7 @@ CreateCharacterDTO = create_model_without_fields(
         "user_player_id",
         "chargen_session_id",
         "starting_points",
+        "asset_ids",
     },
     nested_excludes={
         "vampire_attributes": {"clan_name"},

@@ -14,13 +14,15 @@ from vapi.lib.dto import dto_config
 class PostCampaignDTO(PydanticDTO[Campaign]):
     """Campaign post DTO."""
 
-    config = dto_config(exclude={"id", "date_created", "date_modified", "company_id"})
+    config = dto_config(exclude={"id", "date_created", "date_modified", "company_id", "asset_ids"})
 
 
 class PatchCampaignDTO(PydanticDTO[Campaign]):
     """Campaign patch DTO."""
 
-    config = dto_config(partial=True, exclude={"id", "date_created", "date_modified", "company_id"})
+    config = dto_config(
+        partial=True, exclude={"id", "date_created", "date_modified", "company_id", "asset_ids"}
+    )
 
 
 class CampaignDTO(PydanticDTO[Campaign]):
@@ -32,14 +34,17 @@ class CampaignDTO(PydanticDTO[Campaign]):
 class PostBookDTO(PydanticDTO[CampaignBook]):
     """Campaign book post DTO."""
 
-    config = dto_config(exclude={"id", "date_created", "date_modified", "campaign_id", "number"})
+    config = dto_config(
+        exclude={"id", "date_created", "date_modified", "campaign_id", "number", "asset_ids"}
+    )
 
 
 class PatchBookDTO(PydanticDTO[CampaignBook]):
     """Campaign book patch DTO."""
 
     config = dto_config(
-        partial=True, exclude={"id", "date_created", "date_modified", "campaign_id", "number"}
+        partial=True,
+        exclude={"id", "date_created", "date_modified", "campaign_id", "number", "asset_ids"},
     )
 
 
@@ -52,14 +57,17 @@ class BookDTO(PydanticDTO[CampaignBook]):
 class PostChapterDTO(PydanticDTO[CampaignChapter]):
     """Campaign chapter post DTO."""
 
-    config = dto_config(exclude={"id", "date_created", "date_modified", "book_id", "number"})
+    config = dto_config(
+        exclude={"id", "date_created", "date_modified", "book_id", "number", "asset_ids"}
+    )
 
 
 class PatchChapterDTO(PydanticDTO[CampaignChapter]):
     """Campaign chapter patch DTO."""
 
     config = dto_config(
-        partial=True, exclude={"id", "date_created", "date_modified", "book_id", "number"}
+        partial=True,
+        exclude={"id", "date_created", "date_modified", "book_id", "number", "asset_ids"},
     )
 
 

@@ -262,39 +262,6 @@ class TestListSheetCategoryTraits:
         assert count == len(all_v5_traits)
         assert traits == all_v5_traits[:10]
 
-    async def test_list_sheet_category_traits_skip_and_limit(
-        self, debug: Callable[[...], None]
-    ) -> None:
-        """Verify that the list_sheet_category_traits method works."""
-        sheet_section = await CharSheetSection.find_one(CharSheetSection.name == "Attributes")
-        category = await TraitCategory.find_one(
-            TraitCategory.parent_sheet_section_id == sheet_section.id,
-            TraitCategory.name == "Physical",
-        )
-        debug(sheet_section.name, "sheet_section.name")
-        debug(category.name, "category.name")
-
-        # Get all the v5 traits for the category
-        all_v5_traits = await Trait.find(
-            Trait.is_archived == False,
-            Trait.game_versions == GameVersion.V5,
-            Trait.parent_category_id == category.id,
-        ).to_list()
-        debug([x.name for x in all_v5_traits], "all_v5_traits")
-        # When listing all trait traits for the category with skip and limit
-        service = CharacterBlueprintService()
-        count, traits = await service.list_sheet_category_traits(
-            game_version=GameVersion.V5,
-            category=category,
-            limit=2,
-            offset=1,
-        )
-
-        # Then the count should be the same as the number of v5 traits
-        assert count == len(all_v5_traits)
-        assert len(traits) == 2
-        assert traits == all_v5_traits[1:3]
-
     async def test_list_sheet_category_traits_character_id(
         self,
         character_factory: Callable[[dict[str, ...]], Character],

@@ -132,7 +132,6 @@
     filterwarnings = ['error', 'ignore:.*Pydantic.*:UserWarning', 'ignore::DeprecationWarning:']
     markers = [
         "clean_db: deletes all non-constant data from the database before the test",
-        "no_clean_db: does not delete any data from the database after the test",
         "serial",
     ]
     testpaths = ["tests"]
