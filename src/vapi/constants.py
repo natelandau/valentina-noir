@@ -67,6 +67,7 @@ class DiceSize(Enum):
     D6 = 6
     D8 = 8
     D10 = 10
+    D20 = 20
     D100 = 100
 
 
@@ -173,7 +174,7 @@ class HunterCreed(Enum):
     FAITHFUL = "FAITHFUL"
     INQUISITIVE = "INQUISITIVE"
     MARTIAL = "MARTIAL"
-    UNDERGROUN = "UNDERGROUND"
+    UNDERGROUND = "UNDERGROUND"
 
 
 class S3AssetType(Enum):

@@ -182,7 +182,7 @@ class Characters:
     NOTE_UPDATE = NOTE_DETAIL
     NOTE_DELETE = NOTE_DETAIL
 
-    # Character traits (kept here for visibility)
+    # Character traits
     TRAITS = f"{DETAIL}/traits"
     TRAIT_DETAIL = f"{TRAITS}/{{character_trait_id:str}}"
     TRAIT_DELETE = TRAIT_DETAIL
@@ -281,8 +281,8 @@ class DiceRolls:
 
     BASE = f"{Users.DETAIL}/dicerolls"
     LIST = BASE
-    DETAIL = f"{BASE}/{{diceroll_id:str}}"
     CREATE = BASE
+    DETAIL = f"{BASE}/{{diceroll_id:str}}"
     QUICKROLL = f"{BASE}/quickroll"
 
 
