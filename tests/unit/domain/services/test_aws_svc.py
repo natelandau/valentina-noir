@@ -14,8 +14,8 @@ from vapi.constants import (
     AWS_ONE_DAY_CACHE_HEADER,
     AWS_ONE_HOUR_CACHE_HEADER,
     AWS_ONE_YEAR_CACHE_HEADER,
-    S3AssetParentType,
-    S3AssetType,
+    AssetParentType,
+    AssetType,
 )
 from vapi.db.models import S3Asset
 from vapi.domain.services.aws_service import AWSS3Service
@@ -52,9 +52,9 @@ class TestGenerateAwsKey:
         """Test generating a full key for an object in the S3 bucket."""
         service = AWSS3Service()
         company_id = PydanticObjectId()
-        parent_type = S3AssetParentType.CHARACTER
+        parent_type = AssetParentType.CHARACTER
         parent_object_id = PydanticObjectId()
-        asset_type = S3AssetType.IMAGE
+        asset_type = AssetType.IMAGE
 
         # When: Generating the AWS key
         aws_key = service._generate_aws_key(
@@ -85,9 +85,9 @@ class TestGenerateAwsKey:
 
         service = AWSS3Service()
         company_id = PydanticObjectId()
-        parent_type = S3AssetParentType.CHARACTER
+        parent_type = AssetParentType.CHARACTER
         parent_object_id = PydanticObjectId()
-        asset_type = S3AssetType.IMAGE
+        asset_type = AssetType.IMAGE
 
         # When: Generating the AWS key
         aws_key = service._generate_aws_key(
@@ -271,9 +271,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == S3AssetType.IMAGE
+        assert asset.asset_type == AssetType.IMAGE
         assert asset.mime_type == "image/jpeg"
-        assert asset.parent_type == S3AssetParentType.CHARACTER
+        assert asset.parent_type == AssetParentType.CHARACTER
         assert asset.parent_id == character.id
         assert asset.company_id == base_company.id
         assert asset.uploaded_by == user.id
@@ -306,9 +306,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == S3AssetType.AUDIO
+        assert asset.asset_type == AssetType.AUDIO
         assert asset.mime_type == "audio/mpeg"
-        assert asset.parent_type == S3AssetParentType.USER
+        assert asset.parent_type == AssetParentType.USER
         assert asset.parent_id == user.id
         assert asset.uploaded_by == uploader.id
 
@@ -340,9 +340,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == S3AssetType.VIDEO
+        assert asset.asset_type == AssetType.VIDEO
         assert asset.mime_type == "video/mp4"
-        assert asset.parent_type == S3AssetParentType.CAMPAIGN
+        assert asset.parent_type == AssetParentType.CAMPAIGN
         assert asset.parent_id == campaign.id
 
         # Then: Campaign has the asset ID in asset_ids
@@ -373,9 +373,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == S3AssetType.DOCUMENT
+        assert asset.asset_type == AssetType.DOCUMENT
         assert asset.mime_type == "application/pdf"
-        assert asset.parent_type == S3AssetParentType.CAMPAIGN_BOOK
+        assert asset.parent_type == AssetParentType.CAMPAIGN_BOOK
         assert asset.parent_id == book.id
 
         # Then: CampaignBook has the asset ID in asset_ids
@@ -406,9 +406,9 @@ class TestUploadAsset:
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == S3AssetType.TEXT
+        assert asset.asset_type == AssetType.TEXT
         assert asset.mime_type == "text/plain"
-        assert asset.parent_type == S3AssetParentType.CAMPAIGN_CHAPTER
+        assert asset.parent_type == AssetParentType.CAMPAIGN_CHAPTER
         assert asset.parent_id == chapter.id
 
         # Then: CampaignChapter has the asset ID in asset_ids
@@ -418,14 +418,14 @@ class TestUploadAsset:
     @pytest.mark.parametrize(
         ("mime_type", "expected_type"),
         [
-            ("image/jpeg", S3AssetType.IMAGE),
-            ("image/png", S3AssetType.IMAGE),
-            ("audio/mpeg", S3AssetType.AUDIO),
-            ("video/mp4", S3AssetType.VIDEO),
-            ("text/plain", S3AssetType.TEXT),
-            ("application/pdf", S3AssetType.DOCUMENT),
-            ("application/zip", S3AssetType.ARCHIVE),
-            ("application/octet-stream", S3AssetType.OTHER),
+            ("image/jpeg", AssetType.IMAGE),
+            ("image/png", AssetType.IMAGE),
+            ("audio/mpeg", AssetType.AUDIO),
+            ("video/mp4", AssetType.VIDEO),
+            ("text/plain", AssetType.TEXT),
+            ("application/pdf", AssetType.DOCUMENT),
+            ("application/zip", AssetType.ARCHIVE),
+            ("application/octet-stream", AssetType.OTHER),
         ],
     )
     async def test_upload_asset_determines_asset_type(
@@ -434,9 +434,9 @@ class TestUploadAsset:
         user_factory: Callable[..., User],
         base_company: Company,
         mime_type: str,
-        expected_type: S3AssetType,
+        expected_type: AssetType,
     ) -> None:
-        """Verify upload_asset sets correct S3AssetType based on MIME type."""
+        """Verify upload_asset sets correct AssetType based on MIME type."""
         # Given: A character and user
         character = await character_factory()
         user = await user_factory()
@@ -534,7 +534,7 @@ class TestDeleteAsset:
     ) -> None:
         """Verify delete_asset removes asset from S3 and archives it."""
         # Given: A character with an asset
-        asset = await s3asset_factory(parent_type=S3AssetParentType.UNKNOWN, parent_id=None)
+        asset = await s3asset_factory(parent_type=AssetParentType.UNKNOWN, parent_id=None)
 
         # Patch the S3 deletion
         mocker.patch.object(AWSS3Service, "_delete_object_from_s3")
@@ -561,10 +561,10 @@ class TestDeleteAsset:
         character = await character_factory()
 
         asset = await s3asset_factory(
-            asset_type=S3AssetType.IMAGE,
+            asset_type=AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type=S3AssetParentType.CHARACTER,
+            parent_type=AssetParentType.CHARACTER,
             parent_id=character.id,
             company_id=base_company.id,
             uploaded_by=user.id,
@@ -602,10 +602,10 @@ class TestDeleteAsset:
         uploader = await user_factory()
 
         asset = await s3asset_factory(
-            asset_type=S3AssetType.IMAGE,
+            asset_type=AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type=S3AssetParentType.USER,
+            parent_type=AssetParentType.USER,
             parent_id=user.id,
             company_id=base_company.id,
             uploaded_by=uploader.id,
@@ -644,10 +644,10 @@ class TestDeleteAsset:
         user = await user_factory()
 
         asset = await s3asset_factory(
-            asset_type=S3AssetType.IMAGE,
+            asset_type=AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type=S3AssetParentType.CAMPAIGN,
+            parent_type=AssetParentType.CAMPAIGN,
             parent_id=campaign.id,
             company_id=base_company.id,
             uploaded_by=user.id,
@@ -686,10 +686,10 @@ class TestDeleteAsset:
         character = await character_factory()
 
         asset = await s3asset_factory(
-            asset_type=S3AssetType.IMAGE,
+            asset_type=AssetType.IMAGE,
             mime_type="image/jpeg",
             original_filename="test.jpg",
-            parent_type=S3AssetParentType.CHARACTER,
+            parent_type=AssetParentType.CHARACTER,
             parent_id=character.id,
             company_id=base_company.id,
             uploaded_by=user.id,

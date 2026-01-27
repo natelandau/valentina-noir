@@ -8,7 +8,7 @@ import logging
 from beanie import PydanticObjectId
 from beanie.operators import In, Set
 
-from vapi.constants import S3AssetParentType
+from vapi.constants import AssetParentType
 from vapi.db.models import (
     Campaign,
     CampaignBook,
@@ -30,7 +30,7 @@ logger = logging.getLogger("vapi")
 
 
 async def archive_s3_assets(
-    s3_asset_type: S3AssetParentType, object_ids: list[PydanticObjectId]
+    s3_asset_type: AssetParentType, object_ids: list[PydanticObjectId]
 ) -> int:
     """Archive all S3 assets associated with the campaign."""
     updated_s3_assets = await S3Asset.find(
@@ -67,7 +67,7 @@ class CampaignArchiveHandler:
             await campaign_book.save()
 
         self.num_s3_assets_archived += await archive_s3_assets(
-            S3AssetParentType.CAMPAIGN_BOOK, [campaign_book.id for campaign_book in campaign_books]
+            AssetParentType.CAMPAIGN_BOOK, [campaign_book.id for campaign_book in campaign_books]
         )
         return campaign_books
 
@@ -86,7 +86,7 @@ class CampaignArchiveHandler:
                 updated_campaign_chapters.append(campaign_chapter)
 
         self.num_s3_assets_archived += await archive_s3_assets(
-            S3AssetParentType.CAMPAIGN_CHAPTER,
+            AssetParentType.CAMPAIGN_CHAPTER,
             [campaign_chapter.id for campaign_chapter in updated_campaign_chapters],
         )
 
@@ -98,7 +98,7 @@ class CampaignArchiveHandler:
         campaign_chapters = await self._archive_campaign_chapters(campaign_books)
 
         self.num_s3_assets_archived += await archive_s3_assets(
-            S3AssetParentType.CAMPAIGN, [self.campaign.id]
+            AssetParentType.CAMPAIGN, [self.campaign.id]
         )
         self.campaign.is_archived = True
         await self.campaign.save()
@@ -129,7 +129,7 @@ class CharacterArchiveHandler:
         await self.character.save()
 
         num_s3_assets_archived = await archive_s3_assets(
-            S3AssetParentType.CHARACTER, [self.character.id]
+            AssetParentType.CHARACTER, [self.character.id]
         )
 
         custom_traits = await Trait.find(
@@ -169,7 +169,7 @@ class UserArchiveHandler:
             QuickRoll.user_id == self.user.id
         ).update_many(Set({QuickRoll.is_archived: True}))
 
-        num_s3_assets_archived = await archive_s3_assets(S3AssetParentType.USER, [self.user.id])
+        num_s3_assets_archived = await archive_s3_assets(AssetParentType.USER, [self.user.id])
 
         for character in await Character.find(Character.user_player_id == self.user.id).to_list():
             await CharacterArchiveHandler(character=character).handle()

@@ -14,8 +14,8 @@ from vapi.constants import (
     AWS_ONE_DAY_CACHE_HEADER,
     AWS_ONE_HOUR_CACHE_HEADER,
     AWS_ONE_YEAR_CACHE_HEADER,
-    S3AssetParentType,
-    S3AssetType,
+    AssetParentType,
+    AssetType,
 )
 from vapi.db.models import S3Asset
 from vapi.db.models.base import BaseDocument
@@ -71,19 +71,19 @@ class AWSS3Service:
     def _generate_aws_key(
         self,
         company_id: PydanticObjectId,
-        parent_type: S3AssetParentType,
+        parent_type: AssetParentType,
         parent_object_id: PydanticObjectId,
         extension: str,
-        asset_type: S3AssetType,
+        asset_type: AssetType,
     ) -> str:
         """Build the full key for an object in the S3 bucket.
 
         Args:
             company_id (PydanticObjectId): ID of the company.
-            parent_type (S3AssetParentType): Type of the parent object.
+            parent_type (AssetParentType): Type of the parent object.
             parent_object_id (PydanticObjectId): ID of the parent object.
             extension (str): Extension of the file.
-            asset_type (S3AssetType): Type of the asset.
+            asset_type (AssetType): Type of the asset.
 
         Returns:
             str: The full key for the object in the S3 bucket.
@@ -106,9 +106,9 @@ class AWSS3Service:
 
         def _build_key_prefix(
             company_id: PydanticObjectId,
-            parent_type: S3AssetParentType,
+            parent_type: AssetParentType,
             parent_object_id: PydanticObjectId,
-            asset_type: S3AssetType,
+            asset_type: AssetType,
         ) -> str:
             """Generate a key prefix for an object to be uploaded to Amazon S3.
 
@@ -118,9 +118,9 @@ class AWSS3Service:
 
             Args:
                 company_id (PydanticObjectId): ID of the company.
-                parent_type (S3AssetParentType): Type of the parent object.
+                parent_type (AssetParentType): Type of the parent object.
                 parent_object_id (PydanticObjectId): ID of the parent object.
-                asset_type (S3AssetType): Type of the asset.
+                asset_type (AssetType): Type of the asset.
 
             Returns:
                 str: The generated key prefix.

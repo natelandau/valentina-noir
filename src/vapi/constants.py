@@ -177,7 +177,7 @@ class HunterCreed(Enum):
     UNDERGROUND = "UNDERGROUND"
 
 
-class S3AssetType(Enum):
+class AssetType(Enum):
     """Asset type."""
 
     IMAGE = "image"
@@ -189,7 +189,7 @@ class S3AssetType(Enum):
     OTHER = "other"
 
 
-class S3AssetParentType(Enum):
+class AssetParentType(Enum):
     """S3 asset parent type.
 
     The values are the lowercase class name of the parent database model.

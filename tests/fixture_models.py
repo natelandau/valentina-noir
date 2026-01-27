@@ -17,12 +17,12 @@ from vapi.cli.lib.factories import (
 )
 from vapi.constants import (
     AUTH_HEADER_KEY,
+    AssetParentType,
+    AssetType,
     CharacterClass,
     CompanyPermission,
     GameVersion,
     InventoryItemType,
-    S3AssetParentType,
-    S3AssetType,
     UserRole,
 )
 from vapi.db.models import (
@@ -925,10 +925,10 @@ async def s3asset_factory(base_company, base_user) -> S3Asset:
 
     async def _s3asset_factory(**kwargs: Any) -> S3Asset:
         data = {
-            "asset_type": S3AssetType.IMAGE,
+            "asset_type": AssetType.IMAGE,
             "mime_type": "image/jpeg",
             "original_filename": "test.jpg",
-            "parent_type": S3AssetParentType.UNKNOWN,
+            "parent_type": AssetParentType.UNKNOWN,
             "parent_id": None,
             "company_id": base_company.id,
             "uploaded_by": base_user.id,
