@@ -18,7 +18,7 @@ from vapi.lib.guards import developer_company_user_guard
 from . import dto
 
 if TYPE_CHECKING:
-    from vapi.constants import S3AssetType
+    from vapi.constants import AssetType
 
 
 class BaseAssetsController(Controller, ABC):
@@ -30,7 +30,7 @@ class BaseAssetsController(Controller, ABC):
     async def _list_assets(
         self,
         parent_id: PydanticObjectId,
-        asset_type: S3AssetType | None = None,
+        asset_type: AssetType | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> OffsetPagination[S3Asset]:

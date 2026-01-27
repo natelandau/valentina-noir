@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vapi.constants import S3AssetParentType, S3AssetType
+from vapi.constants import AssetParentType, AssetType
 from vapi.db.models import Campaign, CampaignBook, CampaignChapter, Character, Company, User
 
 if TYPE_CHECKING:
@@ -21,19 +21,17 @@ __all__ = (
     "sanitize_filename",
 )
 
-PARENT_MODEL_MAP: dict[S3AssetParentType, type[BaseDocument]] = {
-    S3AssetParentType.CHARACTER: Character,
-    S3AssetParentType.CAMPAIGN: Campaign,
-    S3AssetParentType.CAMPAIGN_BOOK: CampaignBook,
-    S3AssetParentType.CAMPAIGN_CHAPTER: CampaignChapter,
-    S3AssetParentType.USER: User,
-    S3AssetParentType.COMPANY: Company,
+PARENT_MODEL_MAP: dict[AssetParentType, type[BaseDocument]] = {
+    AssetParentType.CHARACTER: Character,
+    AssetParentType.CAMPAIGN: Campaign,
+    AssetParentType.CAMPAIGN_BOOK: CampaignBook,
+    AssetParentType.CAMPAIGN_CHAPTER: CampaignChapter,
+    AssetParentType.USER: User,
+    AssetParentType.COMPANY: Company,
 }
 
 # Exhaustiveness check - fails fast if enum gains new values
-_expected: set[S3AssetParentType] = {
-    pt for pt in S3AssetParentType if pt != S3AssetParentType.UNKNOWN
-}
+_expected: set[AssetParentType] = {pt for pt in AssetParentType if pt != AssetParentType.UNKNOWN}
 if _missing := _expected - set(PARENT_MODEL_MAP.keys()):  # pragma: no cover
     msg = f"parent_model_map missing mappings: {_missing}"
     raise RuntimeError(msg)
@@ -94,26 +92,26 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-def determine_asset_type(mime_type: str) -> S3AssetType:  # noqa: PLR0911
+def determine_asset_type(mime_type: str) -> AssetType:  # noqa: PLR0911
     """Determine asset type from MIME type.
 
     Args:
         mime_type: MIME type string (e.g., "image/jpeg", "audio/mpeg")
 
     Returns:
-        The corresponding S3AssetType
+        The corresponding AssetType
     """
     mime_prefix = mime_type.split("/")[0].lower()
 
     match mime_prefix:
         case "image":
-            return S3AssetType.IMAGE
+            return AssetType.IMAGE
         case "audio":
-            return S3AssetType.AUDIO
+            return AssetType.AUDIO
         case "text":
-            return S3AssetType.TEXT
+            return AssetType.TEXT
         case "video":
-            return S3AssetType.VIDEO
+            return AssetType.VIDEO
         case _:
             # Handle document types by MIME suffix
             mime_lower = mime_type.lower()
@@ -132,34 +130,34 @@ def determine_asset_type(mime_type: str) -> S3AssetType:  # noqa: PLR0911
                     "ms-powerpoint",
                 ]
             ):
-                return S3AssetType.DOCUMENT
+                return AssetType.DOCUMENT
             if any(
                 archive_type in mime_lower
                 for archive_type in ["zip", "tar", "gzip", "rar", "7z", "compressed"]
             ):
-                return S3AssetType.ARCHIVE
-            return S3AssetType.OTHER
+                return AssetType.ARCHIVE
+            return AssetType.OTHER
 
 
 def determine_parent_type(
     *,
     parent: BaseDocument | None = None,
-) -> S3AssetParentType:
+) -> AssetParentType:
     """Determine parent type from parent object.
 
     Args:
         parent: Parent object.
 
     Returns:
-        The corresponding S3AssetParentType
+        The corresponding AssetParentType
     """
     if not parent:
-        return S3AssetParentType.UNKNOWN
+        return AssetParentType.UNKNOWN
 
     try:
-        return S3AssetParentType(parent.__class__.__name__.lower())
+        return AssetParentType(parent.__class__.__name__.lower())
     except ValueError:
-        return S3AssetParentType.UNKNOWN
+        return AssetParentType.UNKNOWN
 
 
 async def add_asset_to_parent(asset: S3Asset) -> None:
@@ -168,7 +166,7 @@ async def add_asset_to_parent(asset: S3Asset) -> None:
     Args:
         asset: The asset to add.
     """
-    if asset.parent_type == S3AssetParentType.UNKNOWN:
+    if asset.parent_type == AssetParentType.UNKNOWN:
         return
 
     model_class = PARENT_MODEL_MAP.get(asset.parent_type)
@@ -187,7 +185,7 @@ async def remove_asset_from_parent(asset: S3Asset) -> None:
     Args:
         asset: The asset to remove.
     """
-    if asset.parent_type == S3AssetParentType.UNKNOWN:
+    if asset.parent_type == AssetParentType.UNKNOWN:
         return
 
     model_class = PARENT_MODEL_MAP.get(asset.parent_type)

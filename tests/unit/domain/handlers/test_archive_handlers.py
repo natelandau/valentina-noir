@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.constants import S3AssetParentType
+from vapi.constants import AssetParentType
 from vapi.domain.handlers import (
     CampaignArchiveHandler,
     CharacterArchiveHandler,
@@ -59,13 +59,13 @@ class TestCampaignArchiveHandler:
         campaign_book = await campaign_book_factory(campaign_id=campaign.id)
         campaign_chapter = await campaign_chapter_factory(book_id=campaign_book.id)
         s3_asset = await s3asset_factory(
-            parent_type=S3AssetParentType.CAMPAIGN, parent_id=campaign.id
+            parent_type=AssetParentType.CAMPAIGN, parent_id=campaign.id
         )
         s3_asset_2 = await s3asset_factory(
-            parent_type=S3AssetParentType.CAMPAIGN_BOOK, parent_id=campaign_book.id
+            parent_type=AssetParentType.CAMPAIGN_BOOK, parent_id=campaign_book.id
         )
         s3_asset_3 = await s3asset_factory(
-            parent_type=S3AssetParentType.CAMPAIGN_CHAPTER, parent_id=campaign_chapter.id
+            parent_type=AssetParentType.CAMPAIGN_CHAPTER, parent_id=campaign_chapter.id
         )
 
         # and objects that should not be archived
@@ -73,13 +73,13 @@ class TestCampaignArchiveHandler:
         campaign_book_2 = await campaign_book_factory(campaign_id=campaign_2.id)
         campaign_chapter_2 = await campaign_chapter_factory(book_id=campaign_book_2.id)
         s3_asset_4 = await s3asset_factory(
-            parent_type=S3AssetParentType.CAMPAIGN, parent_id=PydanticObjectId()
+            parent_type=AssetParentType.CAMPAIGN, parent_id=PydanticObjectId()
         )
         s3_asset_5 = await s3asset_factory(
-            parent_type=S3AssetParentType.CAMPAIGN_BOOK, parent_id=PydanticObjectId()
+            parent_type=AssetParentType.CAMPAIGN_BOOK, parent_id=PydanticObjectId()
         )
         s3_asset_6 = await s3asset_factory(
-            parent_type=S3AssetParentType.CAMPAIGN_CHAPTER, parent_id=PydanticObjectId()
+            parent_type=AssetParentType.CAMPAIGN_CHAPTER, parent_id=PydanticObjectId()
         )
 
         # When we archive the company
@@ -119,7 +119,7 @@ class TestCharacterArchiveHandler:
         trait = await trait_factory(custom_for_character_id=character.id)
         inventory_item = await inventory_item_factory(character_id=character.id)
         s3_asset = await s3asset_factory(
-            parent_type=S3AssetParentType.CHARACTER, parent_id=character.id
+            parent_type=AssetParentType.CHARACTER, parent_id=character.id
         )
 
         # And objects that should not be archived
@@ -127,7 +127,7 @@ class TestCharacterArchiveHandler:
         trait_2 = await trait_factory(custom_for_character_id=character_2.id)
         inventory_item_2 = await inventory_item_factory(character_id=character_2.id)
         s3_asset_2 = await s3asset_factory(
-            parent_type=S3AssetParentType.CHARACTER, parent_id=character_2.id
+            parent_type=AssetParentType.CHARACTER, parent_id=character_2.id
         )
 
         # When we archive the character
@@ -159,17 +159,17 @@ class TestUserArchiveHandler:
         character = await character_factory(user_player_id=user.id, is_archived=False)
         quickroll = await quickroll_factory(user_id=user.id, is_archived=False)
         s3_asset = await s3asset_factory(
-            parent_type=S3AssetParentType.USER, parent_id=user.id, is_archived=False
+            parent_type=AssetParentType.USER, parent_id=user.id, is_archived=False
         )
         s3_asset_2 = await s3asset_factory(
-            parent_type=S3AssetParentType.CHARACTER, parent_id=character.id, is_archived=False
+            parent_type=AssetParentType.CHARACTER, parent_id=character.id, is_archived=False
         )
 
         # And objects that should not be archived
         user_2 = await user_factory()
         character_2 = await character_factory(user_player_id=user_2.id)
         quickroll_2 = await quickroll_factory(user_id=user_2.id)
-        s3_asset_3 = await s3asset_factory(parent_type=S3AssetParentType.USER, parent_id=user_2.id)
+        s3_asset_3 = await s3asset_factory(parent_type=AssetParentType.USER, parent_id=user_2.id)
 
         # When we archive the user
         handler = UserArchiveHandler(user=user)
@@ -207,7 +207,7 @@ class TestCompanyArchiveHandler:
         campaign = await campaign_factory(company_id=company.id, is_archived=False)
         character = await character_factory(company_id=company.id, is_archived=False)
         s3_asset = await s3asset_factory(
-            parent_type=S3AssetParentType.UNKNOWN,
+            parent_type=AssetParentType.UNKNOWN,
             parent_id=None,
             company_id=company.id,
             is_archived=False,
@@ -224,7 +224,7 @@ class TestCompanyArchiveHandler:
         user_2 = await user_factory(company_id=company_2.id)
         character_2 = await character_factory(user_player_id=user_2.id)
         s3_asset_2 = await s3asset_factory(
-            parent_type=S3AssetParentType.COMPANY, parent_id=company_2.id
+            parent_type=AssetParentType.COMPANY, parent_id=company_2.id
         )
         note_2 = await note_factory(company_id=company_2.id)
         dictionary_term_2 = await dictionary_term_factory(company_id=company_2.id)

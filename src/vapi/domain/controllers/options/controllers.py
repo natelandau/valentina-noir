@@ -11,6 +11,8 @@ from litestar.handlers import get
 
 from vapi.config import settings
 from vapi.constants import (
+    AssetParentType,
+    AssetType,
     CharacterClass,
     CharacterStatus,
     CharacterType,
@@ -23,6 +25,7 @@ from vapi.constants import (
     PermissionsGrantXP,
     RollResultType,
     UserRole,
+    WerewolfRenown,
 )
 from vapi.domain import deps, urls
 from vapi.domain.handlers.character_autogeneration.constants import (
@@ -79,6 +82,7 @@ class OptionsController(Controller):
                 "GameVersion": [x.name for x in GameVersion],
                 "HunterEdgeType": [x.name for x in HunterEdgeType],
                 "InventoryItemType": [x.name for x in InventoryItemType],
+                "WerewolfRenown": [x.name for x in WerewolfRenown],
                 "_related": {
                     "concepts": _build_url(urls.CharacterBlueprints.CONCEPTS),
                     "hunter_edges": _build_url(urls.CharacterBlueprints.HUNTER_EDGES),
@@ -120,5 +124,9 @@ class OptionsController(Controller):
             "gameplay": {
                 "DiceSize": [x.name for x in DiceSize],
                 "RollResultType": [x.name for x in RollResultType],
+            },
+            "assets": {
+                "AssetType": [x.name for x in AssetType],
+                "AssetParentType": [x.name for x in AssetParentType],
             },
         }

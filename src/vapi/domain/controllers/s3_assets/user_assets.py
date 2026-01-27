@@ -8,7 +8,7 @@ from litestar.enums import RequestEncodingType
 from litestar.handlers import delete, get, post
 from litestar.params import Body, Parameter
 
-from vapi.constants import S3AssetType
+from vapi.constants import AssetType
 from vapi.db.models import Company, S3Asset, User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
@@ -41,7 +41,7 @@ class UserAssetsController(BaseAssetsController):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         asset_type: Annotated[
-            S3AssetType | None, Parameter(description="Filter assets by type.")
+            AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
     ) -> OffsetPagination[S3Asset]:
         """List all user assets."""

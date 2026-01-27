@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vapi.constants import S3AssetParentType, S3AssetType
+from vapi.constants import AssetParentType, AssetType
 from vapi.utils import assets
 
 if TYPE_CHECKING:
@@ -113,37 +113,37 @@ class TestSanitizeFilename:
         assert ">" not in result
 
 
-class TestDetermineS3AssetType:
+class TestDetermineAssetType:
     """Tests for determine_asset_type function."""
 
     @pytest.mark.parametrize(
         ("mime_type", "expected"),
         [
             # Image types
-            ("image/jpeg", S3AssetType.IMAGE),
-            ("image/png", S3AssetType.IMAGE),
-            ("image/gif", S3AssetType.IMAGE),
-            ("image/webp", S3AssetType.IMAGE),
-            ("image/svg+xml", S3AssetType.IMAGE),
-            ("IMAGE/JPEG", S3AssetType.IMAGE),
+            ("image/jpeg", AssetType.IMAGE),
+            ("image/png", AssetType.IMAGE),
+            ("image/gif", AssetType.IMAGE),
+            ("image/webp", AssetType.IMAGE),
+            ("image/svg+xml", AssetType.IMAGE),
+            ("IMAGE/JPEG", AssetType.IMAGE),
             # Audio types
-            ("audio/mpeg", S3AssetType.AUDIO),
-            ("audio/wav", S3AssetType.AUDIO),
-            ("audio/ogg", S3AssetType.AUDIO),
-            ("AUDIO/MP3", S3AssetType.AUDIO),
+            ("audio/mpeg", AssetType.AUDIO),
+            ("audio/wav", AssetType.AUDIO),
+            ("audio/ogg", AssetType.AUDIO),
+            ("AUDIO/MP3", AssetType.AUDIO),
             # Video types
-            ("video/mp4", S3AssetType.VIDEO),
-            ("video/webm", S3AssetType.VIDEO),
-            ("video/quicktime", S3AssetType.VIDEO),
-            ("VIDEO/AVI", S3AssetType.VIDEO),
+            ("video/mp4", AssetType.VIDEO),
+            ("video/webm", AssetType.VIDEO),
+            ("video/quicktime", AssetType.VIDEO),
+            ("VIDEO/AVI", AssetType.VIDEO),
             # Text types
-            ("text/plain", S3AssetType.TEXT),
-            ("text/html", S3AssetType.TEXT),
-            ("text/css", S3AssetType.TEXT),
-            ("TEXT/MARKDOWN", S3AssetType.TEXT),
+            ("text/plain", AssetType.TEXT),
+            ("text/html", AssetType.TEXT),
+            ("text/css", AssetType.TEXT),
+            ("TEXT/MARKDOWN", AssetType.TEXT),
         ],
     )
-    def test_determine_asset_type_by_prefix(self, mime_type: str, expected: S3AssetType) -> None:
+    def test_determine_asset_type_by_prefix(self, mime_type: str, expected: AssetType) -> None:
         """Verify asset type is determined by MIME type prefix."""
         assert assets.determine_asset_type(mime_type) == expected
 
@@ -151,41 +151,41 @@ class TestDetermineS3AssetType:
         ("mime_type", "expected"),
         [
             # PDF documents
-            ("application/pdf", S3AssetType.DOCUMENT),
+            ("application/pdf", AssetType.DOCUMENT),
             # Microsoft Office formats
-            ("application/msword", S3AssetType.DOCUMENT),
-            ("application/vnd.ms-excel", S3AssetType.DOCUMENT),
-            ("application/vnd.ms-powerpoint", S3AssetType.DOCUMENT),
+            ("application/msword", AssetType.DOCUMENT),
+            ("application/vnd.ms-excel", AssetType.DOCUMENT),
+            ("application/vnd.ms-powerpoint", AssetType.DOCUMENT),
             # OpenDocument formats
-            ("application/vnd.oasis.opendocument.text", S3AssetType.DOCUMENT),
-            ("application/vnd.oasis.opendocument.spreadsheet", S3AssetType.DOCUMENT),
-            ("application/vnd.oasis.opendocument.presentation", S3AssetType.DOCUMENT),
+            ("application/vnd.oasis.opendocument.text", AssetType.DOCUMENT),
+            ("application/vnd.oasis.opendocument.spreadsheet", AssetType.DOCUMENT),
+            ("application/vnd.oasis.opendocument.presentation", AssetType.DOCUMENT),
             # Modern Office formats
             (
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                S3AssetType.DOCUMENT,
+                AssetType.DOCUMENT,
             ),
             (
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                S3AssetType.DOCUMENT,
+                AssetType.DOCUMENT,
             ),
         ],
     )
-    def test_determine_asset_type_documents(self, mime_type: str, expected: S3AssetType) -> None:
+    def test_determine_asset_type_documents(self, mime_type: str, expected: AssetType) -> None:
         """Verify document MIME types are correctly identified."""
         assert assets.determine_asset_type(mime_type) == expected
 
     @pytest.mark.parametrize(
         ("mime_type", "expected"),
         [
-            ("application/zip", S3AssetType.ARCHIVE),
-            ("application/x-tar", S3AssetType.ARCHIVE),
-            ("application/gzip", S3AssetType.ARCHIVE),
-            ("application/x-rar-compressed", S3AssetType.ARCHIVE),
-            ("application/x-7z-compressed", S3AssetType.ARCHIVE),
+            ("application/zip", AssetType.ARCHIVE),
+            ("application/x-tar", AssetType.ARCHIVE),
+            ("application/gzip", AssetType.ARCHIVE),
+            ("application/x-rar-compressed", AssetType.ARCHIVE),
+            ("application/x-7z-compressed", AssetType.ARCHIVE),
         ],
     )
-    def test_determine_asset_type_archives(self, mime_type: str, expected: S3AssetType) -> None:
+    def test_determine_asset_type_archives(self, mime_type: str, expected: AssetType) -> None:
         """Verify archive MIME types are correctly identified."""
         assert assets.determine_asset_type(mime_type) == expected
 
@@ -200,16 +200,16 @@ class TestDetermineS3AssetType:
     )
     def test_determine_asset_type_other(self, mime_type: str) -> None:
         """Verify unrecognized MIME types return OTHER."""
-        assert assets.determine_asset_type(mime_type) == S3AssetType.OTHER
+        assert assets.determine_asset_type(mime_type) == AssetType.OTHER
 
 
 class TestDetermineParentType:
     """Tests for determine_parent_type function."""
 
-    @pytest.mark.parametrize(("expected"), S3AssetParentType)
+    @pytest.mark.parametrize(("expected"), AssetParentType)
     async def test_determine_parent_type(
         self,
-        expected: S3AssetParentType,
+        expected: AssetParentType,
         company_factory: Callable[..., Company],
         character_factory: Callable[..., Character],
         user_factory: Callable[..., User],
@@ -219,17 +219,17 @@ class TestDetermineParentType:
     ) -> None:
         """Verify parent type is determined correctly."""
         match expected:
-            case S3AssetParentType.CHARACTER:
+            case AssetParentType.CHARACTER:
                 parent = await character_factory()
-            case S3AssetParentType.USER:
+            case AssetParentType.USER:
                 parent = await user_factory()
-            case S3AssetParentType.CAMPAIGN:
+            case AssetParentType.CAMPAIGN:
                 parent = await campaign_factory()
-            case S3AssetParentType.CAMPAIGN_BOOK:
+            case AssetParentType.CAMPAIGN_BOOK:
                 parent = await campaign_book_factory()
-            case S3AssetParentType.CAMPAIGN_CHAPTER:
+            case AssetParentType.CAMPAIGN_CHAPTER:
                 parent = await campaign_chapter_factory()
-            case S3AssetParentType.COMPANY:
+            case AssetParentType.COMPANY:
                 parent = await company_factory()
             case _:
                 parent = None
@@ -240,13 +240,13 @@ class TestDetermineParentType:
         self,
         s3asset_factory: Callable[..., S3Asset],
     ) -> None:
-        """Verify parent type is determined to UNKNOWN when parent database model is not in the S3AssetParentType enum."""
+        """Verify parent type is determined to UNKNOWN when parent database model is not in the AssetParentType enum."""
         # Given: An S3Asset object
         # We choose this object, b/c there is no scenario where an S3Asset will have an asset uploaded to it
         s3_asset = await s3asset_factory()
 
         # When: Determining the parent type
-        assert assets.determine_parent_type(parent=s3_asset) == S3AssetParentType.UNKNOWN
+        assert assets.determine_parent_type(parent=s3_asset) == AssetParentType.UNKNOWN
 
 
 class TestAddAssetToParent:
@@ -259,7 +259,7 @@ class TestAddAssetToParent:
         # Given objects
         character = await character_factory(asset_ids=[])
         s3_asset = await s3asset_factory(
-            parent_type=S3AssetParentType.CHARACTER, parent_id=character.id
+            parent_type=AssetParentType.CHARACTER, parent_id=character.id
         )
 
         # When: Adding the asset to the parent
@@ -274,7 +274,7 @@ class TestAddAssetToParent:
     ) -> None:
         """Verify add_asset_to_parent raises AttributeError when parent is None."""
         # Given: An S3Asset object
-        s3_asset = await s3asset_factory(parent_type=S3AssetParentType.UNKNOWN, parent_id=None)
+        s3_asset = await s3asset_factory(parent_type=AssetParentType.UNKNOWN, parent_id=None)
 
         # When: Adding the asset to the parent
         result = await assets.add_asset_to_parent(asset=s3_asset)
@@ -293,7 +293,7 @@ class TestRemoveAssetFromParent:
         # Given objects
         character = await character_factory(asset_ids=[])
         s3_asset = await s3asset_factory(
-            parent_type=S3AssetParentType.CHARACTER, parent_id=character.id
+            parent_type=AssetParentType.CHARACTER, parent_id=character.id
         )
         character.asset_ids.append(s3_asset.id)
         await character.save()
@@ -310,7 +310,7 @@ class TestRemoveAssetFromParent:
     ) -> None:
         """Verify remove_asset_from_parent returns None when parent is None."""
         # Given: An S3Asset object
-        s3_asset = await s3asset_factory(parent_type=S3AssetParentType.UNKNOWN, parent_id=None)
+        s3_asset = await s3asset_factory(parent_type=AssetParentType.UNKNOWN, parent_id=None)
 
         # When: Removing the asset from the parent
         result = await assets.remove_asset_from_parent(asset=s3_asset)
