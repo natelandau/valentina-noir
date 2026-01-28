@@ -12,14 +12,15 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 from pydantic import ValidationError as PydanticValidationError
 
-from vapi.constants import CompanyPermission
-from vapi.db.models import Company, Developer
+from vapi.constants import CompanyPermission, UserRole
+from vapi.db.models import Company, Developer, User
 from vapi.db.models.developer import CompanyPermissions
 from vapi.domain import deps, hooks, urls
 from vapi.domain.handlers import CompanyArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
 from vapi.domain.utils import patch_dto_data_internal_objects
+from vapi.lib.dto import COMMON_EXCLUDES
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
@@ -88,10 +89,11 @@ class CompanyController(Controller):
         description=docs.CREATE_COMPANY_DESCRIPTION,
         dto=dto.PostCompanyDTO,
         after_response=hooks.audit_log_and_delete_api_key_cache,
+        return_dto=None,
     )
     async def create_company(
         self, requesting_developer: Developer, data: DTOData[Company]
-    ) -> Company:
+    ) -> dto.NewCompanyResponseDTO:
         """Create a company."""
         try:
             company_data = data.create_instance()
@@ -109,7 +111,23 @@ class CompanyController(Controller):
         requesting_developer.companies.append(company_permissions)
         await requesting_developer.save()
 
-        return company
+        admin_user = User(
+            name=requesting_developer.username,
+            email=requesting_developer.email,
+            role=UserRole.ADMIN,
+            company_id=company.id,
+        )
+        await admin_user.save()
+
+        company.user_ids.append(admin_user.id)
+        await company.save()
+
+        return dto.NewCompanyResponseDTO(
+            company=company.model_dump(exclude=COMMON_EXCLUDES, mode="json"),
+            admin_user=admin_user.model_dump(
+                exclude=COMMON_EXCLUDES | {"discord_profile", "discord_oauth"}, mode="json"
+            ),
+        )
 
     @patch(
         path=urls.Companies.UPDATE,

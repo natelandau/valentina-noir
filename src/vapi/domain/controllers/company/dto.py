@@ -1,5 +1,7 @@
 """Company schemas."""
 
+from typing import Any
+
 from beanie import PydanticObjectId
 from litestar.plugins.pydantic import PydanticDTO
 from pydantic import BaseModel
@@ -32,3 +34,10 @@ class CompanyPermissionsDTO(BaseModel):
 
     permission: CompanyPermission
     developer_id: PydanticObjectId
+
+
+class NewCompanyResponseDTO(BaseModel):
+    """New company response DTO."""
+
+    company: dict[str, Any]
+    admin_user: dict[str, Any]
