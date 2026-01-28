@@ -59,7 +59,7 @@ class CampaignChapterController(Controller):
         }
         count = await CampaignChapter.find(query).count()
         chapters = (
-            await CampaignChapter.find(query).skip(offset).limit(limit).sort("name").to_list()
+            await CampaignChapter.find(query).skip(offset).limit(limit).sort("number").to_list()
         )
         return OffsetPagination(items=chapters, limit=limit, offset=offset, total=count)
 

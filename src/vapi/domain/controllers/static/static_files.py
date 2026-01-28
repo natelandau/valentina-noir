@@ -12,7 +12,7 @@ HTML_DIR = MODULE_ROOT_PATH / "domain" / "assets" / "html"
 
 logger = logging.getLogger("vapi")
 
-
+# TODO: Remove html_mode=True but keep a homepage
 html_static_files_router = create_static_files_router(
     path="/",
     directories=[HTML_DIR],

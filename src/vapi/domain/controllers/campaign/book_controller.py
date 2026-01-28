@@ -57,7 +57,7 @@ class CampaignBookController(Controller):
             "is_archived": False,
         }
         count = await CampaignBook.find(query).count()
-        books = await CampaignBook.find(query).skip(offset).limit(limit).sort("name").to_list()
+        books = await CampaignBook.find(query).skip(offset).limit(limit).sort("number").to_list()
         return OffsetPagination[CampaignBook](items=books, limit=limit, offset=offset, total=count)
 
     @get(
