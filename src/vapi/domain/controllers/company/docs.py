@@ -13,9 +13,9 @@ Retrieve detailed information about a specific company including its settings an
 """
 
 CREATE_COMPANY_DESCRIPTION = """\
-Create a new company in the system.
+Create a new company in the system AND a user account with `ADMIN` permissions for the company with your developer username and email (you can patch this later).
 
-You are automatically granted `OWNER` permission for the new company, giving you full administrative control, including the ability to grant permissions to other developers.
+Your API key is granted `OWNER` permission for the new company, giving you full administrative control, including the ability to grant permissions to other developers.
 """
 
 UPDATE_COMPANY_DESCRIPTION = """\

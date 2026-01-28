@@ -14,8 +14,8 @@ from litestar.status_codes import (
     HTTP_403_FORBIDDEN,
 )
 
-from vapi.constants import CompanyPermission
-from vapi.db.models import Company, Developer
+from vapi.constants import CompanyPermission, UserRole
+from vapi.db.models import Company, Developer, User
 from vapi.db.models.developer import CompanyPermissions
 from vapi.domain.services import CompanyService
 from vapi.domain.urls import Companies
@@ -84,18 +84,32 @@ class TestCompanyCRUD:
             build_url(Companies.CREATE), headers=token_company_user, json=body
         )
         assert response.status_code == HTTP_201_CREATED
+        # debug(response.json())
 
         # Then the response is correct
-        assert response.json()["name"] == "Test Company"
-        assert response.json()["description"] == "Test Description"
-        assert response.json()["email"] == "test@test.com"
+        assert response.json()["company"]["name"] == "Test Company"
+        assert response.json()["company"]["description"] == "Test Description"
+        assert response.json()["company"]["email"] == "test@test.com"
+        assert response.json()["admin_user"]["name"] == base_developer_company_user.username
+        assert response.json()["admin_user"]["email"] == base_developer_company_user.email
+        assert response.json()["admin_user"]["role"] == "ADMIN"
+        assert response.json()["admin_user"]["company_id"] == response.json()["company"]["id"]
+        assert response.json()["company"]["user_ids"] == [response.json()["admin_user"]["id"]]
 
         # Then the company is created in the database
-        company_id = response.json()["id"]
+        company_id = response.json()["company"]["id"]
         company = await Company.get(company_id)
         assert company.name == "Test Company"
         assert company.description == "Test Description"
         assert company.email == "test@test.com"
+
+        # And the admin user is created in the database
+        admin_user_id = response.json()["admin_user"]["id"]
+        admin_user = await User.get(admin_user_id)
+        assert admin_user.name == base_developer_company_user.username
+        assert admin_user.email == base_developer_company_user.email
+        assert admin_user.role == UserRole.ADMIN
+        assert str(admin_user.company_id) == company_id
 
         # And the developer is granted OWNER permission for the company
         await base_developer_company_user.sync()
