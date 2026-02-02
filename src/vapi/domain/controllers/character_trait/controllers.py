@@ -273,6 +273,28 @@ class CharacterTraitController(Controller):
             num_dots=data.num_dots,
         )
 
+    @get(
+        path=urls.Characters.TRAIT_COST_TO_UPGRADE,
+        summary="Get cost to upgrade",
+        operation_id="getCostToUpgrade",
+        description=docs.GET_COST_TO_UPGRADE_DESCRIPTION,
+    )
+    async def get_cost_to_upgrade(self, character_trait: CharacterTrait) -> dict[str, int]:
+        """Get cost to upgrade."""
+        service = CharacterTraitService()
+        return await service.calculate_all_upgrade_costs(character_trait)
+
+    @get(
+        path=urls.Characters.TRAIT_SAVINGS_FROM_DOWNGRADE,
+        summary="Get savings from downgrade",
+        operation_id="getSavingsFromDowngrade",
+        description=docs.GET_SAVINGS_FROM_DOWNGRADE_DESCRIPTION,
+    )
+    async def get_points_from_downgrade(self, character_trait: CharacterTrait) -> dict[str, int]:
+        """Get savings from downgrade."""
+        service = CharacterTraitService()
+        return await service.calculate_all_downgrade_savings(character_trait)
+
     @delete(
         path=urls.Characters.TRAIT_DELETE,
         summary="Remove trait from character",

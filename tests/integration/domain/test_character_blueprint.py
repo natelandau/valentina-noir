@@ -300,13 +300,7 @@ class TestClassesConceptsAndSpecificOptions:
         assert response.json()["items"] == [
             concept.model_dump(
                 mode="json",
-                exclude={
-                    "is_archived",
-                    "archive_date",
-                    "company_id",
-                    "date_created",
-                    "date_modified",
-                },
+                exclude={"is_archived", "archive_date", "company_id"},
             )
             for concept in concepts[:10]
         ]
@@ -328,7 +322,7 @@ class TestClassesConceptsAndSpecificOptions:
         # debug(response.json())
         assert response.json() == concept.model_dump(
             mode="json",
-            exclude={"is_archived", "archive_date", "company_id", "date_created", "date_modified"},
+            exclude={"is_archived", "archive_date", "company_id"},
         )
 
     async def test_list_vampire_clans(

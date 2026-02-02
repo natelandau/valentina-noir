@@ -41,7 +41,7 @@ class TraitDTO(PydanticDTO[Trait]):
 class ConceptDTO(PydanticDTO[CharacterConcept]):
     """Concept DTO."""
 
-    config = dto_config(exclude={"company_id", "date_created", "date_modified"})
+    config = dto_config(exclude={"company_id"})
 
 
 class VampireClanDTO(PydanticDTO[VampireClan]):

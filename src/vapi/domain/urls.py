@@ -195,6 +195,8 @@ class Characters:
     TRAIT_XP_REFUND = f"{TRAIT_DETAIL}/xp/refund"
     TRAIT_STARTINGPOINTS_PURCHASE = f"{TRAIT_DETAIL}/startingpoints/purchase"
     TRAIT_STARTINGPOINTS_REFUND = f"{TRAIT_DETAIL}/startingpoints/refund"
+    TRAIT_COST_TO_UPGRADE = f"{TRAIT_DETAIL}/cost"
+    TRAIT_SAVINGS_FROM_DOWNGRADE = f"{TRAIT_DETAIL}/savings"
 
     # Character inventory
     INVENTORY = f"{DETAIL}/inventory"

@@ -792,3 +792,86 @@ class TestUseStartingPoints:
         # Cleanup
         await character.delete()
         await character_trait.delete()
+
+
+class TestGetCostToUpgrade:
+    """Test getting the cost to upgrade a trait."""
+
+    async def test_get_cost_to_upgrade(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify that getting all upgrade costs for a trait works."""
+        # Given a character trait with value 3 and max_value 5
+        character = await character_factory()
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(
+            value=3, trait=trait, character_id=character.id
+        )
+        max_increase = trait.max_value - 3
+
+        # When getting the costs to upgrade
+        response = await client.get(
+            build_url(Characters.TRAIT_COST_TO_UPGRADE, character_trait_id=character_trait.id),
+            headers=token_company_admin,
+        )
+
+        # Then verify the response contains costs for each possible increase
+        assert response.status_code == HTTP_200_OK
+        result = response.json()
+        assert len(result) == max_increase
+        for i in range(1, max_increase + 1):
+            assert str(i) in result
+            assert isinstance(result[str(i)], int)
+            assert result[str(i)] > 0
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+
+class TestGetSavingsFromDowngrade:
+    """Test getting the savings from downgrading a trait."""
+
+    async def test_get_savings_from_downgrade(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+    ) -> None:
+        """Verify that getting all downgrade savings for a trait works."""
+        # Given a character trait with value 3 and min_value 0
+        character = await character_factory()
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(
+            value=3, trait=trait, character_id=character.id
+        )
+        max_decrease = 3 - trait.min_value
+
+        # When getting the savings from downgrading
+        response = await client.get(
+            build_url(
+                Characters.TRAIT_SAVINGS_FROM_DOWNGRADE, character_trait_id=character_trait.id
+            ),
+            headers=token_company_admin,
+        )
+
+        # Then verify the response contains savings for each possible decrease
+        assert response.status_code == HTTP_200_OK
+        result = response.json()
+        assert len(result) == max_decrease
+        for i in range(1, max_decrease + 1):
+            assert str(i) in result
+            assert isinstance(result[str(i)], int)
+            assert result[str(i)] > 0
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
