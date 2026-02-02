@@ -74,6 +74,18 @@ The starting points are added back to the user's available pool.
 **Note:** Only storyteller users and character owners can use this endpoint.
 """
 
+GET_COST_TO_UPGRADE_DESCRIPTION = """\
+Get the experience point cost to upgrade a trait by a specified number of dots.
+
+**Note:** This endpoint is informational only and does not modify the trait value.
+"""
+
+GET_SAVINGS_FROM_DOWNGRADE_DESCRIPTION = """\
+Get the savings from downgrading a trait by a specified number of dots.
+
+**Note:** This endpoint is informational only and does not modify the trait value.
+"""
+
 DELETE_CHARACTER_TRAIT_DESCRIPTION = """\
 Remove a trait from a character.
 

@@ -11,6 +11,7 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
@@ -788,6 +789,110 @@ class TestUseStartingPoints:
         assert character_trait.value == trait.max_value - 1
         await character.sync()
         assert character.starting_points == 125
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+
+class TestGetCostToUpgrade:
+    """Test getting the cost to upgrade a trait."""
+
+    async def test_get_cost_to_upgrade(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify that getting the cost to upgrade a trait works."""
+        # Setup the trait and character trait and user experience
+        character = await character_factory()
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(
+            value=trait.min_value - 1, trait=trait, character_id=character.id
+        )
+
+        # When getting the cost to upgrade a trait
+        response = await client.get(
+            build_url(Characters.TRAIT_COST_TO_UPGRADE, character_trait_id=character_trait.id),
+            headers=token_company_admin,
+            params={"num_dots": 1},
+        )
+
+        # Then verify the response
+        assert response.status_code == HTTP_200_OK
+        assert response.json() == {"cost": trait.initial_cost}
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_get_cost_to_upgrade_fail_no_value(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify that getting the cost to upgrade a trait fails if the character trait has no value."""
+        # Setup the trait and character trait and user experience
+        character = await character_factory()
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(trait=trait, character_id=character.id)
+
+        # When getting the cost to upgrade a trait
+        response = await client.get(
+            build_url(Characters.TRAIT_COST_TO_UPGRADE, character_trait_id=character_trait.id),
+            headers=token_company_admin,
+        )
+
+        # Then verify the response
+        assert response.status_code == HTTP_400_BAD_REQUEST
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+
+class TestGetSavingsFromDowngrade:
+    """Test getting the savings from downgrading a trait."""
+
+    async def test_get_savings_from_downgrade(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify that getting the savings from downgrading a trait works."""
+        # Setup the trait and character trait and user experience
+        character = await character_factory()
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(
+            value=trait.max_value, trait=trait, character_id=character.id
+        )
+
+        # When getting the savings from downgrading a trait
+        response = await client.get(
+            build_url(
+                Characters.TRAIT_SAVINGS_FROM_DOWNGRADE, character_trait_id=character_trait.id
+            ),
+            headers=token_company_admin,
+            params={"num_dots": 1},
+        )
+
+        # debug(response.json())
+
+        # Then verify the response
+        assert response.status_code == HTTP_200_OK
+        assert response.json() == {"savings": trait.initial_cost * trait.max_value}
 
         # Cleanup
         await character.delete()
