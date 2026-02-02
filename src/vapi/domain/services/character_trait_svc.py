@@ -111,7 +111,7 @@ class CharacterTraitService:
 
         raise PermissionDeniedError(detail="No rights to access this resource")
 
-    async def calculate_all_upgrade_costs(self, character_trait: CharacterTrait) -> dict[int, int]:
+    async def calculate_all_upgrade_costs(self, character_trait: CharacterTrait) -> dict[str, int]:
         """Calculate the experience cost to upgrade a trait by each possible number of dots.
 
         Returns an empty dictionary if the trait is at the max value.
@@ -123,16 +123,18 @@ class CharacterTraitService:
             A dictionary where keys are the number of dots to increase by (1, 2, 3, etc.)
             and values are the total cost to increase by that many dots.
         """
-        upgrade_costs: dict[int, int] = {}
+        upgrade_costs: dict[str, int] = {}
         await character_trait.fetch_all_links()
         max_increase = character_trait.trait.max_value - character_trait.value  # type: ignore [attr-defined]
         for num_dots in range(1, max_increase + 1):
-            upgrade_costs[num_dots] = await self.calculate_upgrade_cost(character_trait, num_dots)
+            upgrade_costs[str(num_dots)] = await self.calculate_upgrade_cost(
+                character_trait, num_dots
+            )
         return upgrade_costs
 
     async def calculate_all_downgrade_savings(
         self, character_trait: CharacterTrait
-    ) -> dict[int, int]:
+    ) -> dict[str, int]:
         """Calculate the experience savings from downgrading a trait by each possible number of dots.
 
         Returns an empty dictionary if the trait is at the min value.
@@ -144,11 +146,11 @@ class CharacterTraitService:
             A dictionary where keys are the number of dots to decrease by (1, 2, 3, etc.)
             and values are the total savings from decreasing by that many dots.
         """
-        downgrade_savings: dict[int, int] = {}
+        downgrade_savings: dict[str, int] = {}
         await character_trait.fetch_all_links()
         max_decrease = character_trait.value - character_trait.trait.min_value  # type: ignore [attr-defined]
         for num_dots in range(1, max_decrease + 1):
-            downgrade_savings[num_dots] = await self.calculate_downgrade_savings(
+            downgrade_savings[str(num_dots)] = await self.calculate_downgrade_savings(
                 character_trait, num_dots
             )
 

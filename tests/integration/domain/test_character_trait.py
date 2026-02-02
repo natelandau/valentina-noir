@@ -804,6 +804,7 @@ class TestGetCostToUpgrade:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
     ) -> None:
         """Verify that getting all upgrade costs for a trait works."""
         # Given a character trait with value 3 and max_value 5

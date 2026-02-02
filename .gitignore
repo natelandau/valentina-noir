@@ -23,6 +23,8 @@ _site/
 .github/copilot-instructions.md
 .github/instructions/
 GEMINI.md
+CLAUDE.md
+.claude/
 
 package.json
 package-lock.json

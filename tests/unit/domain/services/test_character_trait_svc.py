@@ -474,9 +474,9 @@ class TestCalculateAllUpgradeCosts:
 
         # Then we should get exactly one cost entry with key 1 (increase by 1 dot)
         assert len(result) == 1
-        assert 1 in result
+        assert "1" in result
         # Cost to go from 4 to 5: 5 * upgrade_cost = 5 * 2 = 10
-        assert result[1] == 10
+        assert result["1"] == 10
 
     async def test_returns_costs_for_multiple_levels(
         self,
@@ -499,11 +499,11 @@ class TestCalculateAllUpgradeCosts:
         result = await service.calculate_all_upgrade_costs(character_trait)
 
         # Then keys should be 1 and 2 (can increase by 1 or 2 dots)
-        assert set(result.keys()) == {1, 2}
+        assert set(result.keys()) == {"1", "2"}
         # Cost to increase by 1 (3→4): 4 * 2 = 8
-        assert result[1] == 8
+        assert result["1"] == 8
         # Cost to increase by 2 (3→5): (4 * 2) + (5 * 2) = 8 + 10 = 18
-        assert result[2] == 18
+        assert result["2"] == 18
 
     async def test_cost_values_are_positive_integers(
         self,
@@ -577,9 +577,9 @@ class TestCalculateAllDowngradeSavings:
 
         # Then we should get exactly one savings entry with key 1 (decrease by 1 dot)
         assert len(result) == 1
-        assert 1 in result
+        assert "1" in result
         # Savings to go from 1 to 0: initial_cost = 1
-        assert result[1] == 1
+        assert result["1"] == 1
 
     async def test_returns_savings_for_multiple_levels(
         self,
@@ -602,13 +602,13 @@ class TestCalculateAllDowngradeSavings:
         result = await service.calculate_all_downgrade_savings(character_trait)
 
         # Then keys should be 1, 2, and 3 (can decrease by 1, 2, or 3 dots)
-        assert set(result.keys()) == {1, 2, 3}
+        assert set(result.keys()) == {"1", "2", "3"}
         # Savings to decrease by 1 (3→2): 3 * upgrade_cost = 3 * 2 = 6
-        assert result[1] == 6
+        assert result["1"] == 6
         # Savings to decrease by 2 (3→1): (3 * 2) + (2 * 2) = 6 + 4 = 10
-        assert result[2] == 10
+        assert result["2"] == 10
         # Savings to decrease by 3 (3→0): (3 * 2) + (2 * 2) + initial_cost = 6 + 4 + 1 = 11
-        assert result[3] == 11
+        assert result["3"] == 11
 
     async def test_savings_values_are_positive_integers(
         self,
