@@ -37,6 +37,7 @@ class CharacterPatchDTO(PydanticDTO[Character]):
             "is_temporary",
             "starting_points",
             "asset_ids",
+            "date_killed",
         },
         partial=True,
         max_nested_depth=2,
