@@ -11,7 +11,15 @@ from beanie import PydanticObjectId
 from beanie.operators import In, Not
 
 from vapi.constants import PermissionsFreeTraitChanges, UserRole
-from vapi.db.models import Campaign, Character, CharacterTrait, Company, Trait, TraitCategory, User
+from vapi.db.models import (
+    Campaign,
+    Character,
+    CharacterTrait,
+    Company,
+    Trait,
+    TraitCategory,
+    User,
+)
 from vapi.domain.controllers.character_trait.dto import CharacterTraitCreateCustomDTO
 from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
 from vapi.lib.exceptions import (
@@ -418,6 +426,214 @@ class TestGuardIsSafeIncreaseDecrease:
 
         with pytest.raises(ValidationError):
             await service.calculate_upgrade_cost(character_trait, 2)
+
+
+class TestCalculateAllUpgradeCosts:
+    """Test the calculate_all_upgrade_costs method."""
+
+    async def test_returns_empty_dict_at_max_value(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify empty dictionary returned when trait is at max value."""
+        # Given a trait at its max value
+        service = CharacterTraitService()
+        trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=5,
+        )
+
+        # When we calculate all upgrade costs
+        result = await service.calculate_all_upgrade_costs(character_trait)
+
+        # Then the result should be an empty dictionary
+        assert result == {}
+
+    async def test_returns_single_cost_one_below_max(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify single cost returned when trait is one below max value."""
+        # Given a trait one below max value (value=4, max=5)
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=4,
+        )
+
+        # When we calculate all upgrade costs
+        result = await service.calculate_all_upgrade_costs(character_trait)
+
+        # Then we should get exactly one cost entry with key 1 (increase by 1 dot)
+        assert len(result) == 1
+        assert 1 in result
+        # Cost to go from 4 to 5: 5 * upgrade_cost = 5 * 2 = 10
+        assert result[1] == 10
+
+    async def test_returns_costs_for_multiple_levels(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify costs returned for each possible number of dots to increase."""
+        # Given a trait with value 3 and max_value 5
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=3,
+        )
+
+        # When we calculate all upgrade costs
+        result = await service.calculate_all_upgrade_costs(character_trait)
+
+        # Then keys should be 1 and 2 (can increase by 1 or 2 dots)
+        assert set(result.keys()) == {1, 2}
+        # Cost to increase by 1 (3→4): 4 * 2 = 8
+        assert result[1] == 8
+        # Cost to increase by 2 (3→5): (4 * 2) + (5 * 2) = 8 + 10 = 18
+        assert result[2] == 18
+
+    async def test_cost_values_are_positive_integers(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify all cost values are positive integers."""
+        # Given a trait with room to upgrade
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=2,
+        )
+
+        # When we calculate all upgrade costs
+        result = await service.calculate_all_upgrade_costs(character_trait)
+
+        # Then all values should be positive integers
+        for cost in result.values():
+            assert isinstance(cost, int)
+            assert cost > 0
+
+
+class TestCalculateAllDowngradeSavings:
+    """Test the calculate_all_downgrade_savings method."""
+
+    async def test_returns_empty_dict_at_min_value(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify empty dictionary returned when trait is at min value."""
+        # Given a trait at its min value
+        service = CharacterTraitService()
+        trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=0,
+        )
+
+        # When we calculate all downgrade savings
+        result = await service.calculate_all_downgrade_savings(character_trait)
+
+        # Then the result should be an empty dictionary
+        assert result == {}
+
+    async def test_returns_single_savings_one_above_min(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify single savings returned when trait is one above min value."""
+        # Given a trait one above min value (value=1, min=0)
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=1,
+        )
+
+        # When we calculate all downgrade savings
+        result = await service.calculate_all_downgrade_savings(character_trait)
+
+        # Then we should get exactly one savings entry with key 1 (decrease by 1 dot)
+        assert len(result) == 1
+        assert 1 in result
+        # Savings to go from 1 to 0: initial_cost = 1
+        assert result[1] == 1
+
+    async def test_returns_savings_for_multiple_levels(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify savings returned for each possible number of dots to decrease."""
+        # Given a trait with value 3 and min_value 0
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=3,
+        )
+
+        # When we calculate all downgrade savings
+        result = await service.calculate_all_downgrade_savings(character_trait)
+
+        # Then keys should be 1, 2, and 3 (can decrease by 1, 2, or 3 dots)
+        assert set(result.keys()) == {1, 2, 3}
+        # Savings to decrease by 1 (3→2): 3 * upgrade_cost = 3 * 2 = 6
+        assert result[1] == 6
+        # Savings to decrease by 2 (3→1): (3 * 2) + (2 * 2) = 6 + 4 = 10
+        assert result[2] == 10
+        # Savings to decrease by 3 (3→0): (3 * 2) + (2 * 2) + initial_cost = 6 + 4 + 1 = 11
+        assert result[3] == 11
+
+    async def test_savings_values_are_positive_integers(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify all savings values are positive integers."""
+        # Given a trait with room to downgrade
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(),
+            trait=trait,
+            value=3,
+        )
+
+        # When we calculate all downgrade savings
+        result = await service.calculate_all_downgrade_savings(character_trait)
+
+        # Then all values should be positive integers
+        for savings in result.values():
+            assert isinstance(savings, int)
+            assert savings > 0
 
 
 class TestCalculateCosts:

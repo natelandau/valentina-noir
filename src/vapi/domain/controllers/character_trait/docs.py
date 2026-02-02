@@ -75,13 +75,17 @@ The starting points are added back to the user's available pool.
 """
 
 GET_COST_TO_UPGRADE_DESCRIPTION = """\
-Get the experience point cost to upgrade a trait by a specified number of dots.
+A dictionary of the cost to upgrade each dot level up to the max value. The key is number of dots to increase and the value is the cost.
+
+Returns an empty dictionary if the trait is at the max value.
 
 **Note:** This endpoint is informational only and does not modify the trait value.
 """
 
 GET_SAVINGS_FROM_DOWNGRADE_DESCRIPTION = """\
-Get the savings from downgrading a trait by a specified number of dots.
+A dictionary of the savings from downgrading each dot level down to the min value. The key is number of dots to decrease and the value is the savings.
+
+Returns an empty dictionary if the trait is at the min value.
 
 **Note:** This endpoint is informational only and does not modify the trait value.
 """
