@@ -719,6 +719,7 @@ class TestCharacterController:
         await character.delete()
 
 
+@pytest.mark.clean_db
 class TestVampireAttributes:
     """Test vampire attributes."""
 
@@ -886,6 +887,7 @@ class TestVampireAttributes:
         await updated_character.delete()
 
 
+@pytest.mark.clean_db
 class TestWerewolfAttributes:
     """Test werewolf attributes."""
 
@@ -1078,6 +1080,7 @@ class TestWerewolfAttributes:
         )
 
 
+@pytest.mark.clean_db
 class TestHunterAttributes:
     """Test hunter attributes."""
 
@@ -1186,6 +1189,7 @@ class TestHunterAttributes:
         await updated_character.delete()
 
 
+@pytest.mark.clean_db
 class TestCharacterCreate:
     """Test character create endpoints."""
 

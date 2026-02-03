@@ -53,8 +53,8 @@ class ExperienceController(Controller):
         service = UserXPService()
         return await service.add_xp_to_campaign_experience(
             company=company,
-            requesting_user=user,
-            target_user_id=data.user_id,
+            requesting_user_id=data.requesting_user_id,
+            target_user=user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
@@ -73,8 +73,8 @@ class ExperienceController(Controller):
         service = UserXPService()
         return await service.remove_xp_from_campaign_experience(
             company=company,
-            requesting_user=user,
-            target_user_id=data.user_id,
+            requesting_user_id=data.requesting_user_id,
+            target_user=user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
@@ -93,8 +93,8 @@ class ExperienceController(Controller):
         service = UserXPService()
         return await service.add_cp_to_campaign_experience(
             company=company,
-            requesting_user=user,
-            target_user_id=data.user_id,
+            requesting_user_id=data.requesting_user_id,
+            target_user=user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )

@@ -286,7 +286,7 @@ class TestUserXPService:
         if expected_result:
             result = await service._validate_user_can_grant_xp(
                 company=company,
-                requesting_user=requesting_user,
+                requesting_user_id=requesting_user.id,
                 target_user_id=target_user.id,
             )
             assert result is True
@@ -294,7 +294,7 @@ class TestUserXPService:
             with pytest.raises(PermissionDeniedError):
                 await service._validate_user_can_grant_xp(
                     company=company,
-                    requesting_user=requesting_user,
+                    requesting_user_id=requesting_user.id,
                     target_user_id=target_user.id,
                 )
 
@@ -319,8 +319,8 @@ class TestUserXPService:
         service = UserXPService()
         campaign_experience = await service.add_xp_to_campaign_experience(
             company=company,
-            requesting_user=requesting_user,
-            target_user_id=target_user.id,
+            requesting_user_id=requesting_user.id,
+            target_user=target_user,
             campaign_id=campaign.id,
             amount=10,
         )
@@ -333,26 +333,26 @@ class TestUserXPService:
         assert campaign_experience.xp_total == 10
         assert campaign_experience.cool_points == 0
 
-    async def test_add_xp_to_campaign_experience_user_not_found(
+    async def test_add_xp_to_campaign_experience_requesting_user_not_found(
         self,
         company_factory: Callable[[...], Company],
         campaign_factory: Callable[[...], Campaign],
         user_factory: Callable[[...], User],
         debug: Callable[[...], None],
     ) -> None:
-        """Test the add_xp_to_campaign_experience method when the user is not found."""
+        """Test the add_xp_to_campaign_experience method when the requesting user is not found."""
         # Given objects
         company = await company_factory()
         campaign = await campaign_factory(company_id=company.id)
-        requesting_user = await user_factory(company_id=company.id)
+        target_user = await user_factory(company_id=company.id)
 
         # When we add XP to the campaign experience
         service = UserXPService()
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_xp_to_campaign_experience(
                 company=company,
-                requesting_user=requesting_user,
-                target_user_id=PydanticObjectId(),
+                requesting_user_id=PydanticObjectId(),
+                target_user=target_user,
                 campaign_id=campaign.id,
                 amount=10,
             )
@@ -375,13 +375,13 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"Campaign.*not found"):
             await service.add_xp_to_campaign_experience(
                 company=company,
-                requesting_user=requesting_user,
-                target_user_id=target_user.id,
+                requesting_user_id=requesting_user.id,
+                target_user=target_user,
                 campaign_id=PydanticObjectId(),
                 amount=10,
             )
 
-    async def add_cp_to_campaign_experience_success(
+    async def test_add_cp_to_campaign_experience_success(
         self,
         user_factory: Callable[[...], User],
         campaign_factory: Callable[[...], Campaign],
@@ -401,8 +401,8 @@ class TestUserXPService:
         service = UserXPService()
         campaign_experience = await service.add_cp_to_campaign_experience(
             company=company,
-            requesting_user=requesting_user,
-            target_user_id=target_user.id,
+            requesting_user_id=requesting_user.id,
+            target_user=target_user,
             campaign_id=campaign.id,
             amount=1,
         )
@@ -415,26 +415,26 @@ class TestUserXPService:
         assert campaign_experience.xp_total == 10
         assert campaign_experience.cool_points == 1
 
-    async def test_add_cp_to_campaign_experience_user_not_found(
+    async def test_add_cp_to_campaign_experience_requesting_user_not_found(
         self,
         campaign_factory: Callable[[...], Campaign],
         company_factory: Callable[[...], Company],
         user_factory: Callable[[...], User],
         debug: Callable[[...], None],
     ) -> None:
-        """Test the add_cp_to_campaign_experience method when the user is not found."""
+        """Test the add_cp_to_campaign_experience method when the requesting user is not found."""
         # Given objects
         company = await company_factory()
         campaign = await campaign_factory(company_id=company.id)
-        requesting_user = await user_factory(company_id=company.id)
+        target_user = await user_factory(company_id=company.id)
 
         service = UserXPService()
 
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_cp_to_campaign_experience(
                 company=company,
-                requesting_user=requesting_user,
-                target_user_id=PydanticObjectId(),
+                requesting_user_id=PydanticObjectId(),
+                target_user=target_user,
                 campaign_id=campaign.id,
                 amount=1,
             )
@@ -448,15 +448,15 @@ class TestUserXPService:
         """Test the add_cp_to_campaign_experience method when the campaign is not found."""
         # Given objects
         company = await company_factory()
-        requesting_user = await user_factory(company_id=company.id)
-        target_user = requesting_user
+        target_user = await user_factory(company_id=company.id)
+        requesting_user = target_user
         service = UserXPService()
 
         with pytest.raises(ValidationError, match=r"Campaign.*not found"):
             await service.add_cp_to_campaign_experience(
                 company=company,
-                requesting_user=requesting_user,
-                target_user_id=target_user.id,
+                requesting_user_id=requesting_user.id,
+                target_user=target_user,
                 campaign_id=PydanticObjectId(),
                 amount=1,
             )
@@ -488,8 +488,8 @@ class TestUserXPService:
         service = UserXPService()
         campaign_experience = await service.remove_xp_from_campaign_experience(
             company=company,
-            requesting_user=requesting_user,
-            target_user_id=target_user.id,
+            requesting_user_id=requesting_user.id,
+            target_user=target_user,
             campaign_id=campaign.id,
             amount=5,
         )
@@ -501,24 +501,24 @@ class TestUserXPService:
         assert campaign_experience.xp_total == 10
         assert campaign_experience.cool_points == 1
 
-    async def test_remove_xp_from_campaign_experience_user_not_found(
+    async def test_remove_xp_from_campaign_experience_requesting_user_not_found(
         self,
         company_factory: Callable[[...], Company],
         campaign_factory: Callable[[...], Campaign],
         user_factory: Callable[[...], User],
         debug: Callable[[...], None],
     ) -> None:
-        """Test the remove_xp_from_campaign_experience method when the user is not found."""
+        """Test the remove_xp_from_campaign_experience method when the requesting user is not found."""
         # Given objects
         company = await company_factory()
-        requesting_user = await user_factory(company_id=company.id)
+        target_user = await user_factory(company_id=company.id)
         campaign = await campaign_factory(company_id=company.id)
         service = UserXPService()
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                requesting_user=requesting_user,
-                target_user_id=PydanticObjectId(),
+                requesting_user_id=PydanticObjectId(),
+                target_user=target_user,
                 campaign_id=campaign.id,
                 amount=5,
             )
@@ -532,14 +532,14 @@ class TestUserXPService:
         """Test the remove_xp_from_campaign_experience method when the campaign is not found."""
         # Given objects
         company = await company_factory()
-        requesting_user = await user_factory(company_id=company.id)
-        target_user = requesting_user
+        target_user = await user_factory(company_id=company.id)
+        requesting_user = target_user
         service = UserXPService()
         with pytest.raises(ValidationError, match=r"Campaign.*not found"):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                requesting_user=requesting_user,
-                target_user_id=target_user.id,
+                requesting_user_id=requesting_user.id,
+                target_user=target_user,
                 campaign_id=PydanticObjectId(),
                 amount=5,
             )

@@ -92,6 +92,7 @@ class TestExperienceController:
         build_url: Callable[[str, Any], str],
         base_campaign: Campaign,
         base_company: Company,
+        base_user: User,
         user_factory: Callable[[dict[str, Any]], User],
         debug: Callable[[Any], None],
         token_company_user: dict[str, str],
@@ -103,7 +104,7 @@ class TestExperienceController:
             headers=token_company_user,
             json={
                 "amount": 100,
-                "user_id": str(user.id),
+                "requesting_user_id": str(base_user.id),
                 "campaign_id": str(base_campaign.id),
             },
         )
@@ -128,7 +129,7 @@ class TestExperienceController:
         assert audit_log.method == "POST"
         assert audit_log.request_json == {
             "amount": 100,
-            "user_id": str(user.id),
+            "requesting_user_id": str(base_user.id),
             "campaign_id": str(base_campaign.id),
         }
         assert audit_log.path_params == {
@@ -143,6 +144,7 @@ class TestExperienceController:
         build_url: Callable[[str, Any], str],
         base_campaign: Campaign,
         base_company: Company,
+        base_user: User,
         user_factory: Callable[[dict[str, Any]], User],
         debug: Callable[[Any], None],
         token_company_user: dict[str, str],
@@ -152,7 +154,11 @@ class TestExperienceController:
         response = await client.post(
             build_url(UsersURL.CP_ADD, user_id=user.id),
             headers=token_company_user,
-            json={"amount": 1, "user_id": str(user.id), "campaign_id": str(base_campaign.id)},
+            json={
+                "amount": 1,
+                "requesting_user_id": str(base_user.id),
+                "campaign_id": str(base_campaign.id),
+            },
         )
         assert response.status_code == HTTP_201_CREATED
         assert response.json() == CampaignExperience(
@@ -175,7 +181,7 @@ class TestExperienceController:
         assert audit_log.method == "POST"
         assert audit_log.request_json == {
             "amount": 1,
-            "user_id": str(user.id),
+            "requesting_user_id": str(base_user.id),
             "campaign_id": str(base_campaign.id),
         }
         assert audit_log.path_params == {
@@ -191,6 +197,7 @@ class TestExperienceController:
         user_factory: Callable[[dict[str, Any]], User],
         base_campaign: Campaign,
         base_company: Company,
+        base_user: User,
         base_developer_company_user: Developer,
         token_company_user: dict[str, str],
         debug: Callable[[Any], None],
@@ -209,7 +216,11 @@ class TestExperienceController:
         response = await client.post(
             build_url(UsersURL.XP_REMOVE, user_id=user.id),
             headers=token_company_user,
-            json={"amount": 6, "user_id": str(user.id), "campaign_id": str(base_campaign.id)},
+            json={
+                "amount": 6,
+                "requesting_user_id": str(base_user.id),
+                "campaign_id": str(base_campaign.id),
+            },
         )
         assert response.status_code == HTTP_201_CREATED
         assert response.json() == CampaignExperience(
@@ -232,7 +243,7 @@ class TestExperienceController:
         assert audit_log.method == "POST"
         assert audit_log.request_json == {
             "amount": 6,
-            "user_id": str(user.id),
+            "requesting_user_id": str(base_user.id),
             "campaign_id": str(base_campaign.id),
         }
         assert audit_log.path_params == {
