@@ -26,68 +26,25 @@ Specify the trait name, category, and optional cost configuration. Custom traits
 **Note:** Only storyteller users and character owners can use this endpoint. Respects the company's free trait changes setting.
 """
 
-INCREASE_TRAIT_VALUE_DESCRIPTION = """\
-Increase a character trait's value by a specified number of dots.
+GET_VALUE_OPTIONS_DESCRIPTION = """\
+Retrieve all possible target values for a character trait with associated costs and affordability.
 
-The value cannot exceed the trait's maximum.
+Returns the current value, min/max bounds, current XP and starting points, and a dictionary of options. Each option shows the point cost/refund, whether it's affordable with XP or starting points, and the resulting balance after the transaction.
 
-**Note:** Only storyteller users can use this endpoint. Respects the company's free trait changes setting.
+Use this endpoint to display upgrade/downgrade options to users before they commit to a change.
 """
 
-DECREASE_TRAIT_VALUE_DESCRIPTION = """\
-Decrease a character trait's value by a specified number of dots.
+MODIFY_VALUE_DESCRIPTION = """\
+Modify a character trait to a target value using the specified currency.
 
-The value cannot go below zero.
+**Currency options:**
+- `NO_COST`: Direct modification without spending points (storyteller/admin only)
+- `XP`: Spend or refund experience points
+- `STARTING_POINTS`: Spend or refund starting points
 
-**Note:** Only storyteller users can use this endpoint. Respects the company's free trait changes setting.
-"""
+The direction (increase/decrease) is determined automatically from the current value. Guards and affordability checks are applied based on the currency type.
 
-PURCHASE_TRAIT_XP_DESCRIPTION = """\
-Purchase trait dots with experience points.
-
-The XP cost is calculated based on the trait's cost configuration and deducted from the user's campaign experience points.
-
-**Note:** Only storyteller users and character owners can use this endpoint.
-"""
-
-REFUND_TRAIT_XP_DESCRIPTION = """\
-Refund trait dots and recover experience points.
-
-By downgrading the number of dots on the trait, the user is refunded the experience points spent on those trait dots. The XP is added to the user's campaign experience points.
-
-**Note:** Only storyteller users and character owners can use this endpoint.
-"""
-
-PURCHASE_STARTING_POINTS_DESCRIPTION = """\
-Purchase trait dots using starting points.
-
-Starting points are a separate pool from experience points used during character creation. The points are deducted from the user's available starting points.
-
-**Note:** Only storyteller users and character owners can use this endpoint.
-"""
-
-REFUND_STARTING_POINTS_DESCRIPTION = """\
-Refund trait dots and recover starting points.
-
-The starting points are added back to the user's available pool.
-
-**Note:** Only storyteller users and character owners can use this endpoint.
-"""
-
-GET_COST_TO_UPGRADE_DESCRIPTION = """\
-A dictionary of the cost to upgrade each dot level up to the max value. The key is number of dots to increase and the value is the cost.
-
-Returns an empty dictionary if the trait is at the max value.
-
-**Note:** This endpoint is informational only and does not modify the trait value.
-"""
-
-GET_SAVINGS_FROM_DOWNGRADE_DESCRIPTION = """\
-A dictionary of the savings from downgrading each dot level down to the min value. The key is number of dots to decrease and the value is the savings.
-
-Returns an empty dictionary if the trait is at the min value.
-
-**Note:** This endpoint is informational only and does not modify the trait value.
+**Note:** `NO_COST` requires storyteller privileges. `XP` and `STARTING_POINTS` are available to character owners and storytellers. Company settings may restrict these currencies, use the `GET /value-options` endpoint to check availability.
 """
 
 DELETE_CHARACTER_TRAIT_DESCRIPTION = """\

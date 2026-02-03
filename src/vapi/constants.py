@@ -1,6 +1,6 @@
 """Constants."""
 
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Final
 
@@ -141,6 +141,14 @@ class SpecialtyType(Enum):
     PASSIVE = "PASSIVE"
     RITUAL = "RITUAL"
     SPELL = "SPELL"
+
+
+class TraitModifyCurrency(StrEnum):
+    """Currency options for modifying trait values."""
+
+    NO_COST = "NO_COST"
+    XP = "XP"
+    STARTING_POINTS = "STARTING_POINTS"
 
 
 class UserRole(Enum):
