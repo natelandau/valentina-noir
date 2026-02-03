@@ -108,9 +108,13 @@ class UserXPService:
     """XP service."""
 
     async def _validate_user_can_grant_xp(
-        self, company: Company, requesting_user: User, target_user_id: PydanticObjectId
+        self,
+        company: Company,
+        requesting_user_id: PydanticObjectId,
+        target_user_id: PydanticObjectId,
     ) -> bool:
         """Validate if the user can grant XP."""
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
         if (
             company.settings.permission_grant_xp == PermissionsGrantXP.UNRESTRICTED
             or requesting_user.role
@@ -135,19 +139,18 @@ class UserXPService:
         self,
         *,
         company: Company,
-        requesting_user: User,
-        target_user_id: PydanticObjectId,
+        requesting_user_id: PydanticObjectId,
+        target_user: User,
         campaign_id: PydanticObjectId,
         amount: int,
     ) -> CampaignExperience:
         """Add XP to a campaign experience."""
         await self._validate_user_can_grant_xp(
             company=company,
-            requesting_user=requesting_user,
-            target_user_id=target_user_id,
+            requesting_user_id=requesting_user_id,
+            target_user_id=target_user.id,
         )
 
-        target_user = await GetModelByIdValidationService().get_user_by_id(target_user_id)
         campaign = await GetModelByIdValidationService().get_campaign_by_id(campaign_id)
         return await target_user.add_xp(campaign_id=campaign.id, amount=amount)
 
@@ -155,19 +158,18 @@ class UserXPService:
         self,
         *,
         company: Company,
-        requesting_user: User,
-        target_user_id: PydanticObjectId,
+        requesting_user_id: PydanticObjectId,
+        target_user: User,
         campaign_id: PydanticObjectId,
         amount: int,
     ) -> CampaignExperience:
         """Remove XP from campaign experience."""
         await self._validate_user_can_grant_xp(
             company=company,
-            requesting_user=requesting_user,
-            target_user_id=target_user_id,
+            requesting_user_id=requesting_user_id,
+            target_user_id=target_user.id,
         )
 
-        target_user = await GetModelByIdValidationService().get_user_by_id(target_user_id)
         campaign = await GetModelByIdValidationService().get_campaign_by_id(campaign_id)
         return await target_user.spend_xp(campaign_id=campaign.id, amount=amount)
 
@@ -175,18 +177,17 @@ class UserXPService:
         self,
         *,
         company: Company,
-        requesting_user: User,
-        target_user_id: PydanticObjectId,
+        requesting_user_id: PydanticObjectId,
+        target_user: User,
         campaign_id: PydanticObjectId,
         amount: int,
     ) -> CampaignExperience:
         """Add CP to a campaign experience."""
         await self._validate_user_can_grant_xp(
             company=company,
-            requesting_user=requesting_user,
-            target_user_id=target_user_id,
+            requesting_user_id=requesting_user_id,
+            target_user_id=target_user.id,
         )
 
-        target_user = await GetModelByIdValidationService().get_user_by_id(target_user_id)
         campaign = await GetModelByIdValidationService().get_campaign_by_id(campaign_id)
         return await target_user.add_cp(campaign_id=campaign.id, amount=amount)

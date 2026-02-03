@@ -50,8 +50,8 @@ class ExperienceAddRemove(BaseModel):
     """Experience and cool points add/remove model."""
 
     amount: Annotated[int, Field(examples=[100])]
-    user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
     campaign_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+    requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 
 class PostQuickRollDTO(PydanticDTO[QuickRoll]):
