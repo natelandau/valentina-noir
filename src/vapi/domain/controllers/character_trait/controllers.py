@@ -14,11 +14,7 @@ from vapi.db.models import Character, CharacterTrait, Company, User  # noqa: TC0
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterTraitService
-from vapi.lib.guards import (
-    developer_company_user_guard,
-    user_character_player_or_storyteller_guard,
-    user_storyteller_guard,
-)
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -121,179 +117,51 @@ class CharacterTraitController(Controller):
             data=data,
         )
 
+    @get(
+        path=urls.Characters.TRAIT_VALUE_OPTIONS,
+        summary="Get trait value options",
+        operation_id="getTraitValueOptions",
+        description=docs.GET_VALUE_OPTIONS_DESCRIPTION,
+        tags=[APITags.EXPERIENCE.name],
+    )
+    async def get_value_options(
+        self,
+        character: Character,
+        character_trait: CharacterTrait,
+    ) -> dto.TraitValueOptionsResponse:
+        """Get all possible target values with costs and affordability."""
+        service = CharacterTraitService()
+        return await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
     @put(
-        path=urls.Characters.TRAIT_INCREASE,
-        summary="Increase trait value",
-        operation_id="increaseCharacterTraitValue",
-        description=docs.INCREASE_TRAIT_VALUE_DESCRIPTION,
-        guards=[user_storyteller_guard],
+        path=urls.Characters.TRAIT_VALUE,
+        summary="Modify trait value",
+        operation_id="modifyTraitValue",
+        description=docs.MODIFY_VALUE_DESCRIPTION,
+        tags=[APITags.EXPERIENCE.name],
         after_response=hooks.audit_log_and_delete_api_key_cache,
     )
-    async def increase_character_trait_value(
+    async def modify_value(
         self,
         company: Company,
         user: User,
         character: Character,
         character_trait: CharacterTrait,
-        data: dto.TraitValueDTO,
+        data: dto.TraitModifyRequest,
     ) -> CharacterTrait:
-        """Increase a character trait value."""
+        """Modify a character trait to a target value."""
         service = CharacterTraitService()
-        return await service.increase_character_trait_value(
+        return await service.modify_trait_value(
             company=company,
             user=user,
             character=character,
             character_trait=character_trait,
-            num_dots=data.num_dots,
+            target_value=data.target_value,
+            currency=data.currency,
         )
-
-    @put(
-        path=urls.Characters.TRAIT_DECREASE,
-        summary="Decrease trait value",
-        operation_id="decreaseCharacterTraitValue",
-        description=docs.DECREASE_TRAIT_VALUE_DESCRIPTION,
-        guards=[user_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def decrease_character_trait_value(
-        self,
-        company: Company,
-        user: User,
-        character: Character,
-        character_trait: CharacterTrait,
-        data: dto.TraitValueDTO,
-    ) -> CharacterTrait:
-        """Decrease a character trait value."""
-        service = CharacterTraitService()
-        return await service.decrease_character_trait_value(
-            company=company,
-            user=user,
-            character=character,
-            character_trait=character_trait,
-            num_dots=data.num_dots,
-        )
-
-    @put(
-        path=urls.Characters.TRAIT_XP_PURCHASE,
-        summary="Increase trait value with xp",
-        operation_id="purchaseCharacterTraitXp",
-        description=docs.PURCHASE_TRAIT_XP_DESCRIPTION,
-        tags=[APITags.EXPERIENCE.name],
-        guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def purchase_character_trait_xp(
-        self,
-        user: User,
-        character: Character,
-        character_trait: CharacterTrait,
-        data: dto.TraitValueDTO,
-    ) -> CharacterTrait:
-        """Purchase a character trait value with xp."""
-        service = CharacterTraitService()
-        return await service.purchase_trait_value_with_xp(
-            user=user,
-            character=character,
-            character_trait=character_trait,
-            num_dots=data.num_dots,
-        )
-
-    @put(
-        path=urls.Characters.TRAIT_XP_REFUND,
-        summary="Decrease trait value with xp",
-        operation_id="refundCharacterTraitXp",
-        description=docs.REFUND_TRAIT_XP_DESCRIPTION,
-        tags=[APITags.EXPERIENCE.name],
-        guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def refund_character_trait_xp(
-        self,
-        user: User,
-        character: Character,
-        character_trait: CharacterTrait,
-        data: dto.TraitValueDTO,
-    ) -> CharacterTrait:
-        """Decrease a character trait value."""
-        service = CharacterTraitService()
-        return await service.refund_trait_value_with_xp(
-            user=user,
-            character=character,
-            character_trait=character_trait,
-            num_dots=data.num_dots,
-        )
-
-    @put(
-        path=urls.Characters.TRAIT_STARTINGPOINTS_PURCHASE,
-        summary="Purchase starting points",
-        operation_id="purchaseCharacterTraitStartingPoints",
-        description=docs.PURCHASE_STARTING_POINTS_DESCRIPTION,
-        tags=[APITags.EXPERIENCE.name],
-        guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def purchase_character_trait_starting_points(
-        self,
-        user: User,
-        character: Character,
-        character_trait: CharacterTrait,
-        data: dto.TraitValueDTO,
-    ) -> CharacterTrait:
-        """Purchase starting points."""
-        service = CharacterTraitService()
-        return await service.purchase_trait_increase_with_starting_points(
-            user=user,
-            character=character,
-            character_trait=character_trait,
-            num_dots=data.num_dots,
-        )
-
-    @put(
-        path=urls.Characters.TRAIT_STARTINGPOINTS_REFUND,
-        summary="Refund starting points",
-        operation_id="refundCharacterTraitStartingPoints",
-        description=docs.REFUND_STARTING_POINTS_DESCRIPTION,
-        tags=[APITags.EXPERIENCE.name],
-        guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
-    )
-    async def refund_character_trait_starting_points(
-        self,
-        user: User,
-        character: Character,
-        character_trait: CharacterTrait,
-        data: dto.TraitValueDTO,
-    ) -> CharacterTrait:
-        """Refund starting points."""
-        service = CharacterTraitService()
-        return await service.refund_trait_decrease_with_starting_points(
-            user=user,
-            character=character,
-            character_trait=character_trait,
-            num_dots=data.num_dots,
-        )
-
-    @get(
-        path=urls.Characters.TRAIT_COST_TO_UPGRADE,
-        summary="Get cost to upgrade",
-        operation_id="getCostToUpgrade",
-        description=docs.GET_COST_TO_UPGRADE_DESCRIPTION,
-    )
-    async def get_cost_to_upgrade(self, character_trait: CharacterTrait) -> dict[str, int]:
-        """Get cost to upgrade."""
-        service = CharacterTraitService()
-        return await service.calculate_all_upgrade_costs(character_trait)
-
-    @get(
-        path=urls.Characters.TRAIT_SAVINGS_FROM_DOWNGRADE,
-        summary="Get savings from downgrade",
-        operation_id="getSavingsFromDowngrade",
-        description=docs.GET_SAVINGS_FROM_DOWNGRADE_DESCRIPTION,
-    )
-    async def get_points_from_downgrade(self, character_trait: CharacterTrait) -> dict[str, int]:
-        """Get savings from downgrade."""
-        service = CharacterTraitService()
-        return await service.calculate_all_downgrade_savings(character_trait)
 
     @delete(
         path=urls.Characters.TRAIT_DELETE,

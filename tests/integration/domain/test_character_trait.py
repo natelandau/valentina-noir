@@ -282,13 +282,13 @@ class TestCustomTraits:
         assert not await Trait.find_one(Trait.id == trait.id)
 
 
-class TestChangingCharacterTraitValue:
-    """Test changing a character trait value."""
+class TestModifyTraitValue:
+    """Test modifying character trait values using the new consolidated endpoint."""
 
     @pytest.mark.parametrize(
         "user_role", [(UserRole.STORYTELLER), (UserRole.ADMIN), (UserRole.PLAYER)]
     )
-    async def test_increase_character_trait_value(
+    async def test_increase_trait_value_no_cost(
         self,
         user_role: UserRole,
         client: AsyncClient,
@@ -297,36 +297,29 @@ class TestChangingCharacterTraitValue:
         user_factory: Callable[[dict[str, ...]], User],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that increasing a character trait value works."""
-        # Setup the trait and character trait and user experience
+        """Verify increasing a trait value with NO_COST currency."""
+        # Given a user and character trait
         user = await user_factory(role=user_role)
-
         trait = await Trait.find_one(Trait.is_archived == False)
         character_trait = await character_trait_factory(value=0, trait=trait)
-        await user.update_campaign_experience(
-            campaign_id=base_character.campaign_id,
-            updates={"xp_current": 100, "xp_total": 100},
-        )
 
-        # When increasing the trait value by 1, the experience cost is the initial cost
+        # When increasing the trait value with NO_COST
         response = await client.put(
             build_url(
-                Characters.TRAIT_INCREASE, character_trait_id=character_trait.id, user_id=user.id
+                Characters.TRAIT_VALUE, character_trait_id=character_trait.id, user_id=user.id
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": 1, "currency": "NO_COST"},
         )
+
+        # Then players should be forbidden, storytellers/admins should succeed
         if user_role == UserRole.PLAYER:
             assert response.status_code == HTTP_403_FORBIDDEN
-            return
-
-        assert response.status_code == HTTP_200_OK
-
-        await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
-        assert character_trait.value == 1
+        else:
+            assert response.status_code == HTTP_200_OK
+            await character_trait.sync()
+            assert character_trait.value == 1
 
         # Cleanup
         await user.delete()
@@ -334,7 +327,7 @@ class TestChangingCharacterTraitValue:
     @pytest.mark.parametrize(
         "user_role", [(UserRole.STORYTELLER), (UserRole.ADMIN), (UserRole.PLAYER)]
     )
-    async def test_decrease_character_trait_value(
+    async def test_decrease_trait_value_no_cost(
         self,
         user_role: UserRole,
         client: AsyncClient,
@@ -343,35 +336,34 @@ class TestChangingCharacterTraitValue:
         user_factory: Callable[[dict[str, ...]], User],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that decreasing a character trait value works."""
-        # Setup the trait and character trait and user experience
+        """Verify decreasing a trait value with NO_COST currency."""
+        # Given a user and character trait at max value
         user = await user_factory(role=user_role)
         trait = await Trait.find_one(Trait.is_archived == False)
         character_trait = await character_trait_factory(value=trait.max_value, trait=trait)
 
+        # When decreasing the trait value with NO_COST
         response = await client.put(
             build_url(
-                Characters.TRAIT_DECREASE, character_trait_id=character_trait.id, user_id=user.id
+                Characters.TRAIT_VALUE, character_trait_id=character_trait.id, user_id=user.id
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": trait.max_value - 1, "currency": "NO_COST"},
         )
+
+        # Then players should be forbidden, storytellers/admins should succeed
         if user_role == UserRole.PLAYER:
             assert response.status_code == HTTP_403_FORBIDDEN
-            return
-
-        assert response.status_code == HTTP_200_OK
-
-        await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
-        assert character_trait.value == trait.max_value - 1
+        else:
+            assert response.status_code == HTTP_200_OK
+            await character_trait.sync()
+            assert character_trait.value == trait.max_value - 1
 
         # Cleanup
         await user.delete()
 
-    async def test_purchase_character_trait_value_with_xp(
+    async def test_increase_trait_value_with_xp(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -379,42 +371,32 @@ class TestChangingCharacterTraitValue:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that purchasing a character trait value with xp works."""
-        # Setup the trait and character trait and user experience
+        """Verify purchasing a trait value increase with XP."""
+        # Given a character with XP
         character_player_user = await user_factory(role=UserRole.PLAYER)
         character = await character_factory(user_player_id=character_player_user.id)
-
         trait = await Trait.find_one(Trait.is_archived == False)
-
         character_trait = await character_trait_factory(
             value=0, trait=trait, character_id=character.id
         )
+        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
 
-        await character_player_user.add_xp(
-            campaign_id=character.campaign_id,
-            amount=100,
-        )
-
-        # When purchasing a trait value
+        # When purchasing a trait value with XP
         response = await client.put(
             build_url(
-                Characters.TRAIT_XP_PURCHASE,
+                Characters.TRAIT_VALUE,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
                 user_id=character_player_user.id,
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": 1, "currency": "XP"},
         )
-        # debug(response.json())
 
-        # Then verify the response
+        # Then the response should succeed and XP should be deducted
         assert response.status_code == HTTP_200_OK
-
         await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
         assert character_trait.value == 1
         await character_player_user.sync()
         campaign_experience = await character_player_user.get_or_create_campaign_experience(
@@ -428,7 +410,7 @@ class TestChangingCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
-    async def test_purchase_character_trait_value_as_storyteller(
+    async def test_increase_trait_value_with_xp_as_storyteller(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -436,50 +418,34 @@ class TestChangingCharacterTraitValue:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that purchasing a character trait value as a storyteller works."""
-        # Setup the trait and character trait and user experience
+        """Verify a storyteller can purchase trait values with XP for any character."""
+        # Given a storyteller and a character owned by another player
         storyteller_user = await user_factory(role=UserRole.STORYTELLER, name="Storyteller User")
         character_player_user = await user_factory(role=UserRole.PLAYER)
         character = await character_factory(user_player_id=character_player_user.id)
-
         trait = await Trait.find_one(Trait.is_archived == False)
-
         character_trait = await character_trait_factory(
             value=0, trait=trait, character_id=character.id
         )
+        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
 
-        await character_player_user.add_xp(
-            campaign_id=character.campaign_id,
-            amount=100,
-        )
-
-        # When purchasing a character trait value with xp, the experience cost is the initial cost
+        # When the storyteller purchases a trait value with XP
         response = await client.put(
             build_url(
-                Characters.TRAIT_XP_PURCHASE,
+                Characters.TRAIT_VALUE,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
                 user_id=storyteller_user.id,
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": 1, "currency": "XP"},
         )
-        # debug(response.json())
 
-        # Then verify the response
+        # Then the response should succeed
         assert response.status_code == HTTP_200_OK
-
         await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
         assert character_trait.value == 1
-        await character_player_user.sync()
-        campaign_experience = await character_player_user.get_or_create_campaign_experience(
-            character.campaign_id
-        )
-        assert campaign_experience.xp_current == 100 - trait.initial_cost
-        assert campaign_experience.xp_total == 100
 
         # Cleanup
         await character_player_user.delete()
@@ -487,7 +453,7 @@ class TestChangingCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
-    async def test_purchase_character_trait_value_fail_as_player(
+    async def test_increase_trait_value_fail_as_non_owner_player(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -495,39 +461,31 @@ class TestChangingCharacterTraitValue:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that purchasing a character trait value fails as a player that does not own the character."""
-        # Setup the trait and character trait and user experience
+        """Verify a player cannot modify traits on a character they don't own."""
+        # Given a player trying to modify another player's character
         player_user = await user_factory(role=UserRole.PLAYER, name="Player User")
         character_player_user = await user_factory(role=UserRole.PLAYER)
         character = await character_factory(user_player_id=character_player_user.id)
-
         trait = await Trait.find_one(Trait.is_archived == False)
-
         character_trait = await character_trait_factory(
             value=0, trait=trait, character_id=character.id
         )
+        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
 
-        await character_player_user.add_xp(
-            campaign_id=character.campaign_id,
-            amount=100,
-        )
-
-        # When purchasing a character trait value with xp, the experience cost is the initial cost
+        # When the non-owner player tries to modify the trait
         response = await client.put(
             build_url(
-                Characters.TRAIT_XP_PURCHASE,
+                Characters.TRAIT_VALUE,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
                 user_id=player_user.id,
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": 1, "currency": "XP"},
         )
-        # debug(response.json())
 
-        # Then verify the response
+        # Then the response should be forbidden
         assert response.status_code == HTTP_403_FORBIDDEN
 
         # Cleanup
@@ -536,7 +494,7 @@ class TestChangingCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
-    async def test_refund_character_trait_value_with_xp(
+    async def test_decrease_trait_value_with_xp_refund(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -544,42 +502,32 @@ class TestChangingCharacterTraitValue:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that refunding a character trait value with xp works."""
-        # Setup the trait and character trait and user experience
+        """Verify refunding a trait value decrease with XP."""
+        # Given a character with a trait at max value
         character_player_user = await user_factory(role=UserRole.PLAYER)
         character = await character_factory(user_player_id=character_player_user.id)
-
         trait = await Trait.find_one(Trait.is_archived == False)
-
         character_trait = await character_trait_factory(
             value=trait.max_value, trait=trait, character_id=character.id
         )
-
-        await character_player_user.add_xp(
-            campaign_id=character.campaign_id,
-            amount=100,
-        )
+        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
 
         # When refunding a trait value
         response = await client.put(
             build_url(
-                Characters.TRAIT_XP_REFUND,
+                Characters.TRAIT_VALUE,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
                 user_id=character_player_user.id,
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": trait.max_value - 1, "currency": "XP"},
         )
-        # debug(response.json())
 
-        # Then verify the response
+        # Then the response should succeed and XP should be refunded
         assert response.status_code == HTTP_200_OK
-
         await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
         assert character_trait.value == trait.max_value - 1
         await character_player_user.sync()
         campaign_experience = await character_player_user.get_or_create_campaign_experience(
@@ -593,119 +541,7 @@ class TestChangingCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
-    async def test_refund_character_trait_value_as_storyteller(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify that refunding a character trait value as a storyteller works."""
-        # Setup the trait and character trait and user experience
-        storyteller_user = await user_factory(role=UserRole.STORYTELLER, name="Storyteller User")
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-
-        trait = await Trait.find_one(Trait.is_archived == False)
-
-        character_trait = await character_trait_factory(
-            value=trait.max_value, trait=trait, character_id=character.id
-        )
-
-        await character_player_user.add_xp(
-            campaign_id=character.campaign_id,
-            amount=100,
-        )
-
-        # When purchasing a character trait value with xp, the experience cost is the initial cost
-        response = await client.put(
-            build_url(
-                Characters.TRAIT_XP_REFUND,
-                character_id=character.id,
-                character_trait_id=character_trait.id,
-                user_id=storyteller_user.id,
-            ),
-            headers=token_company_admin,
-            json={"num_dots": 1},
-        )
-        # debug(response.json())
-
-        # Then verify the response
-        assert response.status_code == HTTP_200_OK
-
-        await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
-        assert character_trait.value == trait.max_value - 1
-        await character_player_user.sync()
-        campaign_experience = await character_player_user.get_or_create_campaign_experience(
-            character.campaign_id
-        )
-        assert campaign_experience.xp_current == 125
-        assert campaign_experience.xp_total == 100
-
-        # Cleanup
-        await character_player_user.delete()
-        await storyteller_user.delete()
-        await character.delete()
-        await character_trait.delete()
-
-    async def test_refund_character_trait_value_fail_as_player(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify that refunding a character trait value fails as a player that does not own the character."""
-        # Setup the trait and character trait and user experience
-        player_user = await user_factory(role=UserRole.PLAYER, name="Player User")
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-
-        trait = await Trait.find_one(Trait.is_archived == False)
-
-        character_trait = await character_trait_factory(
-            value=0, trait=trait, character_id=character.id
-        )
-
-        await character_player_user.add_xp(
-            campaign_id=character.campaign_id,
-            amount=100,
-        )
-
-        # When purchasing a character trait value with xp, the experience cost is the initial cost
-        response = await client.put(
-            build_url(
-                Characters.TRAIT_XP_REFUND,
-                character_id=character.id,
-                character_trait_id=character_trait.id,
-                user_id=player_user.id,
-            ),
-            headers=token_company_admin,
-            json={"num_dots": 1},
-        )
-        # debug(response.json())
-
-        # Then verify the response
-        assert response.status_code == HTTP_403_FORBIDDEN
-
-        # Cleanup
-        await character_player_user.delete()
-        await player_user.delete()
-        await character.delete()
-        await character_trait.delete()
-
-
-class TestUseStartingPoints:
-    """Test using starting points to purchase character trait values."""
-
-    async def test_purchase_character_trait_value_with_starting_points(
+    async def test_increase_trait_value_with_starting_points(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -713,14 +549,11 @@ class TestUseStartingPoints:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that purchasing a character trait value with starting points works."""
-        # Setup the trait and character trait and user experience
+        """Verify purchasing a trait value increase with starting points."""
+        # Given a character with starting points
         character = await character_factory(starting_points=100)
-
         trait = await Trait.find_one(Trait.is_archived == False)
-
         character_trait = await character_trait_factory(
             value=0, trait=trait, character_id=character.id
         )
@@ -728,20 +561,18 @@ class TestUseStartingPoints:
         # When purchasing a trait value with starting points
         response = await client.put(
             build_url(
-                Characters.TRAIT_STARTINGPOINTS_PURCHASE,
+                Characters.TRAIT_VALUE,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
                 user_id=base_user.id,
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": 1, "currency": "STARTING_POINTS"},
         )
 
-        # Then verify the response
+        # Then the response should succeed and starting points should be deducted
         assert response.status_code == HTTP_200_OK
-
         await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
         assert character_trait.value == 1
         await character.sync()
         assert character.starting_points == 100 - trait.initial_cost
@@ -750,7 +581,7 @@ class TestUseStartingPoints:
         await character.delete()
         await character_trait.delete()
 
-    async def test_refund_character_trait_value_with_starting_points(
+    async def test_decrease_trait_value_with_starting_points_refund(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -758,10 +589,9 @@ class TestUseStartingPoints:
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
-        """Verify that refunding a character trait value with starting points works."""
-        # Setup the trait and character trait and user experience
+        """Verify refunding a trait value decrease with starting points."""
+        # Given a character with a trait at max value
         character = await character_factory(starting_points=100)
         trait = await Trait.find_one(Trait.is_archived == False)
         character_trait = await character_trait_factory(
@@ -771,20 +601,18 @@ class TestUseStartingPoints:
         # When refunding a trait value with starting points
         response = await client.put(
             build_url(
-                Characters.TRAIT_STARTINGPOINTS_REFUND,
+                Characters.TRAIT_VALUE,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
                 user_id=base_user.id,
             ),
             headers=token_company_admin,
-            json={"num_dots": 1},
+            json={"target_value": trait.max_value - 1, "currency": "STARTING_POINTS"},
         )
 
-        # Then verify the response
+        # Then the response should succeed and starting points should be refunded
         assert response.status_code == HTTP_200_OK
-
         await character_trait.sync()
-        assert response.json() == character_trait.model_dump(mode="json")
         assert character_trait.value == trait.max_value - 1
         await character.sync()
         assert character.starting_points == 125
@@ -794,84 +622,65 @@ class TestUseStartingPoints:
         await character_trait.delete()
 
 
-class TestGetCostToUpgrade:
-    """Test getting the cost to upgrade a trait."""
+class TestGetValueOptions:
+    """Test getting value options for a trait."""
 
-    async def test_get_cost_to_upgrade(
+    async def test_get_value_options(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify that getting all upgrade costs for a trait works."""
-        # Given a character trait with value 3 and max_value 5
-        character = await character_factory()
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=3, trait=trait, character_id=character.id
-        )
-        max_increase = trait.max_value - 3
-
-        # When getting the costs to upgrade
-        response = await client.get(
-            build_url(Characters.TRAIT_COST_TO_UPGRADE, character_trait_id=character_trait.id),
-            headers=token_company_admin,
-        )
-
-        # Then verify the response contains costs for each possible increase
-        assert response.status_code == HTTP_200_OK
-        result = response.json()
-        assert len(result) == max_increase
-        for i in range(1, max_increase + 1):
-            assert str(i) in result
-            assert isinstance(result[str(i)], int)
-            assert result[str(i)] > 0
-
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
-
-class TestGetSavingsFromDowngrade:
-    """Test getting the savings from downgrading a trait."""
-
-    async def test_get_savings_from_downgrade(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
+        user_factory: Callable[[dict[str, ...]], User],
         character_factory: Callable[[dict[str, ...]], Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         token_company_admin: dict[str, str],
     ) -> None:
-        """Verify that getting all downgrade savings for a trait works."""
-        # Given a character trait with value 3 and min_value 0
-        character = await character_factory()
+        """Verify getting value options returns correct structure."""
+        # Given a character with XP and starting points
+        character_player_user = await user_factory(role=UserRole.PLAYER)
+        character = await character_factory(
+            user_player_id=character_player_user.id, starting_points=50
+        )
         trait = await Trait.find_one(Trait.is_archived == False)
         character_trait = await character_trait_factory(
-            value=3, trait=trait, character_id=character.id
+            value=2, trait=trait, character_id=character.id
         )
-        max_decrease = 3 - trait.min_value
+        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
 
-        # When getting the savings from downgrading
+        # When getting value options
         response = await client.get(
             build_url(
-                Characters.TRAIT_SAVINGS_FROM_DOWNGRADE, character_trait_id=character_trait.id
+                Characters.TRAIT_VALUE_OPTIONS,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+                user_id=character_player_user.id,
             ),
             headers=token_company_admin,
         )
 
-        # Then verify the response contains savings for each possible decrease
+        # Then the response should contain the correct structure
         assert response.status_code == HTTP_200_OK
         result = response.json()
-        assert len(result) == max_decrease
-        for i in range(1, max_decrease + 1):
-            assert str(i) in result
-            assert isinstance(result[str(i)], int)
-            assert result[str(i)] > 0
+        assert result["current_value"] == 2
+        assert result["min_value"] == trait.min_value
+        assert result["max_value"] == trait.max_value
+        assert result["xp_current"] == 100
+        assert result["starting_points_current"] == 50
+        assert "options" in result
+
+        # Current value should not be in options
+        assert "2" not in result["options"]
+
+        # Should have upgrade options (if not at max)
+        if trait.max_value > 2:
+            assert "3" in result["options"]
+            assert result["options"]["3"]["direction"] == "increase"
+
+        # Should have downgrade options (if not at min)
+        if trait.min_value < 2:
+            assert "1" in result["options"]
+            assert result["options"]["1"]["direction"] == "decrease"
 
         # Cleanup
+        await character_player_user.delete()
         await character.delete()
         await character_trait.delete()

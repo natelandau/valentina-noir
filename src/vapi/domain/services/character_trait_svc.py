@@ -8,8 +8,18 @@ from typing import TYPE_CHECKING, assert_never
 from beanie.operators import In
 from pydantic import ValidationError as PydanticValidationError
 
-from vapi.constants import CharacterClass, PermissionsFreeTraitChanges, UserRole
+from vapi.constants import (
+    CharacterClass,
+    PermissionsFreeTraitChanges,
+    TraitModifyCurrency,
+    UserRole,
+)
 from vapi.db.models import Character, CharacterTrait, Trait
+from vapi.domain.controllers.character_trait.dto import (
+    CharacterTraitCreateCustomDTO,
+    TraitValueOptionDetail,
+    TraitValueOptionsResponse,
+)
 from vapi.lib.exceptions import ConflictError, PermissionDeniedError, ValidationError
 from vapi.utils.time import time_now
 from vapi.utils.validation import raise_from_pydantic_validation_error
@@ -20,7 +30,6 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
     from vapi.db.models import Company, User
-    from vapi.domain.controllers.character_trait.dto import CharacterTraitCreateCustomDTO
 
 
 class CharacterTraitService:
@@ -637,3 +646,156 @@ class CharacterTraitService:
             .to_list()
         )
         return count, traits
+
+    async def get_value_options(
+        self,
+        *,
+        character: Character,
+        character_trait: CharacterTrait,
+    ) -> TraitValueOptionsResponse:
+        """Get all possible target values for a trait with costs and affordability.
+
+        Args:
+            character: The character owning the trait.
+            character_trait: The trait to get options for.
+
+        Returns:
+            A TraitValueOptionsResponse containing current value, min/max bounds, current XP and starting points, and options for each possible target value.
+        """
+        await character_trait.fetch_all_links()
+
+        target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
+        campaign_experience = await target_user.get_or_create_campaign_experience(
+            character.campaign_id
+        )
+
+        current_value = character_trait.value
+        min_value = character_trait.trait.min_value  # type: ignore [attr-defined]
+        max_value = character_trait.trait.max_value  # type: ignore [attr-defined]
+        xp_current = campaign_experience.xp_current
+        starting_points_current = character.starting_points
+
+        upgrade_costs = await self.calculate_all_upgrade_costs(character_trait)
+        downgrade_savings = await self.calculate_all_downgrade_savings(character_trait)
+
+        options: dict[str, TraitValueOptionDetail] = {}
+
+        for num_dots_str, cost in upgrade_costs.items():
+            num_dots = int(num_dots_str)
+            target_value = current_value + num_dots
+            xp_after = xp_current - cost
+            starting_points_after = starting_points_current - cost
+
+            options[str(target_value)] = TraitValueOptionDetail(
+                direction="increase",
+                point_change=cost,
+                can_use_xp=xp_after >= 0,
+                xp_after=xp_after,
+                can_use_starting_points=starting_points_after >= 0,
+                starting_points_after=starting_points_after,
+            )
+
+        for num_dots_str, savings in downgrade_savings.items():
+            num_dots = int(num_dots_str)
+            target_value = current_value - num_dots
+            xp_after = xp_current + savings
+            starting_points_after = starting_points_current + savings
+
+            options[str(target_value)] = TraitValueOptionDetail(
+                direction="decrease",
+                point_change=savings,
+                can_use_xp=True,
+                xp_after=xp_after,
+                can_use_starting_points=True,
+                starting_points_after=starting_points_after,
+            )
+
+        return TraitValueOptionsResponse(
+            current_value=current_value,
+            min_value=min_value,
+            max_value=max_value,
+            xp_current=xp_current,
+            starting_points_current=starting_points_current,
+            options=options,
+        )
+
+    async def modify_trait_value(  # noqa: PLR0911
+        self,
+        *,
+        company: Company,
+        user: User,
+        character: Character,
+        character_trait: CharacterTrait,
+        target_value: int,
+        currency: TraitModifyCurrency,
+    ) -> CharacterTrait:
+        """Modify a trait to a target value using the specified currency.
+
+        Args:
+            company: The company to check permissions for.
+            user: The user making the modification.
+            character: The character owning the trait.
+            character_trait: The trait to modify.
+            target_value: The desired target value for the trait.
+            currency: The currency to use (NO_COST, XP, or STARTING_POINTS).
+
+        Returns:
+            The updated CharacterTrait.
+
+        Raises:
+            ValidationError: If the target value is invalid or unaffordable.
+            PermissionDeniedError: If the user lacks required permissions.
+        """
+        await character_trait.fetch_all_links()
+        current_value = character_trait.value
+        num_dots = abs(target_value - current_value)
+
+        if num_dots == 0:
+            return character_trait
+
+        is_increase = target_value > current_value
+
+        if is_increase:
+            if currency == TraitModifyCurrency.NO_COST:
+                return await self.increase_character_trait_value(
+                    company=company,
+                    user=user,
+                    character=character,
+                    character_trait=character_trait,
+                    num_dots=num_dots,
+                )
+            if currency == TraitModifyCurrency.XP:
+                return await self.purchase_trait_value_with_xp(
+                    user=user,
+                    character=character,
+                    character_trait=character_trait,
+                    num_dots=num_dots,
+                )
+            return await self.purchase_trait_increase_with_starting_points(
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=num_dots,
+            )
+
+        if currency == TraitModifyCurrency.NO_COST:
+            return await self.decrease_character_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=num_dots,
+            )
+        if currency == TraitModifyCurrency.XP:
+            return await self.refund_trait_value_with_xp(
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=num_dots,
+            )
+        return await self.refund_trait_decrease_with_starting_points(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=num_dots,
+        )

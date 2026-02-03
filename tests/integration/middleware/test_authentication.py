@@ -73,8 +73,7 @@ test_data = {
         vapi_urls.Users.CP_ADD,
     ],
     "PUT": [
-        vapi_urls.Characters.TRAIT_INCREASE,
-        vapi_urls.Characters.TRAIT_DECREASE,
+        vapi_urls.Characters.TRAIT_VALUE,
     ],
     "PATCH": [
         vapi_urls.Dictionaries.UPDATE,

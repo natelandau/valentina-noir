@@ -189,14 +189,8 @@ class Characters:
     TRAIT_UPDATE = TRAIT_DETAIL
     TRAIT_ASSIGN = f"{TRAITS}/assign"
     TRAIT_CREATE = f"{TRAITS}/create"
-    TRAIT_INCREASE = f"{TRAIT_DETAIL}/increase"
-    TRAIT_DECREASE = f"{TRAIT_DETAIL}/decrease"
-    TRAIT_XP_PURCHASE = f"{TRAIT_DETAIL}/xp/purchase"
-    TRAIT_XP_REFUND = f"{TRAIT_DETAIL}/xp/refund"
-    TRAIT_STARTINGPOINTS_PURCHASE = f"{TRAIT_DETAIL}/startingpoints/purchase"
-    TRAIT_STARTINGPOINTS_REFUND = f"{TRAIT_DETAIL}/startingpoints/refund"
-    TRAIT_COST_TO_UPGRADE = f"{TRAIT_DETAIL}/cost"
-    TRAIT_SAVINGS_FROM_DOWNGRADE = f"{TRAIT_DETAIL}/savings"
+    TRAIT_VALUE_OPTIONS = f"{TRAIT_DETAIL}/value-options"
+    TRAIT_VALUE = f"{TRAIT_DETAIL}/value"
 
     # Character inventory
     INVENTORY = f"{DETAIL}/inventory"

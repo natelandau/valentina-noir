@@ -1423,3 +1423,441 @@ class TestChangeCharacterTraitValue:
 
         # Cleanup
         await character_trait.delete()
+
+
+class TestGetValueOptions:
+    """Test the get_value_options method."""
+
+    async def test_get_value_options_returns_correct_structure(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify get_value_options returns correct response structure."""
+        # Given a character with XP and starting points
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 50)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            starting_points=10,
+        )
+
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=trait, value=2
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then the response should have the correct structure
+        assert result.current_value == 2
+        assert result.min_value == 0
+        assert result.max_value == 5
+        assert result.xp_current == 50
+        assert result.starting_points_current == 10
+
+        # Should have options for values 0, 1, 3, 4, 5 (not 2, which is current)
+        assert "2" not in result.options
+        assert "0" in result.options
+        assert "1" in result.options
+        assert "3" in result.options
+        assert "4" in result.options
+        assert "5" in result.options
+
+        # Decrease options should have direction "decrease"
+        assert result.options["0"].direction == "decrease"
+        assert result.options["1"].direction == "decrease"
+
+        # Increase options should have direction "increase"
+        assert result.options["3"].direction == "increase"
+        assert result.options["4"].direction == "increase"
+        assert result.options["5"].direction == "increase"
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_get_value_options_affordability_calculations(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify affordability is correctly calculated for XP and starting points."""
+        # Given a character with limited resources
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 10)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            starting_points=5,
+        )
+
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=trait, value=2
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then affordability should be correctly calculated
+        # Cost to go from 2 to 3: 3 * 2 = 6 (affordable with 10 XP, but not 5 SP)
+        assert result.options["3"].can_use_xp is True
+        assert result.options["3"].xp_after == 4
+        assert result.options["3"].can_use_starting_points is False
+        assert result.options["3"].starting_points_after == -1
+
+        # Downgrades should always be affordable (they refund points)
+        assert result.options["1"].can_use_xp is True
+        assert result.options["1"].can_use_starting_points is True
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_get_value_options_at_max_value(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify no upgrade options when trait is at max value."""
+        # Given a trait at max value
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+        )
+
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=trait, value=5
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then there should be no increase options, only decrease
+        for option in result.options.values():
+            assert option.direction == "decrease"
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_get_value_options_at_min_value(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify no downgrade options when trait is at min value."""
+        # Given a trait at min value
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+        )
+
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=trait, value=0
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then there should be no decrease options, only increase
+        for option in result.options.values():
+            assert option.direction == "increase"
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+
+class TestModifyTraitValue:
+    """Test the modify_trait_value method."""
+
+    async def test_modify_trait_value_no_change(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify no change when target equals current value."""
+        # Given a character with a trait
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+
+        # When we modify to the same value
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=3,
+            currency="NO_COST",
+        )
+
+        # Then the trait value should remain unchanged
+        assert result.value == 3
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_modify_trait_value_increase_no_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify increase with NO_COST calls increase_character_trait_value."""
+        # Given a character with a trait
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=2, character_id=character.id)
+        spy_increase = mocker.spy(CharacterTraitService, "increase_character_trait_value")
+
+        # When we increase with NO_COST
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=4,
+            currency="NO_COST",
+        )
+
+        # Then increase_character_trait_value should be called
+        spy_increase.assert_called_once()
+        assert result.value == 4
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_modify_trait_value_decrease_no_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify decrease with NO_COST calls decrease_character_trait_value."""
+        # Given a character with a trait
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=4, character_id=character.id)
+        spy_decrease = mocker.spy(CharacterTraitService, "decrease_character_trait_value")
+
+        # When we decrease with NO_COST
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=2,
+            currency="NO_COST",
+        )
+
+        # Then decrease_character_trait_value should be called
+        spy_decrease.assert_called_once()
+        assert result.value == 2
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_modify_trait_value_increase_with_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+        mocker: Any,
+    ) -> None:
+        """Verify increase with XP calls purchase_trait_value_with_xp."""
+        # Given a character with XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        target_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+        )
+        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        spy_purchase = mocker.spy(CharacterTraitService, "purchase_trait_value_with_xp")
+
+        # When we increase with XP
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=target_user,
+            character=character,
+            character_trait=character_trait,
+            target_value=2,
+            currency="XP",
+        )
+
+        # Then purchase_trait_value_with_xp should be called
+        spy_purchase.assert_called_once()
+        assert result.value == 2
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_modify_trait_value_decrease_with_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+        mocker: Any,
+    ) -> None:
+        """Verify decrease with XP calls refund_trait_value_with_xp."""
+        # Given a character
+        company = await company_factory()
+        campaign = await campaign_factory()
+        target_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+        )
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        spy_refund = mocker.spy(CharacterTraitService, "refund_trait_value_with_xp")
+
+        # When we decrease with XP
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=target_user,
+            character=character,
+            character_trait=character_trait,
+            target_value=1,
+            currency="XP",
+        )
+
+        # Then refund_trait_value_with_xp should be called
+        spy_refund.assert_called_once()
+        assert result.value == 1
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_modify_trait_value_increase_with_starting_points(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify increase with STARTING_POINTS calls purchase_trait_increase_with_starting_points."""
+        # Given a character with starting points
+        company, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+
+        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        spy_purchase = mocker.spy(
+            CharacterTraitService, "purchase_trait_increase_with_starting_points"
+        )
+
+        # When we increase with STARTING_POINTS
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=2,
+            currency="STARTING_POINTS",
+        )
+
+        # Then purchase_trait_increase_with_starting_points should be called
+        spy_purchase.assert_called_once()
+        assert result.value == 2
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_modify_trait_value_decrease_with_starting_points(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify decrease with STARTING_POINTS calls refund_trait_decrease_with_starting_points."""
+        # Given a character
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        spy_refund = mocker.spy(CharacterTraitService, "refund_trait_decrease_with_starting_points")
+
+        # When we decrease with STARTING_POINTS
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=1,
+            currency="STARTING_POINTS",
+        )
+
+        # Then refund_trait_decrease_with_starting_points should be called
+        spy_refund.assert_called_once()
+        assert result.value == 1
+
+        # Cleanup
+        await character_trait.delete()

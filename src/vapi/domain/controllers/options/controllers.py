@@ -24,6 +24,7 @@ from vapi.constants import (
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     RollResultType,
+    TraitModifyCurrency,
     UserRole,
     WerewolfRenown,
 )
@@ -82,6 +83,7 @@ class OptionsController(Controller):
                 "GameVersion": [x.name for x in GameVersion],
                 "HunterEdgeType": [x.name for x in HunterEdgeType],
                 "InventoryItemType": [x.name for x in InventoryItemType],
+                "TraitModifyCurrency": [x.name for x in TraitModifyCurrency],
                 "WerewolfRenown": [x.name for x in WerewolfRenown],
                 "_related": {
                     "concepts": _build_url(urls.CharacterBlueprints.CONCEPTS),
