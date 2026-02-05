@@ -297,7 +297,7 @@ class LitestarJsonFormatter(JsonFormatter):
         cleaned = re.sub(r"\s+", " ", cleaned)
         cleaned = cleaned.strip(", ").rstrip(":")
 
-        return cleaned if cleaned else message
+        return cleaned or message
 
 
 def get_logging_config() -> LoggingConfig:
