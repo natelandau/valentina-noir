@@ -9,8 +9,11 @@
     site_name = "Valentina Noir"
     site_url  = "https://valentina-noir.com"
 
-    # IMPORTANT: Do not reorder these nav items.
+    # IMPORTANT: Do not let the formatter reorder these nav items.
     nav = [
+        { "Home" = [
+            "index.md",
+        ] },
         { "Core Concepts" = [
             "concepts/index.md",
             { "Character Blueprint" = "concepts/character_blueprint.md" },
@@ -22,15 +25,6 @@
             { "Experience" = "concepts/experience.md" },
             { "Storytellers" = "concepts/storytellers.md" },
         ] },
-        { "Full API Reference" = [
-            "https://api.valentina-noir.com/docs",
-        ] },
-        { "Home" = [
-            "index.md",
-        ] },
-        { "Roadmap" = [
-            "roadmap/index.md",
-        ] },
         { "Technical Details" = [
             "technical/index.md",
             { "Authentication" = "technical/authentication.md" },
@@ -40,6 +34,31 @@
             { "Pagination" = "technical/pagination.md" },
             { "Rate Limiting" = "technical/rate_limits.md" },
             { "User Management" = "technical/user_management.md" },
+        ] },
+        { "Python API Client" = [
+            "python-api-client/index.md",
+            { "Campaigns" = "python-api-client/campaigns.md" },
+            { "Campaign Books" = "python-api-client/campaign_books.md" },
+            { "Campaign Chapters" = "python-api-client/campaign_chapters.md" },
+            { "Character Autogen" = "python-api-client/character_autogen.md" },
+            { "Character Blueprint" = "python-api-client/character_blueprint.md" },
+            { "Character Traits" = "python-api-client/character_traits.md" },
+            { "Characters" = "python-api-client/characters.md" },
+            { "Companies" = "python-api-client/companies.md" },
+            { "Developers" = "python-api-client/developers.md" },
+            { "Dice Rolls" = "python-api-client/dice_rolls.md" },
+            { "Dictionary" = "python-api-client/dictionary.md" },
+            { "Global Admin" = "python-api-client/global_admin.md" },
+            { "Options" = "python-api-client/options.md" },
+            { "System" = "python-api-client/system.md" },
+            { "Users" = "python-api-client/users.md" },
+            { "Response Models" = "python-api-client/models.md" },
+        ] },
+        { "Roadmap" = [
+            "roadmap/index.md",
+        ] },
+        { "Full API Reference" = [
+            "https://api.valentina-noir.com/docs",
         ] },
     ]
 

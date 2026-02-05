@@ -1,0 +1,162 @@
+{
+    "version": "1",
+    "items": {
+        "rule:git-commit-message-rules": {
+            "type": "rule",
+            "name": "git-commit-message-rules",
+            "installed_hash": "513bf0f85dbbf2aeaf2f1eb6f4cb004c",
+            "source_hash": "65ad3fd4ce76615ad6521c3545a46f5a",
+            "installed_at": "2026-02-05T16:32:44Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/git-commit-message-rules.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/git-commit-message-rules.md",
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/git-commit-message-rules.md": "513bf0f85dbbf2aeaf2f1eb6f4cb004c",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/git-commit-message-rules.md": "c4e0c9d1ceffc860b5b77fe988c5e31d"
+            },
+            "reference_files": [
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ]
+        },
+        "rule:global-coding-standards": {
+            "type": "rule",
+            "name": "global-coding-standards",
+            "installed_hash": "f9d8cb01eff58dfb9af76d09eed118ed",
+            "source_hash": "1cf68a521e002ac10e682ba12047fc74",
+            "installed_at": "2026-02-05T16:32:44Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/global-coding-standards.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/global-coding-standards.md",
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/global-coding-standards.md": "f9d8cb01eff58dfb9af76d09eed118ed",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/global-coding-standards.md": "fb1c5f9a01c0ab4109ca5725770a8bc9"
+            },
+            "reference_files": [
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ]
+        },
+        "rule:inline-comments-standards": {
+            "type": "rule",
+            "name": "inline-comments-standards",
+            "installed_hash": "1b7783ce59b0397176d684895055611c",
+            "source_hash": "9f5b291bb4304fe55faac922f71e6740",
+            "installed_at": "2026-02-05T16:32:44Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/inline-comments-standards.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/inline-comments-standards.md",
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/inline-comments-standards.md": "1b7783ce59b0397176d684895055611c",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/inline-comments-standards.md": "6d2cc8c32de960081ef1385ea1e4364a"
+            },
+            "reference_files": [
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ]
+        },
+        "rule:python-packaging": {
+            "type": "rule",
+            "name": "python-packaging",
+            "installed_hash": "5327fc3b20112939fef95b338c9d49bc",
+            "source_hash": "98727beb5d21eaafd9922a4aacfa7859",
+            "installed_at": "2026-02-05T16:32:44Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/python-packaging.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/python-packaging.md",
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/python-packaging.md": "5327fc3b20112939fef95b338c9d49bc",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/python-packaging.md": "e613b62f4710df9738ae63d86cf0f076"
+            },
+            "reference_files": [
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ]
+        },
+        "rule:python-standards": {
+            "type": "rule",
+            "name": "python-standards",
+            "installed_hash": "473fd31e5e7808b8f252b0cea3fb5f05",
+            "source_hash": "5ea3d94dc83f0709d3b9f48d4d092103",
+            "installed_at": "2026-02-05T16:32:44Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/python-standards.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/python-standards.md",
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/python-standards.md": "473fd31e5e7808b8f252b0cea3fb5f05",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/python-standards.md": "2a5c086679d44939829cffced04409cd"
+            },
+            "reference_files": [
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ]
+        },
+        "rule:python-testing-standards": {
+            "type": "rule",
+            "name": "python-testing-standards",
+            "installed_hash": "a23dcb007a7b89c4fd23d3e661c10a7c",
+            "source_hash": "dd77adcb6343369c9b2afd9837dcdc7f",
+            "installed_at": "2026-02-05T16:32:44Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/python-testing-standards.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/python-testing-standards.md",
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.glue/rules/python-testing-standards.md": "a23dcb007a7b89c4fd23d3e661c10a7c",
+                "/Users/natelandau/repos/valentina-noir/.cursor/rules/python-testing-standards.md": "dc9ebca3ee0b76228d2bbe42c88a101e"
+            },
+            "reference_files": [
+                "/Users/natelandau/repos/valentina-noir/CLAUDE.md"
+            ]
+        },
+        "skill:documentation-writer": {
+            "type": "skill",
+            "name": "documentation-writer",
+            "installed_hash": "3f3150c8704a8d0d6349f5e67c852d6a",
+            "source_hash": "4bea04dfcc40813af6f16b19a4188b05",
+            "installed_at": "2026-02-05T16:33:48Z",
+            "agents": [
+                "claude-code",
+                "cursor"
+            ],
+            "files": [
+                "/Users/natelandau/repos/valentina-noir/.claude/skills/documentation-writer/SKILL.md",
+                "/Users/natelandau/repos/valentina-noir/.cursor/skills/documentation-writer/SKILL.md"
+            ],
+            "file_hashes": {
+                "/Users/natelandau/repos/valentina-noir/.claude/skills/documentation-writer/SKILL.md": "3f3150c8704a8d0d6349f5e67c852d6a",
+                "/Users/natelandau/repos/valentina-noir/.cursor/skills/documentation-writer/SKILL.md": "3f3150c8704a8d0d6349f5e67c852d6a"
+            }
+        }
+    }
+}

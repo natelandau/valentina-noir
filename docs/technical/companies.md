@@ -4,52 +4,56 @@ icon: lucide/building
 
 # Companies
 
-Companies are the foundational entity in Valentina Noir. Each company is a distinct entity with its own set of users, campaigns, and characters, etc.
+## Overview
 
-Companies provide complete data isolation:
+Companies serve as the foundational entity in Valentina Noir. Each company operates as a distinct entity with its own users, campaigns, characters, and resources.
+
+### Data Isolation
+
+Companies provide complete data isolation between gaming groups:
 
 - Users in one company cannot see or access users in another company
 - Characters, campaigns, and all other resources are scoped to their parent company
 - API keys are granted permissions on a per-company basis
 
-This isolation enables multiple independent gaming groups or organizations to use Valentina without data leakage.
+This isolation enables multiple independent gaming groups to use Valentina Noir without data leakage.
 
 ## Company Permissions
 
-Developer API keys are granted permissions on a per-company basis. There are three levels of permissions on a company that can be granted to a developer:
+Each developer API key has permissions assigned per company. Three permission levels control access:
 
-- `USER` - Read access and basic operations within assigned companies
-- `ADMIN` - Full management of users and resources within assigned companies
-- `OWNER` - Complete control including company settings and admin management
+| Permission | Access Level                                                      |
+| ---------- | ----------------------------------------------------------------- |
+| `USER`     | Read access and basic operations within assigned companies        |
+| `ADMIN`    | Full management of users and resources within assigned companies  |
+| `OWNER`    | Complete control including company settings and admin management  |
 
-!!! note
+!!! tip "Auto-Assignment"
+    Creating a company automatically grants you `OWNER` permission for that company. You can then associate additional developers for client development.
 
-    The developer who creates a company automatically receives `OWNER` permission for that company and can associate additional developers with their company for client development.
+### Multi-Company Access
 
-## Multi-Company Access
+Access multiple companies with a single developer API key, each with different permission levels. Common scenarios include:
 
-A single developer API key can access multiple companies with different permission levels. This enables scenarios like:
-
-- A platform provider managing multiple gaming communities
-- A developer with admin access to their company but read-only access to a partner's company
-- A global admin supporting multiple gaming groups
+- Platform providers managing multiple gaming communities
+- Developers with admin access to their company and read-only access to a partner's company
+- Global admins supporting multiple gaming groups
 
 ## URL Structure
 
-All resource endpoints are nested under a company:
+All resource endpoints nest under a company to ensure proper scoping.
 
 ```
 /api/v1/companies/{company_id}/users
 /api/v1/companies/{company_id}/users/{user_id}/campaigns
 /api/v1/companies/{company_id}/users/{user_id}/campaigns/{campaign_id}/characters
-...
 ```
 
-This hierarchical structure ensures every request is scoped to a specific company.
+This hierarchical structure scopes every request to a specific company.
 
 ## Creating a Company
 
-Create a new company to establish a separate namespace for a gaming group.
+Create a company to establish a separate namespace for your gaming group.
 
 ```yaml
 POST /api/v1/companies HTTP/1.1
@@ -63,7 +67,7 @@ Content-Type: application/json
 }
 ```
 
-The response will include the company and the admin user account:
+The response includes both the company and an admin user account:
 
 ```json
 {
@@ -101,27 +105,22 @@ The response will include the company and the admin user account:
 2. Your developer username
 3. Your developer email
 
-!!! note
+!!! info "Automatic User Creation"
+    Creating a company also creates a user account with `ADMIN` permissions using your developer username and email. You can update this account later via PATCH requests.
 
-    The developer who creates a company automatically receives `OWNER` permission for that company and can associate additional developers with their company for client development.
+### Multi-Company Access
 
-!!! note
+Access multiple companies with a single developer API key, each with different permission levels. Common scenarios include:
 
-    Creating a company will also create a user account with `ADMIN` permissions for the company with your developer username and email (you can patch this later).
+- Platform providers managing multiple gaming communities
+- Developers with admin access to their company and read-only access to a partner's company
+- Global admins supporting multiple gaming groups
 
-## Multi-Company Access
+Learn more about permission levels in [Authentication](authentication.md#developer-permissions).
 
-A single developer API key can access multiple companies with different permission levels. This enables scenarios like:
+## Listing Companies
 
-- A platform provider managing multiple gaming communities
-- A developer with admin access to their company but read-only access to a partner's company
-- A global admin supporting multiple gaming groups
-
-See [Authentication](authentication.md#multi-company-access) for details on permission levels.
-
-## Listing Your Companies
-
-Retrieve all companies accessible to your API key:
+Retrieve all companies your API key can access:
 
 ```shell
 GET /api/v1/companies
@@ -153,6 +152,6 @@ Response:
 
 ## Best Practices
 
-1. **Grant minimal permissions** - Only grant the permission level developers need for each company
-2. **Consider company structure early** - Moving resources between companies is not supported
-3. **Use company IDs in your database** - Store the `company_id` alongside user mappings for multi-tenant applications
+1. **Grant minimal permissions** - Assign only the permission level developers need for each company
+2. **Plan company structure early** - Resources cannot be moved between companies
+3. **Store company IDs** - Keep the `company_id` in your database alongside user mappings for multi-tenant applications

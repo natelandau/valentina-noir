@@ -6,16 +6,18 @@ icon: lucide/clock
 
 ## Overview
 
-Valentina Noir uses a token bucket algorithm to enforce rate limits. This protects the API from abuse while allowing legitimate traffic bursts. Rate limit information is communicated through response headers following the [IETF draft specification](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/).
+Rate limits protect the API from abuse while allowing legitimate traffic bursts. The API uses a token bucket algorithm and communicates limits through response headers following the [IETF draft specification](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/).
 
 ## How Token Bucket Works
 
-The token bucket algorithm provides a balance between steady-state rate limiting and burst capacity:
+The token bucket algorithm balances steady-state rate limiting with burst capacity.
+
+**How it works:**
 
 1. Each API key has a "bucket" that holds tokens
-2. Tokens are added to the bucket at a constant rate (refill rate)
+2. Tokens refill at a constant rate until the bucket reaches capacity
 3. Each request consumes one token
-4. If the bucket is empty, requests are rejected with `429 Too Many Requests`
+4. Empty buckets reject requests with `429 Too Many Requests`
 5. The bucket has a maximum capacity (burst limit)
 
 ```mermaid
@@ -32,11 +34,12 @@ flowchart LR
     Request --> Response[Response]
 ```
 
-This means you can make rapid requests in bursts up to the bucket capacity, then must wait for tokens to refill.
+!!! info "Burst Traffic"
+    You can make rapid requests up to the bucket capacity, then wait for tokens to refill.
 
 ## Response Headers
 
-Every response includes rate limit headers:
+Every response includes rate limit headers to help you track consumption.
 
 ```yaml
 RateLimit-Policy: "default";q=50;w=60
@@ -45,7 +48,7 @@ RateLimit: "default";r=47;t=0
 
 ### RateLimit-Policy Header
 
-Describes the rate limit policy applied to your request:
+Describes the rate limit policy applied to your request.
 
 | Parameter | Description                                        |
 | --------- | -------------------------------------------------- |
@@ -54,7 +57,7 @@ Describes the rate limit policy applied to your request:
 
 ### RateLimit Header
 
-Describes your current rate limit status:
+Describes your current rate limit status.
 
 | Parameter | Description                                                |
 | --------- | ---------------------------------------------------------- |
@@ -63,24 +66,23 @@ Describes your current rate limit status:
 
 ## Understanding the Headers
 
-Given these headers:
+Parse the headers to understand your current rate limit status.
+
+**Example:**
 
 ```yaml
 RateLimit-Policy: "default";q=50;w=60
 RateLimit: "default";r=10;t=0
 ```
 
-This means:
+**Interpretation:**
 
 -   **Policy**: 50 requests per 60 seconds (refill rate: ~0.83 tokens/second)
 -   **Current state**: 10 tokens remaining, no wait required
 
 ## Handling Rate Limits
 
-When rate limited, the API returns:
-
--   **Status**: `429 Too Many Requests`
--   **Headers**: Include `RateLimit` showing when to retry
+The API returns a `429 Too Many Requests` status when you exceed your rate limit.
 
 ```json
 {
@@ -90,6 +92,8 @@ When rate limited, the API returns:
     "instance": "/api/v1/companies"
 }
 ```
+
+The response includes `RateLimit` headers showing when to retry.
 
 ## Retry Strategy (Python)
 
@@ -166,7 +170,7 @@ async function makeRequestWithRetry(url, apiKey, maxRetries = 5) {
 
 ## Monitoring Your Usage
 
-Track your rate limit consumption by parsing response headers:
+Track your rate limit consumption by parsing response headers after each request.
 
 ```python
 def check_rate_limit_status(response):
@@ -185,25 +189,31 @@ def check_rate_limit_status(response):
 
 ## Multiple Policies
 
-Some endpoints may have multiple rate limit policies. When this occurs, headers contain comma-separated values:
+Some endpoints apply multiple rate limit policies simultaneously. Headers contain comma-separated values when this occurs.
 
 ```
 RateLimit-Policy: "burst";q=10;w=1, "sustained";q=100;w=60
 RateLimit: "burst";r=8;t=0, "sustained";r=95;t=0
 ```
 
-This example shows both:
+This example applies two policies:
 
--   A burst limit: 10 requests per second
--   A sustained limit: 100 requests per minute
+-   **Burst limit**: 10 requests per second
+-   **Sustained limit**: 100 requests per minute
 
-Your request is rejected if you exceed **any** applicable policy.
+!!! warning "All Policies Must Pass"
+    Your request is rejected if you exceed **any** applicable policy.
 
 ## Best Practices
 
-1. **Monitor the `r` value** - Track remaining tokens to predict when you'll hit limits
-2. **Implement backoff** - Use exponential backoff with jitter for retries
+!!! danger "Avoid Tight Loops"
+    Never tight-loop on rate limit errors. Always implement exponential backoff with retries.
+
+**Key recommendations:**
+
+1. **Monitor remaining tokens** - Track the `r` value to predict when you'll hit limits
+2. **Implement exponential backoff** - Use increasing wait times with jitter for retries
 3. **Batch operations** - Combine multiple operations into single requests when possible
-4. **Cache responses** - Use caching to reduce redundant API calls
+4. **Cache responses** - Reduce redundant API calls through caching
 5. **Spread requests** - Distribute requests evenly rather than bursting
-6. **Handle 429 gracefully** - Never tight-loop on rate limit errors
+6. **Parse retry timing** - Use the `t` parameter to determine optimal retry timing

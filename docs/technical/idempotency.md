@@ -6,13 +6,13 @@ icon: lucide/refresh-ccw-dot
 
 ## Overview
 
-Idempotency keys allow you to safely retry requests without accidentally performing the same operation twice. This is particularly useful for `POST`, `PUT`, and `PATCH` requests that create or modify resources, protecting against duplicate operations caused by network issues, timeouts, or client retries.
+Retry requests safely without duplicating operations using idempotency keys. This feature protects `POST`, `PUT`, and `PATCH` requests against duplicate operations caused by network issues, timeouts, or client retries.
 
 ## How It Works
 
-When you include an `Idempotency-Key` header with your request, the API will:
+The API processes idempotency keys in three steps:
 
-1. Check if a response for that key has been cached
+1. Check if a response for that key exists in the cache
 2. If cached, return the original response without re-executing the operation
 3. If not cached, process the request and cache the response for 1 hour
 
@@ -47,20 +47,21 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 
 ## Key Format
 
--   Use a unique string value (UUID v4 recommended)
--   Maximum recommended length: 255 characters
+| Requirement | Details                          |
+| ----------- | -------------------------------- |
+| Type        | Unique string (UUID v4 recommended) |
+| Max Length  | 255 characters                   |
 
 ## Supported Endpoints
 
-Idempotency is automatically enabled for all `POST`, `PUT`, and `PATCH` endpoints. Simply include the `Idempotency-Key` header in your request.
+All `POST`, `PUT`, and `PATCH` endpoints support idempotency. Include the `Idempotency-Key` header in your request to enable this feature.
 
-!!! note
-
-    `GET` and `DELETE` requests ignore the `Idempotency-Key` header since they are naturally idempotent.
+!!! info "Naturally Idempotent Methods"
+    `GET` and `DELETE` requests ignore the `Idempotency-Key` header because they are naturally idempotent.
 
 ## Body Validation
 
-The API validates that the request body matches the original request when reusing an idempotency key. If you send a request with the same idempotency key but a different request body, the API will return a 409 Conflict error:
+The API validates that request bodies match when reusing idempotency keys. Sending a request with the same key but different body returns a 409 Conflict error:
 
 ```json
 {
@@ -71,9 +72,12 @@ The API validates that the request body matches the original request when reusin
 }
 ```
 
-This protection prevents accidental misuse of idempotency keys and ensures that each unique operation uses its own key.
+!!! warning "Unique Keys Required"
+    Each unique operation must use its own idempotency key. The API prevents accidental key reuse with different request bodies.
 
-## Example (Python)
+## Examples
+
+### Python
 
 ```python
 import uuid
@@ -104,7 +108,7 @@ def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3
     return response
 ```
 
-## Example (JavaScript)
+### JavaScript
 
 ```javascript
 async function createCampaign(apiKey, companyId, userId, data) {
@@ -129,8 +133,8 @@ async function createCampaign(apiKey, companyId, userId, data) {
 
 ## Best Practices
 
-1. **Generate unique keys per operation** - Use UUIDs or combine a client-generated ID with a timestamp
-2. **Store the key client-side** - Keep the idempotency key until you receive a successful response
-3. **Reuse keys only for retries** - Use the same key only when retrying the exact same request with the exact same body
-4. **Don't reuse keys for different operations** - Each unique operation should have its own key (the API enforces this with 409 errors)
-5. **Set reasonable retry limits** - Implement exponential backoff with a maximum retry count
+1. **Generate unique keys** - Use UUIDs or combine a client-generated ID with a timestamp
+2. **Store keys client-side** - Keep the idempotency key until you receive a successful response
+3. **Reuse keys only for retries** - Use the same key only when retrying the exact same request
+4. **Avoid key reuse** - Each unique operation needs its own key (enforced with 409 errors)
+5. **Set retry limits** - Implement exponential backoff with a maximum retry count
