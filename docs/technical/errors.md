@@ -6,11 +6,11 @@ icon: lucide/alert-circle
 
 ## Overview
 
-Valentina Noir returns errors using the [RFC 9457 Problem Details](https://datatracker.ietf.org/doc/html/rfc9457) format. This standardized structure provides consistent, machine-readable error responses across all endpoints.
+All errors follow the [RFC 9457 Problem Details](https://datatracker.ietf.org/doc/html/rfc9457) standard. This format provides consistent, machine-readable error responses across all endpoints.
 
 ## Error Response Structure
 
-All error responses use the `application/problem+json` media type and include these fields:
+All error responses use the `application/problem+json` media type with these fields:
 
 | Field      | Type    | Description                                                                    |
 | ---------- | ------- | ------------------------------------------------------------------------------ |
@@ -30,21 +30,21 @@ All error responses use the `application/problem+json` media type and include th
 }
 ```
 
-## HTTP Status Codes
+## Common HTTP Status Codes
 
-| Code | Title | Description |
-| --- | --- | --- |
-| 400 | Bad Request | Invalid request syntax or parameters |
-| 401 | Unauthorized | Missing or invalid API key |
-| 403 | Forbidden | Valid API key but insufficient permissions |
-| 404 | Not Found | Requested resource does not exist |
-| 409 | Conflict | Request conflicts with current state (e.g., duplicate idempotency key with different body) |
-| 429 | Too Many Requests | Rate limit exceeded |
-| 500 | Internal Server Error | Unexpected server error |
+| Code | Title                   | Description                                                        |
+| ---- | ----------------------- | ------------------------------------------------------------------ |
+| 400  | Bad Request             | Invalid request syntax or parameters                               |
+| 401  | Unauthorized            | Missing or invalid API key                                         |
+| 403  | Forbidden               | Valid API key but insufficient permissions                         |
+| 404  | Not Found               | Requested resource does not exist                                  |
+| 409  | Conflict                | Request conflicts with current state                               |
+| 429  | Too Many Requests       | Rate limit exceeded                                                |
+| 500  | Internal Server Error   | Unexpected server error                                            |
 
 ## Validation Errors
 
-Validation errors (400 Bad Request) include an additional `invalid_parameters` array that identifies which fields failed validation:
+Validation errors (400 Bad Request) include an `invalid_parameters` array identifying which fields failed validation:
 
 ```json
 {
@@ -69,7 +69,7 @@ Validation errors (400 Bad Request) include an additional `invalid_parameters` a
 
 ### 401 Unauthorized
 
-Returned when the API key is missing or invalid.
+Missing or invalid API key.
 
 ```json
 {
@@ -82,7 +82,7 @@ Returned when the API key is missing or invalid.
 
 ### 403 Forbidden
 
-Returned when the API key is valid but lacks permission for the requested action.
+Valid API key but insufficient permissions for the requested action.
 
 ```json
 {
@@ -95,7 +95,7 @@ Returned when the API key is valid but lacks permission for the requested action
 
 ### 404 Not Found
 
-Returned when the requested resource does not exist.
+Requested resource does not exist.
 
 ```json
 {
@@ -108,7 +108,7 @@ Returned when the requested resource does not exist.
 
 ### 409 Conflict
 
-Returned when a request conflicts with current state, such as reusing an idempotency key with a different request body.
+Request conflicts with current state, such as reusing an idempotency key with a different request body.
 
 ```json
 {
@@ -121,7 +121,7 @@ Returned when a request conflicts with current state, such as reusing an idempot
 
 ### 429 Too Many Requests
 
-Returned when rate limits are exceeded. See [Rate Limiting](rate-limiting.md) for details.
+Rate limit exceeded. See [Rate Limiting](rate_limits.md) for details.
 
 ```json
 {
@@ -134,7 +134,7 @@ Returned when rate limits are exceeded. See [Rate Limiting](rate-limiting.md) fo
 
 ### 500 Internal Server Error
 
-Returned when an unexpected server error occurs.
+Unexpected server error occurred.
 
 ```json
 {
@@ -145,7 +145,9 @@ Returned when an unexpected server error occurs.
 }
 ```
 
-## Handling Errors (Python)
+## Error Handling Examples
+
+### Python
 
 ```python
 import requests
@@ -183,7 +185,7 @@ def make_request(url, api_key):
         raise Exception(f"API error: {error['detail']}")
 ```
 
-## Handling Errors (JavaScript)
+### JavaScript
 
 ```javascript
 async function makeRequest(url, apiKey) {
@@ -228,8 +230,8 @@ async function makeRequest(url, apiKey) {
 
 ## Best Practices
 
-1. **Always check the status code** - Use the HTTP status code to determine the error category before parsing the body
-2. **Parse the detail field** - The `detail` field provides specific information about what went wrong
-3. **Handle validation errors specially** - Check for `invalid_parameters` to provide user-friendly form validation feedback
-4. **Implement retry logic for 429 and 5xx** - Use exponential backoff for rate limit and server errors
-5. **Log the instance field** - The `instance` field helps correlate errors with specific requests during debugging
+1. **Check status codes first** - Determine the error category before parsing the response body
+2. **Parse the detail field** - Extract specific information about what went wrong
+3. **Handle validation errors** - Check for `invalid_parameters` to provide user-friendly form feedback
+4. **Implement retry logic** - Use exponential backoff for 429 and 5xx errors
+5. **Log the instance field** - Correlate errors with specific requests during debugging

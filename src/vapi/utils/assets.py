@@ -101,7 +101,7 @@ def determine_asset_type(mime_type: str) -> AssetType:  # noqa: PLR0911
     Returns:
         The corresponding AssetType
     """
-    mime_prefix = mime_type.split("/")[0].lower()
+    mime_prefix = mime_type.split("/", maxsplit=1)[0].lower()
 
     match mime_prefix:
         case "image":

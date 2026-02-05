@@ -191,10 +191,8 @@ class CharacterAutogenerationHandler:
         Returns:
             Character: The generated base character.
         """
-        self.skill_focus = (
-            skill_focus if skill_focus else random.choice(list[AbilityFocus](AbilityFocus))
-        )
-        self.experience_level = experience_level if experience_level else AutoGenExperienceLevel.NEW
+        self.skill_focus = skill_focus or random.choice(list[AbilityFocus](AbilityFocus))
+        self.experience_level = experience_level or AutoGenExperienceLevel.NEW
 
         name_first, name_last = await generate_unique_name(self.company.id)
 
@@ -474,7 +472,7 @@ class CharacterAutogenerationHandler:
         Returns:
             Character: The updated character object with randomly generated werewolf attributes.
         """
-        if character.character_class not in {CharacterClass.WEREWOLF}:
+        if character.character_class != CharacterClass.WEREWOLF:
             return character
 
         if not werewolf_tribe:
@@ -549,7 +547,7 @@ class CharacterAutogenerationHandler:
 
         Generate and assign random hunter attributes for the given character based on their concept, class, and experience level.
         """
-        if character.character_class not in {CharacterClass.HUNTER}:
+        if character.character_class != CharacterClass.HUNTER:
             return character
 
         creed = random.choice(list(HunterCreed))
@@ -632,7 +630,7 @@ class CharacterAutogenerationHandler:
         Returns:
             Character: The updated character object with randomly generated werewolf gifts.
         """
-        if character.character_class not in {CharacterClass.WEREWOLF}:
+        if character.character_class != CharacterClass.WEREWOLF:
             return character
 
         await character.sync()

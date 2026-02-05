@@ -91,12 +91,12 @@ async def _create_character(
     werewolf_attributes = WerewolfAttributes()
     mage_attributes = MageAttributes()
     hunter_attributes = HunterAttributes()
-    if character_class in {CharacterClass.VAMPIRE}:
+    if character_class == CharacterClass.VAMPIRE:
         clan = await VampireClan.find_one(
             VampireClan.is_archived == False, VampireClan.game_versions == GameVersion.V5
         )
         vampire_attributes = VampireAttributes(clan_id=clan.id)
-    elif character_class in {CharacterClass.WEREWOLF}:
+    elif character_class == CharacterClass.WEREWOLF:
         tribe = await WerewolfTribe.find_one({"is_archived": False})
         auspice = await WerewolfAuspice.find_one({"is_archived": False})
         werewolf_attributes = WerewolfAttributes(tribe_id=tribe.id, auspice_id=auspice.id)
@@ -866,7 +866,7 @@ async def character_trait_factory(base_character, trait_factory) -> CharacterTra
             )
             await trait_to_use.save()
         else:
-            trait_to_use = trait if trait else await Trait.find_one(Trait.is_archived == False)
+            trait_to_use = trait or await Trait.find_one(Trait.is_archived == False)
 
         character_trait = CharacterTraitFactory().build(
             **kwargs, character_id=character_id, trait=trait_to_use

@@ -40,7 +40,7 @@ class UserService:
             return
 
         requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
-        if requesting_user.role not in [UserRole.ADMIN]:
+        if requesting_user.role != UserRole.ADMIN:
             raise PermissionDeniedError(
                 detail="Requesting user is not authorized to manage this user",
             )

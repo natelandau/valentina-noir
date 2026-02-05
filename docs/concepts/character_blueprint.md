@@ -4,54 +4,54 @@ icon: lucide/logs
 
 # Character Blueprint
 
-World of Darkness character sheets and classes hide a lot of complexity when they are printed to paper. Valentina Noir works through this complexity by using a collection of models to represent a character. These models collectively are called the character blueprint.
+World of Darkness character sheets contain complex interconnected data. Valentina Noir represents this complexity through a collection of models called the character blueprint.
+
+Understanding the blueprint helps you create, edit, and display characters in your client applications.
 
 !!! info "API Documentation"
-
-    The detailed documentation for each character blueprint endpoint is available in the [API documentation](https://api.valentina-noir.com/docs#tag/characters---blueprints).
-
-Below is a description of each part of the character blueprint. Understanding these is critical for understanding how your client should create, edit, and display characters.
+    View detailed endpoint documentation at [api.valentina-noir.com/docs#tag/characters---blueprints](https://api.valentina-noir.com/docs#tag/characters---blueprints).
 
 ## Sheet Sections
 
-Sheet sections are the main sections of a character sheet. There are four sections which are common to all characters.
+All characters share four main sheet sections:
 
 | Name | Description |
 | --- | --- |
-| **Attributes** | The inborn, most raw aptitudes and potential a character possesses |
-| **Abilities** | Any skills or aptitudes that your character possesses that make them better at certain activities, whether learned skills or inborn affinities. |
-| **Advantages** | Benefits a character has over 'normal' folk. |
-| **Other** | Any other traits that your character possesses which do not fit into the other sections. |
+| **Attributes** | Inborn aptitudes and raw potential |
+| **Abilities** | Learned skills and inborn affinities that improve performance |
+| **Advantages** | Benefits over normal individuals |
+| **Other** | Traits that don't fit into other sections |
 
 ## Section Categories
 
-Section categories are how traits are grouped within a section. For example, `Attributes` has the following categories:
+Section categories group traits within sections. For example, `Attributes` contains these categories:
 
 | Name | Description |
 | --- | --- |
-| **Physical** | Measure of physical ability. Used to resolve all actions involving fighting, lifting things, running, etc. |
-| **Social** | Measure of social ability. Used to resolve all actions involving interacting with others, such as persuasion, negotiation, and social interaction. |
-| **Mental** | Measure of mental ability. Used to resolve all actions involving thinking, reasoning, and problem-solving. |
+| **Physical** | Physical ability for fighting, lifting, running, etc. |
+| **Social** | Social ability for persuasion, negotiation, and interaction |
+| **Mental** | Mental ability for thinking, reasoning, and problem-solving |
 
-!!! info "Game Version Support"
-
-    While we strive to support both V4 and V5 of the World of Darkness mechanics, please note that `Ability` categories are only supported in V5. This means `Talents`, `Skills`, and `Knowledges` are replaced with `Physical`, `Social`, and `Mental` as seen on the V5 character sheet.
+!!! info "V5 Ability Categories"
+    `Ability` categories only exist in V5. The V4 categories (`Talents`, `Skills`, `Knowledges`) are replaced with `Physical`, `Social`, and `Mental` in V5.
 
 ## Advantage Categories
 
-To make matters more complex, certain advantages (`merits`, `flaws`, and `backgrounds`) are sub-grouped into advantage categories.
+Certain advantages (`merits`, `flaws`, `backgrounds`) are sub-grouped into advantage categories.
 
-For example, there is a merit category named `Fame` which has the following merits:
+For example, the merit category `Fame` contains:
 
 -   Fame
 -   Influencer
 -   Enduring Fame
 
-If a trait has an `advantage_category_name` and an `advantage_category_id`, you can display this hierarchy on the character sheet.
+Display this hierarchy on character sheets when a trait includes `advantage_category_name` and `advantage_category_id`.
 
 ## Traits
 
-Character traits are the core attributes of a character. They are used to determine the character's abilities and limitations and are assigned a value in `dots`. In Valentina Noir, traits are represented in two objects: `Core Traits` and `Custom Traits`.
+Traits are the core attributes that determine a character's abilities and limitations. Each trait has a value measured in `dots`.
+
+Valentina Noir represents traits in two categories: `Core Traits` and `Custom Traits`.
 
 ??? example "API Response"
 
@@ -101,9 +101,9 @@ Character traits are the core attributes of a character. They are used to determ
 
 ### Core Traits
 
-Core traits are traits which are common to all characters. Think of them as the traits which are described within the World of Darkness books. There are `~250` core traits available which can be filtered by character class and game version.
+Core traits are common to all characters and match traits described in World of Darkness books. Approximately 250 core traits exist, filterable by character class and game version.
 
-An example request to list all core traits for a `V5` `Vampire` character is:
+List all core traits for a `V5` `Vampire` character:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/traits?limit=10&offset=0&game_version=V5&character_class=VAMPIRE&order_by=NAME
@@ -111,17 +111,18 @@ GET /api/v1/companies/{company_id}/characterblueprint/traits?limit=10&offset=0&g
 
 ### Custom Traits
 
-Custom traits are traits which are specific to a character. They have all the same fields as a core trait but are not available to be used by other characters. Adding custom traits to a characrer provides significant flexibility in the traits that are displayed on their character sheets and that are available for dice rolling, experience, etc.
+Custom traits are specific to individual characters. They share the same fields as core traits but remain unavailable to other characters. Custom traits provide flexibility for displaying unique abilities on character sheets and for dice rolling, experience tracking, etc.
 
-!!! example
-
-    Suppose a character has spent significant time in the game learning how to decipher encoded messages.  The Storyteller may grant that character a skill of `Cryptography`.  Since `Cryptography` is not a core trait, it will be added as a custom trait to the character.  The character can then use `Cryptography` in the game and it will be displayed on their character sheet.
+!!! example "Learning Cryptography"
+    A character spends significant time learning to decipher encoded messages. The Storyteller grants them the skill `Cryptography`. Since `Cryptography` is not a core trait, it becomes a custom trait for that character. The character can use `Cryptography` in gameplay and see it on their character sheet.
 
 ## Class Specific
 
 ### Vampire Clans
 
-Vampires are assigned a unique clan as part of their character creation process. Each clan has a unique set of Disciplines which are native to their clan. You can list all the available clans for a game version by making the following request:
+Vampires are assigned a unique clan during character creation. Each clan has native Disciplines.
+
+List all available clans for a game version:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/vampire-clans?limit=10&offset=0&game_version=V5
@@ -168,11 +169,11 @@ GET /api/v1/companies/{company_id}/characterblueprint/vampire-clans?limit=10&off
 
 ### Werewolves
 
-Werewolves have a number of unique characteristics which are unique to each werewolf character.
+Each werewolf character has unique characteristics.
 
 #### Auspice
 
-You can list all the available auspices for a by making the following request:
+List all available auspices:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/werewolf-auspices?limit=10&offset=0&game_version=V5
@@ -203,7 +204,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-auspices?limit=10
 
 #### Tribe
 
-You can list all the available tribes for a game version by making the following request:
+List all available tribes for a game version:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/werewolf-tribes?limit=10&offset=0&game_version=V5
@@ -238,7 +239,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-tribes?limit=10&o
 
 #### Gifts
 
-You can list all the available gifts for a game version by making the following request:
+List all available gifts for a game version:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/werewolf-gifts?limit=10&offset=0&game_version=V5
@@ -282,7 +283,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-gifts?limit=10&of
 
 #### Rites
 
-You can list all the available rites for a game version by making the following request:
+List all available rites for a game version:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&offset=0&game_version=V5
@@ -308,21 +309,19 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&of
 
 ### Mages
 
-!!! failure "Not Supported"
-
-    Full support for Mage `Spheres` and `Traditions` are not supported in Valentina Noir. [See the roadmap](../roadmap/index.md) for more information.
+!!! warning "Limited Support"
+    Mage `Spheres` and `Traditions` have limited support. See the [roadmap](../roadmap/index.md) for details.
 
 ### Hunters
 
-Hunters have access to `Edges` which are each comprised of multiple `Perks`.
+Hunters access `Edges`, each containing multiple `Perks`.
 
-!!! info "Game Version Support"
-
-    While we strive to support both V4 and V5 of the World of Darkness mechanics, **we only support V5 of the Hunter Edge system.**
+!!! info "V5 Only"
+    The Hunter Edge system only supports V5 mechanics.
 
 #### Edges
 
-To list all available edges run the following request:
+List all available edges:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/hunter-edges?limit=10&offset=0
@@ -357,7 +356,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/hunter-edges?limit=10&offs
 
 #### Perks
 
-To list all available perks for an edge run the following request:
+List all available perks for an edge:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/hunter-edges/{edge_id}/perks?limit=10&offset=0
@@ -383,9 +382,9 @@ GET /api/v1/companies/{company_id}/characterblueprint/hunter-edges/{edge_id}/per
 
 ## Character Concepts
 
-You can read more about character concepts in the [Character Concepts](character-concepts.md) documentation.
+Read more about character concepts in the [Character Concepts](character_concepts.md) documentation.
 
-To list all available concepts run the following request:
+List all available concepts:
 
 ```shell
 GET /api/v1/companies/{company_id}/characterblueprint/concepts?limit=10&offset=0

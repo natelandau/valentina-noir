@@ -586,7 +586,7 @@ class TestGenerateWerewolfAttributes:
             campaign=base_campaign,
         )
         for character_class in [
-            x for x in list[CharacterClass](CharacterClass) if x not in {CharacterClass.WEREWOLF}
+            x for x in list[CharacterClass](CharacterClass) if x != CharacterClass.WEREWOLF
         ]:
             character = await chargen._generate_base_character(
                 character_type=CharacterType.PLAYER, char_class=character_class

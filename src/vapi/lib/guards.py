@@ -209,7 +209,7 @@ async def user_admin_guard(connection: ASGIConnection, _: BaseRouteHandler) -> N
     """Guard for campaign administrators."""
     user = await user_json_from_cache(connection)
     company_id = connection.path_params.get("company_id")
-    if UserRole(user.role) not in [UserRole.ADMIN] or str(user.company_id) != company_id:
+    if UserRole(user.role) != UserRole.ADMIN or str(user.company_id) != company_id:
         raise PermissionDeniedError
 
 

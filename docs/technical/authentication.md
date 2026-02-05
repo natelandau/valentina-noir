@@ -6,11 +6,14 @@ icon: lucide/lock
 
 ## Overview
 
-Valentina Noir uses API key authentication to secure all API requests. Every request to a protected endpoint must include your API key in the `X-API-KEY` header. Your API key identifies your developer account and determines what [companies](companies.md) and resources you can access.
+Secure your API requests with API key authentication. Include your API key in the `X-API-KEY` header with every request to a protected endpoint. The key identifies your developer account and controls which [companies](companies.md) and resources you can access.
 
 ## Obtaining an API Key
 
-At this time, API keys are only available to developers who have been granted access by the Valentina Noir team. Please contact us at [support@valentina-noir.com](mailto:support@valentina-noir.com) to request an API key.
+Request an API key from the Valentina Noir team. Contact [support@valentina-noir.com](mailto:support@valentina-noir.com) to get started.
+
+!!! info "Limited Access"
+    API keys are currently available only to approved developers.
 
 !!! warning "Key Security"
 
@@ -29,7 +32,7 @@ X-API-KEY: your-api-key-here
 
 ## Developer Permissions
 
-Your API key is associated with a developer account that has permissions assigned per company. A single API key can access multiple companies with different permission levels for each.
+Each API key associates with a developer account that has permissions assigned per company. Access multiple companies with a single API key, using different permission levels for each.
 
 | Permission | Description                                                      |
 | ---------- | ---------------------------------------------------------------- |
@@ -46,7 +49,7 @@ Higher permissions inherit all capabilities of lower permissions:
 
 ### Multi-Company Access
 
-A single API key can be granted access to multiple companies, each with its own permission level:
+Grant a single API key access to multiple companies, each with its own permission level.
 
 ```json
 {
@@ -61,11 +64,11 @@ A single API key can be granted access to multiple companies, each with its own 
 }
 ```
 
-In this example, the same API key has:
+This example shows one API key with different access levels:
 
--   Full ownership control over company `abc123`
--   Read-only access to company `def456`
--   Administrative access to company `ghi789`
+-   `OWNER` permission for company `abc123` (full control)
+-   `USER` permission for company `def456` (read-only access)
+-   `ADMIN` permission for company `ghi789` (administrative access)
 
 ### Checking Your Permissions
 
@@ -75,19 +78,19 @@ Retrieve your API key's permissions:
 GET /api/v1/developers/me
 ```
 
-## Response Codes
+## Common Response Codes
 
-| Status | Description                                                 |
-| ------ | ----------------------------------------------------------- |
-| 200    | Request successful                                          |
-| 401    | API key missing or invalid                                  |
-| 403    | API key valid but lacks permission for the requested action |
+| Status | Description                                           |
+| ------ | ----------------------------------------------------- |
+| 200    | Request successful                                    |
+| 401    | API key missing or invalid                            |
+| 403    | API key valid but lacks permission for this operation |
 
 ## Error Responses
 
-When authentication fails, the API returns a `401 Unauthorized` response:
+The API returns specific errors when authentication fails.
 
-**Missing API Key:**
+### Missing API Key
 
 ```json
 {
@@ -98,7 +101,7 @@ When authentication fails, the API returns a `401 Unauthorized` response:
 }
 ```
 
-**Invalid API Key:**
+### Invalid API Key
 
 ```json
 {
@@ -109,7 +112,7 @@ When authentication fails, the API returns a `401 Unauthorized` response:
 }
 ```
 
-**Insufficient Permissions (403):**
+### Insufficient Permissions
 
 ```json
 {
@@ -120,7 +123,9 @@ When authentication fails, the API returns a `401 Unauthorized` response:
 }
 ```
 
-## Example (Python)
+## Examples
+
+### Python
 
 ```python
 import requests
@@ -137,7 +142,7 @@ def get_companies():
     return response.json()
 ```
 
-## Example (JavaScript)
+### JavaScript
 
 ```javascript
 const API_KEY = "your-api-key-here";

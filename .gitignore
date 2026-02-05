@@ -17,15 +17,9 @@ tmp/
 tmp.py
 bruno/
 _site/
-
-# AI Tooling
-.cursor/
-.github/copilot-instructions.md
-.github/instructions/
-GEMINI.md
-CLAUDE.md
-.claude/
-
 package.json
 package-lock.json
 node_modules/
+
+# Claude Code
+.claude/settings.local.json

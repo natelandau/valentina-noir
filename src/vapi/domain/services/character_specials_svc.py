@@ -95,9 +95,7 @@ class CharacterEdgeService:
         if existing_edge:
             return existing_edge
 
-        hunter_attributes = (
-            character.hunter_attributes if character.hunter_attributes else HunterAttributes()
-        )
+        hunter_attributes = character.hunter_attributes or HunterAttributes()
 
         hunter_attributes.edges.append(HunterAttributesEdgeModel(edge_id=edge.id, perk_ids=[]))
         character.hunter_attributes = hunter_attributes

@@ -96,7 +96,7 @@ class DiceRollService:
                 trait_ids=quickroll.trait_ids,
                 character_id=character.id,
                 campaign_id=character.campaign_id,
-                comment=data.comment if data.comment else f"Quick roll: {quickroll.name}",
+                comment=data.comment or f"Quick roll: {quickroll.name}",
             )
             await dice_roll.save()
         except PydanticValidationError as e:

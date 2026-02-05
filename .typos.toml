@@ -2,7 +2,7 @@
     locale = "en-us"
 
     [default.extend-words]
-        # nd     = "nd"     # Used in the context of '2nd'
+        criticals = "criticals"
 
 [files]
     extend-exclude = ["*_cache", ".env", ".env.secrets", ".venv", "CHANGELOG.md", "_site", "static"]

@@ -4,14 +4,38 @@ icon: lucide/user
 
 # Characters
 
+Characters represent players and NPCs in your campaigns.
+
 ## Character Permissions
 
-Updating characters and their associated data is restricted to the character owner and company administrators and storytellers.
+Only these users can update characters and their data:
+
+-   Character owner
+-   Company administrators
+-   Company storytellers
 
 ## Character Creation
 
-There are three ways to create characters in Valentina Noir:
+Create characters using one of three methods:
 
-1. **Manually enter the character's details.** Enter each facet and trait of the character one by one.
-2. **Autogenerate a single character with random attributes.** This is a quick way to create a character. You can specify the character's class, experience level, skill focus, concept, or you can let the system randomly select everything for you. This is a great option for Storytellers who want to quickly create NPCs.
-3. **Autogenerate multiple characters and choose the one you want to keep.** Begin a character creation session where multiple characters are randomly generated. You will be presented with a list the character and given an opportunity to select the one you want to keep. Depending on your Company's settings, this may cost experience points.
+### Manual Entry
+
+Enter each trait and attribute individually. This method gives you complete control over every aspect of the character.
+
+### Single Autogeneration
+
+Generate a single character with random attributes. You can specify:
+
+-   Character class
+-   Experience level
+-   Skill focus
+-   Concept
+
+Or let the system randomly select everything. This method works well for quickly creating NPCs.
+
+### Multiple Autogeneration
+
+Generate multiple characters and select the one you want to keep. The system presents a list of generated characters for you to review. Select your preferred character to continue.
+
+!!! info "Experience Cost"
+    Some companies charge experience points for multiple autogeneration. Check your [company settings](./company_settings.md) for details.

@@ -6,7 +6,7 @@ icon: lucide/code
 
 Valentina Noir is a REST API for building World of Darkness tabletop gaming applications. This guide covers the essential concepts for integrating with the API.
 
-When you're read to start making requests, read the **[full API Documentation](https://api.valentina-noir.com/docs)** for detailed information on the API endpoints and how to use them.
+When you're ready to start making requests, read the **[full API Documentation](https://api.valentina-noir.com/docs)** for detailed information on the API endpoints and how to use them.
 
 ## Getting Started
 

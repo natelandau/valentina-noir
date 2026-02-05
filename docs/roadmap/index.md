@@ -1,13 +1,17 @@
 # Roadmap
 
-Valentina Noir has support for the majority of functionality required to manage a World of Darkness campaign. However, there are a few features that are not yet supported.
+Valentina Noir supports the core functionality needed to manage World of Darkness campaigns. This page tracks planned improvements and upcoming features.
 
 ## Planned Features
 
--   Full mage support
--   Improve handling of character specialties
--   Full support for Caitiffs
--   Full support for Thin Bloods
--   Support for Loresheets
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Full Mage Support | Complete `Spheres` and `Traditions` implementation | Planned |
+| Character Specialties | Improved handling and validation of specialty traits | Planned |
+| Caitiff Support | Full support for clanless vampires | Planned |
+| Thin Blood Support | Complete thin-blooded vampire mechanics | Planned |
+| Loresheets | Vampire 5th Edition loresheet integration | Planned |
 
-Have a feature request? [Open an issue](https://github.com/natelandau/valentina-noir/issues) and we'll see what we can do.
+## Request a Feature
+
+Have a feature request or found a bug? [Open an issue](https://github.com/natelandau/valentina-noir/issues) on GitHub.

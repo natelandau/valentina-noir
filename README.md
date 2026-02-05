@@ -90,7 +90,3 @@ When developing for valentina, please follow these guidelines:
 6. Create a pull request
 
 We use [Semantic Versioning](https://semver.org/) for version management.
-
-## AI Usage
-
-We do not use AI to generate application code. However, the use of AI in generating tests and documentation is permitted.

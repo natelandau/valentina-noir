@@ -6,18 +6,20 @@ icon: lucide/file-stack
 
 ## Overview
 
-Valentina Noir uses offset-based pagination for all endpoints that return collections. This allows you to retrieve large datasets in manageable chunks by specifying how many items to return and where to start in the result set.
+Retrieve large datasets in manageable chunks using offset-based pagination. All collection endpoints support pagination through `limit` and `offset` parameters.
 
 ## Query Parameters
 
-| Parameter | Type    | Default | Range | Description                                |
-| --------- | ------- | ------- | ----- | ------------------------------------------ |
-| `limit`   | integer | 10      | 0-100 | Maximum number of items to return          |
-| `offset`  | integer | 0       | 0+    | Number of items to skip from the beginning |
+Control pagination using these query parameters.
+
+| Parameter | Type    | Default | Range | Description                          |
+| --------- | ------- | ------- | ----- | ------------------------------------ |
+| `limit`   | integer | 10      | 1-100 | Maximum number of items to return    |
+| `offset`  | integer | 0       | 0+    | Number of items to skip from the top |
 
 ## Response Structure
 
-Paginated responses include metadata alongside the results:
+Paginated responses include metadata to help you navigate through results.
 
 ```json
 {
@@ -31,8 +33,8 @@ Paginated responses include metadata alongside the results:
 | Field    | Type    | Description                                      |
 | -------- | ------- | ------------------------------------------------ |
 | `items`  | array   | The requested page of results                    |
-| `limit`  | integer | The limit that was applied                       |
-| `offset` | integer | The offset that was applied                      |
+| `limit`  | integer | The limit applied to this request                |
+| `offset` | integer | The offset applied to this request               |
 | `total`  | integer | Total number of items available across all pages |
 
 ## Basic Usage
@@ -51,23 +53,28 @@ GET /api/v1/companies/{company_id}/users?limit=10&offset=10
 
 ## Calculating Pages
 
-Use the `total` field to calculate the number of pages:
+Calculate page counts using the `total` field.
 
 ```
 total_pages = ceil(total / limit)
 current_page = floor(offset / limit) + 1
 ```
 
-For example, with `total=47` and `limit=10`:
+**Example:** With `total=47` and `limit=10`:
 
--   Total pages: `ceil(47 / 10) = 5`
--   Page 1: `offset=0` (items 1-10)
--   Page 2: `offset=10` (items 11-20)
--   Page 3: `offset=20` (items 21-30)
--   Page 4: `offset=30` (items 31-40)
--   Page 5: `offset=40` (items 41-47)
+| Page | Offset | Items  |
+| ---- | ------ | ------ |
+| 1    | 0      | 1-10   |
+| 2    | 10     | 11-20  |
+| 3    | 20     | 21-30  |
+| 4    | 30     | 31-40  |
+| 5    | 40     | 41-47  |
+
+Total pages: `ceil(47 / 10) = 5`
 
 ## Iterating Through All Results (Python)
+
+Fetch all items by iterating through pages until you reach the total count.
 
 ```python
 import requests
@@ -92,7 +99,7 @@ def get_all_users(api_key, company_id):
 
         all_users.extend(data["items"])
 
-        # Check if we've retrieved all items
+        # Stop when we've retrieved all items
         if offset + limit >= data["total"]:
             break
 
@@ -139,7 +146,15 @@ async function getAllUsers(apiKey, companyId) {
 
 ## Best Practices
 
-1. **Cache the total count** - The `total` field can be used to display pagination UI without additional requests
-2. **Handle empty results** - An empty `items` array with `total=0` indicates no matching records
-3. **Don't exceed the total** - Requests with `offset >= total` will return an empty `items` array
-4. **Consider rate limits** - When iterating through large datasets, be mindful of [rate limits](rate-limiting.md)
+!!! tip "Optimize Your Pagination"
+    Use the maximum `limit=100` when fetching large datasets to minimize API calls.
+
+!!! warning "Handle Empty Results"
+    An empty `items` array with `total=0` indicates no matching records exist.
+
+**Key recommendations:**
+
+1. **Cache the total count** - Use the `total` field to display pagination UI without additional requests
+2. **Stay within bounds** - Requests with `offset >= total` return an empty `items` array
+3. **Respect rate limits** - When iterating through large datasets, monitor your [rate limits](rate_limits.md)
+4. **Use consistent limit values** - Keep the same `limit` across requests for predictable pagination
