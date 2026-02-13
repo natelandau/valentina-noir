@@ -10,18 +10,18 @@ The Valentina Python Client is an async Python library that provides a convenien
 
 ## Features
 
--   **Async-first design** - Built on httpx for efficient async HTTP operations
--   **Type-safe** - Full type hints with Pydantic models for request and response validation
--   **Convenient factory pattern** - Create a client once, access services from anywhere
--   **Automatic pagination** - Stream through large datasets with `iter_all()` or fetch everything with `list_all()`
--   **Robust error handling** - Specific exception types for different error conditions
--   **Idempotency support** - Optional automatic idempotency keys for safe retries
--   **Rate limit handling** - Built-in automatic retry support for rate-limited requests
+- **Async-first design** - Built on httpx for efficient async HTTP operations
+- **Type-safe** - Full type hints with Pydantic models for request and response validation
+- **Convenient factory pattern** - Create a client once, access services from anywhere
+- **Automatic pagination** - Stream through large datasets with `iter_all()` or fetch everything with `list_all()`
+- **Robust error handling** - Specific exception types for different error conditions
+- **Idempotency support** - Optional automatic idempotency keys for safe retries
+- **Rate limit handling** - Built-in automatic retry support for rate-limited requests
 
 ## Requirements
 
--   Python 3.13+
--   [Valentina API key](../technical/authentication.md)
+- Python 3.13+
+- [Valentina API key](../technical/authentication.md)
 
 ## Repository
 
@@ -84,48 +84,35 @@ asyncio.run(main())
 
 ## Configuration
 
-### Basic Configuration
+### Configuration Options
 
 ```python
 from vclient import VClient
 
-# Using constructor parameters
 client = VClient(
-    base_url="https://api.valentina-noir.com",
-    api_key="your-api-key",
-    timeout=30.0,
-)
-```
-
-### Advanced Configuration with APIConfig
-
-```python
-from vclient import VClient, APIConfig
-
-config = APIConfig(
     base_url="https://api.valentina-noir.com",
     api_key="your-api-key",
     timeout=30.0,
     max_retries=3,
     retry_delay=1.0,
     auto_retry_rate_limit=True,
+    auto_idempotency_keys=False,
+    default_company_id=None,
+    headers=None,
 )
-
-client = VClient(config=config)
 ```
 
-### Configuration Options
-
-| Option                  | Type            | Default  | Description                                       |
-| ----------------------- | --------------- | -------- | ------------------------------------------------- |
-| `base_url`              | `str`           | Required | Base URL for the API                              |
-| `api_key`               | `str`           | Required | API key for authentication                        |
-| `timeout`               | `float`         | `30.0`   | Request timeout in seconds                        |
-| `max_retries`           | `int`           | `3`      | Maximum retry attempts for failed requests        |
-| `retry_delay`           | `float`         | `1.0`    | Base delay between retries in seconds             |
-| `auto_retry_rate_limit` | `bool`          | `True`   | Automatically retry rate-limited requests         |
-| `auto_idempotency_keys` | `bool`          | `False`  | Auto-generate idempotency keys for POST/PUT/PATCH |
-| `default_company_id`    | `str` or `None` | `None`   | Default company ID for service factory methods    |
+| Option                  | Type                       | Default  | Description                                       |
+| ----------------------- | -------------------------- | -------- | ------------------------------------------------- |
+| `base_url`              | `str`                      | Required | Base URL for the API                              |
+| `api_key`               | `str`                      | Required | API key for authentication                        |
+| `timeout`               | `float`                    | `30.0`   | Request timeout in seconds                        |
+| `max_retries`           | `int`                      | `3`      | Maximum retry attempts for failed requests        |
+| `retry_delay`           | `float`                    | `1.0`    | Base delay between retries in seconds             |
+| `auto_retry_rate_limit` | `bool`                     | `True`   | Automatically retry rate-limited requests         |
+| `auto_idempotency_keys` | `bool`                     | `False`  | Auto-generate idempotency keys for POST/PUT/PATCH |
+| `default_company_id`    | `str` or `None`            | `None`   | Default company ID for service factory methods    |
+| `headers`               | `dict[str, str]` or `None` | `None`   | Additional headers to include with all requests   |
 
 ### Idempotency Keys
 
@@ -179,23 +166,23 @@ svc2 = users_service(company_id="explicit-id")  # Override
 
 Services that require a `company_id` accept it as an optional keyword argument. If not provided, the `default_company_id` from the client configuration is used.
 
-| Service | Factory Function | Description |
-| --- | --- | --- |
-| [Campaigns](campaigns.md) | `campaigns_service(user_id, company_id=...)` | Manage campaigns, assets, and notes |
-| [Campaign Books](campaign_books.md) | `books_service(user_id, campaign_id, company_id=...)` | Manage campaign books, notes, and assets |
-| [Campaign Chapters](campaign_chapters.md) | `chapters_service(user_id, campaign_id, book_id, company_id=...)` | Manage campaign book chapters |
-| [Character Autogen](character_autogen.md) | `character_autogen_service(user_id, campaign_id, company_id=...)` | Auto-generate characters |
-| [Character Blueprint](character_blueprint.md) | `character_blueprint_service(company_id=...)` | Manage character blueprints |
-| [Character Traits](character_traits.md) | `character_traits_service(user_id, campaign_id, character_id, company_id=...)` | Manage character traits |
-| [Characters](characters.md) | `characters_service(user_id, campaign_id, company_id=...)` | Manage characters, assets, and notes |
-| [Companies](companies.md) | `companies_service()` | Manage companies and permissions |
-| [Developers](developers.md) | `developer_service()` | Manage your developer profile |
-| [Dice Rolls](dice_rolls.md) | `dicerolls_service(user_id, company_id=...)` | Manage dice rolls |
-| [Dictionary](dictionary.md) | `dictionary_service(company_id=...)` | Manage dictionary terms |
-| [Global Admin](global_admin.md) | `global_admin_service()` | Manage developer accounts (admin only) |
-| [Options](options.md) | `options_service(company_id=...)` | Retrieve API options and enumerations |
-| [System](system.md) | `system_service()` | Health checks and system status |
-| [Users](users.md) | `users_service(company_id=...)` | Manage users and permissions |
+| Service                                       | Factory Function                                                               | Description                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------- |
+| [Campaigns](campaigns.md)                     | `campaigns_service(user_id, company_id=...)`                                   | Manage campaigns, assets, and notes      |
+| [Campaign Books](campaign_books.md)           | `books_service(user_id, campaign_id, company_id=...)`                          | Manage campaign books, notes, and assets |
+| [Campaign Chapters](campaign_chapters.md)     | `chapters_service(user_id, campaign_id, book_id, company_id=...)`              | Manage campaign book chapters            |
+| [Character Autogen](character_autogen.md)     | `character_autogen_service(user_id, campaign_id, company_id=...)`              | Auto-generate characters                 |
+| [Character Blueprint](character_blueprint.md) | `character_blueprint_service(company_id=...)`                                  | Manage character blueprints              |
+| [Character Traits](character_traits.md)       | `character_traits_service(user_id, campaign_id, character_id, company_id=...)` | Manage character traits                  |
+| [Characters](characters.md)                   | `characters_service(user_id, campaign_id, company_id=...)`                     | Manage characters, assets, and notes     |
+| [Companies](companies.md)                     | `companies_service()`                                                          | Manage companies and permissions         |
+| [Developers](developers.md)                   | `developer_service()`                                                          | Manage your developer profile            |
+| [Dice Rolls](dice_rolls.md)                   | `dicerolls_service(user_id, company_id=...)`                                   | Manage dice rolls                        |
+| [Dictionary](dictionary.md)                   | `dictionary_service(company_id=...)`                                           | Manage dictionary terms                  |
+| [Global Admin](global_admin.md)               | `global_admin_service()`                                                       | Manage developer accounts (admin only)   |
+| [Options](options.md)                         | `options_service(company_id=...)`                                              | Retrieve API options and enumerations    |
+| [System](system.md)                           | `system_service()`                                                             | Health checks and system status          |
+| [Users](users.md)                             | `users_service(company_id=...)`                                                | Manage users and permissions             |
 
 ## Common Service Methods
 
@@ -359,6 +346,6 @@ async with VClient(
 
 ## Resources
 
--   [API Concepts](../concepts/index.md)
--   [Technical Details](../technical/index.md)
--   [Full API Reference](https://api.valentina-noir.com/docs)
+- [API Concepts](../concepts/index.md)
+- [Technical Details](../technical/index.md)
+- [Full API Reference](https://api.valentina-noir.com/docs)
