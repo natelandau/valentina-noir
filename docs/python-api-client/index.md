@@ -31,7 +31,10 @@ The repository for the Python client is [here](https://github.com/natelandau/val
 
 ```bash
 # Using uv
-uv add git+https://github.com/natelandau/valentina-python-client.git
+uv add valentina-python-client
+
+# Using pip
+pip install valentina-python-client
 ```
 
 ## Quick Start
