@@ -107,7 +107,9 @@ def patch_document_from_dict[T: Document](document: T, data: dict[str, Any]) -> 
     return document
 
 
-async def patch_dto_data_internal_objects(original: T, data: DTOData[T]) -> tuple[T, DTOData]:
+async def patch_dto_data_internal_objects[T: Document](
+    original: T, data: DTOData[T]
+) -> tuple[T, DTOData]:
     """Update the internal objects within a database document with updated data from a DTO.
 
     We need this utility because of a bug in the way litestar handles nested objects with PydanticDTOs.  The default behavior overwrites the entire nested object with the new values and will delete any values that are not in the new data - effectively rendering patch operations useless.

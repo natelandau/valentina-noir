@@ -65,7 +65,7 @@ repos:
         entry: yamllint --strict --config-file .yamllint.yml
 
   - repo: "https://github.com/astral-sh/ruff-pre-commit"
-    rev: v0.15.0
+    rev: v0.15.1
     hooks:
       - id: ruff-check
       - id: ruff-format
@@ -77,12 +77,6 @@ repos:
       - id: typos
         args: ["--force-exclude"]
         stages: [commit-msg, pre-commit]
-
-  - repo: "https://github.com/djlint/djLint"
-    rev: v1.36.4
-    hooks:
-      - id: djlint
-        args: ["--configuration", "pyproject.toml"]
 
   - repo: "https://github.com/gitleaks/gitleaks"
     rev: v8.30.0
