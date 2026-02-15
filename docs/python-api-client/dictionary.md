@@ -21,8 +21,8 @@ dictionary = dictionary_service(company_id="COMPANY_ID")
 | Method                                            | Returns          | Description                  |
 | ------------------------------------------------- | ---------------- | ---------------------------- |
 | `get(term_id)`                                    | `DictionaryTerm` | Retrieve a term by ID        |
-| `create(request=None, /, **kwargs)`               | `DictionaryTerm` | Create a new term            |
-| `update(term_id, request=None, /, **kwargs)`      | `DictionaryTerm` | Update an existing term      |
+| `create(request=None, **kwargs)`               | `DictionaryTerm` | Create a new term            |
+| `update(term_id, request=None, **kwargs)`      | `DictionaryTerm` | Update an existing term      |
 | `delete(term_id)`                                 | `None`           | Delete a term                |
 
 ### Pagination Methods

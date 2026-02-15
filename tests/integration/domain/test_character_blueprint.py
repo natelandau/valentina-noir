@@ -459,7 +459,7 @@ class TestClassesConceptsAndSpecificOptions:
         werewolf_auspice = await WerewolfAuspice.find_one(WerewolfAuspice.is_archived == False)
         response = await client.get(
             build_url(
-                CharacterBlueprints.WEREWOLF_AUSPIE_DETAIL, werewolf_auspice_id=werewolf_auspice.id
+                CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL, werewolf_auspice_id=werewolf_auspice.id
             ),
             headers=token_company_admin,
         )

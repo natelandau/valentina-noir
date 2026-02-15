@@ -19,7 +19,7 @@ developer = developer_service()
 | Method                                                 | Returns                 | Description                       |
 | ------------------------------------------------------ | ----------------------- | --------------------------------- |
 | `get_me()`                                             | `MeDeveloper`           | Retrieve your developer profile   |
-| `update_me(request=None, /, **kwargs)`                 | `MeDeveloper`           | Update your profile fields        |
+| `update_me(request=None, **kwargs)`                 | `MeDeveloper`           | Update your profile fields        |
 | `regenerate_api_key()`                                 | `MeDeveloperWithApiKey` | Generate a new API key            |
 
 ## Examples

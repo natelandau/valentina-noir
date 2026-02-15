@@ -21,8 +21,8 @@ users = users_service(company_id="COMPANY_ID")
 | Method                                          | Returns | Description                  |
 | ----------------------------------------------- | ------- | ---------------------------- |
 | `get(user_id)`                                  | `User`  | Retrieve a user by ID        |
-| `create(request=None, /, **kwargs)`             | `User`  | Create a new user            |
-| `update(user_id, request=None, /, **kwargs)`    | `User`  | Update user properties       |
+| `create(request=None, **kwargs)`             | `User`  | Create a new user            |
+| `update(user_id, request=None, **kwargs)`    | `User`  | Update user properties       |
 | `delete(user_id, requesting_user_id)`           | `None`  | Delete a user                |
 
 ### Pagination Methods
@@ -41,12 +41,12 @@ users = users_service(company_id="COMPANY_ID")
 
 ### Experience Management
 
-| Method                                          | Returns              | Description                    |
-| ----------------------------------------------- | -------------------- | ------------------------------ |
-| `get_experience(user_id, campaign_id)`          | `CampaignExperience` | Retrieve XP and cool points    |
-| `add_xp(user_id, campaign_id, amount)`          | `CampaignExperience` | Award experience points        |
-| `remove_xp(user_id, campaign_id, amount)`       | `CampaignExperience` | Deduct experience points       |
-| `add_cool_points(user_id, campaign_id, amount)` | `CampaignExperience` | Award cool points              |
+| Method                                                              | Returns              | Description                    |
+| ------------------------------------------------------------------- | -------------------- | ------------------------------ |
+| `get_experience(user_id, campaign_id)`                              | `CampaignExperience` | Retrieve XP and cool points    |
+| `add_xp(user_id, campaign_id, amount, requesting_user_id)`          | `CampaignExperience` | Award experience points        |
+| `remove_xp(user_id, campaign_id, amount, requesting_user_id)`       | `CampaignExperience` | Deduct experience points       |
+| `add_cool_points(user_id, campaign_id, amount, requesting_user_id)` | `CampaignExperience` | Award cool points              |
 
 ### Asset Management
 
@@ -65,8 +65,8 @@ users = users_service(company_id="COMPANY_ID")
 | `list_all_notes(user_id)`                                   | `list[Note]`              | Retrieve all notes             |
 | `iter_all_notes(user_id, limit=100)`                        | `AsyncIterator[Note]`     | Iterate through all notes      |
 | `get_note(user_id, note_id)`                                | `Note`                    | Retrieve a note by ID          |
-| `create_note(user_id, request=None, /, **kwargs)`           | `Note`                    | Create a new note              |
-| `update_note(user_id, note_id, request=None, /, **kwargs)`  | `Note`                    | Update note content            |
+| `create_note(user_id, request=None, **kwargs)`           | `Note`                    | Create a new note              |
+| `update_note(user_id, note_id, request=None, **kwargs)`  | `Note`                    | Update note content            |
 | `delete_note(user_id, note_id)`                             | `None`                    | Delete a note                  |
 
 ### Quickrolls Management
@@ -77,8 +77,8 @@ users = users_service(company_id="COMPANY_ID")
 | `list_all_quickrolls(user_id)`                                      | `list[Quickroll]`             | Retrieve all quickrolls          |
 | `iter_all_quickrolls(user_id, limit=100)`                           | `AsyncIterator[Quickroll]`    | Iterate through all quickrolls   |
 | `get_quickroll(user_id, quickroll_id)`                              | `Quickroll`                   | Retrieve a quickroll by ID       |
-| `create_quickroll(user_id, request=None, /, **kwargs)`              | `Quickroll`                   | Create a new quickroll           |
-| `update_quickroll(user_id, quickroll_id, request=None, /, **kwargs)`| `Quickroll`                   | Update quickroll configuration   |
+| `create_quickroll(user_id, request=None, **kwargs)`              | `Quickroll`                   | Create a new quickroll           |
+| `update_quickroll(user_id, quickroll_id, request=None, **kwargs)`| `Quickroll`                   | Update quickroll configuration   |
 | `delete_quickroll(user_id, quickroll_id)`                           | `None`                        | Delete a quickroll               |
 
 ## User Roles
@@ -126,15 +126,21 @@ experience = await users.get_experience(user.id, campaign_id)
 print(f"Current XP: {experience.xp_current}")
 print(f"Total earned: {experience.xp_total}")
 
-# Award XP
-updated = await users.add_xp(user.id, campaign_id, amount=50)
+# Award XP (requesting_user_id for permission checking)
+updated = await users.add_xp(
+    user.id, campaign_id, amount=50, requesting_user_id=admin.id
+)
 print(f"New XP: {updated.xp_current}")
 
 # Award cool points (converted to XP automatically)
-updated = await users.add_cool_points(user.id, campaign_id, amount=3)
+updated = await users.add_cool_points(
+    user.id, campaign_id, amount=3, requesting_user_id=admin.id
+)
 
 # Deduct XP for character upgrades
-updated = await users.remove_xp(user.id, campaign_id, amount=20)
+updated = await users.remove_xp(
+    user.id, campaign_id, amount=20, requesting_user_id=admin.id
+)
 ```
 
 ### Create and Manage Notes

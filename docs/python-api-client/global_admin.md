@@ -24,8 +24,8 @@ admins = global_admin_service()
 | Method                                          | Returns     | Description                     |
 | ----------------------------------------------- | ----------- | ------------------------------- |
 | `get(developer_id)`                             | `Developer` | Retrieve a developer by ID      |
-| `create(request=None, /, **kwargs)`             | `Developer` | Create a new developer account  |
-| `update(developer_id, request=None, /, **kwargs)` | `Developer` | Update developer properties     |
+| `create(request=None, **kwargs)`             | `Developer` | Create a new developer account  |
+| `update(developer_id, request=None, **kwargs)` | `Developer` | Update developer properties     |
 | `delete(developer_id)`                          | `None`      | Delete a developer account      |
 
 ### Pagination Methods

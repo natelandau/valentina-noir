@@ -20,21 +20,21 @@ dicerolls = dicerolls_service(user_id="USER_ID", company_id="COMPANY_ID")
 
 ### CRUD Operations
 
-| Method                                              | Returns    | Description                    |
-| --------------------------------------------------- | ---------- | ------------------------------ |
-| `get(diceroll_id)`                                  | `Diceroll` | Get a dice roll by ID          |
-| `create(DicerollCreate, **kwargs)`                  | `Diceroll` | Create a new dice roll         |
-| `create_quickroll(quickroll_id, character_id, ...)` | `Diceroll` | Create a roll from a quickroll |
+| Method                                                   | Returns    | Description                    |
+| -------------------------------------------------------- | ---------- | ------------------------------ |
+| `get(diceroll_id)`                                       | `Diceroll` | Get a dice roll by ID          |
+| `create(DicerollCreate, **kwargs)`                       | `Diceroll` | Create a new dice roll         |
+| `create_from_quickroll(quickroll_id, character_id, ...)` | `Diceroll` | Create a roll from a quickroll |
 
 ### Pagination
 
 Filter rolls by user, character, or campaign using optional query parameters.
 
-| Method                                                          | Returns                         | Description             |
-| --------------------------------------------------------------- | ------------------------------- | ----------------------- |
-| `get_page(limit?, offset?, userid?, characterid?, campaignid?)` | `PaginatedResponse[Diceroll]`   | Get a page of rolls     |
-| `list_all(userid?, characterid?, campaignid?)`                  | `list[Diceroll]`                | Get all rolls           |
-| `iter_all(userid?, characterid?, campaignid?, limit?)`          | `AsyncIterator[Diceroll]`       | Iterate through rolls   |
+| Method                                                          | Returns                       | Description           |
+| --------------------------------------------------------------- | ----------------------------- | --------------------- |
+| `get_page(limit?, offset?, userid?, characterid?, campaignid?)` | `PaginatedResponse[Diceroll]` | Get a page of rolls   |
+| `list_all(userid?, characterid?, campaignid?)`                  | `list[Diceroll]`              | Get all rolls         |
+| `iter_all(userid?, characterid?, campaignid?, limit?)`          | `AsyncIterator[Diceroll]`     | Iterate through rolls |
 
 ## Examples
 
@@ -72,7 +72,7 @@ roll = await dicerolls.create(
 
 ```python
 # Create a roll from a saved quickroll template
-roll = await dicerolls.create_quickroll(
+roll = await dicerolls.create_from_quickroll(
     quickroll_id="quickroll_id",
     character_id="character_id",
     comment="Combat roll",

@@ -250,7 +250,7 @@ class CharacterBlueprints:
     WEREWOLF_TRIBES = f"{BASE}/werewolf-tribes"
     WEREWOLF_TRIBE_DETAIL = f"{WEREWOLF_TRIBES}/{{werewolf_tribe_id:str}}"
     WEREWOLF_AUSPICES = f"{BASE}/werewolf-auspices"
-    WEREWOLF_AUSPIE_DETAIL = f"{WEREWOLF_AUSPICES}/{{werewolf_auspice_id:str}}"
+    WEREWOLF_AUSPICE_DETAIL = f"{WEREWOLF_AUSPICES}/{{werewolf_auspice_id:str}}"
     WEREWOLF_GIFTS = f"{BASE}/werewolf-gifts"
     WEREWOLF_GIFT_DETAIL = f"{WEREWOLF_GIFTS}/{{werewolf_gift_id:str}}"
     WEREWOLF_RITES = f"{BASE}/werewolf-rites"

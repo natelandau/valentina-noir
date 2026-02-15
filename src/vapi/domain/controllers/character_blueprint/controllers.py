@@ -434,7 +434,7 @@ class CharacterBlueprintSectionController(Controller):
         return OffsetPagination(items=werewolf_auspices, limit=limit, offset=offset, total=count)
 
     @get(
-        path=urls.CharacterBlueprints.WEREWOLF_AUSPIE_DETAIL,
+        path=urls.CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL,
         summary="Get werewolf auspice",
         operation_id="getCharacterBlueprintWerewolfAuspice",
         description=docs.GET_WEREWOLF_AUSPICE_DESCRIPTION,

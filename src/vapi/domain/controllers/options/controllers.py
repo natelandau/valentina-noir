@@ -98,7 +98,7 @@ class OptionsController(Controller):
                     "werewolf_gifts": _build_url(urls.CharacterBlueprints.WEREWOLF_GIFTS),
                     "vampire_clan_detail": _build_url(urls.CharacterBlueprints.VAMPIRE_CLAN_DETAIL),
                     "werewolf_auspice_detail": _build_url(
-                        urls.CharacterBlueprints.WEREWOLF_AUSPIE_DETAIL
+                        urls.CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL
                     ),
                     "werewolf_gift_detail": _build_url(
                         urls.CharacterBlueprints.WEREWOLF_GIFT_DETAIL
