@@ -27,7 +27,7 @@
     name = "vapi"
     readme = "README.md"
     requires-python = ">=3.13,<3.14"
-    version = "0.7.0"
+    version = "0.8.0"
 
     [project.scripts]
         app = "vapi.__main__:run_cli"
@@ -65,7 +65,6 @@
     changelog_merge_prerelease = true
     tag_format                 = "v$version"
     update_changelog_on_bump   = true
-    version                    = "0.1.0"
     version_files              = ["src/vapi/__init__.py:__version__"]
     version_provider           = "uv"
 

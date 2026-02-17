@@ -1,3 +1,26 @@
+## v0.8.0 (2026-02-17)
+
+### Feat
+
+- **user-xp**: implement consistent permission management (#36)
+- **character-trait**: consolidate value endpoints (#35)
+- **character-trait**: add cost preview endpoints (#34)
+- **company**: admin user created for all companies (#33)
+- **options**: add asset enumerations to options (#31)
+- **gameplay**: support 20 sided dice
+
+### Fix
+
+- **options**: add BlueprintTraitOrderBy to options (#40)
+- **options**: correct errors in options endpoint (#39)
+- **character**: remove date_killed from patch requests
+- sort books and chapters by number (#32)
+- remove asset_ids from campaign and character update and patch
+
+### Refactor
+
+- **urls**: fix typo in internal endpoint name
+
 ## v0.7.0 (2026-01-22)
 
 ### Feat
