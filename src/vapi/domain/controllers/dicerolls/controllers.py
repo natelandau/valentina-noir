@@ -108,12 +108,12 @@ class DiceRollController(Controller):
         summary="Execute quick roll",
         description=docs.QUICKROLL_DESCRIPTION,
     )
-    async def create_quickroll(
+    async def create_from_quickroll(
         self,
         company: Company,
         user: User,
         data: dto.QuickRollDTO,
     ) -> DiceRoll:
-        """Create a quick roll."""
+        """Create a dice roll from a quick roll."""
         service = DiceRollService()
         return await service.roll_quickroll(company=company, user=user, data=data)

@@ -245,5 +245,8 @@ class TestDiceRollService:
 
         # when we roll the quickroll
         service = DiceRollService()
-        with pytest.raises(ValidationError, match="No matching traits found to roll"):
+        with pytest.raises(
+            ValidationError,
+            match="This character does not have the traits required to roll this quick rol",
+        ):
             await service.roll_quickroll(company=company, user=user, data=data)
