@@ -11,7 +11,12 @@ from litestar.di import Provide
 from litestar.handlers import get
 from litestar.params import Parameter
 
-from vapi.constants import CharacterClass, GameVersion, HunterEdgeType  # noqa: TC001
+from vapi.constants import (
+    BlueprintTraitOrderBy,
+    CharacterClass,
+    GameVersion,
+    HunterEdgeType,
+)
 from vapi.db.models import (
     CharacterConcept,
     CharSheetSection,
@@ -32,7 +37,7 @@ from vapi.domain.services import CharacterBlueprintService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import docs, dto, schemas
+from . import docs, dto
 
 
 class CharacterBlueprintSectionController(Controller):
@@ -238,9 +243,9 @@ class CharacterBlueprintSectionController(Controller):
             Parameter(description="Show traits for this category.", title="Category ID"),
         ] = None,
         order_by: Annotated[
-            schemas.TraitSort,
+            BlueprintTraitOrderBy,
             Parameter(description="Sort traits by this field.", title="Sort"),
-        ] = schemas.TraitSort.NAME,
+        ] = BlueprintTraitOrderBy.NAME,
     ) -> OffsetPagination[Trait]:
         """List all constant character traits."""
         service = CharacterBlueprintService()

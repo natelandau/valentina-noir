@@ -13,6 +13,7 @@ from vapi.config import settings
 from vapi.constants import (
     AssetParentType,
     AssetType,
+    BlueprintTraitOrderBy,
     CharacterClass,
     CharacterStatus,
     CharacterType,
@@ -81,6 +82,7 @@ class OptionsController(Controller):
             "characters": {
                 "AbilityFocus": [x.value for x in AbilityFocus],
                 "AutoGenExperienceLevel": [x.value for x in AutoGenExperienceLevel],
+                "BlueprintTraitOrderBy": [x.value for x in BlueprintTraitOrderBy],
                 "CharacterClass": [x.value for x in CharacterClass],
                 "CharacterStatus": [x.value for x in CharacterStatus],
                 "CharacterType": [x.value for x in CharacterType],
