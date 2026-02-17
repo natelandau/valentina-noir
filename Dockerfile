@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.10.2-python3.13-trixie-slim
+FROM ghcr.io/astral-sh/uv:0.10.3-python3.13-trixie-slim
 
 # Set labels
 LABEL org.opencontainers.image.source=https://github.com/natelandau/valentina-noir
