@@ -72,7 +72,7 @@ repos:
         args: [--check]
 
   - repo: "https://github.com/adhtruong/mirrors-typos"
-    rev: v1.43.4
+    rev: v1.43.5
     hooks:
       - id: typos
         args: ["--force-exclude"]
@@ -84,7 +84,7 @@ repos:
       - id: gitleaks
 
   - repo: "https://github.com/python-jsonschema/check-jsonschema"
-    rev: 0.36.1
+    rev: 0.36.2
     hooks:
       - id: check-github-workflows
         args: ["--verbose"]
