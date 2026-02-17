@@ -16,14 +16,17 @@ from vapi.constants import (
     CharacterClass,
     CharacterStatus,
     CharacterType,
+    CompanyPermission,
     DiceSize,
     GameVersion,
+    HunterCreed,
     HunterEdgeType,
     InventoryItemType,
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     RollResultType,
+    SpecialtyType,
     TraitModifyCurrency,
     UserRole,
     WerewolfRenown,
@@ -66,25 +69,28 @@ class OptionsController(Controller):
         description=docs.GET_OPTIONS_DESCRIPTION,
         cache=600,
     )
-    async def get_company_options(self) -> dict[str, dict[str, list[str] | dict[str, str]]]:
+    async def get_company_options(self) -> dict[str, dict[str, list[str | int] | dict[str, str]]]:
         """Get options for a company."""
         return {
             "companies": {
-                "PermissionManageCampaign": [x.name for x in PermissionManageCampaign],
-                "PermissionsGrantXP": [x.name for x in PermissionsGrantXP],
-                "PermissionsFreeTraitChanges": [x.name for x in PermissionsFreeTraitChanges],
+                "CompanyPermission": [x.value for x in CompanyPermission],
+                "PermissionManageCampaign": [x.value for x in PermissionManageCampaign],
+                "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
+                "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
             },
             "characters": {
-                "AbilityFocus": [x.name for x in AbilityFocus],
-                "AutoGenExperienceLevel": [x.name for x in AutoGenExperienceLevel],
-                "CharacterClass": [x.name for x in CharacterClass],
-                "CharacterStatus": [x.name for x in CharacterStatus],
-                "CharacterType": [x.name for x in CharacterType],
-                "GameVersion": [x.name for x in GameVersion],
-                "HunterEdgeType": [x.name for x in HunterEdgeType],
-                "InventoryItemType": [x.name for x in InventoryItemType],
-                "TraitModifyCurrency": [x.name for x in TraitModifyCurrency],
-                "WerewolfRenown": [x.name for x in WerewolfRenown],
+                "AbilityFocus": [x.value for x in AbilityFocus],
+                "AutoGenExperienceLevel": [x.value for x in AutoGenExperienceLevel],
+                "CharacterClass": [x.value for x in CharacterClass],
+                "CharacterStatus": [x.value for x in CharacterStatus],
+                "CharacterType": [x.value for x in CharacterType],
+                "GameVersion": [x.value for x in GameVersion],
+                "HunterCreed": [x.value for x in HunterCreed],
+                "HunterEdgeType": [x.value for x in HunterEdgeType],
+                "InventoryItemType": [x.value for x in InventoryItemType],
+                "SpecialtyType": [x.value for x in SpecialtyType],
+                "TraitModifyCurrency": [x.value for x in TraitModifyCurrency],
+                "WerewolfRenown": [x.value for x in WerewolfRenown],
                 "_related": {
                     "concepts": _build_url(urls.CharacterBlueprints.CONCEPTS),
                     "hunter_edges": _build_url(urls.CharacterBlueprints.HUNTER_EDGES),
@@ -113,7 +119,7 @@ class OptionsController(Controller):
             },
             "character_autogeneration": {
                 "CharacterClassPercentileChance": [
-                    f"{x.name}: {lower_bound}-{upper_bound}"
+                    f"{x.value}: {lower_bound}-{upper_bound}"
                     for x, (
                         lower_bound,
                         upper_bound,
@@ -121,14 +127,14 @@ class OptionsController(Controller):
                 ],
             },
             "users": {
-                "UserRole": [x.name for x in UserRole],
+                "UserRole": [x.value for x in UserRole],
             },
             "gameplay": {
-                "DiceSize": [x.name for x in DiceSize],
-                "RollResultType": [x.name for x in RollResultType],
+                "DiceSize": [x.value for x in DiceSize],
+                "RollResultType": [x.value for x in RollResultType],
             },
             "assets": {
-                "AssetType": [x.name for x in AssetType],
-                "AssetParentType": [x.name for x in AssetParentType],
+                "AssetType": [x.value for x in AssetType],
+                "AssetParentType": [x.value for x in AssetParentType],
             },
         }

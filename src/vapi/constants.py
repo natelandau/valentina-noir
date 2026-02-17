@@ -24,7 +24,7 @@ AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
 
 
-class CharacterClass(Enum):
+class CharacterClass(StrEnum):
     """Character class."""
 
     VAMPIRE = "VAMPIRE"
@@ -35,14 +35,14 @@ class CharacterClass(Enum):
     MORTAL = "MORTAL"
 
 
-class CharacterStatus(Enum):
+class CharacterStatus(StrEnum):
     """Character status."""
 
     ALIVE = "ALIVE"
     DEAD = "DEAD"
 
 
-class CharacterType(Enum):
+class CharacterType(StrEnum):
     """Character type."""
 
     PLAYER = "PLAYER"
@@ -51,7 +51,7 @@ class CharacterType(Enum):
     DEVELOPER = "DEVELOPER"
 
 
-class CompanyPermission(Enum):
+class CompanyPermission(StrEnum):
     """Application permissions."""
 
     USER = "USER"
@@ -71,14 +71,14 @@ class DiceSize(Enum):
     D100 = 100
 
 
-class GameVersion(Enum):
+class GameVersion(StrEnum):
     """Game version."""
 
     V4 = "V4"
     V5 = "V5"
 
 
-class InventoryItemType(Enum):
+class InventoryItemType(StrEnum):
     """Inventory item type."""
 
     BOOK = "BOOK"
@@ -89,7 +89,7 @@ class InventoryItemType(Enum):
     WEAPON = "WEAPON"
 
 
-class LogLevel(Enum):
+class LogLevel(StrEnum):
     """Log level."""
 
     TRACE = "TRACE"
@@ -100,7 +100,7 @@ class LogLevel(Enum):
     CRITICAL = "CRITICAL"
 
 
-class PermissionsFreeTraitChanges(Enum):
+class PermissionsFreeTraitChanges(StrEnum):
     """Permissions for updating character trait values."""
 
     UNRESTRICTED = "UNRESTRICTED"  # Default
@@ -108,7 +108,7 @@ class PermissionsFreeTraitChanges(Enum):
     STORYTELLER = "STORYTELLER"
 
 
-class PermissionsGrantXP(Enum):
+class PermissionsGrantXP(StrEnum):
     """Permissions for adding xp to a character."""
 
     UNRESTRICTED = "UNRESTRICTED"  # Default
@@ -116,14 +116,14 @@ class PermissionsGrantXP(Enum):
     STORYTELLER = "STORYTELLER"
 
 
-class PermissionManageCampaign(Enum):
+class PermissionManageCampaign(StrEnum):
     """Permissions for managing a campaign."""
 
     UNRESTRICTED = "UNRESTRICTED"  # Default
     STORYTELLER = "STORYTELLER"
 
 
-class RollResultType(Enum):
+class RollResultType(StrEnum):
     """Enum for results of a roll."""
 
     SUCCESS = "SUCCESS"
@@ -133,7 +133,7 @@ class RollResultType(Enum):
     OTHER = "OTHER"
 
 
-class SpecialtyType(Enum):
+class SpecialtyType(StrEnum):
     """Specialty type."""
 
     ACTION = "ACTION"
@@ -151,7 +151,7 @@ class TraitModifyCurrency(StrEnum):
     STARTING_POINTS = "STARTING_POINTS"
 
 
-class UserRole(Enum):
+class UserRole(StrEnum):
     """User role."""
 
     ADMIN = "ADMIN"
@@ -159,7 +159,7 @@ class UserRole(Enum):
     PLAYER = "PLAYER"
 
 
-class WerewolfRenown(Enum):
+class WerewolfRenown(StrEnum):
     """Werewolf renown."""
 
     GLORY = "GLORY"
@@ -167,7 +167,7 @@ class WerewolfRenown(Enum):
     WISDOM = "WISDOM"
 
 
-class HunterEdgeType(Enum):
+class HunterEdgeType(StrEnum):
     """Hunter edge type."""
 
     ASSETS = "ASSETS"
@@ -175,7 +175,7 @@ class HunterEdgeType(Enum):
     ENDOWMENTS = "ENDOWMENTS"
 
 
-class HunterCreed(Enum):
+class HunterCreed(StrEnum):
     """Hunter creed."""
 
     ENTREPRENEURIAL = "ENTREPRENEURIAL"
@@ -185,7 +185,7 @@ class HunterCreed(Enum):
     UNDERGROUND = "UNDERGROUND"
 
 
-class AssetType(Enum):
+class AssetType(StrEnum):
     """Asset type."""
 
     IMAGE = "image"
@@ -197,7 +197,7 @@ class AssetType(Enum):
     OTHER = "other"
 
 
-class AssetParentType(Enum):
+class AssetParentType(StrEnum):
     """S3 asset parent type.
 
     The values are the lowercase class name of the parent database model.

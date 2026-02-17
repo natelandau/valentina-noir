@@ -74,7 +74,10 @@ class DiceRollService:
         ).to_list()
 
         if not traits_to_roll:
-            raise ValidationError(detail="No matching traits found to roll")
+            raise ValidationError(
+                detail="This character does not have the traits required to roll this quick roll"
+            )
+
         total_dice = sum(trait.value for trait in traits_to_roll)
 
         result = roll_dice(

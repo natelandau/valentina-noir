@@ -8,6 +8,7 @@ from litestar.status_codes import HTTP_200_OK
 
 from vapi.config import settings
 from vapi.constants import (
+    CompanyPermission,
     DiceSize,
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
@@ -34,16 +35,17 @@ async def test_get_company_options(
 
     assert response.status_code == HTTP_200_OK
     assert response.json()["companies"] == {
-        "PermissionManageCampaign": [x.name for x in PermissionManageCampaign],
-        "PermissionsGrantXP": [x.name for x in PermissionsGrantXP],
-        "PermissionsFreeTraitChanges": [x.name for x in PermissionsFreeTraitChanges],
+        "CompanyPermission": [x.value for x in CompanyPermission],
+        "PermissionManageCampaign": [x.value for x in PermissionManageCampaign],
+        "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
+        "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
     }
     assert response.json()["users"] == {
-        "UserRole": [x.name for x in UserRole],
+        "UserRole": [x.value for x in UserRole],
     }
     assert response.json()["gameplay"] == {
-        "DiceSize": [x.name for x in DiceSize],
-        "RollResultType": [x.name for x in RollResultType],
+        "DiceSize": [x.value for x in DiceSize],
+        "RollResultType": [x.value for x in RollResultType],
     }
     assert "characters" in response.json()
     assert (
