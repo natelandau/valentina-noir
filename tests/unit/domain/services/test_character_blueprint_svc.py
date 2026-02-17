@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vapi.constants import CharacterClass, GameVersion
+from vapi.constants import BlueprintTraitOrderBy, CharacterClass, GameVersion
 from vapi.db.models import Character, CharSheetSection, Trait, TraitCategory
-from vapi.domain.controllers.character_blueprint.schemas import TraitSort
 from vapi.domain.services import CharacterBlueprintService
 
 if TYPE_CHECKING:
@@ -389,7 +388,7 @@ class TestListAllTraits:
         count, traits = await service.list_all_traits(
             game_version=GameVersion.V5,
             character_class=CharacterClass.VAMPIRE,
-            order_by=TraitSort.NAME,
+            order_by=BlueprintTraitOrderBy.NAME,
         )
 
         # Then the count should be the same as the number of v5 traits
@@ -435,7 +434,7 @@ class TestListAllTraits:
 
         # When listing all trait traits
         service = CharacterBlueprintService()
-        count, traits = await service.list_all_traits(order_by=TraitSort.SHEET)
+        count, traits = await service.list_all_traits(order_by=BlueprintTraitOrderBy.SHEET)
         # debug([x.name for x in traits])
 
         # Then the count should be the same as the number of v5 traits

@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from beanie.operators import Or
 
+from vapi.constants import BlueprintTraitOrderBy
 from vapi.db.models import CharSheetSection, Trait, TraitCategory
-from vapi.domain.controllers.character_blueprint.schemas import TraitSort
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
@@ -144,7 +144,7 @@ class CharacterBlueprintService:
         game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
         parent_category_id: PydanticObjectId | None = None,
-        order_by: TraitSort = TraitSort.NAME,
+        order_by: BlueprintTraitOrderBy = BlueprintTraitOrderBy.NAME,
         limit: int = 10,
         offset: int = 0,
     ) -> tuple[int, list[Trait]]:
@@ -174,9 +174,9 @@ class CharacterBlueprintService:
 
         count = await Trait.find(*filters).count()
 
-        if order_by == TraitSort.NAME:
+        if order_by == BlueprintTraitOrderBy.NAME:
             traits = await Trait.find(*filters).skip(offset).limit(limit).sort("name").to_list()
-        elif order_by == TraitSort.SHEET:
+        elif order_by == BlueprintTraitOrderBy.SHEET:
             # Build match conditions for aggregation pipeline
             match_conditions: dict = {"is_archived": False, "custom_for_character_id": None}
             if game_version:

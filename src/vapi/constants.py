@@ -24,6 +24,13 @@ AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
 
 
+class BlueprintTraitOrderBy(StrEnum):
+    """Trait sort."""
+
+    NAME = "NAME"
+    SHEET = "SHEET"
+
+
 class CharacterClass(StrEnum):
     """Character class."""
 
