@@ -53,6 +53,12 @@ client = VClient(
 )
 ```
 
+If you've set the `VALENTINA_CLIENT_BASE_URL` and `VALENTINA_CLIENT_API_KEY` [environment variables](#environment-variables), you can create a client with no arguments:
+
+```python
+client = VClient()
+```
+
 ### 2. Use Services from Any Module
 
 ```python
@@ -105,17 +111,39 @@ client = VClient(
 )
 ```
 
-| Option                  | Type                       | Default  | Description                                       |
-| ----------------------- | -------------------------- | -------- | ------------------------------------------------- |
-| `base_url`              | `str`                      | Required | Base URL for the API                              |
-| `api_key`               | `str`                      | Required | API key for authentication                        |
-| `timeout`               | `float`                    | `30.0`   | Request timeout in seconds                        |
-| `max_retries`           | `int`                      | `3`      | Maximum retry attempts for failed requests        |
-| `retry_delay`           | `float`                    | `1.0`    | Base delay between retries in seconds             |
-| `auto_retry_rate_limit` | `bool`                     | `True`   | Automatically retry rate-limited requests         |
-| `auto_idempotency_keys` | `bool`                     | `False`  | Auto-generate idempotency keys for POST/PUT/PATCH |
-| `default_company_id`    | `str` or `None`            | `None`   | Default company ID for service factory methods    |
-| `headers`               | `dict[str, str]` or `None` | `None`   | Additional headers to include with all requests   |
+| Option                  | Type                       | Default  | Description                                                                       |
+| ----------------------- | -------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `base_url`              | `str` or `None`            | `None`   | Base URL for the API. Falls back to `VALENTINA_CLIENT_BASE_URL` env var.          |
+| `api_key`               | `str` or `None`            | `None`   | API key for authentication. Falls back to `VALENTINA_CLIENT_API_KEY` env var.     |
+| `timeout`               | `float`                    | `30.0`   | Request timeout in seconds                                                        |
+| `max_retries`           | `int`                      | `3`      | Maximum retry attempts for failed requests                                        |
+| `retry_delay`           | `float`                    | `1.0`    | Base delay between retries in seconds                                             |
+| `auto_retry_rate_limit` | `bool`                     | `True`   | Automatically retry rate-limited requests                                         |
+| `auto_idempotency_keys` | `bool`                     | `False`  | Auto-generate idempotency keys for POST/PUT/PATCH                                 |
+| `default_company_id`    | `str` or `None`            | `None`   | Default company ID for service factory methods. Falls back to `VALENTINA_CLIENT_DEFAULT_COMPANY_ID` env var. |
+| `headers`               | `dict[str, str]` or `None` | `None`   | Additional headers to include with all requests                                   |
+
+> **Note:** `base_url` and `api_key` are required. If not passed as arguments, they must be set via the corresponding [environment variables](#environment-variables). A `ValueError` is raised if neither source provides a value.
+
+### Environment Variables
+
+The client reads configuration from environment variables when constructor arguments aren't provided. Explicit arguments always take precedence.
+
+| Environment Variable                   | Maps To              | Required |
+| -------------------------------------- | -------------------- | -------- |
+| `VALENTINA_CLIENT_BASE_URL`            | `base_url`           | Yes      |
+| `VALENTINA_CLIENT_API_KEY`             | `api_key`            | Yes      |
+| `VALENTINA_CLIENT_DEFAULT_COMPANY_ID`  | `default_company_id` | No       |
+
+```python
+from vclient import VClient
+
+# All config from environment variables
+client = VClient()
+
+# Mix: explicit base_url, api_key from env var
+client = VClient(base_url="https://staging.valentina-noir.com")
+```
 
 ### Idempotency Keys
 
