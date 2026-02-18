@@ -11,7 +11,7 @@ from vclient.models import Company, User, Campaign, Character
 ```
 
 !!! info "Type Safety"
-    All models provide full type hints for IDE autocomplete and static type checking with mypy or pyright.
+All models provide full type hints for IDE autocomplete and static type checking with mypy or pyright.
 
 ## Using Models
 
@@ -263,18 +263,20 @@ Extends `Developer` with an `api_key` field. Only returned when generating a new
 
 ### Trait
 
-| Field                  | Type          | Description          |
-| ---------------------- | ------------- | -------------------- |
-| `id`                   | `str`         | Unique identifier    |
-| `name`                 | `str`         | Trait name           |
-| `description`          | `str \| None` | Trait description    |
-| `max_value`            | `int`         | Maximum value        |
-| `min_value`            | `int`         | Minimum value        |
-| `is_custom`            | `bool`        | Whether custom trait |
-| `initial_cost`         | `int`         | XP cost to acquire   |
-| `upgrade_cost`         | `int`         | XP cost per upgrade  |
-| `parent_category_id`   | `str`         | Parent category ID   |
-| `parent_category_name` | `str \| None` | Parent category name |
+| Field                  | Type                   | Description             |
+| ---------------------- | ---------------------- | ----------------------- |
+| `id`                   | `str`                  | Unique identifier       |
+| `name`                 | `str`                  | Trait name              |
+| `description`          | `str \| None`          | Trait description       |
+| `max_value`            | `int`                  | Maximum value           |
+| `min_value`            | `int`                  | Minimum value           |
+| `is_custom`            | `bool`                 | Whether custom trait    |
+| `initial_cost`         | `int`                  | XP cost to acquire      |
+| `upgrade_cost`         | `int`                  | XP cost per upgrade     |
+| `parent_category_id`   | `str`                  | Parent category ID      |
+| `parent_category_name` | `str \| None`          | Parent category name    |
+| `game_versions`        | `list[GameVersion]`    | Available game versions |
+| `character_classes`    | `list[CharacterClass]` | Applicable classes      |
 
 ## Blueprint Models
 
@@ -284,28 +286,32 @@ Blueprint models define the structure and rules for character creation across di
 
 Top-level character sheet section. Organizes traits into logical groups like "Attributes", "Skills", or "Disciplines".
 
-| Field               | Type                   | Description        |
-| ------------------- | ---------------------- | ------------------ |
-| `id`                | `str`                  | Unique identifier  |
-| `name`              | `str`                  | Section name       |
-| `description`       | `str \| None`          | Description        |
-| `game_version`      | `GameVersion`          | V4 or V5           |
-| `character_classes` | `list[CharacterClass]` | Applicable classes |
-| `order`             | `int`                  | Display order      |
+| Field               | Type                   | Description                |
+| ------------------- | ---------------------- | -------------------------- |
+| `id`                | `str`                  | Unique identifier          |
+| `name`              | `str`                  | Section name               |
+| `description`       | `str \| None`          | Description                |
+| `game_versions`     | `list[GameVersion]`    | Available game versions    |
+| `character_classes` | `list[CharacterClass]` | Applicable classes         |
+| `order`             | `int`                  | Display order              |
+| `show_when_empty`   | `bool`                 | Whether to show when empty |
 
 ### TraitCategory
 
 Category within a sheet section. Groups related traits together, like "Physical Attributes" or "Social Skills".
 
-| Field                     | Type          | Description         |
-| ------------------------- | ------------- | ------------------- |
-| `id`                      | `str`         | Unique identifier   |
-| `name`                    | `str`         | Category name       |
-| `description`             | `str \| None` | Description         |
-| `game_version`            | `GameVersion` | V4 or V5            |
-| `parent_sheet_section_id` | `str`         | Parent section ID   |
-| `initial_cost`            | `int`         | XP cost to acquire  |
-| `upgrade_cost`            | `int`         | XP cost per upgrade |
+| Field                     | Type                   | Description                |
+| ------------------------- | ---------------------- | -------------------------- |
+| `id`                      | `str`                  | Unique identifier          |
+| `name`                    | `str`                  | Category name              |
+| `description`             | `str \| None`          | Description                |
+| `game_versions`           | `list[GameVersion]`    | Available game versions    |
+| `parent_sheet_section_id` | `str`                  | Parent section ID          |
+| `initial_cost`            | `int`                  | XP cost to acquire         |
+| `upgrade_cost`            | `int`                  | XP cost per upgrade        |
+| `show_when_empty`         | `bool`                 | Whether to show when empty |
+| `character_classes`       | `list[CharacterClass]` | Applicable classes         |
+| `order`                   | `int`                  | Display order              |
 
 ### CharacterConcept
 
@@ -314,7 +320,6 @@ Category within a sheet section. Groups related traits together, like "Physical 
 | `id`              | `str`         | Unique identifier       |
 | `name`            | `str`         | Concept name            |
 | `description`     | `str \| None` | Description             |
-| `game_version`    | `GameVersion` | V4 or V5                |
 | `examples`        | `list[str]`   | Example concepts        |
 | `max_specialties` | `int`         | Max specialties allowed |
 
@@ -331,12 +336,12 @@ Category within a sheet section. Groups related traits together, like "Physical 
 
 ### VampireClan
 
-| Field          | Type          | Description       |
-| -------------- | ------------- | ----------------- |
-| `id`           | `str`         | Unique identifier |
-| `name`         | `str`         | Clan name         |
-| `description`  | `str \| None` | Description       |
-| `game_version` | `GameVersion` | V4 or V5          |
+| Field           | Type                | Description             |
+| --------------- | ------------------- | ----------------------- |
+| `id`            | `str`               | Unique identifier       |
+| `name`          | `str`               | Clan name               |
+| `description`   | `str \| None`       | Description             |
+| `game_versions` | `list[GameVersion]` | Available game versions |
 
 ## Werewolf Models
 
@@ -350,27 +355,53 @@ Category within a sheet section. Groups related traits together, like "Physical 
 | `auspice_name` | `str \| None` | Auspice name |
 | `pack_name`    | `str \| None` | Pack name    |
 
+### WerewolfTribe
+
+| Field           | Type                | Description             |
+| --------------- | ------------------- | ----------------------- |
+| `id`            | `str`               | Unique identifier       |
+| `name`          | `str`               | Tribe name              |
+| `description`   | `str \| None`       | Description             |
+| `game_versions` | `list[GameVersion]` | Available game versions |
+| `renown`        | `WerewolfRenown`    | HONOR, GLORY, or WISDOM |
+| `gift_ids`      | `list[str]`         | Native gift IDs         |
+| `link`          | `str \| None`       | Link to tribe page      |
+| `patron_spirit` | `str \| None`       | Patron spirit name      |
+| `favor`         | `str \| None`       | Favor name              |
+| `ban`           | `str \| None`       | Ban name                |
+
+### WerewolfAuspice
+
+| Field           | Type                | Description             |
+| --------------- | ------------------- | ----------------------- |
+| `id`            | `str`               | Unique identifier       |
+| `name`          | `str`               | Auspice name            |
+| `description`   | `str \| None`       | Description             |
+| `game_versions` | `list[GameVersion]` | Available game versions |
+| `gift_ids`      | `list[str]`         | Native gift IDs         |
+| `link`          | `str \| None`       | Link to auspice page    |
+
 ### WerewolfGift
 
-| Field            | Type             | Description             |
-| ---------------- | ---------------- | ----------------------- |
-| `id`             | `str`            | Unique identifier       |
-| `name`           | `str`            | Gift name               |
-| `description`    | `str \| None`    | Description             |
-| `game_version`   | `GameVersion`    | V4 or V5                |
-| `renown`         | `WerewolfRenown` | HONOR, GLORY, or WISDOM |
-| `cost`           | `str \| None`    | Activation cost         |
-| `minimum_renown` | `int \| None`    | Required renown level   |
+| Field            | Type                | Description             |
+| ---------------- | ------------------- | ----------------------- |
+| `id`             | `str`               | Unique identifier       |
+| `name`           | `str`               | Gift name               |
+| `description`    | `str \| None`       | Description             |
+| `game_versions`  | `list[GameVersion]` | Available game versions |
+| `renown`         | `WerewolfRenown`    | HONOR, GLORY, or WISDOM |
+| `cost`           | `str \| None`       | Activation cost         |
+| `minimum_renown` | `int \| None`       | Required renown level   |
 
 ### WerewolfRite
 
-| Field          | Type          | Description       |
-| -------------- | ------------- | ----------------- |
-| `id`           | `str`         | Unique identifier |
-| `name`         | `str`         | Rite name         |
-| `description`  | `str \| None` | Description       |
-| `game_version` | `GameVersion` | V4 or V5          |
-| `pool`         | `str \| None` | Dice pool         |
+| Field           | Type                | Description             |
+| --------------- | ------------------- | ----------------------- |
+| `id`            | `str`               | Unique identifier       |
+| `name`          | `str`               | Rite name               |
+| `description`   | `str \| None`       | Description             |
+| `game_versions` | `list[GameVersion]` | Available game versions |
+| `pool`          | `str \| None`       | Dice pool               |
 
 ## Hunter Models
 
@@ -383,22 +414,26 @@ Category within a sheet section. Groups related traits together, like "Physical 
 
 ### HunterEdge
 
-| Field         | Type                     | Description                      |
-| ------------- | ------------------------ | -------------------------------- |
-| `id`          | `str`                    | Unique identifier                |
-| `name`        | `str`                    | Edge name                        |
-| `description` | `str \| None`            | Description                      |
-| `type`        | `HunterEdgeType \| None` | ASSETS, APTITUDES, or ENDOWMENTS |
-| `pool`        | `str \| None`            | Dice pool                        |
-| `system`      | `str \| None`            | System rules                     |
+| Field           | Type                     | Description                      |
+| --------------- | ------------------------ | -------------------------------- |
+| `id`            | `str`                    | Unique identifier                |
+| `name`          | `str`                    | Edge name                        |
+| `description`   | `str \| None`            | Description                      |
+| `type`          | `HunterEdgeType \| None` | ASSETS, APTITUDES, or ENDOWMENTS |
+| `pool`          | `str \| None`            | Dice pool                        |
+| `system`        | `str \| None`            | System rules                     |
+| `game_versions` | `list[GameVersion]`      | Available game versions          |
+| `perk_ids`      | `list[str]`              | Perk IDs                         |
 
 ### HunterEdgePerk
 
-| Field         | Type          | Description       |
-| ------------- | ------------- | ----------------- |
-| `id`          | `str`         | Unique identifier |
-| `name`        | `str`         | Perk name         |
-| `description` | `str \| None` | Description       |
+| Field           | Type                | Description             |
+| --------------- | ------------------- | ----------------------- |
+| `id`            | `str`               | Unique identifier       |
+| `name`          | `str`               | Perk name               |
+| `description`   | `str \| None`       | Description             |
+| `game_versions` | `list[GameVersion]` | Available game versions |
+| `edge_id`       | `str \| None`       | Parent Edge ID          |
 
 ## Dice Roll Models
 
