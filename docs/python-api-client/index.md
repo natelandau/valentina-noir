@@ -16,7 +16,7 @@ The Valentina Python Client is an async Python library that provides a convenien
 - **Automatic pagination** - Stream through large datasets with `iter_all()` or fetch everything with `list_all()`
 - **Robust error handling** - Specific exception types for different error conditions
 - **Idempotency support** - Optional automatic idempotency keys for safe retries
-- **Rate limit handling** - Built-in automatic retry support for rate-limited requests
+- **Automatic retries** - Built-in retry with exponential backoff for rate limits (429), server errors (5xx), and network failures
 
 ## Requirements
 
@@ -106,6 +106,7 @@ client = VClient(
     retry_delay=1.0,
     auto_retry_rate_limit=True,
     auto_idempotency_keys=False,
+    retry_statuses={429, 500, 502, 503, 504},
     default_company_id=None,
     headers=None,
 )
@@ -120,6 +121,7 @@ client = VClient(
 | `retry_delay`           | `float`                    | `1.0`    | Base delay between retries in seconds                                             |
 | `auto_retry_rate_limit` | `bool`                     | `True`   | Automatically retry rate-limited requests                                         |
 | `auto_idempotency_keys` | `bool`                     | `False`  | Auto-generate idempotency keys for POST/PUT/PATCH                                 |
+| `retry_statuses`        | `set[int]` or `None`       | `{429, 500, 502, 503, 504}` | HTTP status codes that trigger automatic retries                                  |
 | `default_company_id`    | `str` or `None`            | `None`   | Default company ID for service factory methods. Falls back to `VALENTINA_CLIENT_DEFAULT_COMPANY_ID` env var. |
 | `headers`               | `dict[str, str]` or `None` | `None`   | Additional headers to include with all requests                                   |
 
@@ -161,7 +163,39 @@ client = VClient(
 
 !!! tip "Safe Retries"
 
-When enabled, the client automatically generates and includes an `Idempotency-Key` header for every POST, PUT, and PATCH request. This allows the server to detect duplicate requests and return the same response, making retries safe even for non-idempotent operations.
+    When enabled, the client automatically generates and includes an `Idempotency-Key` header for every POST, PUT, and PATCH request. This allows the server to detect duplicate requests and return the same response, making retries safe even for non-idempotent operations.
+
+### Retry Behavior
+
+When `auto_retry_rate_limit` is enabled (the default), the client automatically retries requests that encounter transient failures. Retries use exponential backoff with jitter.
+
+**What gets retried:**
+
+| Condition | Retried? | Notes |
+| --- | --- | --- |
+| Rate limit (429) | Always | Respects `Retry-After` / `RateLimit` headers |
+| Server error (5xx) | Idempotent methods only | GET, PUT, DELETE always retry; POST/PATCH only with idempotency key |
+| Network error | Idempotent methods only | `ConnectError`, `TimeoutException` from httpx |
+| Client error (4xx) | Never | 400, 401, 403, 404, 409 are not transient |
+
+**Idempotency and retries:**
+
+Non-idempotent methods (POST, PATCH) are only retried on 5xx and network errors when an idempotency key is present — either explicitly provided or auto-generated via `auto_idempotency_keys=True`. This prevents duplicate side effects from retrying unsafe requests.
+
+!!! tip "Safe Retries for All Methods"
+
+    Enable `auto_idempotency_keys=True` to make all mutating requests (POST, PUT, PATCH) safe to retry on transient errors. The client will auto-generate a unique `Idempotency-Key` header for each request.
+
+**Customize retryable statuses:**
+
+```python
+# Only retry on 429 and 503
+client = VClient(
+    base_url="https://api.valentina-noir.com",
+    api_key="your-api-key",
+    retry_statuses={429, 503},
+)
+```
 
 ### Default Company ID
 
