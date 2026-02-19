@@ -17,6 +17,7 @@ The Valentina Python Client is an async Python library that provides a convenien
 - **Robust error handling** - Specific exception types for different error conditions
 - **Idempotency support** - Optional automatic idempotency keys for safe retries
 - **Automatic retries** - Built-in retry with exponential backoff for rate limits (429), server errors (5xx), and network failures
+- **Structured logging** - Loguru-based logging with stdlib bridge, disabled by default
 
 ## Requirements
 
@@ -195,6 +196,51 @@ client = VClient(
     api_key="your-api-key",
     retry_statuses={429, 503},
 )
+```
+
+### Logging
+
+The client uses [Loguru](https://github.com/Delgan/loguru) for structured logging, disabled by default. Enable it to see HTTP request/response details, retry attempts, and error information.
+
+#### Enable Logging
+
+```python
+from loguru import logger
+
+# Enable vclient logs (they flow to your existing loguru handlers)
+logger.enable("vclient")
+```
+
+#### Using with Standard Library Logging
+
+The client includes a bridge to Python's stdlib `logging` module. After enabling, logs are also available through the standard `logging` system:
+
+```python
+import logging
+from loguru import logger
+
+# Enable vclient logs
+logger.enable("vclient")
+
+# Configure stdlib handler
+logging.getLogger("vclient").addHandler(logging.StreamHandler())
+logging.getLogger("vclient").setLevel(logging.DEBUG)
+```
+
+#### Log Levels
+
+| Level   | Events                                                                            |
+| ------- | --------------------------------------------------------------------------------- |
+| DEBUG   | Request start, response received, 404, client lifecycle                           |
+| WARNING | Retries (rate limit, server error, network), validation errors (400), conflicts (409) |
+| ERROR   | Authentication failures (401), authorization failures (403), retries exhausted    |
+
+#### Disable Logging
+
+```python
+from loguru import logger
+
+logger.disable("vclient")
 ```
 
 ### Default Company ID
