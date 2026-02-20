@@ -13,6 +13,7 @@ Secure your API requests with API key authentication. Include your API key in th
 Request an API key from the Valentina Noir team. Contact [support@valentina-noir.com](mailto:support@valentina-noir.com) to get started.
 
 !!! info "Limited Access"
+
     API keys are currently available only to approved developers.
 
 !!! warning "Key Security"
@@ -44,8 +45,8 @@ Each API key associates with a developer account that has permissions assigned p
 
 Higher permissions inherit all capabilities of lower permissions:
 
--   `OWNER` includes all `ADMIN` capabilities
--   `ADMIN` includes all `USER` capabilities
+- `OWNER` includes all `ADMIN` capabilities
+- `ADMIN` includes all `USER` capabilities
 
 ### Multi-Company Access
 
@@ -66,9 +67,9 @@ Grant a single API key access to multiple companies, each with its own permissio
 
 This example shows one API key with different access levels:
 
--   `OWNER` permission for company `abc123` (full control)
--   `USER` permission for company `def456` (read-only access)
--   `ADMIN` permission for company `ghi789` (administrative access)
+- `OWNER` permission for company `abc123` (full control)
+- `USER` permission for company `def456` (read-only access)
+- `ADMIN` permission for company `ghi789` (administrative access)
 
 ### Checking Your Permissions
 

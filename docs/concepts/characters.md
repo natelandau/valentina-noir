@@ -10,9 +10,9 @@ Characters represent players and NPCs in your campaigns.
 
 Only these users can update characters and their data:
 
--   Character owner
--   Company administrators
--   Company storytellers
+- Character owner
+- Company administrators
+- Company storytellers
 
 ## Character Creation
 
@@ -26,10 +26,10 @@ Enter each trait and attribute individually. This method gives you complete cont
 
 Generate a single character with random attributes. You can specify:
 
--   Character class
--   Experience level
--   Skill focus
--   Concept
+- Character class
+- Experience level
+- Skill focus
+- Concept
 
 Or let the system randomly select everything. This method works well for quickly creating NPCs.
 
@@ -38,4 +38,5 @@ Or let the system randomly select everything. This method works well for quickly
 Generate multiple characters and select the one you want to keep. The system presents a list of generated characters for you to review. Select your preferred character to continue.
 
 !!! info "Experience Cost"
+
     Some companies charge experience points for multiple autogeneration. Check your [company settings](./company_settings.md) for details.

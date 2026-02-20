@@ -14,19 +14,19 @@ Modify traits using one of three currencies:
 
 Use starting points during character creation to purchase initial trait values.
 
--   Available only during character creation
--   Spent when increasing traits
--   Refunded when decreasing traits
--   Tracked per character
+- Available only during character creation
+- Spent when increasing traits
+- Refunded when decreasing traits
+- Tracked per character
 
 ### Experience Points (XP)
 
 Earn experience points through gameplay to upgrade traits after character creation.
 
--   Tracked at the campaign level per user
--   Shared across all user-owned characters in a campaign
--   Spent when increasing traits
--   Refunded when decreasing traits (refunds don't increase total XP earned)
+- Tracked at the campaign level per user
+- Shared across all user-owned characters in a campaign
+- Spent when increasing traits
+- Refunded when decreasing traits (refunds don't increase total XP earned)
 
 ### No Cost
 
@@ -34,25 +34,26 @@ Storytellers and administrators modify traits without spending points at any tim
 
 Use no-cost modifications to:
 
--   Correct character creation mistakes
--   Grant abilities as story rewards
--   Adjust characters for game balance
+- Correct character creation mistakes
+- Grant abilities as story rewards
+- Adjust characters for game balance
 
 ## Cost Calculations
 
 Calculate upgrade or refund costs using two trait values:
 
--   **Initial Cost** - Cost to purchase the first dot (0 to 1)
--   **Upgrade Cost** - Multiplier for subsequent dots
+- **Initial Cost** - Cost to purchase the first dot (0 to 1)
+- **Upgrade Cost** - Multiplier for subsequent dots
 
 ### Upgrade Formula
 
 Calculate the cost for each dot:
 
--   First dot (0 to 1): `initial_cost`
--   Subsequent dots: `new_value × upgrade_cost`
+- First dot (0 to 1): `initial_cost`
+- Subsequent dots: `new_value × upgrade_cost`
 
 !!! example "Upgrade Example"
+
     A trait with `initial_cost=1` and `upgrade_cost=2` going from value 2 to 4:
 
     -   Dot 3: `3 × 2 = 6`
@@ -64,19 +65,21 @@ Calculate the cost for each dot:
 Refunds use the same calculation in reverse.
 
 !!! example "Downgrade Example"
+
     Decreasing from value 4 to 2 refunds 14 points.
 
 ## Company Settings
 
 The **Free Trait Updates** setting controls when players modify traits without spending points:
 
-| Setting | Behavior |
-| --- | --- |
-| `UNRESTRICTED` | Players modify traits freely without spending points (default) |
-| `WITHIN 24 HOURS` | Free modifications only within 24 hours of character creation |
-| `STORYTELLER ONLY` | Players must spend XP; only storytellers make free changes |
+| Setting            | Behavior                                                       |
+| ------------------ | -------------------------------------------------------------- |
+| `UNRESTRICTED`     | Players modify traits freely without spending points (default) |
+| `WITHIN 24 HOURS`  | Free modifications only within 24 hours of character creation  |
+| `STORYTELLER ONLY` | Players must spend XP; only storytellers make free changes     |
 
 !!! info "Currency Availability"
+
     This setting only affects the `NO_COST` currency. XP and starting points remain available to character owners and storytellers.
 
 ## API Endpoints
@@ -89,14 +92,14 @@ Retrieve all possible target values with costs and affordability calculations.
 
 The response includes:
 
--   Current trait value and min/max bounds
--   Current XP and starting points available
--   For each possible target value:
-    -   Direction (increase or decrease)
-    -   Point cost or refund amount
-    -   Affordability with XP
-    -   Affordability with starting points
-    -   Balance after transaction
+- Current trait value and min/max bounds
+- Current XP and starting points available
+- For each possible target value:
+    - Direction (increase or decrease)
+    - Point cost or refund amount
+    - Affordability with XP
+    - Affordability with starting points
+    - Balance after transaction
 
 ```json
 {
@@ -143,6 +146,7 @@ The response includes:
 ```
 
 !!! tip "Preview Changes"
+
     Use this endpoint to display upgrade and downgrade options before users commit to changes.
 
 ### PUT `/value`
@@ -160,10 +164,10 @@ Modify a trait to a target value using the specified currency.
 
 **Available currencies:**
 
-| Currency | Availability |
-| --- | --- |
-| `NO_COST` | Storytellers and admins only |
-| `XP` | Character owners and storytellers |
+| Currency          | Availability                      |
+| ----------------- | --------------------------------- |
+| `NO_COST`         | Storytellers and admins only      |
+| `XP`              | Character owners and storytellers |
 | `STARTING_POINTS` | Character owners and storytellers |
 
 The system automatically determines direction (increase or decrease) from the current value.

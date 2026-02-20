@@ -1,5 +1,5 @@
 ---
-icon: lucide/settings
+icon: lucide/list
 ---
 
 # Options Service
@@ -16,9 +16,9 @@ options = options_service(company_id="COMPANY_ID")
 
 ## Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `get_options()` | `dict` | Get all options and enumerations |
+| Method          | Returns | Description                      |
+| --------------- | ------- | -------------------------------- |
+| `get_options()` | `dict`  | Get all options and enumerations |
 
 ## Response Structure
 
@@ -28,54 +28,54 @@ The options endpoint returns a dictionary organized by category:
 
 Permission settings that control user access:
 
-| Key | Values | Description |
-|-----|--------|-------------|
-| `PermissionManageCampaign` | `UNRESTRICTED`, `STORYTELLER` | Who can create/edit campaigns |
-| `PermissionsGrantXP` | `UNRESTRICTED`, `PLAYER`, `STORYTELLER` | Who can grant experience |
+| Key                           | Values                                           | Description                     |
+| ----------------------------- | ------------------------------------------------ | ------------------------------- |
+| `PermissionManageCampaign`    | `UNRESTRICTED`, `STORYTELLER`                    | Who can create/edit campaigns   |
+| `PermissionsGrantXP`          | `UNRESTRICTED`, `PLAYER`, `STORYTELLER`          | Who can grant experience        |
 | `PermissionsFreeTraitChanges` | `UNRESTRICTED`, `WITHIN_24_HOURS`, `STORYTELLER` | Who can make free trait changes |
 
 ### Characters
 
 Character-related enumerations:
 
-| Key | Description |
-|-----|-------------|
-| `AbilityFocus` | Character ability specializations |
-| `AutoGenExperienceLevel` | Experience levels for auto-generated characters |
-| `CharacterClass` | Available character classes (Vampire, Werewolf, etc.) |
-| `CharacterStatus` | Character status values (ALIVE, DEAD, ARCHIVED) |
-| `CharacterType` | Character visibility types (PLAYER, NPC, STORYTELLER, DEVELOPER) |
-| `GameVersion` | Supported World of Darkness versions |
-| `HunterEdgeType` | Hunter edge categories |
-| `InventoryItemType` | Types of inventory items |
-| `TraitModifyCurrency` | Currency types for trait modifications |
-| `WerewolfRenown` | Werewolf renown types |
-| `_related` | URLs to related blueprint endpoints |
+| Key                      | Description                                                      |
+| ------------------------ | ---------------------------------------------------------------- |
+| `AbilityFocus`           | Character ability specializations                                |
+| `AutoGenExperienceLevel` | Experience levels for auto-generated characters                  |
+| `CharacterClass`         | Available character classes (Vampire, Werewolf, etc.)            |
+| `CharacterStatus`        | Character status values (ALIVE, DEAD, ARCHIVED)                  |
+| `CharacterType`          | Character visibility types (PLAYER, NPC, STORYTELLER, DEVELOPER) |
+| `GameVersion`            | Supported World of Darkness versions                             |
+| `HunterEdgeType`         | Hunter edge categories                                           |
+| `InventoryItemType`      | Types of inventory items                                         |
+| `TraitModifyCurrency`    | Currency types for trait modifications                           |
+| `WerewolfRenown`         | Werewolf renown types                                            |
+| `_related`               | URLs to related blueprint endpoints                              |
 
 ### Character Autogeneration
 
-| Key | Description |
-|-----|-------------|
+| Key                              | Description                                   |
+| -------------------------------- | --------------------------------------------- |
 | `CharacterClassPercentileChance` | Probability ranges for random class selection |
 
 ### Users
 
-| Key | Values | Description |
-|-----|--------|-------------|
+| Key        | Values                           | Description          |
+| ---------- | -------------------------------- | -------------------- |
 | `UserRole` | `ADMIN`, `STORYTELLER`, `PLAYER` | Available user roles |
 
 ### Gameplay
 
-| Key | Description |
-|-----|-------------|
-| `DiceSize` | Available dice sizes for rolls |
+| Key              | Description                     |
+| ---------------- | ------------------------------- |
+| `DiceSize`       | Available dice sizes for rolls  |
 | `RollResultType` | Possible roll result categories |
 
 ### Assets
 
-| Key | Description |
-|-----|-------------|
-| `AssetType` | Types of uploadable assets |
+| Key               | Description                                |
+| ----------------- | ------------------------------------------ |
+| `AssetType`       | Types of uploadable assets                 |
 | `AssetParentType` | Entity types that can have assets attached |
 
 ## Example
@@ -107,4 +107,5 @@ print(options_data["characters"]["_related"]["vampire_clans"])
 ```
 
 !!! tip "Caching"
+
     The options endpoint response is cached for 10 minutes. Consider caching these values client-side to reduce API calls, as these values rarely change.

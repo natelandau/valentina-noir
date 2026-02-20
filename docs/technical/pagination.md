@@ -62,13 +62,13 @@ current_page = floor(offset / limit) + 1
 
 **Example:** With `total=47` and `limit=10`:
 
-| Page | Offset | Items  |
-| ---- | ------ | ------ |
-| 1    | 0      | 1-10   |
-| 2    | 10     | 11-20  |
-| 3    | 20     | 21-30  |
-| 4    | 30     | 31-40  |
-| 5    | 40     | 41-47  |
+| Page | Offset | Items |
+| ---- | ------ | ----- |
+| 1    | 0      | 1-10  |
+| 2    | 10     | 11-20 |
+| 3    | 20     | 21-30 |
+| 4    | 30     | 31-40 |
+| 5    | 40     | 41-47 |
 
 Total pages: `ceil(47 / 10) = 5`
 
@@ -147,9 +147,11 @@ async function getAllUsers(apiKey, companyId) {
 ## Best Practices
 
 !!! tip "Optimize Your Pagination"
+
     Use the maximum `limit=100` when fetching large datasets to minimize API calls.
 
 !!! warning "Handle Empty Results"
+
     An empty `items` array with `total=0` indicates no matching records exist.
 
 **Key recommendations:**

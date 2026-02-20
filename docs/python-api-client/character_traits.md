@@ -40,12 +40,13 @@ traits = character_traits_service(
 
 ### Value Modification
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `get_value_options(character_trait_id)` | `CharacterTraitValueOptionsResponse` | Get available value options |
-| `change_value(character_trait_id, new_value, currency)` | `CharacterTrait` | Change trait value |
+| Method                                                  | Returns                              | Description                 |
+| ------------------------------------------------------- | ------------------------------------ | --------------------------- |
+| `get_value_options(character_trait_id)`                 | `CharacterTraitValueOptionsResponse` | Get available value options |
+| `change_value(character_trait_id, new_value, currency)` | `CharacterTrait`                     | Change trait value          |
 
 !!! warning "Check Options First"
+
     Always call `get_value_options()` before changing a trait value to ensure the change is valid and to understand the cost implications.
 
 ## Example

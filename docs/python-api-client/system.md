@@ -7,6 +7,7 @@ icon: lucide/activity
 Check API health and system status. Use this service to monitor the API's operational state and verify that all dependencies are running correctly.
 
 !!! info "No Authentication Required"
+
     This service does not require authentication. Use it for health checks and monitoring without an API key.
 
 ## Initialize the Service
@@ -19,9 +20,9 @@ system = system_service()
 
 ## Available Methods
 
-| Method     | Returns        | Description                                |
-| ---------- | -------------- | ------------------------------------------ |
-| `health()` | `SystemHealth` | Check API server and dependency health     |
+| Method     | Returns        | Description                            |
+| ---------- | -------------- | -------------------------------------- |
+| `health()` | `SystemHealth` | Check API server and dependency health |
 
 ## Examples
 

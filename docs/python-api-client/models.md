@@ -11,7 +11,8 @@ from vclient.models import Company, User, Campaign, Character
 ```
 
 !!! info "Type Safety"
-All models provide full type hints for IDE autocomplete and static type checking with mypy or pyright.
+
+    All models provide full type hints for IDE autocomplete and static type checking with mypy or pyright.
 
 ## Using Models
 

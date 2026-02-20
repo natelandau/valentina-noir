@@ -9,30 +9,32 @@ World of Darkness character sheets contain complex interconnected data. Valentin
 Understanding the blueprint helps you create, edit, and display characters in your client applications.
 
 !!! info "API Documentation"
+
     View detailed endpoint documentation at [api.valentina-noir.com/docs#tag/characters---blueprints](https://api.valentina-noir.com/docs#tag/characters---blueprints).
 
 ## Sheet Sections
 
 All characters share four main sheet sections:
 
-| Name | Description |
-| --- | --- |
-| **Attributes** | Inborn aptitudes and raw potential |
-| **Abilities** | Learned skills and inborn affinities that improve performance |
-| **Advantages** | Benefits over normal individuals |
-| **Other** | Traits that don't fit into other sections |
+| Name           | Description                                                   |
+| -------------- | ------------------------------------------------------------- |
+| **Attributes** | Inborn aptitudes and raw potential                            |
+| **Abilities**  | Learned skills and inborn affinities that improve performance |
+| **Advantages** | Benefits over normal individuals                              |
+| **Other**      | Traits that don't fit into other sections                     |
 
 ## Section Categories
 
 Section categories group traits within sections. For example, `Attributes` contains these categories:
 
-| Name | Description |
-| --- | --- |
-| **Physical** | Physical ability for fighting, lifting, running, etc. |
-| **Social** | Social ability for persuasion, negotiation, and interaction |
-| **Mental** | Mental ability for thinking, reasoning, and problem-solving |
+| Name         | Description                                                 |
+| ------------ | ----------------------------------------------------------- |
+| **Physical** | Physical ability for fighting, lifting, running, etc.       |
+| **Social**   | Social ability for persuasion, negotiation, and interaction |
+| **Mental**   | Mental ability for thinking, reasoning, and problem-solving |
 
 !!! info "V5 Ability Categories"
+
     `Ability` categories only exist in V5. The V4 categories (`Talents`, `Skills`, `Knowledges`) are replaced with `Physical`, `Social`, and `Mental` in V5.
 
 ## Advantage Categories
@@ -41,9 +43,9 @@ Certain advantages (`merits`, `flaws`, `backgrounds`) are sub-grouped into advan
 
 For example, the merit category `Fame` contains:
 
--   Fame
--   Influencer
--   Enduring Fame
+- Fame
+- Influencer
+- Enduring Fame
 
 Display this hierarchy on character sheets when a trait includes `advantage_category_name` and `advantage_category_id`.
 
@@ -113,7 +115,8 @@ GET /api/v1/companies/{company_id}/characterblueprint/traits?limit=10&offset=0&g
 
 Custom traits are specific to individual characters. They share the same fields as core traits but remain unavailable to other characters. Custom traits provide flexibility for displaying unique abilities on character sheets and for dice rolling, experience tracking, etc.
 
-!!! example "Learning Cryptography"
+!!! example "Example: Learning 'Cryptography'"
+
     A character spends significant time learning to decipher encoded messages. The Storyteller grants them the skill `Cryptography`. Since `Cryptography` is not a core trait, it becomes a custom trait for that character. The character can use `Cryptography` in gameplay and see it on their character sheet.
 
 ## Class Specific
@@ -310,6 +313,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&of
 ### Mages
 
 !!! warning "Limited Support"
+
     Mage `Spheres` and `Traditions` have limited support. See the [roadmap](../roadmap/index.md) for details.
 
 ### Hunters
@@ -317,6 +321,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&of
 Hunters access `Edges`, each containing multiple `Perks`.
 
 !!! info "V5 Only"
+
     The Hunter Edge system only supports V5 mechanics.
 
 #### Edges

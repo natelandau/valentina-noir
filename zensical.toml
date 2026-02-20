@@ -37,6 +37,9 @@
         ] },
         { "Python API Client" = [
             "python-api-client/index.md",
+            { "Configuration" = "python-api-client/configuration.md" },
+            { "Service Patterns" = "python-api-client/service-patterns.md" },
+            { "Error Handling" = "python-api-client/errors.md" },
             { "Campaigns" = "python-api-client/campaigns.md" },
             { "Campaign Books" = "python-api-client/campaign_books.md" },
             { "Campaign Chapters" = "python-api-client/campaign_chapters.md" },

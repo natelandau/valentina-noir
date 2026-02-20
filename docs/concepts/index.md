@@ -12,9 +12,9 @@ Understanding these core concepts helps you build clients that integrate with th
 
 **Campaigns** - Storytellers create campaigns to organize their game worlds. Each campaign contains:
 
--   **Books** - Track a singular theme or storyline
--   **Chapters** - Represent individual gaming sessions
--   Characters, NPCs, experience, and other game elements are tracked at the campaign level
+- **Books** - Track a singular theme or storyline
+- **Chapters** - Represent individual gaming sessions
+- Characters, NPCs, experience, and other game elements are tracked at the campaign level
 
 **[Characters](./characters.md)** - Characters represent players and NPCs in a campaign.
 
@@ -22,28 +22,29 @@ Understanding these core concepts helps you build clients that integrate with th
 
 Valentina Noir uses a customized version of World of Darkness. These changes evolved from a 30+ year campaign and include:
 
--   [Dice rolling system](./dice.md)
--   [Experience system](./experience.md)
+- [Dice rolling system](./dice.md)
+- [Experience system](./experience.md)
 
 ## Supported Editions
 
 The API supports characters created for these World of Darkness editions:
 
--   World of Darkness v4
--   World of Darkness v5
+- World of Darkness v4
+- World of Darkness v5
 
 ## Character Classes
 
 The API supports these character classes:
 
-| Class | Support Level |
-| --- | --- |
-| Vampire | Full |
-| Werewolf | Full |
-| Hunter | Full |
-| Mortal | Full |
-| Ghoul | Full |
-| Mage | Partial |
+| Class    | Support Level |
+| -------- | ------------- |
+| Vampire  | Full          |
+| Werewolf | Full          |
+| Hunter   | Full          |
+| Mortal   | Full          |
+| Ghoul    | Full          |
+| Mage     | Partial       |
 
 !!! info "Mage Support"
+
     Mage `Spheres` and `Traditions` have limited support. See the [roadmap](../roadmap/index.md) for details.

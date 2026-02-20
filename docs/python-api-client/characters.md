@@ -31,11 +31,11 @@ characters = characters_service(
 
 ### Pagination
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `get_page(limit?, offset?, user_player_id?, character_class?, character_type?, status?)` | `PaginatedResponse[Character]` | Get a page of characters |
-| `list_all(...)` | `list[Character]` | Get all characters (supports same filters) |
-| `iter_all(limit?, ...)` | `AsyncIterator[Character]` | Iterate through all characters |
+| Method                                                                                   | Returns                        | Description                                |
+| ---------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------ |
+| `get_page(limit?, offset?, user_player_id?, character_class?, character_type?, status?)` | `PaginatedResponse[Character]` | Get a page of characters                   |
+| `list_all(...)`                                                                          | `list[Character]`              | Get all characters (supports same filters) |
+| `iter_all(limit?, ...)`                                                                  | `AsyncIterator[Character]`     | Iterate through all characters             |
 
 ### Statistics
 
@@ -44,16 +44,17 @@ characters = characters_service(
 | `get_statistics(character_id, num_top_traits?)` | `RollStatistics` | Get dice roll statistics |
 
 !!! info "Roll Analytics"
+
     Statistics include success rates, critical frequencies, and most-used traits. Use this data to understand how a character performs in gameplay.
 
 ### Assets
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `list_assets(character_id, limit?, offset?)` | `PaginatedResponse[S3Asset]` | List character assets |
-| `get_asset(character_id, asset_id)` | `S3Asset` | Get an asset |
-| `upload_asset(character_id, filename, content, content_type?)` | `S3Asset` | Upload an asset |
-| `delete_asset(character_id, asset_id)` | `None` | Delete an asset |
+| Method                                                         | Returns                      | Description           |
+| -------------------------------------------------------------- | ---------------------------- | --------------------- |
+| `list_assets(character_id, limit?, offset?)`                   | `PaginatedResponse[S3Asset]` | List character assets |
+| `get_asset(character_id, asset_id)`                            | `S3Asset`                    | Get an asset          |
+| `upload_asset(character_id, filename, content, content_type?)` | `S3Asset`                    | Upload an asset       |
+| `delete_asset(character_id, asset_id)`                         | `None`                       | Delete an asset       |
 
 ### Notes
 
@@ -69,15 +70,15 @@ characters = characters_service(
 
 ### Inventory
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `get_inventory_page(character_id, limit?, offset?)` | `PaginatedResponse[InventoryItem]` | Get a page of inventory items |
-| `list_all_inventory(character_id)` | `list[InventoryItem]` | Get all inventory items |
-| `iter_all_inventory(character_id, limit?)` | `AsyncIterator[InventoryItem]` | Iterate through items |
-| `get_inventory_item(character_id, item_id)` | `InventoryItem` | Get an item |
-| `create_inventory_item(character_id, InventoryItemCreate, **kwargs)` | `InventoryItem` | Create an item |
-| `update_inventory_item(character_id, item_id, InventoryItemUpdate, **kwargs)` | `InventoryItem` | Update an item |
-| `delete_inventory_item(character_id, item_id)` | `None` | Delete an item |
+| Method                                                                        | Returns                            | Description                   |
+| ----------------------------------------------------------------------------- | ---------------------------------- | ----------------------------- |
+| `get_inventory_page(character_id, limit?, offset?)`                           | `PaginatedResponse[InventoryItem]` | Get a page of inventory items |
+| `list_all_inventory(character_id)`                                            | `list[InventoryItem]`              | Get all inventory items       |
+| `iter_all_inventory(character_id, limit?)`                                    | `AsyncIterator[InventoryItem]`     | Iterate through items         |
+| `get_inventory_item(character_id, item_id)`                                   | `InventoryItem`                    | Get an item                   |
+| `create_inventory_item(character_id, InventoryItemCreate, **kwargs)`          | `InventoryItem`                    | Create an item                |
+| `update_inventory_item(character_id, item_id, InventoryItemUpdate, **kwargs)` | `InventoryItem`                    | Update an item                |
+| `delete_inventory_item(character_id, item_id)`                                | `None`                             | Delete an item                |
 
 ### Werewolf Gifts
 
@@ -103,25 +104,25 @@ characters = characters_service(
 
 ### Hunter Edges
 
-| Method                                          | Returns                         | Description              |
-| ----------------------------------------------- | ------------------------------- | ------------------------ |
+| Method                                          | Returns                           | Description              |
+| ----------------------------------------------- | --------------------------------- | ------------------------ |
 | `get_edges_page(character_id, limit?, offset?)` | `PaginatedResponse[EdgeAndPerks]` | Get a page of edges      |
 | `list_all_edges(character_id)`                  | `list[EdgeAndPerks]`              | Get all edges            |
 | `iter_all_edges(character_id, limit?)`          | `AsyncIterator[EdgeAndPerks]`     | Iterate through edges    |
-| `get_edge(character_id, hunter_edge_id)`        | `EdgeAndPerks`      | Get an edge with perks   |
+| `get_edge(character_id, hunter_edge_id)`        | `EdgeAndPerks`                    | Get an edge with perks   |
 | `add_edge(character_id, hunter_edge_id)`        | `EdgeAndPerks`                    | Add an edge to character |
-| `remove_edge(character_id, hunter_edge_id)`     | `EdgeAndPerks`                          | Remove an edge           |
+| `remove_edge(character_id, hunter_edge_id)`     | `EdgeAndPerks`                    | Remove an edge           |
 
 ### Hunter Edge Perks
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `get_edge_perks_page(character_id, hunter_edge_id, limit?, offset?)` | `PaginatedResponse[Perk]` | Get a page of perks |
-| `list_all_edge_perks(character_id, hunter_edge_id)` | `list[Perk]` | Get all perks |
-| `iter_all_edge_perks(character_id, hunter_edge_id, limit?)` | `AsyncIterator[Perk]` | Iterate through perks |
-| `get_edge_perk(character_id, hunter_edge_id, hunter_edge_perk_id)` | `Perk` | Get a perk |
-| `add_edge_perk(character_id, hunter_edge_id, hunter_edge_perk_id)` | `Perk` | Add a perk |
-| `remove_edge_perk(character_id, hunter_edge_id, hunter_edge_perk_id)` | `Perk` | Remove a perk |
+| Method                                                                | Returns                   | Description           |
+| --------------------------------------------------------------------- | ------------------------- | --------------------- |
+| `get_edge_perks_page(character_id, hunter_edge_id, limit?, offset?)`  | `PaginatedResponse[Perk]` | Get a page of perks   |
+| `list_all_edge_perks(character_id, hunter_edge_id)`                   | `list[Perk]`              | Get all perks         |
+| `iter_all_edge_perks(character_id, hunter_edge_id, limit?)`           | `AsyncIterator[Perk]`     | Iterate through perks |
+| `get_edge_perk(character_id, hunter_edge_id, hunter_edge_perk_id)`    | `Perk`                    | Get a perk            |
+| `add_edge_perk(character_id, hunter_edge_id, hunter_edge_perk_id)`    | `Perk`                    | Add a perk            |
+| `remove_edge_perk(character_id, hunter_edge_id, hunter_edge_perk_id)` | `Perk`                    | Remove a perk         |
 
 ## Example
 
