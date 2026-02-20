@@ -9,6 +9,7 @@ icon: lucide/users
 Control what actions end-users can perform within your application through user authorization. Unlike [developer authentication](authentication.md) which secures API access, user authorization governs in-game permissions for players, storytellers, and administrators.
 
 !!! warning "Your Responsibility"
+
     **Valentina Noir does not authenticate end-users directly.** Your application authenticates users through your own system (OAuth, passwords, etc.), then links them to Valentina user accounts.
 
 ## Cross-Client Access
@@ -34,9 +35,9 @@ flowchart LR
 
 **What this means:**
 
--   A storyteller on your web app has storyteller permissions on your mobile app
--   Character data, dice rolls, and campaign progress sync across all clients
--   Role changes take effect immediately across all clients
+- A storyteller on your web app has storyteller permissions on your mobile app
+- Character data, dice rolls, and campaign progress sync across all clients
+- Role changes take effect immediately across all clients
 
 ### Linking Users
 
@@ -93,12 +94,14 @@ Each user belongs to a [company](companies.md) and has a role that determines th
 Each role builds on the capabilities of the previous role.
 
 ??? info "Player Capabilities"
+
     -   Create and manage their own characters
     -   Roll dice and track experience
     -   View campaign information
     -   Cannot modify other players' characters
 
 ??? info "Storyteller Capabilities"
+
     -   All player capabilities
     -   Manage any character in their campaigns
     -   Modify campaign settings (danger, desperation)
@@ -106,6 +109,7 @@ Each role builds on the capabilities of the previous role.
     -   Award experience points
 
 ??? info "Admin Capabilities"
+
     -   All storyteller capabilities
     -   Manage other users within the company
     -   Change user roles
@@ -154,9 +158,11 @@ The API returns a `403 Forbidden` response when a user attempts an action beyond
 ## Best Practices
 
 !!! tip "Cache User Roles"
+
     Avoid fetching user details on every request by caching role information locally.
 
 !!! warning "Role Changes Take Effect Immediately"
+
     Changing a user's role affects all their access across all clients instantly.
 
 **Key recommendations:**

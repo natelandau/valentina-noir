@@ -47,16 +47,17 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 
 ## Key Format
 
-| Requirement | Details                          |
-| ----------- | -------------------------------- |
+| Requirement | Details                             |
+| ----------- | ----------------------------------- |
 | Type        | Unique string (UUID v4 recommended) |
-| Max Length  | 255 characters                   |
+| Max Length  | 255 characters                      |
 
 ## Supported Endpoints
 
 All `POST`, `PUT`, and `PATCH` endpoints support idempotency. Include the `Idempotency-Key` header in your request to enable this feature.
 
 !!! info "Naturally Idempotent Methods"
+
     `GET` and `DELETE` requests ignore the `Idempotency-Key` header because they are naturally idempotent.
 
 ## Body Validation
@@ -73,6 +74,7 @@ The API validates that request bodies match when reusing idempotency keys. Sendi
 ```
 
 !!! warning "Unique Keys Required"
+
     Each unique operation must use its own idempotency key. The API prevents accidental key reuse with different request bodies.
 
 ## Examples
@@ -124,7 +126,7 @@ async function createCampaign(apiKey, companyId, userId, data) {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(data),
-        }
+        },
     );
 
     return response.json();

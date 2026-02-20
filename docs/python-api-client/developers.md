@@ -16,11 +16,11 @@ developer = developer_service()
 
 ## Available Methods
 
-| Method                                                 | Returns                 | Description                       |
-| ------------------------------------------------------ | ----------------------- | --------------------------------- |
-| `get_me()`                                             | `MeDeveloper`           | Retrieve your developer profile   |
-| `update_me(request=None, **kwargs)`                 | `MeDeveloper`           | Update your profile fields        |
-| `regenerate_api_key()`                                 | `MeDeveloperWithApiKey` | Generate a new API key            |
+| Method                              | Returns                 | Description                     |
+| ----------------------------------- | ----------------------- | ------------------------------- |
+| `get_me()`                          | `MeDeveloper`           | Retrieve your developer profile |
+| `update_me(request=None, **kwargs)` | `MeDeveloper`           | Update your profile fields      |
+| `regenerate_api_key()`              | `MeDeveloperWithApiKey` | Generate a new API key          |
 
 ## Examples
 
@@ -59,6 +59,7 @@ print(f"New API Key: {result.api_key}")
 ```
 
 !!! warning "Save Your API Key"
+
     Regenerating your API key immediately invalidates the current key. Save the new key from the response - it will not be displayed again.
 
 ## Related Documentation

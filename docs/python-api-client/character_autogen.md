@@ -20,11 +20,11 @@ autogen = character_autogen_service(
 
 ## Methods
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `generate_character(*, character_type, ...)` | `Character` | Generate a single character |
-| `start_chargen_session()` | `ChargenSessionResponse` | Start an interactive session |
-| `finalize_chargen_session(session_id, selected_character_id)` | `Character` | Finalize and select a character |
+| Method                                                        | Returns                  | Description                     |
+| ------------------------------------------------------------- | ------------------------ | ------------------------------- |
+| `generate_character(*, character_type, ...)`                  | `Character`              | Generate a single character     |
+| `start_chargen_session()`                                     | `ChargenSessionResponse` | Start an interactive session    |
+| `finalize_chargen_session(session_id, selected_character_id)` | `Character`              | Finalize and select a character |
 
 ## Generate Character Parameters
 
@@ -40,6 +40,7 @@ autogen = character_autogen_service(
 | `werewolf_auspice_id` | `str`                    | No       | Werewolf auspice ID                       |
 
 !!! tip "Interactive Sessions"
+
     Use `start_chargen_session()` to generate multiple character options at once, allowing your users to choose their preferred character from several AI-generated alternatives.
 
 ## Example

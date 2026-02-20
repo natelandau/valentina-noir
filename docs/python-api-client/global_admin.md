@@ -7,6 +7,7 @@ icon: lucide/shield
 Manage developer accounts and API keys across the entire system. All operations require global admin privileges.
 
 !!! warning "Global Admin Only"
+
     This service requires global admin privileges. Regular developers cannot access these endpoints.
 
 ## Initialize the Service
@@ -21,20 +22,20 @@ admins = global_admin_service()
 
 ### CRUD Operations
 
-| Method                                          | Returns     | Description                     |
-| ----------------------------------------------- | ----------- | ------------------------------- |
-| `get(developer_id)`                             | `Developer` | Retrieve a developer by ID      |
-| `create(request=None, **kwargs)`             | `Developer` | Create a new developer account  |
-| `update(developer_id, request=None, **kwargs)` | `Developer` | Update developer properties     |
-| `delete(developer_id)`                          | `None`      | Delete a developer account      |
+| Method                                         | Returns     | Description                    |
+| ---------------------------------------------- | ----------- | ------------------------------ |
+| `get(developer_id)`                            | `Developer` | Retrieve a developer by ID     |
+| `create(request=None, **kwargs)`               | `Developer` | Create a new developer account |
+| `update(developer_id, request=None, **kwargs)` | `Developer` | Update developer properties    |
+| `delete(developer_id)`                         | `None`      | Delete a developer account     |
 
 ### Pagination Methods
 
-| Method                                                   | Returns                        | Description                          |
-| -------------------------------------------------------- | ------------------------------ | ------------------------------------ |
-| `get_page(limit=10, offset=0, is_global_admin=None)`     | `PaginatedResponse[Developer]` | Retrieve a paginated page            |
-| `list_all(is_global_admin=None)`                         | `list[Developer]`              | Retrieve all developers              |
-| `iter_all(limit=100, is_global_admin=None)`              | `AsyncIterator[Developer]`     | Iterate through all developers       |
+| Method                                               | Returns                        | Description                    |
+| ---------------------------------------------------- | ------------------------------ | ------------------------------ |
+| `get_page(limit=10, offset=0, is_global_admin=None)` | `PaginatedResponse[Developer]` | Retrieve a paginated page      |
+| `list_all(is_global_admin=None)`                     | `list[Developer]`              | Retrieve all developers        |
+| `iter_all(limit=100, is_global_admin=None)`          | `AsyncIterator[Developer]`     | Iterate through all developers |
 
 ### API Key Management
 
@@ -90,6 +91,7 @@ print(f"New API Key: {dev_with_key.api_key}")
 ```
 
 !!! warning "Save API Keys Immediately"
+
     API keys are only displayed once during creation. Save the key from the response - it cannot be retrieved later.
 
 ### List Developers

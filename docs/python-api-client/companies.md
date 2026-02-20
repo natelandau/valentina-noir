@@ -35,8 +35,8 @@ companies = companies_service()
 
 ### Permissions
 
-| Method | Returns | Description |
-| --- | --- | --- |
+| Method                                               | Returns              | Description                               |
+| ---------------------------------------------------- | -------------------- | ----------------------------------------- |
 | `grant_access(company_id, developer_id, permission)` | `CompanyPermissions` | Grant, modify, or revoke developer access |
 
 ## Permission Levels
@@ -49,6 +49,7 @@ companies = companies_service()
 | `REVOKE` | Remove all access                           |
 
 !!! warning "Permission Considerations"
+
     Only company owners can grant or revoke permissions. You cannot revoke access from the last remaining owner of a company.
 
 ## Example

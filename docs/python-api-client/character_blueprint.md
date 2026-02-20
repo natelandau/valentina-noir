@@ -53,7 +53,8 @@ Traits within a specific category (requires section and category context).
 Search across all traits without section/category context. All parameters are optional.
 
 !!! note "Direct Trait Access"
-Use these methods to search all traits directly without navigating the section/category hierarchy. Useful when you know what trait you're looking for but not its location in the character sheet.
+
+    Use these methods to search all traits directly without navigating the section/category hierarchy. Useful when you know what trait you're looking for but not its location in the character sheet.
 
 | Method                                                                                                 | Returns                    | Description                |
 | ------------------------------------------------------------------------------------------------------ | -------------------------- | -------------------------- |

@@ -35,6 +35,7 @@ flowchart LR
 ```
 
 !!! info "Burst Traffic"
+
     You can make rapid requests up to the bucket capacity, then wait for tokens to refill.
 
 ## Response Headers
@@ -77,8 +78,8 @@ RateLimit: "default";r=10;t=0
 
 **Interpretation:**
 
--   **Policy**: 50 requests per 60 seconds (refill rate: ~0.83 tokens/second)
--   **Current state**: 10 tokens remaining, no wait required
+- **Policy**: 50 requests per 60 seconds (refill rate: ~0.83 tokens/second)
+- **Current state**: 10 tokens remaining, no wait required
 
 ## Handling Rate Limits
 
@@ -198,15 +199,17 @@ RateLimit: "burst";r=8;t=0, "sustained";r=95;t=0
 
 This example applies two policies:
 
--   **Burst limit**: 10 requests per second
--   **Sustained limit**: 100 requests per minute
+- **Burst limit**: 10 requests per second
+- **Sustained limit**: 100 requests per minute
 
 !!! warning "All Policies Must Pass"
+
     Your request is rejected if you exceed **any** applicable policy.
 
 ## Best Practices
 
 !!! danger "Avoid Tight Loops"
+
     Never tight-loop on rate limit errors. Always implement exponential backoff with retries.
 
 **Key recommendations:**

@@ -10,22 +10,22 @@ Storytellers (game masters) have elevated permissions to manage campaigns, chara
 
 Valentina Noir supports three user roles with different permission levels:
 
-| Role | Description |
-|------|-------------|
-| `PLAYER` | Standard player with access to their own characters and data |
+| Role          | Description                                                              |
+| ------------- | ------------------------------------------------------------------------ |
+| `PLAYER`      | Standard player with access to their own characters and data             |
 | `STORYTELLER` | Game master with elevated permissions to manage campaigns and characters |
-| `ADMIN` | Full administrative access to all company resources |
+| `ADMIN`       | Full administrative access to all company resources                      |
 
 ## Character Types
 
 Characters in Valentina Noir have different visibility and ownership rules based on their type:
 
-| Type | Visibility | Use Case |
-|------|------------|----------|
-| `PLAYER` | Visible to all campaign members | Player-controlled characters |
-| `NPC` | Visible to all campaign members | Non-player characters everyone can see |
+| Type          | Visibility                              | Use Case                                    |
+| ------------- | --------------------------------------- | ------------------------------------------- |
+| `PLAYER`      | Visible to all campaign members         | Player-controlled characters                |
+| `NPC`         | Visible to all campaign members         | Non-player characters everyone can see      |
 | `STORYTELLER` | Visible only to Storytellers and Admins | Secret NPCs, antagonists, hidden characters |
-| `DEVELOPER` | Internal use only | Testing and development characters |
+| `DEVELOPER`   | Internal use only                       | Testing and development characters          |
 
 ### Storyteller Characters
 
@@ -37,6 +37,7 @@ Storyteller characters provide a way to manage NPCs that players shouldn't see. 
 - Maintain the full character sheet workflow for important NPCs
 
 !!! tip "When to Use Storyteller vs NPC Type"
+
     Use `STORYTELLER` type for characters whose abilities should remain secret (antagonists, mystery characters, surprise allies). Use `NPC` type for characters that players can openly interact with and whose capabilities aren't secret.
 
 ## Storyteller Permissions
@@ -79,10 +80,10 @@ Storytellers can manage any character in their campaigns:
 
 Characters can have different statuses managed by Storytellers:
 
-| Status | Description |
-|--------|-------------|
-| `ALIVE` | Active character in the campaign |
-| `DEAD` | Character has died in-game |
+| Status     | Description                        |
+| ---------- | ---------------------------------- |
+| `ALIVE`    | Active character in the campaign   |
+| `DEAD`     | Character has died in-game         |
 | `ARCHIVED` | Character removed from active play |
 
 ## Experience and Rewards
@@ -104,6 +105,7 @@ Storyteller actions are verified through role-based guards. When making API requ
 3. The API validates permissions before executing restricted actions
 
 !!! warning "Permission Denied Errors"
+
     If you receive a `403 Forbidden` error, verify that:
 
     - The requesting user has the appropriate role

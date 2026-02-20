@@ -22,13 +22,14 @@ This isolation enables multiple independent gaming groups to use Valentina Noir 
 
 Each developer API key has permissions assigned per company. Three permission levels control access:
 
-| Permission | Access Level                                                      |
-| ---------- | ----------------------------------------------------------------- |
-| `USER`     | Read access and basic operations within assigned companies        |
-| `ADMIN`    | Full management of users and resources within assigned companies  |
-| `OWNER`    | Complete control including company settings and admin management  |
+| Permission | Access Level                                                     |
+| ---------- | ---------------------------------------------------------------- |
+| `USER`     | Read access and basic operations within assigned companies       |
+| `ADMIN`    | Full management of users and resources within assigned companies |
+| `OWNER`    | Complete control including company settings and admin management |
 
 !!! tip "Auto-Assignment"
+
     Creating a company automatically grants you `OWNER` permission for that company. You can then associate additional developers for client development.
 
 ### Multi-Company Access
@@ -106,6 +107,7 @@ The response includes both the company and an admin user account:
 3. Your developer email
 
 !!! info "Automatic User Creation"
+
     Creating a company also creates a user account with `ADMIN` permissions using your developer username and email. You can update this account later via PATCH requests.
 
 ### Multi-Company Access
