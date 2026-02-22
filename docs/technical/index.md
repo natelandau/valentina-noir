@@ -8,6 +8,10 @@ Valentina Noir is a REST API for building World of Darkness tabletop gaming appl
 
 When you're ready to start making requests, read the **[full API Documentation](https://api.valentina-noir.com/docs)** for detailed information on the API endpoints and how to use them.
 
+!!! info "Official Python Client"
+
+    The [Valentina Noir Python Client](https://github.com/natelandau/valentina-python-client) is the official Python API client library for Valentina Noir. It provides a high-level interface for interacting with the API and includes type hints for all endpoints and models.
+
 ## Getting Started
 
 1. At this time, API keys are only available to developers who have been granted access by the Valentina Noir team. Please contact us at [support@valentina-noir.com](mailto:support@valentina-noir.com) to request an API key.
@@ -52,5 +56,5 @@ All responses are returned as JSON. Successful responses return the requested da
 
 ## Need Help?
 
--   Review the API documentation for endpoint-specific details
--   Check the [Error Handling](errors.md) guide for troubleshooting
+- Review the API documentation for endpoint-specific details
+- Check the [Error Handling](errors.md) guide for troubleshooting
