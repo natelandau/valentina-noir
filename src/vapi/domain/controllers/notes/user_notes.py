@@ -68,7 +68,7 @@ class UserNoteController(BaseNoteController):
         operation_id="createUserNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_user_note(self, *, company: Company, user: User, data: DTOData[Note]) -> Note:
         """Create a user note."""
@@ -80,7 +80,7 @@ class UserNoteController(BaseNoteController):
         operation_id="updateUserNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_user_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a user note by ID."""
@@ -91,7 +91,7 @@ class UserNoteController(BaseNoteController):
         summary="Delete user note",
         operation_id="deleteUserNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_user_note(self, *, note: Note) -> None:
         """Delete a user note by ID."""

@@ -1,5 +1,6 @@
 """Company model."""
 
+from datetime import datetime
 from typing import Annotated
 
 from beanie import PydanticObjectId
@@ -12,6 +13,7 @@ from vapi.constants import (
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
 )
+from vapi.utils.time import time_now
 
 from .base import BaseDocument, HashedBaseModel
 
@@ -52,3 +54,4 @@ class Company(BaseDocument):
     email: EmailStr
     user_ids: list[PydanticObjectId] = Field(default_factory=list)
     settings: CompanySettings = Field(default_factory=CompanySettings)
+    resources_modified_at: datetime = Field(default_factory=time_now)

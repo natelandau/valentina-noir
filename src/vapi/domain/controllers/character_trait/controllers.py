@@ -75,7 +75,7 @@ class CharacterTraitController(Controller):
         summary="Assign trait to character",
         operation_id="assignTraitToCharacter",
         description=docs.ASSIGN_TRAIT_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def assign_trait_to_character(
         self,
@@ -99,7 +99,7 @@ class CharacterTraitController(Controller):
         summary="Create custom trait",
         operation_id="createCustomTrait",
         description=docs.CREATE_CUSTOM_TRAIT_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_custom_trait(
         self,
@@ -142,7 +142,7 @@ class CharacterTraitController(Controller):
         operation_id="modifyTraitValue",
         description=docs.MODIFY_VALUE_DESCRIPTION,
         tags=[APITags.EXPERIENCE.name],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def modify_value(
         self,
@@ -168,7 +168,7 @@ class CharacterTraitController(Controller):
         summary="Remove trait from character",
         operation_id="deleteCharacterTrait",
         description=docs.DELETE_CHARACTER_TRAIT_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_character_trait(
         self,

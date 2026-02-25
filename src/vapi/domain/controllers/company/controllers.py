@@ -88,7 +88,7 @@ class CompanyController(Controller):
         operation_id="createCompany",
         description=docs.CREATE_COMPANY_DESCRIPTION,
         dto=dto.PostCompanyDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
         return_dto=None,
     )
     async def create_company(
@@ -136,7 +136,7 @@ class CompanyController(Controller):
         description=docs.UPDATE_COMPANY_DESCRIPTION,
         guards=[developer_company_admin_guard],
         dto=dto.PatchCompanyDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_company(self, company: Company, data: DTOData[Company]) -> Company:
         """Update a company."""
@@ -155,7 +155,7 @@ class CompanyController(Controller):
         operation_id="deleteCompany",
         description=docs.DELETE_COMPANY_DESCRIPTION,
         guards=[developer_company_owner_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_company(self, company: Company) -> None:
         """Delete a company."""
@@ -167,7 +167,7 @@ class CompanyController(Controller):
         operation_id="addDeveloperToCompany",
         description=docs.DEVELOPER_ACCESS_DESCRIPTION,
         guards=[developer_company_owner_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def developer_company_permissions(
         self, company: Company, requesting_developer: Developer, data: dto.CompanyPermissionsDTO

@@ -68,7 +68,7 @@ class CampaignNoteController(BaseNoteController):
         operation_id="createCampaignNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_campaign_note(
         self, *, company: Company, campaign: Campaign, data: DTOData[Note]
@@ -82,7 +82,7 @@ class CampaignNoteController(BaseNoteController):
         operation_id="updateCampaignNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_campaign_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a campaign note by ID."""
@@ -93,7 +93,7 @@ class CampaignNoteController(BaseNoteController):
         summary="Delete campaign note",
         operation_id="deleteCampaignNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_campaign_note(self, *, note: Note) -> None:
         """Delete a campaign note by ID."""

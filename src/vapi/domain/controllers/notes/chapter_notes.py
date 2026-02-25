@@ -70,7 +70,7 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="createChapterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_chapter_note(
         self, *, company: Company, chapter: CampaignChapter, data: DTOData[Note]
@@ -84,7 +84,7 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="updateChapterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_chapter_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a chapter note by ID."""
@@ -95,7 +95,7 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Delete chapter note",
         operation_id="deleteChapterNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_chapter_note(self, *, note: Note) -> None:
         """Delete a chapter note by ID."""

@@ -67,7 +67,7 @@ class CharacterNoteController(BaseNoteController):
         operation_id="createCharacterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         dto=dto.NotePostDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_note(
         self, *, company: Company, character: Character, data: DTOData[Note]
@@ -81,7 +81,7 @@ class CharacterNoteController(BaseNoteController):
         operation_id="updateCharacterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         dto=dto.NotePatchDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_note(self, note: Note, data: DTOData[Note]) -> Note:
         """Update a note by ID."""
@@ -92,7 +92,7 @@ class CharacterNoteController(BaseNoteController):
         summary="Delete character note",
         operation_id="deleteCharacterNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_note(self, note: Note) -> None:
         """Delete a note by ID."""

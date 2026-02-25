@@ -74,7 +74,7 @@ class QuickRollController(Controller):
         description=docs.CREATE_QUICKROLL_DESCRIPTION,
         dto=dto.PostQuickRollDTO,
         return_dto=dto.ReturnQuickRollDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_user_quickroll(self, *, user: User, data: DTOData[QuickRoll]) -> QuickRoll:
         """Create a user quick roll."""
@@ -97,7 +97,7 @@ class QuickRollController(Controller):
         description=docs.UPDATE_QUICKROLL_DESCRIPTION,
         dto=dto.PatchQuickRollDTO,
         return_dto=dto.ReturnQuickRollDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
         self, *, quickroll: QuickRoll, data: DTOData[QuickRoll]
@@ -120,7 +120,7 @@ class QuickRollController(Controller):
         summary="Delete quick roll",
         operation_id="deleteUserQuickroll",
         description=docs.DELETE_QUICKROLL_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_user_quickroll(self, *, quickroll: QuickRoll) -> None:
         """Delete a user quick roll by ID."""

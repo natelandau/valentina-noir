@@ -68,7 +68,7 @@ class UserAssetsController(BaseAssetsController):
         summary="Upload a user asset",
         operation_id="uploadUserAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def handle_file_upload(
         self,
@@ -89,7 +89,7 @@ class UserAssetsController(BaseAssetsController):
         summary="Delete a user asset",
         operation_id="deleteUserAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_user_asset(self, asset: S3Asset) -> None:
         """Delete a user asset."""

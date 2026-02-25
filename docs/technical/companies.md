@@ -52,6 +52,10 @@ All resource endpoints nest under a company to ensure proper scoping.
 
 This hierarchical structure scopes every request to a specific company.
 
+### Child Data Last Updated
+
+The Company model has a `resources_modified_at` field. This field is updated whenever child resources (characters, campaigns, etc.) are updated. This is useful for caching purposes to avoid unnecessary API calls.
+
 ## Creating a Company
 
 Create a company to establish a separate namespace for your gaming group.
@@ -80,6 +84,7 @@ The response includes both the company and an admin user account:
         "description": "Test Description",
         "email": "test@test.com",
         "user_ids": ["697996c7659f4e107e3bc81b"], // (1)!
+        "resources_modified_at": "2026-01-28T04:55:35Z",
         "settings": {
             "character_autogen_xp_cost": 10,
             "character_autogen_num_choices": 3,

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from vapi.db.models import Company
 from vapi.lib.stores import delete_response_cache_for_api_key
+from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -42,7 +44,12 @@ async def add_audit_log(request: Request) -> None:
     ).insert()
 
 
-async def audit_log_and_delete_api_key_cache(request: Request) -> None:
+async def post_data_update_hook(request: Request) -> None:
     """Add an audit log and delete the response cache."""
     await add_audit_log(request)
     await delete_response_cache_for_api_key(request)
+    if "company_id" in request.path_params:
+        company = await Company.get(request.path_params["company_id"])
+        if company:
+            company.resources_modified_at = time_now()
+            await company.save()

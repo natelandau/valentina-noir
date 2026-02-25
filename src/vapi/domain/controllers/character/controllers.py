@@ -113,7 +113,7 @@ class CharacterController(Controller):
         summary="Create character",
         operation_id="createCharacter",
         description=docs.CREATE_CHARACTER_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_character(
         self,
@@ -161,7 +161,7 @@ class CharacterController(Controller):
         description=docs.UPDATE_CHARACTER_DESCRIPTION,
         dto=dto.CharacterPatchDTO,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_character(
         self,
@@ -188,7 +188,7 @@ class CharacterController(Controller):
         operation_id="deleteCharacter",
         description=docs.DELETE_CHARACTER_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_character(self, character: Character) -> None:
         """Delete a character."""
