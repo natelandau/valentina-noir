@@ -78,7 +78,7 @@ class UserController(Controller):
         operation_id="createUser",
         description=docs.CREATE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_user(self, data: dto.UserPostDTO, company: Company) -> User:
         """Create a new user."""
@@ -91,7 +91,7 @@ class UserController(Controller):
         operation_id="updateUser",
         description=docs.UPDATE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_user(self, user: User, data: dto.UserPatchDTO) -> User:
         """Update a user by ID."""
@@ -104,7 +104,7 @@ class UserController(Controller):
         operation_id="deleteUser",
         description=docs.DELETE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_user(
         self, user: User, company: Company, requesting_user_id: PydanticObjectId

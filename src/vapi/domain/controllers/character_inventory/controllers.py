@@ -73,7 +73,7 @@ class CharacterInventoryController(Controller):
         operation_id="createCharacterInventoryItem",
         description=docs.CREATE_INVENTORY_ITEM_DESCRIPTION,
         dto=dto.PostDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
@@ -93,7 +93,7 @@ class CharacterInventoryController(Controller):
         operation_id="updateCharacterInventoryItem",
         description=docs.UPDATE_INVENTORY_ITEM_DESCRIPTION,
         dto=dto.PatchDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def update_inventory_item(
@@ -116,7 +116,7 @@ class CharacterInventoryController(Controller):
         summary="Delete inventory item",
         operation_id="deleteCharacterInventoryItem",
         description=docs.DELETE_INVENTORY_ITEM_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_inventory_item(self, *, inventory_item: CharacterInventory) -> None:

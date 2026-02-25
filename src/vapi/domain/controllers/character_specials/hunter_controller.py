@@ -131,7 +131,7 @@ class HunterSpecialsController(Controller):
         description=docs.ADD_HUNTER_EDGE_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def add_hunter_edge(
         self,
@@ -149,7 +149,7 @@ class HunterSpecialsController(Controller):
         description=docs.REMOVE_HUNTER_EDGE_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def remove_hunter_edge(
         self,
@@ -167,7 +167,7 @@ class HunterSpecialsController(Controller):
         description=docs.ADD_HUNTER_EDGE_PERK_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def add_hunter_edge_perk(
         self,
@@ -186,7 +186,7 @@ class HunterSpecialsController(Controller):
         description=docs.REMOVE_HUNTER_EDGE_PERK_DESCRIPTION,
         cache=False,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def remove_hunter_edge_perk(
         self, character: Character, edge: HunterEdge, perk: HunterEdgePerk

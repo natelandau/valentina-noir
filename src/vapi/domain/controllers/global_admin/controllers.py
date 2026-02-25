@@ -86,7 +86,7 @@ class GlobalAdminController(Controller):
         operation_id="globalAdminCreateDeveloper",
         description=docs.CREATE_DEVELOPER_DESCRIPTION,
         dto=dto.DeveloperCreateDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_developer(self, *, data: DTOData[Developer]) -> Developer:
         """Create an Developer."""
@@ -105,7 +105,7 @@ class GlobalAdminController(Controller):
         operation_id="globalAdminUpdateDeveloper",
         description=docs.UPDATE_DEVELOPER_DESCRIPTION,
         dto=dto.DeveloperPatchDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_developer(
         self,
@@ -128,7 +128,7 @@ class GlobalAdminController(Controller):
         summary="Delete developer",
         operation_id="globalAdminDeleteDeveloper",
         description=docs.DELETE_DEVELOPER_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_developer(self, *, developer: Developer, request: Request) -> None:
         """Delete an Developer by ID."""
@@ -143,7 +143,7 @@ class GlobalAdminController(Controller):
         summary="Create API key",
         operation_id="globalAdminCreateDeveloperApiKey",
         description=docs.CREATE_API_KEY_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def new_api_key(
         self, *, developer: Developer, request: Request

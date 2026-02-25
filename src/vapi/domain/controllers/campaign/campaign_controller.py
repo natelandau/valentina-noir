@@ -79,7 +79,7 @@ class CampaignController(Controller):
         description=docs.CREATE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PostCampaignDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_campaign(
         self,
@@ -104,7 +104,7 @@ class CampaignController(Controller):
         description=docs.UPDATE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PatchCampaignDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_campaign(self, campaign: Campaign, data: DTOData[Campaign]) -> Campaign:
         """Update a campaign by ID."""
@@ -123,7 +123,7 @@ class CampaignController(Controller):
         operation_id="deleteCampaign",
         description=docs.DELETE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_campaign(self, campaign: Campaign) -> None:
         """Delete a campaign by ID."""

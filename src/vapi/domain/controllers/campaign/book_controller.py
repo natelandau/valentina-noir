@@ -78,7 +78,7 @@ class CampaignBookController(Controller):
         description=docs.CREATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PostBookDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_book(self, *, campaign: Campaign, data: DTOData[CampaignBook]) -> CampaignBook:
         """Create a book."""
@@ -98,7 +98,7 @@ class CampaignBookController(Controller):
         description=docs.UPDATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PatchBookDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_book(self, book: CampaignBook, data: DTOData[CampaignBook]) -> CampaignBook:
         """Update a book by ID."""
@@ -116,7 +116,7 @@ class CampaignBookController(Controller):
         operation_id="deleteCampaignBook",
         description=docs.DELETE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_book(self, book: CampaignBook) -> None:
         """Delete a book by ID."""
@@ -129,7 +129,7 @@ class CampaignBookController(Controller):
         operation_id="renumberCampaignBook",
         description=docs.RENUMBER_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def renumber_book(
         self, book: CampaignBook, data: dto.BookChapterNumberDTO

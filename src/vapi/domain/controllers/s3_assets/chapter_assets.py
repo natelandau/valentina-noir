@@ -71,7 +71,7 @@ class ChapterAssetsController(BaseAssetsController):
         summary="Upload a chapter asset",
         operation_id="uploadChapterAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def handle_file_upload(
         self,
@@ -93,7 +93,7 @@ class ChapterAssetsController(BaseAssetsController):
         summary="Delete a chapter asset",
         operation_id="deleteChapterAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_chapter_asset(self, asset: S3Asset) -> None:
         """Delete a chapter asset."""

@@ -5,6 +5,7 @@ These are smoke tests to ensure the hooks are working as expected. We do not tes
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -12,9 +13,10 @@ from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 
 from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY, UserRole
-from vapi.db.models import AuditLog, User
+from vapi.db.models import AuditLog, Company, User
 from vapi.domain.urls import Users as UsersURL
 from vapi.lib.crypt import hmac_sha256_hex
+from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -22,7 +24,7 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
     from redis.asyncio import Redis
 
-    from vapi.db.models import Company, Developer
+    from vapi.db.models import Developer
 
 pytestmark = pytest.mark.anyio
 
@@ -31,7 +33,7 @@ class TestAfterResponseHooks:
     """Test the after response hooks."""
 
     @pytest.mark.clean_db
-    async def test_audit_log_and_delete_api_key_cache(
+    async def test_post_data_update_hook(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
@@ -45,6 +47,8 @@ class TestAfterResponseHooks:
     ) -> None:
         """Verify audit log and delete api key cache hook."""
         await AuditLog.delete_all()
+        base_company.resources_modified_at = time_now() - timedelta(days=10)
+        await base_company.save()
 
         ### BUILD A RESPONSE CACHE ENTRY ###
         # Given a user and an API key
@@ -111,6 +115,10 @@ class TestAfterResponseHooks:
             == f'{{"name":"Test User","email":"test@test.com","role":"ADMIN","discord_profile":{{"username":"discord_username"}},"requesting_user_id":"{requesting_user.id!s}"}}'
         )
         assert audit.path_params == {"company_id": str(base_company.id)}
+
+        # Then: the company data last updated should be updated
+        company = await Company.get(base_company.id)
+        assert company.resources_modified_at > time_now() - timedelta(days=1)
 
         # cleanup
         await requesting_user.delete()

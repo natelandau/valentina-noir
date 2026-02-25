@@ -81,7 +81,7 @@ class CampaignChapterController(Controller):
         description=docs.CREATE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PostChapterDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def create_chapter(
         self, *, book: CampaignBook, data: DTOData[CampaignChapter]
@@ -102,7 +102,7 @@ class CampaignChapterController(Controller):
         description=docs.UPDATE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
         dto=dto.PatchChapterDTO,
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def update_chapter(
         self, chapter: CampaignChapter, data: DTOData[CampaignChapter]
@@ -122,7 +122,7 @@ class CampaignChapterController(Controller):
         operation_id="deleteCampaignChapter",
         description=docs.DELETE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def delete_chapter(self, chapter: CampaignChapter) -> None:
         """Delete a chapter by ID."""
@@ -135,7 +135,7 @@ class CampaignChapterController(Controller):
         operation_id="renumberCampaignChapter",
         description=docs.RENUMBER_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.audit_log_and_delete_api_key_cache,
+        after_response=hooks.post_data_update_hook,
     )
     async def renumber_chapter(
         self, chapter: CampaignChapter, data: dto.BookChapterNumberDTO
