@@ -52,7 +52,9 @@ class UserService:
         )
 
         new_user = User(
-            name=data.name,
+            name_first=data.name_first,
+            name_last=data.name_last,
+            username=data.username,
             email=data.email,
             role=data.role,
             company_id=company.id,

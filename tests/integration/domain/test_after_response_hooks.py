@@ -76,7 +76,9 @@ class TestAfterResponseHooks:
             build_url(UsersURL.CREATE),
             headers=token_company_owner,
             json={
-                "name": "Test User",
+                "name_first": "Test",
+                "name_last": "User",
+                "username": "test_user",
                 "email": "test@test.com",
                 "role": "ADMIN",
                 "discord_profile": {"username": "discord_username"},
@@ -104,7 +106,9 @@ class TestAfterResponseHooks:
         assert audit.method == "POST"
         assert audit.url == f"http://testserver/api/v1/companies/{base_company.id}/users"
         assert audit.request_json == {
-            "name": "Test User",
+            "name_first": "Test",
+            "name_last": "User",
+            "username": "test_user",
             "email": "test@test.com",
             "role": "ADMIN",
             "discord_profile": {"username": "discord_username"},
@@ -112,7 +116,7 @@ class TestAfterResponseHooks:
         }
         assert (
             audit.request_body
-            == f'{{"name":"Test User","email":"test@test.com","role":"ADMIN","discord_profile":{{"username":"discord_username"}},"requesting_user_id":"{requesting_user.id!s}"}}'
+            == f'{{"name_first":"Test","name_last":"User","username":"test_user","email":"test@test.com","role":"ADMIN","discord_profile":{{"username":"discord_username"}},"requesting_user_id":"{requesting_user.id!s}"}}'
         )
         assert audit.path_params == {"company_id": str(base_company.id)}
 

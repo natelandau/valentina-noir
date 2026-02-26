@@ -450,7 +450,9 @@ class TestUserController:
                 build_url(UsersURL.CREATE, company_id=company.id),
                 headers=token_global_admin,
                 json={
-                    "name": "Test User",
+                    "name_first": "Test",
+                    "name_last": "User",
+                    "username": "test_user",
                     "email": "test@test.com",
                     "role": "ADMIN",
                     "discord_profile": {"username": "discord_username"},
@@ -491,7 +493,9 @@ class TestUserController:
                 build_url(UsersURL.UPDATE, user_id=user.id, company_id=company.id),
                 headers=token_global_admin,
                 json={
-                    "name": "Test User Updated",
+                    "name_first": "Test",
+                    "name_last": "User",
+                    "username": "test_user_updated",
                     "email": "test@test.com",
                     "role": "ADMIN",
                     "discord_profile": {"username": "discord_username"},
@@ -506,7 +510,9 @@ class TestUserController:
                 mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
             )
 
-            assert user.name == "Test User Updated"
+            assert user.name_first == "Test"
+            assert user.name_last == "User"
+            assert user.username == "test_user_updated"
             assert user.email == "test@test.com"
             assert user.role == UserRole.ADMIN
             assert user.discord_profile.username == "discord_username"

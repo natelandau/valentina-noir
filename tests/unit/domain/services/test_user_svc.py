@@ -103,7 +103,9 @@ class TestUserService:
         company = await company_factory()
         requesting_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
         data = UserPostDTO(
-            name="Test User",
+            name_first="Test",
+            name_last="User",
+            username="test_user",
             email="test@example.com",
             role=UserRole.PLAYER,
             discord_profile=DiscordProfile(global_name="global name"),
@@ -116,7 +118,9 @@ class TestUserService:
         new_user = await service.create_user(company=company, data=data)
 
         # Then the user is created
-        assert new_user.name == "Test User"
+        assert new_user.name_first == "Test"
+        assert new_user.name_last == "User"
+        assert new_user.username == "test_user"
         assert new_user.email == "test@example.com"
         assert new_user.role == UserRole.PLAYER
         assert new_user.discord_profile.global_name == "global name"
@@ -139,7 +143,9 @@ class TestUserService:
         spy = mocker.spy(UserService, "validate_user_can_manage_user")
         company = await company_factory()
         target_user = await user_factory(
-            name="Test User",
+            name_first="Test",
+            name_last="User",
+            username="test_user",
             email="test@example.com",
             role=UserRole.PLAYER,
             company_id=company.id,
@@ -147,7 +153,7 @@ class TestUserService:
         )
 
         data = UserPatchDTO(
-            name="Test User Updated",
+            name_first="update",
             discord_profile=DiscordProfile(global_name="global name updated"),
             requesting_user_id=target_user.id,
         )
@@ -157,7 +163,9 @@ class TestUserService:
         updated_user = await service.update_user(user=target_user, data=data)
 
         # Then the user is updated
-        assert updated_user.name == "Test User Updated"
+        assert updated_user.name_first == "update"
+        assert updated_user.name_last == "User"
+        assert updated_user.username == "test_user"
         assert updated_user.email == "test@example.com"
         assert updated_user.role == UserRole.PLAYER
         assert updated_user.discord_profile.global_name == "global name updated"

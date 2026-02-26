@@ -118,8 +118,16 @@ class UserFactory(BeanieDocumentFactory[User]):
     __randomize_collection_length__ = True
 
     @classmethod
-    def name(cls) -> str:
-        return fake.name()
+    def name_first(cls) -> str:
+        return fake.first_name()
+
+    @classmethod
+    def name_last(cls) -> str:
+        return fake.last_name()
+
+    @classmethod
+    def username(cls) -> str:
+        return fake.user_name()
 
     @classmethod
     def is_archived(cls) -> bool:
