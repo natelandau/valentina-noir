@@ -17,7 +17,9 @@ from vapi.lib.dto import dto_config
 class UserPostDTO(BaseModel):
     """User post/patch DTO."""
 
-    name: Annotated[str, Field(examples=["John Doe"])]
+    name_first: Annotated[str | None, Field(examples=["John"])] = None
+    name_last: Annotated[str | None, Field(examples=["Doe"])] = None
+    username: Annotated[str, Field(examples=["john.doe"])]
     email: EmailStr = Field(examples=["john.doe@example.com"])
     role: UserRole = Field(examples=[UserRole.PLAYER])
     discord_profile: Annotated[DiscordProfile, Field(default=DiscordProfile())]
@@ -27,7 +29,9 @@ class UserPostDTO(BaseModel):
 class UserPatchDTO(BaseModel):
     """User post/patch DTO."""
 
-    name: Annotated[str | None, Field(examples=["John Doe"])] = None
+    name_first: Annotated[str | None, Field(examples=["John"])] = None
+    name_last: Annotated[str | None, Field(examples=["Doe"])] = None
+    username: Annotated[str | None, Field(examples=["john.doe"])] = None
     email: Annotated[EmailStr | None, Field(examples=["john.doe@example.com"])] = None
     role: Annotated[UserRole | None, Field(examples=[UserRole.PLAYER])] = None
     discord_profile: Annotated[DiscordProfile | None, Field(default=DiscordProfile())] = None

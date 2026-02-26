@@ -31,7 +31,9 @@ class TestPatchDocumentFromDict:
         # Given a user
         company = await company_factory()
         user = await user_factory(
-            name="Test User",
+            name_first="Test",
+            name_last="User",
+            username="test_user",
             email="test@example.com",
             role=UserRole.PLAYER,
             company_id=company.id,
@@ -49,7 +51,7 @@ class TestPatchDocumentFromDict:
 
         # Given a dictionary of data to patch the user with
         data = {
-            "name": "updated name",
+            "name_first": "updated",
             "nonexistent_key": "nonexistent value",
             "discord_profile": {
                 "global_name": "updated global name",
@@ -62,7 +64,7 @@ class TestPatchDocumentFromDict:
         patched_user = patch_document_from_dict(user, data)
 
         # Then the user is patched
-        assert patched_user.name == "updated name"
+        assert patched_user.name_first == "updated"
         assert patched_user.email == user.email
         assert patched_user.role == user.role
         assert patched_user.company_id == user.company_id

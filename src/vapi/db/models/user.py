@@ -48,7 +48,9 @@ class User(BaseDocument):
     Use this class to create, retrieve, update, and delete user records in the database. Store and manage user information such as ID, avatar, characters, campaign experience, creation date, macros, name, and associated guilds. Implement methods to handle user-specific operations and provide convenient access to user data.
     """
 
-    name: Annotated[str, Field(min_length=3, max_length=50)]
+    name_first: Annotated[str | None, Field(min_length=3, max_length=50)] = None
+    name_last: Annotated[str | None, Field(min_length=3, max_length=50)] = None
+    username: Annotated[str, Field(min_length=3, max_length=50)]
     email: EmailStr
     role: UserRole = Field(default=UserRole.PLAYER)
     company_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])

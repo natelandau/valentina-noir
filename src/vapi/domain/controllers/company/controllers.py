@@ -112,7 +112,7 @@ class CompanyController(Controller):
         await requesting_developer.save()
 
         admin_user = User(
-            name=requesting_developer.username,
+            username=requesting_developer.username,
             email=requesting_developer.email,
             role=UserRole.ADMIN,
             company_id=company.id,

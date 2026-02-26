@@ -90,7 +90,7 @@ class TestCompanyCRUD:
         assert response.json()["company"]["name"] == "Test Company"
         assert response.json()["company"]["description"] == "Test Description"
         assert response.json()["company"]["email"] == "test@test.com"
-        assert response.json()["admin_user"]["name"] == base_developer_company_user.username
+        assert response.json()["admin_user"]["username"] == base_developer_company_user.username
         assert response.json()["admin_user"]["email"] == base_developer_company_user.email
         assert response.json()["admin_user"]["role"] == "ADMIN"
         assert response.json()["admin_user"]["company_id"] == response.json()["company"]["id"]
@@ -106,7 +106,7 @@ class TestCompanyCRUD:
         # And the admin user is created in the database
         admin_user_id = response.json()["admin_user"]["id"]
         admin_user = await User.get(admin_user_id)
-        assert admin_user.name == base_developer_company_user.username
+        assert admin_user.username == base_developer_company_user.username
         assert admin_user.email == base_developer_company_user.email
         assert admin_user.role == UserRole.ADMIN
         assert str(admin_user.company_id) == company_id

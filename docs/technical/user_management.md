@@ -64,7 +64,9 @@ def get_or_create_valentina_user(local_user, company_id, api_key):
         f"https://api.valentina-noir.com/api/v1/companies/{company_id}/users",
         headers={"X-API-KEY": api_key},
         json={
-            "name": local_user.display_name,
+            "name_first": local_user.name_first,
+            "name_last": local_user.name_last,
+            "username": local_user.username,
             "email": local_user.email,
             "role": "PLAYER"
         }
@@ -128,7 +130,9 @@ Response:
 ```json
 {
     "id": "user123",
-    "name": "John Doe",
+    "name_first": "John",
+    "name_last": "Doe",
+    "username": "johndoe123",
     "role": "STORYTELLER",
     "company_id": "abc123"
 }
