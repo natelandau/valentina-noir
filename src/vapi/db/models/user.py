@@ -2,11 +2,20 @@
 
 from typing import Annotated, ClassVar
 
-from beanie import PydanticObjectId
+from beanie import (
+    Insert,
+    PydanticObjectId,
+    Replace,
+    Save,
+    SaveChanges,
+    Update,
+    before_event,
+)
 from pydantic import EmailStr, Field
 
 from vapi.constants import COOL_POINT_VALUE, UserRole
 from vapi.lib.exceptions import NotEnoughXPError
+from vapi.utils.strings import slugify
 
 from .base import BaseDocument, HashedBaseModel
 
@@ -61,6 +70,11 @@ class User(BaseDocument):
     campaign_experience: list[CampaignExperience] = Field(default_factory=list)
 
     asset_ids: list[PydanticObjectId] = Field(default_factory=list)
+
+    @before_event(Insert, Replace, Save, Update, SaveChanges)
+    async def slugify_username(self) -> None:
+        """Slugify the username."""
+        self.username = slugify(self.username)
 
     def is_discord_oauth_expired(self) -> bool:
         """Check if the Discord OAuth token is expired."""
