@@ -12,6 +12,7 @@ from vapi.constants import CharacterClass, CharacterStatus, DiceSize, GameVersio
 from vapi.db.models import (
     Character,
     CharacterTrait,
+    CharSheetSection,
     DiceRoll,
     Trait,
     TraitCategory,
@@ -225,6 +226,40 @@ class DiceRollFactory(BeanieDocumentFactory[DiceRoll]):
         )
 
 
+class CharSheetSectionFactory(BeanieDocumentFactory[CharSheetSection]):
+    """Factory to create a character sheet section object in the database."""
+
+    __model__ = CharSheetSection
+    __set_as_default_factory_for_type__ = True
+    __min_collection_length__ = 1
+    __max_collection_length__ = 5
+    __randomize_collection_length__ = True
+
+    @classmethod
+    def name(cls) -> str:
+        return generate_word_with_min_length(min_length=3, part_of_speech="noun")
+
+    @classmethod
+    def description(cls) -> str:
+        return fake.text()
+
+    @classmethod
+    def character_classes(cls) -> list:
+        return [CharacterClass.VAMPIRE, CharacterClass.WEREWOLF]
+
+    @classmethod
+    def game_versions(cls) -> list:
+        return [GameVersion.V4, GameVersion.V5]
+
+    @classmethod
+    def show_when_empty(cls) -> bool:
+        return True
+
+    @classmethod
+    def order(cls) -> int:
+        return fake.random_int(min=0, max=20)
+
+
 class TraitCategoryFactory(BeanieDocumentFactory[TraitCategory]):
     """Factory to create a trait category object in the database."""
 
@@ -333,8 +368,8 @@ class TraitFactory(BeanieDocumentFactory[Trait]):
         return None
 
     @classmethod
-    def sheet_section_id(cls) -> PydanticObjectId | None:
-        return None
+    def sheet_section_id(cls) -> PydanticObjectId:
+        return PydanticObjectId()
 
     @classmethod
     def sheet_section_name(cls) -> str | None:

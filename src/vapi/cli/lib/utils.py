@@ -399,6 +399,7 @@ async def sync_single_trait(
     fixture_trait: dict[str, Any],
     fixture_category: dict[str, Any],
     category: TraitCategory,
+    section: CharSheetSection,
 ) -> tuple[Trait, bool, bool]:
     """Sync a single trait.
 
@@ -406,6 +407,7 @@ async def sync_single_trait(
         fixture_trait (dict[str, Any]): Fixture data for the trait.
         fixture_category (dict[str, Any]): Parent category fixture data (for default costs).
         category (TraitCategory): Parent category for the trait.
+        section (CharSheetSection): Parent section for the trait.
 
     Returns:
         tuple[Trait, bool, bool]: The trait, whether it was created, whether it was updated.
@@ -420,7 +422,13 @@ async def sync_single_trait(
         Trait.advantage_category_name == fixture_trait.get("advantage_category_name"),
     )
     if not trait:
-        trait = Trait(**fixture_trait, parent_category_id=category.id)
+        trait = Trait(
+            **fixture_trait,
+            parent_category_id=category.id,
+            parent_category_name=category.name,
+            sheet_section_id=section.id,
+            sheet_section_name=section.name,
+        )
         # Apply default costs from category if not specified
         if not fixture_trait.get("initial_cost"):
             trait.initial_cost = fixture_category.get("initial_cost", 1)
@@ -449,12 +457,14 @@ async def sync_single_trait(
 async def sync_category_traits(
     fixture_category: dict[str, Any],
     category: TraitCategory,
+    section: CharSheetSection,
 ) -> SyncCounts:
     """Sync all traits within a category.
 
     Args:
         fixture_category (dict[str, Any]): Fixture data for the category.
         category (TraitCategory): The category to sync traits for.
+        section (CharSheetSection): The section to sync traits for.
 
     Returns:
         SyncCounts: Counts of created, updated, and total traits.
@@ -462,7 +472,9 @@ async def sync_category_traits(
     counts = SyncCounts()
 
     for fixture_trait in fixture_category.get("traits", []):
-        _, created, updated = await sync_single_trait(fixture_trait, fixture_category, category)
+        _, created, updated = await sync_single_trait(
+            fixture_trait, fixture_category, category=category, section=section
+        )
         counts.total += 1
         if created:
             counts.created += 1
@@ -498,7 +510,7 @@ async def sync_section_categories(
             category_counts.updated += 1
 
         # Sync traits within this category
-        traits_result = await sync_category_traits(fixture_category, category)
+        traits_result = await sync_category_traits(fixture_category, category, section)
         trait_counts.created += traits_result.created
         trait_counts.updated += traits_result.updated
         trait_counts.total += traits_result.total

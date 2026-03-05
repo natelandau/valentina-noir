@@ -44,7 +44,7 @@ class Trait(BaseDocument):
     upgrade_cost: Annotated[int, Field(ge=0, le=100, default=2)] = 2
 
     sheet_section_name: str | None = None
-    sheet_section_id: PydanticObjectId | None = None
+    sheet_section_id: PydanticObjectId
 
     parent_category_name: str | None = None
     parent_category_id: PydanticObjectId
