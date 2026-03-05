@@ -684,8 +684,6 @@ class CharacterTraitService:
         )
 
         current_value = character_trait.value
-        min_value = character_trait.trait.min_value  # type: ignore [attr-defined]
-        max_value = character_trait.trait.max_value  # type: ignore [attr-defined]
         xp_current = campaign_experience.xp_current
         starting_points_current = character.starting_points
 
@@ -729,8 +727,7 @@ class CharacterTraitService:
         return TraitValueOptionsResponse(
             name=character_trait.trait.name,  # type: ignore [attr-defined]
             current_value=current_value,
-            min_value=min_value,
-            max_value=max_value,
+            trait=character_trait.trait,  # type: ignore [arg-type]
             xp_current=xp_current,
             starting_points_current=starting_points_current,
             options=options,

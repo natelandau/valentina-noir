@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from beanie import PydanticObjectId  # noqa: TC002
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from vapi.constants import TraitModifyCurrency  # noqa: TC001
+from vapi.db.models import Trait  # noqa: TC001
+from vapi.lib.dto import COMMON_EXCLUDES
 
 
 class CharacterTraitAddConstant(BaseModel):
@@ -47,11 +49,15 @@ class TraitValueOptionsResponse(BaseModel):
 
     name: str
     current_value: int
-    min_value: int
-    max_value: int
+    trait: Trait
     xp_current: int
     starting_points_current: int
     options: dict[str, TraitValueOptionDetail]
+
+    @field_serializer("trait")
+    def serialize_trait(self, trait: Trait) -> dict:
+        """Serialize the trait."""
+        return trait.model_dump(mode="json", exclude=COMMON_EXCLUDES)
 
 
 class TraitModifyRequest(BaseModel):

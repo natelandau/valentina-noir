@@ -1466,10 +1466,11 @@ class TestGetValueOptions:
 
         # Then the response should have the correct structure
         assert result.current_value == 2
-        assert result.min_value == 0
-        assert result.max_value == 5
+        assert result.trait.min_value == 0
+        assert result.trait.max_value == 5
         assert result.xp_current == 50
         assert result.starting_points_current == 10
+        assert result.trait == character_trait.trait
 
         # Should have options for values 0, 1, 3, 4, 5 (not 2, which is current)
         assert "2" not in result.options

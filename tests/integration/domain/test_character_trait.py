@@ -19,6 +19,7 @@ from vapi.constants import UserRole
 from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
 from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
 from vapi.domain.urls import Characters
+from vapi.lib.dto import COMMON_EXCLUDES
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -711,8 +712,7 @@ class TestGetValueOptions:
         assert response.status_code == HTTP_200_OK
         result = response.json()
         assert result["current_value"] == 2
-        assert result["min_value"] == trait.min_value
-        assert result["max_value"] == trait.max_value
+        assert result["trait"] == trait.model_dump(mode="json", exclude=COMMON_EXCLUDES)
         assert result["xp_current"] == 100
         assert result["starting_points_current"] == 50
         assert "options" in result
