@@ -711,6 +711,7 @@ class CharacterTraitService:
             )
 
         return TraitValueOptionsResponse(
+            name=character_trait.trait.name,  # type: ignore [attr-defined]
             current_value=current_value,
             min_value=min_value,
             max_value=max_value,
