@@ -22,7 +22,7 @@ COMMON_EXCLUDES: AbstractSet[str] = {
 }
 
 
-def dto_config(  # noqa: PLR0913
+def dto_config(
     *,
     exclude: AbstractSet[str] | None = None,
     include: AbstractSet[str] | None = None,

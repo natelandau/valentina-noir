@@ -10,7 +10,7 @@ import pytest
 from beanie import PydanticObjectId
 from beanie.operators import In, Not
 
-from vapi.constants import PermissionsFreeTraitChanges, UserRole
+from vapi.constants import PermissionsFreeTraitChanges, TraitModifyCurrency, UserRole
 from vapi.db.models import (
     Campaign,
     Character,
@@ -1861,3 +1861,236 @@ class TestModifyTraitValue:
 
         # Cleanup
         await character_trait.delete()
+
+
+class TestDeleteTrait:
+    """Test the delete_trait method."""
+
+    async def test_delete_non_custom_trait_no_currency(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify a non-custom trait is deleted without refund when no currency is provided."""
+        # Given a character with a non-custom trait
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait_id = character_trait.id
+        spy_guard = mocker.spy(CharacterTraitService, "guard_user_can_manage_character")
+        spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
+
+        # When we delete the trait without currency
+        service = CharacterTraitService()
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then the trait should be deleted and no refund issued
+        assert await CharacterTrait.get(character_trait_id) is None
+        spy_guard.assert_called_once()
+        spy_modify.assert_not_called()
+
+    async def test_delete_non_custom_trait_no_cost_currency(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify NO_COST currency does not trigger a refund."""
+        # Given a character with a non-custom trait
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait_id = character_trait.id
+        spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
+
+        # When we delete with NO_COST currency
+        service = CharacterTraitService()
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+        # Then the trait should be deleted without refund
+        assert await CharacterTrait.get(character_trait_id) is None
+        spy_modify.assert_not_called()
+
+    async def test_delete_custom_trait_deletes_trait_definition(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify deleting a custom trait also deletes the Trait definition."""
+        # Given a character with a custom trait
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(
+            value=1, character_id=character.id, is_custom=True
+        )
+        await character_trait.fetch_all_links()
+        character_trait_id = character_trait.id
+        custom_trait_id = character_trait.trait.id
+
+        # When we delete the custom trait
+        service = CharacterTraitService()
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then both the CharacterTrait and its Trait definition should be deleted
+        assert await CharacterTrait.get(character_trait_id) is None
+        assert await Trait.get(custom_trait_id) is None
+
+    async def test_delete_non_custom_trait_preserves_trait_definition(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify deleting a non-custom trait preserves the shared Trait definition."""
+        # Given a character with a non-custom trait
+        company, user, character = get_company_user_character
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(
+            value=1, character_id=character.id, trait=trait
+        )
+        character_trait_id = character_trait.id
+
+        # When we delete the character trait
+        service = CharacterTraitService()
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then the CharacterTrait is deleted but the Trait definition remains
+        assert await CharacterTrait.get(character_trait_id) is None
+        assert await Trait.get(trait.id) is not None
+
+    async def test_delete_trait_with_xp_refund(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+        mocker: Any,
+    ) -> None:
+        """Verify deleting with XP currency refunds the trait cost."""
+        # Given a character with XP and a trait
+        company = await company_factory()
+        campaign = await campaign_factory()
+        target_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+        )
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait_id = character_trait.id
+        spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
+
+        # When we delete with XP refund
+        service = CharacterTraitService()
+        await service.delete_trait(
+            company=company,
+            user=target_user,
+            character=character,
+            character_trait=character_trait,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then modify_trait_value should be called to refund to value 0
+        spy_modify.assert_called_once()
+        assert spy_modify.call_args.kwargs["target_value"] == 0
+        assert spy_modify.call_args.kwargs["deleting_trait"] is True
+
+        # And the trait should be deleted
+        assert await CharacterTrait.get(character_trait_id) is None
+
+        # And XP should be refunded
+        await target_user.sync()
+        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        assert campaign_experience.xp_current > 100
+
+        # Cleanup
+        await character.delete()
+
+    async def test_delete_trait_with_starting_points_refund(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        mocker: Any,
+    ) -> None:
+        """Verify deleting with STARTING_POINTS currency refunds the trait cost."""
+        # Given a character with starting points and a trait
+        company, user, character = get_company_user_character
+        character.starting_points = 10
+        await character.save()
+        initial_starting_points = character.starting_points
+
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait_id = character_trait.id
+        spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
+
+        # When we delete with STARTING_POINTS refund
+        service = CharacterTraitService()
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            currency=TraitModifyCurrency.STARTING_POINTS,
+        )
+
+        # Then modify_trait_value should be called to refund to value 0
+        spy_modify.assert_called_once()
+        assert spy_modify.call_args.kwargs["target_value"] == 0
+        assert spy_modify.call_args.kwargs["deleting_trait"] is True
+
+        # And the trait should be deleted
+        assert await CharacterTrait.get(character_trait_id) is None
+
+        # And starting points should increase
+        await character.sync()
+        assert character.starting_points > initial_starting_points
+
+    async def test_delete_trait_permission_denied(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify PermissionDeniedError when user doesn't own the character."""
+        # Given a character owned by another user
+        company = await company_factory()
+        owner = await user_factory(role=UserRole.PLAYER)
+        character = await character_factory(
+            user_player_id=owner.id,
+            company_id=company.id,
+        )
+        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        not_owner = await user_factory(role=UserRole.PLAYER)
+
+        # When a non-owner tries to delete
+        # Then a PermissionDeniedError should be raised
+        service = CharacterTraitService()
+        with pytest.raises(PermissionDeniedError, match="User does not own this character"):
+            await service.delete_trait(
+                company=company,
+                user=not_owner,
+                character=character,
+                character_trait=character_trait,
+            )
