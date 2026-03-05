@@ -45,6 +45,7 @@ class TraitValueOptionDetail(BaseModel):
 class TraitValueOptionsResponse(BaseModel):
     """Response for GET /value-options endpoint."""
 
+    name: str
     current_value: int
     min_value: int
     max_value: int
