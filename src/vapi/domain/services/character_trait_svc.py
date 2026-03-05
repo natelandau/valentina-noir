@@ -221,10 +221,8 @@ class CharacterTraitService:
         new_trait_value = character_trait.value
 
         for _ in range(decrease_by):
-            if new_trait_value - 1 < character_trait.trait.min_value:  # type: ignore [attr-defined]
-                msg = (
-                    f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
-                )
+            if new_trait_value - 1 < 0:
+                msg = "Trait can not be lowered below zero"
                 raise ValidationError(
                     invalid_parameters=[{"field": "decrease amount", "message": msg}]
                 )
@@ -527,6 +525,7 @@ class CharacterTraitService:
         user: User,
         character_trait: CharacterTrait,
         num_dots: int,
+        deleting_trait: bool = False,
     ) -> CharacterTrait:
         """Refund a character trait value with xp.
 
@@ -535,6 +534,7 @@ class CharacterTraitService:
             user: The user refunding the trait.
             character_trait: The trait to refund.
             num_dots: The amount to refund the trait by.
+            deleting_trait: Whether the trait is being deleted.
 
         Returns:
             The character trait that was refunded.
@@ -544,7 +544,9 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be refunded below min value.
         """
         self.guard_user_can_manage_character(character, user)
-        self._guard_is_safe_decrease(character_trait, num_dots)
+        if not deleting_trait:
+            self._guard_is_safe_decrease(character_trait, num_dots)
+
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
         await target_user.add_xp(character.campaign_id, savings, update_total=False)
@@ -588,7 +590,13 @@ class CharacterTraitService:
         return character_trait
 
     async def refund_trait_decrease_with_starting_points(
-        self, *, user: User, character: Character, character_trait: CharacterTrait, num_dots: int
+        self,
+        *,
+        user: User,
+        character: Character,
+        character_trait: CharacterTrait,
+        num_dots: int,
+        deleting_trait: bool = False,
     ) -> CharacterTrait:
         """Refund a character trait value with starting points.
 
@@ -597,6 +605,7 @@ class CharacterTraitService:
             character: The character to refund the trait for.
             character_trait: The trait to refund.
             num_dots: The amount to refund the trait by.
+            deleting_trait: Whether the trait is being deleted.
 
         Returns:
             The character trait that was refunded.
@@ -606,7 +615,8 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be refunded below min value.
         """
         self.guard_user_can_manage_character(character, user)
-        self._guard_is_safe_decrease(character_trait, num_dots)
+        if not deleting_trait:
+            self._guard_is_safe_decrease(character_trait, num_dots)
 
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
         character.starting_points += savings
@@ -729,6 +739,7 @@ class CharacterTraitService:
         character_trait: CharacterTrait,
         target_value: int,
         currency: TraitModifyCurrency,
+        deleting_trait: bool = False,
     ) -> CharacterTrait:
         """Modify a trait to a target value using the specified currency.
 
@@ -739,6 +750,7 @@ class CharacterTraitService:
             character_trait: The trait to modify.
             target_value: The desired target value for the trait.
             currency: The currency to use (NO_COST, XP, or STARTING_POINTS).
+            deleting_trait: Whether the trait is being deleted.
 
         Returns:
             The updated CharacterTrait.
@@ -793,10 +805,54 @@ class CharacterTraitService:
                 character=character,
                 character_trait=character_trait,
                 num_dots=num_dots,
+                deleting_trait=deleting_trait,
             )
         return await self.refund_trait_decrease_with_starting_points(
             user=user,
             character=character,
             character_trait=character_trait,
             num_dots=num_dots,
+            deleting_trait=deleting_trait,
         )
+
+    async def delete_trait(
+        self,
+        *,
+        company: Company,
+        user: User,
+        character: Character,
+        character_trait: CharacterTrait,
+        currency: TraitModifyCurrency | None = None,
+    ) -> None:
+        """Delete a trait from a character.
+
+        Args:
+            company: The company
+            user: The user deleting the trait.
+            character: The character to delete the trait from.
+            character_trait: The trait to delete.
+            currency: The currency to use to recoup the cost of the trait.
+
+        Returns:
+            The character trait that was deleted.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to delete the trait.
+            ValidationError: If the trait cannot be deleted.
+        """
+        self.guard_user_can_manage_character(character, user)
+
+        if currency and currency != TraitModifyCurrency.NO_COST:
+            character_trait = await self.modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                target_value=0,
+                currency=currency,
+                deleting_trait=True,
+            )
+
+        if character_trait.trait.is_custom:  # type: ignore [attr-defined]
+            await character_trait.trait.delete()  # type: ignore [attr-defined]
+        await character_trait.delete()

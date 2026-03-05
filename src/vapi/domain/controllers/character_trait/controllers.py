@@ -10,6 +10,7 @@ from litestar.di import Provide
 from litestar.handlers import delete, get, post, put
 from litestar.params import Parameter
 
+from vapi.constants import TraitModifyCurrency  # noqa: TC001
 from vapi.db.models import Character, CharacterTrait, Company, User  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
@@ -172,14 +173,22 @@ class CharacterTraitController(Controller):
     )
     async def delete_character_trait(
         self,
+        company: Company,
         user: User,
         character: Character,
         character_trait: CharacterTrait,
+        currency: Annotated[
+            TraitModifyCurrency | None,
+            Parameter(description="The currency to use to recoup the cost of the trait. Optional."),
+        ] = None,
     ) -> None:
         """Delete a character trait."""
         service = CharacterTraitService()
         service.guard_user_can_manage_character(character=character, user=user)
-        if character_trait.trait.is_custom:  # type: ignore [attr-defined]
-            await character_trait.trait.delete()  # type: ignore [attr-defined]
-
-        await character_trait.delete()
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            currency=currency,
+        )

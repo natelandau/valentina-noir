@@ -231,6 +231,10 @@ class TestCustomTraits:
         assert created_custom_trait.trait.name == "Test Trait"
         assert created_custom_trait.trait.description == "Test Description"
 
+
+class TestDeleteCharacterTrait:
+    """Test deleting a character trait."""
+
     async def test_delete_character_trait(
         self,
         client: AsyncClient,
@@ -280,6 +284,52 @@ class TestCustomTraits:
         assert character_trait.id not in character.character_trait_ids
         assert not await CharacterTrait.find_one(CharacterTrait.id == character_trait.id)
         assert not await Trait.find_one(Trait.id == trait.id)
+
+    async def test_delete_character_trait_with_xp_refund(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+    ) -> None:
+        """Verify that deleting a trait with currency=XP refunds XP to the user."""
+        # Given a character with a trait at max value and user with XP
+        character_player_user = await user_factory(role=UserRole.PLAYER)
+        character = await character_factory(user_player_id=character_player_user.id)
+        trait = await Trait.find_one(Trait.is_archived == False)
+        character_trait = await character_trait_factory(
+            value=trait.max_value, trait=trait, character_id=character.id
+        )
+        initial_xp = 100
+        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=initial_xp)
+
+        # When deleting the trait with XP currency
+        response = await client.delete(
+            build_url(
+                Characters.TRAIT_DELETE,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+                user_id=character_player_user.id,
+            ),
+            headers=token_company_admin,
+            params={"currency": "XP"},
+        )
+
+        # Then the trait is deleted and XP is refunded
+        assert response.status_code == HTTP_204_NO_CONTENT
+        assert not await CharacterTrait.find_one(CharacterTrait.id == character_trait.id)
+        await character_player_user.sync()
+        campaign_experience = await character_player_user.get_or_create_campaign_experience(
+            character.campaign_id
+        )
+        assert campaign_experience.xp_current > initial_xp
+        assert campaign_experience.xp_total == initial_xp
+
+        # Cleanup
+        await character_player_user.delete()
+        await character.delete()
 
 
 class TestModifyTraitValue:

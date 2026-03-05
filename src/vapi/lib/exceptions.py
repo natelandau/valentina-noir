@@ -230,7 +230,7 @@ class ValidationError(ClientError):
     criteria, such as incorrect data types, missing required fields, or invalid values.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *args: Any,
         type_: str | None = None,
