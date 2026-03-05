@@ -402,6 +402,9 @@ class CharacterTraitService:
         parent_category = await GetModelByIdValidationService().get_trait_category_by_id(
             data.parent_category_id
         )
+        sheet_section = await GetModelByIdValidationService().get_sheet_section_by_id(
+            parent_category.parent_sheet_section_id
+        )
 
         data.initial_cost = data.initial_cost or parent_category.initial_cost
         data.upgrade_cost = data.upgrade_cost or parent_category.upgrade_cost
@@ -409,7 +412,10 @@ class CharacterTraitService:
         try:
             custom_trait = Trait(
                 **data.model_dump(exclude_unset=True),
+                parent_category_name=parent_category.name,
                 custom_for_character_id=character.id,
+                sheet_section_id=sheet_section.id,
+                sheet_section_name=sheet_section.name,
                 is_custom=True,
             )
             await custom_trait.save()

@@ -863,6 +863,7 @@ async def character_trait_factory(base_character, trait_factory) -> CharacterTra
                 is_custom=True,
                 custom_for_character_id=character_id,
                 parent_category_id=parent_category.id,
+                sheet_section_id=parent_category.parent_sheet_section_id,
             )
             await trait_to_use.save()
         else:
