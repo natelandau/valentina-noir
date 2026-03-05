@@ -298,7 +298,7 @@ class TestDeleteCharacterTrait:
         # Given a character with a trait at max value and user with XP
         character_player_user = await user_factory(role=UserRole.PLAYER)
         character = await character_factory(user_player_id=character_player_user.id)
-        trait = await Trait.find_one(Trait.is_archived == False)
+        trait = await Trait.find_one(Trait.is_archived == False, Trait.min_value > 0)
         character_trait = await character_trait_factory(
             value=trait.max_value, trait=trait, character_id=character.id
         )

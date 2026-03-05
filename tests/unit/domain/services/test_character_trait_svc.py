@@ -534,12 +534,12 @@ class TestCalculateAllUpgradeCosts:
 class TestCalculateAllDowngradeSavings:
     """Test the calculate_all_downgrade_savings method."""
 
-    async def test_returns_empty_dict_at_min_value(
+    async def test_returns_delete_but_no_other_savings_at_min_value(
         self,
         trait_factory: Callable[[dict[str, ...]], Trait],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
-        """Verify empty dictionary returned when trait is at min value."""
+        """Verify only delete savings returned when trait is at min value."""
         # Given a trait at its min value
         service = CharacterTraitService()
         trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
@@ -553,7 +553,7 @@ class TestCalculateAllDowngradeSavings:
         result = await service.calculate_all_downgrade_savings(character_trait)
 
         # Then the result should be an empty dictionary
-        assert result == {}
+        assert result == {"DELETE": 0}
 
     async def test_returns_single_savings_one_above_min(
         self,
@@ -576,10 +576,11 @@ class TestCalculateAllDowngradeSavings:
         result = await service.calculate_all_downgrade_savings(character_trait)
 
         # Then we should get exactly one savings entry with key 1 (decrease by 1 dot)
-        assert len(result) == 1
+        assert len(result) == 2
         assert "1" in result
         # Savings to go from 1 to 0: initial_cost = 1
         assert result["1"] == 1
+        assert result["DELETE"] == 1
 
     async def test_returns_savings_for_multiple_levels(
         self,
@@ -602,13 +603,14 @@ class TestCalculateAllDowngradeSavings:
         result = await service.calculate_all_downgrade_savings(character_trait)
 
         # Then keys should be 1, 2, and 3 (can decrease by 1, 2, or 3 dots)
-        assert set(result.keys()) == {"1", "2", "3"}
+        assert set(result.keys()) == {"1", "2", "3", "DELETE"}
         # Savings to decrease by 1 (3→2): 3 * upgrade_cost = 3 * 2 = 6
         assert result["1"] == 6
         # Savings to decrease by 2 (3→1): (3 * 2) + (2 * 2) = 6 + 4 = 10
         assert result["2"] == 10
         # Savings to decrease by 3 (3→0): (3 * 2) + (2 * 2) + initial_cost = 6 + 4 + 1 = 11
         assert result["3"] == 11
+        assert result["DELETE"] == 11
 
     async def test_savings_values_are_positive_integers(
         self,
@@ -1613,9 +1615,14 @@ class TestGetValueOptions:
             character_trait=character_trait,
         )
 
-        # Then there should be no decrease options, only increase
-        for option in result.options.values():
-            assert option.direction == "increase"
+        # Then there should be no decrease options, only increase (except for DELETE)
+        assert "DELETE" in result.options
+        for k, v in result.options.items():
+            if k == "DELETE":
+                assert v.direction == "decrease"
+                assert v.point_change == 0
+                continue
+            assert v.direction == "increase"
 
         # Cleanup
         await character.delete()
