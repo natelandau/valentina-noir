@@ -163,6 +163,10 @@ class CharacterTraitService:
                 character_trait, num_dots
             )
 
+        downgrade_savings["DELETE"] = await self.calculate_downgrade_savings(
+            character_trait, character_trait.value
+        )
+
         return downgrade_savings
 
     async def calculate_upgrade_cost(
@@ -706,18 +710,20 @@ class CharacterTraitService:
             )
 
         for num_dots_str, savings in downgrade_savings.items():
-            num_dots = int(num_dots_str)
+            num_dots = int(num_dots_str) if num_dots_str != "DELETE" else 0
             target_value = current_value - num_dots
             xp_after = xp_current + savings
             starting_points_after = starting_points_current + savings
 
-            options[str(target_value)] = TraitValueOptionDetail(
-                direction="decrease",
-                point_change=savings,
-                can_use_xp=True,
-                xp_after=xp_after,
-                can_use_starting_points=True,
-                starting_points_after=starting_points_after,
+            options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
+                TraitValueOptionDetail(
+                    direction="decrease",
+                    point_change=savings,
+                    can_use_xp=True,
+                    xp_after=xp_after,
+                    can_use_starting_points=True,
+                    starting_points_after=starting_points_after,
+                )
             )
 
         return TraitValueOptionsResponse(
