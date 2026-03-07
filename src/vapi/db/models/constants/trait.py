@@ -56,6 +56,8 @@ class Trait(BaseDocument):
     @before_event(Insert, Replace, Save, Update, SaveChanges)
     async def update_fields(self) -> None:
         """Update the sheet_section_name and parent_category_name fields."""
+        self.name = self.name.strip().title()
+
         parent_category = await TraitCategory.find_one(TraitCategory.id == self.parent_category_id)
         self.parent_category_name = parent_category.name
 
