@@ -399,6 +399,16 @@ class CharacterTraitService:
         if data.name.lower() in [trait.trait.name.lower() for trait in all_character_traits]:  # type: ignore [attr-defined]
             raise ConflictError(detail=f"Trait named '{data.name}' already exists on character")
 
+        existing_trait = await Trait.find_one(
+            Trait.name == data.name.strip().title(),
+            Trait.is_custom == False,
+            Trait.is_archived == False,
+        )
+        if existing_trait:
+            raise ConflictError(
+                detail=f"Trait named '{data.name}' already exists. Custom traits must have a unique name."
+            )
+
         parent_category = await GetModelByIdValidationService().get_trait_category_by_id(
             data.parent_category_id
         )

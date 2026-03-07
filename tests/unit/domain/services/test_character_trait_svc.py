@@ -1068,7 +1068,7 @@ class TestCreateCustomTrait:
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_permissions_free_trait_changes.assert_called_once()
 
-    async def test_create_custom_trait_conflict(
+    async def test_create_custom_trait_conflict_with_character_trait(
         self,
         get_company_user_character: tuple[Company, User, Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
@@ -1086,6 +1086,56 @@ class TestCreateCustomTrait:
             min_value=0,
             show_when_zero=True,
             parent_category_id=trait_category.id,
+            value=1,
+        )
+
+        # When we create the trait
+        # Then a conflict error should be raised if the trait is created again
+        service = CharacterTraitService()
+        with pytest.raises(ConflictError):
+            await service.create_custom_trait(
+                company=company,
+                user=user,
+                character=character,
+                data=dto,
+            )
+
+    async def test_create_custom_trait_conflict_with_non_assigned_trait_name(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify a conflict error is raised if the trait name exists on any trait in the database."""
+        # Given a character and trait
+        company, user, character = get_company_user_character
+
+        all_traits = await Trait.find(
+            Trait.is_archived == False, Trait.is_custom == False
+        ).to_list()
+        all_character_traits = await CharacterTrait.find(
+            CharacterTrait.character_id == character.id,
+            fetch_links=True,
+        ).to_list()
+
+        unassigned_trait = next(
+            (
+                trait
+                for trait in all_traits
+                if trait.name not in [trait.trait.name for trait in all_character_traits]
+            ),
+            None,
+        )
+        if not unassigned_trait:
+            msg = "No unassigned trait found"
+            raise pytest.fail(msg)
+
+        dto = CharacterTraitCreateCustomDTO(
+            name=unassigned_trait.name,
+            description="Test Description",
+            max_value=5,
+            min_value=0,
+            show_when_zero=True,
+            parent_category_id=unassigned_trait.parent_category_id,
             value=1,
         )
 

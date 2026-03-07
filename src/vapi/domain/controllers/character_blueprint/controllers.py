@@ -165,7 +165,7 @@ class CharacterBlueprintSectionController(Controller):
             "category": Provide(deps.provide_trait_category_by_id),
         },
     )
-    async def list_character_blueprint_category_traits(
+    async def list_category_traits(
         self,
         *,
         game_version: GameVersion,
@@ -212,7 +212,7 @@ class CharacterBlueprintSectionController(Controller):
             "trait": Provide(deps.provide_trait_by_id),
         },
     )
-    async def get_character_blueprint_category_trait(self, *, trait: Trait) -> Trait:
+    async def get_trait(self, *, trait: Trait) -> Trait:
         """Get a character sheet category trait by ID."""
         return trait
 
@@ -225,7 +225,7 @@ class CharacterBlueprintSectionController(Controller):
         cache=True,
         return_dto=dto.TraitDTO,
     )
-    async def list_all_character_blueprint_traits(
+    async def list_all_traits(
         self,
         *,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
