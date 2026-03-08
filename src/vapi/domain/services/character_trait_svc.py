@@ -633,6 +633,8 @@ class CharacterTraitService:
     ) -> CharacterTrait:
         """Purchase a character trait value with starting points.
 
+        For flaw traits, starting points are granted instead of spent.
+
         Args:
             user: The user purchasing the trait.
             character: The character to purchase the trait for.
@@ -650,10 +652,13 @@ class CharacterTraitService:
         self._guard_is_safe_increase(character_trait, num_dots)
 
         cost = await self.calculate_upgrade_cost(character_trait, num_dots)
-        if character.starting_points < cost:
-            raise ValidationError(detail="Not enough starting points")
 
-        character.starting_points -= cost
+        if self._is_flaw_trait(character_trait):
+            character.starting_points += cost
+        else:
+            if character.starting_points < cost:
+                raise ValidationError(detail="Not enough starting points")
+            character.starting_points -= cost
         await character.save()
 
         character_trait.value += num_dots

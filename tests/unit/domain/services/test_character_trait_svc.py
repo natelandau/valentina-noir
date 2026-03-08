@@ -1600,6 +1600,47 @@ class TestChangeCharacterTraitValue:
         # Cleanup
         await character_trait.delete()
 
+    async def test_purchase_flaw_trait_with_starting_points_grants_sp(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify increasing a flaw trait grants starting points instead of spending them."""
+        # Given a character with a flaw trait and starting points
+        _, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+
+        flaw_trait = await trait_factory(
+            advantage_category_name="Flaws",
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=1
+        )
+
+        # When we purchase an increase for the flaw trait with starting points
+        service = CharacterTraitService()
+        result = await service.purchase_trait_increase_with_starting_points(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+        )
+
+        # Then the trait value should increase and starting points should be GRANTED
+        assert result.value == 2
+        await character.sync()
+        cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
+        assert character.starting_points == 100 + cost
+
+        # Cleanup
+        await character_trait.delete()
+
     async def refund_trait_decrease_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
