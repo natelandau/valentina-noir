@@ -677,6 +677,8 @@ class CharacterTraitService:
     ) -> CharacterTrait:
         """Refund a character trait value with starting points.
 
+        For flaw traits, starting points are spent instead of granted.
+
         Args:
             user: The user refunding the trait.
             character: The character to refund the trait for.
@@ -696,7 +698,13 @@ class CharacterTraitService:
             self._guard_is_safe_decrease(character_trait, num_dots)
 
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
-        character.starting_points += savings
+
+        if self._is_flaw_trait(character_trait):
+            if character.starting_points < savings:
+                raise ValidationError(detail="Not enough starting points")
+            character.starting_points -= savings
+        else:
+            character.starting_points += savings
         await character.save()
 
         character_trait.value -= num_dots

@@ -1772,6 +1772,84 @@ class TestChangeCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
+    async def test_refund_flaw_trait_with_starting_points_spends_sp(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify decreasing a flaw trait spends starting points instead of granting them."""
+        # Given a character with a flaw trait and starting points
+        _, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+
+        flaw_trait = await trait_factory(
+            advantage_category_name="Flaws",
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=3
+        )
+
+        # When we refund (decrease) the flaw trait with starting points
+        service = CharacterTraitService()
+        result = await service.refund_trait_decrease_with_starting_points(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+        )
+
+        # Then the trait value should decrease and starting points should be SPENT
+        assert result.value == 2
+        await character.sync()
+        savings = 3 * 2  # value 3 * upgrade_cost 2 = 6
+        assert character.starting_points == 100 - savings
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_refund_flaw_trait_with_starting_points_not_enough_sp(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify decreasing a flaw trait raises error when not enough starting points."""
+        # Given a character with a flaw trait and insufficient starting points
+        _, user, character = get_company_user_character
+        character.starting_points = 0
+        await character.save()
+
+        flaw_trait = await trait_factory(
+            advantage_category_name="Flaws",
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=3
+        )
+
+        # When we try to refund the flaw trait with starting points
+        # Then a ValidationError should be raised
+        service = CharacterTraitService()
+        with pytest.raises(ValidationError, match="Not enough starting points"):
+            await service.refund_trait_decrease_with_starting_points(
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=1,
+            )
+
+        # Cleanup
+        await character_trait.delete()
+
 
 class TestGetValueOptions:
     """Test the get_value_options method."""
