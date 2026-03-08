@@ -2,52 +2,88 @@
 icon: lucide/sliders-horizontal
 ---
 
-# Trait Values
+# Character Traits
 
-Character traits represent attributes, skills, disciplines, and other abilities. Each trait has a numeric value you can modify through gameplay.
+Character traits represent attributes, skills, disciplines, and other abilities on a character sheet. Each trait has a numeric value (measured in dots) that you can modify through gameplay.
 
-## Modification Currencies
+This page covers how to add, modify, and remove traits from a character. For information on the traits themselves (what's available per class and game version), see the [character blueprint](./character_blueprint.md) documentation.
 
-Modify traits using one of three currencies:
+## Adding Traits
+
+Add traits to a character using one of two approaches.
+
+### Assigning Constant Traits
+
+Assign an existing system trait to a character by providing the `trait_id`, starting `value`, and `currency`.
+
+```json
+{
+    "trait_id": "69679d6b92e8772cd93d8185",
+    "value": 2,
+    "currency": "NO_COST" // (1)!
+}
+```
+
+1. NO_COST is only available if the company settings allow it or for storytellers and admins.
+
+The system validates that the trait exists, the value falls within the trait's min/max bounds, and the trait isn't already assigned to the character.
+
+### Creating Custom Traits
+
+Create a trait unique to a single character. Custom traits share the same fields as core traits but remain unavailable to other characters. They're useful for representing unique abilities that don't exist in the standard trait list.
+
+Provide the trait name, parent category, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category.
+
+```json
+{
+    "name": "Cryptography",
+    "description": "Skill at deciphering encoded messages",
+    "parent_category_id": "69679d6b92e8772cd93d8185",
+    "max_value": 5,
+    "value": 1
+}
+```
+
+!!! info "Custom Trait Naming"
+
+    Custom trait names must be unique on the character (case-insensitive) and can't match any existing system trait name.
+
+## Modifying Trait Values
+
+Modify trait values using one of three currencies.
 
 ### Starting Points
 
-Use starting points during character creation to purchase initial trait values.
-
-- Available only during character creation
-- Spent when increasing traits
-- Refunded when decreasing traits
-- Tracked per character
+Starting points are granted to a character at creation. Spend them to purchase initial trait values and receive refunds when decreasing traits. Starting points are tracked per character.
 
 ### Experience Points (XP)
 
-Earn experience points through gameplay to upgrade traits after character creation.
+Earn experience points through gameplay to upgrade traits. XP is tracked at the campaign level per user and shared across all characters that user owns in the campaign.
 
-- Tracked at the campaign level per user
-- Shared across all user-owned characters in a campaign
 - Spent when increasing traits
 - Refunded when decreasing traits (refunds don't increase total XP earned)
 
 ### No Cost
 
-Storytellers and administrators modify traits without spending points at any time. Players can modify traits without cost if [company settings](./company_settings.md) allow it.
+Storytellers and administrators can modify traits without spending points at any time. Players can also make free modifications if [company settings](./company_settings.md) allow it.
 
 Use no-cost modifications to:
 
+- Add traits to a newly created character
 - Correct character creation mistakes
 - Grant abilities as story rewards
 - Adjust characters for game balance
 
 ## Cost Calculations
 
-Calculate upgrade or refund costs using two trait values:
+Calculate upgrade or refund costs using two trait properties:
 
 - **Initial Cost** - Cost to purchase the first dot (0 to 1)
 - **Upgrade Cost** - Multiplier for subsequent dots
 
 ### Upgrade Formula
 
-Calculate the cost for each dot:
+The cost for each dot is calculated as follows:
 
 - First dot (0 to 1): `initial_cost`
 - Subsequent dots: `new_value × upgrade_cost`
@@ -68,9 +104,20 @@ Refunds use the same calculation in reverse.
 
     Decreasing from value 4 to 2 refunds 14 points.
 
+## Derived Traits
+
+Certain traits are automatically recalculated when their source traits change. Examples:
+
+- **Willpower** — Computed as `Composure + Resolve`. Updated whenever either source trait changes. If the Willpower trait doesn't exist on the character, the system creates it.
+- **Total Renown** (werewolves only) — Computed as `Honor + Wisdom + Glory`. Stored on the character's werewolf attributes.
+
+## Deleting Traits
+
+Delete a trait from a character with an optional refund. Specify a `currency` to receive a refund based on the trait's current value, or use `NO_COST` to delete without a refund.
+
 ## Company Settings
 
-The **Free Trait Updates** setting controls when players modify traits without spending points:
+The **Free Trait Updates** setting controls when players can modify traits without spending points.
 
 | Setting            | Behavior                                                       |
 | ------------------ | -------------------------------------------------------------- |
@@ -80,15 +127,31 @@ The **Free Trait Updates** setting controls when players modify traits without s
 
 !!! info "Currency Availability"
 
-    This setting only affects the `NO_COST` currency. XP and starting points remain available to character owners and storytellers.
+    This setting only affects the `NO_COST` currency. XP and starting points remain available to character owners and storytellers regardless of this setting.
 
 ## API Endpoints
 
-Two endpoints handle trait value modifications:
+The trait API provides endpoints for listing, adding, modifying, and removing traits.
 
-### GET `/value-options`
+### GET `/traits`
 
-Retrieve all possible target values with costs and affordability calculations.
+List all traits assigned to a character. Supports pagination and optional filtering by `parent_category_id` to return only traits within a specific category.
+
+### GET `/traits/{character_trait_id}`
+
+Retrieve a single character trait with its full details.
+
+### POST `/traits/assign`
+
+Assign an existing system trait to the character. See [Assigning Constant Traits](#assigning-constant-traits) above.
+
+### POST `/traits/create`
+
+Create a custom trait for the character. See [Creating Custom Traits](#creating-custom-traits) above.
+
+### GET `/traits/{character_trait_id}/value-options`
+
+Retrieve all possible target values with costs and affordability calculations. Use this endpoint to display upgrade and downgrade options before users commit to changes.
 
 The response includes:
 
@@ -97,15 +160,24 @@ The response includes:
 - For each possible target value:
     - Direction (increase or decrease)
     - Point cost or refund amount
-    - Affordability with XP
-    - Affordability with starting points
+    - Affordability with XP and starting points
     - Balance after transaction
+- A `DELETE` option showing the refund for removing the trait entirely
 
 ```json
 {
+    "name": "Intelligence",
+    "trait": {
+        "id": "69679d6b92e8772cd93d8185",
+        "name": "Intelligence",
+        "description": "Your character's intelligence score.",
+        "max_value": 5,
+        "min_value": 0,
+        "show_when_zero": true,
+        "parent_category_id": "69679d6b92e8772cd93d8186"
+        ...
+    },
     "current_value": 2,
-    "min_value": 1,
-    "max_value": 5,
     "xp_current": 0,
     "starting_points_current": 0,
     "options": {
@@ -116,7 +188,7 @@ The response includes:
             "xp_after": 10,
             "can_use_starting_points": true,
             "starting_points_after": 10
-        },
+        }, // (1)!
         "3": {
             "direction": "increase",
             "point_change": 15,
@@ -140,18 +212,24 @@ The response includes:
             "xp_after": -60,
             "can_use_starting_points": false,
             "starting_points_after": -60
+        },
+        "DELETE": {
+            "direction": "decrease",
+            "point_change": 10,
+            "can_use_xp": true,
+            "xp_after": 10,
+            "can_use_starting_points": true,
+            "starting_points_after": 0
         }
     }
 }
 ```
 
-!!! tip "Preview Changes"
+1. Trait value "2" is missing because it is the current value.
 
-    Use this endpoint to display upgrade and downgrade options before users commit to changes.
+### PUT `/traits/{character_trait_id}/value`
 
-### PUT `/value`
-
-Modify a trait to a target value using the specified currency.
+Modify a trait to a target value using the specified currency. The system automatically determines direction (increase or decrease) from the current value.
 
 **Request body:**
 
@@ -170,4 +248,6 @@ Modify a trait to a target value using the specified currency.
 | `XP`              | Character owners and storytellers |
 | `STARTING_POINTS` | Character owners and storytellers |
 
-The system automatically determines direction (increase or decrease) from the current value.
+### DELETE `/traits/{character_trait_id}`
+
+Remove a trait from the character. Optionally specify a `currency` query parameter to receive a refund. See [Deleting Traits](#deleting-traits) above.

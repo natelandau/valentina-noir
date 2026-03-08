@@ -187,7 +187,7 @@ class CharacterService:
 
         Args:
             character: The character to create traits for.
-            trait_create_data: The data to create traits for.
+            trait_create_data: The data for each trait to create.
 
         Raises:
             ValidationError: If a trait is not found.

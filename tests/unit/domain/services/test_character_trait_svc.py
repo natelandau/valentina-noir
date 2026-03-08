@@ -899,7 +899,7 @@ class TestAfterSave:
 class TestAddConstantTraitToCharacter:
     """Test the add_constant_trait_to_character method."""
 
-    async def test_add_constant_trait_to_character(
+    async def test_add_constant_trait_to_character_no_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
         mocker: Any,
@@ -925,6 +925,7 @@ class TestAddConstantTraitToCharacter:
             character=character,
             trait_id=trait.id,
             value=2,
+            currency=TraitModifyCurrency.NO_COST,
         )
 
         # Then the trait should be added to the character
@@ -938,20 +939,51 @@ class TestAddConstantTraitToCharacter:
         assert result.trait.id == trait.id
         assert result.character_id == character.id
 
-    async def test_add_constant_trait_to_character_idempotent(
+    async def test_add_constant_trait_to_character_conflict(
         self,
         get_company_user_character: tuple[Company, User, Character],
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
-        """Verify the trait is added to the character."""
-        # Given a character and trait
+        """Verify a conflict error is raised if the trait already exists on the character."""
+        # Given a character with an existing trait
         company, user, character = get_company_user_character
         trait = await Trait.find_one(Trait.is_archived == False)
-        pre_existing_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=1
-        )
+        await character_trait_factory(character_id=character.id, trait=trait, value=1)
 
-        # When we call add_constant_trait_to_character
+        # When we try to add the same trait again
+        # Then a ConflictError should be raised
+        service = CharacterTraitService()
+        with pytest.raises(ConflictError):
+            await service.add_constant_trait_to_character(
+                company=company,
+                user=user,
+                character=character,
+                trait_id=trait.id,
+                value=2,
+                currency=TraitModifyCurrency.NO_COST,
+            )
+
+    async def test_add_constant_trait_to_character_with_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+        mocker: Any,
+    ) -> None:
+        """Verify the trait is added using XP currency."""
+        # Given a character with XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        await user.add_xp(campaign.id, 100)
+        character = await character_factory(
+            user_player_id=user.id, campaign_id=campaign.id, company_id=company.id
+        )
+        trait = await Trait.find_one(Trait.is_archived == False)
+        spy_purchase = mocker.spy(CharacterTraitService, "purchase_trait_value_with_xp")
+
+        # When we add a trait with XP currency
         service = CharacterTraitService()
         result = await service.add_constant_trait_to_character(
             company=company,
@@ -959,13 +991,49 @@ class TestAddConstantTraitToCharacter:
             character=character,
             trait_id=trait.id,
             value=2,
+            currency=TraitModifyCurrency.XP,
         )
 
-        # Then the trait should be added to the character
-        await character.sync()
-        assert result.id in character.character_trait_ids
+        # Then the trait should be added and XP spent
         assert result.value == 2
-        assert result.id == pre_existing_trait.id
+        assert result.trait.id == trait.id
+        assert result.character_id == character.id
+        spy_purchase.assert_called_once()
+
+        # Cleanup
+        await character.delete()
+
+    async def test_add_constant_trait_to_character_with_starting_points(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        mocker: Any,
+    ) -> None:
+        """Verify the trait is added using starting points currency."""
+        # Given a character with starting points
+        company, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+        trait = await Trait.find_one(Trait.is_archived == False)
+        spy_purchase_sp = mocker.spy(
+            CharacterTraitService, "purchase_trait_increase_with_starting_points"
+        )
+
+        # When we add a trait with STARTING_POINTS currency
+        service = CharacterTraitService()
+        result = await service.add_constant_trait_to_character(
+            company=company,
+            user=user,
+            character=character,
+            trait_id=trait.id,
+            value=2,
+            currency=TraitModifyCurrency.STARTING_POINTS,
+        )
+
+        # Then the trait should be added and starting points spent
+        assert result.value == 2
+        assert result.trait.id == trait.id
+        assert result.character_id == character.id
+        spy_purchase_sp.assert_called_once()
 
     async def test_add_constant_trait_to_character_over_max_value(
         self,
@@ -986,6 +1054,7 @@ class TestAddConstantTraitToCharacter:
                 character=character,
                 trait_id=trait.id,
                 value=trait.max_value + 1,
+                currency=TraitModifyCurrency.NO_COST,
             )
 
     async def test_add_constant_trait_to_character_below_min_value(
@@ -1004,6 +1073,7 @@ class TestAddConstantTraitToCharacter:
                 character=character,
                 trait_id=trait.id,
                 value=trait.min_value - 1,
+                currency=TraitModifyCurrency.NO_COST,
             )
 
 

@@ -315,6 +315,7 @@ class CharacterTraitService:
         user: User,
         trait_id: PydanticObjectId,
         value: int,
+        currency: TraitModifyCurrency,
     ) -> CharacterTrait:
         """Add a constant trait to a character.
 
@@ -324,26 +325,19 @@ class CharacterTraitService:
             user: The user adding the trait.
             trait_id: The ID of the trait to add.
             value: The value to add to the trait.
+            currency: The currency to use to add the trait.
+                NO_COST: No cost
+                XP: Spend experience points
+                STARTING_POINTS: Spend starting points
 
         Returns:
             The character trait that was added.
+
+        Raises:
+            PermissionDeniedError: If the user does not have permissions to add the trait.
+            ValidationError: If the trait cannot be added.
         """
-        self.guard_user_can_manage_character(character, user)
-        self._guard_permissions_free_trait_changes(company, character, user)
-
         trait = await GetModelByIdValidationService().get_trait_by_id(trait_id)
-
-        # Idempotent operation - if the trait already exists, update the value
-        pre_existing_trait = await CharacterTrait.find_one(
-            CharacterTrait.character_id == character.id,
-            CharacterTrait.trait.id == trait_id,  # type: ignore [attr-defined]
-            fetch_links=True,
-        )
-        if pre_existing_trait:
-            pre_existing_trait.value = value
-            await pre_existing_trait.save()
-            await self.after_save(pre_existing_trait)
-            return pre_existing_trait
 
         if value > trait.max_value:
             msg = f"Value must be less than or equal to {trait.max_value}"
@@ -357,14 +351,47 @@ class CharacterTraitService:
                 detail=msg, invalid_parameters=[{"field": "value", "message": msg}]
             )
 
+        # Idempotent operation - if the trait already exists, update the value
+        character_trait = await CharacterTrait.find_one(
+            CharacterTrait.character_id == character.id,
+            CharacterTrait.trait.id == trait_id,  # type: ignore [attr-defined]
+            fetch_links=True,
+        )
+        if character_trait:
+            raise ConflictError(
+                detail=f"Trait named '{trait.name}' already exists on character. Use modify trait value instead."
+            )
+        num_dots = value
+
         character_trait = CharacterTrait(
             character_id=character.id,
             trait=trait,
-            value=value,
+            value=0,
         )
-        await character_trait.save()
-        await self.after_save(character_trait)
-        return character_trait
+
+        if currency == TraitModifyCurrency.NO_COST:
+            return await self.increase_character_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=num_dots,
+            )
+
+        if currency == TraitModifyCurrency.XP:
+            return await self.purchase_trait_value_with_xp(
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=num_dots,
+            )
+
+        return await self.purchase_trait_increase_with_starting_points(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=num_dots,
+        )
 
     async def create_custom_trait(
         self,

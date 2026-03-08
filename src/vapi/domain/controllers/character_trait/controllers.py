@@ -93,6 +93,7 @@ class CharacterTraitController(Controller):
             character=character,
             trait_id=data.trait_id,
             value=data.value,
+            currency=data.currency,
         )
 
     @post(
