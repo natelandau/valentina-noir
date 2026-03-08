@@ -14,7 +14,7 @@ from vapi.constants import (
     TraitModifyCurrency,
     UserRole,
 )
-from vapi.db.models import Character, CharacterTrait, Trait
+from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
 from vapi.domain.controllers.character_trait.dto import (
     CharacterTraitCreateCustomDTO,
     TraitValueOptionDetail,
@@ -38,6 +38,8 @@ class CharacterTraitService:
     Encapsulates trait operations that can be called explicitly from controllers
     instead of relying on model hooks.
     """
+
+    _flaws_category_id: PydanticObjectId | None = None
 
     def _guard_is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
         """Check if increasing the trait value is safe.
@@ -66,19 +68,28 @@ class CharacterTraitService:
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
 
-    def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
+    async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
         """Check if the trait is a flaw based on its parent category.
 
         Flaw traits have reversed XP/starting points economy: adding a flaw grants
         currency, removing a flaw costs currency. Links must be fetched before calling.
 
+        Uses a class-level cache for the "Flaws" TraitCategory ID to avoid repeated
+        database lookups.
+
         Args:
             character_trait: The character trait to check.
 
         Returns:
-            True if the trait's parent_category_name is "Flaws".
+            True if the trait belongs to the "Flaws" parent category.
         """
-        return character_trait.trait.parent_category_name == "Flaws"  # type: ignore [attr-defined]
+        if CharacterTraitService._flaws_category_id is None:
+            flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+            if flaws_category is None:
+                return False
+            CharacterTraitService._flaws_category_id = flaws_category.id
+
+        return character_trait.trait.parent_category_id == CharacterTraitService._flaws_category_id  # type: ignore [attr-defined]
 
     def guard_user_can_manage_character(self, character: Character, user: User) -> bool:
         """Guard to check if the user is able to update traits on the given character.  Users must be a storyteller or admin or the owner of the character.
@@ -574,7 +585,7 @@ class CharacterTraitService:
         cost = await self.calculate_upgrade_cost(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
 
-        if self._is_flaw_trait(character_trait):
+        if await self._is_flaw_trait(character_trait):
             await target_user.add_xp(character.campaign_id, cost, update_total=False)
         else:
             await target_user.spend_xp(character.campaign_id, cost)
@@ -618,7 +629,7 @@ class CharacterTraitService:
 
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
-        if self._is_flaw_trait(character_trait):
+        if await self._is_flaw_trait(character_trait):
             await target_user.spend_xp(character.campaign_id, savings)
         else:
             await target_user.add_xp(character.campaign_id, savings, update_total=False)
@@ -653,7 +664,7 @@ class CharacterTraitService:
 
         cost = await self.calculate_upgrade_cost(character_trait, num_dots)
 
-        if self._is_flaw_trait(character_trait):
+        if await self._is_flaw_trait(character_trait):
             character.starting_points += cost
         else:
             if character.starting_points < cost:
@@ -699,7 +710,7 @@ class CharacterTraitService:
 
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
 
-        if self._is_flaw_trait(character_trait):
+        if await self._is_flaw_trait(character_trait):
             if character.starting_points < savings:
                 raise ValidationError(detail="Not enough starting points")
             character.starting_points -= savings
@@ -770,7 +781,7 @@ class CharacterTraitService:
         current_value = character_trait.value
         xp_current = campaign_experience.xp_current
         starting_points_current = character.starting_points
-        is_flaw = self._is_flaw_trait(character_trait)
+        is_flaw = await self._is_flaw_trait(character_trait)
 
         upgrade_costs = await self.calculate_all_upgrade_costs(character_trait)
         downgrade_savings = await self.calculate_all_downgrade_savings(character_trait)

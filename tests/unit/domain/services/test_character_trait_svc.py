@@ -444,7 +444,7 @@ class TestIsFlawTrait:
 
         # When we check if it's a flaw
         service = CharacterTraitService()
-        result = service._is_flaw_trait(character_trait)
+        result = await service._is_flaw_trait(character_trait)
 
         # Then it should return True
         assert result is True
@@ -459,7 +459,7 @@ class TestIsFlawTrait:
 
         # When we check if it's a flaw
         service = CharacterTraitService()
-        result = service._is_flaw_trait(character_trait)
+        result = await service._is_flaw_trait(character_trait)
 
         # Then it should return False
         assert result is False
@@ -477,7 +477,7 @@ class TestIsFlawTrait:
 
         # When we check if it's a flaw
         service = CharacterTraitService()
-        result = service._is_flaw_trait(character_trait)
+        result = await service._is_flaw_trait(character_trait)
 
         # Then it should return False
         assert result is False
