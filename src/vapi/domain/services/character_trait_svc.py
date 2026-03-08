@@ -595,6 +595,8 @@ class CharacterTraitService:
     ) -> CharacterTrait:
         """Refund a character trait value with xp.
 
+        For flaw traits, XP is spent instead of granted.
+
         Args:
             character: The character to refund the trait for.
             user: The user refunding the trait.
@@ -606,6 +608,7 @@ class CharacterTraitService:
             The character trait that was refunded.
 
         Raises:
+            NotEnoughXPError: If the user does not have enough XP to refund a flaw trait.
             PermissionDeniedError: If the user does not have permissions to refund the trait.
             ValidationError: If the trait cannot be refunded below min value.
         """
@@ -615,7 +618,10 @@ class CharacterTraitService:
 
         savings = await self.calculate_downgrade_savings(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
-        await target_user.add_xp(character.campaign_id, savings, update_total=False)
+        if self._is_flaw_trait(character_trait):
+            await target_user.spend_xp(character.campaign_id, savings)
+        else:
+            await target_user.add_xp(character.campaign_id, savings, update_total=False)
 
         character_trait.value -= num_dots
         await character_trait.save()
