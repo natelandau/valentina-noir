@@ -750,6 +750,9 @@ class CharacterTraitService:
     ) -> TraitValueOptionsResponse:
         """Get all possible target values for a trait with costs and affordability.
 
+        For flaw traits, the currency direction is inverted: increases grant currency
+        (always affordable) and decreases cost currency (requires affordability check).
+
         Args:
             character: The character owning the trait.
             character_trait: The trait to get options for.
@@ -767,6 +770,7 @@ class CharacterTraitService:
         current_value = character_trait.value
         xp_current = campaign_experience.xp_current
         starting_points_current = character.starting_points
+        is_flaw = self._is_flaw_trait(character_trait)
 
         upgrade_costs = await self.calculate_all_upgrade_costs(character_trait)
         downgrade_savings = await self.calculate_all_downgrade_savings(character_trait)
@@ -776,34 +780,60 @@ class CharacterTraitService:
         for num_dots_str, cost in upgrade_costs.items():
             num_dots = int(num_dots_str)
             target_value = current_value + num_dots
-            xp_after = xp_current - cost
-            starting_points_after = starting_points_current - cost
 
-            options[str(target_value)] = TraitValueOptionDetail(
-                direction="increase",
-                point_change=cost,
-                can_use_xp=xp_after >= 0,
-                xp_after=xp_after,
-                can_use_starting_points=starting_points_after >= 0,
-                starting_points_after=starting_points_after,
-            )
-
-        for num_dots_str, savings in downgrade_savings.items():
-            num_dots = int(num_dots_str) if num_dots_str != "DELETE" else 0
-            target_value = current_value - num_dots
-            xp_after = xp_current + savings
-            starting_points_after = starting_points_current + savings
-
-            options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
-                TraitValueOptionDetail(
-                    direction="decrease",
-                    point_change=savings,
+            if is_flaw:
+                xp_after = xp_current + cost
+                starting_points_after = starting_points_current + cost
+                options[str(target_value)] = TraitValueOptionDetail(
+                    direction="increase",
+                    point_change=cost,
                     can_use_xp=True,
                     xp_after=xp_after,
                     can_use_starting_points=True,
                     starting_points_after=starting_points_after,
                 )
-            )
+            else:
+                xp_after = xp_current - cost
+                starting_points_after = starting_points_current - cost
+                options[str(target_value)] = TraitValueOptionDetail(
+                    direction="increase",
+                    point_change=cost,
+                    can_use_xp=xp_after >= 0,
+                    xp_after=xp_after,
+                    can_use_starting_points=starting_points_after >= 0,
+                    starting_points_after=starting_points_after,
+                )
+
+        for num_dots_str, savings in downgrade_savings.items():
+            num_dots = int(num_dots_str) if num_dots_str != "DELETE" else 0
+            target_value = current_value - num_dots
+
+            if is_flaw:
+                xp_after = xp_current - savings
+                starting_points_after = starting_points_current - savings
+                options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
+                    TraitValueOptionDetail(
+                        direction="decrease",
+                        point_change=savings,
+                        can_use_xp=xp_after >= 0,
+                        xp_after=xp_after,
+                        can_use_starting_points=starting_points_after >= 0,
+                        starting_points_after=starting_points_after,
+                    )
+                )
+            else:
+                xp_after = xp_current + savings
+                starting_points_after = starting_points_current + savings
+                options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
+                    TraitValueOptionDetail(
+                        direction="decrease",
+                        point_change=savings,
+                        can_use_xp=True,
+                        xp_after=xp_after,
+                        can_use_starting_points=True,
+                        starting_points_after=starting_points_after,
+                    )
+                )
 
         return TraitValueOptionsResponse(
             name=character_trait.trait.name,  # type: ignore [attr-defined]

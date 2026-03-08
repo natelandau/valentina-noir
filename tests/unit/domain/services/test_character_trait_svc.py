@@ -2053,6 +2053,113 @@ class TestGetValueOptions:
         await character.delete()
         await character_trait.delete()
 
+    async def test_get_value_options_flaw_trait_inverted(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify get_value_options inverts affordability for flaw traits."""
+        # Given a character with a flaw trait and limited resources
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 10)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            starting_points=5,
+        )
+
+        flaw_trait = await trait_factory(
+            advantage_category_name="Flaws",
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=2
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then increase options should ALWAYS be affordable (they grant currency)
+        assert result.options["3"].can_use_xp is True
+        assert result.options["3"].can_use_starting_points is True
+
+        # And increase options should show currency AFTER granting
+        # Cost to go from 2 to 3: 3 * 2 = 6
+        assert result.options["3"].xp_after == 10 + 6  # 16
+        assert result.options["3"].starting_points_after == 5 + 6  # 11
+
+        # Decrease options should check affordability (they cost currency for flaws)
+        # Savings from 2 to 1: 2 * 2 = 4 (affordable with 10 XP and 5 SP)
+        assert result.options["1"].can_use_xp is True
+        assert result.options["1"].xp_after == 10 - 4  # 6
+        assert result.options["1"].can_use_starting_points is True
+        assert result.options["1"].starting_points_after == 5 - 4  # 1
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_get_value_options_flaw_trait_decrease_unaffordable(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify flaw trait decrease options show unaffordable when not enough currency."""
+        # Given a character with a flaw trait and very limited resources
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 2)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            starting_points=1,
+        )
+
+        flaw_trait = await trait_factory(
+            advantage_category_name="Flaws",
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=2
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then decrease options should show unaffordable
+        # Cost to go from 2 to 1: 2 * 2 = 4
+        assert result.options["1"].can_use_xp is False
+        assert result.options["1"].xp_after == 2 - 4  # -2
+        assert result.options["1"].can_use_starting_points is False
+        assert result.options["1"].starting_points_after == 1 - 4  # -3
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
 
 class TestModifyTraitValue:
     """Test the modify_trait_value method."""
