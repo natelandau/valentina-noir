@@ -437,8 +437,9 @@ class TestIsFlawTrait:
         trait_factory: Callable[[dict[str, ...]], Trait],
     ) -> None:
         """Verify flaw traits are correctly identified."""
-        # Given a trait with advantage_category_name "Flaws"
-        flaw_trait = await trait_factory(advantage_category_name="Flaws")
+        # Given a trait in the "Flaws" parent category
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(parent_category_id=flaws_category.id)
         character_trait = await character_trait_factory(trait=flaw_trait, value=1)
 
         # When we check if it's a flaw
@@ -463,14 +464,15 @@ class TestIsFlawTrait:
         # Then it should return False
         assert result is False
 
-    async def test_none_advantage_category_returns_false(
+    async def test_non_flaw_category_returns_false(
         self,
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         trait_factory: Callable[[dict[str, ...]], Trait],
     ) -> None:
-        """Verify traits with no advantage category are not flaws."""
-        # Given a trait with no advantage_category_name
-        trait = await trait_factory(advantage_category_name=None)
+        """Verify traits in a non-Flaws category are not flaws."""
+        # Given a trait in a category that is not "Flaws"
+        non_flaw_category = await TraitCategory.find_one(TraitCategory.name != "Flaws")
+        trait = await trait_factory(parent_category_id=non_flaw_category.id)
         character_trait = await character_trait_factory(trait=trait, value=1)
 
         # When we check if it's a flaw
@@ -1419,8 +1421,9 @@ class TestChangeCharacterTraitValue:
         await target_user.add_xp(campaign.id, 100)
 
         character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -1612,8 +1615,9 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 100
         await character.save()
 
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -1701,8 +1705,9 @@ class TestChangeCharacterTraitValue:
         await target_user.add_xp(campaign.id, 100)
 
         character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -1746,8 +1751,9 @@ class TestChangeCharacterTraitValue:
         target_user = await user_factory()
 
         character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -1784,8 +1790,9 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 100
         await character.save()
 
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -1825,8 +1832,9 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 0
         await character.save()
 
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -2073,8 +2081,9 @@ class TestGetValueOptions:
             starting_points=5,
         )
 
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
@@ -2131,8 +2140,9 @@ class TestGetValueOptions:
             starting_points=1,
         )
 
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         flaw_trait = await trait_factory(
-            advantage_category_name="Flaws",
+            parent_category_id=flaws_category.id,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
