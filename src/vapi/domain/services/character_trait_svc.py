@@ -557,6 +557,8 @@ class CharacterTraitService:
     ) -> CharacterTrait:
         """Purchase a character trait value with xp.
 
+        For flaw traits, XP is granted instead of spent.
+
         Args:
             character: The character to purchase the trait for.
             user: The user purchasing the trait.
@@ -572,7 +574,10 @@ class CharacterTraitService:
         cost = await self.calculate_upgrade_cost(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
 
-        await target_user.spend_xp(character.campaign_id, cost)
+        if self._is_flaw_trait(character_trait):
+            await target_user.add_xp(character.campaign_id, cost, update_total=False)
+        else:
+            await target_user.spend_xp(character.campaign_id, cost)
 
         character_trait.value += num_dots
         await character_trait.save()

@@ -1404,6 +1404,52 @@ class TestChangeCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
+    async def test_purchase_flaw_trait_with_xp_grants_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify increasing a flaw trait grants XP instead of spending it."""
+        # Given a character with a flaw trait and some XP
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaw_trait = await trait_factory(
+            advantage_category_name="Flaws",
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=1
+        )
+
+        # When we purchase an increase for the flaw trait with XP
+        service = CharacterTraitService()
+        result = await service.purchase_trait_value_with_xp(
+            user=target_user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+        )
+
+        # Then the trait value should increase and XP should be GRANTED (not spent)
+        assert result.value == 2
+        await target_user.sync()
+        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
+        assert campaign_experience.xp_current == 100 + cost
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
     async def test_purchase_trait_value_with_xp_not_enough_xp(
         self,
         character_factory: Callable[[dict[str, ...]], Character],
