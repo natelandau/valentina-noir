@@ -104,6 +104,14 @@ Refunds use the same calculation in reverse.
 
     Decreasing from value 4 to 2 refunds 14 points.
 
+## Flaw Traits
+
+Traits linked to the "Flaws" advantage category have a reversed currency economy. When a player adds or increases a flaw, they **receive** XP or starting points instead of spending them. When a player decreases or removes a flaw, they **spend** XP or starting points instead of receiving a refund.
+
+The cost formulas remain the same — only the direction of currency flow is inverted. `NO_COST` modifications are unaffected and work the same as for any other trait.
+
+The `value-options` endpoint reflects this reversal: increase options for flaws are always affordable (since they grant currency), while decrease options check affordability against the user's available balance.
+
 ## Derived Traits
 
 Certain traits are automatically recalculated when their source traits change. Examples:
