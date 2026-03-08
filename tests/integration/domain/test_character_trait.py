@@ -7,6 +7,7 @@ from unittest.mock import ANY
 
 import pytest
 from beanie import PydanticObjectId
+from beanie.operators import NotIn
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -15,7 +16,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import UserRole
+from vapi.constants import TraitModifyCurrency, UserRole
 from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
 from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
 from vapi.domain.urls import Characters
@@ -165,7 +166,13 @@ class TestAddConstantTraitToCharacter:
         debug: Callable[[...], None],
     ) -> None:
         """Test character trait controller."""
-        trait = await Trait.find_one(Trait.is_archived == False)
+        character_traits = await CharacterTrait.find(
+            CharacterTrait.character_id == base_character.id, fetch_links=True
+        ).to_list()
+        trait = await Trait.find_one(
+            Trait.is_archived == False,
+            NotIn(Trait.id, [trait.trait.id for trait in character_traits]),
+        )
         trait_spy = mocker.spy(GetModelByIdValidationService, "get_trait_by_id")
         character_trait_spy = mocker.spy(CharacterTraitService, "after_save")
 
@@ -173,7 +180,11 @@ class TestAddConstantTraitToCharacter:
         response = await client.post(
             build_url(Characters.TRAIT_ASSIGN),
             headers=token_company_admin,
-            json={"trait_id": str(trait.id), "value": 1},
+            json={
+                "trait_id": str(trait.id),
+                "value": 1,
+                "currency": TraitModifyCurrency.NO_COST.value,
+            },
         )
 
         # Then the response is correct and the trait is added

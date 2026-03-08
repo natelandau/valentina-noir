@@ -17,6 +17,7 @@ class CharacterTraitAddConstant(BaseModel):
 
     trait_id: PydanticObjectId
     value: Annotated[int, Field(ge=0, le=100)] = 0
+    currency: TraitModifyCurrency
 
 
 class CharacterTraitCreateCustomDTO(BaseModel):
