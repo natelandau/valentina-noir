@@ -428,6 +428,59 @@ class TestGuardIsSafeIncreaseDecrease:
             await service.calculate_upgrade_cost(character_trait, 2)
 
 
+class TestIsFlawTrait:
+    """Test the _is_flaw_trait method."""
+
+    async def test_flaw_trait_returns_true(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify flaw traits are correctly identified."""
+        # Given a trait with advantage_category_name "Flaws"
+        flaw_trait = await trait_factory(advantage_category_name="Flaws")
+        character_trait = await character_trait_factory(trait=flaw_trait, value=1)
+
+        # When we check if it's a flaw
+        service = CharacterTraitService()
+        result = service._is_flaw_trait(character_trait)
+
+        # Then it should return True
+        assert result is True
+
+    async def test_non_flaw_trait_returns_false(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify non-flaw traits are correctly identified."""
+        # Given a regular trait
+        character_trait = await character_trait_factory(value=1)
+
+        # When we check if it's a flaw
+        service = CharacterTraitService()
+        result = service._is_flaw_trait(character_trait)
+
+        # Then it should return False
+        assert result is False
+
+    async def test_none_advantage_category_returns_false(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify traits with no advantage category are not flaws."""
+        # Given a trait with no advantage_category_name
+        trait = await trait_factory(advantage_category_name=None)
+        character_trait = await character_trait_factory(trait=trait, value=1)
+
+        # When we check if it's a flaw
+        service = CharacterTraitService()
+        result = service._is_flaw_trait(character_trait)
+
+        # Then it should return False
+        assert result is False
+
+
 class TestCalculateAllUpgradeCosts:
     """Test the calculate_all_upgrade_costs method."""
 

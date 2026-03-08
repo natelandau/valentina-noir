@@ -66,6 +66,20 @@ class CharacterTraitService:
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
 
+    def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
+        """Check if the trait is a flaw based on its advantage category.
+
+        Flaw traits have reversed XP/starting points economy: adding a flaw grants
+        currency, removing a flaw costs currency. Links must be fetched before calling.
+
+        Args:
+            character_trait: The character trait to check.
+
+        Returns:
+            True if the trait's advantage_category_name is "Flaws".
+        """
+        return character_trait.trait.advantage_category_name == "Flaws"  # type: ignore [attr-defined]
+
     def guard_user_can_manage_character(self, character: Character, user: User) -> bool:
         """Guard to check if the user is able to update traits on the given character.  Users must be a storyteller or admin or the owner of the character.
 
