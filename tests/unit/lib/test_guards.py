@@ -21,6 +21,7 @@ from vapi.lib.guards import (
     user_admin_guard,
     user_character_player_or_storyteller_guard,
     user_json_from_cache,
+    user_not_unapproved_guard,
     user_storyteller_guard,
 )
 
@@ -611,6 +612,149 @@ class TestUserAdminGuard:
         # When/Then we expect a PermissionDeniedError
         with pytest.raises(PermissionDeniedError):
             await user_admin_guard(mock_connection, mocker.MagicMock())
+
+
+class TestUserNotUnapprovedGuard:
+    """Test user_not_unapproved_guard function."""
+
+    async def test_skips_when_no_user_id(
+        self,
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard returns early when user_id is not in path params."""
+        # Given a connection without user_id in path params
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.return_value = None
+
+        # When we call the guard
+        # Then no exception is raised
+        await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
+
+    async def test_passes_for_admin(
+        self,
+        base_company: Company,
+        base_user_admin: User,
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard passes for user with admin role."""
+        # Given a connection with admin user
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.side_effect = lambda key: {
+            "company_id": str(base_company.id),
+            "user_id": str(base_user_admin.id),
+        }.get(key)
+
+        # Given a mock store with cached user data
+        mock_store = mocker.MagicMock()
+        cached_user_data = encode_json(base_user_admin.model_dump(mode="json"))
+        mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
+        mock_connection.app.stores.get.return_value = mock_store
+
+        # When we call the guard
+        # Then no exception is raised
+        await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
+
+    async def test_passes_for_storyteller(
+        self,
+        base_company: Company,
+        base_user_storyteller: User,
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard passes for user with storyteller role."""
+        # Given a connection with storyteller user
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.side_effect = lambda key: {
+            "company_id": str(base_company.id),
+            "user_id": str(base_user_storyteller.id),
+        }.get(key)
+
+        # Given a mock store with cached user data
+        mock_store = mocker.MagicMock()
+        cached_user_data = encode_json(base_user_storyteller.model_dump(mode="json"))
+        mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
+        mock_connection.app.stores.get.return_value = mock_store
+
+        # When we call the guard
+        # Then no exception is raised
+        await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
+
+    async def test_passes_for_player(
+        self,
+        base_company: Company,
+        base_user_player: User,
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard passes for user with player role."""
+        # Given a connection with player user
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.side_effect = lambda key: {
+            "company_id": str(base_company.id),
+            "user_id": str(base_user_player.id),
+        }.get(key)
+
+        # Given a mock store with cached user data
+        mock_store = mocker.MagicMock()
+        cached_user_data = encode_json(base_user_player.model_dump(mode="json"))
+        mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
+        mock_connection.app.stores.get.return_value = mock_store
+
+        # When we call the guard
+        # Then no exception is raised
+        await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
+
+    async def test_raises_permission_denied_for_unapproved(
+        self,
+        base_company: Company,
+        user_factory: Callable[..., User],
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard raises PermissionDeniedError for unapproved user."""
+        # Given an unapproved user
+        unapproved_user = await user_factory(role=UserRole.UNAPPROVED)
+
+        # Given a connection with unapproved user
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.side_effect = lambda key: {
+            "company_id": str(base_company.id),
+            "user_id": str(unapproved_user.id),
+        }.get(key)
+
+        # Given a mock store with cached user data
+        mock_store = mocker.MagicMock()
+        cached_user_data = encode_json(unapproved_user.model_dump(mode="json"))
+        mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
+        mock_connection.app.stores.get.return_value = mock_store
+
+        # When/Then we expect a PermissionDeniedError
+        with pytest.raises(PermissionDeniedError):
+            await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
+
+    async def test_raises_permission_denied_for_wrong_company(
+        self,
+        base_user_player: User,
+        company_factory: Callable[..., Company],
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard raises PermissionDeniedError when user belongs to different company."""
+        # Given a different company
+        other_company = await company_factory()
+
+        # Given a connection with player but for wrong company
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.side_effect = lambda key: {
+            "company_id": str(other_company.id),
+            "user_id": str(base_user_player.id),
+        }.get(key)
+
+        # Given a mock store with cached user data
+        mock_store = mocker.MagicMock()
+        cached_user_data = encode_json(base_user_player.model_dump(mode="json"))
+        mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
+        mock_connection.app.stores.get.return_value = mock_store
+
+        # When/Then we expect a PermissionDeniedError
+        with pytest.raises(PermissionDeniedError):
+            await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
 
 
 class TestUserCharacterPlayerOrStorytellerGuard:

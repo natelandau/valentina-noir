@@ -55,6 +55,11 @@ class Users:
     UPDATE = DETAIL
     DELETE = DETAIL
 
+    # Unapproved user management
+    UNAPPROVED_LIST = f"{BASE}/unapproved"
+    APPROVE = f"{DETAIL}/approve"
+    DENY = f"{DETAIL}/deny"
+
     # User assets
     ASSETS = f"{DETAIL}/assets"
     ASSET_UPLOAD = f"{ASSETS}/upload"

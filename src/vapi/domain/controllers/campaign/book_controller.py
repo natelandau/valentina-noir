@@ -15,7 +15,7 @@ from vapi.db.models import Campaign, CampaignBook
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
@@ -34,7 +34,7 @@ class CampaignBookController(Controller):
         "book": Provide(deps.provide_campaign_book_by_id),
         "note": Provide(deps.provide_note_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
     return_dto = dto.BookDTO
 
     @get(

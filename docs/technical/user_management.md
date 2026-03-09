@@ -87,9 +87,23 @@ Each user belongs to a [company](companies.md) and has a role that determines th
 
 | Role          | Description                                    |
 | ------------- | ---------------------------------------------- |
+| `UNAPPROVED`  | Pending admin approval - no access to features |
 | `PLAYER`      | Basic gameplay access - manage own characters  |
 | `STORYTELLER` | Campaign management - manage all characters    |
 | `ADMIN`       | Full user management and administrative access |
+
+### The UNAPPROVED Role
+
+New users can be created with the `UNAPPROVED` role. These users exist in the system but can't access any features until an admin approves them. This is useful when your application requires an approval step before granting access — for example, a gaming community that vets new members before they can join campaigns.
+
+Unapproved users:
+
+- Can't create or manage characters
+- Can't join campaigns or roll dice
+- Can't access experience points or quick rolls
+- Remain in this state until an admin approves or denies them
+
+See [User Approval Workflow](#user-approval-workflow) for how to manage unapproved users.
 
 ### Role Capabilities
 
@@ -155,9 +169,127 @@ The API returns a `403 Forbidden` response when a user attempts an action beyond
 
 | Scenario                           | Required Role |
 | ---------------------------------- | ------------- |
+| Unapproved user accessing features | `PLAYER`+     |
 | Player editing another's character | `STORYTELLER` |
 | Player modifying campaign settings | `STORYTELLER` |
 | Storyteller managing other users   | `ADMIN`       |
+| Approving or denying users         | `ADMIN`       |
+
+## User Approval Workflow
+
+When you create users with the `UNAPPROVED` role, admins can review and approve or deny them through dedicated endpoints. This gives you control over who joins your company.
+
+```mermaid
+flowchart LR
+    Create["Create user<br/>role: UNAPPROVED"] --> Pending["Pending Approval"]
+    Pending --> Approve["Admin approves<br/>assigns role"]
+    Pending --> Deny["Admin denies<br/>user archived"]
+    Approve --> Active["Active User<br/>PLAYER / STORYTELLER / ADMIN"]
+```
+
+### List Pending Users
+
+Retrieve all users awaiting approval within a company. Only admins can access this endpoint.
+
+```shell
+GET /api/v1/companies/{company_id}/users/unapproved?requesting_user_id={admin_user_id}
+```
+
+The `requesting_user_id` query parameter identifies the admin making the request. The response uses standard [pagination](pagination.md):
+
+```json
+{
+    "items": [
+        {
+            "id": "user456",
+            "username": "newplayer",
+            "email": "newplayer@example.com",
+            "role": "UNAPPROVED",
+            "company_id": "abc123"
+        }
+    ],
+    "total": 1,
+    "limit": 10,
+    "offset": 0
+}
+```
+
+### Approve a User
+
+Approve a pending user and assign them a role. The role must be `PLAYER`, `STORYTELLER`, or `ADMIN` — you can't approve a user back to `UNAPPROVED`.
+
+```shell
+POST /api/v1/companies/{company_id}/users/{user_id}/approve
+```
+
+```json
+{
+    "role": "PLAYER",
+    "requesting_user_id": "admin_user_id"
+}
+```
+
+The response returns the updated user object with the new role.
+
+### Deny a User
+
+Deny a pending user to remove them from the company. The user is archived (soft-deleted) and no longer appears in user listings.
+
+```shell
+POST /api/v1/companies/{company_id}/users/{user_id}/deny
+```
+
+```json
+{
+    "requesting_user_id": "admin_user_id"
+}
+```
+
+> **Note:** Denied users are archived, not permanently deleted. They won't appear in queries but their data is preserved.
+
+### Example: Approval Flow
+
+Here's a complete example of creating a user with the `UNAPPROVED` role and then approving them:
+
+```python
+import requests
+
+API_URL = "https://api.valentina-noir.com/api/v1"
+HEADERS = {"X-API-KEY": "your-api-key"}
+
+# Step 1: Create an unapproved user
+response = requests.post(
+    f"{API_URL}/companies/{company_id}/users",
+    headers=HEADERS,
+    json={
+        "username": "newplayer",
+        "email": "newplayer@example.com",
+        "role": "UNAPPROVED",
+        "requesting_user_id": admin_user_id,
+    }
+)
+new_user = response.json()
+
+# Step 2: List pending users (admin reviews)
+response = requests.get(
+    f"{API_URL}/companies/{company_id}/users/unapproved",
+    headers=HEADERS,
+    params={"requesting_user_id": admin_user_id},
+)
+pending_users = response.json()["items"]
+
+# Step 3: Approve the user with a role
+response = requests.post(
+    f"{API_URL}/companies/{company_id}/users/{new_user['id']}/approve",
+    headers=HEADERS,
+    json={
+        "role": "PLAYER",
+        "requesting_user_id": admin_user_id,
+    }
+)
+approved_user = response.json()
+# approved_user["role"] is now "PLAYER"
+```
 
 ## Best Practices
 
@@ -176,3 +308,4 @@ The API returns a `403 Forbidden` response when a user attempts an action beyond
 3. **Handle 403 errors gracefully** - Provide clear feedback when users attempt unauthorized actions
 4. **Respect role boundaries in your UI** - Hide or disable features users cannot access
 5. **Consider role escalation carefully** - Role changes affect access immediately across all clients
+6. **Use the approval workflow for open communities** - Create users as `UNAPPROVED` when you want admin vetting before granting access

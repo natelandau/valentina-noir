@@ -82,3 +82,26 @@ Only include fields that need to be changed; omitted fields remain unchanged.
 DELETE_QUICKROLL_DESCRIPTION = """\
 Remove a quick roll from a user. This action cannot be undone.
 """
+
+# Unapproved User Controller
+LIST_UNAPPROVED_USERS_DESCRIPTION = """\
+Retrieve a paginated list of users pending approval within a company.
+
+Only returns non-archived users with the UNAPPROVED role. Requires admin-level access.
+"""
+
+APPROVE_USER_DESCRIPTION = """\
+Approve a pending user and assign them a role within the company.
+
+The target user must have the UNAPPROVED role. The assigned role must be PLAYER, STORYTELLER, or ADMIN.
+
+**Note:** Requires admin-level access.
+"""
+
+DENY_USER_DESCRIPTION = """\
+Deny a pending user and remove them from the company.
+
+The target user must have the UNAPPROVED role. The user is archived and removed from the company's user list.
+
+**Note:** Requires admin-level access.
+"""

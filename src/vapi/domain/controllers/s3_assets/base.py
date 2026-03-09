@@ -13,7 +13,7 @@ from vapi.db.models import Campaign, CampaignBook, CampaignChapter, Character, S
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import AWSS3Service
 from vapi.lib.exceptions import NotFoundError
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 
 from . import dto
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 class BaseAssetsController(Controller, ABC):
     """Base assets controller."""
 
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
     return_dto = dto.AssetResponseDTO
 
     async def _list_assets(

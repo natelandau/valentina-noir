@@ -167,11 +167,11 @@ class TestAddConstantTraitToCharacter:
     ) -> None:
         """Test character trait controller."""
         character_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == base_character.id, fetch_links=True
+            CharacterTrait.character_id == base_character.id,
         ).to_list()
         trait = await Trait.find_one(
             Trait.is_archived == False,
-            NotIn(Trait.id, [trait.trait.id for trait in character_traits]),
+            NotIn(Trait.id, [ct.trait.ref.id for ct in character_traits]),
         )
         trait_spy = mocker.spy(GetModelByIdValidationService, "get_trait_by_id")
         character_trait_spy = mocker.spy(CharacterTraitService, "after_save")

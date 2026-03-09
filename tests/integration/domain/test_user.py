@@ -753,3 +753,181 @@ class TestQuickRollController:
         await quickroll.sync()
         assert quickroll.is_archived
         assert quickroll.archive_date is not None
+
+
+class TestUnapprovedUserController:
+    """Test UnapprovedUserController."""
+
+    class TestListUnapprovedUsers:
+        """Test list unapproved users."""
+
+        async def test_list_unapproved_users_no_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            base_user_admin: User,
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Verify listing unapproved users returns empty when none exist."""
+            # When we list unapproved users
+            response = await client.get(
+                build_url(UsersURL.UNAPPROVED_LIST),
+                headers=token_global_admin,
+                params={"requesting_user_id": str(base_user_admin.id)},
+            )
+
+            # Then we get an empty paginated response
+            assert response.status_code == HTTP_200_OK
+            assert response.json() == {"items": [], "limit": 10, "offset": 0, "total": 0}
+
+        async def test_list_unapproved_users_with_results(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            base_user_admin: User,
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Verify listing unapproved users returns only unapproved, non-archived users."""
+            # Given unapproved and approved users
+            unapproved_user = await user_factory(role=UserRole.UNAPPROVED)
+            await user_factory(role=UserRole.PLAYER)
+            await user_factory(role=UserRole.UNAPPROVED, is_archived=True)
+
+            # When we list unapproved users
+            response = await client.get(
+                build_url(UsersURL.UNAPPROVED_LIST),
+                headers=token_global_admin,
+                params={"requesting_user_id": str(base_user_admin.id)},
+            )
+
+            # Then we get only the unapproved, non-archived user
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert data["total"] == 1
+            assert len(data["items"]) == 1
+            assert data["items"][0]["id"] == str(unapproved_user.id)
+
+    class TestApproveUser:
+        """Test approve user."""
+
+        async def test_approve_user_success(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            base_user_admin: User,
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Verify approving an unapproved user sets the new role."""
+            # Given an unapproved user
+            unapproved_user = await user_factory(role=UserRole.UNAPPROVED)
+
+            # When we approve the user
+            response = await client.post(
+                build_url(UsersURL.APPROVE, user_id=unapproved_user.id),
+                headers=token_global_admin,
+                json={
+                    "role": UserRole.PLAYER.value,
+                    "requesting_user_id": str(base_user_admin.id),
+                },
+            )
+
+            # Then the user is approved
+            assert response.status_code == HTTP_201_CREATED
+            assert response.json()["role"] == UserRole.PLAYER.value
+
+            # Then the database is updated
+            await unapproved_user.sync()
+            assert unapproved_user.role == UserRole.PLAYER
+
+        async def test_approve_user_not_unapproved(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            base_user_admin: User,
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Verify approving a non-unapproved user returns 400."""
+            # Given a player user
+            player_user = await user_factory(role=UserRole.PLAYER)
+
+            # When we try to approve a non-unapproved user
+            response = await client.post(
+                build_url(UsersURL.APPROVE, user_id=player_user.id),
+                headers=token_global_admin,
+                json={
+                    "role": UserRole.STORYTELLER.value,
+                    "requesting_user_id": str(base_user_admin.id),
+                },
+            )
+
+            # Then we get a validation error
+            assert response.status_code == HTTP_400_BAD_REQUEST
+
+    class TestDenyUser:
+        """Test deny user."""
+
+        async def test_deny_user_success(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            base_user_admin: User,
+            base_company: Company,
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Verify denying an unapproved user archives them."""
+            # Given an unapproved user
+            unapproved_user = await user_factory(role=UserRole.UNAPPROVED)
+
+            # When we deny the user
+            response = await client.post(
+                build_url(UsersURL.DENY, user_id=unapproved_user.id),
+                headers=token_global_admin,
+                json={
+                    "requesting_user_id": str(base_user_admin.id),
+                },
+            )
+
+            # Then the response is successful
+            assert response.status_code == HTTP_201_CREATED
+
+            # Then the user is archived
+            await unapproved_user.sync()
+            assert unapproved_user.is_archived is True
+
+            # Then the user is removed from the company
+            await base_company.sync()
+            assert unapproved_user.id not in base_company.user_ids
+
+        async def test_deny_user_not_unapproved(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            base_user_admin: User,
+            user_factory: Callable[[dict[str, Any]], User],
+            debug: Callable[[Any], None],
+        ) -> None:
+            """Verify denying a non-unapproved user returns 400."""
+            # Given a player user
+            player_user = await user_factory(role=UserRole.PLAYER)
+
+            # When we try to deny a non-unapproved user
+            response = await client.post(
+                build_url(UsersURL.DENY, user_id=player_user.id),
+                headers=token_global_admin,
+                json={
+                    "requesting_user_id": str(base_user_admin.id),
+                },
+            )
+
+            # Then we get a validation error
+            assert response.status_code == HTTP_400_BAD_REQUEST

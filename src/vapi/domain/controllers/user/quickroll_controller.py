@@ -15,7 +15,7 @@ from vapi.db.models import QuickRoll, User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
@@ -31,7 +31,7 @@ class QuickRollController(Controller):
         "user": Provide(deps.provide_user_by_id_and_company),
         "quickroll": Provide(deps.provide_quickroll_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
     return_dto = dto.ReturnQuickRollDTO
 
     @get(
