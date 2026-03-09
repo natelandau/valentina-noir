@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from vapi.constants import UserRole
 from vapi.db.models import QuickRoll, User
-from vapi.db.models.user import CampaignExperience, DiscordProfile
+from vapi.db.models.user import CampaignExperience, DiscordProfile, GitHubProfile, GoogleProfile
 from vapi.lib.dto import dto_config
 
 
@@ -23,6 +23,8 @@ class UserPostDTO(BaseModel):
     email: EmailStr = Field(examples=["john.doe@example.com"])
     role: UserRole = Field(examples=[UserRole.PLAYER])
     discord_profile: Annotated[DiscordProfile, Field(default=DiscordProfile())]
+    google_profile: Annotated[GoogleProfile, Field(default=GoogleProfile())]
+    github_profile: Annotated[GitHubProfile, Field(default=GitHubProfile())]
     requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 
@@ -35,6 +37,8 @@ class UserPatchDTO(BaseModel):
     email: Annotated[EmailStr | None, Field(examples=["john.doe@example.com"])] = None
     role: Annotated[UserRole | None, Field(examples=[UserRole.PLAYER])] = None
     discord_profile: Annotated[DiscordProfile | None, Field(default=DiscordProfile())] = None
+    google_profile: Annotated[GoogleProfile | None, Field(default=GoogleProfile())] = None
+    github_profile: Annotated[GitHubProfile | None, Field(default=GitHubProfile())] = None
     requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 

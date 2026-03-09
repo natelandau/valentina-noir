@@ -9,7 +9,7 @@ from beanie import PydanticObjectId
 
 from vapi.constants import PermissionsGrantXP, UserRole
 from vapi.db.models import QuickRoll, Trait, User
-from vapi.db.models.user import CampaignExperience, DiscordProfile
+from vapi.db.models.user import CampaignExperience, DiscordProfile, GitHubProfile, GoogleProfile
 from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO
 from vapi.domain.services import UserQuickRollService, UserService, UserXPService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
@@ -109,6 +109,8 @@ class TestUserService:
             email="test@example.com",
             role=UserRole.PLAYER,
             discord_profile=DiscordProfile(global_name="global name"),
+            google_profile=GoogleProfile(email="test@gmail.com", username="Test User"),
+            github_profile=GitHubProfile(login="testuser", email="test@github.com"),
             requesting_user_id=requesting_user.id,
         )
         spy = mocker.spy(UserService, "validate_user_can_manage_user")
@@ -124,6 +126,10 @@ class TestUserService:
         assert new_user.email == "test@example.com"
         assert new_user.role == UserRole.PLAYER
         assert new_user.discord_profile.global_name == "global name"
+        assert new_user.google_profile.email == "test@gmail.com"
+        assert new_user.google_profile.username == "Test User"
+        assert new_user.github_profile.login == "testuser"
+        assert new_user.github_profile.email == "test@github.com"
         assert new_user.company_id == company.id
 
         await company.sync()
@@ -150,11 +156,15 @@ class TestUserService:
             role=UserRole.PLAYER,
             company_id=company.id,
             discord_profile=DiscordProfile(id="1234567890", global_name="global name"),
+            google_profile=GoogleProfile(id="google123", email="test@gmail.com"),
+            github_profile=GitHubProfile(id="583231", login="testuser"),
         )
 
         data = UserPatchDTO(
             name_first="update",
             discord_profile=DiscordProfile(global_name="global name updated"),
+            google_profile=GoogleProfile(username="Updated Google User"),
+            github_profile=GitHubProfile(username="Updated GitHub User"),
             requesting_user_id=target_user.id,
         )
 
@@ -170,6 +180,10 @@ class TestUserService:
         assert updated_user.role == UserRole.PLAYER
         assert updated_user.discord_profile.global_name == "global name updated"
         assert updated_user.discord_profile.id == "1234567890"
+        assert updated_user.google_profile.username == "Updated Google User"
+        assert updated_user.google_profile.id == "google123"
+        assert updated_user.github_profile.username == "Updated GitHub User"
+        assert updated_user.github_profile.id == "583231"
         assert updated_user.company_id == company.id
 
         spy.assert_called_once()
