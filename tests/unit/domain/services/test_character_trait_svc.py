@@ -1416,7 +1416,7 @@ class TestChangeCharacterTraitValue:
             CharacterTraitService, "guard_user_can_manage_character"
         )
         spy_guard_is_safe_increase = mocker.spy(CharacterTraitService, "_guard_is_safe_increase")
-        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "calculate_upgrade_cost")
+        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "_calculate_upgrade_cost")
 
         character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
         character_trait = await character_trait_factory(value=1, character_id=character.id)
@@ -1536,7 +1536,7 @@ class TestChangeCharacterTraitValue:
         )
         spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spy_calculate_downgrade_savings = mocker.spy(
-            CharacterTraitService, "calculate_downgrade_savings"
+            CharacterTraitService, "_calculate_downgrade_savings"
         )
         # Given a character and trait
         campaign = await campaign_factory()
@@ -1594,7 +1594,7 @@ class TestChangeCharacterTraitValue:
             CharacterTraitService, "guard_user_can_manage_character"
         )
         spy_guard_is_safe_increase = mocker.spy(CharacterTraitService, "_guard_is_safe_increase")
-        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "calculate_upgrade_cost")
+        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "_calculate_upgrade_cost")
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
 
         # When we purchase the trait value with starting points
@@ -1709,7 +1709,7 @@ class TestChangeCharacterTraitValue:
         )
         spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spy_calculate_downgrade_savings = mocker.spy(
-            CharacterTraitService, "calculate_downgrade_savings"
+            CharacterTraitService, "_calculate_downgrade_savings"
         )
 
         # When we refund the trait value with starting points

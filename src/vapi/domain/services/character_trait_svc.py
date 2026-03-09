@@ -174,9 +174,7 @@ class CharacterTraitService:
         await character_trait.fetch_all_links()
         max_increase = character_trait.trait.max_value - character_trait.value  # type: ignore [attr-defined]
         for num_dots in range(1, max_increase + 1):
-            upgrade_costs[str(num_dots)] = await self.calculate_upgrade_cost(
-                character_trait, num_dots
-            )
+            upgrade_costs[str(num_dots)] = self._calculate_upgrade_cost(character_trait, num_dots)
         return upgrade_costs
 
     async def calculate_all_downgrade_savings(
@@ -197,11 +195,11 @@ class CharacterTraitService:
         await character_trait.fetch_all_links()
         max_decrease = character_trait.value - character_trait.trait.min_value  # type: ignore [attr-defined]
         for num_dots in range(1, max_decrease + 1):
-            downgrade_savings[str(num_dots)] = await self.calculate_downgrade_savings(
+            downgrade_savings[str(num_dots)] = self._calculate_downgrade_savings(
                 character_trait, num_dots
             )
 
-        downgrade_savings["DELETE"] = await self.calculate_downgrade_savings(
+        downgrade_savings["DELETE"] = self._calculate_downgrade_savings(
             character_trait, character_trait.value
         )
 
@@ -223,6 +221,10 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be raised above max value.
         """
         await character_trait.fetch_all_links()
+        return self._calculate_upgrade_cost(character_trait, increase_by)
+
+    def _calculate_upgrade_cost(self, character_trait: CharacterTrait, increase_by: int) -> int:
+        """Calculate upgrade cost assuming links are already fetched."""
         cost = 0
         new_trait_value = character_trait.value
 
@@ -256,6 +258,12 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be lowered below min value.
         """
         await character_trait.fetch_all_links()
+        return self._calculate_downgrade_savings(character_trait, decrease_by)
+
+    def _calculate_downgrade_savings(
+        self, character_trait: CharacterTrait, decrease_by: int
+    ) -> int:
+        """Calculate downgrade savings assuming links are already fetched."""
         savings = 0
         new_trait_value = character_trait.value
 
@@ -589,7 +597,8 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         self._guard_is_safe_increase(character_trait, num_dots)
 
-        cost = await self.calculate_upgrade_cost(character_trait, num_dots)
+        await character_trait.fetch_all_links()
+        cost = self._calculate_upgrade_cost(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
 
         if await self._is_flaw_trait(character_trait):
@@ -634,7 +643,8 @@ class CharacterTraitService:
         if not deleting_trait:
             self._guard_is_safe_decrease(character_trait, num_dots)
 
-        savings = await self.calculate_downgrade_savings(character_trait, num_dots)
+        await character_trait.fetch_all_links()
+        savings = self._calculate_downgrade_savings(character_trait, num_dots)
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
         if await self._is_flaw_trait(character_trait):
             await target_user.spend_xp(character.campaign_id, savings)
@@ -669,7 +679,8 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         self._guard_is_safe_increase(character_trait, num_dots)
 
-        cost = await self.calculate_upgrade_cost(character_trait, num_dots)
+        await character_trait.fetch_all_links()
+        cost = self._calculate_upgrade_cost(character_trait, num_dots)
 
         if await self._is_flaw_trait(character_trait):
             character.starting_points += cost
@@ -715,7 +726,8 @@ class CharacterTraitService:
         if not deleting_trait:
             self._guard_is_safe_decrease(character_trait, num_dots)
 
-        savings = await self.calculate_downgrade_savings(character_trait, num_dots)
+        await character_trait.fetch_all_links()
+        savings = self._calculate_downgrade_savings(character_trait, num_dots)
 
         if await self._is_flaw_trait(character_trait):
             if character.starting_points < savings:
