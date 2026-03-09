@@ -39,7 +39,6 @@ from .system.controllers import SystemController
 from .user import (
     ExperienceController,
     QuickRollController,
-    UnapprovedUserController,
     UserController,
 )
 
@@ -72,7 +71,6 @@ __all__ = (
     "QuickRollController",
     "StatisticsController",
     "SystemController",
-    "UnapprovedUserController",
     "UserAssetsController",
     "UserController",
     "UserNoteController",
