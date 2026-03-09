@@ -428,6 +428,105 @@ class TestGuardIsSafeIncreaseDecrease:
             await service.calculate_upgrade_cost(character_trait, 2)
 
 
+class TestIsFlawTrait:
+    """Test the _is_flaw_trait method."""
+
+    async def test_flaw_trait_returns_true(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify flaw traits are correctly identified."""
+        # Given a trait in the "Flaws" parent category
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(parent_category_id=flaws_category.id)
+        character_trait = await character_trait_factory(trait=flaw_trait, value=1)
+
+        # When we check if it's a flaw
+        service = CharacterTraitService()
+        result = await service._is_flaw_trait(character_trait)
+
+        # Then it should return True
+        assert result is True
+
+    async def test_non_flaw_trait_returns_false(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify non-flaw traits are correctly identified."""
+        # Given a regular trait
+        character_trait = await character_trait_factory(value=1)
+
+        # When we check if it's a flaw
+        service = CharacterTraitService()
+        result = await service._is_flaw_trait(character_trait)
+
+        # Then it should return False
+        assert result is False
+
+    async def test_non_flaw_category_returns_false(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify traits in a non-Flaws category are not flaws."""
+        # Given a trait in a category that is not "Flaws"
+        non_flaw_category = await TraitCategory.find_one(TraitCategory.name != "Flaws")
+        trait = await trait_factory(parent_category_id=non_flaw_category.id)
+        character_trait = await character_trait_factory(trait=trait, value=1)
+
+        # When we check if it's a flaw
+        service = CharacterTraitService()
+        result = await service._is_flaw_trait(character_trait)
+
+        # Then it should return False
+        assert result is False
+
+
+class TestCostForDot:
+    """Test the _cost_for_dot helper method."""
+
+    async def test_cost_for_first_dot_uses_initial_cost(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify first dot uses initial_cost."""
+        # Given a trait with initial_cost=3, upgrade_cost=5
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(trait=trait, value=0)
+        await character_trait.fetch_all_links()
+
+        # When we calculate cost for dot 1
+        result = service._cost_for_dot(character_trait, 1)
+
+        # Then it uses initial_cost
+        assert result == 3
+
+    async def test_cost_for_higher_dot_uses_upgrade_cost(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify dots above 1 use dot_value * upgrade_cost."""
+        # Given a trait with initial_cost=3, upgrade_cost=5
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(trait=trait, value=0)
+        await character_trait.fetch_all_links()
+
+        # When we calculate cost for dot 3
+        result = service._cost_for_dot(character_trait, 3)
+
+        # Then it uses dot_value * upgrade_cost
+        assert result == 15
+
+
 class TestCalculateAllUpgradeCosts:
     """Test the calculate_all_upgrade_costs method."""
 
@@ -981,7 +1080,7 @@ class TestAddConstantTraitToCharacter:
             user_player_id=user.id, campaign_id=campaign.id, company_id=company.id
         )
         trait = await Trait.find_one(Trait.is_archived == False)
-        spy_purchase = mocker.spy(CharacterTraitService, "purchase_trait_value_with_xp")
+        spy_purchase = mocker.spy(CharacterTraitService, "_apply_xp_change")
 
         # When we add a trait with XP currency
         service = CharacterTraitService()
@@ -1014,9 +1113,7 @@ class TestAddConstantTraitToCharacter:
         character.starting_points = 100
         await character.save()
         trait = await Trait.find_one(Trait.is_archived == False)
-        spy_purchase_sp = mocker.spy(
-            CharacterTraitService, "purchase_trait_increase_with_starting_points"
-        )
+        spy_purchase_sp = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
 
         # When we add a trait with STARTING_POINTS currency
         service = CharacterTraitService()
@@ -1317,18 +1414,19 @@ class TestChangeCharacterTraitValue:
             CharacterTraitService, "guard_user_can_manage_character"
         )
         spy_guard_is_safe_increase = mocker.spy(CharacterTraitService, "_guard_is_safe_increase")
-        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "calculate_upgrade_cost")
+        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "_calculate_upgrade_cost")
 
         character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
         character_trait = await character_trait_factory(value=1, character_id=character.id)
 
         # When we purchase the trait value with xp
         service = CharacterTraitService()
-        result = await service.purchase_trait_value_with_xp(
+        result = await service._apply_xp_change(
             user=target_user,
             character=character,
             character_trait=character_trait,
             num_dots=1,
+            is_increase=True,
         )
 
         # Then the trait value should be purchased
@@ -1351,6 +1449,54 @@ class TestChangeCharacterTraitValue:
         await character.delete()
         await character_trait.delete()
 
+    async def test_purchase_flaw_trait_with_xp_grants_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify increasing a flaw trait grants XP instead of spending it."""
+        # Given a character with a flaw trait and some XP
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=1
+        )
+
+        # When we purchase an increase for the flaw trait with XP
+        service = CharacterTraitService()
+        result = await service._apply_xp_change(
+            user=target_user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=True,
+        )
+
+        # Then the trait value should increase and XP should be GRANTED (not spent)
+        assert result.value == 2
+        await target_user.sync()
+        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
+        assert campaign_experience.xp_current == 100 + cost
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
     async def test_purchase_trait_value_with_xp_not_enough_xp(
         self,
         character_factory: Callable[[dict[str, ...]], Character],
@@ -1368,11 +1514,12 @@ class TestChangeCharacterTraitValue:
         # When we purchase the trait value with xp
         service = CharacterTraitService()
         with pytest.raises(NotEnoughXPError):
-            await service.purchase_trait_value_with_xp(
+            await service._apply_xp_change(
                 character=character,
                 user=target_user,
                 character_trait=character_trait,
                 num_dots=1,
+                is_increase=True,
             )
 
     async def test_refund_trait_value_with_xp(
@@ -1390,7 +1537,7 @@ class TestChangeCharacterTraitValue:
         )
         spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spy_calculate_downgrade_savings = mocker.spy(
-            CharacterTraitService, "calculate_downgrade_savings"
+            CharacterTraitService, "_calculate_downgrade_savings"
         )
         # Given a character and trait
         campaign = await campaign_factory()
@@ -1402,11 +1549,12 @@ class TestChangeCharacterTraitValue:
 
         # When we refund the trait value with xp
         service = CharacterTraitService()
-        result = await service.refund_trait_value_with_xp(
+        result = await service._apply_xp_change(
             character=character,
             user=target_user,
             character_trait=character_trait,
             num_dots=1,
+            is_increase=False,
         )
 
         # Then the trait value should be refunded
@@ -1448,16 +1596,17 @@ class TestChangeCharacterTraitValue:
             CharacterTraitService, "guard_user_can_manage_character"
         )
         spy_guard_is_safe_increase = mocker.spy(CharacterTraitService, "_guard_is_safe_increase")
-        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "calculate_upgrade_cost")
+        spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "_calculate_upgrade_cost")
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
 
         # When we purchase the trait value with starting points
         service = CharacterTraitService()
-        result = await service.purchase_trait_increase_with_starting_points(
+        result = await service._apply_starting_points_change(
             user=user,
             character=character,
             character_trait=character_trait,
             num_dots=1,
+            is_increase=True,
         )
 
         # Then the trait value should be purchased
@@ -1491,12 +1640,56 @@ class TestChangeCharacterTraitValue:
         # When we purchase the trait value with starting points
         service = CharacterTraitService()
         with pytest.raises(ValidationError, match="Not enough starting points"):
-            await service.purchase_trait_increase_with_starting_points(
+            await service._apply_starting_points_change(
                 user=user,
                 character=character,
                 character_trait=character_trait,
                 num_dots=1,
+                is_increase=True,
             )
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_purchase_flaw_trait_with_starting_points_grants_sp(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify increasing a flaw trait grants starting points instead of spending them."""
+        # Given a character with a flaw trait and starting points
+        _, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=1
+        )
+
+        # When we purchase an increase for the flaw trait with starting points
+        service = CharacterTraitService()
+        result = await service._apply_starting_points_change(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=True,
+        )
+
+        # Then the trait value should increase and starting points should be GRANTED
+        assert result.value == 2
+        await character.sync()
+        cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
+        assert character.starting_points == 100 + cost
 
         # Cleanup
         await character_trait.delete()
@@ -1521,16 +1714,17 @@ class TestChangeCharacterTraitValue:
         )
         spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spy_calculate_downgrade_savings = mocker.spy(
-            CharacterTraitService, "calculate_downgrade_savings"
+            CharacterTraitService, "_calculate_downgrade_savings"
         )
 
         # When we refund the trait value with starting points
         service = CharacterTraitService()
-        result = await service.refund_trait_decrease_with_starting_points(
+        result = await service._apply_starting_points_change(
             user=user,
             character=character,
             character_trait=character_trait,
             num_dots=1,
+            is_increase=False,
         )
 
         # Then the trait value should be refunded
@@ -1542,6 +1736,178 @@ class TestChangeCharacterTraitValue:
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_downgrade_savings.assert_called_once_with(ANY, character_trait, 1)
         spyguard_user_can_manage_character.assert_called_once()
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_refund_flaw_trait_with_xp_spends_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify decreasing a flaw trait spends XP instead of granting it."""
+        # Given a character with a flaw trait and enough XP to cover the cost
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 100)
+
+        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=3
+        )
+
+        # When we refund (decrease) the flaw trait with XP
+        service = CharacterTraitService()
+        result = await service._apply_xp_change(
+            character=character,
+            user=target_user,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=False,
+        )
+
+        # Then the trait value should decrease and XP should be SPENT (not granted)
+        assert result.value == 2
+        await target_user.sync()
+        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        savings = 3 * 2  # value 3 * upgrade_cost 2 = 6
+        assert campaign_experience.xp_current == 100 - savings
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_refund_flaw_trait_with_xp_not_enough_xp(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify decreasing a flaw trait raises error when not enough XP."""
+        # Given a character with a flaw trait and NO XP
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+
+        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=3
+        )
+
+        # When we try to refund the flaw trait with XP
+        # Then a NotEnoughXPError should be raised
+        service = CharacterTraitService()
+        with pytest.raises(NotEnoughXPError):
+            await service._apply_xp_change(
+                character=character,
+                user=target_user,
+                character_trait=character_trait,
+                num_dots=1,
+                is_increase=False,
+            )
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_refund_flaw_trait_with_starting_points_spends_sp(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify decreasing a flaw trait spends starting points instead of granting them."""
+        # Given a character with a flaw trait and starting points
+        _, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=3
+        )
+
+        # When we refund (decrease) the flaw trait with starting points
+        service = CharacterTraitService()
+        result = await service._apply_starting_points_change(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=False,
+        )
+
+        # Then the trait value should decrease and starting points should be SPENT
+        assert result.value == 2
+        await character.sync()
+        savings = 3 * 2  # value 3 * upgrade_cost 2 = 6
+        assert character.starting_points == 100 - savings
+
+        # Cleanup
+        await character_trait.delete()
+
+    async def test_refund_flaw_trait_with_starting_points_not_enough_sp(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify decreasing a flaw trait raises error when not enough starting points."""
+        # Given a character with a flaw trait and insufficient starting points
+        _, user, character = get_company_user_character
+        character.starting_points = 0
+        await character.save()
+
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=3
+        )
+
+        # When we try to refund the flaw trait with starting points
+        # Then a ValidationError should be raised
+        service = CharacterTraitService()
+        with pytest.raises(ValidationError, match="Not enough starting points"):
+            await service._apply_starting_points_change(
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=1,
+                is_increase=False,
+            )
 
         # Cleanup
         await character_trait.delete()
@@ -1749,6 +2115,115 @@ class TestGetValueOptions:
         await character.delete()
         await character_trait.delete()
 
+    async def test_get_value_options_flaw_trait_inverted(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify get_value_options inverts affordability for flaw traits."""
+        # Given a character with a flaw trait and limited resources
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 10)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            starting_points=5,
+        )
+
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=2
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then increase options should ALWAYS be affordable (they grant currency)
+        assert result.options["3"].can_use_xp is True
+        assert result.options["3"].can_use_starting_points is True
+
+        # And increase options should show currency AFTER granting
+        # Cost to go from 2 to 3: 3 * 2 = 6
+        assert result.options["3"].xp_after == 10 + 6  # 16
+        assert result.options["3"].starting_points_after == 5 + 6  # 11
+
+        # Decrease options should check affordability (they cost currency for flaws)
+        # Savings from 2 to 1: 2 * 2 = 4 (affordable with 10 XP and 5 SP)
+        assert result.options["1"].can_use_xp is True
+        assert result.options["1"].xp_after == 10 - 4  # 6
+        assert result.options["1"].can_use_starting_points is True
+        assert result.options["1"].starting_points_after == 5 - 4  # 1
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
+    async def test_get_value_options_flaw_trait_decrease_unaffordable(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify flaw trait decrease options show unaffordable when not enough currency."""
+        # Given a character with a flaw trait and very limited resources
+        campaign = await campaign_factory()
+        target_user = await user_factory()
+        await target_user.add_xp(campaign.id, 2)
+
+        character = await character_factory(
+            user_player_id=target_user.id,
+            campaign_id=campaign.id,
+            starting_points=1,
+        )
+
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaw_trait = await trait_factory(
+            parent_category_id=flaws_category.id,
+            initial_cost=1,
+            upgrade_cost=2,
+            max_value=5,
+            min_value=0,
+        )
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=flaw_trait, value=2
+        )
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then decrease options should show unaffordable
+        # Cost to go from 2 to 1: 2 * 2 = 4
+        assert result.options["1"].can_use_xp is False
+        assert result.options["1"].xp_after == 2 - 4  # -2
+        assert result.options["1"].can_use_starting_points is False
+        assert result.options["1"].starting_points_after == 1 - 4  # -3
+
+        # Cleanup
+        await character.delete()
+        await character_trait.delete()
+
 
 class TestModifyTraitValue:
     """Test the modify_trait_value method."""
@@ -1849,7 +2324,7 @@ class TestModifyTraitValue:
         company_factory: Callable[[dict[str, ...]], Company],
         mocker: Any,
     ) -> None:
-        """Verify increase with XP calls purchase_trait_value_with_xp."""
+        """Verify increase with XP calls _apply_xp_change."""
         # Given a character with XP
         company = await company_factory()
         campaign = await campaign_factory()
@@ -1862,7 +2337,7 @@ class TestModifyTraitValue:
             company_id=company.id,
         )
         character_trait = await character_trait_factory(value=1, character_id=character.id)
-        spy_purchase = mocker.spy(CharacterTraitService, "purchase_trait_value_with_xp")
+        spy_purchase = mocker.spy(CharacterTraitService, "_apply_xp_change")
 
         # When we increase with XP
         service = CharacterTraitService()
@@ -1875,7 +2350,7 @@ class TestModifyTraitValue:
             currency="XP",
         )
 
-        # Then purchase_trait_value_with_xp should be called
+        # Then _apply_xp_change should be called
         spy_purchase.assert_called_once()
         assert result.value == 2
 
@@ -1892,7 +2367,7 @@ class TestModifyTraitValue:
         company_factory: Callable[[dict[str, ...]], Company],
         mocker: Any,
     ) -> None:
-        """Verify decrease with XP calls refund_trait_value_with_xp."""
+        """Verify decrease with XP calls _apply_xp_change."""
         # Given a character
         company = await company_factory()
         campaign = await campaign_factory()
@@ -1904,7 +2379,7 @@ class TestModifyTraitValue:
             company_id=company.id,
         )
         character_trait = await character_trait_factory(value=3, character_id=character.id)
-        spy_refund = mocker.spy(CharacterTraitService, "refund_trait_value_with_xp")
+        spy_refund = mocker.spy(CharacterTraitService, "_apply_xp_change")
 
         # When we decrease with XP
         service = CharacterTraitService()
@@ -1917,7 +2392,7 @@ class TestModifyTraitValue:
             currency="XP",
         )
 
-        # Then refund_trait_value_with_xp should be called
+        # Then _apply_xp_change should be called
         spy_refund.assert_called_once()
         assert result.value == 1
 
@@ -1931,16 +2406,14 @@ class TestModifyTraitValue:
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         mocker: Any,
     ) -> None:
-        """Verify increase with STARTING_POINTS calls purchase_trait_increase_with_starting_points."""
+        """Verify increase with STARTING_POINTS calls _apply_starting_points_change."""
         # Given a character with starting points
         company, user, character = get_company_user_character
         character.starting_points = 100
         await character.save()
 
         character_trait = await character_trait_factory(value=1, character_id=character.id)
-        spy_purchase = mocker.spy(
-            CharacterTraitService, "purchase_trait_increase_with_starting_points"
-        )
+        spy_purchase = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
 
         # When we increase with STARTING_POINTS
         service = CharacterTraitService()
@@ -1953,7 +2426,7 @@ class TestModifyTraitValue:
             currency="STARTING_POINTS",
         )
 
-        # Then purchase_trait_increase_with_starting_points should be called
+        # Then _apply_starting_points_change should be called
         spy_purchase.assert_called_once()
         assert result.value == 2
 
@@ -1966,11 +2439,11 @@ class TestModifyTraitValue:
         character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
         mocker: Any,
     ) -> None:
-        """Verify decrease with STARTING_POINTS calls refund_trait_decrease_with_starting_points."""
+        """Verify decrease with STARTING_POINTS calls _apply_starting_points_change."""
         # Given a character
         company, user, character = get_company_user_character
         character_trait = await character_trait_factory(value=3, character_id=character.id)
-        spy_refund = mocker.spy(CharacterTraitService, "refund_trait_decrease_with_starting_points")
+        spy_refund = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
 
         # When we decrease with STARTING_POINTS
         service = CharacterTraitService()
@@ -1983,7 +2456,7 @@ class TestModifyTraitValue:
             currency="STARTING_POINTS",
         )
 
-        # Then refund_trait_decrease_with_starting_points should be called
+        # Then _apply_starting_points_change should be called
         spy_refund.assert_called_once()
         assert result.value == 1
 

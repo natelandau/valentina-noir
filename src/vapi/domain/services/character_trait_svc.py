@@ -14,7 +14,7 @@ from vapi.constants import (
     TraitModifyCurrency,
     UserRole,
 )
-from vapi.db.models import Character, CharacterTrait, Trait
+from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
 from vapi.domain.controllers.character_trait.dto import (
     CharacterTraitCreateCustomDTO,
     TraitValueOptionDetail,
@@ -38,6 +38,8 @@ class CharacterTraitService:
     Encapsulates trait operations that can be called explicitly from controllers
     instead of relying on model hooks.
     """
+
+    _flaws_category_id: PydanticObjectId | None = None
 
     def _guard_is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
         """Check if increasing the trait value is safe.
@@ -65,6 +67,43 @@ class CharacterTraitService:
         if new_value < character_trait.trait.min_value:  # type: ignore [attr-defined]
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
+
+    def _cost_for_dot(self, character_trait: CharacterTrait, dot_value: int) -> int:
+        """Return the cost for a single dot at the given value.
+
+        Args:
+            character_trait: The trait (links must be fetched).
+            dot_value: The dot position (1-based).
+
+        Returns:
+            The cost for that dot: initial_cost for dot 1, dot_value * upgrade_cost otherwise.
+        """
+        if dot_value == 1:
+            return character_trait.trait.initial_cost  # type: ignore [attr-defined]
+        return dot_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+
+    async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
+        """Check if the trait is a flaw based on its parent category.
+
+        Flaw traits have reversed XP/starting points economy: adding a flaw grants
+        currency, removing a flaw costs currency. Links must be fetched before calling.
+
+        Uses a class-level cache for the "Flaws" TraitCategory ID to avoid repeated
+        database lookups.
+
+        Args:
+            character_trait: The character trait to check.
+
+        Returns:
+            True if the trait belongs to the "Flaws" parent category.
+        """
+        if CharacterTraitService._flaws_category_id is None:
+            flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+            if flaws_category is None:
+                return False
+            CharacterTraitService._flaws_category_id = flaws_category.id
+
+        return character_trait.trait.parent_category_id == CharacterTraitService._flaws_category_id  # type: ignore [attr-defined]
 
     def guard_user_can_manage_character(self, character: Character, user: User) -> bool:
         """Guard to check if the user is able to update traits on the given character.  Users must be a storyteller or admin or the owner of the character.
@@ -109,12 +148,10 @@ class CharacterTraitService:
             case PermissionsFreeTraitChanges.UNRESTRICTED:
                 return True
             case PermissionsFreeTraitChanges.STORYTELLER:
-                if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
-                    return True
+                pass
             case PermissionsFreeTraitChanges.WITHIN_24_HOURS:
                 if character.date_created + timedelta(days=1) > time_now():
                     return True
-
             case _:
                 assert_never(company.settings.permission_free_trait_changes)
 
@@ -136,9 +173,7 @@ class CharacterTraitService:
         await character_trait.fetch_all_links()
         max_increase = character_trait.trait.max_value - character_trait.value  # type: ignore [attr-defined]
         for num_dots in range(1, max_increase + 1):
-            upgrade_costs[str(num_dots)] = await self.calculate_upgrade_cost(
-                character_trait, num_dots
-            )
+            upgrade_costs[str(num_dots)] = self._calculate_upgrade_cost(character_trait, num_dots)
         return upgrade_costs
 
     async def calculate_all_downgrade_savings(
@@ -159,11 +194,11 @@ class CharacterTraitService:
         await character_trait.fetch_all_links()
         max_decrease = character_trait.value - character_trait.trait.min_value  # type: ignore [attr-defined]
         for num_dots in range(1, max_decrease + 1):
-            downgrade_savings[str(num_dots)] = await self.calculate_downgrade_savings(
+            downgrade_savings[str(num_dots)] = self._calculate_downgrade_savings(
                 character_trait, num_dots
             )
 
-        downgrade_savings["DELETE"] = await self.calculate_downgrade_savings(
+        downgrade_savings["DELETE"] = self._calculate_downgrade_savings(
             character_trait, character_trait.value
         )
 
@@ -185,6 +220,10 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be raised above max value.
         """
         await character_trait.fetch_all_links()
+        return self._calculate_upgrade_cost(character_trait, increase_by)
+
+    def _calculate_upgrade_cost(self, character_trait: CharacterTrait, increase_by: int) -> int:
+        """Calculate upgrade cost assuming links are already fetched."""
         cost = 0
         new_trait_value = character_trait.value
 
@@ -198,10 +237,7 @@ class CharacterTraitService:
                     invalid_parameters=[{"field": "increase amount", "message": msg}]
                 )
 
-            if new_trait_value == 1:
-                cost += character_trait.trait.initial_cost  # type: ignore [attr-defined]
-            else:
-                cost += new_trait_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+            cost += self._cost_for_dot(character_trait, new_trait_value)
 
         return cost
 
@@ -221,6 +257,12 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be lowered below min value.
         """
         await character_trait.fetch_all_links()
+        return self._calculate_downgrade_savings(character_trait, decrease_by)
+
+    def _calculate_downgrade_savings(
+        self, character_trait: CharacterTrait, decrease_by: int
+    ) -> int:
+        """Calculate downgrade savings assuming links are already fetched."""
         savings = 0
         new_trait_value = character_trait.value
 
@@ -230,10 +272,7 @@ class CharacterTraitService:
                 raise ValidationError(
                     invalid_parameters=[{"field": "decrease amount", "message": msg}]
                 )
-            if new_trait_value == 1:
-                savings += character_trait.trait.initial_cost  # type: ignore [attr-defined]
-            else:
-                savings += new_trait_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+            savings += self._cost_for_dot(character_trait, new_trait_value)
             new_trait_value -= 1
 
         return savings
@@ -379,18 +418,20 @@ class CharacterTraitService:
             )
 
         if currency == TraitModifyCurrency.XP:
-            return await self.purchase_trait_value_with_xp(
+            return await self._apply_xp_change(
                 user=user,
                 character=character,
                 character_trait=character_trait,
                 num_dots=num_dots,
+                is_increase=True,
             )
 
-        return await self.purchase_trait_increase_with_starting_points(
+        return await self._apply_starting_points_change(
             user=user,
             character=character,
             character_trait=character_trait,
             num_dots=num_dots,
+            is_increase=True,
         )
 
     async def create_custom_trait(
@@ -533,143 +574,106 @@ class CharacterTraitService:
         await self.after_save(character_trait)
         return character_trait
 
-    async def purchase_trait_value_with_xp(
+    async def _apply_xp_change(
         self,
         *,
         character: Character,
         user: User,
         character_trait: CharacterTrait,
         num_dots: int,
-    ) -> CharacterTrait:
-        """Purchase a character trait value with xp.
-
-        Args:
-            character: The character to purchase the trait for.
-            user: The user purchasing the trait.
-            character_trait: The trait to purchase.
-            num_dots: The amount to purchase the trait by.
-
-        Returns:
-            The character trait that was purchased.
-        """
-        self.guard_user_can_manage_character(character, user)
-        self._guard_is_safe_increase(character_trait, num_dots)
-
-        cost = await self.calculate_upgrade_cost(character_trait, num_dots)
-        target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
-
-        await target_user.spend_xp(character.campaign_id, cost)
-
-        character_trait.value += num_dots
-        await character_trait.save()
-        await self.after_save(character_trait)
-        return character_trait
-
-    async def refund_trait_value_with_xp(
-        self,
-        *,
-        character: Character,
-        user: User,
-        character_trait: CharacterTrait,
-        num_dots: int,
+        is_increase: bool,
         deleting_trait: bool = False,
     ) -> CharacterTrait:
-        """Refund a character trait value with xp.
+        """Apply an XP-based trait change, handling flaw inversion.
+
+        For increases: normal traits spend XP, flaw traits grant XP.
+        For decreases: normal traits refund XP, flaw traits spend XP.
 
         Args:
-            character: The character to refund the trait for.
-            user: The user refunding the trait.
-            character_trait: The trait to refund.
-            num_dots: The amount to refund the trait by.
+            character: The character owning the trait.
+            user: The user making the change.
+            character_trait: The trait to modify.
+            num_dots: The number of dots to change.
+            is_increase: True for increase, False for decrease.
             deleting_trait: Whether the trait is being deleted.
 
         Returns:
-            The character trait that was refunded.
-
-        Raises:
-            PermissionDeniedError: If the user does not have permissions to refund the trait.
-            ValidationError: If the trait cannot be refunded below min value.
+            The updated CharacterTrait.
         """
         self.guard_user_can_manage_character(character, user)
-        if not deleting_trait:
-            self._guard_is_safe_decrease(character_trait, num_dots)
+        await character_trait.fetch_all_links()
 
-        savings = await self.calculate_downgrade_savings(character_trait, num_dots)
+        if is_increase:
+            self._guard_is_safe_increase(character_trait, num_dots)
+            cost = self._calculate_upgrade_cost(character_trait, num_dots)
+        else:
+            if not deleting_trait:
+                self._guard_is_safe_decrease(character_trait, num_dots)
+            cost = self._calculate_downgrade_savings(character_trait, num_dots)
+
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
-        await target_user.add_xp(character.campaign_id, savings, update_total=False)
+        is_flaw = await self._is_flaw_trait(character_trait)
 
-        character_trait.value -= num_dots
+        # Flaw traits invert the currency direction
+        if is_increase == is_flaw:
+            await target_user.add_xp(character.campaign_id, cost, update_total=False)
+        else:
+            await target_user.spend_xp(character.campaign_id, cost)
+
+        character_trait.value += num_dots if is_increase else -num_dots
         await character_trait.save()
         await self.after_save(character_trait)
         return character_trait
 
-    async def purchase_trait_increase_with_starting_points(
-        self, *, user: User, character: Character, character_trait: CharacterTrait, num_dots: int
-    ) -> CharacterTrait:
-        """Purchase a character trait value with starting points.
-
-        Args:
-            user: The user purchasing the trait.
-            character: The character to purchase the trait for.
-            character_trait: The trait to purchase.
-            num_dots: The amount to purchase the trait by.
-
-        Returns:
-            The character trait that was purchased.
-
-        Raises:
-            PermissionDeniedError: If the user does not have permissions to purchase the trait.
-            ValidationError: If the trait cannot be purchased above max value.
-        """
-        self.guard_user_can_manage_character(character, user)
-        self._guard_is_safe_increase(character_trait, num_dots)
-
-        cost = await self.calculate_upgrade_cost(character_trait, num_dots)
-        if character.starting_points < cost:
-            raise ValidationError(detail="Not enough starting points")
-
-        character.starting_points -= cost
-        await character.save()
-
-        character_trait.value += num_dots
-        await character_trait.save()
-        await self.after_save(character_trait)
-        return character_trait
-
-    async def refund_trait_decrease_with_starting_points(
+    async def _apply_starting_points_change(
         self,
         *,
         user: User,
         character: Character,
         character_trait: CharacterTrait,
         num_dots: int,
+        is_increase: bool,
         deleting_trait: bool = False,
     ) -> CharacterTrait:
-        """Refund a character trait value with starting points.
+        """Apply a starting-points-based trait change, handling flaw inversion.
+
+        For increases: normal traits spend starting points, flaw traits grant them.
+        For decreases: normal traits refund starting points, flaw traits spend them.
 
         Args:
-            user: The user refunding the trait.
-            character: The character to refund the trait for.
-            character_trait: The trait to refund.
-            num_dots: The amount to refund the trait by.
+            user: The user making the change.
+            character: The character owning the trait.
+            character_trait: The trait to modify.
+            num_dots: The number of dots to change.
+            is_increase: True for increase, False for decrease.
             deleting_trait: Whether the trait is being deleted.
 
         Returns:
-            The character trait that was refunded.
-
-        Raises:
-            PermissionDeniedError: If the user does not have permissions to refund the trait.
-            ValidationError: If the trait cannot be refunded below min value.
+            The updated CharacterTrait.
         """
         self.guard_user_can_manage_character(character, user)
-        if not deleting_trait:
-            self._guard_is_safe_decrease(character_trait, num_dots)
+        await character_trait.fetch_all_links()
 
-        savings = await self.calculate_downgrade_savings(character_trait, num_dots)
-        character.starting_points += savings
+        if is_increase:
+            self._guard_is_safe_increase(character_trait, num_dots)
+            cost = self._calculate_upgrade_cost(character_trait, num_dots)
+        else:
+            if not deleting_trait:
+                self._guard_is_safe_decrease(character_trait, num_dots)
+            cost = self._calculate_downgrade_savings(character_trait, num_dots)
+
+        is_flaw = await self._is_flaw_trait(character_trait)
+
+        # Flaw traits invert the currency direction
+        if is_increase == is_flaw:
+            character.starting_points += cost
+        else:
+            if character.starting_points < cost:
+                raise ValidationError(detail="Not enough starting points")
+            character.starting_points -= cost
         await character.save()
 
-        character_trait.value -= num_dots
+        character_trait.value += num_dots if is_increase else -num_dots
         await character_trait.save()
         await self.after_save(character_trait)
         return character_trait
@@ -712,6 +716,9 @@ class CharacterTraitService:
     ) -> TraitValueOptionsResponse:
         """Get all possible target values for a trait with costs and affordability.
 
+        For flaw traits, the currency direction is inverted: increases grant currency
+        (always affordable) and decreases cost currency (requires affordability check).
+
         Args:
             character: The character owning the trait.
             character_trait: The trait to get options for.
@@ -729,6 +736,7 @@ class CharacterTraitService:
         current_value = character_trait.value
         xp_current = campaign_experience.xp_current
         starting_points_current = character.starting_points
+        is_flaw = await self._is_flaw_trait(character_trait)
 
         upgrade_costs = await self.calculate_all_upgrade_costs(character_trait)
         downgrade_savings = await self.calculate_all_downgrade_savings(character_trait)
@@ -738,33 +746,36 @@ class CharacterTraitService:
         for num_dots_str, cost in upgrade_costs.items():
             num_dots = int(num_dots_str)
             target_value = current_value + num_dots
-            xp_after = xp_current - cost
-            starting_points_after = starting_points_current - cost
+            # Flaw upgrades grant currency; normal upgrades spend it
+            sign = 1 if is_flaw else -1
+            xp_after = xp_current + cost * sign
+            starting_points_after = starting_points_current + cost * sign
 
             options[str(target_value)] = TraitValueOptionDetail(
                 direction="increase",
                 point_change=cost,
-                can_use_xp=xp_after >= 0,
+                can_use_xp=is_flaw or xp_after >= 0,
                 xp_after=xp_after,
-                can_use_starting_points=starting_points_after >= 0,
+                can_use_starting_points=is_flaw or starting_points_after >= 0,
                 starting_points_after=starting_points_after,
             )
 
         for num_dots_str, savings in downgrade_savings.items():
             num_dots = int(num_dots_str) if num_dots_str != "DELETE" else 0
             target_value = current_value - num_dots
-            xp_after = xp_current + savings
-            starting_points_after = starting_points_current + savings
+            # Flaw downgrades spend currency; normal downgrades grant it
+            sign = -1 if is_flaw else 1
+            xp_after = xp_current + savings * sign
+            starting_points_after = starting_points_current + savings * sign
+            key = str(target_value) if num_dots_str != "DELETE" else "DELETE"
 
-            options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
-                TraitValueOptionDetail(
-                    direction="decrease",
-                    point_change=savings,
-                    can_use_xp=True,
-                    xp_after=xp_after,
-                    can_use_starting_points=True,
-                    starting_points_after=starting_points_after,
-                )
+            options[key] = TraitValueOptionDetail(
+                direction="decrease",
+                point_change=savings,
+                can_use_xp=not is_flaw or xp_after >= 0,
+                xp_after=xp_after,
+                can_use_starting_points=not is_flaw or starting_points_after >= 0,
+                starting_points_after=starting_points_after,
             )
 
         return TraitValueOptionsResponse(
@@ -824,17 +835,19 @@ class CharacterTraitService:
                     num_dots=num_dots,
                 )
             if currency == TraitModifyCurrency.XP:
-                return await self.purchase_trait_value_with_xp(
+                return await self._apply_xp_change(
                     user=user,
                     character=character,
                     character_trait=character_trait,
                     num_dots=num_dots,
+                    is_increase=True,
                 )
-            return await self.purchase_trait_increase_with_starting_points(
+            return await self._apply_starting_points_change(
                 user=user,
                 character=character,
                 character_trait=character_trait,
                 num_dots=num_dots,
+                is_increase=True,
             )
 
         if currency == TraitModifyCurrency.NO_COST:
@@ -846,18 +859,20 @@ class CharacterTraitService:
                 num_dots=num_dots,
             )
         if currency == TraitModifyCurrency.XP:
-            return await self.refund_trait_value_with_xp(
+            return await self._apply_xp_change(
                 user=user,
                 character=character,
                 character_trait=character_trait,
                 num_dots=num_dots,
+                is_increase=False,
                 deleting_trait=deleting_trait,
             )
-        return await self.refund_trait_decrease_with_starting_points(
+        return await self._apply_starting_points_change(
             user=user,
             character=character,
             character_trait=character_trait,
             num_dots=num_dots,
+            is_increase=False,
             deleting_trait=deleting_trait,
         )
 
