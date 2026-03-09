@@ -68,6 +68,20 @@ class CharacterTraitService:
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
 
+    def _cost_for_dot(self, character_trait: CharacterTrait, dot_value: int) -> int:
+        """Return the cost for a single dot at the given value.
+
+        Args:
+            character_trait: The trait (links must be fetched).
+            dot_value: The dot position (1-based).
+
+        Returns:
+            The cost for that dot: initial_cost for dot 1, dot_value * upgrade_cost otherwise.
+        """
+        if dot_value == 1:
+            return character_trait.trait.initial_cost  # type: ignore [attr-defined]
+        return dot_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+
     async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
         """Check if the trait is a flaw based on its parent category.
 
@@ -139,7 +153,6 @@ class CharacterTraitService:
             case PermissionsFreeTraitChanges.WITHIN_24_HOURS:
                 if character.date_created + timedelta(days=1) > time_now():
                     return True
-
             case _:
                 assert_never(company.settings.permission_free_trait_changes)
 
@@ -223,10 +236,7 @@ class CharacterTraitService:
                     invalid_parameters=[{"field": "increase amount", "message": msg}]
                 )
 
-            if new_trait_value == 1:
-                cost += character_trait.trait.initial_cost  # type: ignore [attr-defined]
-            else:
-                cost += new_trait_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+            cost += self._cost_for_dot(character_trait, new_trait_value)
 
         return cost
 
@@ -255,10 +265,7 @@ class CharacterTraitService:
                 raise ValidationError(
                     invalid_parameters=[{"field": "decrease amount", "message": msg}]
                 )
-            if new_trait_value == 1:
-                savings += character_trait.trait.initial_cost  # type: ignore [attr-defined]
-            else:
-                savings += new_trait_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+            savings += self._cost_for_dot(character_trait, new_trait_value)
             new_trait_value -= 1
 
         return savings

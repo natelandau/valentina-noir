@@ -483,6 +483,50 @@ class TestIsFlawTrait:
         assert result is False
 
 
+class TestCostForDot:
+    """Test the _cost_for_dot helper method."""
+
+    async def test_cost_for_first_dot_uses_initial_cost(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify first dot uses initial_cost."""
+        # Given a trait with initial_cost=3, upgrade_cost=5
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(trait=trait, value=0)
+        await character_trait.fetch_all_links()
+
+        # When we calculate cost for dot 1
+        result = service._cost_for_dot(character_trait, 1)
+
+        # Then it uses initial_cost
+        assert result == 3
+
+    async def test_cost_for_higher_dot_uses_upgrade_cost(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify dots above 1 use dot_value * upgrade_cost."""
+        # Given a trait with initial_cost=3, upgrade_cost=5
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(trait=trait, value=0)
+        await character_trait.fetch_all_links()
+
+        # When we calculate cost for dot 3
+        result = service._cost_for_dot(character_trait, 3)
+
+        # Then it uses dot_value * upgrade_cost
+        assert result == 15
+
+
 class TestCalculateAllUpgradeCosts:
     """Test the calculate_all_upgrade_costs method."""
 
