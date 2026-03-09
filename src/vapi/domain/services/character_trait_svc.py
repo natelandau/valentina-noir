@@ -791,60 +791,37 @@ class CharacterTraitService:
         for num_dots_str, cost in upgrade_costs.items():
             num_dots = int(num_dots_str)
             target_value = current_value + num_dots
+            # Flaw upgrades grant currency; normal upgrades spend it
+            sign = 1 if is_flaw else -1
+            xp_after = xp_current + cost * sign
+            starting_points_after = starting_points_current + cost * sign
 
-            if is_flaw:
-                xp_after = xp_current + cost
-                starting_points_after = starting_points_current + cost
-                options[str(target_value)] = TraitValueOptionDetail(
-                    direction="increase",
-                    point_change=cost,
-                    can_use_xp=True,
-                    xp_after=xp_after,
-                    can_use_starting_points=True,
-                    starting_points_after=starting_points_after,
-                )
-            else:
-                xp_after = xp_current - cost
-                starting_points_after = starting_points_current - cost
-                options[str(target_value)] = TraitValueOptionDetail(
-                    direction="increase",
-                    point_change=cost,
-                    can_use_xp=xp_after >= 0,
-                    xp_after=xp_after,
-                    can_use_starting_points=starting_points_after >= 0,
-                    starting_points_after=starting_points_after,
-                )
+            options[str(target_value)] = TraitValueOptionDetail(
+                direction="increase",
+                point_change=cost,
+                can_use_xp=is_flaw or xp_after >= 0,
+                xp_after=xp_after,
+                can_use_starting_points=is_flaw or starting_points_after >= 0,
+                starting_points_after=starting_points_after,
+            )
 
         for num_dots_str, savings in downgrade_savings.items():
             num_dots = int(num_dots_str) if num_dots_str != "DELETE" else 0
             target_value = current_value - num_dots
+            # Flaw downgrades spend currency; normal downgrades grant it
+            sign = -1 if is_flaw else 1
+            xp_after = xp_current + savings * sign
+            starting_points_after = starting_points_current + savings * sign
+            key = str(target_value) if num_dots_str != "DELETE" else "DELETE"
 
-            if is_flaw:
-                xp_after = xp_current - savings
-                starting_points_after = starting_points_current - savings
-                options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
-                    TraitValueOptionDetail(
-                        direction="decrease",
-                        point_change=savings,
-                        can_use_xp=xp_after >= 0,
-                        xp_after=xp_after,
-                        can_use_starting_points=starting_points_after >= 0,
-                        starting_points_after=starting_points_after,
-                    )
-                )
-            else:
-                xp_after = xp_current + savings
-                starting_points_after = starting_points_current + savings
-                options[str(target_value) if num_dots_str != "DELETE" else "DELETE"] = (
-                    TraitValueOptionDetail(
-                        direction="decrease",
-                        point_change=savings,
-                        can_use_xp=True,
-                        xp_after=xp_after,
-                        can_use_starting_points=True,
-                        starting_points_after=starting_points_after,
-                    )
-                )
+            options[key] = TraitValueOptionDetail(
+                direction="decrease",
+                point_change=savings,
+                can_use_xp=not is_flaw or xp_after >= 0,
+                xp_after=xp_after,
+                can_use_starting_points=not is_flaw or starting_points_after >= 0,
+                starting_points_after=starting_points_after,
+            )
 
         return TraitValueOptionsResponse(
             name=character_trait.trait.name,  # type: ignore [attr-defined]
