@@ -29,6 +29,34 @@ class DiscordOauth(HashedBaseModel):
     expires_at: Annotated[int | None, Field(examples=[1234567890])] = None
 
 
+class GoogleProfile(HashedBaseModel):
+    """Google profile model."""
+
+    id: Annotated[str | None, Field(examples=["1234567890"])] = None
+    email: Annotated[str | None, Field(examples=["john.doe@gmail.com"])] = None
+    verified_email: Annotated[bool | None, Field(examples=[True])] = None
+    username: Annotated[str | None, Field(examples=["John Doe"])] = None
+    name_first: Annotated[str | None, Field(examples=["John"])] = None
+    name_last: Annotated[str | None, Field(examples=["Doe"])] = None
+    avatar_url: Annotated[str | None, Field(examples=["https://lh3.googleusercontent.com/..."])] = (
+        None
+    )
+    locale: Annotated[str | None, Field(examples=["en"])] = None
+
+
+class GitHubProfile(HashedBaseModel):
+    """GitHub profile model."""
+
+    id: Annotated[str | None, Field(examples=["583231"])] = None
+    login: Annotated[str | None, Field(examples=["octocat"])] = None
+    username: Annotated[str | None, Field(examples=["The Octocat"])] = None
+    avatar_url: Annotated[
+        str | None, Field(examples=["https://avatars.githubusercontent.com/u/583231?v=4"])
+    ] = None
+    email: Annotated[str | None, Field(examples=["octocat@github.com"])] = None
+    profile_url: Annotated[str | None, Field(examples=["https://github.com/octocat"])] = None
+
+
 class DiscordProfile(HashedBaseModel):
     """Discord profile model."""
 
@@ -64,6 +92,8 @@ class User(BaseDocument):
     role: UserRole = Field(default=UserRole.PLAYER)
     company_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
+    google_profile: Annotated[GoogleProfile, Field(default_factory=GoogleProfile)]
+    github_profile: Annotated[GitHubProfile, Field(default_factory=GitHubProfile)]
     discord_profile: Annotated[DiscordProfile, Field(default_factory=DiscordProfile)]
     discord_oauth: Annotated[DiscordOauth, Field(default_factory=DiscordOauth)]
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vapi.constants import UserRole
-from vapi.db.models.user import DiscordProfile
+from vapi.db.models.user import DiscordProfile, GitHubProfile, GoogleProfile
 from vapi.domain.utils import patch_document_from_dict
 
 if TYPE_CHECKING:
@@ -47,6 +47,18 @@ class TestPatchDocumentFromDict:
                 email="test@example.com",
                 verified=True,
             ),
+            google_profile=GoogleProfile(
+                id="google123",
+                email="test@gmail.com",
+                username="Google User",
+                verified_email=True,
+            ),
+            github_profile=GitHubProfile(
+                id="583231",
+                login="octocat",
+                username="The Octocat",
+                email="octocat@github.com",
+            ),
         )
 
         # Given a dictionary of data to patch the user with
@@ -57,6 +69,14 @@ class TestPatchDocumentFromDict:
                 "global_name": "updated global name",
                 "avatar_id": None,
                 "nonexistent_key": "nonexistent value",
+            },
+            "google_profile": {
+                "username": "Updated Google User",
+                "locale": "fr",
+            },
+            "github_profile": {
+                "username": "Updated Octocat",
+                "profile_url": "https://github.com/octocat",
             },
         }
 
@@ -72,3 +92,11 @@ class TestPatchDocumentFromDict:
         assert patched_user.discord_profile.global_name == "updated global name"
         assert patched_user.discord_profile.avatar_id is None
         assert patched_user.discord_profile.avatar_url == user.discord_profile.avatar_url
+        assert patched_user.google_profile.id == "google123"
+        assert patched_user.google_profile.username == "Updated Google User"
+        assert patched_user.google_profile.locale == "fr"
+        assert patched_user.google_profile.email == user.google_profile.email
+        assert patched_user.github_profile.id == "583231"
+        assert patched_user.github_profile.username == "Updated Octocat"
+        assert patched_user.github_profile.profile_url == "https://github.com/octocat"
+        assert patched_user.github_profile.login == user.github_profile.login

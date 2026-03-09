@@ -60,6 +60,8 @@ class UserService:
             role=data.role,
             company_id=company.id,
             discord_profile=data.discord_profile,
+            google_profile=data.google_profile,
+            github_profile=data.github_profile,
         )
         await new_user.save()
 
