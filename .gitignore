@@ -20,6 +20,7 @@ _site/
 package.json
 package-lock.json
 node_modules/
+docs/plans/
 
 # Claude Code
 .claude/settings.local.json

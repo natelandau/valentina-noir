@@ -148,8 +148,7 @@ class CharacterTraitService:
             case PermissionsFreeTraitChanges.UNRESTRICTED:
                 return True
             case PermissionsFreeTraitChanges.STORYTELLER:
-                if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
-                    return True
+                pass
             case PermissionsFreeTraitChanges.WITHIN_24_HOURS:
                 if character.date_created + timedelta(days=1) > time_now():
                     return True

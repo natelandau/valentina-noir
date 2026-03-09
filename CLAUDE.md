@@ -63,6 +63,7 @@ duty dev-setup                # Initialize development environment
 - Docker required (MongoDB + Redis run in containers via pytest-databases)
 - Tests run in parallel by default (`-n auto --dist loadfile`)
 - Custom markers: `@pytest.mark.clean_db` (wipes non-constant data), `@pytest.mark.serial`
+- The full test suite is slow. During development on a branch with multiple commits, run individual test files (e.g., `uv run pytest tests/unit/domain/services/test_character_trait_svc.py -v -n 0`) and commit with `--no-verify` to skip pre-commit hooks. Run the full test suite once at the end of the session before finalizing.
 
 ## Requirements
 
