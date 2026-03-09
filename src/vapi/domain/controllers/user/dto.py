@@ -38,6 +38,19 @@ class UserPatchDTO(BaseModel):
     requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 
+class UserApproveDTO(BaseModel):
+    """Approve an unapproved user and assign a role."""
+
+    role: UserRole = Field(examples=[UserRole.PLAYER])
+    requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+
+
+class UserDenyDTO(BaseModel):
+    """Deny an unapproved user."""
+
+    requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+
+
 class ReturnUserDTO(PydanticDTO[User]):
     """User DTO."""
 
