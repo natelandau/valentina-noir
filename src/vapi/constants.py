@@ -164,6 +164,7 @@ class UserRole(StrEnum):
     ADMIN = "ADMIN"
     STORYTELLER = "STORYTELLER"
     PLAYER = "PLAYER"
+    UNAPPROVED = "UNAPPROVED"
 
 
 class WerewolfRenown(StrEnum):
