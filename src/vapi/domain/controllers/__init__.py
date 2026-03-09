@@ -36,7 +36,12 @@ from .s3_assets import (
 from .static import html_static_files_router
 from .statistics.controllers import StatisticsController
 from .system.controllers import SystemController
-from .user import ExperienceController, QuickRollController, UserController
+from .user import (
+    ExperienceController,
+    QuickRollController,
+    UnapprovedUserController,
+    UserController,
+)
 
 __all__ = (
     "BookAssetsController",
@@ -67,6 +72,7 @@ __all__ = (
     "QuickRollController",
     "StatisticsController",
     "SystemController",
+    "UnapprovedUserController",
     "UserAssetsController",
     "UserController",
     "UserNoteController",
