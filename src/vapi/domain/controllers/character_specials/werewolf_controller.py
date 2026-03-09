@@ -18,7 +18,11 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.character_blueprint import dto as blueprint_dto
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterGiftsService, CharacterRitesService
-from vapi.lib.guards import developer_company_user_guard, user_character_player_or_storyteller_guard
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_character_player_or_storyteller_guard,
+    user_not_unapproved_guard,
+)
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -35,7 +39,7 @@ class WerewolfSpecialsController(Controller):
         "gift": Provide(deps.provide_werewolf_gift_by_id),
         "rite": Provide(deps.provide_werewolf_rite_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     ## GIFT RELATED ENDPOINTS
     @get(

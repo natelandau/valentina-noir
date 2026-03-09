@@ -37,17 +37,20 @@ class TestListCampaigns:
         token_global_admin: dict[str, str],
         company_factory: Callable[[], Company],
         campaign_factory: Callable[[], Campaign],
+        user_factory: Callable[[], User],
         build_url: Callable[[str, ...], str],
     ) -> None:
         """Test list campaigns."""
-        # Given a company and a campaign
+        # Given a company, a user, and a campaign
         company = await company_factory()
+        user = await user_factory(company_id=company.id)
         campaign = await campaign_factory(company_id=company.id)
         await campaign_factory(company_id=PydanticObjectId())
 
         # When we list the campaigns
         response = await client.get(
-            build_url(Campaigns.LIST, company_id=company.id), headers=token_global_admin
+            build_url(Campaigns.LIST, company_id=company.id, user_id=user.id),
+            headers=token_global_admin,
         )
 
         # Then we should get a 200 ok response with the campaign in the list
@@ -73,8 +76,9 @@ class TestGetCampaign:
         user_factory: Callable[[], User],
     ) -> None:
         """Verify the get campaign endpoint."""
-        # Given a company and a campaign
+        # Given a company, a user, and a campaign
         company = await company_factory()
+        user = await user_factory(company_id=company.id)
         campaign = await campaign_factory(company_id=company.id)
 
         # When we get the campaign
@@ -83,6 +87,7 @@ class TestGetCampaign:
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
                 company_id=company.id,
+                user_id=user.id,
             ),
             headers=token_global_admin,
         )
@@ -99,16 +104,20 @@ class TestGetCampaign:
         token_global_admin: dict[str, str],
         company_factory: Callable[[], Company],
         campaign_factory: Callable[[], Campaign],
+        user_factory: Callable[[], User],
         build_url: Callable[[str, ...], str],
     ) -> None:
         """Verify the get campaign endpoint."""
         # Given a company and a campaign
         company = await company_factory()
+        user = await user_factory(company_id=company.id)
         campaign = await campaign_factory(company_id=PydanticObjectId())
 
         # When we get the campaign
         response = await client.get(
-            build_url(Campaigns.DETAIL, campaign_id=campaign.id, company_id=company.id),
+            build_url(
+                Campaigns.DETAIL, campaign_id=campaign.id, company_id=company.id, user_id=user.id
+            ),
             headers=token_global_admin,
         )
 

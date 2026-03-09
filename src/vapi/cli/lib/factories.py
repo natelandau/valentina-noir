@@ -6,6 +6,7 @@ Read more at https://polyfactory.litestar.dev/latest/index.html
 from faker import Faker
 from polyfactory.factories.beanie_odm_factory import BeanieDocumentFactory
 
+from vapi.constants import UserRole
 from vapi.db.models import (
     Campaign,
     CampaignBook,
@@ -120,6 +121,10 @@ class UserFactory(BeanieDocumentFactory[User]):
     @classmethod
     def name_first(cls) -> str:
         return fake.first_name()
+
+    @classmethod
+    def role(cls) -> UserRole:
+        return UserRole.STORYTELLER
 
     @classmethod
     def name_last(cls) -> str:

@@ -23,7 +23,11 @@ from vapi.domain.controllers.character.dto import CharacterResponseDTO
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.guards import developer_company_user_guard, user_storyteller_guard
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_not_unapproved_guard,
+    user_storyteller_guard,
+)
 from vapi.openapi.tags import APITags
 from vapi.utils.time import time_now
 
@@ -42,7 +46,7 @@ class CharacterGenerationController(Controller):
         "campaign": Provide(deps.provide_campaign_by_id),
         "character": Provide(deps.provide_character_by_id_and_company),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
     return_dto = CharacterResponseDTO
 
     @post(

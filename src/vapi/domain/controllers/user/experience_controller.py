@@ -10,7 +10,7 @@ from vapi.db.models import Campaign, Company, User  # noqa: TC001
 from vapi.db.models.user import CampaignExperience  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import UserXPService
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -25,7 +25,7 @@ class ExperienceController(Controller):
         "user": Provide(deps.provide_user_by_id_and_company),
         "campaign": Provide(deps.provide_campaign_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
     return_dto = dto.ReturnCampaignExperienceDTO
 
     @get(

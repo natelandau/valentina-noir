@@ -216,6 +216,10 @@ async def user_admin_guard(connection: ASGIConnection, _: BaseRouteHandler) -> N
 
 async def user_not_unapproved_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
     """Guard for users who are not unapproved."""
+    user_id = connection.path_params.get("user_id")
+    if not user_id:
+        return
+
     user = await user_json_from_cache(connection)
     company_id = connection.path_params.get("company_id")
     if UserRole(user.role) == UserRole.UNAPPROVED or str(user.company_id) != company_id:

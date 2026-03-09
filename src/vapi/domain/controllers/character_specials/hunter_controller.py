@@ -17,7 +17,11 @@ from vapi.db.models import (
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterEdgeService
-from vapi.lib.guards import developer_company_user_guard, user_character_player_or_storyteller_guard
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_character_player_or_storyteller_guard,
+    user_not_unapproved_guard,
+)
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -34,7 +38,7 @@ class HunterSpecialsController(Controller):
         "edge": Provide(deps.provide_hunter_edge_by_id),
         "perk": Provide(deps.provide_hunter_edge_perk_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @get(
         path=urls.Characters.EDGES,

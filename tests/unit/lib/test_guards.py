@@ -617,6 +617,19 @@ class TestUserAdminGuard:
 class TestUserNotUnapprovedGuard:
     """Test user_not_unapproved_guard function."""
 
+    async def test_skips_when_no_user_id(
+        self,
+        mocker: pytest.MockerFixture,
+    ) -> None:
+        """Verify guard returns early when user_id is not in path params."""
+        # Given a connection without user_id in path params
+        mock_connection = mocker.MagicMock()
+        mock_connection.path_params.get.return_value = None
+
+        # When we call the guard
+        # Then no exception is raised
+        await user_not_unapproved_guard(mock_connection, mocker.MagicMock())
+
     async def test_passes_for_admin(
         self,
         base_company: Company,
