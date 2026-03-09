@@ -13,7 +13,6 @@ from litestar.params import Parameter
 from vapi.constants import UserRole
 from vapi.db.models import Company, User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.handlers import UserArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
 from vapi.lib.guards import developer_company_user_guard
@@ -115,11 +114,7 @@ class UserController(Controller):
             user_to_manage_id=user.id,
             requesting_user_id=requesting_user_id,
         )
-
-        company.user_ids = [x for x in company.user_ids if x != user.id]
-        await company.save()
-
-        await UserArchiveHandler(user=user).handle()
+        await service.remove_and_archive_user(user=user, company=company)
 
     @get(
         path=urls.Users.UNAPPROVED_LIST,
@@ -155,12 +150,11 @@ class UserController(Controller):
         description=docs.APPROVE_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def approve_user(self, user: User, company: Company, data: dto.UserApproveDTO) -> User:
+    async def approve_user(self, user: User, data: dto.UserApproveDTO) -> User:
         """Approve an unapproved user and assign a role."""
         service = UserService()
         return await service.approve_user(
             user=user,
-            company=company,
             role=data.role,
             requesting_user_id=data.requesting_user_id,
         )

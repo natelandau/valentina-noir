@@ -80,11 +80,21 @@ class UserService:
 
         return user
 
+    async def remove_and_archive_user(self, *, user: User, company: Company) -> None:
+        """Remove a user from the company and archive them.
+
+        Args:
+            user: The user to remove and archive.
+            company: The company the user belongs to.
+        """
+        company.user_ids = [x for x in company.user_ids if x != user.id]
+        await company.save()
+        await UserArchiveHandler(user=user).handle()
+
     async def approve_user(
         self,
         *,
         user: User,
-        company: Company,  # noqa: ARG002
         role: UserRole,
         requesting_user_id: PydanticObjectId,
     ) -> User:
@@ -92,7 +102,6 @@ class UserService:
 
         Args:
             user: The unapproved user to approve.
-            company: The company the user belongs to.
             role: The role to assign.
             requesting_user_id: The ID of the admin performing the action.
 
@@ -135,10 +144,7 @@ class UserService:
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
 
-        company.user_ids = [x for x in company.user_ids if x != user.id]
-        await company.save()
-
-        await UserArchiveHandler(user=user).handle()
+        await self.remove_and_archive_user(user=user, company=company)
 
 
 class UserQuickRollService:

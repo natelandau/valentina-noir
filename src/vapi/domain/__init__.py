@@ -67,7 +67,6 @@ __all__ = (
     "QuickRollController",
     "StatisticsController",
     "SystemController",
-    "UnapprovedUserController",
     "UserAssetsController",
     "UserController",
     "UserNoteController",

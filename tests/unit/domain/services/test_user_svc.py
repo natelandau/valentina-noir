@@ -190,7 +190,6 @@ class TestUserService:
         service = UserService()
         result = await service.approve_user(
             user=unapproved_user,
-            company=company,
             role=UserRole.PLAYER,
             requesting_user_id=admin_user.id,
         )
@@ -216,7 +215,6 @@ class TestUserService:
         with pytest.raises(ValidationError, match="not in UNAPPROVED status"):
             await service.approve_user(
                 user=player_user,
-                company=company,
                 role=UserRole.PLAYER,
                 requesting_user_id=admin_user.id,
             )
@@ -239,7 +237,6 @@ class TestUserService:
         with pytest.raises(ValidationError, match="Cannot assign UNAPPROVED role"):
             await service.approve_user(
                 user=unapproved_user,
-                company=company,
                 role=UserRole.UNAPPROVED,
                 requesting_user_id=admin_user.id,
             )
@@ -262,7 +259,6 @@ class TestUserService:
         with pytest.raises(PermissionDeniedError, match="not authorized"):
             await service.approve_user(
                 user=unapproved_user,
-                company=company,
                 role=UserRole.PLAYER,
                 requesting_user_id=player_user.id,
             )
