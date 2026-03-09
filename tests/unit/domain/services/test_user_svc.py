@@ -174,6 +174,171 @@ class TestUserService:
 
         spy.assert_called_once()
 
+    async def test_approve_user_success(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify approving an unapproved user sets the new role."""
+        # Given an unapproved user and an admin
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+
+        # When we approve the user
+        service = UserService()
+        result = await service.approve_user(
+            user=unapproved_user,
+            company=company,
+            role=UserRole.PLAYER,
+            requesting_user_id=admin_user.id,
+        )
+
+        # Then the user role is updated
+        assert result.role == UserRole.PLAYER
+
+    async def test_approve_user_not_unapproved(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify approving a non-unapproved user raises an error."""
+        # Given a player user and an admin
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+
+        # When we try to approve a non-unapproved user
+        # Then a ValidationError is raised
+        service = UserService()
+        with pytest.raises(ValidationError, match="not in UNAPPROVED status"):
+            await service.approve_user(
+                user=player_user,
+                company=company,
+                role=UserRole.PLAYER,
+                requesting_user_id=admin_user.id,
+            )
+
+    async def test_approve_user_to_unapproved_role(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify approving a user to the UNAPPROVED role raises an error."""
+        # Given an unapproved user and an admin
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+
+        # When we try to approve to UNAPPROVED role
+        # Then a ValidationError is raised
+        service = UserService()
+        with pytest.raises(ValidationError, match="Cannot assign UNAPPROVED role"):
+            await service.approve_user(
+                user=unapproved_user,
+                company=company,
+                role=UserRole.UNAPPROVED,
+                requesting_user_id=admin_user.id,
+            )
+
+    async def test_approve_user_non_admin_requesting(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify a non-admin cannot approve users."""
+        # Given an unapproved user and a player
+        company = await company_factory()
+        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+
+        # When a non-admin tries to approve
+        # Then a PermissionDeniedError is raised
+        service = UserService()
+        with pytest.raises(PermissionDeniedError, match="not authorized"):
+            await service.approve_user(
+                user=unapproved_user,
+                company=company,
+                role=UserRole.PLAYER,
+                requesting_user_id=player_user.id,
+            )
+
+    async def test_deny_user_success(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify denying an unapproved user archives them and removes from company."""
+        # Given an unapproved user and an admin
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+
+        # When we deny the user
+        service = UserService()
+        await service.deny_user(
+            user=unapproved_user,
+            company=company,
+            requesting_user_id=admin_user.id,
+        )
+
+        # Then the user is archived
+        await unapproved_user.sync()
+        assert unapproved_user.is_archived is True
+
+        # Then the user is removed from the company
+        await company.sync()
+        assert unapproved_user.id not in company.user_ids
+
+    async def test_deny_user_not_unapproved(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify denying a non-unapproved user raises an error."""
+        # Given a player user and an admin
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+
+        # When we try to deny a non-unapproved user
+        # Then a ValidationError is raised
+        service = UserService()
+        with pytest.raises(ValidationError, match="not in UNAPPROVED status"):
+            await service.deny_user(
+                user=player_user,
+                company=company,
+                requesting_user_id=admin_user.id,
+            )
+
+    async def test_deny_user_non_admin_requesting(
+        self,
+        user_factory: Callable[[...], User],
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify a non-admin cannot deny users."""
+        # Given an unapproved user and a player
+        company = await company_factory()
+        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+
+        # When a non-admin tries to deny
+        # Then a PermissionDeniedError is raised
+        service = UserService()
+        with pytest.raises(PermissionDeniedError, match="not authorized"):
+            await service.deny_user(
+                user=unapproved_user,
+                company=company,
+                requesting_user_id=player_user.id,
+            )
+
 
 class TestUserQuickRollService:
     """Test the quick roll service."""

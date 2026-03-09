@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from vapi.constants import PermissionsGrantXP, UserRole
 from vapi.db.models import Company, QuickRoll, User
+from vapi.domain.handlers import UserArchiveHandler
 from vapi.domain.utils import patch_document_from_dict, validate_trait_ids_from_mixed_sources
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
@@ -78,6 +79,66 @@ class UserService:
         await user.save()
 
         return user
+
+    async def approve_user(
+        self,
+        *,
+        user: User,
+        company: Company,  # noqa: ARG002
+        role: UserRole,
+        requesting_user_id: PydanticObjectId,
+    ) -> User:
+        """Approve an unapproved user and assign a role.
+
+        Args:
+            user: The unapproved user to approve.
+            company: The company the user belongs to.
+            role: The role to assign.
+            requesting_user_id: The ID of the admin performing the action.
+
+        Raises:
+            ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED.
+            PermissionDeniedError: If the requesting user is not an admin.
+        """
+        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+
+        if user.role != UserRole.UNAPPROVED:
+            raise ValidationError(detail="User is not in UNAPPROVED status")
+
+        if role == UserRole.UNAPPROVED:
+            raise ValidationError(detail="Cannot assign UNAPPROVED role")
+
+        user.role = role
+        await user.save()
+        return user
+
+    async def deny_user(
+        self,
+        *,
+        user: User,
+        company: Company,
+        requesting_user_id: PydanticObjectId,
+    ) -> None:
+        """Deny an unapproved user and archive them.
+
+        Args:
+            user: The unapproved user to deny.
+            company: The company the user belongs to.
+            requesting_user_id: The ID of the admin performing the action.
+
+        Raises:
+            ValidationError: If the user is not UNAPPROVED.
+            PermissionDeniedError: If the requesting user is not an admin.
+        """
+        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+
+        if user.role != UserRole.UNAPPROVED:
+            raise ValidationError(detail="User is not in UNAPPROVED status")
+
+        company.user_ids = [x for x in company.user_ids if x != user.id]
+        await company.save()
+
+        await UserArchiveHandler(user=user).handle()
 
 
 class UserQuickRollService:
