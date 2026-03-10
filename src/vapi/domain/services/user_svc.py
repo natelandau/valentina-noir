@@ -46,6 +46,18 @@ class UserService:
                 detail="Requesting user is not authorized to manage this user",
             )
 
+    async def _create_and_attach_user(self, company: Company, user: User) -> User:
+        """Persist a new user and add them to the company's user list.
+
+        Args:
+            company: The company the user belongs to.
+            user: The user to persist.
+        """
+        await user.save()
+        company.user_ids.append(user.id)
+        await company.save()
+        return user
+
     async def create_user(self, company: Company, data: UserPostDTO) -> User:
         """Create a user."""
         await self.validate_user_can_manage_user(
@@ -63,12 +75,7 @@ class UserService:
             google_profile=data.google_profile,
             github_profile=data.github_profile,
         )
-        await new_user.save()
-
-        company.user_ids.append(new_user.id)
-        await company.save()
-
-        return new_user
+        return await self._create_and_attach_user(company=company, user=new_user)
 
     async def register_user(self, company: Company, data: UserRegisterDTO) -> User:
         """Register a new user with the UNAPPROVED role.
@@ -79,9 +86,6 @@ class UserService:
         Args:
             company: The company to register the user in.
             data: The registration data.
-
-        Returns:
-            The newly created user with UNAPPROVED role.
         """
         new_user = User(
             name_first=data.name_first,
@@ -94,29 +98,24 @@ class UserService:
             google_profile=data.google_profile,
             github_profile=data.github_profile,
         )
-        await new_user.save()
-
-        company.user_ids.append(new_user.id)
-        await company.save()
-
-        return new_user
+        return await self._create_and_attach_user(company=company, user=new_user)
 
     async def merge_users(
         self,
         *,
-        primary_user: User,
-        secondary_user: User,
+        primary_user_id: PydanticObjectId,
+        secondary_user_id: PydanticObjectId,
         company: Company,
         requesting_user_id: PydanticObjectId,
     ) -> User:
         """Merge an UNAPPROVED secondary user into an existing primary user.
 
-        Copy OAuth profile fields from secondary to primary (only filling in empty
-        fields), then delete the secondary user and remove it from the company.
+        Resolve both users, copy OAuth profile fields from secondary to primary (only
+        filling in empty fields), then archive the secondary user.
 
         Args:
-            primary_user: The user account that survives.
-            secondary_user: The UNAPPROVED user whose profile info is absorbed.
+            primary_user_id: The ID of the user account that survives.
+            secondary_user_id: The ID of the UNAPPROVED user whose profile info is absorbed.
             company: The company both users belong to.
             requesting_user_id: The admin performing the merge.
 
@@ -124,10 +123,19 @@ class UserService:
             ValidationError: If the secondary user is not UNAPPROVED or users are the same.
             PermissionDeniedError: If the requesting user is not an admin.
         """
+        import asyncio
+
+        from vapi.domain import deps
+
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
-        if primary_user.id == secondary_user.id:
+        if primary_user_id == secondary_user_id:
             raise ValidationError(detail="Cannot merge a user with themselves")
+
+        primary_user, secondary_user = await asyncio.gather(
+            deps.provide_user_by_id_and_company(user_id=primary_user_id, company=company),
+            deps.provide_user_by_id_and_company(user_id=secondary_user_id, company=company),
+        )
 
         if secondary_user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="Secondary user must have UNAPPROVED role")
@@ -147,9 +155,11 @@ class UserService:
             primary: The target user whose empty profile fields get filled.
             secondary: The source user whose profile fields are copied.
         """
-        for profile_attr in ("google_profile", "github_profile", "discord_profile"):
-            primary_profile = getattr(primary, profile_attr)
-            secondary_profile = getattr(secondary, profile_attr)
+        for primary_profile, secondary_profile in (
+            (primary.google_profile, secondary.google_profile),
+            (primary.github_profile, secondary.github_profile),
+            (primary.discord_profile, secondary.discord_profile),
+        ):
             for field_name in secondary_profile.model_fields:
                 secondary_value = getattr(secondary_profile, field_name)
                 primary_value = getattr(primary_profile, field_name)

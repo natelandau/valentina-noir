@@ -46,16 +46,10 @@ class UserRegistrationController(Controller):
     )
     async def merge_users(self, data: dto.UserMergeDTO, company: Company) -> User:
         """Merge an UNAPPROVED user into an existing primary user."""
-        primary_user = await deps.provide_user_by_id_and_company(
-            user_id=data.primary_user_id, company=company
-        )
-        secondary_user = await deps.provide_user_by_id_and_company(
-            user_id=data.secondary_user_id, company=company
-        )
         service = UserService()
         return await service.merge_users(
-            primary_user=primary_user,
-            secondary_user=secondary_user,
+            primary_user_id=data.primary_user_id,
+            secondary_user_id=data.secondary_user_id,
             company=company,
             requesting_user_id=data.requesting_user_id,
         )

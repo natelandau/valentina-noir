@@ -409,8 +409,8 @@ class TestUserService:
         # When we merge the users
         service = UserService()
         result = await service.merge_users(
-            primary_user=primary_user,
-            secondary_user=secondary_user,
+            primary_user_id=primary_user.id,
+            secondary_user_id=secondary_user.id,
             company=company,
             requesting_user_id=admin_user.id,
         )
@@ -442,8 +442,8 @@ class TestUserService:
         service = UserService()
         with pytest.raises(ValidationError, match="UNAPPROVED"):
             await service.merge_users(
-                primary_user=primary_user,
-                secondary_user=secondary_user,
+                primary_user_id=primary_user.id,
+                secondary_user_id=secondary_user.id,
                 company=company,
                 requesting_user_id=admin_user.id,
             )
@@ -465,8 +465,8 @@ class TestUserService:
         service = UserService()
         with pytest.raises(ValidationError, match="Cannot merge a user with themselves"):
             await service.merge_users(
-                primary_user=user,
-                secondary_user=user,
+                primary_user_id=user.id,
+                secondary_user_id=user.id,
                 company=company,
                 requesting_user_id=admin_user.id,
             )
@@ -489,8 +489,8 @@ class TestUserService:
         service = UserService()
         with pytest.raises(PermissionDeniedError):
             await service.merge_users(
-                primary_user=primary_user,
-                secondary_user=secondary_user,
+                primary_user_id=primary_user.id,
+                secondary_user_id=secondary_user.id,
                 company=company,
                 requesting_user_id=player_user.id,
             )
