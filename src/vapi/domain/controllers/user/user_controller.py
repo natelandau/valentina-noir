@@ -47,6 +47,7 @@ class UserController(Controller):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         user_role: UserRole | None = None,
+        email: str | None = None,
     ) -> OffsetPagination[User]:
         """Retrieve users."""
         query = {
@@ -55,6 +56,8 @@ class UserController(Controller):
         }
         if user_role:
             query["role"] = user_role.name
+        if email:
+            query["email"] = email
 
         count = await User.find(query).count()
         users = await User.find(query).skip(offset).limit(limit).to_list()

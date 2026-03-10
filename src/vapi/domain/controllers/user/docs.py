@@ -4,7 +4,9 @@
 LIST_USERS_DESCRIPTION = """\
 Retrieve a paginated list of users within a company.
 
-Optionally filter by user role to view specific user types such as players or storytellers.
+Optionally filter by user role to view specific user types such as players or storytellers. \
+Filter by email to find a user by their exact email address, useful for checking if a user \
+already exists before registration.
 """
 
 GET_USER_DESCRIPTION = """\
