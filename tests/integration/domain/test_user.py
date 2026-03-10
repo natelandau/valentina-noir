@@ -931,3 +931,205 @@ class TestUnapprovedUserController:
 
             # Then we get a validation error
             assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+class TestUserRegistrationController:
+    """Test UserRegistrationController."""
+
+    class TestRegisterUser:
+        """Test RegisterUser."""
+
+        async def test_register_user_success(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+        ) -> None:
+            """Verify registering a user creates an UNAPPROVED user."""
+            # Given a company
+            company = await company_factory()
+
+            # When we register a user
+            response = await client.post(
+                build_url(UsersURL.REGISTER, company_id=company.id),
+                headers=token_global_admin,
+                json={
+                    "username": "sso_user",
+                    "email": "sso@example.com",
+                    "google_profile": {
+                        "email": "sso@gmail.com",
+                        "username": "SSO User",
+                    },
+                },
+            )
+
+            # Then the user is created with UNAPPROVED role
+            assert response.status_code == HTTP_201_CREATED
+            result = response.json()
+            assert result["role"] == "UNAPPROVED"
+            assert result["username"] == "sso_user"
+            assert result["email"] == "sso@example.com"
+            assert result["google_profile"]["email"] == "sso@gmail.com"
+
+            # Then the user exists in the database
+            new_user = await User.get(result["id"])
+            assert new_user is not None
+            assert new_user.role == UserRole.UNAPPROVED
+
+            # Then the user is in the company's user_ids
+            await company.sync()
+            assert new_user.id in company.user_ids
+
+            # Cleanup
+            await new_user.delete()
+            await company.delete()
+
+        async def test_register_user_missing_required_fields(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+        ) -> None:
+            """Verify registration fails without required fields."""
+            # When we register without required fields
+            response = await client.post(
+                build_url(UsersURL.REGISTER),
+                headers=token_global_admin,
+                json={"name_first": "Test"},
+            )
+
+            # Then validation fails
+            assert response.status_code == HTTP_400_BAD_REQUEST
+
+    class TestMergeUsers:
+        """Test MergeUsers."""
+
+        async def test_merge_users_success(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Verify merging absorbs profile and deletes secondary."""
+            # Given a company with an admin, a primary user (no google profile), and an UNAPPROVED secondary
+            company = await company_factory()
+            admin_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+            primary_user = await user_factory(
+                company_id=company.id, google_profile={}, github_profile={}, discord_profile={}
+            )
+            secondary_user = await user_factory(
+                company_id=company.id,
+                role=UserRole.UNAPPROVED,
+                google_profile={"email": "secondary@gmail.com", "username": "Secondary"},
+            )
+
+            # When we merge the users
+            response = await client.post(
+                build_url(UsersURL.MERGE, company_id=company.id),
+                headers=token_global_admin,
+                json={
+                    "primary_user_id": str(primary_user.id),
+                    "secondary_user_id": str(secondary_user.id),
+                    "requesting_user_id": str(admin_user.id),
+                },
+            )
+
+            # Then the merge succeeds
+            assert response.status_code == HTTP_201_CREATED
+            result = response.json()
+            assert result["id"] == str(primary_user.id)
+            assert result["google_profile"]["email"] == "secondary@gmail.com"
+
+            # Then the secondary user is archived
+            archived_user = await User.get(secondary_user.id)
+            assert archived_user is None or archived_user.is_archived is True
+
+            # Cleanup
+            await company.delete()
+
+        async def test_merge_users_secondary_not_unapproved(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            company_factory: Callable[[dict[str, Any]], Company],
+            user_factory: Callable[[dict[str, Any]], User],
+        ) -> None:
+            """Verify merge rejects when secondary is not UNAPPROVED."""
+            # Given a company with two active users
+            company = await company_factory()
+            admin_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+            primary_user = await user_factory(company_id=company.id)
+            secondary_user = await user_factory(company_id=company.id, role=UserRole.PLAYER)
+
+            # When we attempt to merge
+            response = await client.post(
+                build_url(UsersURL.MERGE, company_id=company.id),
+                headers=token_global_admin,
+                json={
+                    "primary_user_id": str(primary_user.id),
+                    "secondary_user_id": str(secondary_user.id),
+                    "requesting_user_id": str(admin_user.id),
+                },
+            )
+
+            # Then the merge is rejected
+            assert response.status_code == HTTP_400_BAD_REQUEST
+
+            # Cleanup
+            await company.delete()
+
+
+class TestListUsersEmailFilter:
+    """Test email filter on list users endpoint."""
+
+    async def test_list_users_email_filter(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        token_global_admin: dict[str, str],
+        company_factory: Callable[[dict[str, Any]], Company],
+        user_factory: Callable[[dict[str, Any]], User],
+    ) -> None:
+        """Verify filtering users by email returns matching results."""
+        # Given a company with two users having different emails
+        company = await company_factory()
+        await user_factory(company_id=company.id, email="alice@example.com")
+        await user_factory(company_id=company.id, email="bob@example.com")
+
+        # When we filter by email
+        response = await client.get(
+            build_url(UsersURL.LIST, company_id=company.id),
+            headers=token_global_admin,
+            params={"email": "alice@example.com"},
+        )
+
+        # Then only the matching user is returned
+        assert response.status_code == HTTP_200_OK
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["email"] == "alice@example.com"
+
+        # Cleanup
+        await company.delete()
+
+    async def test_list_users_email_filter_no_results(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify email filter returns empty when no match."""
+        # When we filter by a nonexistent email
+        response = await client.get(
+            build_url(UsersURL.LIST),
+            headers=token_global_admin,
+            params={"email": "nonexistent@example.com"},
+        )
+
+        # Then an empty list is returned
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == []

@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import post
 
+from vapi.db.models import Company, User  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import UserService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
-
-if TYPE_CHECKING:
-    from vapi.db.models import Company, User
 
 
 class UserRegistrationController(Controller):
