@@ -47,6 +47,7 @@ class UserController(Controller):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         user_role: UserRole | None = None,
+        email: str | None = None,
     ) -> OffsetPagination[User]:
         """Retrieve users."""
         query = {
@@ -55,6 +56,8 @@ class UserController(Controller):
         }
         if user_role:
             query["role"] = user_role.name
+        if email:
+            query["email"] = email
 
         count = await User.find(query).count()
         users = await User.find(query).skip(offset).limit(limit).to_list()
@@ -172,6 +175,35 @@ class UserController(Controller):
         service = UserService()
         await service.deny_user(
             user=user,
+            company=company,
+            requesting_user_id=data.requesting_user_id,
+        )
+
+    @post(
+        path=urls.Users.REGISTER,
+        summary="Register user",
+        operation_id="registerUser",
+        description=docs.REGISTER_USER_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+    )
+    async def register_user(self, data: dto.UserRegisterDTO, company: Company) -> User:
+        """Register a new user with the UNAPPROVED role."""
+        service = UserService()
+        return await service.register_user(company=company, data=data)
+
+    @post(
+        path=urls.Users.MERGE,
+        summary="Merge users",
+        operation_id="mergeUsers",
+        description=docs.MERGE_USERS_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+    )
+    async def merge_users(self, data: dto.UserMergeDTO, company: Company) -> User:
+        """Merge an UNAPPROVED user into an existing primary user."""
+        service = UserService()
+        return await service.merge_users(
+            primary_user_id=data.primary_user_id,
+            secondary_user_id=data.secondary_user_id,
             company=company,
             requesting_user_id=data.requesting_user_id,
         )

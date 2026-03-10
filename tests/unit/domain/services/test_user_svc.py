@@ -10,7 +10,7 @@ from beanie import PydanticObjectId
 from vapi.constants import PermissionsGrantXP, UserRole
 from vapi.db.models import QuickRoll, Trait, User
 from vapi.db.models.user import CampaignExperience, DiscordProfile, GitHubProfile, GoogleProfile
-from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO
+from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO, UserRegisterDTO
 from vapi.domain.services import UserQuickRollService, UserService, UserXPService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
@@ -348,6 +348,177 @@ class TestUserService:
                 company=company,
                 requesting_user_id=player_user.id,
             )
+
+    async def test_register_user_success(
+        self,
+        company_factory: Callable[[...], Company],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify register_user creates an UNAPPROVED user without permission checks."""
+        # Given a company and registration data
+        company = await company_factory()
+        data = UserRegisterDTO(
+            name_first="New",
+            name_last="Player",
+            username="new_player",
+            email="new@example.com",
+            google_profile=GoogleProfile(email="new@gmail.com", username="New Player"),
+        )
+
+        # When we register the user
+        service = UserService()
+        new_user = await service.register_user(company=company, data=data)
+
+        # Then the user is created with UNAPPROVED role
+        assert new_user.name_first == "New"
+        assert new_user.name_last == "Player"
+        assert new_user.username == "new_player"
+        assert new_user.email == "new@example.com"
+        assert new_user.role == UserRole.UNAPPROVED
+        assert new_user.company_id == company.id
+        assert new_user.google_profile.email == "new@gmail.com"
+
+        await company.sync()
+        assert new_user.id in company.user_ids
+
+    async def test_merge_users_success(
+        self,
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        mocker: Any,
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify merge absorbs secondary profile into primary and archives secondary."""
+        # Given a company with a primary user and an UNAPPROVED secondary user
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        primary_user = await user_factory(
+            company_id=company.id,
+            discord_profile=DiscordProfile(username="primary_discord"),
+            google_profile=GoogleProfile(),
+            github_profile=GitHubProfile(),
+        )
+        secondary_user = await user_factory(
+            company_id=company.id,
+            role=UserRole.UNAPPROVED,
+            google_profile=GoogleProfile(email="secondary@gmail.com", username="Secondary"),
+            github_profile=GitHubProfile(login="secondary_gh"),
+        )
+        spy = mocker.spy(UserService, "remove_and_archive_user")
+
+        # When we merge the users
+        service = UserService()
+        result = await service.merge_users(
+            primary_user_id=primary_user.id,
+            secondary_user_id=secondary_user.id,
+            company=company,
+            requesting_user_id=admin_user.id,
+        )
+
+        # Then the primary user has the secondary's profile info
+        assert result.google_profile.email == "secondary@gmail.com"
+        assert result.google_profile.username == "Secondary"
+        assert result.github_profile.login == "secondary_gh"
+        assert result.discord_profile.username == "primary_discord"
+
+        # Then the secondary user was archived
+        spy.assert_called_once()
+
+    async def test_merge_users_secondary_not_unapproved(
+        self,
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify merge rejects if secondary user is not UNAPPROVED."""
+        # Given a company with two active users
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        primary_user = await user_factory(company_id=company.id)
+        secondary_user = await user_factory(company_id=company.id, role=UserRole.PLAYER)
+
+        # When we attempt to merge
+        # Then a ValidationError is raised
+        service = UserService()
+        with pytest.raises(ValidationError, match="UNAPPROVED"):
+            await service.merge_users(
+                primary_user_id=primary_user.id,
+                secondary_user_id=secondary_user.id,
+                company=company,
+                requesting_user_id=admin_user.id,
+            )
+
+    async def test_merge_users_same_user(
+        self,
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify merge rejects when primary and secondary are the same user."""
+        # Given a company with a user
+        company = await company_factory()
+        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
+        user = await user_factory(company_id=company.id, role=UserRole.UNAPPROVED)
+
+        # When we attempt to merge a user with themselves
+        # Then a ValidationError is raised
+        service = UserService()
+        with pytest.raises(ValidationError, match="Cannot merge a user with themselves"):
+            await service.merge_users(
+                primary_user_id=user.id,
+                secondary_user_id=user.id,
+                company=company,
+                requesting_user_id=admin_user.id,
+            )
+
+    async def test_merge_users_non_admin_rejected(
+        self,
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify merge rejects if requesting user is not an admin."""
+        # Given a company with users
+        company = await company_factory()
+        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+        primary_user = await user_factory(company_id=company.id)
+        secondary_user = await user_factory(company_id=company.id, role=UserRole.UNAPPROVED)
+
+        # When a non-admin attempts to merge
+        # Then a PermissionDeniedError is raised
+        service = UserService()
+        with pytest.raises(PermissionDeniedError):
+            await service.merge_users(
+                primary_user_id=primary_user.id,
+                secondary_user_id=secondary_user.id,
+                company=company,
+                requesting_user_id=player_user.id,
+            )
+
+    async def test_absorb_profiles_does_not_overwrite(
+        self,
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify _absorb_profiles only fills empty fields on primary."""
+        # Given a primary user with some profile info and a secondary with different info
+        primary = await user_factory(
+            google_profile=GoogleProfile(email="primary@gmail.com", username="PrimaryUser"),
+        )
+        secondary = await user_factory(
+            role=UserRole.UNAPPROVED,
+            google_profile=GoogleProfile(
+                email="secondary@gmail.com", username="SecondaryUser", locale="en"
+            ),
+        )
+
+        # When we absorb profiles
+        UserService._absorb_profiles(primary=primary, secondary=secondary)
+
+        # Then primary keeps its existing values and fills in empty ones
+        assert primary.google_profile.email == "primary@gmail.com"
+        assert primary.google_profile.username == "PrimaryUser"
+        assert primary.google_profile.locale == "en"
 
 
 class TestUserQuickRollService:

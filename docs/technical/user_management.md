@@ -45,43 +45,94 @@ flowchart LR
 
 Link your authenticated users to Valentina user accounts.
 
-**Workflow:**
+**Recommended Workflow with SSO:**
 
-1. Check if you have a stored Valentina `user_id` for this user
-2. If not, create a new user via `POST /api/v1/companies/{company_id}/users`
-3. Store the returned `user_id` in your database
-4. Use this `user_id` in subsequent API calls
+1. User authenticates via your identity provider (Google, GitHub, Discord, etc.)
+2. Check if you have a stored Valentina `user_id` for this user
+3. If not, search by email: `GET /api/v1/companies/{company_id}/users?email={email}`
+4. If found, update the existing user's profile with the new OAuth info (via `PATCH`)
+5. If not found, register a new user: `POST /api/v1/companies/{company_id}/users/register`
+6. Store the returned `user_id` in your database
 
 ```python
 import requests
 
-def get_or_create_valentina_user(local_user, company_id, api_key):
-    """Link a local user to a Valentina user account."""
-    # Return existing user_id if already linked
-    if local_user.valentina_user_id:
-        return local_user.valentina_user_id
+API_URL = "https://api.valentina-noir.com/api/v1"
+HEADERS = {"X-API-KEY": "your-api-key"}
 
-    # Create a new user in Valentina
-    response = requests.post(
-        f"https://api.valentina-noir.com/api/v1/companies/{company_id}/users",
-        headers={"X-API-KEY": api_key},
-        json={
-            "name_first": local_user.name_first,
-            "name_last": local_user.name_last,
-            "username": local_user.username,
-            "email": local_user.email,
-            "role": "PLAYER"
-        }
+def get_or_create_valentina_user(sso_user, company_id):
+    """Link an SSO user to a Valentina user account."""
+    # Return existing user_id if already linked
+    if sso_user.valentina_user_id:
+        return sso_user.valentina_user_id
+
+    # Check if a user with this email already exists
+    response = requests.get(
+        f"{API_URL}/companies/{company_id}/users",
+        headers=HEADERS,
+        params={"email": sso_user.email},
     )
-    response.raise_for_status()
+    existing_users = response.json()["items"]
+
+    if existing_users:
+        # Link to existing user and update their profile
+        valentina_user_id = existing_users[0]["id"]
+        requests.patch(
+            f"{API_URL}/companies/{company_id}/users/{valentina_user_id}",
+            headers=HEADERS,
+            json={
+                "google_profile": {"email": sso_user.email, "username": sso_user.name},
+                "requesting_user_id": valentina_user_id,
+            },
+        )
+    else:
+        # Register a new UNAPPROVED user
+        response = requests.post(
+            f"{API_URL}/companies/{company_id}/users/register",
+            headers=HEADERS,
+            json={
+                "username": sso_user.username,
+                "email": sso_user.email,
+                "google_profile": {
+                    "email": sso_user.email,
+                    "username": sso_user.name,
+                },
+            },
+        )
+        response.raise_for_status()
+        valentina_user_id = response.json()["id"]
 
     # Store and return the Valentina user_id
-    valentina_user = response.json()
-    local_user.valentina_user_id = valentina_user["id"]
-    local_user.save()
-
-    return valentina_user["id"]
+    sso_user.valentina_user_id = valentina_user_id
+    sso_user.save()
+    return valentina_user_id
 ```
+
+### Merging Users
+
+When a duplicate UNAPPROVED user is created (e.g., a user authenticates via a new identity provider before you matched them to their existing account), merge the accounts:
+
+```shell
+POST /api/v1/companies/{company_id}/users/merge
+```
+
+```json
+{
+    "primary_user_id": "existing_user_id",
+    "secondary_user_id": "unapproved_duplicate_id",
+    "requesting_user_id": "admin_user_id"
+}
+```
+
+The merge:
+
+- Copies OAuth profile fields from the secondary user to the primary (only fills empty fields)
+- Archives the secondary user and removes them from the company
+- Returns the updated primary user
+
+!!! warning "Secondary Must Be UNAPPROVED"
+
+    The secondary user must have the `UNAPPROVED` role. This prevents accidental data loss from merging active users who may have characters, campaigns, and experience.
 
 ## User Roles
 
@@ -251,7 +302,7 @@ POST /api/v1/companies/{company_id}/users/{user_id}/deny
 
 ### Example: Approval Flow
 
-Here's a complete example of creating a user with the `UNAPPROVED` role and then approving them:
+Here's a complete example of registering a user via SSO and then approving them:
 
 ```python
 import requests
@@ -259,15 +310,16 @@ import requests
 API_URL = "https://api.valentina-noir.com/api/v1"
 HEADERS = {"X-API-KEY": "your-api-key"}
 
-# Step 1: Create an unapproved user
+# Step 1: Register an unapproved user (no admin required)
 response = requests.post(
-    f"{API_URL}/companies/{company_id}/users",
+    f"{API_URL}/companies/{company_id}/users/register",
     headers=HEADERS,
     json={
         "username": "newplayer",
         "email": "newplayer@example.com",
-        "role": "UNAPPROVED",
-        "requesting_user_id": admin_user_id,
+        "google_profile": {
+            "email": "newplayer@gmail.com",
+        },
     }
 )
 new_user = response.json()

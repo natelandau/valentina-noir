@@ -55,6 +55,26 @@ class UserDenyDTO(BaseModel):
     requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
 
 
+class UserRegisterDTO(BaseModel):
+    """Register a new user via SSO onboarding (no requesting_user_id required)."""
+
+    name_first: Annotated[str | None, Field(examples=["John"])] = None
+    name_last: Annotated[str | None, Field(examples=["Doe"])] = None
+    username: Annotated[str, Field(examples=["john.doe"])]
+    email: EmailStr = Field(examples=["john.doe@example.com"])
+    discord_profile: Annotated[DiscordProfile, Field(default=DiscordProfile())]
+    google_profile: Annotated[GoogleProfile, Field(default=GoogleProfile())]
+    github_profile: Annotated[GitHubProfile, Field(default=GitHubProfile())]
+
+
+class UserMergeDTO(BaseModel):
+    """Merge an UNAPPROVED user into an existing primary user."""
+
+    primary_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+    secondary_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+    requesting_user_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+
+
 class ReturnUserDTO(PydanticDTO[User]):
     """User DTO."""
 
