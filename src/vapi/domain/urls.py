@@ -60,6 +60,10 @@ class Users:
     APPROVE = f"{DETAIL}/approve"
     DENY = f"{DETAIL}/deny"
 
+    # Self-service registration and account management
+    REGISTER = f"{BASE}/register"
+    MERGE = f"{BASE}/merge"
+
     # User assets
     ASSETS = f"{DETAIL}/assets"
     ASSET_UPLOAD = f"{ASSETS}/upload"
