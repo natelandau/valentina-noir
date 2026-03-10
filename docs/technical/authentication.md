@@ -35,11 +35,13 @@ X-API-KEY: your-api-key-here
 
 Each API key associates with a developer account that has permissions assigned per company. Access multiple companies with a single API key, using different permission levels for each.
 
-| Permission | Description                                                      |
-| ---------- | ---------------------------------------------------------------- |
-| `USER`     | Read access and basic operations within assigned companies       |
-| `ADMIN`    | Full management of users and resources within assigned companies |
-| `OWNER`    | Complete control including company settings and admin management |
+Developer permissions control **company governance** — who can manage the company itself and grant access to other developers. They don't restrict access to game resources like users, characters, or campaigns. Any developer with access to a company can use the full API for that company's resources.
+
+| Permission | Description                                                            |
+| ---------- | ---------------------------------------------------------------------- |
+| `USER`     | Full access to all company resources (users, characters, campaigns)    |
+| `ADMIN`    | All `USER` capabilities, plus manage company settings                  |
+| `OWNER`    | All `ADMIN` capabilities, plus grant/revoke developer access and delete the company |
 
 ### Permission Inheritance
 
@@ -47,6 +49,15 @@ Higher permissions inherit all capabilities of lower permissions:
 
 - `OWNER` includes all `ADMIN` capabilities
 - `ADMIN` includes all `USER` capabilities
+
+### Developer vs. User Permissions
+
+The API uses two separate permission layers:
+
+- **Developer permissions** (described above) control company governance — managing the company, its settings, and which developers can access it.
+- **[User roles](user_management.md)** control in-game actions — what end-users can do within a company (e.g., who can grant XP, manage campaigns, or edit characters).
+
+Your application authenticates its own users, then makes API calls on their behalf using the `user_id` in the request path. The API enforces game rules based on the user's role, regardless of which developer is making the request.
 
 ### Multi-Company Access
 
@@ -67,9 +78,9 @@ Grant a single API key access to multiple companies, each with its own permissio
 
 This example shows one API key with different access levels:
 
-- `OWNER` permission for company `abc123` (full control)
-- `USER` permission for company `def456` (read-only access)
-- `ADMIN` permission for company `ghi789` (administrative access)
+- `OWNER` permission for company `abc123` (full control including company governance)
+- `USER` permission for company `def456` (full resource access)
+- `ADMIN` permission for company `ghi789` (resource access plus company settings management)
 
 ### Checking Your Permissions
 

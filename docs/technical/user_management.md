@@ -6,11 +6,13 @@ icon: lucide/users
 
 ## Overview
 
-Control what actions end-users can perform within your application through user authorization. Unlike [developer authentication](authentication.md) which secures API access, user authorization governs in-game permissions for players, storytellers, and administrators.
+Control what actions end-users can perform within your application through user roles. [Developer permissions](authentication.md#developer-permissions) control company governance (managing the company, its settings, and developer access). User roles control **in-game actions** — what each end-user can do within a company.
+
+The API enforces game rules based on user roles. For example, only storytellers can grant XP, and players can only edit their own characters. Your application assigns users to the correct roles, and the API enforces what each role can do.
 
 !!! warning "Your Responsibility"
 
-    **Valentina Noir does not authenticate end-users directly.** Your application authenticates users through your own system (OAuth, passwords, etc.), then links them to Valentina user accounts.
+    **Valentina Noir doesn't authenticate end-users directly.** Your application authenticates users through your own system (OAuth, passwords, etc.), then makes API calls on their behalf using the `user_id` in the request path. The API trusts your application's assertion of which user is making the request.
 
 ## Cross-Client Access
 

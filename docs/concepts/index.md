@@ -4,11 +4,11 @@ Understanding these core concepts helps you build clients that integrate with th
 
 ## API Structure
 
-**Developers (You)** - Use your API key to authenticate requests. This key determines which actions you can perform. You can create unlimited applications with a single API key.
+**Developers (You)** - Use your API key to authenticate requests. A single API key grants access to one or more companies. [Developer permissions](../technical/authentication.md#developer-permissions) control company governance (managing settings, granting other developers access), not access to game resources.
 
-**[Companies](../technical/companies.md)** - Companies are the foundational entity. Each company maintains its own users, campaigns, and characters.
+**[Companies](../technical/companies.md)** - Companies are the foundational entity and the tenant boundary. Each company maintains its own users, campaigns, and characters, fully isolated from other companies.
 
-**[End Users](../technical/user_management.md)** - Players and storytellers interact with your client. They create and manage characters, campaigns, and other game resources.
+**[End Users](../technical/user_management.md)** - Players and storytellers interact with your application. Your app authenticates them and makes API calls on their behalf. The API enforces game rules based on each user's [role](../technical/user_management.md#user-roles) (player, storyteller, admin).
 
 **Campaigns** - Storytellers create campaigns to organize their game worlds. Each campaign contains:
 

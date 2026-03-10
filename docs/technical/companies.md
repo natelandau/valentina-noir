@@ -20,25 +20,19 @@ This isolation enables multiple independent gaming groups to use Valentina Noir 
 
 ## Company Permissions
 
-Each developer API key has permissions assigned per company. Three permission levels control access:
+Each developer API key has permissions assigned per company. These permissions control **company governance** — who can manage the company and grant access to other developers. Any developer with access to a company can use the full API for that company's resources (users, characters, campaigns, etc.).
 
-| Permission | Access Level                                                     |
-| ---------- | ---------------------------------------------------------------- |
-| `USER`     | Read access and basic operations within assigned companies       |
-| `ADMIN`    | Full management of users and resources within assigned companies |
-| `OWNER`    | Complete control including company settings and admin management |
+| Permission | Access Level                                                                       |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `USER`     | Full access to all company resources (users, characters, campaigns)                |
+| `ADMIN`    | All `USER` capabilities, plus manage company settings                              |
+| `OWNER`    | All `ADMIN` capabilities, plus grant/revoke developer access and delete the company |
+
+For details on how these differ from end-user roles, see [Developer vs. User Permissions](authentication.md#developer-vs-user-permissions).
 
 !!! tip "Auto-Assignment"
 
     Creating a company automatically grants you `OWNER` permission for that company. You can then associate additional developers for client development.
-
-### Multi-Company Access
-
-Access multiple companies with a single developer API key, each with different permission levels. Common scenarios include:
-
-- Platform providers managing multiple gaming communities
-- Developers with admin access to their company and read-only access to a partner's company
-- Global admins supporting multiple gaming groups
 
 ## URL Structure
 
@@ -114,16 +108,6 @@ The response includes both the company and an admin user account:
 !!! info "Automatic User Creation"
 
     Creating a company also creates a user account with `ADMIN` permissions using your developer username and email. You can update this account later via PATCH requests.
-
-### Multi-Company Access
-
-Access multiple companies with a single developer API key, each with different permission levels. Common scenarios include:
-
-- Platform providers managing multiple gaming communities
-- Developers with admin access to their company and read-only access to a partner's company
-- Global admins supporting multiple gaming groups
-
-Learn more about permission levels in [Authentication](authentication.md#developer-permissions).
 
 ## Listing Companies
 
