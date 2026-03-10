@@ -933,8 +933,8 @@ class TestUnapprovedUserController:
             assert response.status_code == HTTP_400_BAD_REQUEST
 
 
-class TestUserRegistrationController:
-    """Test UserRegistrationController."""
+class TestUserRegistration:
+    """Test user registration and merge endpoints."""
 
     class TestRegisterUser:
         """Test RegisterUser."""

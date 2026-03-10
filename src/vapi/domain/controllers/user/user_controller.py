@@ -178,3 +178,32 @@ class UserController(Controller):
             company=company,
             requesting_user_id=data.requesting_user_id,
         )
+
+    @post(
+        path=urls.Users.REGISTER,
+        summary="Register user",
+        operation_id="registerUser",
+        description=docs.REGISTER_USER_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+    )
+    async def register_user(self, data: dto.UserRegisterDTO, company: Company) -> User:
+        """Register a new user with the UNAPPROVED role."""
+        service = UserService()
+        return await service.register_user(company=company, data=data)
+
+    @post(
+        path=urls.Users.MERGE,
+        summary="Merge users",
+        operation_id="mergeUsers",
+        description=docs.MERGE_USERS_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+    )
+    async def merge_users(self, data: dto.UserMergeDTO, company: Company) -> User:
+        """Merge an UNAPPROVED user into an existing primary user."""
+        service = UserService()
+        return await service.merge_users(
+            primary_user_id=data.primary_user_id,
+            secondary_user_id=data.secondary_user_id,
+            company=company,
+            requesting_user_id=data.requesting_user_id,
+        )
