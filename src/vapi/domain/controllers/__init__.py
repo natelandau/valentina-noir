@@ -40,6 +40,7 @@ from .user import (
     ExperienceController,
     QuickRollController,
     UserController,
+    UserRegistrationController,
 )
 
 __all__ = (
@@ -74,6 +75,7 @@ __all__ = (
     "UserAssetsController",
     "UserController",
     "UserNoteController",
+    "UserRegistrationController",
     "WerewolfSpecialsController",
     "html_static_files_router",
 )
