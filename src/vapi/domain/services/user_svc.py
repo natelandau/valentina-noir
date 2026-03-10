@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
     from vapi.db.models.user import CampaignExperience
-    from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO
+    from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO, UserRegisterDTO
 
 
 class UserService:
@@ -69,6 +69,92 @@ class UserService:
         await company.save()
 
         return new_user
+
+    async def register_user(self, company: Company, data: UserRegisterDTO) -> User:
+        """Register a new user with the UNAPPROVED role.
+
+        Designed for SSO onboarding where no existing Valentina user is making the
+        request. Developer API key auth is sufficient - no requesting_user_id needed.
+
+        Args:
+            company: The company to register the user in.
+            data: The registration data.
+
+        Returns:
+            The newly created user with UNAPPROVED role.
+        """
+        new_user = User(
+            name_first=data.name_first,
+            name_last=data.name_last,
+            username=data.username,
+            email=data.email,
+            role=UserRole.UNAPPROVED,
+            company_id=company.id,
+            discord_profile=data.discord_profile,
+            google_profile=data.google_profile,
+            github_profile=data.github_profile,
+        )
+        await new_user.save()
+
+        company.user_ids.append(new_user.id)
+        await company.save()
+
+        return new_user
+
+    async def merge_users(
+        self,
+        *,
+        primary_user: User,
+        secondary_user: User,
+        company: Company,
+        requesting_user_id: PydanticObjectId,
+    ) -> User:
+        """Merge an UNAPPROVED secondary user into an existing primary user.
+
+        Copy OAuth profile fields from secondary to primary (only filling in empty
+        fields), then delete the secondary user and remove it from the company.
+
+        Args:
+            primary_user: The user account that survives.
+            secondary_user: The UNAPPROVED user whose profile info is absorbed.
+            company: The company both users belong to.
+            requesting_user_id: The admin performing the merge.
+
+        Raises:
+            ValidationError: If the secondary user is not UNAPPROVED or users are the same.
+            PermissionDeniedError: If the requesting user is not an admin.
+        """
+        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+
+        if primary_user.id == secondary_user.id:
+            raise ValidationError(detail="Cannot merge a user with themselves")
+
+        if secondary_user.role != UserRole.UNAPPROVED:
+            raise ValidationError(detail="Secondary user must have UNAPPROVED role")
+
+        self._absorb_profiles(primary=primary_user, secondary=secondary_user)
+        await primary_user.save()
+
+        await self.remove_and_archive_user(user=secondary_user, company=company)
+
+        return primary_user
+
+    @staticmethod
+    def _absorb_profiles(*, primary: User, secondary: User) -> None:
+        """Copy non-empty profile fields from secondary to primary where primary is empty.
+
+        Args:
+            primary: The target user whose empty profile fields get filled.
+            secondary: The source user whose profile fields are copied.
+        """
+        for profile_attr in ("google_profile", "github_profile", "discord_profile"):
+            primary_profile = getattr(primary, profile_attr)
+            secondary_profile = getattr(secondary, profile_attr)
+            for field_name in secondary_profile.model_fields:
+                secondary_value = getattr(secondary_profile, field_name)
+                primary_value = getattr(primary_profile, field_name)
+                if secondary_value is not None and primary_value is None:
+                    setattr(primary_profile, field_name, secondary_value)
 
     async def update_user(self, user: User, data: UserPatchDTO) -> User:
         """Update a user."""
