@@ -45,78 +45,72 @@ flowchart LR
 
 Link your authenticated users to Valentina user accounts.
 
-**Workflow:**
+**Recommended Workflow with SSO:**
 
-1. Check if you have a stored Valentina `user_id` for this user
-2. If not, create a new user via `POST /api/v1/companies/{company_id}/users`
-3. Store the returned `user_id` in your database
-4. Use this `user_id` in subsequent API calls
+1. User authenticates via your identity provider (Google, GitHub, Discord, etc.)
+2. Check if you have a stored Valentina `user_id` for this user
+3. If not, search by email: `GET /api/v1/companies/{company_id}/users?email={email}`
+4. If found, update the existing user's profile with the new OAuth info (via `PATCH`)
+5. If not found, register a new user: `POST /api/v1/companies/{company_id}/users/register`
+6. Store the returned `user_id` in your database
 
 ```python
 import requests
 
-def get_or_create_valentina_user(local_user, company_id, api_key):
-    """Link a local user to a Valentina user account."""
-    # Return existing user_id if already linked
-    if local_user.valentina_user_id:
-        return local_user.valentina_user_id
+API_URL = "https://api.valentina-noir.com/api/v1"
+HEADERS = {"X-API-KEY": "your-api-key"}
 
-    # Create a new user in Valentina
-    response = requests.post(
-        f"https://api.valentina-noir.com/api/v1/companies/{company_id}/users",
-        headers={"X-API-KEY": api_key},
-        json={
-            "name_first": local_user.name_first,
-            "name_last": local_user.name_last,
-            "username": local_user.username,
-            "email": local_user.email,
-            "role": "PLAYER"
-        }
+def get_or_create_valentina_user(sso_user, company_id):
+    """Link an SSO user to a Valentina user account."""
+    # Return existing user_id if already linked
+    if sso_user.valentina_user_id:
+        return sso_user.valentina_user_id
+
+    # Check if a user with this email already exists
+    response = requests.get(
+        f"{API_URL}/companies/{company_id}/users",
+        headers=HEADERS,
+        params={"email": sso_user.email},
     )
-    response.raise_for_status()
+    existing_users = response.json()["items"]
+
+    if existing_users:
+        # Link to existing user and update their profile
+        valentina_user_id = existing_users[0]["id"]
+        requests.patch(
+            f"{API_URL}/companies/{company_id}/users/{valentina_user_id}",
+            headers=HEADERS,
+            json={
+                "google_profile": {"email": sso_user.email, "username": sso_user.name},
+                "requesting_user_id": valentina_user_id,
+            },
+        )
+    else:
+        # Register a new UNAPPROVED user
+        response = requests.post(
+            f"{API_URL}/companies/{company_id}/users/register",
+            headers=HEADERS,
+            json={
+                "username": sso_user.username,
+                "email": sso_user.email,
+                "google_profile": {
+                    "email": sso_user.email,
+                    "username": sso_user.name,
+                },
+            },
+        )
+        response.raise_for_status()
+        valentina_user_id = response.json()["id"]
 
     # Store and return the Valentina user_id
-    valentina_user = response.json()
-    local_user.valentina_user_id = valentina_user["id"]
-    local_user.save()
-
-    return valentina_user["id"]
+    sso_user.valentina_user_id = valentina_user_id
+    sso_user.save()
+    return valentina_user_id
 ```
-
-### SSO Registration
-
-For automated SSO onboarding flows where no authenticated Valentina user is available to act as the requester, use the dedicated registration endpoint. This creates a user with the `UNAPPROVED` role — no `requesting_user_id` is required.
-
-```shell
-POST /api/v1/companies/{company_id}/users/register
-```
-
-```json
-{
-    "username": "newplayer",
-    "email": "newplayer@example.com",
-    "google_profile": {
-        "email": "newplayer@gmail.com",
-        "username": "New Player"
-    }
-}
-```
-
-The registered user must be [approved by an admin](#approve-a-user) before they can access features.
-
-#### Checking for Existing Users
-
-Before registering a new user, check if one already exists with the same email to avoid duplicates:
-
-```shell
-GET /api/v1/companies/{company_id}/users?email=newplayer@example.com
-```
-
-If the email matches an existing user, link to that account instead of creating a duplicate. If a duplicate `UNAPPROVED` user was already created, use the [merge endpoint](#merging-users) to combine the accounts.
 
 ### Merging Users
 
-When a user authenticates via a new identity provider and a duplicate `UNAPPROVED` account is created, merge it into the existing primary account. The merge copies OAuth profile fields (Google, GitHub, Discord) from the secondary user to the primary user, filling in only empty fields. The secondary user is then deleted.
+When a duplicate UNAPPROVED user is created (e.g., a user authenticates via a new identity provider before you matched them to their existing account), merge the accounts:
 
 ```shell
 POST /api/v1/companies/{company_id}/users/merge
@@ -125,18 +119,20 @@ POST /api/v1/companies/{company_id}/users/merge
 ```json
 {
     "primary_user_id": "existing_user_id",
-    "secondary_user_id": "unapproved_user_id",
+    "secondary_user_id": "unapproved_duplicate_id",
     "requesting_user_id": "admin_user_id"
 }
 ```
 
-**Requirements:**
+The merge:
 
-- The secondary user must have the `UNAPPROVED` role
-- The requesting user must be an `ADMIN`
-- Both users must belong to the same company
+- Copies OAuth profile fields from the secondary user to the primary (only fills empty fields)
+- Archives the secondary user and removes them from the company
+- Returns the updated primary user
 
-The response returns the updated primary user with any new profile fields absorbed from the secondary.
+!!! warning "Secondary Must Be UNAPPROVED"
+
+    The secondary user must have the `UNAPPROVED` role. This prevents accidental data loss from merging active users who may have characters, campaigns, and experience.
 
 ## User Roles
 
@@ -314,35 +310,21 @@ import requests
 API_URL = "https://api.valentina-noir.com/api/v1"
 HEADERS = {"X-API-KEY": "your-api-key"}
 
-# Step 1: Check if user already exists by email
-response = requests.get(
-    f"{API_URL}/companies/{company_id}/users",
+# Step 1: Register an unapproved user (no admin required)
+response = requests.post(
+    f"{API_URL}/companies/{company_id}/users/register",
     headers=HEADERS,
-    params={"email": "newplayer@example.com"},
-)
-existing_users = response.json()["items"]
-
-if existing_users:
-    # User already exists — link to their account
-    valentina_user_id = existing_users[0]["id"]
-else:
-    # Step 2: Register the user (no requesting_user_id needed)
-    response = requests.post(
-        f"{API_URL}/companies/{company_id}/users/register",
-        headers=HEADERS,
-        json={
-            "username": "newplayer",
-            "email": "newplayer@example.com",
-            "google_profile": {
-                "email": "newplayer@gmail.com",
-                "username": "New Player",
-            },
+    json={
+        "username": "newplayer",
+        "email": "newplayer@example.com",
+        "google_profile": {
+            "email": "newplayer@gmail.com",
         },
-    )
-    new_user = response.json()
-    valentina_user_id = new_user["id"]
+    }
+)
+new_user = response.json()
 
-# Step 3: List pending users (admin reviews)
+# Step 2: List pending users (admin reviews)
 response = requests.get(
     f"{API_URL}/companies/{company_id}/users/unapproved",
     headers=HEADERS,
@@ -350,14 +332,14 @@ response = requests.get(
 )
 pending_users = response.json()["items"]
 
-# Step 4: Approve the user with a role
+# Step 3: Approve the user with a role
 response = requests.post(
-    f"{API_URL}/companies/{company_id}/users/{valentina_user_id}/approve",
+    f"{API_URL}/companies/{company_id}/users/{new_user['id']}/approve",
     headers=HEADERS,
     json={
         "role": "PLAYER",
         "requesting_user_id": admin_user_id,
-    },
+    }
 )
 approved_user = response.json()
 # approved_user["role"] is now "PLAYER"
