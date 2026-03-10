@@ -3,22 +3,22 @@
     dependencies = [
         "asyncio>=4.0.0",
         "beanie>=2.0.1,<3.0.0",
-        "boto3>=1.42.50",
-        "faker>=40.4.0",
+        "boto3>=1.42.64",
+        "faker>=40.8.0",
         "httpx-oauth>=0.16.1",
         "inflect>=7.5.0",
         "litestar-granian>=0.14.2",
-        "litestar-saq>=0.7.0",
-        "litestar[jinja,jwt,redis]>=2.21.0,<3.0.0",
+        "litestar-saq>=0.7.1",
+        "litestar[jinja,jwt,redis]>=2.21.1,<3.0.0",
         "msgspec[toml]>=0.20.0",
-        "numpy>=2.4.2,<3.0.0",
+        "numpy>=2.4.3,<3.0.0",
         "passlib[argon2]>=1.7.4",
-        "polyfactory>=3.2.0",
-        "pydantic-settings>=2.13.0,<3.0.0",
+        "polyfactory>=3.3.0",
+        "pydantic-settings>=2.13.1,<3.0.0",
         "pydantic[email]>=2.12.5,<3.0.0",
         "pymongo>=4.16.0,<5.0.0",
         "python-json-logger>=4.0.0",
-        "rich>=14.3.2",
+        "rich>=14.3.3",
         "ruamel-yaml>=0.19.1",
         "semver>=3.0.4",
     ]
@@ -38,12 +38,12 @@
 
 [dependency-groups]
     dev = [
-        "commitizen>=4.13.7",
+        "commitizen>=4.13.9",
         "coverage>=7.13.4",
         "docker>=7.1.0",
         "duty>=1.9.0",
         "mypy>=1.19.1",
-        "prek>=0.3.3",
+        "prek>=0.3.5",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.0.0",
         "pytest-databases[mongodb,redis]>=0.16.0",
@@ -53,12 +53,12 @@
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.0.2",
-        "ruff>=0.15.1",
+        "ruff>=0.15.5",
         "shellcheck-py>=0.11.0.1",
-        "typos>=1.43.5",
+        "typos>=1.44.0",
         "yamllint>=1.38.0",
     ]
-    docs = ["zensical>=0.0.23"]
+    docs = ["zensical>=0.0.24"]
 
 [tool.commitizen]
     bump_message               = "bump(release): v$current_version → v$new_version"
