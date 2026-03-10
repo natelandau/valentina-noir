@@ -105,3 +105,29 @@ The target user must have the UNAPPROVED role. The user is archived and removed 
 
 **Note:** Requires admin-level access.
 """
+
+# Registration & Merge Controller
+REGISTER_USER_DESCRIPTION = """\
+Register a new user via SSO onboarding.
+
+Creates a new user with the UNAPPROVED role. This endpoint is designed for automated \
+user provisioning when a new identity provider user is encountered. No requesting user \
+ID is required - developer API key authentication is sufficient.
+
+The created user must be approved by an admin before they can access features. \
+Use the approve endpoint to activate the user after registration.
+"""
+
+MERGE_USERS_DESCRIPTION = """\
+Merge an UNAPPROVED user into an existing primary user.
+
+Copies OAuth profile fields (Google, GitHub, Discord) from the secondary user to the \
+primary user, filling in only empty profile fields on the primary. The secondary user \
+is then deleted and removed from the company's user list.
+
+The secondary user must have the UNAPPROVED role. This endpoint is designed for \
+account linking when a user authenticates via a new identity provider and a duplicate \
+UNAPPROVED account was created before the match was identified.
+
+**Note:** Requires admin-level access.
+"""
