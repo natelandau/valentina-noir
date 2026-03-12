@@ -99,6 +99,8 @@ class TestExperienceController:
     ) -> None:
         """Test add xp to experience."""
         user = await user_factory()
+        initial_lifetime_xp = user.lifetime_xp
+        initial_lifetime_cp = user.lifetime_cool_points
         response = await client.post(
             build_url(UsersURL.XP_ADD, user_id=user.id),
             headers=token_company_user,
@@ -120,6 +122,8 @@ class TestExperienceController:
         assert user.campaign_experience[0].xp_current == 100
         assert user.campaign_experience[0].xp_total == 100
         assert user.campaign_experience[0].cool_points == 0
+        assert user.lifetime_xp == initial_lifetime_xp + 100
+        assert user.lifetime_cool_points == initial_lifetime_cp
 
         audit_log = await AuditLog.find_one(
             AuditLog.handler_name == "add_xp_to_campaign_experience"
@@ -151,6 +155,8 @@ class TestExperienceController:
     ) -> None:
         """Test add cp to experience."""
         user = await user_factory()
+        initial_lifetime_xp = user.lifetime_xp
+        initial_lifetime_cp = user.lifetime_cool_points
         response = await client.post(
             build_url(UsersURL.CP_ADD, user_id=user.id),
             headers=token_company_user,
@@ -172,6 +178,8 @@ class TestExperienceController:
         assert user.campaign_experience[0].xp_current == 10
         assert user.campaign_experience[0].xp_total == 10
         assert user.campaign_experience[0].cool_points == 1
+        assert user.lifetime_xp == initial_lifetime_xp
+        assert user.lifetime_cool_points == initial_lifetime_cp + 1
 
         audit_log = await AuditLog.find_one(
             AuditLog.handler_name == "add_cp_to_campaign_experience"

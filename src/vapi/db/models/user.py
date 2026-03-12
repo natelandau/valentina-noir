@@ -91,6 +91,8 @@ class User(BaseDocument):
     email: EmailStr
     role: UserRole = Field(default=UserRole.PLAYER)
     company_id: PydanticObjectId = Field(examples=["68c1f7152cae3787a09a74fa"])
+    lifetime_xp: int = 0
+    lifetime_cool_points: int = 0
 
     google_profile: Annotated[GoogleProfile, Field(default_factory=GoogleProfile)]
     github_profile: Annotated[GitHubProfile, Field(default_factory=GitHubProfile)]
@@ -214,6 +216,8 @@ class User(BaseDocument):
             The updated campaign experience.
         """
         campaign_experience = await self.get_or_create_campaign_experience(campaign_id)
+        if update_total:
+            self.lifetime_xp += amount
         return await self.update_campaign_experience(
             campaign_id,
             {
@@ -232,6 +236,7 @@ class User(BaseDocument):
             amount: The amount of CP to add.
         """
         campaign_experience = await self.get_or_create_campaign_experience(campaign_id)
+        self.lifetime_cool_points += amount
         return await self.update_campaign_experience(
             campaign_id,
             {
