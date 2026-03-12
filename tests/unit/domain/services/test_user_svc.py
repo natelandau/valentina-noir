@@ -668,6 +668,7 @@ class TestUserXPService:
         requesting_user = target_user
 
         spy = mocker.spy(UserXPService, "_validate_user_can_grant_xp")
+        initial_lifetime_xp = target_user.lifetime_xp
 
         # When we add XP to the campaign experience
         service = UserXPService()
@@ -686,6 +687,30 @@ class TestUserXPService:
         assert campaign_experience.xp_current == 10
         assert campaign_experience.xp_total == 10
         assert campaign_experience.cool_points == 0
+
+        # Then the user's lifetime XP is incremented
+        await target_user.sync()
+        assert target_user.lifetime_xp == initial_lifetime_xp + 10
+
+    async def test_add_xp_to_campaign_experience_no_lifetime_update(
+        self,
+        company_factory: Callable[[...], Company],
+        user_factory: Callable[[...], User],
+        campaign_factory: Callable[[...], Campaign],
+    ) -> None:
+        """Verify lifetime_xp is not updated when update_total is False."""
+        # Given objects
+        company = await company_factory()
+        campaign = await campaign_factory(company_id=company.id)
+        target_user = await user_factory(company_id=company.id)
+        initial_lifetime_xp = target_user.lifetime_xp
+
+        # When we add XP without updating the total
+        await target_user.add_xp(campaign_id=campaign.id, amount=10, update_total=False)
+
+        # Then lifetime_xp remains unchanged
+        await target_user.sync()
+        assert target_user.lifetime_xp == initial_lifetime_xp
 
     async def test_add_xp_to_campaign_experience_requesting_user_not_found(
         self,
@@ -750,6 +775,7 @@ class TestUserXPService:
         target_user = await user_factory(company_id=company.id)
         requesting_user = target_user
         spy = mocker.spy(UserXPService, "_validate_user_can_grant_xp")
+        initial_lifetime_cp = target_user.lifetime_cool_points
 
         # When we add CP to the campaign experience
         service = UserXPService()
@@ -760,7 +786,6 @@ class TestUserXPService:
             campaign_id=campaign.id,
             amount=1,
         )
-        debug(campaign_experience)
 
         # Then the campaign experience is returned
         spy.assert_called_once()
@@ -768,6 +793,10 @@ class TestUserXPService:
         assert campaign_experience.xp_current == 10
         assert campaign_experience.xp_total == 10
         assert campaign_experience.cool_points == 1
+
+        # Then the user's lifetime cool points are incremented
+        await target_user.sync()
+        assert target_user.lifetime_cool_points == initial_lifetime_cp + 1
 
     async def test_add_cp_to_campaign_experience_requesting_user_not_found(
         self,
