@@ -572,6 +572,22 @@ class TestUserQuickRollService:
         with pytest.raises(ValidationError, match="Quick roll name already exists"):
             await service.validate_quickroll(quickroll2)
 
+    async def test_validate_quickroll_no_traits(
+        self,
+        user_factory: Callable[[...], User],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify quickroll with no traits raises ValidationError."""
+        # Given a quickroll with an empty trait list
+        user = await user_factory()
+        quickroll = QuickRoll(name="Empty Roll", user_id=user.id, trait_ids=[])
+
+        # When we validate the quick roll
+        # Then a ValidationError is raised
+        service = UserQuickRollService()
+        with pytest.raises(ValidationError, match="Quick roll must have at least one trait"):
+            await service.validate_quickroll(quickroll)
+
     async def test_validate_quickroll_invalid_trait_ids(
         self,
         user_factory: Callable[[...], User],

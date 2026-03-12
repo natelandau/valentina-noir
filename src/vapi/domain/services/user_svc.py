@@ -252,6 +252,17 @@ class UserQuickRollService:
         """Validate a quick roll."""
         quickroll.trait_ids = await validate_trait_ids_from_mixed_sources(quickroll.trait_ids)
 
+        if not quickroll.trait_ids:
+            raise ValidationError(
+                detail="Quick roll must have at least one trait",
+                invalid_parameters=[
+                    {
+                        "field": "trait_ids",
+                        "message": "Quick roll must have at least one trait",
+                    },
+                ],
+            )
+
         existing_quickrolls = await QuickRoll.find(
             QuickRoll.user_id == quickroll.user_id,
             QuickRoll.is_archived == False,
