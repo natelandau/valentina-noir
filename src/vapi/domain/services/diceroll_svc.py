@@ -82,7 +82,7 @@ class DiceRollService:
 
         result = roll_dice(
             num_dice=total_dice,
-            num_desperation_dice=0,
+            num_desperation_dice=data.num_desperation_dice,
             difficulty=data.difficulty,
             dice_size=DiceSize.D10,
         )
@@ -91,7 +91,7 @@ class DiceRollService:
             dice_roll = DiceRoll(
                 dice_size=DiceSize.D10,
                 num_dice=total_dice,
-                num_desperation_dice=0,
+                num_desperation_dice=data.num_desperation_dice,
                 difficulty=data.difficulty,
                 result=result,
                 company_id=company.id,
