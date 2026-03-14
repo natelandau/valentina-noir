@@ -16,7 +16,7 @@ logger = logging.getLogger("vapi")
 
 
 async def purge_db_expired_items(_: Context) -> None:
-    """Purge old audit logs."""
+    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
     from beanie.odm.operators.find.comparison import LT
 
     from vapi.db.models import (
@@ -62,66 +62,88 @@ async def purge_db_expired_items(_: Context) -> None:
         Trait,
         User,
     ]:
-        deleted = await model.find(
-            model.is_archived == True, LT(model.date_modified, cutoff_date)
-        ).delete_many()
-        msg = f"Purge old {model.__name__}."
+        try:
+            deleted = await model.find(
+                model.is_archived == True, LT(model.date_modified, cutoff_date)
+            ).delete_many()
+            logger.info(
+                "Purge old %s.",
+                model.__name__,
+                extra={
+                    "component": "saq",
+                    "task": "purge_db_expired_items",
+                    "num_purged": deleted.deleted_count,
+                },
+            )
+        except Exception:
+            logger.exception(
+                "Failed to purge %s.",
+                model.__name__,
+                extra={"component": "saq", "task": "purge_db_expired_items"},
+            )
+
+    # Purge audit logs separately because they are not archived
+    try:
+        deleted = await AuditLog.find(LT(AuditLog.date_modified, cutoff_date)).delete_many()
         logger.info(
-            msg,
+            "Purge old AuditLogs.",
             extra={
                 "component": "saq",
                 "task": "purge_db_expired_items",
                 "num_purged": deleted.deleted_count,
             },
         )
+    except Exception:
+        logger.exception(
+            "Failed to purge AuditLogs.",
+            extra={"component": "saq", "task": "purge_db_expired_items"},
+        )
 
-    # Purge audit logs separately because they are not archived
-    deleted = await AuditLog.find(LT(AuditLog.date_modified, cutoff_date)).delete_many()
-    msg = "Purge old AuditLogs."
-    logger.info(
-        msg,
-        extra={
-            "component": "saq",
-            "task": "purge_db_expired_items",
-            "num_purged": deleted.deleted_count,
-        },
-    )
+    try:
+        aws_service = AWSS3Service()
+        assets = await S3Asset.find(
+            S3Asset.is_archived == True, LT(S3Asset.date_modified, cutoff_date)
+        ).to_list()
+        for asset in assets:
+            await aws_service.delete_asset(asset)
 
-    aws_service = AWSS3Service()
-    assets = await S3Asset.find(
-        S3Asset.is_archived == True, LT(S3Asset.date_modified, cutoff_date)
-    ).to_list()
-    for asset in assets:
-        await aws_service.delete_asset(asset)
-
-    msg = "Purge old S3Assets."
-    logger.info(
-        msg,
-        extra={
-            "component": "saq",
-            "task": "purge_db_expired_items",
-            "num_purged": len(assets),
-        },
-    )
+        logger.info(
+            "Purge old S3Assets.",
+            extra={
+                "component": "saq",
+                "task": "purge_db_expired_items",
+                "num_purged": len(assets),
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Failed to purge S3Assets.",
+            extra={"component": "saq", "task": "purge_db_expired_items"},
+        )
 
     # Purge expired chargen sessions and their temporary characters
-    expired_sessions = await ChargenSession.find(
-        ChargenSession.expires_at < time_now(), fetch_links=True
-    ).to_list()
-    for session in expired_sessions:
-        for character in session.characters:
-            await character.delete()  # type: ignore [attr-defined]
-        await session.delete()
+    try:
+        expired_sessions = await ChargenSession.find(
+            ChargenSession.expires_at < time_now(), fetch_links=True
+        ).to_list()
+        for session in expired_sessions:
+            for character in session.characters:
+                await character.delete()  # type: ignore [attr-defined]
+            await session.delete()
 
-    msg = "Purge expired ChargenSessions."
-    logger.info(
-        msg,
-        extra={
-            "component": "saq",
-            "task": "purge_db_expired_items",
-            "num_purged": len(expired_sessions),
-        },
-    )
+        logger.info(
+            "Purge expired ChargenSessions.",
+            extra={
+                "component": "saq",
+                "task": "purge_db_expired_items",
+                "num_purged": len(expired_sessions),
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Failed to purge ChargenSessions.",
+            extra={"component": "saq", "task": "purge_db_expired_items"},
+        )
 
     logger.info(
         "Database cleanup completed.",
