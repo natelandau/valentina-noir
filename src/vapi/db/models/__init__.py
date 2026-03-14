@@ -5,6 +5,7 @@ from .aws import S3Asset
 from .campaign import Campaign, CampaignBase, CampaignBook, CampaignChapter
 from .character import Character, CharacterInventory, CharacterTrait
 from .character_concept import CharacterConcept
+from .chargen_session import ChargenSession
 from .company import Company
 from .constants.advantage_category import AdvantageCategory
 from .constants.character_classes import (
@@ -40,6 +41,7 @@ __all__ = (
     "CharacterConcept",
     "CharacterInventory",
     "CharacterTrait",
+    "ChargenSession",
     "Company",
     "Developer",
     "DiceRoll",
@@ -70,6 +72,7 @@ init_beanie_models = [
     Character,
     CharacterClassConstant,
     CharacterConcept,
+    ChargenSession,
     CharacterInventory,
     CharacterTrait,
     Company,

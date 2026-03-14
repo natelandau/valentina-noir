@@ -84,10 +84,11 @@ You can optionally specify:
 
 Generate multiple characters at once and select the one you want to keep. The system creates several options (the number is configurable in [company settings](./company_settings.md)), presents them for review, and lets you finalize your choice. Depending on company settings, users may need to spend [experience points](./experience.md) to use this feature.
 
-The multiple autogeneration flow works in two steps:
+The multiple autogeneration flow works as follows:
 
-1. Start a chargen session. The API returns a `session_id` and a list of generated characters. The session expires after 24 hours.
-2. Finalize the session by selecting your preferred character. The system keeps your selection and removes the others.
+1. Start a chargen session. The API returns a session object containing an `id` and a list of generated characters. The session expires after 24 hours.
+2. Optionally retrieve active sessions later using the list or detail session endpoints.
+3. Finalize the session by selecting your preferred character. The system keeps your selection and removes the others.
 
 !!! info "Experience Cost"
 

@@ -41,3 +41,15 @@ All other characters from the session will be deleted.
 - Must have an active chargen session
 - The selected character must belong to the provided session
 """
+
+CHARGEN_SESSIONS_LIST_DOCUMENTATION = """\
+List all active (non-expired) character generation sessions for this user.
+
+Returns sessions with their associated character options populated.
+"""
+
+CHARGEN_SESSION_DETAIL_DOCUMENTATION = """\
+Retrieve a specific character generation session by its ID.
+
+Returns the session with its associated character options populated. Returns an error if the session is not found or has expired.
+"""

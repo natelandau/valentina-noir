@@ -32,7 +32,6 @@ class CharacterPatchDTO(PydanticDTO[Character]):
             "werewolf_attributes.auspice_name",
             "hunter_attributes.edges",
             "specialties",
-            "chargen_session_id",
             "is_chargen",
             "is_temporary",
             "starting_points",
@@ -47,7 +46,7 @@ class CharacterPatchDTO(PydanticDTO[Character]):
 class CharacterResponseDTO(PydanticDTO[Character]):
     """Character response DTO."""
 
-    config = dto_config(exclude={"chargen_session_id", "is_chargen", "is_temporary"})
+    config = dto_config(exclude={"is_chargen", "is_temporary"})
 
 
 class CharacterTraitCreate(BaseModel):
@@ -82,7 +81,6 @@ CreateCharacterDTO = create_model_without_fields(
         "traits",
         "user_creator_id",
         "user_player_id",
-        "chargen_session_id",
         "starting_points",
         "asset_ids",
     },

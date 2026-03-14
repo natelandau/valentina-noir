@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from uuid import uuid4
 
+from beanie import PydanticObjectId  # noqa: TC002
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.handlers import post
+from litestar.handlers import get, post
 
 from vapi.constants import CharacterType
 from vapi.db.models import (
     Campaign,
     Character,
-    CharacterTrait,
+    ChargenSession,
     Company,
     User,
 )
@@ -114,41 +114,45 @@ class CharacterGenerationController(Controller):
         operation_id="startChargenSession",
         description=docs.CHARGEN_START_DOCUMENTATION,
         after_response=hooks.post_data_update_hook,
+        return_dto=dto.ChargenSessionResponseDTO,
     )
     async def start_chargen(
         self,
         company: Company,
         user: User,
         campaign: Campaign,
-    ) -> dto.ChargenSessionResponse:
+    ) -> ChargenSession:
         """Generate multiple character options."""
         num_choices = company.settings.character_autogen_num_choices or 1
-        session_id = uuid4()
-        characters: list[Character] = []
 
         xp_cost = company.settings.character_autogen_xp_cost or 0
         if xp_cost > 0:
             await user.spend_xp(campaign.id, xp_cost)
 
         chargen = CharacterAutogenerationHandler(company=company, user=user, campaign=campaign)
+        service = CharacterService()
+        characters: list[Character] = []
         for _ in range(num_choices):
             character = await chargen.generate_character(
                 character_type=CharacterType.PLAYER,
             )
             character.is_chargen = True
             character.is_temporary = num_choices > 1
-            character.chargen_session_id = session_id
-            service = CharacterService()
             await service.prepare_for_save(character)
             await character.save()
             characters.append(character)
 
-        return dto.ChargenSessionResponse(
-            session_id=session_id,
+        session = ChargenSession(
+            user_id=user.id,
+            company_id=company.id,
+            campaign_id=campaign.id,
             characters=characters,
             expires_at=time_now() + timedelta(hours=24),
             requires_selection=num_choices > 1,
         )
+        await session.save()
+
+        return await ChargenSession.get(session.id, fetch_links=True)
 
     @post(
         path=urls.Characters.CHARGEN_FINALIZE,
@@ -163,23 +167,20 @@ class CharacterGenerationController(Controller):
         data: dto.ChargenSessionFinalizeDTO,
     ) -> Character:
         """Finalize character selection from a chargen session and cleanup unselected options."""
-        # Find all characters in this session
-        session_characters = await Character.find(
-            Character.company_id == company.id,
-            Character.chargen_session_id == data.session_id,
-            Character.is_temporary == True,
-            Character.is_archived == False,
-        ).to_list()
+        session = await ChargenSession.find_one(
+            ChargenSession.id == data.session_id,
+            ChargenSession.company_id == company.id,
+            fetch_links=True,
+        )
 
-        if not session_characters:
+        if not session:
             raise ValidationError(
-                invalid_parameters=[
-                    {"field": "session_id", "message": "Session not found or expired"}
-                ]
+                invalid_parameters=[{"field": "session_id", "message": "Session not found"}]
             )
 
         selected_character = next(
-            (c for c in session_characters if c.id == data.selected_character_id), None
+            (c for c in session.characters if c.id == data.selected_character_id),  # type: ignore [attr-defined]
+            None,
         )
         if not selected_character:
             raise ValidationError(
@@ -188,17 +189,68 @@ class CharacterGenerationController(Controller):
                 ]
             )
 
-        # Promote selected character
-        selected_character.is_temporary = False
-        selected_character.chargen_session_id = None
+        # Promote selected character (Link[Character] resolved by fetch_links=True)
+        selected_character.is_temporary = False  # type: ignore [attr-defined]
+        selected_character.is_chargen = False  # type: ignore [attr-defined]
         service = CharacterService()
-        await service.prepare_for_save(selected_character)
-        await selected_character.save()
+        await service.prepare_for_save(selected_character)  # type: ignore [arg-type]
+        await selected_character.save()  # type: ignore [attr-defined]
 
-        # Delete the unselected characters
-        for char in session_characters:
-            if char.id != selected_character.id:
-                await CharacterTrait.find(CharacterTrait.character_id == char.id).delete()
-                await char.delete()
+        # Delete unselected characters (CharacterTraits auto-deleted via Character.delete hook)
+        for char in session.characters:
+            if char.id != selected_character.id:  # type: ignore [attr-defined]
+                await char.delete()  # type: ignore [attr-defined]
 
-        return selected_character
+        # Delete the session document
+        await session.delete()
+
+        return selected_character  # type: ignore [return-value]
+
+    @get(
+        path=urls.Characters.CHARGEN_SESSIONS,
+        summary="List active chargen sessions",
+        operation_id="listChargenSessions",
+        description=docs.CHARGEN_SESSIONS_LIST_DOCUMENTATION,
+        return_dto=dto.ChargenSessionResponseDTO,
+    )
+    async def list_chargen_sessions(
+        self,
+        company: Company,
+        user: User,
+    ) -> list[ChargenSession]:
+        """List all active chargen sessions for this user."""
+        return await ChargenSession.find(
+            ChargenSession.company_id == company.id,
+            ChargenSession.user_id == user.id,
+            ChargenSession.expires_at > time_now(),
+            fetch_links=True,
+        ).to_list()
+
+    @get(
+        path=urls.Characters.CHARGEN_SESSION_DETAIL,
+        summary="Get chargen session by ID",
+        operation_id="getChargenSession",
+        description=docs.CHARGEN_SESSION_DETAIL_DOCUMENTATION,
+        return_dto=dto.ChargenSessionResponseDTO,
+    )
+    async def get_chargen_session(
+        self,
+        company: Company,
+        session_id: PydanticObjectId,
+    ) -> ChargenSession:
+        """Retrieve a specific chargen session by its ID."""
+        session = await ChargenSession.find_one(
+            ChargenSession.id == session_id,
+            ChargenSession.company_id == company.id,
+            ChargenSession.expires_at > time_now(),
+            fetch_links=True,
+        )
+
+        if not session:
+            raise ValidationError(
+                invalid_parameters=[
+                    {"field": "session_id", "message": "Session not found or expired"}
+                ]
+            )
+
+        return session
