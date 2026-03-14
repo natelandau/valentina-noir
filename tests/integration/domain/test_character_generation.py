@@ -42,7 +42,6 @@ EXCLUDE_CHARACTER_FIELDS = {
     "is_archived",
     "is_temporary",
     "is_chargen",
-    "chargen_session_id",
 }
 
 
@@ -169,12 +168,9 @@ class TestCharacterChargen:
         assert response.status_code == HTTP_201_CREATED
         assert response.json()["requires_selection"] == (character_autogen_num_choices > 1)
 
-        chargen_session_id = response.json()["session_id"]
-
         characters = response.json()["characters"]
         assert len(characters) == character_autogen_num_choices
         for character in characters:
-            assert character["chargen_session_id"] == chargen_session_id
             assert character["is_temporary"] == (character_autogen_num_choices > 1)
             assert character["is_chargen"] is True
             assert character["is_archived"] is False
@@ -257,7 +253,6 @@ class TestCharacterChargen:
                 assert c.is_temporary is False
                 assert c.is_chargen is True
                 assert c.is_archived is False
-                assert c.chargen_session_id is None
 
     async def test_finalize_chargen_invalid_session_id(
         self,

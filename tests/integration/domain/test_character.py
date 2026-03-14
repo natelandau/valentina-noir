@@ -47,7 +47,6 @@ EXCLUDE_CHARACTER_FIELDS = {
     "is_archived",
     "is_temporary",
     "is_chargen",
-    "chargen_session_id",
 }
 
 

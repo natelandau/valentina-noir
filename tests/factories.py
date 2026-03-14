@@ -113,10 +113,6 @@ class CharacterFactory(BeanieDocumentFactory[Character]):
         return False
 
     @classmethod
-    def chargen_session_id(cls) -> None:
-        return None
-
-    @classmethod
     def starting_points(cls) -> int:
         return 0
 

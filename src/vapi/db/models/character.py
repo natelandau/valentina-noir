@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003
 from typing import Annotated, ClassVar
-from uuid import UUID  # noqa: TC003
 
 from beanie import (
     Delete,
@@ -160,8 +159,6 @@ class Character(BaseDocument):
     # Excluded from api responses, used for internal tracking
     is_temporary: bool = False
     is_chargen: bool = False
-    chargen_session_id: UUID | None = None
-
     # Set programmatically
     date_killed: datetime | None = None
 
