@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from beanie import PydanticObjectId
+from beanie import PydanticObjectId  # noqa: TC002
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
@@ -130,6 +130,7 @@ class CharacterGenerationController(Controller):
             await user.spend_xp(campaign.id, xp_cost)
 
         chargen = CharacterAutogenerationHandler(company=company, user=user, campaign=campaign)
+        service = CharacterService()
         characters: list[Character] = []
         for _ in range(num_choices):
             character = await chargen.generate_character(
@@ -137,7 +138,6 @@ class CharacterGenerationController(Controller):
             )
             character.is_chargen = True
             character.is_temporary = num_choices > 1
-            service = CharacterService()
             await service.prepare_for_save(character)
             await character.save()
             characters.append(character)
@@ -175,9 +175,7 @@ class CharacterGenerationController(Controller):
 
         if not session:
             raise ValidationError(
-                invalid_parameters=[
-                    {"field": "session_id", "message": "Session not found or expired"}
-                ]
+                invalid_parameters=[{"field": "session_id", "message": "Session not found"}]
             )
 
         selected_character = next(
@@ -237,11 +235,11 @@ class CharacterGenerationController(Controller):
     async def get_chargen_session(
         self,
         company: Company,
-        session_id: str,
+        session_id: PydanticObjectId,
     ) -> ChargenSession:
         """Retrieve a specific chargen session by its ID."""
         session = await ChargenSession.find_one(
-            ChargenSession.id == PydanticObjectId(session_id),
+            ChargenSession.id == session_id,
             ChargenSession.company_id == company.id,
             ChargenSession.expires_at > time_now(),
             fetch_links=True,

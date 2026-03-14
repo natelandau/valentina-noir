@@ -26,3 +26,6 @@ docs/superpowers/
 
 # Claude Code
 .claude/settings.local.json
+
+# Worktrees
+.worktrees/
