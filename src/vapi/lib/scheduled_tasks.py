@@ -27,6 +27,7 @@ async def purge_db_expired_items(_: Context) -> None:
         Character,
         CharacterConcept,
         CharacterInventory,
+        ChargenSession,
         Company,
         DiceRoll,
         DictionaryTerm,
@@ -100,6 +101,25 @@ async def purge_db_expired_items(_: Context) -> None:
             "component": "saq",
             "task": "purge_db_expired_items",
             "num_purged": len(assets),
+        },
+    )
+
+    # Purge expired chargen sessions and their temporary characters
+    expired_sessions = await ChargenSession.find(
+        ChargenSession.expires_at < time_now(), fetch_links=True
+    ).to_list()
+    for session in expired_sessions:
+        for character in session.characters:
+            await character.delete()
+        await session.delete()
+
+    msg = "Purge expired ChargenSessions."
+    logger.info(
+        msg,
+        extra={
+            "component": "saq",
+            "task": "purge_db_expired_items",
+            "num_purged": len(expired_sessions),
         },
     )
 
