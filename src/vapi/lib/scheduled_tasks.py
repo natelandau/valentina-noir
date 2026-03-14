@@ -110,7 +110,7 @@ async def purge_db_expired_items(_: Context) -> None:
     ).to_list()
     for session in expired_sessions:
         for character in session.characters:
-            await character.delete()
+            await character.delete()  # type: ignore [attr-defined]
         await session.delete()
 
     msg = "Purge expired ChargenSessions."

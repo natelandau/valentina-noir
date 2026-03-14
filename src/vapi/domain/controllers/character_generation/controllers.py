@@ -179,7 +179,8 @@ class CharacterGenerationController(Controller):
             )
 
         selected_character = next(
-            (c for c in session.characters if c.id == data.selected_character_id), None
+            (c for c in session.characters if c.id == data.selected_character_id),  # type: ignore [attr-defined]
+            None,
         )
         if not selected_character:
             raise ValidationError(
@@ -188,22 +189,22 @@ class CharacterGenerationController(Controller):
                 ]
             )
 
-        # Promote selected character
-        selected_character.is_temporary = False
-        selected_character.is_chargen = False
+        # Promote selected character (Link[Character] resolved by fetch_links=True)
+        selected_character.is_temporary = False  # type: ignore [attr-defined]
+        selected_character.is_chargen = False  # type: ignore [attr-defined]
         service = CharacterService()
-        await service.prepare_for_save(selected_character)
-        await selected_character.save()
+        await service.prepare_for_save(selected_character)  # type: ignore [arg-type]
+        await selected_character.save()  # type: ignore [attr-defined]
 
         # Delete unselected characters (CharacterTraits auto-deleted via Character.delete hook)
         for char in session.characters:
-            if char.id != selected_character.id:
-                await char.delete()
+            if char.id != selected_character.id:  # type: ignore [attr-defined]
+                await char.delete()  # type: ignore [attr-defined]
 
         # Delete the session document
         await session.delete()
 
-        return selected_character
+        return selected_character  # type: ignore [return-value]
 
     @get(
         path=urls.Characters.CHARGEN_SESSIONS,
