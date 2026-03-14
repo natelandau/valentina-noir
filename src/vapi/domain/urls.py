@@ -183,6 +183,8 @@ class Characters:
     AUTOGENERATE = f"{BASE}/autogenerate"  # Used for storytellers to generate single characters
     CHARGEN_START = f"{BASE}/chargen/start"  # Used for players to start a chargen session
     CHARGEN_FINALIZE = f"{BASE}/chargen/finalize"
+    CHARGEN_SESSIONS = f"{BASE}/chargen/sessions"
+    CHARGEN_SESSION_DETAIL = f"{CHARGEN_SESSIONS}/{{session_id:str}}"
 
     # Notes sub-resource
     NOTES = f"{DETAIL}/notes"

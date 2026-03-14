@@ -3,34 +3,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime  # noqa: TC003
-from uuid import UUID  # noqa: TC003
 
 from beanie import PydanticObjectId  # noqa: TC002
+from litestar.plugins.pydantic import PydanticDTO
 from pydantic import BaseModel
 
 from vapi.constants import CharacterClass, CharacterType  # noqa: TC001
-from vapi.db.models.character import Character  # noqa: TC001
+from vapi.db.models.chargen_session import ChargenSession
 from vapi.domain.handlers.character_autogeneration.constants import (
     AbilityFocus,  # noqa: TC001
     AutoGenExperienceLevel,  # noqa: TC001
 )
-
-
-class ChargenSessionResponse(BaseModel):
-    """Response containing generated character options."""
-
-    session_id: UUID
-    expires_at: datetime
-    requires_selection: bool
-    characters: list[Character]
+from vapi.lib.dto import dto_config
 
 
 class ChargenSessionFinalizeDTO(BaseModel):
     """Input DTO for finalizing character selection."""
 
-    session_id: UUID
+    session_id: PydanticObjectId
     selected_character_id: PydanticObjectId
+
+
+class ChargenSessionResponseDTO(PydanticDTO[ChargenSession]):
+    """Chargen session response DTO."""
+
+    config = dto_config(exclude={"company_id"})
 
 
 @dataclass
