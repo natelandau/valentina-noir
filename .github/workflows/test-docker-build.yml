@@ -9,6 +9,8 @@ on:
             - "Dockerfile"
             - ".dockerignore"
             - "scripts/**"
+            - "pyproject.toml"
+            - "uv.lock"
         branches:
             - main
     pull_request:
@@ -21,6 +23,8 @@ on:
             - "Dockerfile"
             - ".dockerignore"
             - "scripts/**"
+            - "pyproject.toml"
+            - "uv.lock"
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -41,6 +45,20 @@ jobs:
 
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
+
+            - name: Build amd64 image for smoke testing
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  platforms: linux/amd64
+                  load: true
+                  tags: valentina-noir:ci-test
+
+            - name: Verify app binary is available
+              run: docker run --rm --entrypoint="" valentina-noir:ci-test which app
+
+            - name: Verify argon2 shared library loads
+              run: docker run --rm --entrypoint="" valentina-noir:ci-test python -c "import argon2"
 
             - name: Build multi-arch Docker image
               uses: docker/build-push-action@v6
