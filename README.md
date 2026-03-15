@@ -14,6 +14,32 @@ Valentina is built using the following core technologies:
 -   [Redis](https://redis.io/) - In-memory data structure store
 -   [Granian](https://github.com/emmett-framework/granian) - ASGI server for Python
 
+## Running with Docker
+
+The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The container requires MongoDB and Redis to be available. See `compose.yml` for a full stack example.
+
+### Docker-Specific Environment Variables
+
+These variables are used by the container entrypoint and are also available in `env.example`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PUID` | `1000` | UID for the application user inside the container |
+| `PGID` | `1000` | GID for the application user inside the container |
+| `VAPI_DOCKER_BOOTSTRAP` | `false` | Set to `true` to create database collections on startup |
+| `VAPI_APIUSER_USERNAME` | | Username for a developer account created on startup |
+| `VAPI_APIUSER_EMAIL` | | Email for the developer account |
+| `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer |
+
+Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues. Find your UID and GID with:
+
+```bash
+id -u  # UID
+id -g  # GID
+```
+
+All application configuration variables from `env.example` are also supported and should be passed to the container via an env file or environment variables.
+
 ## Getting Started Developing Valentina Noir
 
 We use [uv](https://docs.astral.sh/uv/) for dependency management. To start developing:

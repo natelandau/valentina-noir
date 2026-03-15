@@ -1,24 +1,45 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-if not command -v uv &> /dev/null; then
-    echo "uv is not installed"
-    exit 1
+PUID="${PUID:-1000}"
+PGID="${PGID:-1000}"
+
+# Adjust appuser GID if needed
+if [[ "${PGID}" != "1000" ]]; then
+    if getent group "${PGID}" > /dev/null 2>&1; then
+        printf "WARNING: GID %s is already in use, skipping groupmod\n" "${PGID}" >&2
+    else
+        groupmod -o -g "${PGID}" appuser
+    fi
 fi
 
-# Check if VAPI_BOOTSTRAP environment variable is set to true
-if [[ "${VAPI_DOCKER_BOOTSTRAP}" == "true" ]]; then
-    echo "VAPI_DOCKER_BOOTSTRAP is set to true - running bootstrap"
-    uv run --no-dev app bootstrap
+# Adjust appuser UID if needed
+if [[ "${PUID}" != "1000" ]]; then
+    if getent passwd "${PUID}" > /dev/null 2>&1; then
+        printf "WARNING: UID %s is already in use, skipping usermod\n" "${PUID}" >&2
+    else
+        usermod -o -u "${PUID}" appuser
+    fi
 fi
 
-if [[ "${VAPI_APIUSER_USERNAME}" && "${VAPI_APIUSER_EMAIL}" ]]; then
-    echo "Creating Developer"
+# Set ownership of app directory (non-recursive to avoid touching bind mounts)
+chown "${PUID}:${PGID}" /app
+
+# Optional: bootstrap database
+if [[ "${VAPI_DOCKER_BOOTSTRAP:-}" == "true" ]]; then
+    printf "VAPI_DOCKER_BOOTSTRAP is set to true - running bootstrap\n"
+    gosu appuser app bootstrap
+fi
+
+# Optional: create developer user
+if [[ "${VAPI_APIUSER_USERNAME:-}" && "${VAPI_APIUSER_EMAIL:-}" ]]; then
+    printf "Creating Developer\n"
     arguments=("--username" "${VAPI_APIUSER_USERNAME}" "--email" "${VAPI_APIUSER_EMAIL}")
-    if [[ "${VAPI_APIUSER_IS_GLOBAL_ADMIN}" == "true" ]]; then
+    if [[ "${VAPI_APIUSER_IS_GLOBAL_ADMIN:-}" == "true" ]]; then
         arguments+=("--global-admin")
     fi
-    uv run --no-dev app developer create "${arguments[@]}"
+    gosu appuser app developer create "${arguments[@]}"
 fi
 
-# Run the server
-uv run --no-dev app run
+# Drop privileges and start the server
+exec gosu appuser app run
