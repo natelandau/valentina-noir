@@ -31,7 +31,12 @@ These variables are used by the container entrypoint and are also available in `
 | `VAPI_APIUSER_EMAIL` | | Email for the developer account |
 | `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer |
 
-Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues.
+Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues. Find your UID and GID with:
+
+```bash
+id -u  # UID
+id -g  # GID
+```
 
 All application configuration variables from `env.example` are also supported and should be passed to the container via an env file or environment variables.
 
