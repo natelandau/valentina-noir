@@ -20,7 +20,7 @@ The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The contai
 
 ### Docker-Specific Environment Variables
 
-These variables are used by the container entrypoint and are not part of the application configuration in `env.example`.
+These variables are used by the container entrypoint and are also available in `env.example`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
