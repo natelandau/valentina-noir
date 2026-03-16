@@ -21,6 +21,7 @@ from .constants.character_classes import (
 from .constants.sheet_section import CharSheetSection
 from .constants.trait import Trait
 from .constants.trait_categories import TraitCategory
+from .constants.trait_subcategories import TraitSubcategory
 from .developer import Developer
 from .diceroll import DiceRoll
 from .dictionary import DictionaryTerm
@@ -53,6 +54,7 @@ __all__ = (
     "S3Asset",
     "Trait",
     "TraitCategory",
+    "TraitSubcategory",
     "User",
     "VampireClan",
     "WerewolfAuspice",
@@ -61,6 +63,7 @@ __all__ = (
     "WerewolfTribe",
 )
 
+# This is imported into the init database function and must list all models that are used in the application.
 init_beanie_models = [
     S3Asset,
     AdvantageCategory,
@@ -85,6 +88,7 @@ init_beanie_models = [
     QuickRoll,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     User,
     VampireClan,
     WerewolfAuspice,

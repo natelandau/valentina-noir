@@ -22,6 +22,8 @@ DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
+HUNTER_EDGE_XP_COST: Final[int] = 10
+HUNTER_PERK_XP_COST: Final[int] = 3
 
 
 class BlueprintTraitOrderBy(StrEnum):

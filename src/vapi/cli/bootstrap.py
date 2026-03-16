@@ -43,7 +43,6 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     await utils.sync_werewolf_tribes()
     await utils.sync_werewolf_gifts()
     await utils.sync_werewolf_rites()
-    await utils.sync_hunter_edges()
     await utils.sync_character_concepts()
 
     logger.info(

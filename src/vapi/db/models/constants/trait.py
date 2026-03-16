@@ -53,6 +53,9 @@ class Trait(BaseDocument):
     advantage_category_id: PydanticObjectId | None = None
     advantage_category_name: str | None = None
 
+    trait_subcategory_id: PydanticObjectId | None = None
+    trait_subcategory_name: str | None = None
+
     @before_event(Insert, Replace, Save, Update, SaveChanges)
     async def update_fields(self) -> None:
         """Update the sheet_section_name and parent_category_name fields."""
@@ -84,4 +87,5 @@ class Trait(BaseDocument):
             "is_custom",
             "custom_for_character_id",
             "parent_category_id",
+            "trait_subcategory_id",
         ]

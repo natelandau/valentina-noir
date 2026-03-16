@@ -18,6 +18,7 @@ from vapi.db.models import (
     DictionaryTerm,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     VampireClan,
     WerewolfAuspice,
     WerewolfGift,
@@ -59,6 +60,7 @@ class TraitSyncResult:
 
     sections: SyncCounts = field(default_factory=SyncCounts)
     categories: SyncCounts = field(default_factory=SyncCounts)
+    subcategories: SyncCounts = field(default_factory=SyncCounts)
     traits: SyncCounts = field(default_factory=SyncCounts)
 
 
@@ -356,8 +358,14 @@ async def sync_single_category(
     )
     if not category:
         category = TraitCategory(**fixture_category, parent_sheet_section_id=section.id)
-        await category.save()
+
         created = True
+
+        if not fixture_category.get("character_classes"):
+            category.character_classes = section.character_classes
+        if not fixture_category.get("game_versions"):
+            category.game_versions = section.game_versions
+        await category.save()
 
     elif document_differs_from_fixture(category, fixture_category):
         differences = get_differing_fields(category, fixture_category)
@@ -367,6 +375,56 @@ async def sync_single_category(
         updated = True
 
     return category, created, updated
+
+
+async def sync_single_subcategory(
+    fixture_subcategory: dict[str, Any],
+    category: TraitCategory,
+) -> tuple[TraitSubcategory, bool, bool]:
+    """Sync a single trait subcategory.
+
+    Args:
+        fixture_subcategory (dict[str, Any]): Fixture data for the subcategory.
+        category (TraitCategory): Parent category for the subcategory.
+
+    Returns:
+        tuple[TraitSubcategory, bool, bool]: The subcategory, whether it was created, whether it was updated.
+    """
+    created = False
+    updated = False
+
+    subcategory = await TraitSubcategory.find_one(
+        TraitSubcategory.name == fixture_subcategory["name"],
+        TraitSubcategory.parent_category_id == category.id,
+    )
+    if not subcategory:
+        subcategory = TraitSubcategory(
+            **fixture_subcategory,
+            parent_category_id=category.id,
+            parent_category_name=category.name,
+        )
+
+        created = True
+
+        if not fixture_subcategory.get("initial_cost"):
+            subcategory.initial_cost = category.initial_cost
+        if not fixture_subcategory.get("upgrade_cost"):
+            subcategory.upgrade_cost = category.upgrade_cost
+        if not fixture_subcategory.get("game_versions"):
+            subcategory.game_versions = category.game_versions
+        if not fixture_subcategory.get("character_classes"):
+            subcategory.character_classes = category.character_classes
+
+        await subcategory.save()
+
+    elif document_differs_from_fixture(subcategory, fixture_subcategory):
+        differences = get_differing_fields(subcategory, fixture_subcategory)
+        for field_name in differences:
+            setattr(subcategory, field_name, fixture_subcategory[field_name])
+        await subcategory.save()
+        updated = True
+
+    return subcategory, created, updated
 
 
 async def _link_trait_to_advantage_category(trait: Trait) -> None:
@@ -397,16 +455,17 @@ async def _link_trait_to_advantage_category(trait: Trait) -> None:
 
 async def sync_single_trait(
     fixture_trait: dict[str, Any],
-    fixture_category: dict[str, Any],
+    *,
     category: TraitCategory,
     section: CharSheetSection,
+    subcategory: TraitSubcategory | None = None,
 ) -> tuple[Trait, bool, bool]:
     """Sync a single trait.
 
     Args:
         fixture_trait (dict[str, Any]): Fixture data for the trait.
-        fixture_category (dict[str, Any]): Parent category fixture data (for default costs).
         category (TraitCategory): Parent category for the trait.
+        subcategory (TraitSubcategory): Parent subcategory for the trait.
         section (CharSheetSection): Parent section for the trait.
 
     Returns:
@@ -416,11 +475,15 @@ async def sync_single_trait(
     updated = False
 
     # Look up by name AND parent category to handle duplicate names across categories
-    trait = await Trait.find_one(
+    query = [
         Trait.name == fixture_trait["name"],
         Trait.parent_category_id == category.id,
         Trait.advantage_category_name == fixture_trait.get("advantage_category_name"),
-    )
+    ]
+    if subcategory:
+        query.append(Trait.trait_subcategory_id == subcategory.id)
+
+    trait = await Trait.find_one(*query)
     if not trait:
         trait = Trait(
             **fixture_trait,
@@ -428,16 +491,26 @@ async def sync_single_trait(
             parent_category_name=category.name,
             sheet_section_id=section.id,
             sheet_section_name=section.name,
+            trait_subcategory_id=subcategory.id,
+            trait_subcategory_name=subcategory.name,
         )
         # Apply default costs from category if not specified
         if not fixture_trait.get("initial_cost"):
-            trait.initial_cost = fixture_category.get("initial_cost", 1)
+            trait.initial_cost = (
+                subcategory.initial_cost if subcategory else category.initial_cost or 1
+            )
         if not fixture_trait.get("upgrade_cost"):
-            trait.upgrade_cost = fixture_category.get("upgrade_cost", 1)
+            trait.upgrade_cost = (
+                subcategory.upgrade_cost if subcategory else category.upgrade_cost or 1
+            )
         if not fixture_trait.get("game_versions"):
-            trait.game_versions = fixture_category.get("game_versions", [])
+            trait.game_versions = (
+                subcategory.game_versions if subcategory else category.game_versions or []
+            )
         if not fixture_trait.get("character_classes"):
-            trait.character_classes = fixture_category.get("character_classes", [])
+            trait.character_classes = (
+                subcategory.character_classes if subcategory else category.character_classes or []
+            )
         await trait.save()
         created = True
 
@@ -473,7 +546,40 @@ async def sync_category_traits(
 
     for fixture_trait in fixture_category.get("traits", []):
         _, created, updated = await sync_single_trait(
-            fixture_trait, fixture_category, category=category, section=section
+            fixture_trait=fixture_trait, category=category, section=section
+        )
+        counts.total += 1
+        if created:
+            counts.created += 1
+        elif updated:
+            counts.updated += 1
+
+    return counts
+
+
+async def sync_subcategory_traits(
+    fixture_subcategory: dict[str, Any],
+    *,
+    subcategory: TraitSubcategory,
+    category: TraitCategory,
+    section: CharSheetSection,
+) -> SyncCounts:
+    """Sync all traits within a category.
+
+    Args:
+        fixture_subcategory (dict[str, Any]): Fixture data for the subcategory.
+        subcategory (TraitSubcategory): The subcategory to sync traits for.
+        category (TraitCategory): The category to sync traits for.
+        section (CharSheetSection): The section to sync traits for.
+
+    Returns:
+        SyncCounts: Counts of created, updated, and total traits.
+    """
+    counts = SyncCounts()
+
+    for fixture_trait in fixture_subcategory.get("traits", []):
+        _, created, updated = await sync_single_trait(
+            fixture_trait=fixture_trait, category=category, section=section, subcategory=subcategory
         )
         counts.total += 1
         if created:
@@ -487,7 +593,7 @@ async def sync_category_traits(
 async def sync_section_categories(
     fixture_section: dict[str, Any],
     section: CharSheetSection,
-) -> tuple[SyncCounts, SyncCounts]:
+) -> tuple[SyncCounts, SyncCounts, SyncCounts]:
     """Sync all categories and their traits within a section.
 
     Args:
@@ -495,9 +601,10 @@ async def sync_section_categories(
         section (CharSheetSection): The section to sync categories for.
 
     Returns:
-        tuple[SyncCounts, SyncCounts]: Counts for categories and traits.
+        tuple[SyncCounts, SyncCounts, SyncCounts]: Counts for categories, subcategories, and traits.
     """
     category_counts = SyncCounts()
+    subcategory_counts = SyncCounts()
     trait_counts = SyncCounts()
 
     for fixture_category in fixture_section.get("categories", []):
@@ -509,13 +616,30 @@ async def sync_section_categories(
         elif updated:
             category_counts.updated += 1
 
+        for fixture_subcategory in fixture_category.get("subcategories", []):
+            subcategory, created, updated = await sync_single_subcategory(
+                fixture_subcategory, category
+            )
+            subcategory_counts.total += 1
+            if created:
+                subcategory_counts.created += 1
+            elif updated:
+                subcategory_counts.updated += 1
+
+            subcategory_traits_result = await sync_subcategory_traits(
+                fixture_subcategory, subcategory=subcategory, category=category, section=section
+            )
+            trait_counts.created += subcategory_traits_result.created
+            trait_counts.updated += subcategory_traits_result.updated
+            trait_counts.total += subcategory_traits_result.total
+
         # Sync traits within this category
         traits_result = await sync_category_traits(fixture_category, category, section)
         trait_counts.created += traits_result.created
         trait_counts.updated += traits_result.updated
         trait_counts.total += traits_result.total
 
-    return category_counts, trait_counts
+    return category_counts, subcategory_counts, trait_counts
 
 
 async def create_global_dictionary_term(
