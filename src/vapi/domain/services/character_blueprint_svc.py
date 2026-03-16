@@ -178,6 +178,28 @@ class CharacterBlueprintService:
         )
         return count, traits
 
+    async def list_sheet_category_subcategory_traits(
+        self,
+        *,
+        game_version: GameVersion,
+        subcategory: TraitSubcategory,
+        character_class: CharacterClass | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[Trait]]:
+        """List all character blueprint subcategory traits."""
+        filters = [
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ]
+        if character_class:
+            filters.append(Trait.character_classes == character_class)
+
+        count = await Trait.find(*filters).count()
+        traits = await Trait.find(*filters).sort("order").skip(offset).limit(limit).to_list()
+        return count, traits
+
     async def list_all_traits(
         self,
         *,

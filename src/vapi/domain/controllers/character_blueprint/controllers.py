@@ -256,6 +256,59 @@ class CharacterBlueprintSectionController(Controller):
         )
         return OffsetPagination(items=subcategories, limit=limit, offset=offset, total=count)
 
+    @get(
+        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORY_DETAIL,
+        summary="Get subcategory",
+        operation_id="getCharacterBlueprintCategorySubcategory",
+        description=docs.GET_CATEGORY_SUBCATEGORY_DESCRIPTION,
+        cache=True,
+        return_dto=dto.TraitSubcategoryDTO,
+        dependencies={
+            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
+        },
+    )
+    async def get_category_subcategory(self, *, subcategory: TraitSubcategory) -> TraitSubcategory:
+        """Get a character sheet category subcategory by ID."""
+        return subcategory
+
+    @get(
+        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORY_TRAITS,
+        summary="List subcategory traits",
+        operation_id="listCharacterBlueprintCategorySubcategoryTraits",
+        description=docs.LIST_CATEGORY_SUBCATEGORY_TRAITS_DESCRIPTION,
+        cache=True,
+        return_dto=dto.TraitDTO,
+        dependencies={
+            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
+        },
+    )
+    async def list_category_subcategory_traits(
+        self,
+        *,
+        subcategory: TraitSubcategory,
+        game_version: GameVersion,
+        character_class: Annotated[
+            CharacterClass,
+            Parameter(
+                description="Filter traits by character class.",
+                title="Character Class",
+            ),
+        ]
+        | None = None,
+        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        offset: Annotated[int, Parameter(ge=0)] = 0,
+    ) -> OffsetPagination[Trait]:
+        """List all traits within a subcategory."""
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            character_class=character_class,
+            limit=limit,
+            offset=offset,
+        )
+        return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
+
     ## ALL TRAITS #######################################################
     @get(
         path=urls.CharacterBlueprints.TRAITS,

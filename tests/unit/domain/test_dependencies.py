@@ -25,6 +25,7 @@ from vapi.db.models import (
     S3Asset,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     User,
     VampireClan,
     WerewolfAuspice,
@@ -839,6 +840,31 @@ class TestProvideTraitCategoryById:
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Trait category not found"):
             await deps.provide_trait_category_by_id(non_existent_id)
+
+
+class TestProvideTraitSubcategoryById:
+    """Test provide_trait_subcategory_by_id dependency."""
+
+    async def test_returns_trait_subcategory_when_found(self) -> None:
+        """Verify returning a trait subcategory when found by ID."""
+        # Given a trait subcategory exists (from bootstrap)
+        subcategory = await TraitSubcategory.find_one(TraitSubcategory.is_archived == False)
+        assert subcategory is not None
+
+        # When we provide the subcategory by ID
+        result = await deps.provide_trait_subcategory_by_id(subcategory.id)
+
+        # Then the subcategory is returned
+        assert result.id == subcategory.id
+
+    async def test_raises_not_found_when_missing(self) -> None:
+        """Verify raising NotFoundError when trait subcategory does not exist."""
+        # Given a non-existent subcategory ID
+        non_existent_id = PydanticObjectId()
+
+        # When/Then we expect a NotFoundError
+        with pytest.raises(NotFoundError, match="Trait subcategory not found"):
+            await deps.provide_trait_subcategory_by_id(non_existent_id)
 
 
 class TestProvideUserByIdAndCompany:

@@ -224,6 +224,43 @@ class TestSheetSubcategory:
         for item in response.json()["items"]:
             assert item["parent_category_id"] == str(category.id)
 
+    async def test_get_category_subcategory(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify the get category subcategory endpoint is working."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # When requesting the subcategory via the API
+        response = await client.get(
+            build_url(
+                CharacterBlueprints.CATEGORY_SUBCATEGORY_DETAIL,
+                subcategory_id=subcategory.id,
+                category_id=category.id,
+                section_id=category.parent_sheet_section_id,
+                game_version=game_version.name,
+            ),
+            headers=token_company_admin,
+        )
+
+        # Then the response contains the expected subcategory
+        assert response.status_code == HTTP_200_OK
+        # debug(response.json())
+        assert response.json() == subcategory.model_dump(
+            mode="json", exclude={"is_archived", "archive_date"}
+        )
+
 
 class TestSheetTrait:
     """Test sheet trait controllers."""
