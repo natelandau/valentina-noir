@@ -170,7 +170,7 @@ class CharacterBlueprintSectionController(Controller):
         category: TraitCategory,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-        exclude_subcategory_traits: Annotated[bool, Parameter(default=False)] = False,
+        exclude_subcategory_traits: bool = False,
         character_class: Annotated[
             CharacterClass,
             Parameter(

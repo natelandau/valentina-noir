@@ -262,6 +262,52 @@ class TestSheetSubcategory:
         )
 
 
+class TestSheetSubcategoryTrait:
+    """Test sheet subcategory trait controllers."""
+
+    async def test_list_category_subcategory_traits(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify the list category subcategory traits endpoint is working."""
+        # Given a subcategory with traits
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        expected_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ).count()
+
+        # When requesting subcategory traits via the API
+        response = await client.get(
+            build_url(
+                CharacterBlueprints.CATEGORY_SUBCATEGORY_TRAITS,
+                subcategory_id=subcategory.id,
+                category_id=category.id,
+                section_id=category.parent_sheet_section_id,
+                game_version=game_version.name,
+            ),
+            headers=token_company_admin,
+        )
+
+        # Then the response contains the expected traits
+        assert response.status_code == HTTP_200_OK
+        # debug(response.json())
+        assert response.json()["total"] == expected_count
+        assert len(response.json()["items"]) == min(10, expected_count)
+
+
 class TestSheetTrait:
     """Test sheet trait controllers."""
 

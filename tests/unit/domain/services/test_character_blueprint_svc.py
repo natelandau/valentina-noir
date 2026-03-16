@@ -519,6 +519,165 @@ class TestListSheetCategoryTraits:
         assert subcategory_trait.id in [t.id for t in traits]
 
 
+class TestListSheetCategorySubcategoryTraits:
+    """Test the list_sheet_category_subcategory_traits method."""
+
+    async def test_list_subcategory_traits(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits returns traits for a subcategory."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a trait assigned to the subcategory
+        subcategory_trait = await trait_factory(
+            name="subcategory trait for listing",
+            description="trait for subcategory listing test",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # Given the expected count of traits for this subcategory
+        expected_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ).count()
+
+        # When listing subcategory traits
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            limit=100,
+        )
+
+        # Then the count and results match
+        assert count == expected_count
+        assert len(traits) == expected_count
+        assert subcategory_trait.id in [t.id for t in traits]
+
+    async def test_list_subcategory_traits_character_class(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits filters by character class."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a trait assigned to the subcategory for a specific class
+        await trait_factory(
+            name="vampire subcategory trait",
+            description="vampire-only subcategory trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # Given the expected count filtered by character class
+        expected_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+            Trait.character_classes == CharacterClass.VAMPIRE,
+        ).count()
+
+        # When listing subcategory traits filtered by character class
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            character_class=CharacterClass.VAMPIRE,
+            limit=100,
+        )
+
+        # Then the results match the filtered count
+        assert count == expected_count
+        assert len(traits) == expected_count
+
+    async def test_list_subcategory_traits_skip_and_limit(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits respects skip and limit."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given two traits assigned to the subcategory
+        for i in range(2):
+            await trait_factory(
+                name=f"paginated subcategory trait {i}",
+                description=f"trait {i} for pagination test",
+                game_versions=[game_version],
+                parent_category_id=category.id,
+                trait_subcategory_id=subcategory.id,
+                min_value=0,
+                max_value=5,
+                show_when_zero=True,
+                initial_cost=1,
+                upgrade_cost=2,
+                character_classes=[CharacterClass.VAMPIRE],
+                is_custom=False,
+            )
+
+        # Given the total count
+        total_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ).count()
+
+        # When listing with limit and offset
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            limit=1,
+            offset=1,
+        )
+
+        # Then count reflects total but results are paginated
+        assert count == total_count
+        assert len(traits) <= 1
+
+
 class TestListAllTraits:
     """Test the list_all_traits method."""
 
