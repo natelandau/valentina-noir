@@ -9,6 +9,7 @@ from vapi.db.models import (
     CharSheetSection,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     VampireClan,
     WerewolfAuspice,
     WerewolfGift,
@@ -26,6 +27,12 @@ class CharacterSheetDTO(PydanticDTO[CharSheetSection]):
 
 class TraitCategoryDTO(PydanticDTO[TraitCategory]):
     """Trait category DTO."""
+
+    config = dto_config()
+
+
+class TraitSubcategoryDTO(PydanticDTO[TraitSubcategory]):
+    """Trait subcategory DTO."""
 
     config = dto_config()
 

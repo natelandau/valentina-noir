@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vapi.constants import BlueprintTraitOrderBy, CharacterClass, GameVersion
-from vapi.db.models import Character, CharSheetSection, Trait, TraitCategory
+from vapi.db.models import Character, CharSheetSection, Trait, TraitCategory, TraitSubcategory
 from vapi.domain.services import CharacterBlueprintService
 
 if TYPE_CHECKING:
@@ -174,6 +174,108 @@ class TestListSheetCategories:
         assert categories == all_v5_categories[1:3]
 
 
+class TestListSheetCategorySubcategories:
+    """Test the list_sheet_category_subcategories method."""
+
+    async def test_list_sheet_category_subcategories(self) -> None:
+        """Verify that list_sheet_category_subcategories returns subcategories for a category."""
+        # Given a category that has subcategories
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given all subcategories for this category and game version
+        expected_count = await TraitSubcategory.find(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+        ).count()
+
+        # When listing subcategories
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            limit=100,
+        )
+
+        # Then the count and results match
+        assert count == expected_count
+        assert len(subcategories) == expected_count
+        for sub in subcategories:
+            assert sub.parent_category_id == category.id
+
+    async def test_list_sheet_category_subcategories_character_class(self) -> None:
+        """Verify that list_sheet_category_subcategories filters by character class."""
+        # Given a category that has subcategories
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given all subcategories filtered by character class
+        expected_count = await TraitSubcategory.find(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+            TraitSubcategory.character_classes == CharacterClass.VAMPIRE,
+        ).count()
+
+        # When listing subcategories filtered by character class
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            character_class=CharacterClass.VAMPIRE,
+            limit=100,
+        )
+
+        # Then the results match the filtered subcategories
+        assert count == expected_count
+        assert len(subcategories) == expected_count
+
+    async def test_list_sheet_category_subcategories_skip_and_limit(self) -> None:
+        """Verify that list_sheet_category_subcategories respects skip and limit."""
+        # Given a category that has subcategories
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given the total count of subcategories for this category
+        total_count = await TraitSubcategory.find(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+        ).count()
+
+        # When listing subcategories with skip and limit
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            limit=2,
+            offset=1,
+        )
+
+        # Then count reflects total but results are paginated
+        assert count == total_count
+        assert len(subcategories) <= 2
+
+
 class TestListSheetCategoryTraits:
     """Test the list_sheet_category_traits method."""
 
@@ -312,6 +414,268 @@ class TestListSheetCategoryTraits:
         assert count == len(all_v5_traits) + 1
         assert traits == [*all_v5_traits, custom_trait]
         assert custom_trait.id in [trait.id for trait in traits]
+
+    async def test_exclude_subcategory_traits(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that exclude_subcategory_traits filters out traits belonging to subcategories."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a real subcategory exists
+        subcategory = await TraitSubcategory.find_one(TraitSubcategory.is_archived == False)
+
+        # Given a trait with a subcategory assignment
+        subcategory_trait = await trait_factory(
+            name="subcategory trait",
+            description="trait belonging to a subcategory",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # Given all traits without subcategory for this category
+        all_non_subcategory_traits = await Trait.find(
+            Trait.is_archived == False,
+            Trait.game_versions == GameVersion.V5,
+            Trait.parent_category_id == category.id,
+            Trait.custom_for_character_id == None,
+            Trait.trait_subcategory_id == None,
+        ).to_list()
+
+        # When listing traits with exclude_subcategory_traits=True
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            exclude_subcategory_traits=True,
+        )
+
+        # Then subcategory traits should be excluded
+        assert count == len(all_non_subcategory_traits)
+        assert subcategory_trait.id not in [t.id for t in traits]
+
+    async def test_include_subcategory_traits_by_default(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that subcategory traits are included when exclude_subcategory_traits is False."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a real subcategory exists
+        subcategory = await TraitSubcategory.find_one(TraitSubcategory.is_archived == False)
+
+        # Given a trait with a subcategory assignment
+        subcategory_trait = await trait_factory(
+            name="subcategory trait included",
+            description="trait belonging to a subcategory",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # When listing traits without excluding subcategory traits (default)
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            exclude_subcategory_traits=False,
+            limit=100,
+        )
+
+        # Then the subcategory trait should be included
+        assert subcategory_trait.id in [t.id for t in traits]
+
+
+class TestListSheetCategorySubcategoryTraits:
+    """Test the list_sheet_category_subcategory_traits method."""
+
+    async def test_list_subcategory_traits(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits returns traits for a subcategory."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a trait assigned to the subcategory
+        subcategory_trait = await trait_factory(
+            name="subcategory trait for listing",
+            description="trait for subcategory listing test",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # Given the expected count of traits for this subcategory
+        expected_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ).count()
+
+        # When listing subcategory traits
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            limit=100,
+        )
+
+        # Then the count and results match
+        assert count == expected_count
+        assert len(traits) == expected_count
+        assert subcategory_trait.id in [t.id for t in traits]
+
+    async def test_list_subcategory_traits_character_class(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits filters by character class."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a trait assigned to the subcategory for a specific class
+        await trait_factory(
+            name="vampire subcategory trait",
+            description="vampire-only subcategory trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # Given the expected count filtered by character class
+        expected_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+            Trait.character_classes == CharacterClass.VAMPIRE,
+        ).count()
+
+        # When listing subcategory traits filtered by character class
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            character_class=CharacterClass.VAMPIRE,
+            limit=100,
+        )
+
+        # Then the results match the filtered count
+        assert count == expected_count
+        assert len(traits) == expected_count
+
+    async def test_list_subcategory_traits_skip_and_limit(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits respects skip and limit."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given two traits assigned to the subcategory
+        for i in range(2):
+            await trait_factory(
+                name=f"paginated subcategory trait {i}",
+                description=f"trait {i} for pagination test",
+                game_versions=[game_version],
+                parent_category_id=category.id,
+                trait_subcategory_id=subcategory.id,
+                min_value=0,
+                max_value=5,
+                show_when_zero=True,
+                initial_cost=1,
+                upgrade_cost=2,
+                character_classes=[CharacterClass.VAMPIRE],
+                is_custom=False,
+            )
+
+        # Given the total count
+        total_count = await Trait.find(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ).count()
+
+        # When listing with limit and offset
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            limit=1,
+            offset=1,
+        )
+
+        # Then count reflects total but results are paginated
+        assert count == total_count
+        assert len(traits) <= 1
 
 
 class TestListAllTraits:

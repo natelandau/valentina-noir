@@ -25,6 +25,7 @@ from vapi.db.models import (
     S3Asset,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     User,
     VampireClan,
     WerewolfAuspice,
@@ -319,6 +320,17 @@ async def provide_trait_category_by_id(category_id: PydanticObjectId) -> TraitCa
     if not category:
         raise NotFoundError(detail="Trait category not found")
     return category
+
+
+async def provide_trait_subcategory_by_id(subcategory_id: PydanticObjectId) -> TraitSubcategory:
+    """Provide a trait subcategory by ID."""
+    subcategory = await TraitSubcategory.find_one(
+        TraitSubcategory.id == subcategory_id,
+        TraitSubcategory.is_archived == False,
+    )
+    if not subcategory:
+        raise NotFoundError(detail="Trait subcategory not found")
+    return subcategory
 
 
 async def provide_user_by_id_and_company(user_id: PydanticObjectId, company: Company) -> User:

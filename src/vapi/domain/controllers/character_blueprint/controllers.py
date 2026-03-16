@@ -22,6 +22,7 @@ from vapi.db.models import (
     Company,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     VampireClan,
     WerewolfAuspice,
     WerewolfGift,
@@ -169,10 +170,11 @@ class CharacterBlueprintSectionController(Controller):
         category: TraitCategory,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
+        exclude_subcategory_traits: bool = False,
         character_class: Annotated[
             CharacterClass,
             Parameter(
-                description="Show character sheet sections for this class.",
+                description="Filter traits by character class.",
                 title="Character Class",
             ),
         ]
@@ -190,6 +192,7 @@ class CharacterBlueprintSectionController(Controller):
         service = CharacterBlueprintService()
         count, traits = await service.list_sheet_category_traits(
             game_version=game_version,
+            exclude_subcategory_traits=exclude_subcategory_traits,
             category=category,
             character_class=character_class,
             character_id=character_id,
@@ -212,6 +215,99 @@ class CharacterBlueprintSectionController(Controller):
     async def get_trait(self, *, trait: Trait) -> Trait:
         """Get a character sheet category trait by ID."""
         return trait
+
+    ## CATEGORY SUBCATEGORIES #######################################################
+
+    @get(
+        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORIES,
+        summary="List category subcategories",
+        operation_id="listCharacterBlueprintCategorySubcategories",
+        description=docs.LIST_CATEGORY_SUBCATEGORIES_DESCRIPTION,
+        cache=True,
+        return_dto=dto.TraitSubcategoryDTO,
+        dependencies={
+            "category": Provide(deps.provide_trait_category_by_id),
+        },
+    )
+    async def list_category_subcategories(
+        self,
+        *,
+        game_version: GameVersion,
+        category: TraitCategory,
+        character_class: Annotated[
+            CharacterClass,
+            Parameter(
+                description="Filter subcategories by character class.",
+                title="Character Class",
+            ),
+        ]
+        | None = None,
+        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        offset: Annotated[int, Parameter(ge=0)] = 0,
+    ) -> OffsetPagination[TraitSubcategory]:
+        """List all category subcategories."""
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            character_class=character_class,
+            limit=limit,
+            offset=offset,
+        )
+        return OffsetPagination(items=subcategories, limit=limit, offset=offset, total=count)
+
+    @get(
+        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORY_DETAIL,
+        summary="Get subcategory",
+        operation_id="getCharacterBlueprintCategorySubcategory",
+        description=docs.GET_CATEGORY_SUBCATEGORY_DESCRIPTION,
+        cache=True,
+        return_dto=dto.TraitSubcategoryDTO,
+        dependencies={
+            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
+        },
+    )
+    async def get_category_subcategory(self, *, subcategory: TraitSubcategory) -> TraitSubcategory:
+        """Get a character sheet category subcategory by ID."""
+        return subcategory
+
+    @get(
+        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORY_TRAITS,
+        summary="List subcategory traits",
+        operation_id="listCharacterBlueprintCategorySubcategoryTraits",
+        description=docs.LIST_CATEGORY_SUBCATEGORY_TRAITS_DESCRIPTION,
+        cache=True,
+        return_dto=dto.TraitDTO,
+        dependencies={
+            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
+        },
+    )
+    async def list_category_subcategory_traits(
+        self,
+        *,
+        subcategory: TraitSubcategory,
+        game_version: GameVersion,
+        character_class: Annotated[
+            CharacterClass,
+            Parameter(
+                description="Filter traits by character class.",
+                title="Character Class",
+            ),
+        ]
+        | None = None,
+        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        offset: Annotated[int, Parameter(ge=0)] = 0,
+    ) -> OffsetPagination[Trait]:
+        """List all traits within a subcategory."""
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            character_class=character_class,
+            limit=limit,
+            offset=offset,
+        )
+        return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
 
     ## ALL TRAITS #######################################################
     @get(

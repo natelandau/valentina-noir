@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from beanie.operators import Or
 
 from vapi.constants import BlueprintTraitOrderBy
-from vapi.db.models import CharSheetSection, Trait, TraitCategory
+from vapi.db.models import CharSheetSection, Trait, TraitCategory, TraitSubcategory
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
@@ -86,11 +86,47 @@ class CharacterBlueprintService:
         )
         return count, categories
 
+    async def list_sheet_category_subcategories(
+        self,
+        *,
+        game_version: GameVersion,
+        category: TraitCategory,
+        character_class: CharacterClass | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[TraitSubcategory]]:
+        """List all character blueprint category subcategories.
+
+        Args:
+            game_version: The game version to list the subcategories for.
+            category: The category to list the subcategories for.
+            character_class: The character class to list the subcategories for.
+            limit: The limit of subcategories to return.
+            offset: The offset of the subcategories to return.
+
+        Returns:
+            A tuple containing the total number of subcategories and the list of subcategories.
+        """
+        filters = [
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+        ]
+        if character_class:
+            filters.append(TraitSubcategory.character_classes == character_class)
+
+        count = await TraitSubcategory.find(*filters).count()
+        subcategories = (
+            await TraitSubcategory.find(*filters).sort("name").skip(offset).limit(limit).to_list()
+        )
+        return count, subcategories
+
     async def list_sheet_category_traits(
         self,
         *,
         game_version: GameVersion,
         category: TraitCategory,
+        exclude_subcategory_traits: bool = False,
         character_class: CharacterClass | None = None,
         character_id: PydanticObjectId | None = None,
         limit: int = 10,
@@ -101,6 +137,7 @@ class CharacterBlueprintService:
         Args:
             game_version: The game version to list the traits for.
             category: The category to list the traits for.
+            exclude_subcategory_traits: Whether to exclude traits from subcategories.
             character_class: The character class to list the traits for.
             character_id: Include custom traits assigned to this character.
             limit: The limit of traits to return.
@@ -127,6 +164,9 @@ class CharacterBlueprintService:
         else:
             filters.append(Trait.custom_for_character_id == None)
 
+        if exclude_subcategory_traits:
+            filters.append(Trait.trait_subcategory_id == None)
+
         count = await Trait.find(*filters).count()
         traits = (
             await Trait.find(*filters)
@@ -136,6 +176,28 @@ class CharacterBlueprintService:
             .limit(limit)
             .to_list()
         )
+        return count, traits
+
+    async def list_sheet_category_subcategory_traits(
+        self,
+        *,
+        game_version: GameVersion,
+        subcategory: TraitSubcategory,
+        character_class: CharacterClass | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[Trait]]:
+        """List all character blueprint subcategory traits."""
+        filters = [
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == subcategory.id,
+            Trait.game_versions == game_version,
+        ]
+        if character_class:
+            filters.append(Trait.character_classes == character_class)
+
+        count = await Trait.find(*filters).count()
+        traits = await Trait.find(*filters).sort("order").skip(offset).limit(limit).to_list()
         return count, traits
 
     async def list_all_traits(

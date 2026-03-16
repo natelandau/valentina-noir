@@ -237,9 +237,12 @@ class CharacterBlueprints:
     # Categories within sections
     CATEGORIES = f"{SECTION_DETAIL}/categories"
     CATEGORY_DETAIL = f"{CATEGORIES}/{{category_id:str}}"
-
-    # Traits within categories
     CATEGORY_TRAITS = f"{CATEGORY_DETAIL}/traits"
+
+    # Subcategories within categories
+    CATEGORY_SUBCATEGORIES = f"{CATEGORY_DETAIL}/subcategories"
+    CATEGORY_SUBCATEGORY_DETAIL = f"{CATEGORY_SUBCATEGORIES}/{{subcategory_id:str}}"
+    CATEGORY_SUBCATEGORY_TRAITS = f"{CATEGORY_SUBCATEGORY_DETAIL}/traits"
 
     # Classes, Concepts, and class specific options
     CONCEPTS = f"{BASE}/concepts"
