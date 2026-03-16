@@ -29,12 +29,12 @@ class DictionaryTerm(BaseDocument):
     @before_event(Insert, Replace, Save, Update, SaveChanges)
     async def term_to_lowercase(self) -> None:
         """Get the slug for the user."""
-        self.term = self.term.lower()
+        self.term = self.term.lower().strip()
 
     @before_event(Insert, Replace, Save, Update, SaveChanges)
     async def synonyms_to_lowercase(self) -> None:
         """Convert the synonyms to lowercase."""
-        self.synonyms = sorted(list[str]({synonym.lower() for synonym in self.synonyms}))
+        self.synonyms = sorted(list[str]({synonym.lower().strip() for synonym in self.synonyms}))
 
     @model_validator(mode="before")
     @classmethod

@@ -36,7 +36,6 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     if do_setup_database:
         await setup_database()
 
-    await utils.sync_advantage_categories()
     await utils.sync_traits()
     await utils.sync_vampire_clans()
     await utils.sync_werewolf_auspices()
@@ -50,7 +49,7 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
         extra={
             "num_created": dictionary_term_counts["created"],
             "num_updated": dictionary_term_counts["updated"],
-            "num_total": dictionary_term_counts["created"] + dictionary_term_counts["updated"],
+            "num_total": dictionary_term_counts["total"],
             "component": "cli",
             "command": "bootstrap",
         },

@@ -8,7 +8,6 @@ from rich.console import Console
 
 from vapi.constants import PROJECT_ROOT_PATH
 from vapi.db.models import (
-    AdvantageCategory,
     CharacterConcept,
     VampireClan,
     WerewolfAuspice,
@@ -33,49 +32,6 @@ console = Console()
 logger = logging.getLogger("vapi")
 
 FIXTURES_PATH = PROJECT_ROOT_PATH / "src/vapi/db/fixtures"
-
-
-async def sync_advantage_categories() -> None:
-    """Sync advantage categories."""
-    fixture_file = FIXTURES_PATH / "advantage_categories.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(
-            msg, extra={"component": "cli", "command": "bootstrap sync_advantage_categories"}
-        )
-        raise click.Abort
-
-    with fixture_file.open("r") as file:
-        fixture_advantage_categories = json.load(file, cls=JSONWithCommentsDecoder)
-
-    created_count = 0
-    updated_count = 0
-    for fixture_category in fixture_advantage_categories:
-        category = await AdvantageCategory.find_one(
-            AdvantageCategory.name == fixture_category["name"]
-        )
-        if not category:
-            category = AdvantageCategory(**fixture_category)
-            await category.save()
-            created_count += 1
-
-        elif document_differs_from_fixture(category, fixture_category):
-            differences = get_differing_fields(category, fixture_category)
-            for field_name in differences:
-                setattr(category, field_name, fixture_category[field_name])
-            await category.save()
-            updated_count += 1
-
-    logger.info(
-        "Bootstrapped advantage categories",
-        extra={
-            "num_created": created_count,
-            "num_updated": updated_count,
-            "num_total": len(fixture_advantage_categories),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
 
 
 async def sync_traits() -> None:

@@ -20,8 +20,6 @@ from vapi.db.models import (
     Company,
     Developer,
     DictionaryTerm,
-    HunterEdge,
-    HunterEdgePerk,
     Note,
     QuickRoll,
     S3Asset,
@@ -586,56 +584,6 @@ class TestProvideWerewolfRiteById:
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Werewolf rite not found"):
             await deps.provide_werewolf_rite_by_id(non_existent_id)
-
-
-class TestProvideHunterEdgeById:
-    """Test provide_hunter_edge_by_id dependency."""
-
-    async def test_returns_hunter_edge_when_found(self) -> None:
-        """Verify returning a hunter edge when found by ID."""
-        # Given a hunter edge exists (from bootstrap)
-        edge = await HunterEdge.find_one(HunterEdge.is_archived == False)
-        assert edge is not None
-
-        # When we provide the edge by ID
-        result = await deps.provide_hunter_edge_by_id(edge.id)
-
-        # Then the edge is returned
-        assert result.id == edge.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when hunter edge does not exist."""
-        # Given a non-existent edge ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Hunter edge not found"):
-            await deps.provide_hunter_edge_by_id(non_existent_id)
-
-
-class TestProvideHunterEdgePerkById:
-    """Test provide_hunter_edge_perk_by_id dependency."""
-
-    async def test_returns_hunter_edge_perk_when_found(self) -> None:
-        """Verify returning a hunter edge perk when found by ID."""
-        # Given a hunter edge perk exists (from bootstrap)
-        perk = await HunterEdgePerk.find_one(HunterEdgePerk.is_archived == False)
-        assert perk is not None
-
-        # When we provide the perk by ID
-        result = await deps.provide_hunter_edge_perk_by_id(perk.id)
-
-        # Then the perk is returned
-        assert result.id == perk.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when hunter edge perk does not exist."""
-        # Given a non-existent perk ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Hunter edge perk not found"):
-            await deps.provide_hunter_edge_perk_by_id(non_existent_id)
 
 
 class TestProvideDictionaryTermById:

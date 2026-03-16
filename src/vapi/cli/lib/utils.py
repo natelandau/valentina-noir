@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from vapi.cli.constants import dictionary_term_counts
 from vapi.db.models import (
-    AdvantageCategory,
     CharSheetSection,
     DictionaryTerm,
     Trait,
@@ -377,7 +376,7 @@ async def sync_single_category(
     return category, created, updated
 
 
-async def sync_single_subcategory(
+async def sync_single_subcategory(  # noqa: C901
     fixture_subcategory: dict[str, Any],
     category: TraitCategory,
 ) -> tuple[TraitSubcategory, bool, bool]:
@@ -424,36 +423,22 @@ async def sync_single_subcategory(
         await subcategory.save()
         updated = True
 
+    if subcategory.description or subcategory.system or subcategory.pool:
+        desc = subcategory.description or ""
+        if subcategory.system:
+            desc += "\n## System:\n" + subcategory.system
+        if subcategory.pool:
+            desc += "\n## Pool:\n" + subcategory.pool
+
+        await create_global_dictionary_term(
+            subcategory.name,
+            definition=subcategory.description,
+        )
+
     return subcategory, created, updated
 
 
-async def _link_trait_to_advantage_category(trait: Trait) -> None:
-    """Link a trait to its advantage category if specified.
-
-    Args:
-        trait (Trait): The trait to link.
-
-    Raises:
-        click.Abort: If the advantage category is not found.
-    """
-    if not trait.advantage_category_name:
-        return
-
-    advantage_category = await AdvantageCategory.find_one(
-        AdvantageCategory.name == trait.advantage_category_name
-    )
-    if not advantage_category:
-        msg = f"Advantage category not found: {trait.advantage_category_name}"
-        logger.error(
-            msg, extra={"component": "cli", "command": "_link_trait_to_advantage_category"}
-        )
-        raise click.Abort
-
-    trait.advantage_category_id = advantage_category.id
-    await trait.save()
-
-
-async def sync_single_trait(
+async def sync_single_trait(  # noqa: C901, PLR0912
     fixture_trait: dict[str, Any],
     *,
     category: TraitCategory,
@@ -476,14 +461,14 @@ async def sync_single_trait(
 
     # Look up by name AND parent category to handle duplicate names across categories
     query = [
-        Trait.name == fixture_trait["name"],
+        Trait.name == fixture_trait["name"].strip().title(),
         Trait.parent_category_id == category.id,
-        Trait.advantage_category_name == fixture_trait.get("advantage_category_name"),
     ]
     if subcategory:
         query.append(Trait.trait_subcategory_id == subcategory.id)
 
     trait = await Trait.find_one(*query)
+
     if not trait:
         trait = Trait(
             **fixture_trait,
@@ -491,8 +476,8 @@ async def sync_single_trait(
             parent_category_name=category.name,
             sheet_section_id=section.id,
             sheet_section_name=section.name,
-            trait_subcategory_id=subcategory.id,
-            trait_subcategory_name=subcategory.name,
+            trait_subcategory_id=subcategory.id if subcategory else None,
+            trait_subcategory_name=subcategory.name if subcategory else None,
         )
         # Apply default costs from category if not specified
         if not fixture_trait.get("initial_cost"):
@@ -511,10 +496,12 @@ async def sync_single_trait(
             trait.character_classes = (
                 subcategory.character_classes if subcategory else category.character_classes or []
             )
+        if not fixture_trait.get("pool"):
+            trait.pool = subcategory.pool if subcategory else None
+        if not fixture_trait.get("system"):
+            trait.system = subcategory.system if subcategory else None
         await trait.save()
         created = True
-
-        await _link_trait_to_advantage_category(trait)
 
     elif document_differs_from_fixture(trait, fixture_trait):
         differences = get_differing_fields(trait, fixture_trait)
@@ -522,6 +509,18 @@ async def sync_single_trait(
             setattr(trait, field_name, fixture_trait[field_name])
         await trait.save()
         updated = True
+
+    if trait.description or trait.link:
+        desc = trait.description or ""
+        if trait.system:
+            desc += "\n## System:\n" + trait.system
+        if trait.pool:
+            desc += "\n## Pool:\n" + trait.pool
+        await create_global_dictionary_term(
+            term=trait.name,
+            definition=desc,
+            link=trait.link,
+        )
 
     await category.save()
     return trait, created, updated
@@ -646,16 +645,29 @@ async def create_global_dictionary_term(
     term: str, *, definition: str | None = None, link: str | None = None
 ) -> None:
     """Create a global dictionary term."""
-    if not definition or not link:
+    if not definition and not link:
         return
 
-    existing_term = await DictionaryTerm.find_one(
-        DictionaryTerm.term == term, DictionaryTerm.is_global == True
-    )
+    dictionary_term_counts["total"] += 1
 
-    if existing_term:
-        await existing_term.update({"definition": definition, "link": link})
-        dictionary_term_counts["updated"] += 1
-    else:
-        await DictionaryTerm(term=term, definition=definition, link=link, is_global=True).insert()
+    existing_term = await DictionaryTerm.find_one(
+        DictionaryTerm.term == term.lower().strip(), DictionaryTerm.is_global == True
+    )
+    if not existing_term:
+        await DictionaryTerm(
+            term=term.lower().strip(),
+            definition=definition.strip() if definition else None,
+            link=link.strip() if link else None,
+            is_global=True,
+        ).insert()
         dictionary_term_counts["created"] += 1
+    elif existing_term.definition != definition or existing_term.link != link:
+        await existing_term.update(
+            {
+                "$set": {
+                    "definition": definition.strip() if definition else None,
+                    "link": link.strip() if link else None,
+                }
+            }
+        )
+        dictionary_term_counts["updated"] += 1

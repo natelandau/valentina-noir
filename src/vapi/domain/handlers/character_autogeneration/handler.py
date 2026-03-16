@@ -12,16 +12,15 @@ from numpy.random import default_rng
 
 from vapi.constants import CharacterClass, CharacterType, GameVersion, HunterCreed
 from vapi.db.models import (
-    AdvantageCategory,
     Campaign,
     Character,
     CharacterConcept,
     CharacterTrait,
     CharSheetSection,
     Company,
-    HunterEdge,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     User,
     VampireClan,
     WerewolfAuspice,
@@ -31,7 +30,6 @@ from vapi.db.models import (
 )
 from vapi.db.models.character import (
     HunterAttributes,
-    HunterAttributesEdgeModel,
     MageAttributes,
     VampireAttributes,
     WerewolfAttributes,
@@ -550,8 +548,6 @@ class CharacterAutogenerationHandler:
         if character.character_class != CharacterClass.HUNTER:
             return character
 
-        creed = random.choice(list(HunterCreed))
-
         # New characters select between 2 Edges and 1 Perk or 1 Edge and 2 Perks.
         starting_num_edges = random.choice([2, 1])
         starting_num_perks = 1 if starting_num_edges == 2 else 2  # noqa: PLR2004
@@ -559,62 +555,31 @@ class CharacterAutogenerationHandler:
         num_edges = starting_num_edges + EXTRA_HUNTER_EDGE_MAP[self.experience_level]
         num_perks = starting_num_perks + EXTRA_HUNTER_EDGE_PERK_MAP[self.experience_level]
 
-        all_edges = await HunterEdge.find(HunterEdge.is_archived == False).to_list()
+        edges_trait_category = await TraitCategory.find_one(TraitCategory.name == "Edges")
+        all_edges = await TraitSubcategory.find(
+            TraitSubcategory.parent_category_id == edges_trait_category.id,
+            TraitSubcategory.is_archived == False,
+        ).to_list()
 
-        selected_edges = []
-        for _ in range(num_edges):
-            edge = random.choice(all_edges)
-            all_edges.remove(edge)
-            selected_edges.append(edge)
+        selected_edges = random.sample(all_edges, num_edges)
 
-        character_edges = [
-            HunterAttributesEdgeModel(edge_id=edge.id, perk_ids=[]) for edge in selected_edges
-        ]
+        possible_perks = await Trait.find(
+            In(Trait.trait_subcategory_id, [x.id for x in selected_edges]),
+            Trait.is_archived == False,
+        ).to_list()
 
-        # Generate perks for the character
-        guard = 0
-        for _ in range(num_perks):
+        selected_perks = random.sample(possible_perks, num_perks)
+        for perk in selected_perks:
+            character_trait = CharacterTrait(
+                value=1,
+                character_id=character.id,
+                trait=perk,
+            )
+            await character_trait.insert()
+            await self.character_trait_service.after_save(character_trait)
 
-            def _get_perk(guard: int) -> None:
-                if guard > 20:  # noqa: PLR2004
-                    logger.error(
-                        "Failed to generate perks for character",
-                        extra={
-                            "character_id": character.id,
-                            "num_perks": num_perks,
-                            "num_edges": num_edges,
-                            "num_tries": guard,
-                            "edge_ids": [x.id for x in selected_edges],
-                            "component": "domain",
-                            "command": "generate_hunter_attributes",
-                        },
-                    )
-                    return
-
-                character_edge = random.choice(character_edges)
-                db_edge = next((x for x in selected_edges if x.id == character_edge.edge_id), None)
-                if db_edge is None:
-                    _get_perk(guard + 1)
-                    return
-
-                possible_perk_ids = (
-                    [x for x in db_edge.perk_ids if x not in character_edge.perk_ids]
-                    if db_edge.perk_ids
-                    else []
-                )
-
-                if not possible_perk_ids:
-                    _get_perk(guard + 1)
-                    return
-
-                character_edge.perk_ids.append(random.choice(possible_perk_ids))
-
-            _get_perk(guard)
-
-        character.hunter_attributes = HunterAttributes(
-            creed=creed.value.title(),
-            edges=character_edges,
-        )
+        creed = random.choice(list(HunterCreed))
+        character.hunter_attributes = HunterAttributes(creed=creed.value.title())
         await character.save()
 
         return character
@@ -705,15 +670,6 @@ class CharacterAutogenerationHandler:
         while num_dots > 0:
             trait = random.choice(possible_traits)
 
-            if trait.advantage_category_id:
-                advantage_category = await AdvantageCategory.get(trait.advantage_category_id)
-                if advantage_category.requires_parent:
-                    parent_trait = await Trait.find_one(Trait.name == advantage_category.name)
-                    if parent_trait.id not in traits_to_set or traits_to_set[parent_trait.id] < min(
-                        parent_trait.max_value, 2
-                    ):
-                        trait = parent_trait
-
             if trait.id in traits_to_set:
                 if traits_to_set[trait.id] < trait.max_value:
                     traits_to_set[trait.id] += 1
@@ -756,17 +712,6 @@ class CharacterAutogenerationHandler:
 
         while num_dots > 0:
             trait = random.choice(possible_flaws)
-
-            if trait.advantage_category_id:
-                advantage_category = await AdvantageCategory.get(trait.advantage_category_id)
-                if advantage_category.requires_parent:
-                    parent_trait = await Trait.find_one(Trait.name == advantage_category.name)
-                    if not CharacterTrait.find_one(
-                        CharacterTrait.character_id == character.id,
-                        CharacterTrait.trait.id == parent_trait.id,  # type: ignore [attr-defined]
-                        fetch_links=True,
-                    ):
-                        continue
 
             if trait.id in traits_to_set:
                 if traits_to_set[trait.id] < trait.max_value:

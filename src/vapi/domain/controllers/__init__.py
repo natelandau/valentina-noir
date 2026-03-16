@@ -9,7 +9,6 @@ from .character.controllers import CharacterController
 from .character_blueprint.controllers import CharacterBlueprintSectionController
 from .character_generation.controllers import CharacterGenerationController
 from .character_inventory.controllers import CharacterInventoryController
-from .character_specials.hunter_controller import HunterSpecialsController
 from .character_specials.werewolf_controller import WerewolfSpecialsController
 from .character_trait.controllers import CharacterTraitController
 from .company.controllers import CompanyController
@@ -65,7 +64,6 @@ __all__ = (
     "DictionaryTermController",
     "ExperienceController",
     "GlobalAdminController",
-    "HunterSpecialsController",
     "OAuth2Controller",
     "OptionsController",
     "QuickRollController",

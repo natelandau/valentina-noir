@@ -17,9 +17,9 @@ from vapi.constants import CharacterClass, GameVersion
 from vapi.db.models.base import BaseDocument
 from vapi.lib.validation import empty_string_to_none
 
-from .advantage_category import AdvantageCategory
 from .sheet_section import CharSheetSection
 from .trait_categories import TraitCategory
+from .trait_subcategories import TraitSubcategory
 
 
 class Trait(BaseDocument):
@@ -50,11 +50,11 @@ class Trait(BaseDocument):
     parent_category_id: PydanticObjectId
     custom_for_character_id: Annotated[PydanticObjectId | None, Field(default=None)] = None
 
-    advantage_category_id: PydanticObjectId | None = None
-    advantage_category_name: str | None = None
-
     trait_subcategory_id: PydanticObjectId | None = None
     trait_subcategory_name: str | None = None
+
+    pool: str | None = None
+    system: str | None = None
 
     @before_event(Insert, Replace, Save, Update, SaveChanges)
     async def update_fields(self) -> None:
@@ -70,12 +70,12 @@ class Trait(BaseDocument):
         self.sheet_section_name = sheet_section.name
         self.sheet_section_id = sheet_section.id
 
-        if self.advantage_category_id:
-            advantage_category = await AdvantageCategory.find_one(
-                AdvantageCategory.id == self.advantage_category_id
+        if self.trait_subcategory_id:
+            trait_subcategory = await TraitSubcategory.find_one(
+                TraitSubcategory.id == self.trait_subcategory_id
             )
-            if self.advantage_category_name != advantage_category.name:
-                self.advantage_category_name = advantage_category.name
+            if self.trait_subcategory_name != trait_subcategory.name:
+                self.trait_subcategory_name = trait_subcategory.name
 
     class Settings:
         """Settings for the model."""

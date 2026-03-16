@@ -5,17 +5,15 @@ from __future__ import annotations
 import json
 
 import pytest
+from beanie.operators import In
 from click.testing import CliRunner
 
 from vapi.cli.bootstrap import bootstrap, bootstrap_async
 from vapi.cli.lib.utils import JSONWithCommentsDecoder
 from vapi.constants import PROJECT_ROOT_PATH, WerewolfRenown
 from vapi.db.models import (
-    AdvantageCategory,
     CharacterConcept,
     CharSheetSection,
-    HunterEdge,
-    HunterEdgePerk,
     Trait,
     TraitCategory,
     VampireClan,
@@ -28,14 +26,6 @@ from vapi.db.models import (
 pytestmark = pytest.mark.anyio
 
 FIXTURES_PATH = PROJECT_ROOT_PATH / "src/vapi/db/fixtures"
-
-
-@pytest.fixture
-def advantage_categories_fixture() -> list[dict]:
-    """Load advantage categories fixture data."""
-    fixture_file = FIXTURES_PATH / "advantage_categories.json"
-    with fixture_file.open("r") as f:
-        return json.load(f, cls=JSONWithCommentsDecoder)
 
 
 @pytest.fixture
@@ -104,34 +94,6 @@ def hunter_edges_fixture() -> list[dict]:
 
 class TestBootstrapAsync:
     """Integration tests for the bootstrap_async function."""
-
-    async def test_bootstrap_creates_all_advantage_categories(
-        self, advantage_categories_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all advantage categories from fixture."""
-        # Given: The fixture data with expected categories
-        expected_names = {cat["name"] for cat in advantage_categories_fixture}
-
-        # When: Querying advantage categories from database
-        categories = await AdvantageCategory.find().to_list()
-        db_names = {c.name for c in categories}
-
-        # Then: All fixture categories should exist in database
-        assert expected_names == db_names
-        assert len(categories) == len(advantage_categories_fixture)
-
-    async def test_advantage_category_fields_match_fixture(
-        self, advantage_categories_fixture: list[dict]
-    ) -> None:
-        """Verify advantage category fields match fixture data."""
-        # Given: The fixture data
-        for fixture_cat in advantage_categories_fixture:
-            # When: Querying the category from database
-            db_cat = await AdvantageCategory.find_one(AdvantageCategory.name == fixture_cat["name"])
-
-            # Then: Fields should match
-            assert db_cat is not None, f"Category {fixture_cat['name']} not found in database"
-            assert db_cat.description == fixture_cat.get("description")
 
     async def test_bootstrap_creates_all_character_concepts(
         self, concepts_fixture: list[dict]
@@ -294,41 +256,6 @@ class TestBootstrapAsync:
             assert db_tribe.ban == fixture_tribe["ban"]
             assert db_tribe.link == fixture_tribe.get("link")
 
-    async def test_bootstrap_creates_all_hunter_edges(
-        self, hunter_edges_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all hunter edges from fixture."""
-        # Given: The fixture data with expected edges
-        expected_names = {edge["name"] for edge in hunter_edges_fixture}
-
-        # When: Querying hunter edges from database
-        edges = await HunterEdge.find().to_list()
-        db_names = {e.name for e in edges}
-
-        # Then: All fixture edges should exist in database
-        assert expected_names == db_names
-        assert len(edges) == len(hunter_edges_fixture)
-
-    async def test_bootstrap_creates_all_hunter_edge_perks(
-        self, hunter_edges_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all hunter edge perks from fixture."""
-        # Given: The fixture data with expected perks
-        num_perks = 0
-        expected_names = set()
-        for edge in hunter_edges_fixture:
-            for perk in edge["perks"]:
-                num_perks += 1
-                expected_names.add(perk["name"])
-
-        # When: Querying hunter edge perks from database
-        perks = await HunterEdgePerk.find().to_list()
-        db_names = {p.name for p in perks}
-
-        # Then: All fixture perks should exist in database
-        assert expected_names == db_names
-        assert len(perks) == num_perks
-
     async def test_bootstrap_creates_all_werewolf_gifts(
         self, werewolf_gifts_fixture: list[dict]
     ) -> None:
@@ -381,8 +308,13 @@ class TestBootstrapAsync:
             len(section.get("categories", [])) for section in traits_fixture
         )
 
-        # When: Querying trait categories from database
-        categories = await TraitCategory.find().to_list()
+        # When: Querying trait categories linked to bootstrapped sections
+        sections = await CharSheetSection.find().to_list()
+        section_ids = [s.id for s in sections]
+        categories = await TraitCategory.find(
+            In(TraitCategory.parent_sheet_section_id, section_ids),
+            TraitCategory.is_archived == False,
+        ).to_list()
 
         # Then: Count should match
         assert len(categories) == expected_category_count
@@ -395,20 +327,27 @@ class TestBootstrapAsync:
             for section in traits_fixture
             for cat in section.get("categories", [])
         )
+        expected_subcategory_trait_count = sum(
+            len(subcat.get("traits", []))
+            for section in traits_fixture
+            for cat in section.get("categories", [])
+            for subcat in cat.get("subcategories", [])
+        )
+
+        total_trait_count = expected_trait_count + expected_subcategory_trait_count
 
         # When: Querying traits from database (excluding custom traits)
         traits = await Trait.find(Trait.is_custom == False, Trait.is_archived == False).to_list()
 
         # Then: Count should match
         assert len(traits) in [
-            expected_trait_count,
-            expected_trait_count + 1,
-            expected_trait_count - 1,
+            total_trait_count,
+            total_trait_count + 1,
+            total_trait_count - 1,
         ]
 
     async def test_bootstrap_is_idempotent(
         self,
-        advantage_categories_fixture: list[dict],
         concepts_fixture: list[dict],
         vampire_clans_fixture: list[dict],
         werewolf_auspices_fixture: list[dict],
@@ -418,7 +357,6 @@ class TestBootstrapAsync:
     ) -> None:
         """Verify running bootstrap multiple times does not duplicate data."""
         # Given: Expected counts from fixtures
-        expected_category_count = len(advantage_categories_fixture)
         expected_concept_count = len(concepts_fixture)
         expected_clan_count = len(vampire_clans_fixture)
         expected_auspice_count = len(werewolf_auspices_fixture)
@@ -430,32 +368,12 @@ class TestBootstrapAsync:
         await bootstrap_async(do_setup_database=False)
 
         # Then: Counts should remain the same (no duplicates)
-        assert await AdvantageCategory.count() == expected_category_count
         assert await CharacterConcept.count() == expected_concept_count
         assert await VampireClan.count() == expected_clan_count
         assert await WerewolfAuspice.count() == expected_auspice_count
         assert await WerewolfTribe.count() == expected_tribe_count
         assert await WerewolfGift.count() == expected_gift_count
         assert await CharSheetSection.count() == expected_section_count
-
-    async def test_specific_advantage_category_linguistics(
-        self, advantage_categories_fixture: list[dict]
-    ) -> None:
-        """Verify Linguistics advantage category has correct data."""
-        # Given: The Linguistics fixture data
-        linguistics_fixture = next(
-            c for c in advantage_categories_fixture if c["name"] == "Linguistics"
-        )
-
-        # When: Querying from database
-        db_linguistics = await AdvantageCategory.find_one(AdvantageCategory.name == "Linguistics")
-
-        # Then: All fields should match
-        assert db_linguistics is not None
-        assert db_linguistics.description == linguistics_fixture["description"]
-        assert {c.value for c in db_linguistics.character_classes} == set(
-            linguistics_fixture["character_classes"]
-        )
 
     async def test_specific_vampire_clan_brujah(self, vampire_clans_fixture: list[dict]) -> None:
         """Verify Brujah vampire clan has correct data."""

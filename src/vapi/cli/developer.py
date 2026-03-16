@@ -40,7 +40,12 @@ def developer_group() -> None:
     show_default=False,
 )
 @click.option("--global-admin", flag_value=True, help="Is this user a global admin")
-def developer(*, email: str, username: str, global_admin: bool) -> None:
+def developer(
+    *,
+    email: str,
+    username: str,
+    global_admin: bool,
+) -> None:
     """Create an Developer."""
 
     async def create_developer_async() -> None:
@@ -64,7 +69,11 @@ def developer(*, email: str, username: str, global_admin: bool) -> None:
             raise click.Abort
 
         try:
-            developer = Developer(email=email, username=username, is_global_admin=global_admin)
+            developer = Developer(
+                email=email,
+                username=username,
+                is_global_admin=global_admin,
+            )
         except ValidationError as e:
             logger.exception(
                 "Error creating Developer",
@@ -102,7 +111,7 @@ def list_developers() -> None:
         console.rule("Developers")
         for developer in developers:
             console.print(f"[underline]id:          {developer.id}")
-            console.print(f"Name:        {developer.name}")
+            console.print(f"Username:    {developer.username}")
             console.print(f"Email:       {developer.email}")
             console.print(f"Is archived: {developer.is_archived}")
             console.print(f"Is admin:    {developer.is_global_admin}")
@@ -134,7 +143,7 @@ def delete_developer(database_id: str) -> None:
 
         console.rule("Developer deleted")
         console.print(f"ID: {developer.id}")
-        console.print(f"Name: {developer.name}")
+        console.print(f"Username: {developer.username}")
         console.print(f"Email: {developer.email}")
         console.print(f"API key: [green bold]{developer.api_key}[/green bold]")
         console.print(f"Permissions: {developer.permissions.name}")

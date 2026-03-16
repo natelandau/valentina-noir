@@ -12,7 +12,7 @@ import pytest
 from beanie import PydanticObjectId
 from pydantic import BaseModel
 
-from tests.factories import CharSheetSectionFactory
+from tests.factories import CharSheetSectionFactory, TraitCategoryFactory
 from vapi.cli.lib.utils import (
     JSONWithCommentsDecoder,
     SyncCounts,
@@ -30,6 +30,7 @@ from vapi.cli.lib.utils import (
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+
 
 pytestmark = pytest.mark.anyio
 
@@ -768,15 +769,9 @@ class TestSyncSingleTrait:
             "name": "Strength",
             "description": "Physical power",
         }
-        fixture_category = {
-            "name": "Attributes",
-            "initial_cost": 3,
-            "upgrade_cost": 5,
-        }
         fixture_section = CharSheetSectionFactory.build()
 
-        category = MagicMock()
-        category.id = PydanticObjectId()
+        category = TraitCategoryFactory.build()
 
         mock_trait_class = mocker.patch("vapi.cli.lib.utils.Trait")
         mock_trait_class.find_one = AsyncMock(return_value=None)
@@ -784,21 +779,25 @@ class TestSyncSingleTrait:
         mock_trait_instance = MagicMock()
         mock_trait_instance.save = AsyncMock()
         mock_trait_instance.advantage_category_name = None
+        mock_trait_instance.description = "Physical power"
+        mock_trait_instance.link = None
+        mock_trait_instance.system = None
+        mock_trait_instance.pool = None
         mock_trait_class.return_value = mock_trait_instance
 
-        category.save = AsyncMock()
+        mocker.patch("vapi.cli.lib.utils.create_global_dictionary_term", new_callable=AsyncMock)
 
         # When: Syncing
         _, created, updated = await sync_single_trait(
-            fixture_trait, fixture_category, category=category, section=fixture_section
+            fixture_trait, category=category, section=fixture_section
         )
 
         # Then: Should create new trait with default costs
         assert created is True
         assert updated is False
         mock_trait_instance.save.assert_called_once()
-        assert mock_trait_instance.initial_cost == 3
-        assert mock_trait_instance.upgrade_cost == 5
+        assert mock_trait_instance.initial_cost == category.initial_cost
+        assert mock_trait_instance.upgrade_cost == category.upgrade_cost
 
     async def test_updates_existing_trait(self, mocker: MockerFixture) -> None:
         """Verify updating an existing trait with differences."""
@@ -807,16 +806,17 @@ class TestSyncSingleTrait:
             "name": "Strength",
             "description": "Updated description",
         }
-        fixture_category = {"name": "Attributes"}
+
         fixture_section = CharSheetSectionFactory.build()
 
-        category = MagicMock()
-        category.id = PydanticObjectId()
-        category.save = AsyncMock()
+        category = TraitCategoryFactory.build()
 
         existing_trait = MagicMock()
         existing_trait.name = "Strength"
         existing_trait.description = "Old description"
+        existing_trait.link = None
+        existing_trait.system = None
+        existing_trait.pool = None
         existing_trait.save = AsyncMock()
 
         mock_trait_class = mocker.patch("vapi.cli.lib.utils.Trait")
@@ -827,52 +827,17 @@ class TestSyncSingleTrait:
             "vapi.cli.lib.utils.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},
         )
+        mocker.patch("vapi.cli.lib.utils.create_global_dictionary_term", new_callable=AsyncMock)
 
         # When: Syncing
         _, created, updated = await sync_single_trait(
-            fixture_trait, fixture_category, category=category, section=fixture_section
+            fixture_trait, category=category, section=fixture_section
         )
 
         # Then: Should update existing trait
         assert created is False
         assert updated is True
         existing_trait.save.assert_called_once()
-
-    async def test_links_to_advantage_category(self, mocker: MockerFixture) -> None:
-        """Verify linking trait to advantage category."""
-        # Given: A new trait with advantage_category_name
-        fixture_trait = {
-            "name": "Retainer",
-            "description": "A loyal servant",
-        }
-        fixture_category = {"name": "Backgrounds"}
-        fixture_section = CharSheetSectionFactory.build()
-
-        category = MagicMock()
-        category.id = PydanticObjectId()
-        category.save = AsyncMock()
-
-        advantage_category = MagicMock()
-        advantage_category.id = PydanticObjectId()
-
-        mock_trait_class = mocker.patch("vapi.cli.lib.utils.Trait")
-        mock_trait_class.find_one = AsyncMock(return_value=None)
-
-        mock_trait_instance = MagicMock()
-        mock_trait_instance.advantage_category_name = "Allies"
-        mock_trait_instance.save = AsyncMock()
-        mock_trait_class.return_value = mock_trait_instance
-
-        mock_advantage_class = mocker.patch("vapi.cli.lib.utils.AdvantageCategory")
-        mock_advantage_class.find_one = AsyncMock(return_value=advantage_category)
-
-        # When: Syncing
-        await sync_single_trait(
-            fixture_trait, fixture_category, category=category, section=fixture_section
-        )
-
-        # Then: Should link to advantage category
-        assert mock_trait_instance.advantage_category_id == advantage_category.id
 
 
 class TestSyncCategoryTraits:
@@ -949,8 +914,7 @@ class TestSyncSectionCategories:
         section = MagicMock()
         section.id = PydanticObjectId()
 
-        mock_category = MagicMock()
-        mock_category.id = PydanticObjectId()
+        mock_category = TraitCategoryFactory.build()
 
         mock_sync_category = mocker.patch("vapi.cli.lib.utils.sync_single_category")
         mock_sync_category.side_effect = [
@@ -965,7 +929,9 @@ class TestSyncSectionCategories:
         ]
 
         # When: Syncing
-        category_counts, trait_counts = await sync_section_categories(fixture_section, section)
+        category_counts, subcategory_counts, trait_counts = await sync_section_categories(
+            fixture_section, section
+        )
 
         # Then: Should return correct counts
         assert category_counts.total == 2
@@ -973,6 +939,9 @@ class TestSyncSectionCategories:
         assert category_counts.updated == 1
         assert trait_counts.total == 3
         assert trait_counts.created == 3
+        assert subcategory_counts.total == 0
+        assert subcategory_counts.created == 0
+        assert subcategory_counts.updated == 0
 
     async def test_empty_categories_list(self) -> None:
         """Verify handling section with no categories."""
@@ -982,8 +951,13 @@ class TestSyncSectionCategories:
         section = MagicMock()
 
         # When: Syncing
-        category_counts, trait_counts = await sync_section_categories(fixture_section, section)
+        category_counts, subcategory_counts, trait_counts = await sync_section_categories(
+            fixture_section, section
+        )
 
         # Then: Should return zero counts
         assert category_counts.total == 0
+        assert subcategory_counts.total == 0
+        assert subcategory_counts.created == 0
+        assert subcategory_counts.updated == 0
         assert trait_counts.total == 0

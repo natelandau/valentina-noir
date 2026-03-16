@@ -20,8 +20,6 @@ from vapi.db.models import (
     Company,
     Developer,
     DictionaryTerm,
-    HunterEdge,
-    HunterEdgePerk,
     Note,
     QuickRoll,
     S3Asset,
@@ -252,28 +250,6 @@ async def provide_werewolf_rite_by_id(werewolf_rite_id: PydanticObjectId) -> Wer
     if not werewolf_rite:
         raise NotFoundError(detail="Werewolf rite not found")
     return werewolf_rite
-
-
-async def provide_hunter_edge_by_id(hunter_edge_id: PydanticObjectId) -> HunterEdge:
-    """Provide a hunter edge by ID."""
-    hunter_edge = await HunterEdge.find_one(
-        HunterEdge.id == hunter_edge_id,
-        HunterEdge.is_archived == False,
-    )
-    if not hunter_edge:
-        raise NotFoundError(detail="Hunter edge not found")
-    return hunter_edge
-
-
-async def provide_hunter_edge_perk_by_id(hunter_edge_perk_id: PydanticObjectId) -> HunterEdgePerk:
-    """Provide a hunter edge perk by ID."""
-    hunter_edge_perk = await HunterEdgePerk.find_one(
-        HunterEdgePerk.id == hunter_edge_perk_id,
-        HunterEdgePerk.is_archived == False,
-    )
-    if not hunter_edge_perk:
-        raise NotFoundError(detail="Hunter edge perk not found")
-    return hunter_edge_perk
 
 
 async def provide_dictionary_term_by_id(
