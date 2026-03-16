@@ -176,3 +176,16 @@ class CharacterFullSheetDTO(BaseModel):
             mode="json",
             exclude=COMMON_EXCLUDES | {"character_trait_ids", "is_chargen", "is_temporary"},
         )
+
+
+# Rebuild models so that forward references (Trait, HunterEdgeType) from
+# TYPE_CHECKING imports are resolved at runtime when this module is fully loaded.
+from vapi.constants import HunterEdgeType  # noqa: E402
+from vapi.db.models import Trait  # noqa: E402
+
+_rebuild_ns = {"Trait": Trait, "HunterEdgeType": HunterEdgeType}
+FullSheetCharacterTraitDTO.model_rebuild(_types_namespace=_rebuild_ns)
+FullSheetTraitSubcategoryDTO.model_rebuild(_types_namespace=_rebuild_ns)
+FullSheetTraitCategoryDTO.model_rebuild(_types_namespace=_rebuild_ns)
+FullSheetTraitSectionDTO.model_rebuild(_types_namespace=_rebuild_ns)
+CharacterFullSheetDTO.model_rebuild(_types_namespace=_rebuild_ns)

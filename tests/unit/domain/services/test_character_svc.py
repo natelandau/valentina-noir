@@ -564,3 +564,193 @@ class TestCharacterService:
                 await service.character_create_trait_to_character_traits(
                     character, trait_create_data
                 )
+
+    class TestGetCharacterFullSheet:
+        """Test the get_character_full_sheet method."""
+
+        async def test_empty_character_returns_no_sections(
+            self, character_factory: Callable[[dict[str, Any]], Character]
+        ) -> None:
+            """Verify a character with no traits returns an empty sections list."""
+            # Given a character with no traits
+            character = await character_factory(character_class="MORTAL")
+
+            # When we get the full sheet
+            service = CharacterService()
+            result = await service.get_character_full_sheet(character)
+
+            # Then the result contains the character and no sections
+            assert result.character.id == character.id
+            assert result.sections == []
+
+        async def test_traits_without_subcategory(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        ) -> None:
+            """Verify traits without subcategories appear directly on the category."""
+            # Given a character with a trait that has no subcategory
+            character = await character_factory(character_class="MORTAL")
+            trait = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.trait_subcategory_id == None,
+            )
+            assert trait is not None, "Pre-seeded DB must contain traits without subcategories"
+            assert trait.parent_category_name is not None
+
+            await character_trait_factory(character_id=character.id, trait=trait, value=3)
+
+            # When we get the full sheet
+            service = CharacterService()
+            result = await service.get_character_full_sheet(character)
+
+            # Then the trait appears directly on the category (not in a subcategory)
+            assert len(result.sections) == 1
+            section = result.sections[0]
+            assert len(section.categories) >= 1
+
+            category = next(c for c in section.categories if c.name == trait.parent_category_name)
+            assert len(category.character_traits) == 1
+            assert category.character_traits[0].trait.id == trait.id
+            assert category.character_traits[0].value == 3
+
+        async def test_traits_with_subcategory(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        ) -> None:
+            """Verify traits with subcategories are nested under the correct subcategory."""
+            # Given a character with a trait that belongs to a subcategory
+            character = await character_factory(character_class="MORTAL")
+            trait = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.trait_subcategory_id != None,
+            )
+            assert trait is not None, "Pre-seeded DB must contain traits with subcategories"
+            assert trait.parent_category_name is not None
+            assert trait.trait_subcategory_name is not None
+
+            await character_trait_factory(character_id=character.id, trait=trait, value=2)
+
+            # When we get the full sheet
+            service = CharacterService()
+            result = await service.get_character_full_sheet(character)
+
+            # Then the trait appears inside the correct subcategory
+            assert len(result.sections) == 1
+            category = next(
+                c
+                for s in result.sections
+                for c in s.categories
+                if c.name == trait.parent_category_name
+            )
+            assert len(category.subcategories) >= 1
+            subcategory = next(
+                sub for sub in category.subcategories if sub.name == trait.trait_subcategory_name
+            )
+            assert len(subcategory.character_traits) == 1
+            assert subcategory.character_traits[0].trait.id == trait.id
+            assert subcategory.character_traits[0].value == 2
+
+            # And the category's direct character_traits should be empty
+            assert category.character_traits == []
+
+        async def test_multiple_sections_sorted_by_order(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        ) -> None:
+            """Verify traits from different sections are organized and sorted correctly."""
+            # Given a character with traits spanning multiple sections
+            character = await character_factory(character_class="MORTAL")
+
+            trait1 = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.trait_subcategory_id == None,
+            )
+            assert trait1 is not None
+            trait2 = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.trait_subcategory_id == None,
+                Trait.sheet_section_id != trait1.sheet_section_id,
+            )
+            if trait2 is None:
+                pytest.skip("Pre-seeded DB needs non-subcategory traits in at least 2 sections")
+
+            await character_trait_factory(character_id=character.id, trait=trait1, value=4)
+            await character_trait_factory(character_id=character.id, trait=trait2, value=1)
+
+            # When we get the full sheet
+            service = CharacterService()
+            result = await service.get_character_full_sheet(character)
+
+            # Then there should be exactly 2 sections
+            assert len(result.sections) == 2
+
+            # And each section should contain only traits belonging to it
+            section_names = {s.name for s in result.sections}
+            assert trait1.sheet_section_name in section_names
+            assert trait2.sheet_section_name in section_names
+
+            # And sections should be sorted by order
+            section_orders = [s.order for s in result.sections]
+            assert section_orders == sorted(section_orders)
+
+            # And categories within each section should be sorted by order
+            for section in result.sections:
+                category_orders = [c.order for c in section.categories]
+                assert category_orders == sorted(category_orders)
+
+        async def test_mixed_subcategory_and_direct_traits(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        ) -> None:
+            """Verify a category can have both direct traits and subcategory traits."""
+            # Given a trait with a subcategory
+            character = await character_factory(character_class="MORTAL")
+            trait_with_sub = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.trait_subcategory_id != None,
+            )
+            assert trait_with_sub is not None
+
+            # And a trait without a subcategory in the same category
+            trait_without_sub = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.trait_subcategory_id == None,
+                Trait.parent_category_id == trait_with_sub.parent_category_id,
+            )
+            if trait_without_sub is None:
+                pytest.skip(
+                    "No traits without subcategory in the same category as a subcategory trait"
+                )
+
+            await character_trait_factory(character_id=character.id, trait=trait_with_sub, value=2)
+            await character_trait_factory(
+                character_id=character.id, trait=trait_without_sub, value=3
+            )
+
+            # When we get the full sheet
+            service = CharacterService()
+            result = await service.get_character_full_sheet(character)
+
+            # Then the category should have both direct traits and subcategory traits
+            category = next(
+                c
+                for s in result.sections
+                for c in s.categories
+                if c.name == trait_with_sub.parent_category_name
+            )
+            assert len(category.character_traits) >= 1
+            assert len(category.subcategories) >= 1
+
+            # The direct trait should be in category.character_traits
+            direct_trait_ids = {ct.trait.id for ct in category.character_traits}
+            assert trait_without_sub.id in direct_trait_ids
+
+            # The subcategory trait should be in a subcategory
+            sub_trait_ids = {
+                ct.trait.id for sub in category.subcategories for ct in sub.character_traits
+            }
+            assert trait_with_sub.id in sub_trait_ids
