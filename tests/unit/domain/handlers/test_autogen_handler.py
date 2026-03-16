@@ -840,7 +840,9 @@ class TestGenerateHunterAttributes:
 
         total_edges = {perk.trait.trait_subcategory_id for perk in character_perks}
 
-        assert len(total_edges) in expected_num_edges
+        # Perks are randomly sampled from selected edges, so not all edges
+        # may be represented in the perks
+        assert 1 <= len(total_edges) <= max(expected_num_edges)
 
 
 class TestGenerateAdvantageValues:
