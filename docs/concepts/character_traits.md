@@ -42,6 +42,8 @@ When a trait belongs to a subcategory, the trait response includes `trait_subcat
 
 If a subcategory has `requires_parent` set to `true`, the subcategory must be explicitly added to a character before any of its child traits can be assigned. This is useful for traits like hunter edges, where the edge itself must be selected before its perks become available.
 
+To browse available subcategories and their traits, use the [blueprint subcategory endpoints](./character_blueprint.md#listing-category-subcategories).
+
 ## Adding Traits
 
 Add traits to a character using one of two approaches.

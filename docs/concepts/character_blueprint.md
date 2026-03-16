@@ -111,6 +111,95 @@ Custom traits are specific to individual characters. They share the same fields 
 
     A character spends significant time learning to decipher encoded messages. The Storyteller grants them the skill `Cryptography`. Since `Cryptography` is not a core trait, it becomes a custom trait for that character. The character can use `Cryptography` in gameplay and see it on their character sheet.
 
+## Navigating the Blueprint Hierarchy
+
+The blueprint API exposes a hierarchical navigation path that mirrors the structure of a character sheet: **Sheet Section → Category → Subcategory → Trait**. Use these endpoints to walk the hierarchy and build trait selection interfaces.
+
+### Listing Category Traits
+
+List the traits within a category by navigating through the hierarchy:
+
+```shell
+GET /api/v1/companies/{company_id}/characterblueprint/{game_version}/sections/{section_id}/categories/{category_id}/traits?limit=10&offset=0
+```
+
+Some categories contain both top-level traits and traits grouped under [subcategories](./character_traits.md#trait-subcategories). Use the `exclude_subcategory_traits` parameter to return only top-level traits that don't belong to any subcategory:
+
+```shell
+GET .../categories/{category_id}/traits?exclude_subcategory_traits=true
+```
+
+This is useful when you want to display top-level traits separately from subcategory-grouped traits in your UI.
+
+### Listing Category Subcategories
+
+List the subcategories within a category. Not all categories have subcategories — categories like Attributes and Abilities contain only top-level traits.
+
+```shell
+GET /api/v1/companies/{company_id}/characterblueprint/{game_version}/sections/{section_id}/categories/{category_id}/subcategories?limit=10&offset=0
+```
+
+Optionally filter by `character_class` to get class-specific subcategories.
+
+??? example "API Response"
+
+    Each subcategory is represented by a `TraitSubcategory` object:
+
+    ```json
+    {
+        "id": "69679d6b92e8772cd93d8185",
+        "date_created": "2026-01-15T18:47:12.709Z",
+        "date_modified": "2026-01-15T18:47:12.709Z",
+        "name": "Allies",
+        "description": "People who support and assist the character.",
+        "game_versions": ["V4", "V5"],
+        "character_classes": ["VAMPIRE", "WEREWOLF", ...],
+        "show_when_empty": true, // (1)!
+        "initial_cost": 1, // (2)!
+        "upgrade_cost": 2, // (3)!
+        "requires_parent": false, // (4)!
+        "pool": null, // (5)!
+        "system": null, // (6)!
+        "parent_category_id": "69679d6b92e8772cd93d8185",
+        "parent_category_name": "Backgrounds"
+    }
+    ```
+
+    1.  Whether to display the subcategory on a sheet when it has no assigned traits.
+    2.  Default initial cost for traits in this subcategory.
+    3.  Default upgrade cost multiplier for traits in this subcategory.
+    4.  Whether this subcategory must be explicitly added to a character before its child traits can be assigned. Used for hunter edges where the edge itself must be selected before perks become available.
+    5.  A dice pool description associated with this subcategory, if applicable.
+    6.  A system/mechanical rules description for this subcategory, if applicable.
+
+### Getting a Single Subcategory
+
+Retrieve a specific subcategory by its ID:
+
+```shell
+GET /api/v1/companies/{company_id}/characterblueprint/{game_version}/sections/{section_id}/categories/{category_id}/subcategories/{subcategory_id}
+```
+
+### Listing Subcategory Traits
+
+List traits within a specific subcategory. This returns only the traits grouped under that subcategory.
+
+```shell
+GET /api/v1/companies/{company_id}/characterblueprint/{game_version}/sections/{section_id}/categories/{category_id}/subcategories/{subcategory_id}/traits?limit=10&offset=0
+```
+
+Optionally filter by `character_class` to get class-specific traits.
+
+!!! tip "Building a Complete Trait Picker"
+
+    To display a complete trait selection UI for a category that has subcategories:
+
+    1. List top-level traits with `exclude_subcategory_traits=true`
+    2. List subcategories for the category
+    3. For each subcategory, list its traits
+
+    This gives you a clean separation between standalone traits and subcategory-grouped traits.
+
 ## Class Specific
 
 ### Vampire Clans
@@ -312,7 +401,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&of
 
 Hunter edges and perks are managed through the unified trait system using [trait subcategories](./character_traits.md#trait-subcategories). Each edge type (Assets, Aptitudes, Endowments) is represented as a trait subcategory, and individual edges and perks are traits within those subcategories.
 
-Use the standard trait blueprint endpoints to browse hunter edges. Filter by `character_class=HUNTER` to see hunter-specific traits.
+Use the [subcategory endpoints](#listing-category-subcategories) to browse hunter edges. Filter by `character_class=HUNTER` to see hunter-specific subcategories and traits.
 
 ## Character Concepts
 
