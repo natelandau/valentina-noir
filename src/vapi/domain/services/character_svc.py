@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import gather
 from typing import TYPE_CHECKING
 
 from beanie.operators import In
@@ -11,6 +12,7 @@ from vapi.db.models import (
     Character,
     CharacterTrait,
     CharSheetSection,
+    Trait,
     TraitCategory,
     TraitSubcategory,
 )
@@ -219,104 +221,111 @@ class CharacterService:
             await character_trait_service.after_save(character_trait)
 
     async def get_character_full_sheet(self, character: Character) -> CharacterFullSheetDTO:
-        """Get a character full sheet."""
+        """Build the hierarchical full character sheet (sections > categories > subcategories > traits)."""
         all_character_traits = await CharacterTrait.find(
             CharacterTrait.character_id == character.id,
             fetch_links=True,
         ).to_list()
 
-        sheet_section_ids = {
-            character_trait.trait.sheet_section_id  # type: ignore[attr-defined]
-            for character_trait in all_character_traits
-        }
-        category_ids = {
-            character_trait.trait.parent_category_id  # type: ignore[attr-defined]
-            for character_trait in all_character_traits
-        }
-        subcategory_ids = {
-            character_trait.trait.parent_subcategory_id  # type: ignore[attr-defined]
-            for character_trait in all_character_traits
-        }
+        sheet_section_ids: set = set()
+        category_ids: set = set()
+        subcategory_ids: set = set()
 
-        sections_objects = (
-            await CharSheetSection.find(
+        # Pre-index traits by category and subcategory for O(1) lookups
+        traits_by_subcategory: dict = {}
+        traits_by_category_no_sub: dict = {}
+
+        for ct in all_character_traits:
+            trait: Trait = ct.trait  # type: ignore[assignment]
+            sheet_section_ids.add(trait.sheet_section_id)
+            category_ids.add(trait.parent_category_id)
+            subcategory_ids.add(trait.trait_subcategory_id)
+
+            if trait.trait_subcategory_id:
+                traits_by_subcategory.setdefault(trait.trait_subcategory_id, []).append(ct)
+            else:
+                traits_by_category_no_sub.setdefault(trait.parent_category_id, []).append(ct)
+
+        subcategory_ids.discard(None)
+
+        sections_objects, categories_objects, subcategories_objects = await gather(
+            CharSheetSection.find(
                 CharSheetSection.is_archived == False,
                 In(CharSheetSection.id, sheet_section_ids),
             )
             .sort("order")
-            .to_list()
-        )
-        categories = (
-            await TraitCategory.find(
+            .to_list(),
+            TraitCategory.find(
                 TraitCategory.is_archived == False,
                 In(TraitCategory.id, category_ids),
             )
             .sort("order")
-            .to_list()
-        )
-        subcategories = (
-            await TraitSubcategory.find(
+            .to_list(),
+            TraitSubcategory.find(
                 TraitSubcategory.is_archived == False,
                 In(TraitSubcategory.id, subcategory_ids),
             )
             .sort("name")
-            .to_list()
+            .to_list(),
         )
+
+        # Pre-index subcategories by parent category
+        subcategories_by_category: dict = {}
+        for subcategory in subcategories_objects:
+            if subcategory.parent_category_id:
+                subcategories_by_category.setdefault(subcategory.parent_category_id, []).append(
+                    subcategory
+                )
+
+        # Pre-index categories by parent section
+        categories_by_section: dict = {}
+        for category in categories_objects:
+            categories_by_section.setdefault(category.parent_sheet_section_id, []).append(category)
+
+        def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
+            return FullSheetCharacterTraitDTO(trait=ct.trait, value=ct.value)  # type: ignore[arg-type]
 
         sections = [
             FullSheetTraitSectionDTO(
-                name=sheet_section.name,
-                description=sheet_section.description,
-                order=sheet_section.order,
-                show_when_empty=sheet_section.show_when_empty,
-                categories=[],
+                name=section.name,
+                description=section.description,
+                order=section.order,
+                show_when_empty=section.show_when_empty,
+                categories=[
+                    FullSheetTraitCategoryDTO(
+                        name=category.name,
+                        description=category.description,
+                        order=category.order,
+                        show_when_empty=category.show_when_empty,
+                        initial_cost=category.initial_cost,
+                        upgrade_cost=category.upgrade_cost,
+                        subcategories=[
+                            FullSheetTraitSubcategoryDTO(
+                                name=sub.name,
+                                description=sub.description,
+                                show_when_empty=sub.show_when_empty,
+                                initial_cost=sub.initial_cost,
+                                upgrade_cost=sub.upgrade_cost,
+                                requires_parent=sub.requires_parent,
+                                pool=sub.pool,
+                                system=sub.system,
+                                hunter_edge_type=sub.hunter_edge_type,
+                                character_traits=[
+                                    _build_trait_dto(ct)
+                                    for ct in traits_by_subcategory.get(sub.id, [])
+                                ],
+                            )
+                            for sub in subcategories_by_category.get(category.id, [])
+                        ],
+                        character_traits=[
+                            _build_trait_dto(ct)
+                            for ct in traits_by_category_no_sub.get(category.id, [])
+                        ],
+                    )
+                    for category in categories_by_section.get(section.id, [])
+                ],
             )
-            for sheet_section in sections_objects
+            for section in sections_objects
         ]
-
-        for section in sections:
-            section.categories = [
-                FullSheetTraitCategoryDTO(
-                    name=category.name,
-                    description=category.description,
-                    order=category.order,
-                    show_when_empty=category.show_when_empty,
-                    initial_cost=category.initial_cost,
-                    upgrade_cost=category.upgrade_cost,
-                    subcategories=[
-                        FullSheetTraitSubcategoryDTO(
-                            name=subcategory.name,
-                            description=subcategory.description,
-                            show_when_empty=subcategory.show_when_empty,
-                            initial_cost=subcategory.initial_cost,
-                            upgrade_cost=subcategory.upgrade_cost,
-                            requires_parent=subcategory.requires_parent,
-                            pool=subcategory.pool,
-                            system=subcategory.system,
-                            hunter_edge_type=subcategory.hunter_edge_type,
-                            character_traits=[
-                                FullSheetCharacterTraitDTO(
-                                    trait=character_trait.trait,  # type: ignore[arg-type]
-                                    value=character_trait.value,
-                                )
-                                for character_trait in all_character_traits
-                                if character_trait.trait.parent_subcategory_id == subcategory.id  # type: ignore[attr-defined]
-                            ],
-                        )
-                        for subcategory in subcategories
-                        if subcategory.parent_category_id == category.id
-                    ],
-                    character_traits=[
-                        FullSheetCharacterTraitDTO(
-                            trait=character_trait.trait,  # type: ignore[arg-type]
-                            value=character_trait.value,
-                        )
-                        for character_trait in all_character_traits
-                        if character_trait.trait.parent_category_id == category.id  # type: ignore[attr-defined]
-                        and character_trait.trait_subcategory_id is None
-                    ],
-                )
-                for category in categories
-            ]
 
         return CharacterFullSheetDTO(character=character, sections=sections)
