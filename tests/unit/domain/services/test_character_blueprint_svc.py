@@ -174,6 +174,108 @@ class TestListSheetCategories:
         assert categories == all_v5_categories[1:3]
 
 
+class TestListSheetCategorySubcategories:
+    """Test the list_sheet_category_subcategories method."""
+
+    async def test_list_sheet_category_subcategories(self) -> None:
+        """Verify that list_sheet_category_subcategories returns subcategories for a category."""
+        # Given a category that has subcategories
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given all subcategories for this category and game version
+        expected_count = await TraitSubcategory.find(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+        ).count()
+
+        # When listing subcategories
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            limit=100,
+        )
+
+        # Then the count and results match
+        assert count == expected_count
+        assert len(subcategories) == expected_count
+        for sub in subcategories:
+            assert sub.parent_category_id == category.id
+
+    async def test_list_sheet_category_subcategories_character_class(self) -> None:
+        """Verify that list_sheet_category_subcategories filters by character class."""
+        # Given a category that has subcategories
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given all subcategories filtered by character class
+        expected_count = await TraitSubcategory.find(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+            TraitSubcategory.character_classes == CharacterClass.VAMPIRE,
+        ).count()
+
+        # When listing subcategories filtered by character class
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            character_class=CharacterClass.VAMPIRE,
+            limit=100,
+        )
+
+        # Then the results match the filtered subcategories
+        assert count == expected_count
+        assert len(subcategories) == expected_count
+
+    async def test_list_sheet_category_subcategories_skip_and_limit(self) -> None:
+        """Verify that list_sheet_category_subcategories respects skip and limit."""
+        # Given a category that has subcategories
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given the total count of subcategories for this category
+        total_count = await TraitSubcategory.find(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.game_versions == game_version,
+            TraitSubcategory.parent_category_id == category.id,
+        ).count()
+
+        # When listing subcategories with skip and limit
+        service = CharacterBlueprintService()
+        count, subcategories = await service.list_sheet_category_subcategories(
+            game_version=game_version,
+            category=category,
+            limit=2,
+            offset=1,
+        )
+
+        # Then count reflects total but results are paginated
+        assert count == total_count
+        assert len(subcategories) <= 2
+
+
 class TestListSheetCategoryTraits:
     """Test the list_sheet_category_traits method."""
 

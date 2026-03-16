@@ -29,6 +29,13 @@ Retrieve traits within a category for a game version.
 These are the individual traits that can be assigned to characters (e.g., `Strength`, `Firearms`, `Resources`). Optionally filter by character class or include custom traits for a specific character.
 """
 
+# Category Subcategories
+LIST_CATEGORY_SUBCATEGORIES_DESCRIPTION = """\
+Retrieve subcategories within a category for a game version.
+
+Subcategories group related traits together (e.g., `Resources`, `Allies`, `Flaws`). Optionally filter by character class.
+"""
+
 GET_TRAIT_DESCRIPTION = """\
 Retrieve a specific trait including its value range, cost configuration, and metadata.
 """
