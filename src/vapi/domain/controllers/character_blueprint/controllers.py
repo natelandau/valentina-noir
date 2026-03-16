@@ -169,6 +169,7 @@ class CharacterBlueprintSectionController(Controller):
         category: TraitCategory,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
+        exclude_subcategory_traits: Annotated[bool, Parameter(default=False)] = False,
         character_class: Annotated[
             CharacterClass,
             Parameter(
@@ -190,6 +191,7 @@ class CharacterBlueprintSectionController(Controller):
         service = CharacterBlueprintService()
         count, traits = await service.list_sheet_category_traits(
             game_version=game_version,
+            exclude_subcategory_traits=exclude_subcategory_traits,
             category=category,
             character_class=character_class,
             character_id=character_id,
@@ -212,6 +214,8 @@ class CharacterBlueprintSectionController(Controller):
     async def get_trait(self, *, trait: Trait) -> Trait:
         """Get a character sheet category trait by ID."""
         return trait
+
+    ## CATEGORY SUBCATEGORIES #######################################################
 
     ## ALL TRAITS #######################################################
     @get(

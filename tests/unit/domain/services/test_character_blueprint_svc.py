@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vapi.constants import BlueprintTraitOrderBy, CharacterClass, GameVersion
-from vapi.db.models import Character, CharSheetSection, Trait, TraitCategory
+from vapi.db.models import Character, CharSheetSection, Trait, TraitCategory, TraitSubcategory
 from vapi.domain.services import CharacterBlueprintService
 
 if TYPE_CHECKING:
@@ -312,6 +312,109 @@ class TestListSheetCategoryTraits:
         assert count == len(all_v5_traits) + 1
         assert traits == [*all_v5_traits, custom_trait]
         assert custom_trait.id in [trait.id for trait in traits]
+
+    async def test_exclude_subcategory_traits(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that exclude_subcategory_traits filters out traits belonging to subcategories."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a real subcategory exists
+        subcategory = await TraitSubcategory.find_one(TraitSubcategory.is_archived == False)
+
+        # Given a trait with a subcategory assignment
+        subcategory_trait = await trait_factory(
+            name="subcategory trait",
+            description="trait belonging to a subcategory",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # Given all traits without subcategory for this category
+        all_non_subcategory_traits = await Trait.find(
+            Trait.is_archived == False,
+            Trait.game_versions == GameVersion.V5,
+            Trait.parent_category_id == category.id,
+            Trait.custom_for_character_id == None,
+            Trait.trait_subcategory_id == None,
+        ).to_list()
+
+        # When listing traits with exclude_subcategory_traits=True
+        service = CharacterBlueprintService()
+        count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            exclude_subcategory_traits=True,
+        )
+
+        # Then subcategory traits should be excluded
+        assert count == len(all_non_subcategory_traits)
+        assert subcategory_trait.id not in [t.id for t in traits]
+
+    async def test_include_subcategory_traits_by_default(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that subcategory traits are included when exclude_subcategory_traits is False."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a real subcategory exists
+        subcategory = await TraitSubcategory.find_one(TraitSubcategory.is_archived == False)
+
+        # Given a trait with a subcategory assignment
+        subcategory_trait = await trait_factory(
+            name="subcategory trait included",
+            description="trait belonging to a subcategory",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+        )
+
+        # When listing traits without excluding subcategory traits (default)
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            exclude_subcategory_traits=False,
+            limit=100,
+        )
+
+        # Then the subcategory trait should be included
+        assert subcategory_trait.id in [t.id for t in traits]
 
 
 class TestListAllTraits:

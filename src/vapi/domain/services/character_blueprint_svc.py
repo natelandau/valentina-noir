@@ -91,6 +91,7 @@ class CharacterBlueprintService:
         *,
         game_version: GameVersion,
         category: TraitCategory,
+        exclude_subcategory_traits: bool = False,
         character_class: CharacterClass | None = None,
         character_id: PydanticObjectId | None = None,
         limit: int = 10,
@@ -101,6 +102,7 @@ class CharacterBlueprintService:
         Args:
             game_version: The game version to list the traits for.
             category: The category to list the traits for.
+            exclude_subcategory_traits: Whether to exclude traits from subcategories.
             character_class: The character class to list the traits for.
             character_id: Include custom traits assigned to this character.
             limit: The limit of traits to return.
@@ -126,6 +128,9 @@ class CharacterBlueprintService:
             )
         else:
             filters.append(Trait.custom_for_character_id == None)
+
+        if exclude_subcategory_traits:
+            filters.append(Trait.trait_subcategory_id == None)
 
         count = await Trait.find(*filters).count()
         traits = (
