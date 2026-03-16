@@ -59,7 +59,7 @@ Some character classes have additional attributes beyond the standard set.
 - **Vampires** - Clan, generation, sire, bane, and compulsion (auto-populated from clan data)
 - **Werewolves** - Tribe, auspice, pack name, gifts, rites, and total renown (computed from Honor + Wisdom + Glory)
 - **Mages** - Sphere and tradition
-- **Hunters** - Creed and edges with perks
+- **Hunters** - Creed and edges (managed as traits via [subcategories](./character_traits.md#trait-subcategories))
 
 See the [character blueprint](./character_blueprint.md) documentation for details on class-specific options.
 
@@ -78,7 +78,7 @@ You can optionally specify:
 - Experience level - How many dots and traits are granted to the character - `NEW`, `INTERMEDIATE`, `ADVANCED`, or `ELITE`
 - Skill focus - How dots of traits are distributed between abilities - `JACK_OF_ALL_TRADES`, `BALANCED`, or `SPECIALIST`
 - [Concept](./character_concepts.md)
-- Class-specific options (vampire clan, werewolf tribe/auspice, Hunter creeds/edges/perks, etc.)
+- Class-specific options (vampire clan, werewolf tribe/auspice, hunter creed, etc.)
 
 ### Multiple Autogeneration
 
