@@ -34,7 +34,7 @@ __all__ = (
     "get_differing_fields",
     "gift_link_to_tribe_and_auspice",
     "link_disciplines_to_clan",
-    "sync_category_traits",
+    "sync_fixture_traits",
     "sync_section_categories",
     "sync_single_category",
     "sync_single_section",
@@ -432,7 +432,7 @@ async def sync_single_subcategory(  # noqa: C901
 
         await create_global_dictionary_term(
             subcategory.name,
-            definition=subcategory.description,
+            definition=desc,
         )
 
     return subcategory, created, updated
@@ -522,63 +522,35 @@ async def sync_single_trait(  # noqa: C901, PLR0912
             link=trait.link,
         )
 
-    await category.save()
     return trait, created, updated
 
 
-async def sync_category_traits(
-    fixture_category: dict[str, Any],
-    category: TraitCategory,
-    section: CharSheetSection,
-) -> SyncCounts:
-    """Sync all traits within a category.
-
-    Args:
-        fixture_category (dict[str, Any]): Fixture data for the category.
-        category (TraitCategory): The category to sync traits for.
-        section (CharSheetSection): The section to sync traits for.
-
-    Returns:
-        SyncCounts: Counts of created, updated, and total traits.
-    """
-    counts = SyncCounts()
-
-    for fixture_trait in fixture_category.get("traits", []):
-        _, created, updated = await sync_single_trait(
-            fixture_trait=fixture_trait, category=category, section=section
-        )
-        counts.total += 1
-        if created:
-            counts.created += 1
-        elif updated:
-            counts.updated += 1
-
-    return counts
-
-
-async def sync_subcategory_traits(
-    fixture_subcategory: dict[str, Any],
+async def sync_fixture_traits(
+    fixture_data: dict[str, Any],
     *,
-    subcategory: TraitSubcategory,
     category: TraitCategory,
     section: CharSheetSection,
+    subcategory: TraitSubcategory | None = None,
 ) -> SyncCounts:
-    """Sync all traits within a category.
+    """Sync all traits from a fixture data dict (category or subcategory level).
 
     Args:
-        fixture_subcategory (dict[str, Any]): Fixture data for the subcategory.
-        subcategory (TraitSubcategory): The subcategory to sync traits for.
-        category (TraitCategory): The category to sync traits for.
-        section (CharSheetSection): The section to sync traits for.
+        fixture_data: Fixture data containing a "traits" key.
+        category: The parent category for the traits.
+        section: The parent section for the traits.
+        subcategory: Optional parent subcategory for the traits.
 
     Returns:
         SyncCounts: Counts of created, updated, and total traits.
     """
     counts = SyncCounts()
 
-    for fixture_trait in fixture_subcategory.get("traits", []):
+    for fixture_trait in fixture_data.get("traits", []):
         _, created, updated = await sync_single_trait(
-            fixture_trait=fixture_trait, category=category, section=section, subcategory=subcategory
+            fixture_trait=fixture_trait,
+            category=category,
+            section=section,
+            subcategory=subcategory,
         )
         counts.total += 1
         if created:
@@ -625,7 +597,7 @@ async def sync_section_categories(
             elif updated:
                 subcategory_counts.updated += 1
 
-            subcategory_traits_result = await sync_subcategory_traits(
+            subcategory_traits_result = await sync_fixture_traits(
                 fixture_subcategory, subcategory=subcategory, category=category, section=section
             )
             trait_counts.created += subcategory_traits_result.created
@@ -633,7 +605,9 @@ async def sync_section_categories(
             trait_counts.total += subcategory_traits_result.total
 
         # Sync traits within this category
-        traits_result = await sync_category_traits(fixture_category, category, section)
+        traits_result = await sync_fixture_traits(
+            fixture_category, category=category, section=section
+        )
         trait_counts.created += traits_result.created
         trait_counts.updated += traits_result.updated
         trait_counts.total += traits_result.total
@@ -648,8 +622,6 @@ async def create_global_dictionary_term(
     if not definition and not link:
         return
 
-    dictionary_term_counts["total"] += 1
-
     existing_term = await DictionaryTerm.find_one(
         DictionaryTerm.term == term.lower().strip(), DictionaryTerm.is_global == True
     )
@@ -661,6 +633,7 @@ async def create_global_dictionary_term(
             is_global=True,
         ).insert()
         dictionary_term_counts["created"] += 1
+        dictionary_term_counts["total"] += 1
     elif existing_term.definition != definition or existing_term.link != link:
         await existing_term.update(
             {
@@ -671,3 +644,4 @@ async def create_global_dictionary_term(
             }
         )
         dictionary_term_counts["updated"] += 1
+        dictionary_term_counts["total"] += 1

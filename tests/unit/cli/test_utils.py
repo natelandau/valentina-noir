@@ -21,7 +21,7 @@ from vapi.cli.lib.utils import (
     get_differing_fields,
     gift_link_to_tribe_and_auspice,
     link_disciplines_to_clan,
-    sync_category_traits,
+    sync_fixture_traits,
     sync_section_categories,
     sync_single_category,
     sync_single_section,
@@ -841,7 +841,7 @@ class TestSyncSingleTrait:
 
 
 class TestSyncCategoryTraits:
-    """Tests for the sync_category_traits function."""
+    """Tests for the sync_fixture_traits function."""
 
     async def test_syncs_multiple_traits(self, mocker: MockerFixture) -> None:
         """Verify syncing multiple traits within a category."""
@@ -867,7 +867,9 @@ class TestSyncCategoryTraits:
         ]
 
         # When: Syncing
-        counts = await sync_category_traits(fixture_category, category, section=fixture_section)
+        counts = await sync_fixture_traits(
+            fixture_category, category=category, section=fixture_section
+        )
 
         # Then: Should return correct counts
         assert counts.total == 3
@@ -883,7 +885,9 @@ class TestSyncCategoryTraits:
         fixture_section = CharSheetSectionFactory.build()
 
         # When: Syncing
-        counts = await sync_category_traits(fixture_category, category, section=fixture_section)
+        counts = await sync_fixture_traits(
+            fixture_category, category=category, section=fixture_section
+        )
 
         # Then: Should return zero counts
         assert counts.total == 0
@@ -922,7 +926,7 @@ class TestSyncSectionCategories:
             (mock_category, False, True),  # second category updated
         ]
 
-        mock_sync_traits = mocker.patch("vapi.cli.lib.utils.sync_category_traits")
+        mock_sync_traits = mocker.patch("vapi.cli.lib.utils.sync_fixture_traits")
         mock_sync_traits.side_effect = [
             SyncCounts(created=2, updated=0, total=2),
             SyncCounts(created=1, updated=0, total=1),
