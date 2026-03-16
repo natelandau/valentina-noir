@@ -95,8 +95,6 @@ class OptionsController(Controller):
                 "WerewolfRenown": [x.value for x in WerewolfRenown],
                 "_related": {
                     "concepts": _build_url(urls.CharacterBlueprints.CONCEPTS),
-                    "hunter_edges": _build_url(urls.CharacterBlueprints.HUNTER_EDGES),
-                    "hunter_edge_perks": _build_url(urls.CharacterBlueprints.HUNTER_EDGE_PERKS),
                     "traits": _build_url(urls.CharacterBlueprints.TRAITS),
                     "trait_sections": _build_url(urls.CharacterBlueprints.SECTIONS),
                     "trait_categories": _build_url(urls.CharacterBlueprints.CATEGORIES),

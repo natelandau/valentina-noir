@@ -222,18 +222,6 @@ class Characters:
     RITE_ADD = RITE_DETAIL
     RITE_REMOVE = RITE_DETAIL
 
-    # Hunter Edges
-    EDGES = f"{DETAIL}/edges"
-    EDGE_DETAIL = f"{EDGES}/{{hunter_edge_id:str}}"
-    EDGE_ADD = EDGE_DETAIL
-    EDGE_REMOVE = EDGE_DETAIL
-
-    # Hunter Edge Perks (nested under edges)
-    EDGE_PERKS = f"{EDGE_DETAIL}/perks"
-    EDGE_PERK_DETAIL = f"{EDGE_PERKS}/{{hunter_edge_perk_id:str}}"
-    EDGE_PERK_ADD = EDGE_PERK_DETAIL
-    EDGE_PERK_REMOVE = EDGE_PERK_DETAIL
-
 
 class CharacterBlueprints:
     """Character blueprints endpoints."""
@@ -266,10 +254,6 @@ class CharacterBlueprints:
     WEREWOLF_GIFT_DETAIL = f"{WEREWOLF_GIFTS}/{{werewolf_gift_id:str}}"
     WEREWOLF_RITES = f"{BASE}/werewolf-rites"
     WEREWOLF_RITE_DETAIL = f"{WEREWOLF_RITES}/{{werewolf_rite_id:str}}"
-    HUNTER_EDGES = f"{BASE}/hunter-edges"
-    HUNTER_EDGE_DETAIL = f"{HUNTER_EDGES}/{{hunter_edge_id:str}}"
-    HUNTER_EDGE_PERKS = f"{HUNTER_EDGE_DETAIL}/perks"
-    HUNTER_EDGE_PERK_DETAIL = f"{HUNTER_EDGE_PERKS}/{{hunter_edge_perk_id:str}}"
 
 
 class Dictionaries:

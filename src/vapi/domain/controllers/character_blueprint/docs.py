@@ -105,25 +105,3 @@ Rites are ceremonial abilities that werewolves can learn and perform.
 GET_WEREWOLF_RITE_BLUEPRINT_DESCRIPTION = """\
 Retrieve a specific werewolf rite including its level, requirements, and effect description.
 """
-
-# Hunter Edges
-LIST_HUNTER_EDGES_BLUEPRINT_DESCRIPTION = """\
-Retrieve all hunter edges available in the system.
-
-Edges represent the supernatural abilities available to hunter characters. Optionally filter by edge type.
-"""
-
-GET_HUNTER_EDGE_BLUEPRINT_DESCRIPTION = """\
-Retrieve a specific hunter edge including its type, perks, and effect description.
-"""
-
-# Hunter Edge Perks
-LIST_HUNTER_EDGE_PERKS_BLUEPRINT_DESCRIPTION = """\
-Retrieve all perks for a specific hunter edge.
-
-Perks are specialized abilities within an edge that provide additional benefits.
-"""
-
-GET_HUNTER_EDGE_PERK_BLUEPRINT_DESCRIPTION = """\
-Retrieve a specific hunter edge perk including its cost and effect description.
-"""

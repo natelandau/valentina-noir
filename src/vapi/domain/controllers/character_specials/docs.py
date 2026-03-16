@@ -1,52 +1,5 @@
 """Character specials endpoint documentation."""
 
-# Hunter Edge Endpoints
-LIST_HUNTER_EDGES_DESCRIPTION = """\
-Retrieve a paginated list of hunter edges assigned to a character.
-
-Edges represent the supernatural abilities and powers available to hunter characters.
-"""
-
-GET_HUNTER_EDGE_DESCRIPTION = """\
-Retrieve a specific hunter edge including all its associated perks that the character has unlocked.
-"""
-
-LIST_HUNTER_EDGE_PERKS_DESCRIPTION = """\
-Retrieve a paginated list of perks for a specific hunter edge.
-
-Perks are specialized abilities within an edge that provide additional benefits.
-"""
-
-GET_HUNTER_EDGE_PERK_DESCRIPTION = """\
-Retrieve detailed information about a specific hunter edge perk.
-"""
-
-ADD_HUNTER_EDGE_DESCRIPTION = """\
-Add a hunter edge to a character's available powers.
-
-**Note:** Only the character's player or a storyteller can add edges.
-"""
-
-REMOVE_HUNTER_EDGE_DESCRIPTION = """\
-Remove a hunter edge from a character.
-
-**Note:** Only the character's player or a storyteller can remove edges.
-"""
-
-ADD_HUNTER_EDGE_PERK_DESCRIPTION = """\
-Add a perk to an existing hunter edge on a character.
-
-The character must already have the edge to add perks to it.
-
-**Note:** Only the character's player or a storyteller can add perks.
-"""
-
-REMOVE_HUNTER_EDGE_PERK_DESCRIPTION = """\
-Remove a perk from a hunter edge on a character.
-
-**Note:** Only the character's player or a storyteller can remove perks.
-"""
-
 # Werewolf Gift Endpoints
 LIST_WEREWOLF_GIFTS_DESCRIPTION = """\
 Retrieve a paginated list of werewolf gifts assigned to a character.
