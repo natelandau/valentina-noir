@@ -37,18 +37,6 @@ Section categories group traits within sections. For example, `Attributes` conta
 
     `Ability` categories only exist in V5. The V4 categories (`Talents`, `Skills`, `Knowledges`) are replaced with `Physical`, `Social`, and `Mental` in V5.
 
-## Advantage Categories
-
-Certain advantages (`merits`, `flaws`, `backgrounds`) are sub-grouped into advantage categories.
-
-For example, the merit category `Fame` contains:
-
-- Fame
-- Influencer
-- Enduring Fame
-
-Display this hierarchy on character sheets when a trait includes `advantage_category_name` and `advantage_category_id`.
-
 ## Traits
 
 Traits are the core attributes that determine a character's abilities and limitations. Each trait has a value measured in `dots`.
@@ -80,8 +68,10 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
         "parent_category_name": "Physical", // (11)!
         "parent_category_id": "69679d6b92e8772cd93d8185", // (12)!
         "custom_for_character_id": null, // (13)!
-        "advantage_category_id": null, // (14)!
-        "advantage_category_name": "string" // (15)!
+        "trait_subcategory_id": null, // (14)!
+        "trait_subcategory_name": null, // (15)!
+        "pool": null, // (16)!
+        "system": null // (17)!
     }
     ```
 
@@ -98,8 +88,10 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
     11. The name of the parent category which the trait belongs to.
     12. The ID of the parent category which the trait belongs to.
     13. If the trait is custom, this is the ID of the character which the trait is custom for.
-    14. The ID of the advantage category which the trait belongs to.
-    15. The name of the advantage category which the trait belongs to.
+    14. The ID of the trait subcategory, if the trait belongs to one. See [Trait Subcategories](./character_traits.md#trait-subcategories).
+    15. The name of the trait subcategory, if the trait belongs to one.
+    16. A string describing the dice pool associated with this trait, if applicable (e.g., hunter edges).
+    17. A string describing the system description for this trait, if applicable (e.g., hunter edges).
 
 ### Core Traits
 
@@ -318,72 +310,9 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&of
 
 ### Hunters
 
-Hunters access `Edges`, each containing multiple `Perks`.
+Hunter edges and perks are managed through the unified trait system using [trait subcategories](./character_traits.md#trait-subcategories). Each edge type (Assets, Aptitudes, Endowments) is represented as a trait subcategory, and individual edges and perks are traits within those subcategories.
 
-!!! info "V5 Only"
-
-    The Hunter Edge system only supports V5 mechanics.
-
-#### Edges
-
-List all available edges:
-
-```shell
-GET /api/v1/companies/{company_id}/characterblueprint/hunter-edges?limit=10&offset=0
-```
-
-??? example "Edge Object"
-
-    Each edge object has the following fields:
-
-    ```json
-    {
-      "id": "69679d6b92e8772cd93d8185",
-      "date_created": "2026-01-15T18:47:12.709Z",
-      "date_modified": "2026-01-15T18:47:12.709Z",
-      "name": "Library",
-      "description": "The Hunter has access to a wealth of information on a wide variety of topics...",
-      "game_versions": ["V5"],
-      "pool": "`Resolve` + `Academics`", // (1)!
-      "system": "The Hunter must spend about a day researching their quarry before making an Edge test...", // (2)!
-      "type": "ASSETS", // (3)!
-      "perk_ids": [ // (4)!
-          "69679d6b92e8772cd93d8185",
-          "69679d6b92e8772cd93d8185",
-          "69679d6b92e8772cd93d8185"]
-    }
-    ```
-
-    1.  The dice pool required to use the edge.
-    2.  The text description of the edge
-    3.  The type of the edge.  One of `ASSETS`, `APTITUDES`, `ENDOWMENTS`.
-    4.  The array of perk IDs associated with the edge.
-
-#### Perks
-
-List all available perks for an edge:
-
-```shell
-GET /api/v1/companies/{company_id}/characterblueprint/hunter-edges/{edge_id}/perks?limit=10&offset=0
-```
-
-??? example "Perk Object"
-
-    Each perk object has the following fields:
-
-    ```json
-    {
-      "id": "69679d6b92e8772cd93d8185",
-      "date_created": "2026-01-15T18:47:12.709Z",
-      "date_modified": "2026-01-15T18:47:12.709Z",
-      "name": "Team Requisition",
-      "description": "Up to the margin of the win, the hunter can provide additional copies of the same weapon.",
-      "game_versions": ["V5"],
-      "edge_id": "68c1f7152cae3787a09a74fa" // (1)!
-    }
-    ```
-
-    1.  The ID of the edge which the perk is associated with.
+Use the standard trait blueprint endpoints to browse hunter edges. Filter by `character_class=HUNTER` to see hunter-specific traits.
 
 ## Character Concepts
 

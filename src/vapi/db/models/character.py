@@ -98,13 +98,6 @@ class MageAttributes(HashedBaseModel):
     ] = None
 
 
-class HunterAttributesEdgeModel(HashedBaseModel):
-    """Hunter edge and perk model."""
-
-    edge_id: PydanticObjectId
-    perk_ids: list[PydanticObjectId] = Field(default_factory=list)
-
-
 class HunterAttributes(HashedBaseModel):
     """Hunter-specific attributes."""
 
@@ -113,7 +106,6 @@ class HunterAttributes(HashedBaseModel):
         Field(min_length=3, max_length=50, default=None),
         BeforeValidator(empty_string_to_none),
     ] = None
-    edges: list[HunterAttributesEdgeModel] = Field(default_factory=list)
 
 
 class WerewolfAttributes(HashedBaseModel):

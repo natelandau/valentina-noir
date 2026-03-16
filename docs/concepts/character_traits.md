@@ -8,6 +8,40 @@ Character traits represent attributes, skills, disciplines, and other abilities 
 
 This page covers how to add, modify, and remove traits from a character. For information on the traits themselves (what's available per class and game version), see the [character blueprint](./character_blueprint.md) documentation.
 
+## Trait Subcategories
+
+Some trait categories contain subcategories that provide an additional level of grouping. Subcategories organize related traits within a category, making it easier to navigate and display traits that share a common theme.
+
+Subcategories appear across multiple trait categories:
+
+- **Backgrounds / Merits / Flaws** - Subcategories group related background traits together (e.g., grouping different backgrounds such as "Allies", or "Resources")
+- **Hunter Edges** - Each edge type (Assets, Aptitudes, Endowments) is a subcategory containing individual edge and perk traits
+
+The trait hierarchy follows this structure: **Sheet Section → Category → Subcategory → Trait**. Not every trait belongs to a subcategory - only traits where additional grouping is useful.
+
+### Subcategory Properties
+
+Each subcategory carries its own configuration that can override or supplement the parent category's defaults.
+
+| Field               | Description                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `name`              | Display name of the subcategory                                                                                       |
+| `description`       | Optional description                                                                                                  |
+| `character_classes` | Which character classes use this subcategory                                                                          |
+| `game_versions`     | Which game versions support this subcategory                                                                          |
+| `initial_cost`      | Default initial cost for traits in this subcategory                                                                   |
+| `upgrade_cost`      | Default upgrade cost multiplier for traits in this subcategory                                                        |
+| `show_when_empty`   | Whether to display the subcategory on a sheet when it has no assigned traits                                          |
+| `requires_parent`   | Whether the subcategory itself must be explicitly added to a character before any of its child traits can be assigned |
+| `pool`              | A string description of the dice pool associated with this subcategory (e.g., for hunter edges)                       |
+| `system`            | A string description of the system description for this subcategory (e.g., mechanical rules for hunter edges)         |
+
+### Using Subcategories
+
+When a trait belongs to a subcategory, the trait response includes `trait_subcategory_id` and `trait_subcategory_name` fields. Use these fields to group traits on character sheets under their subcategory headings.
+
+If a subcategory has `requires_parent` set to `true`, the subcategory must be explicitly added to a character before any of its child traits can be assigned. This is useful for traits like hunter edges, where the edge itself must be selected before its perks become available.
+
 ## Adding Traits
 
 Add traits to a character using one of two approaches.
@@ -108,7 +142,7 @@ Refunds use the same calculation in reverse.
 
 Traits in the "Flaws" parent category have a reversed currency economy. When a player adds or increases a flaw, they **receive** XP or starting points instead of spending them. When a player decreases or removes a flaw, they **spend** XP or starting points instead of receiving a refund.
 
-The cost formulas remain the same — only the direction of currency flow is inverted. `NO_COST` modifications are unaffected and work the same as for any other trait.
+The cost formulas remain the same - only the direction of currency flow is inverted. `NO_COST` modifications are unaffected and work the same as for any other trait.
 
 The `value-options` endpoint reflects this reversal: increase options for flaws are always affordable (since they grant currency), while decrease options check affordability against the user's available balance.
 
@@ -116,8 +150,8 @@ The `value-options` endpoint reflects this reversal: increase options for flaws 
 
 Certain traits are automatically recalculated when their source traits change. Examples:
 
-- **Willpower** — Computed as `Composure + Resolve`. Updated whenever either source trait changes. If the Willpower trait doesn't exist on the character, the system creates it.
-- **Total Renown** (werewolves only) — Computed as `Honor + Wisdom + Glory`. Stored on the character's werewolf attributes.
+- **Willpower** - Computed as `Composure + Resolve`. Updated whenever either source trait changes. If the Willpower trait doesn't exist on the character, the system creates it.
+- **Total Renown** (werewolves only) - Computed as `Honor + Wisdom + Glory`. Stored on the character's werewolf attributes.
 
 ## Deleting Traits
 

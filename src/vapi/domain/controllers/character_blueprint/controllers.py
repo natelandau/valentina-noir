@@ -15,14 +15,11 @@ from vapi.constants import (
     BlueprintTraitOrderBy,
     CharacterClass,
     GameVersion,
-    HunterEdgeType,
 )
 from vapi.db.models import (
     CharacterConcept,
     CharSheetSection,
     Company,
-    HunterEdge,
-    HunterEdgePerk,
     Trait,
     TraitCategory,
     VampireClan,
@@ -558,98 +555,3 @@ class CharacterBlueprintSectionController(Controller):
     ) -> WerewolfRite:
         """Get a werewolf rite by ID."""
         return werewolf_rite
-
-    @get(
-        path=urls.CharacterBlueprints.HUNTER_EDGES,
-        summary="List hunter edges",
-        operation_id="listCharacterBlueprintHunterEdges",
-        description=docs.LIST_HUNTER_EDGES_BLUEPRINT_DESCRIPTION,
-        cache=True,
-        return_dto=dto.HunterEdgeDTO,
-    )
-    async def list_character_blueprint_hunter_edges(
-        self,
-        *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
-        edge_type: Annotated[
-            HunterEdgeType | None,
-            Parameter(description="Show hunter edges for this type.", title="Hunter Edge Type"),
-        ] = None,
-    ) -> OffsetPagination[HunterEdge]:
-        """List all hunter edges."""
-        filters = [
-            HunterEdge.is_archived == False,
-        ]
-        if edge_type:
-            filters.append(HunterEdge.type == edge_type)
-
-        count = await HunterEdge.find(*filters).count()
-        hunter_edges = (
-            await HunterEdge.find(*filters).skip(offset).limit(limit).sort("name").to_list()
-        )
-        return OffsetPagination(items=hunter_edges, limit=limit, offset=offset, total=count)
-
-    @get(
-        path=urls.CharacterBlueprints.HUNTER_EDGE_DETAIL,
-        summary="Get hunter edge",
-        operation_id="getCharacterBlueprintHunterEdge",
-        description=docs.GET_HUNTER_EDGE_BLUEPRINT_DESCRIPTION,
-        cache=True,
-        return_dto=dto.HunterEdgeDTO,
-        dependencies={
-            "hunter_edge": Provide(deps.provide_hunter_edge_by_id),
-        },
-    )
-    async def get_character_blueprint_hunter_edge(self, *, hunter_edge: HunterEdge) -> HunterEdge:
-        """Get a hunter edge by ID."""
-        return hunter_edge
-
-    @get(
-        path=urls.CharacterBlueprints.HUNTER_EDGE_PERKS,
-        summary="List hunter edge perks",
-        operation_id="listCharacterBlueprintHunterEdgePerks",
-        description=docs.LIST_HUNTER_EDGE_PERKS_BLUEPRINT_DESCRIPTION,
-        cache=True,
-        return_dto=dto.HunterEdgePerkDTO,
-        dependencies={
-            "hunter_edge": Provide(deps.provide_hunter_edge_by_id),
-        },
-    )
-    async def list_character_blueprint_hunter_edge_perks(
-        self,
-        *,
-        hunter_edge: HunterEdge,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[HunterEdgePerk]:
-        """List all hunter edge perks."""
-        filters = [
-            HunterEdgePerk.is_archived == False,
-            HunterEdgePerk.edge_id == hunter_edge.id,
-        ]
-
-        count = await HunterEdgePerk.find(*filters).count()
-        hunter_edge_perks = (
-            await HunterEdgePerk.find(*filters).skip(offset).limit(limit).sort("name").to_list()
-        )
-
-        return OffsetPagination(items=hunter_edge_perks, limit=limit, offset=offset, total=count)
-
-    @get(
-        path=urls.CharacterBlueprints.HUNTER_EDGE_PERK_DETAIL,
-        summary="Get hunter edge perk",
-        operation_id="getCharacterBlueprintHunterEdgePerk",
-        description=docs.GET_HUNTER_EDGE_PERK_BLUEPRINT_DESCRIPTION,
-        cache=True,
-        return_dto=dto.HunterEdgePerkDTO,
-        dependencies={
-            "hunter_edge": Provide(deps.provide_hunter_edge_by_id),
-            "hunter_edge_perk": Provide(deps.provide_hunter_edge_perk_by_id),
-        },
-    )
-    async def get_character_blueprint_hunter_edge_perk(
-        self, *, hunter_edge_perk: HunterEdgePerk
-    ) -> HunterEdgePerk:
-        """Get a hunter edge perk by ID."""
-        return hunter_edge_perk

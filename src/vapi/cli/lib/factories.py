@@ -47,8 +47,8 @@ class DeveloperFactory(BeanieDocumentFactory[Developer]):
     __randomize_collection_length__ = True
 
     @classmethod
-    def name(cls) -> str:
-        return fake.name()
+    def username(cls) -> str:
+        return fake.user_name()
 
     @classmethod
     def email(cls) -> str:

@@ -7,7 +7,7 @@ from typing import Annotated
 from beanie import PydanticObjectId  # noqa: TC002
 from pydantic import Field
 
-from vapi.constants import GameVersion, HunterEdgeType, WerewolfRenown
+from vapi.constants import GameVersion, WerewolfRenown
 from vapi.db.models.base import BaseDocument, NameDescriptionSubDocument
 
 
@@ -73,18 +73,3 @@ class WerewolfRite(CharacterClassConstant):
     """Werewolf rite model."""
 
     pool: str | None = None
-
-
-class HunterEdge(CharacterClassConstant):
-    """Hunter edge model."""
-
-    pool: str | None = None
-    system: str | None = None
-    type: HunterEdgeType | None = None
-    perk_ids: list[PydanticObjectId] = Field(default_factory=list)
-
-
-class HunterEdgePerk(CharacterClassConstant):
-    """Hunter edge perk model."""
-
-    edge_id: PydanticObjectId | None = Field(default=None, examples=["68c1f7152cae3787a09a74fa"])

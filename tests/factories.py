@@ -264,10 +264,11 @@ class TraitCategoryFactory(BeanieDocumentFactory[TraitCategory]):
     __min_collection_length__ = 1
     __max_collection_length__ = 5
     __randomize_collection_length__ = True
-
-    @classmethod
-    def is_archived(cls) -> bool:
-        return False
+    is_archived: bool = False
+    show_when_empty: bool = True
+    parent_sheet_section_id: PydanticObjectId = PydanticObjectId()
+    initial_cost: int = 1
+    upgrade_cost: int = 2
 
     @classmethod
     def name(cls) -> str:
@@ -286,16 +287,8 @@ class TraitCategoryFactory(BeanieDocumentFactory[TraitCategory]):
         return [GameVersion.V4, GameVersion.V5]
 
     @classmethod
-    def show_when_empty(cls) -> bool:
-        return True
-
-    @classmethod
     def order(cls) -> int:
         return fake.random_int(min=0, max=20)
-
-    @classmethod
-    def parent_sheet_section_id(cls) -> PydanticObjectId:
-        return PydanticObjectId()
 
 
 class TraitFactory(BeanieDocumentFactory[Trait]):
@@ -306,10 +299,18 @@ class TraitFactory(BeanieDocumentFactory[Trait]):
     __min_collection_length__ = 1
     __max_collection_length__ = 5
     __randomize_collection_length__ = True
-
-    @classmethod
-    def is_archived(cls) -> bool:
-        return False
+    is_archived: bool = False
+    show_when_empty: bool = False
+    max_value: int = 5
+    min_value: int = 0
+    is_custom: bool = False
+    custom_for_character_id: PydanticObjectId | None = None
+    initial_cost: int = 1
+    upgrade_cost: int = 2
+    sheet_section_id: PydanticObjectId = PydanticObjectId()
+    sheet_section_name: str | None = None
+    trait_subcategory_id: PydanticObjectId | None = None
+    trait_subcategory_name: str | None = None
 
     @classmethod
     def name(cls) -> str:
@@ -326,47 +327,3 @@ class TraitFactory(BeanieDocumentFactory[Trait]):
     @classmethod
     def game_versions(cls) -> list:
         return [GameVersion.V4, GameVersion.V5]
-
-    @classmethod
-    def show_when_empty(cls) -> bool:
-        return False
-
-    @classmethod
-    def max_value(cls) -> int:
-        return 5
-
-    @classmethod
-    def min_value(cls) -> int:
-        return 0
-
-    @classmethod
-    def is_custom(cls) -> bool:
-        return False
-
-    @classmethod
-    def custom_for_character_id(cls) -> PydanticObjectId | None:
-        return None
-
-    @classmethod
-    def initial_cost(cls) -> int:
-        return 1
-
-    @classmethod
-    def upgrade_cost(cls) -> int:
-        return 2
-
-    @classmethod
-    def advantage_category_id(cls) -> PydanticObjectId | None:
-        return None
-
-    @classmethod
-    def advantage_category_name(cls) -> str | None:
-        return None
-
-    @classmethod
-    def sheet_section_id(cls) -> PydanticObjectId:
-        return PydanticObjectId()
-
-    @classmethod
-    def sheet_section_name(cls) -> str | None:
-        return None

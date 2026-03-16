@@ -14,6 +14,8 @@ from vapi.db.models import (
     CharacterConcept,
     CharacterTrait,
     Trait,
+    TraitCategory,
+    TraitSubcategory,
     VampireClan,
     WerewolfAuspice,
     WerewolfTribe,
@@ -822,13 +824,25 @@ class TestGenerateHunterAttributes:
         # Then verify the hunter attributes are generated
         assert character.hunter_attributes.creed in [x.value.title() for x in list(HunterCreed)]
 
-        # debug(character.hunter_attributes.model_dump(mode="json"))
-        # debug(expected_num_edges, "expected_num_edges")
-        # debug(expected_num_perks, "expected_num_perks")
-        assert len(character.hunter_attributes.edges) in expected_num_edges
+        edges_trait_category = await TraitCategory.find_one(TraitCategory.name == "Edges")
+        edge_subcategories = await TraitSubcategory.find(
+            TraitSubcategory.parent_category_id == edges_trait_category.id,
+            TraitSubcategory.is_archived == False,
+        ).to_list()
 
-        total_perks = sum([len(edge.perk_ids) for edge in character.hunter_attributes.edges])
-        assert total_perks in expected_num_perks
+        character_perks = await CharacterTrait.find(
+            CharacterTrait.character_id == character.id,
+            In(CharacterTrait.trait.trait_subcategory_id, [x.id for x in edge_subcategories]),
+            fetch_links=True,
+        ).to_list()
+
+        assert len(character_perks) in expected_num_perks
+
+        total_edges = {perk.trait.trait_subcategory_id for perk in character_perks}
+
+        # Perks are randomly sampled from selected edges, so not all edges
+        # may be represented in the perks
+        assert 1 <= len(total_edges) <= max(expected_num_edges)
 
 
 class TestGenerateAdvantageValues:

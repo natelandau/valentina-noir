@@ -8,10 +8,7 @@ from rich.console import Console
 
 from vapi.constants import PROJECT_ROOT_PATH
 from vapi.db.models import (
-    AdvantageCategory,
     CharacterConcept,
-    HunterEdge,
-    HunterEdgePerk,
     VampireClan,
     WerewolfAuspice,
     WerewolfGift,
@@ -35,49 +32,6 @@ console = Console()
 logger = logging.getLogger("vapi")
 
 FIXTURES_PATH = PROJECT_ROOT_PATH / "src/vapi/db/fixtures"
-
-
-async def sync_advantage_categories() -> None:
-    """Sync advantage categories."""
-    fixture_file = FIXTURES_PATH / "advantage_categories.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(
-            msg, extra={"component": "cli", "command": "bootstrap sync_advantage_categories"}
-        )
-        raise click.Abort
-
-    with fixture_file.open("r") as file:
-        fixture_advantage_categories = json.load(file, cls=JSONWithCommentsDecoder)
-
-    created_count = 0
-    updated_count = 0
-    for fixture_category in fixture_advantage_categories:
-        category = await AdvantageCategory.find_one(
-            AdvantageCategory.name == fixture_category["name"]
-        )
-        if not category:
-            category = AdvantageCategory(**fixture_category)
-            await category.save()
-            created_count += 1
-
-        elif document_differs_from_fixture(category, fixture_category):
-            differences = get_differing_fields(category, fixture_category)
-            for field_name in differences:
-                setattr(category, field_name, fixture_category[field_name])
-            await category.save()
-            updated_count += 1
-
-    logger.info(
-        "Bootstrapped advantage categories",
-        extra={
-            "num_created": created_count,
-            "num_updated": updated_count,
-            "num_total": len(fixture_advantage_categories),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
 
 
 async def sync_traits() -> None:
@@ -107,10 +61,15 @@ async def sync_traits() -> None:
             result.sections.updated += 1
 
         # Sync categories and traits within this section
-        category_counts, trait_counts = await sync_section_categories(fixture_section, section)
+        category_counts, subcategory_counts, trait_counts = await sync_section_categories(
+            fixture_section, section
+        )
         result.categories.created += category_counts.created
         result.categories.updated += category_counts.updated
         result.categories.total += category_counts.total
+        result.subcategories.created += subcategory_counts.created
+        result.subcategories.updated += subcategory_counts.updated
+        result.subcategories.total += subcategory_counts.total
         result.traits.created += trait_counts.created
         result.traits.updated += trait_counts.updated
         result.traits.total += trait_counts.total
@@ -131,6 +90,16 @@ async def sync_traits() -> None:
             "num_created": result.categories.created,
             "num_updated": result.categories.updated,
             "num_total": result.categories.total,
+            "component": "cli",
+            "command": "bootstrap",
+        },
+    )
+    logger.info(
+        "Bootstrapped Trait subcategories",
+        extra={
+            "num_created": result.subcategories.created,
+            "num_updated": result.subcategories.updated,
+            "num_total": result.subcategories.total,
             "component": "cli",
             "command": "bootstrap",
         },
@@ -366,78 +335,6 @@ async def sync_werewolf_rites() -> None:
             "num_created": created_rites,
             "num_updated": updated_rites,
             "num_total": len(fixture_werewolf_rites),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
-
-
-async def sync_hunter_edges() -> None:
-    """Sync hunter edges."""
-    fixture_file = FIXTURES_PATH / "hunter_edges.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(msg, extra={"component": "cli", "command": "bootstrap sync_hunter_edges"})
-        raise click.Abort
-
-    with fixture_file.open("r") as file:
-        fixture_hunter_edges = json.load(file)
-
-    created_edges = 0
-    updated_edges = 0
-    created_perks = 0
-    updated_perks = 0
-    total_perks = 0
-    for fixture_edge in fixture_hunter_edges:
-        edge = await HunterEdge.find_one(HunterEdge.name == fixture_edge["name"])
-        if not edge:
-            edge = HunterEdge(**fixture_edge)
-            await edge.save()
-            created_edges += 1
-        elif document_differs_from_fixture(edge, fixture_edge):
-            differences = get_differing_fields(edge, fixture_edge)
-            for field_name in differences:
-                setattr(edge, field_name, fixture_edge[field_name])
-            await edge.save()
-            updated_edges += 1
-
-        for fixture_perk in fixture_edge["perks"]:
-            total_perks += 1
-            perk = await HunterEdgePerk.find_one(
-                HunterEdgePerk.name == fixture_perk["name"],
-                HunterEdgePerk.edge_id == edge.id,
-            )
-            if not perk:
-                perk = HunterEdgePerk(**fixture_perk)
-                perk.edge_id = edge.id
-                await perk.save()
-                created_perks += 1
-            elif document_differs_from_fixture(perk, fixture_perk):
-                differences = get_differing_fields(perk, fixture_perk)
-                for field_name in differences:
-                    setattr(perk, field_name, fixture_perk[field_name])
-                await perk.save()
-                updated_perks += 1
-
-            edge.perk_ids.append(perk.id)
-            await edge.save()
-
-    logger.info(
-        "Bootstrapped hunter edges",
-        extra={
-            "num_created": created_edges,
-            "num_updated": updated_edges,
-            "num_total": len(fixture_hunter_edges),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
-    logger.info(
-        "Bootstrapped hunter edge perks",
-        extra={
-            "num_created": created_perks,
-            "num_updated": updated_perks,
-            "num_total": total_perks,
             "component": "cli",
             "command": "bootstrap",
         },

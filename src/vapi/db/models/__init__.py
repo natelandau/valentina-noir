@@ -7,11 +7,8 @@ from .character import Character, CharacterInventory, CharacterTrait
 from .character_concept import CharacterConcept
 from .chargen_session import ChargenSession
 from .company import Company
-from .constants.advantage_category import AdvantageCategory
 from .constants.character_classes import (
     CharacterClassConstant,
-    HunterEdge,
-    HunterEdgePerk,
     VampireClan,
     WerewolfAuspice,
     WerewolfGift,
@@ -21,6 +18,7 @@ from .constants.character_classes import (
 from .constants.sheet_section import CharSheetSection
 from .constants.trait import Trait
 from .constants.trait_categories import TraitCategory
+from .constants.trait_subcategories import TraitSubcategory
 from .developer import Developer
 from .diceroll import DiceRoll
 from .dictionary import DictionaryTerm
@@ -29,7 +27,6 @@ from .quickroll import QuickRoll
 from .user import User
 
 __all__ = (
-    "AdvantageCategory",
     "AuditLog",
     "Campaign",
     "CampaignBase",
@@ -46,13 +43,12 @@ __all__ = (
     "Developer",
     "DiceRoll",
     "DictionaryTerm",
-    "HunterEdge",
-    "HunterEdgePerk",
     "Note",
     "QuickRoll",
     "S3Asset",
     "Trait",
     "TraitCategory",
+    "TraitSubcategory",
     "User",
     "VampireClan",
     "WerewolfAuspice",
@@ -61,9 +57,9 @@ __all__ = (
     "WerewolfTribe",
 )
 
+# This is imported into the init database function and must list all models that are used in the application.
 init_beanie_models = [
     S3Asset,
-    AdvantageCategory,
     AuditLog,
     Campaign,
     CampaignBook,
@@ -79,12 +75,11 @@ init_beanie_models = [
     Developer,
     DiceRoll,
     DictionaryTerm,
-    HunterEdge,
-    HunterEdgePerk,
     Note,
     QuickRoll,
     Trait,
     TraitCategory,
+    TraitSubcategory,
     User,
     VampireClan,
     WerewolfAuspice,

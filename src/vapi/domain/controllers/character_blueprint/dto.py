@@ -7,8 +7,6 @@ from litestar.plugins.pydantic import PydanticDTO
 from vapi.db.models import (
     CharacterConcept,
     CharSheetSection,
-    HunterEdge,
-    HunterEdgePerk,
     Trait,
     TraitCategory,
     VampireClan,
@@ -70,17 +68,5 @@ class WerewolfGiftDTO(PydanticDTO[WerewolfGift]):
 
 class WerewolfRiteDTO(PydanticDTO[WerewolfRite]):
     """Werewolf rite DTO."""
-
-    config = dto_config()
-
-
-class HunterEdgeDTO(PydanticDTO[HunterEdge]):
-    """Hunter edge DTO."""
-
-    config = dto_config()
-
-
-class HunterEdgePerkDTO(PydanticDTO[HunterEdgePerk]):
-    """Hunter edge perk DTO."""
 
     config = dto_config()

@@ -9,12 +9,10 @@ from litestar.status_codes import (
     HTTP_200_OK,
 )
 
-from vapi.constants import CharacterClass, GameVersion, HunterEdgeType
+from vapi.constants import CharacterClass, GameVersion
 from vapi.db.models import (
     CharacterConcept,
     CharSheetSection,
-    HunterEdge,
-    HunterEdgePerk,
     Trait,
     TraitCategory,
     VampireClan,
@@ -626,137 +624,6 @@ class TestClassesConceptsAndSpecificOptions:
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
         assert response.json() == werewolf_rite.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
-        )
-
-    async def test_list_hunter_edges(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the list hunter edges endpoint is working."""
-        response = await client.get(
-            build_url(CharacterBlueprints.HUNTER_EDGES),
-            headers=token_company_admin,
-        )
-        hunter_edges = await HunterEdge.find(HunterEdge.is_archived == False).sort("name").to_list()
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert response.json()["total"] == len(hunter_edges)
-        assert response.json()["items"] == [
-            hunter_edge.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            )
-            for hunter_edge in hunter_edges[:10]
-        ]
-
-    async def test_list_hunter_edges_by_type(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the list hunter edges by type endpoint is working."""
-        response = await client.get(
-            build_url(CharacterBlueprints.HUNTER_EDGES),
-            headers=token_company_admin,
-            params={"edge_type": HunterEdgeType.ASSETS.name},
-        )
-        hunter_edges = (
-            await HunterEdge.find(
-                HunterEdge.is_archived == False,
-                HunterEdge.type == HunterEdgeType.ASSETS,
-            )
-            .sort("name")
-            .to_list()
-        )
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert response.json()["total"] == len(hunter_edges)
-        assert response.json()["items"] == [
-            hunter_edge.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            )
-            for hunter_edge in hunter_edges[:10]
-        ]
-
-    async def test_get_hunter_edge(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the get hunter edge endpoint is working."""
-        hunter_edge = await HunterEdge.find_one(HunterEdge.is_archived == False)
-        response = await client.get(
-            build_url(CharacterBlueprints.HUNTER_EDGE_DETAIL, hunter_edge_id=hunter_edge.id),
-            headers=token_company_admin,
-        )
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert response.json() == hunter_edge.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
-        )
-
-    async def test_list_hunter_edge_perks(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the list hunter edge perks endpoint is working."""
-        hunter_edge = await HunterEdge.find_one(HunterEdge.is_archived == False)
-        response = await client.get(
-            build_url(CharacterBlueprints.HUNTER_EDGE_PERKS, hunter_edge_id=hunter_edge.id),
-            headers=token_company_admin,
-        )
-        hunter_edge_perks = (
-            await HunterEdgePerk.find(
-                HunterEdgePerk.is_archived == False, HunterEdgePerk.edge_id == hunter_edge.id
-            )
-            .sort("name")
-            .to_list()
-        )
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert response.json()["total"] == len(hunter_edge_perks)
-        assert response.json()["items"] == [
-            hunter_edge_perk.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            )
-            for hunter_edge_perk in hunter_edge_perks[:10]
-        ]
-
-    async def test_get_hunter_edge_perk(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the get hunter edge perk endpoint is working."""
-        hunter_edge_perk = await HunterEdgePerk.find_one(HunterEdgePerk.is_archived == False)
-        response = await client.get(
-            build_url(
-                CharacterBlueprints.HUNTER_EDGE_PERK_DETAIL,
-                hunter_edge_id=hunter_edge_perk.edge_id,
-                hunter_edge_perk_id=hunter_edge_perk.id,
-            ),
-            headers=token_company_admin,
-        )
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert response.json() == hunter_edge_perk.model_dump(
             mode="json",
             exclude={"is_archived", "archive_date"},
         )

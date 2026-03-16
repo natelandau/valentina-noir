@@ -20,8 +20,6 @@ from vapi.db.models import (
     Character,
     CharacterConcept,
     CharacterTrait,
-    HunterEdge,
-    HunterEdgePerk,
     Trait,
     VampireClan,
     WerewolfAuspice,
@@ -29,7 +27,6 @@ from vapi.db.models import (
     WerewolfRite,
     WerewolfTribe,
 )
-from vapi.db.models.character import HunterAttributesEdgeModel
 from vapi.domain.controllers.character.dto import CharacterTraitCreate, CreateCharacterDTO
 from vapi.domain.urls import Characters as CharacterURL
 
@@ -1077,115 +1074,6 @@ class TestWerewolfAttributes:
         assert response.json() == updated_character.model_dump(
             mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
         )
-
-
-@pytest.mark.clean_db
-class TestHunterAttributes:
-    """Test hunter attributes."""
-
-    async def test_create_character_hunter(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify we can create a hunter character."""
-        # Given hunter edges and perks
-        hunter_edge = await HunterEdge.find_one(HunterEdge.is_archived == False)
-        hunter_edge_perks = await HunterEdgePerk.find(
-            HunterEdgePerk.is_archived == False, HunterEdgePerk.edge_id == hunter_edge.id
-        ).to_list()
-
-        # When we create a character with hunter attributes
-        response = await client.post(
-            build_url(CharacterURL.CREATE),
-            headers=token_company_admin,
-            json={
-                "name_first": "Test",
-                "name_last": "Hunter",
-                "character_class": "HUNTER",
-                "game_version": "V5",
-                "type": "PLAYER",
-                "hunter_attributes": {
-                    "creed": "Test Creed",
-                    "edges": [
-                        {
-                            "edge_id": str(hunter_edge.id),
-                            "perk_ids": [
-                                str(hunter_edge_perk.id) for hunter_edge_perk in hunter_edge_perks
-                            ],
-                        }
-                    ],
-                },
-            },
-        )
-        # debug(response.json()["hunter_attributes"])
-
-        # Then verify the character was created successfully
-        assert response.status_code == HTTP_201_CREATED
-        character = await Character.get(response.json()["id"])
-        assert response.json() == character.model_dump(
-            mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
-        )
-        assert character.hunter_attributes.creed == "Test Creed"
-        assert character.hunter_attributes.edges == [
-            HunterAttributesEdgeModel(
-                edge_id=hunter_edge.id,
-                perk_ids=[hunter_edge_perk.id for hunter_edge_perk in hunter_edge_perks],
-            )
-        ]
-
-        # Cleanup
-        await character.delete()
-
-    async def test_patch_hunter(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, ...]], Character],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Test patch hunter attributes."""
-        # Given a character
-        character = await character_factory(character_class="HUNTER")
-        hunter_edge = await HunterEdge.find_one(HunterEdge.is_archived == False)
-        hunter_edge_perks = await HunterEdgePerk.find(
-            HunterEdgePerk.is_archived == False, HunterEdgePerk.edge_id == hunter_edge.id
-        ).to_list()
-        character.hunter_attributes.edges = [
-            HunterAttributesEdgeModel(
-                edge_id=hunter_edge.id,
-                perk_ids=[hunter_edge_perk.id for hunter_edge_perk in hunter_edge_perks],
-            )
-        ]
-        character.hunter_attributes.creed = "Test Creed"
-        await character.save()
-        # debug(character)
-
-        # When we patch the character with a new creed
-        new_creed = "New Creed"
-        response = await client.patch(
-            build_url(CharacterURL.UPDATE, character_id=character.id),
-            headers=token_company_admin,
-            json={
-                "hunter_attributes": {"creed": new_creed},
-            },
-        )
-        # debug(response.json()["hunter_attributes"])
-
-        # Then verify the character was updated successfully
-        updated_character = await Character.get(character.id)
-        await updated_character.sync()
-        assert updated_character.hunter_attributes.creed == new_creed
-        assert updated_character.hunter_attributes.edges == character.hunter_attributes.edges
-        assert response.json() == updated_character.model_dump(
-            mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
-        )
-
-        # Cleanup
-        await updated_character.delete()
 
 
 @pytest.mark.clean_db
