@@ -172,6 +172,7 @@ class Characters:
     UPDATE = DETAIL
     DELETE = DETAIL
     STATISTICS = f"{DETAIL}/statistics"
+    FULL_SHEET = f"{DETAIL}/full-sheet"
 
     # Character assets
     ASSETS = f"{DETAIL}/assets"

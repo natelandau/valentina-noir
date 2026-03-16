@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from beanie import PydanticObjectId
 from litestar.plugins.pydantic import PydanticDTO
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from vapi.db.models.character import Character
-from vapi.lib.dto import dto_config
+from vapi.lib.dto import COMMON_EXCLUDES, dto_config
 from vapi.utils.models import create_model_without_fields
+
+if TYPE_CHECKING:
+    from vapi.constants import HunterEdgeType
+    from vapi.db.models import Trait
 
 
 class CharacterPatchDTO(PydanticDTO[Character]):
@@ -104,3 +108,71 @@ CreateCharacterDTO = create_model_without_fields(
         ),  # type: ignore[dict-item]
     },
 )
+
+########### FULL SHEET DTOs ###########
+
+
+class FullSheetCharacterTraitDTO(BaseModel):
+    """A Character Trait on the full sheet."""
+
+    value: int
+    trait: Trait
+
+    @field_serializer("trait")
+    def serialize_trait(self, trait: Trait) -> dict:
+        """Serialize the trait."""
+        return trait.model_dump(mode="json", exclude=COMMON_EXCLUDES)
+
+
+class FullSheetTraitSubcategoryDTO(BaseModel):
+    """A Trait Subcategory on the full sheet."""
+
+    name: str
+    description: str | None = None
+    initial_cost: int
+    upgrade_cost: int
+    show_when_empty: bool
+    requires_parent: bool
+    pool: str | None = None
+    system: str | None = None
+    hunter_edge_type: HunterEdgeType | None = None
+    character_traits: list[FullSheetCharacterTraitDTO]
+
+
+class FullSheetTraitCategoryDTO(BaseModel):
+    """A Trait Category on the full sheet."""
+
+    name: str
+    description: str | None = None
+    initial_cost: int
+    upgrade_cost: int
+    show_when_empty: bool
+    order: int
+
+    subcategories: list[FullSheetTraitSubcategoryDTO]
+    character_traits: list[FullSheetCharacterTraitDTO]
+
+
+class FullSheetTraitSectionDTO(BaseModel):
+    """A Trait Section on the full sheet."""
+
+    name: str
+    description: str | None = None
+    order: int
+    show_when_empty: bool
+    categories: list[FullSheetTraitCategoryDTO]
+
+
+class CharacterFullSheetDTO(BaseModel):
+    """A Character Full Sheet."""
+
+    sections: list[FullSheetTraitSectionDTO]
+    character: Character
+
+    @field_serializer("character")
+    def serialize_character(self, character: Character) -> dict:
+        """Serialize the character."""
+        return character.model_dump(
+            mode="json",
+            exclude=COMMON_EXCLUDES | {"character_trait_ids", "is_chargen", "is_temporary"},
+        )

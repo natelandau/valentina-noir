@@ -197,3 +197,15 @@ class CharacterController(Controller):
     async def delete_character(self, character: Character) -> None:
         """Delete a character."""
         await CharacterArchiveHandler(character=character).handle()
+
+    @get(
+        path=urls.Characters.FULL_SHEET,
+        summary="Get character full sheet",
+        operation_id="getCharacterFullSheet",
+        description=docs.GET_CHARACTER_FULL_SHEET_DESCRIPTION,
+        cache=True,
+    )
+    async def get_character_full_sheet(self, character: Character) -> dto.CharacterFullSheetDTO:
+        """Get a character full sheet."""
+        svc = CharacterService()
+        return await svc.get_character_full_sheet(character)

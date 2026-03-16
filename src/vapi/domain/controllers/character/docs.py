@@ -31,3 +31,7 @@ The character will no longer be accessible.
 
 **Note:** Only the character's player or a storyteller can delete the character.
 """
+
+GET_CHARACTER_FULL_SHEET_DESCRIPTION = """\
+Retrieve the full character sheet including all traits, attributes, and other character data. Traits are organized in a hierarchical dictionary of sheet sections, categories, optional subcategories, traits, and values.
+"""

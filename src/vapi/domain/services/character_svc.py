@@ -4,8 +4,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from beanie.operators import In
+
 from vapi.constants import CharacterClass, CharacterStatus
-from vapi.db.models import Character, CharacterTrait
+from vapi.db.models import (
+    Character,
+    CharacterTrait,
+    CharSheetSection,
+    TraitCategory,
+    TraitSubcategory,
+)
+from vapi.domain.controllers.character.dto import (
+    CharacterFullSheetDTO,
+    FullSheetCharacterTraitDTO,
+    FullSheetTraitCategoryDTO,
+    FullSheetTraitSectionDTO,
+    FullSheetTraitSubcategoryDTO,
+)
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.time import time_now
 
@@ -202,3 +217,106 @@ class CharacterService:
 
             character_trait_service = CharacterTraitService()
             await character_trait_service.after_save(character_trait)
+
+    async def get_character_full_sheet(self, character: Character) -> CharacterFullSheetDTO:
+        """Get a character full sheet."""
+        all_character_traits = await CharacterTrait.find(
+            CharacterTrait.character_id == character.id,
+            fetch_links=True,
+        ).to_list()
+
+        sheet_section_ids = {
+            character_trait.trait.sheet_section_id  # type: ignore[attr-defined]
+            for character_trait in all_character_traits
+        }
+        category_ids = {
+            character_trait.trait.parent_category_id  # type: ignore[attr-defined]
+            for character_trait in all_character_traits
+        }
+        subcategory_ids = {
+            character_trait.trait.parent_subcategory_id  # type: ignore[attr-defined]
+            for character_trait in all_character_traits
+        }
+
+        sections_objects = (
+            await CharSheetSection.find(
+                CharSheetSection.is_archived == False,
+                In(CharSheetSection.id, sheet_section_ids),
+            )
+            .sort("order")
+            .to_list()
+        )
+        categories = (
+            await TraitCategory.find(
+                TraitCategory.is_archived == False,
+                In(TraitCategory.id, category_ids),
+            )
+            .sort("order")
+            .to_list()
+        )
+        subcategories = (
+            await TraitSubcategory.find(
+                TraitSubcategory.is_archived == False,
+                In(TraitSubcategory.id, subcategory_ids),
+            )
+            .sort("name")
+            .to_list()
+        )
+
+        sections = [
+            FullSheetTraitSectionDTO(
+                name=sheet_section.name,
+                description=sheet_section.description,
+                order=sheet_section.order,
+                show_when_empty=sheet_section.show_when_empty,
+                categories=[],
+            )
+            for sheet_section in sections_objects
+        ]
+
+        for section in sections:
+            section.categories = [
+                FullSheetTraitCategoryDTO(
+                    name=category.name,
+                    description=category.description,
+                    order=category.order,
+                    show_when_empty=category.show_when_empty,
+                    initial_cost=category.initial_cost,
+                    upgrade_cost=category.upgrade_cost,
+                    subcategories=[
+                        FullSheetTraitSubcategoryDTO(
+                            name=subcategory.name,
+                            description=subcategory.description,
+                            show_when_empty=subcategory.show_when_empty,
+                            initial_cost=subcategory.initial_cost,
+                            upgrade_cost=subcategory.upgrade_cost,
+                            requires_parent=subcategory.requires_parent,
+                            pool=subcategory.pool,
+                            system=subcategory.system,
+                            hunter_edge_type=subcategory.hunter_edge_type,
+                            character_traits=[
+                                FullSheetCharacterTraitDTO(
+                                    trait=character_trait.trait,  # type: ignore[arg-type]
+                                    value=character_trait.value,
+                                )
+                                for character_trait in all_character_traits
+                                if character_trait.trait.parent_subcategory_id == subcategory.id  # type: ignore[attr-defined]
+                            ],
+                        )
+                        for subcategory in subcategories
+                        if subcategory.parent_category_id == category.id
+                    ],
+                    character_traits=[
+                        FullSheetCharacterTraitDTO(
+                            trait=character_trait.trait,  # type: ignore[arg-type]
+                            value=character_trait.value,
+                        )
+                        for character_trait in all_character_traits
+                        if character_trait.trait.parent_category_id == category.id  # type: ignore[attr-defined]
+                        and character_trait.trait_subcategory_id is None
+                    ],
+                )
+                for category in categories
+            ]
+
+        return CharacterFullSheetDTO(character=character, sections=sections)
