@@ -30,6 +30,8 @@ from .character_trait_svc import CharacterTraitService
 from .validation_svc import GetModelByIdValidationService
 
 if TYPE_CHECKING:
+    from beanie import PydanticObjectId
+
     from vapi.db.models.character import NameDescriptionSubDocument
     from vapi.domain.controllers.character.dto import CharacterTraitCreate
 
@@ -220,7 +222,9 @@ class CharacterService:
             character_trait_service = CharacterTraitService()
             await character_trait_service.after_save(character_trait)
 
-    async def get_character_full_sheet(self, character: Character) -> CharacterFullSheetDTO:
+    async def get_character_full_sheet(
+        self, character: Character, *, include_available_traits: bool = False
+    ) -> CharacterFullSheetDTO:
         """Build the hierarchical full character sheet (sections > categories > subcategories > traits).
 
         The sheet skeleton includes all sections, categories, and subcategories that match the
@@ -234,12 +238,7 @@ class CharacterService:
         """
         # Fetch the sheet skeleton for this character's class/version and the character's actual
         # traits in parallel. Both queries are independent so we can run them concurrently.
-        (
-            skeleton_sections,
-            skeleton_categories,
-            skeleton_subcategories,
-            all_character_traits,
-        ) = await gather(
+        coros = [
             CharSheetSection.find(
                 CharSheetSection.is_archived == False,
                 CharSheetSection.character_classes == character.character_class,
@@ -265,7 +264,26 @@ class CharacterService:
                 CharacterTrait.character_id == character.id,
                 fetch_links=True,
             ).to_list(),
-        )
+        ]
+        if include_available_traits:
+            coros.append(
+                Trait.find(
+                    Trait.is_archived == False,
+                    Trait.character_classes == character.character_class,
+                    Trait.game_versions == character.game_version,
+                    Trait.is_custom == False,
+                )
+                .sort("name")
+                .to_list()
+            )
+
+        results = await gather(*coros)
+
+        skeleton_sections: list[CharSheetSection] = results[0]
+        skeleton_categories: list[TraitCategory] = results[1]
+        skeleton_subcategories: list[TraitSubcategory] = results[2]
+        all_character_traits: list[CharacterTrait] = results[3]
+        all_available_traits: list[Trait] = results[4] if include_available_traits else []
 
         # Index skeleton results by ID for deduplication when merging trait-referenced structures
         skeleton_section_ids: set = {s.id for s in skeleton_sections if s.id is not None}
@@ -310,12 +328,31 @@ class CharacterService:
             missing_subcategory_ids,
         )
 
+        # Index available traits by subcategory/category, excluding already-assigned traits
+        assigned_trait_ids: set = {ct.trait.id for ct in all_character_traits}  # type: ignore[union-attr]
+        available_by_subcategory: dict[PydanticObjectId, list[Trait]] = {}
+        available_by_category_no_sub: dict[PydanticObjectId, list[Trait]] = {}
+
+        for avail_trait in all_available_traits:
+            if avail_trait.id in assigned_trait_ids:
+                continue
+            if avail_trait.trait_subcategory_id:
+                available_by_subcategory.setdefault(avail_trait.trait_subcategory_id, []).append(
+                    avail_trait
+                )
+            else:
+                available_by_category_no_sub.setdefault(avail_trait.parent_category_id, []).append(
+                    avail_trait
+                )
+
         sections = self._assemble_sheet_sections(
             sections_objects=skeleton_sections,
             categories_objects=skeleton_categories,
             subcategories_objects=skeleton_subcategories,
             traits_by_subcategory=traits_by_subcategory,
             traits_by_category_no_sub=traits_by_category_no_sub,
+            available_by_subcategory=available_by_subcategory,
+            available_by_category_no_sub=available_by_category_no_sub,
         )
 
         return CharacterFullSheetDTO(character=character, sections=sections)
@@ -378,6 +415,8 @@ class CharacterService:
         subcategories_objects: list[TraitSubcategory],
         traits_by_subcategory: dict,
         traits_by_category_no_sub: dict,
+        available_by_subcategory: dict[PydanticObjectId, list[Trait]],
+        available_by_category_no_sub: dict[PydanticObjectId, list[Trait]],
     ) -> list[FullSheetTraitSectionDTO]:
         """Assemble the nested section > category > subcategory > trait DTO hierarchy.
 
@@ -387,6 +426,8 @@ class CharacterService:
             subcategories_objects: All trait subcategories to include.
             traits_by_subcategory: Character traits indexed by subcategory ID.
             traits_by_category_no_sub: Character traits indexed by category ID (no subcategory).
+            available_by_subcategory: Available traits indexed by subcategory ID.
+            available_by_category_no_sub: Available traits indexed by category ID (no subcategory).
 
         Returns:
             list[FullSheetTraitSectionDTO]: The assembled section hierarchy.
@@ -444,6 +485,7 @@ class CharacterService:
                                     _build_trait_dto(ct)
                                     for ct in traits_by_subcategory.get(sub.id, [])
                                 ],
+                                available_traits=available_by_subcategory.get(sub.id, []),
                             )
                             for sub in subcategories_by_category.get(category.id, [])
                         ],
@@ -451,6 +493,7 @@ class CharacterService:
                             _build_trait_dto(ct)
                             for ct in traits_by_category_no_sub.get(category.id, [])
                         ],
+                        available_traits=available_by_category_no_sub.get(category.id, []),
                     )
                     for category in categories_by_section.get(section.id, [])
                 ],
