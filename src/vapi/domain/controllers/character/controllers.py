@@ -205,7 +205,16 @@ class CharacterController(Controller):
         description=docs.GET_CHARACTER_FULL_SHEET_DESCRIPTION,
         cache=True,
     )
-    async def get_character_full_sheet(self, character: Character) -> dto.CharacterFullSheetDTO:
+    async def get_character_full_sheet(
+        self,
+        character: Character,
+        include_available_traits: Annotated[
+            bool,
+            Parameter(description="Include available traits for each category and subcategory."),
+        ] = False,
+    ) -> dto.CharacterFullSheetDTO:
         """Get a character full sheet."""
         svc = CharacterService()
-        return await svc.get_character_full_sheet(character)
+        return await svc.get_character_full_sheet(
+            character, include_available_traits=include_available_traits
+        )

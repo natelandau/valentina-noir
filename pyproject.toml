@@ -167,6 +167,7 @@
             "TD003",  # Missing issue link on the line following this TODO
         ]
         per-file-ignores = { "src/vapi/domain/*.py" = [
+            "FBT002", # Boolean-typed positional argument in function definition (required for Litestar query parameters)
             "RUF012", # mutable-class-default
         ], "scripts/*.py" = [
             "PLR0912",

@@ -329,7 +329,7 @@ class CharacterService:
         )
 
         # Index available traits by subcategory/category, excluding already-assigned traits
-        assigned_trait_ids: set = {ct.trait.id for ct in all_character_traits}  # type: ignore[union-attr]
+        assigned_trait_ids: set = {ct.trait.id for ct in all_character_traits}  # type: ignore[attr-defined]
         available_by_subcategory: dict[PydanticObjectId, list[Trait]] = {}
         available_by_category_no_sub: dict[PydanticObjectId, list[Trait]] = {}
 
