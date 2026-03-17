@@ -115,8 +115,10 @@ CreateCharacterDTO = create_model_without_fields(
 class FullSheetCharacterTraitDTO(BaseModel):
     """A Character Trait on the full sheet."""
 
+    id: PydanticObjectId
     value: int
     trait: Trait
+    character_id: PydanticObjectId
 
     @field_serializer("trait")
     def serialize_trait(self, trait: Trait) -> dict:
@@ -127,6 +129,7 @@ class FullSheetCharacterTraitDTO(BaseModel):
 class FullSheetTraitSubcategoryDTO(BaseModel):
     """A Trait Subcategory on the full sheet."""
 
+    id: PydanticObjectId
     name: str
     description: str | None = None
     initial_cost: int
@@ -142,6 +145,7 @@ class FullSheetTraitSubcategoryDTO(BaseModel):
 class FullSheetTraitCategoryDTO(BaseModel):
     """A Trait Category on the full sheet."""
 
+    id: PydanticObjectId
     name: str
     description: str | None = None
     initial_cost: int
@@ -156,6 +160,7 @@ class FullSheetTraitCategoryDTO(BaseModel):
 class FullSheetTraitSectionDTO(BaseModel):
     """A Trait Section on the full sheet."""
 
+    id: PydanticObjectId
     name: str
     description: str | None = None
     order: int
