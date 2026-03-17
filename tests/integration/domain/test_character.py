@@ -1302,3 +1302,54 @@ class TestCharacterCreate:
 
         # Cleanup
         await character.delete()
+
+
+class TestCharacterFullSheet:
+    """Test character full sheet endpoint."""
+
+    async def test_get_character_full_sheet(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        base_character: Character,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify the full sheet endpoint returns the character with organized sections."""
+        # Given a character with traits (one with subcategory, one without)
+        trait_no_sub = await Trait.find_one(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == None,
+        )
+        trait_with_sub = await Trait.find_one(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id != None,
+        )
+        assert trait_no_sub is not None
+        assert trait_with_sub is not None
+
+        await character_trait_factory(character_id=base_character.id, trait=trait_no_sub, value=3)
+        await character_trait_factory(character_id=base_character.id, trait=trait_with_sub, value=2)
+
+        # When we request the full sheet
+        response = await client.get(
+            build_url(CharacterURL.FULL_SHEET, character_id=base_character.id),
+            headers=token_global_admin,
+        )
+
+        # Then the response is successful
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+
+        # And the response contains the character
+        assert data["character"]["id"] == str(base_character.id)
+
+        # And sections are present and structured correctly
+        assert len(data["sections"]) >= 1
+        for section in data["sections"]:
+            assert "name" in section
+            assert "categories" in section
+            for category in section["categories"]:
+                assert "name" in category
+                assert "subcategories" in category
+                assert "character_traits" in category

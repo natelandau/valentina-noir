@@ -132,6 +132,93 @@ POST /api/v1/companies/{company_id}/campaigns/{campaign_id}/characters
 }
 ```
 
+## Full Character Sheet
+
+The full character sheet endpoint returns a character's complete trait data in a single request, organized in the same hierarchy as a physical character sheet. Use this endpoint to render a character sheet for gameplay without assembling the hierarchy client-side.
+
+```shell
+GET /api/v1/companies/{company_id}/users/{user_id}/campaigns/{campaign_id}/characters/{character_id}/full-sheet
+```
+
+The response contains two top-level fields:
+
+- `character` - The complete character object
+- `sections` - The trait hierarchy, structured as **Section > Category > Subcategory > Trait**
+
+Each level in the hierarchy includes display metadata like `show_when_empty`, `initial_cost`, and `upgrade_cost` so your client can render the sheet without additional API calls.
+
+!!! info "Assigned Traits Only"
+
+    The response includes only sections, categories, and subcategories where the character has assigned traits. It doesn't return the full blueprint of all possible traits. For building trait selection or editing interfaces, use the [character blueprint](./character_blueprint.md) endpoints instead.
+
+??? example "Response Structure"
+
+    ```json
+    {
+        "character": { ... },
+        "sections": [
+            {
+                "name": "Attributes",
+                "description": "Inborn aptitudes and raw potential",
+                "order": 1,
+                "show_when_empty": true,
+                "categories": [
+                    {
+                        "name": "Physical",
+                        "description": "Physical ability for fighting, lifting, running, etc.",
+                        "order": 1,
+                        "show_when_empty": true,
+                        "initial_cost": 1,
+                        "upgrade_cost": 2,
+                        "subcategories": [
+                            {
+                                "name": "Allies",
+                                "description": "People who support and assist the character.",
+                                "initial_cost": 1,
+                                "upgrade_cost": 2,
+                                "show_when_empty": true,
+                                "requires_parent": false,
+                                "pool": null,
+                                "system": null,
+                                "hunter_edge_type": null,
+                                "character_traits": [
+                                    {
+                                        "value": 2,
+                                        "trait": {
+                                            "name": "Contact: Detective",
+                                            "description": "A detective who owes you a favor.",
+                                            "max_value": 5,
+                                            "min_value": 0,
+                                            ...
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        "character_traits": [
+                            {
+                                "value": 3,
+                                "trait": {
+                                    "name": "Strength",
+                                    "description": "Raw physical power.",
+                                    "max_value": 5,
+                                    "min_value": 0,
+                                    ...
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    ```
+
+    Traits appear in two places within each category:
+
+    - `subcategories[].character_traits` - Traits grouped under a subcategory
+    - `character_traits` - Traits that belong directly to the category without a subcategory
+
 ## Character Sub-Resources
 
 Characters support several sub-resources for managing related data.

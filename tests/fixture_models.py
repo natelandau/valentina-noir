@@ -873,6 +873,7 @@ async def character_trait_factory(base_character, trait_factory) -> CharacterTra
             **kwargs, character_id=character_id, trait=trait_to_use
         )
         await character_trait.save()
+        created_traits.append(character_trait)
         return character_trait
 
     yield _character_trait_factory

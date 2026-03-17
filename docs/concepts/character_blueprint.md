@@ -6,7 +6,7 @@ icon: lucide/logs
 
 World of Darkness character sheets contain complex interconnected data. Valentina Noir represents this complexity through a collection of models called the character blueprint.
 
-Understanding the blueprint helps you create, edit, and display characters in your client applications.
+Understanding the blueprint helps you create and edit characters in your client applications. To render a character sheet for gameplay, use the [full character sheet](./characters.md#full-character-sheet) endpoint instead.
 
 !!! info "API Documentation"
 
