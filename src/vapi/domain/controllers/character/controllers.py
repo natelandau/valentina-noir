@@ -13,7 +13,7 @@ from litestar.params import Parameter
 from pydantic import ValidationError as PydanticValidationError
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType  # noqa: TC001
-from vapi.db.models import Campaign, Character, Company, User
+from vapi.db.models import Campaign, Character, Company, TraitCategory, User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.handlers import CharacterArchiveHandler
 from vapi.domain.paginator import OffsetPagination
@@ -217,4 +217,28 @@ class CharacterController(Controller):
         svc = CharacterService()
         return await svc.get_character_full_sheet(
             character, include_available_traits=include_available_traits
+        )
+
+    @get(
+        path=urls.Characters.FULL_SHEET_CATEGORY,
+        summary="Get character full sheet category",
+        operation_id="getCharacterFullSheetCategory",
+        description=docs.GET_CHARACTER_FULL_SHEET_CATEGORY_DESCRIPTION,
+        cache=True,
+        return_dto=None,
+        dependencies={"category": Provide(deps.provide_trait_category_by_id)},
+    )
+    async def get_character_full_sheet_category(
+        self,
+        character: Character,
+        category: TraitCategory,
+        include_available_traits: Annotated[
+            bool,
+            Parameter(description="Include available traits for this category."),
+        ] = False,
+    ) -> dto.FullSheetTraitCategoryDTO:
+        """Get a single category slice of the character's full sheet."""
+        svc = CharacterService()
+        return await svc.get_character_full_sheet_category(
+            character, category, include_available_traits=include_available_traits
         )
