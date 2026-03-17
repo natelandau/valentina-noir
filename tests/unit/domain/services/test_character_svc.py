@@ -27,8 +27,26 @@ from vapi.lib.exceptions import ValidationError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from vapi.domain.controllers.character.dto import CharacterFullSheetDTO
+
 
 pytestmark = pytest.mark.anyio
+
+
+def _collect_all_available_trait_ids(result: CharacterFullSheetDTO) -> set[PydanticObjectId]:
+    """Collect all trait IDs from available_traits across all categories and subcategories."""
+    return {
+        t.id
+        for section in result.sections
+        for category in section.categories
+        for t in category.available_traits
+    } | {
+        t.id
+        for section in result.sections
+        for category in section.categories
+        for sub in category.subcategories
+        for t in sub.available_traits
+    }
 
 
 class TestCharacterService:
@@ -995,18 +1013,7 @@ class TestCharacterService:
             )
 
             # Then the assigned trait should not appear in any available_traits list
-            all_available_ids = {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for t in category.available_traits
-            } | {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for sub in category.subcategories
-                for t in sub.available_traits
-            }
+            all_available_ids = _collect_all_available_trait_ids(result)
             assert trait.id not in all_available_ids
 
         async def test_custom_traits_excluded_from_available(
@@ -1033,18 +1040,7 @@ class TestCharacterService:
             )
 
             # Then the custom trait should not appear in any available_traits list
-            all_available_ids = {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for t in category.available_traits
-            } | {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for sub in category.subcategories
-                for t in sub.available_traits
-            }
+            all_available_ids = _collect_all_available_trait_ids(result)
             assert custom_trait.id not in all_available_ids
 
         async def test_available_traits_sorted_by_name(
@@ -1096,18 +1092,7 @@ class TestCharacterService:
             )
 
             # Then the vampire trait should not appear in any available_traits list
-            all_available_ids = {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for t in category.available_traits
-            } | {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for sub in category.subcategories
-                for t in sub.available_traits
-            }
+            all_available_ids = _collect_all_available_trait_ids(result)
             if CharacterClass.MORTAL not in (vampire_trait.character_classes or []):
                 assert vampire_trait.id not in all_available_ids
 
@@ -1135,18 +1120,7 @@ class TestCharacterService:
             )
 
             # Then the other-version trait should not appear
-            all_available_ids = {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for t in category.available_traits
-            } | {
-                t.id
-                for section in result.sections
-                for category in section.categories
-                for sub in category.subcategories
-                for t in sub.available_traits
-            }
+            all_available_ids = _collect_all_available_trait_ids(result)
             assert other_version_trait.id not in all_available_ids
 
         async def test_available_traits_empty_when_all_assigned(
