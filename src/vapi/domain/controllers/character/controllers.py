@@ -17,7 +17,7 @@ from vapi.db.models import Campaign, Character, Company, TraitCategory, User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.handlers import CharacterArchiveHandler
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import CharacterService
+from vapi.domain.services import CharacterService, CharacterSheetService
 from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import (
     developer_company_user_guard,
@@ -214,7 +214,7 @@ class CharacterController(Controller):
         ] = False,
     ) -> dto.CharacterFullSheetDTO:
         """Get a character full sheet."""
-        svc = CharacterService()
+        svc = CharacterSheetService()
         return await svc.get_character_full_sheet(
             character, include_available_traits=include_available_traits
         )
@@ -238,7 +238,7 @@ class CharacterController(Controller):
         ] = False,
     ) -> dto.FullSheetTraitCategoryDTO:
         """Get a single category slice of the character's full sheet."""
-        svc = CharacterService()
+        svc = CharacterSheetService()
         return await svc.get_character_full_sheet_category(
             character, category, include_available_traits=include_available_traits
         )

@@ -6,6 +6,7 @@ Contains business logic across the domain.
 from .aws_service import AWSS3Service
 from .campaign_svc import CampaignService
 from .character_blueprint_svc import CharacterBlueprintService
+from .character_sheet_svc import CharacterSheetService
 from .character_specials_svc import CharacterGiftsService, CharacterRitesService
 from .character_svc import CharacterService
 from .character_trait_svc import CharacterTraitService
@@ -22,6 +23,7 @@ __all__ = (
     "CharacterGiftsService",
     "CharacterRitesService",
     "CharacterService",
+    "CharacterSheetService",
     "CharacterTraitService",
     "CompanyService",
     "DiceRollService",
