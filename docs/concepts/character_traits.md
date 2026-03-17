@@ -44,6 +44,20 @@ If a subcategory has `requires_parent` set to `true`, the subcategory must be ex
 
 To browse available subcategories and their traits, use the [blueprint subcategory endpoints](./character_blueprint.md#listing-category-subcategories).
 
+## Full Character Sheet
+
+The full character sheet endpoint returns all assigned traits organized into sections, categories, and subcategories. Use the `include_available_traits` query parameter to also include traits the character could add.
+
+### Available Traits
+
+Each category and subcategory in the full sheet response includes an `available_traits` field containing standard Trait objects that match the character's class and game version but are not yet assigned.
+
+!!! note "Empty `available_traits` lists"
+
+    The `available_traits` field is always present on every category and subcategory in the response, regardless of whether the `include_available_traits` parameter is set. When the parameter is not set or is `false`, these lists are empty. An empty list means the data was **not requested** — it does not indicate that no traits are available. Set `include_available_traits=true` to populate these lists.
+
+Custom traits are not included in the available traits lists. Only standard system traits appear.
+
 ## Adding Traits
 
 Add traits to a character using one of two approaches.

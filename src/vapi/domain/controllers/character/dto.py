@@ -140,6 +140,12 @@ class FullSheetTraitSubcategoryDTO(BaseModel):
     system: str | None = None
     hunter_edge_type: HunterEdgeType | None = None
     character_traits: list[FullSheetCharacterTraitDTO]
+    available_traits: list[Trait] = []
+
+    @field_serializer("available_traits")
+    def serialize_available_traits(self, traits: list[Trait]) -> list[dict]:
+        """Serialize available traits."""
+        return [t.model_dump(mode="json", exclude=COMMON_EXCLUDES) for t in traits]
 
 
 class FullSheetTraitCategoryDTO(BaseModel):
@@ -155,6 +161,12 @@ class FullSheetTraitCategoryDTO(BaseModel):
 
     subcategories: list[FullSheetTraitSubcategoryDTO]
     character_traits: list[FullSheetCharacterTraitDTO]
+    available_traits: list[Trait] = []
+
+    @field_serializer("available_traits")
+    def serialize_available_traits(self, traits: list[Trait]) -> list[dict]:
+        """Serialize available traits."""
+        return [t.model_dump(mode="json", exclude=COMMON_EXCLUDES) for t in traits]
 
 
 class FullSheetTraitSectionDTO(BaseModel):
