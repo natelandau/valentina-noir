@@ -311,11 +311,11 @@ class CharacterService:
         )
 
         sections = self._assemble_sheet_sections(
-            skeleton_sections,
-            skeleton_categories,
-            skeleton_subcategories,
-            traits_by_subcategory,
-            traits_by_category_no_sub,
+            sections_objects=skeleton_sections,
+            categories_objects=skeleton_categories,
+            subcategories_objects=skeleton_subcategories,
+            traits_by_subcategory=traits_by_subcategory,
+            traits_by_category_no_sub=traits_by_category_no_sub,
         )
 
         return CharacterFullSheetDTO(character=character, sections=sections)
@@ -372,6 +372,7 @@ class CharacterService:
 
     @staticmethod
     def _assemble_sheet_sections(
+        *,
         sections_objects: list[CharSheetSection],
         categories_objects: list[TraitCategory],
         subcategories_objects: list[TraitSubcategory],
@@ -404,16 +405,23 @@ class CharacterService:
             categories_by_section.setdefault(category.parent_sheet_section_id, []).append(category)
 
         def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
-            return FullSheetCharacterTraitDTO(trait=ct.trait, value=ct.value)  # type: ignore[arg-type]
+            return FullSheetCharacterTraitDTO(
+                trait=ct.trait,  # type: ignore[arg-type]
+                value=ct.value,
+                id=ct.id,
+                character_id=ct.character_id,
+            )
 
         return [
             FullSheetTraitSectionDTO(
+                id=section.id,
                 name=section.name,
                 description=section.description,
                 order=section.order,
                 show_when_empty=section.show_when_empty,
                 categories=[
                     FullSheetTraitCategoryDTO(
+                        id=category.id,
                         name=category.name,
                         description=category.description,
                         order=category.order,
@@ -422,6 +430,7 @@ class CharacterService:
                         upgrade_cost=category.upgrade_cost,
                         subcategories=[
                             FullSheetTraitSubcategoryDTO(
+                                id=sub.id,
                                 name=sub.name,
                                 description=sub.description,
                                 show_when_empty=sub.show_when_empty,

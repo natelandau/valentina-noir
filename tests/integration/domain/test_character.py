@@ -1344,12 +1344,19 @@ class TestCharacterFullSheet:
         # And the response contains the character
         assert data["character"]["id"] == str(base_character.id)
 
-        # And sections are present and structured correctly
+        # And sections are present and structured correctly with id fields
         assert len(data["sections"]) >= 1
         for section in data["sections"]:
+            assert "id" in section
             assert "name" in section
             assert "categories" in section
             for category in section["categories"]:
+                assert "id" in category
                 assert "name" in category
                 assert "subcategories" in category
                 assert "character_traits" in category
+                for sub in category["subcategories"]:
+                    assert "id" in sub
+                for ct in category["character_traits"]:
+                    assert "id" in ct
+                    assert "character_id" in ct

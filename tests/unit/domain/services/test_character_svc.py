@@ -592,11 +592,14 @@ class TestCharacterService:
             assert result.character.id == character.id
             assert len(result.sections) == expected_section_count
 
-            # And all sections should have no character traits
+            # And all sections, categories, and subcategories have id fields
             for section in result.sections:
+                assert section.id is not None
                 for category in section.categories:
+                    assert category.id is not None
                     assert category.character_traits == []
                     for sub in category.subcategories:
+                        assert sub.id is not None
                         assert sub.character_traits == []
 
         async def test_skeleton_matches_character_class(
@@ -693,6 +696,8 @@ class TestCharacterService:
                 if c.name == trait.parent_category_name
             )
             assert len(category.character_traits) == 1
+            assert category.character_traits[0].id is not None
+            assert category.character_traits[0].character_id == character.id
             assert category.character_traits[0].trait.id == trait.id
             assert category.character_traits[0].value == 3
 
@@ -733,6 +738,8 @@ class TestCharacterService:
                 sub for sub in category.subcategories if sub.name == trait.trait_subcategory_name
             )
             assert len(subcategory.character_traits) == 1
+            assert subcategory.character_traits[0].id is not None
+            assert subcategory.character_traits[0].character_id == character.id
             assert subcategory.character_traits[0].trait.id == trait.id
             assert subcategory.character_traits[0].value == 2
 
