@@ -37,3 +37,11 @@ Retrieve the full character sheet including all traits, attributes, and other ch
 
 Set `include_available_traits=true` to also include standard traits that the character could add but hasn't yet, organized within the same category and subcategory hierarchy.
 """
+
+GET_CHARACTER_FULL_SHEET_CATEGORY_DESCRIPTION = """\
+Retrieve a single category slice of the character's full sheet, including its subcategories and traits.
+
+Use this endpoint to efficiently refresh a specific category after a trait edit, rather than re-fetching the entire full sheet. The response uses the same DTO structure as categories within the full sheet response.
+
+Set `include_available_traits=true` to also include standard traits that the character could add but hasn't yet within this category.
+"""

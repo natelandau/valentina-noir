@@ -173,6 +173,7 @@ class Characters:
     DELETE = DETAIL
     STATISTICS = f"{DETAIL}/statistics"
     FULL_SHEET = f"{DETAIL}/full-sheet"
+    FULL_SHEET_CATEGORY = f"{FULL_SHEET}/categories/{{category_id:str}}"
 
     # Character assets
     ASSETS = f"{DETAIL}/assets"
