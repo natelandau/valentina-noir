@@ -328,22 +328,9 @@ class CharacterService:
             missing_subcategory_ids,
         )
 
-        # Index available traits by subcategory/category, excluding already-assigned traits
-        assigned_trait_ids: set[PydanticObjectId] = {ct.trait.id for ct in all_character_traits}  # type: ignore[attr-defined]
-        available_by_subcategory: dict[PydanticObjectId, list[Trait]] = {}
-        available_by_category_no_sub: dict[PydanticObjectId, list[Trait]] = {}
-
-        for avail_trait in all_available_traits:
-            if avail_trait.id in assigned_trait_ids:
-                continue
-            if avail_trait.trait_subcategory_id:
-                available_by_subcategory.setdefault(avail_trait.trait_subcategory_id, []).append(
-                    avail_trait
-                )
-            else:
-                available_by_category_no_sub.setdefault(avail_trait.parent_category_id, []).append(
-                    avail_trait
-                )
+        available_by_subcategory, available_by_category_no_sub = self._index_available_traits(
+            all_available_traits, all_character_traits
+        )
 
         sections = self._assemble_sheet_sections(
             sections_objects=skeleton_sections,
@@ -409,46 +396,20 @@ class CharacterService:
         all_available_traits: list[Trait] = results[2] if include_available_traits else []
 
         # Filter character traits to those belonging to this category
-        subcategory_ids: set = {s.id for s in subcategories if s.id is not None}
-        traits_by_subcategory: dict = {}
-        traits_by_category_no_sub: dict = {}
+        subcategory_ids: set[PydanticObjectId] = {s.id for s in subcategories if s.id is not None}
+        traits_by_subcategory: dict[PydanticObjectId, list[CharacterTrait]] = {}
+        category_traits_no_sub: list[CharacterTrait] = []
 
         for ct in all_character_traits:
             trait: Trait = ct.trait  # type: ignore[assignment]
             if trait.trait_subcategory_id and trait.trait_subcategory_id in subcategory_ids:
                 traits_by_subcategory.setdefault(trait.trait_subcategory_id, []).append(ct)
             elif trait.parent_category_id == category.id and not trait.trait_subcategory_id:
-                traits_by_category_no_sub.setdefault(category.id, []).append(ct)
+                category_traits_no_sub.append(ct)
 
-        # Build available traits indexes
-        available_by_subcategory: dict = {}
-        available_by_category_no_sub: dict = {}
-
-        if include_available_traits:
-            assigned_trait_ids: set = {
-                ct.trait.id  # type: ignore[union-attr]
-                for ct in all_character_traits
-            }
-            for avail_trait in all_available_traits:
-                if avail_trait.id in assigned_trait_ids:
-                    continue
-                if avail_trait.trait_subcategory_id:
-                    available_by_subcategory.setdefault(
-                        avail_trait.trait_subcategory_id, []
-                    ).append(avail_trait)
-                else:
-                    available_by_category_no_sub.setdefault(
-                        avail_trait.parent_category_id, []
-                    ).append(avail_trait)
-
-        # Assemble the single category DTO
-        def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
-            return FullSheetCharacterTraitDTO(
-                trait=ct.trait,  # type: ignore[arg-type]
-                value=ct.value,
-                id=ct.id,
-                character_id=ct.character_id,
-            )
+        available_by_subcategory, available_by_category_no_sub = self._index_available_traits(
+            all_available_traits, all_character_traits
+        )
 
         return FullSheetTraitCategoryDTO(
             id=category.id,
@@ -459,27 +420,10 @@ class CharacterService:
             initial_cost=category.initial_cost,
             upgrade_cost=category.upgrade_cost,
             subcategories=[
-                FullSheetTraitSubcategoryDTO(
-                    id=sub.id,
-                    name=sub.name,
-                    description=sub.description,
-                    show_when_empty=sub.show_when_empty,
-                    initial_cost=sub.initial_cost,
-                    upgrade_cost=sub.upgrade_cost,
-                    requires_parent=sub.requires_parent,
-                    pool=sub.pool,
-                    system=sub.system,
-                    hunter_edge_type=sub.hunter_edge_type,
-                    character_traits=[
-                        _build_trait_dto(ct) for ct in traits_by_subcategory.get(sub.id, [])
-                    ],
-                    available_traits=available_by_subcategory.get(sub.id, []),
-                )
+                self._build_subcategory_dto(sub, traits_by_subcategory, available_by_subcategory)
                 for sub in subcategories
             ],
-            character_traits=[
-                _build_trait_dto(ct) for ct in traits_by_category_no_sub.get(category.id, [])
-            ],
+            character_traits=[self._build_trait_dto(ct) for ct in category_traits_no_sub],
             available_traits=available_by_category_no_sub.get(category.id, []),
         )
 
@@ -534,13 +478,76 @@ class CharacterService:
         skeleton_subcategories.sort(key=lambda s: s.name)
 
     @staticmethod
+    def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
+        """Convert a CharacterTrait into the full-sheet DTO representation."""
+        return FullSheetCharacterTraitDTO(
+            trait=ct.trait,  # type: ignore[arg-type]
+            value=ct.value,
+            id=ct.id,
+            character_id=ct.character_id,
+        )
+
+    @staticmethod
+    def _build_subcategory_dto(
+        sub: TraitSubcategory,
+        traits_by_subcategory: dict[PydanticObjectId, list[CharacterTrait]],
+        available_by_subcategory: dict[PydanticObjectId, list[Trait]],
+    ) -> FullSheetTraitSubcategoryDTO:
+        """Build a single subcategory DTO with its character and available traits."""
+        return FullSheetTraitSubcategoryDTO(
+            id=sub.id,
+            name=sub.name,
+            description=sub.description,
+            show_when_empty=sub.show_when_empty,
+            initial_cost=sub.initial_cost,
+            upgrade_cost=sub.upgrade_cost,
+            requires_parent=sub.requires_parent,
+            pool=sub.pool,
+            system=sub.system,
+            hunter_edge_type=sub.hunter_edge_type,
+            character_traits=[
+                CharacterService._build_trait_dto(ct)
+                for ct in traits_by_subcategory.get(sub.id, [])
+            ],
+            available_traits=available_by_subcategory.get(sub.id, []),
+        )
+
+    @staticmethod
+    def _index_available_traits(
+        all_available_traits: list[Trait],
+        all_character_traits: list[CharacterTrait],
+    ) -> tuple[dict[PydanticObjectId, list[Trait]], dict[PydanticObjectId, list[Trait]]]:
+        """Index available traits by subcategory/category, excluding already-assigned traits.
+
+        Returns:
+            A tuple of (available_by_subcategory, available_by_category_no_sub).
+        """
+        assigned_trait_ids: set[PydanticObjectId] = {ct.trait.id for ct in all_character_traits}  # type: ignore[attr-defined]
+        available_by_subcategory: dict[PydanticObjectId, list[Trait]] = {}
+        available_by_category_no_sub: dict[PydanticObjectId, list[Trait]] = {}
+
+        for avail_trait in all_available_traits:
+            if avail_trait.id in assigned_trait_ids:
+                continue
+            if avail_trait.trait_subcategory_id:
+                available_by_subcategory.setdefault(avail_trait.trait_subcategory_id, []).append(
+                    avail_trait
+                )
+            else:
+                available_by_category_no_sub.setdefault(avail_trait.parent_category_id, []).append(
+                    avail_trait
+                )
+
+        return available_by_subcategory, available_by_category_no_sub
+
+    @staticmethod
     def _assemble_sheet_sections(
         *,
         sections_objects: list[CharSheetSection],
         categories_objects: list[TraitCategory],
         subcategories_objects: list[TraitSubcategory],
-        traits_by_subcategory: dict,
-        traits_by_category_no_sub: dict,
+        traits_by_subcategory: dict[PydanticObjectId, list[CharacterTrait]],
+        traits_by_category_no_sub: dict[PydanticObjectId, list[CharacterTrait]],
         available_by_subcategory: dict[PydanticObjectId, list[Trait]],
         available_by_category_no_sub: dict[PydanticObjectId, list[Trait]],
     ) -> list[FullSheetTraitSectionDTO]:
@@ -559,7 +566,7 @@ class CharacterService:
             list[FullSheetTraitSectionDTO]: The assembled section hierarchy.
         """
         # Pre-index subcategories by parent category
-        subcategories_by_category: dict = {}
+        subcategories_by_category: dict[PydanticObjectId, list[TraitSubcategory]] = {}
         for subcategory in subcategories_objects:
             if subcategory.parent_category_id:
                 subcategories_by_category.setdefault(subcategory.parent_category_id, []).append(
@@ -567,17 +574,9 @@ class CharacterService:
                 )
 
         # Pre-index categories by parent section
-        categories_by_section: dict = {}
+        categories_by_section: dict[PydanticObjectId, list[TraitCategory]] = {}
         for category in categories_objects:
             categories_by_section.setdefault(category.parent_sheet_section_id, []).append(category)
-
-        def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
-            return FullSheetCharacterTraitDTO(
-                trait=ct.trait,  # type: ignore[arg-type]
-                value=ct.value,
-                id=ct.id,
-                character_id=ct.character_id,
-            )
 
         return [
             FullSheetTraitSectionDTO(
@@ -596,27 +595,13 @@ class CharacterService:
                         initial_cost=category.initial_cost,
                         upgrade_cost=category.upgrade_cost,
                         subcategories=[
-                            FullSheetTraitSubcategoryDTO(
-                                id=sub.id,
-                                name=sub.name,
-                                description=sub.description,
-                                show_when_empty=sub.show_when_empty,
-                                initial_cost=sub.initial_cost,
-                                upgrade_cost=sub.upgrade_cost,
-                                requires_parent=sub.requires_parent,
-                                pool=sub.pool,
-                                system=sub.system,
-                                hunter_edge_type=sub.hunter_edge_type,
-                                character_traits=[
-                                    _build_trait_dto(ct)
-                                    for ct in traits_by_subcategory.get(sub.id, [])
-                                ],
-                                available_traits=available_by_subcategory.get(sub.id, []),
+                            CharacterService._build_subcategory_dto(
+                                sub, traits_by_subcategory, available_by_subcategory
                             )
                             for sub in subcategories_by_category.get(category.id, [])
                         ],
                         character_traits=[
-                            _build_trait_dto(ct)
+                            CharacterService._build_trait_dto(ct)
                             for ct in traits_by_category_no_sub.get(category.id, [])
                         ],
                         available_traits=available_by_category_no_sub.get(category.id, []),
