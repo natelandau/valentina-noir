@@ -1360,3 +1360,80 @@ class TestCharacterFullSheet:
                 for ct in category["character_traits"]:
                     assert "id" in ct
                     assert "character_id" in ct
+
+    async def test_get_character_full_sheet_with_available_traits(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        base_character: Character,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify the full sheet endpoint includes available traits when flag is set."""
+        # Given a character with one assigned trait
+        assigned_trait = await Trait.find_one(
+            Trait.is_archived == False,
+            Trait.trait_subcategory_id == None,
+            Trait.character_classes == base_character.character_class,
+            Trait.game_versions == base_character.game_version,
+            Trait.is_custom == False,
+        )
+        assert assigned_trait is not None
+        await character_trait_factory(character_id=base_character.id, trait=assigned_trait, value=3)
+
+        # When we request the full sheet with include_available_traits=true
+        url = build_url(CharacterURL.FULL_SHEET, character_id=base_character.id)
+        response = await client.get(
+            f"{url}?include_available_traits=true",
+            headers=token_global_admin,
+        )
+
+        # Then the response is successful
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+
+        # And available_traits fields are present on categories and subcategories
+        for section in data["sections"]:
+            for category in section["categories"]:
+                assert "available_traits" in category
+                assert isinstance(category["available_traits"], list)
+                for sub in category["subcategories"]:
+                    assert "available_traits" in sub
+                    assert isinstance(sub["available_traits"], list)
+
+        # And the assigned trait does not appear in any available_traits list
+        all_available_ids = set()
+        for section in data["sections"]:
+            for category in section["categories"]:
+                all_available_ids.update(t["id"] for t in category["available_traits"])
+                for sub in category["subcategories"]:
+                    all_available_ids.update(t["id"] for t in sub["available_traits"])
+        assert str(assigned_trait.id) not in all_available_ids
+
+        # And at least some available traits are present (since only one trait is assigned)
+        assert len(all_available_ids) > 0
+
+    async def test_get_character_full_sheet_available_traits_empty_by_default(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        base_character: Character,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify available_traits is empty when include_available_traits is not set."""
+        # When we request the full sheet without the flag
+        response = await client.get(
+            build_url(CharacterURL.FULL_SHEET, character_id=base_character.id),
+            headers=token_global_admin,
+        )
+
+        # Then the response is successful
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+
+        # And all available_traits lists are empty
+        for section in data["sections"]:
+            for category in section["categories"]:
+                assert category["available_traits"] == []
+                for sub in category["subcategories"]:
+                    assert sub["available_traits"] == []
