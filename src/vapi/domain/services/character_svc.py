@@ -357,6 +357,132 @@ class CharacterService:
 
         return CharacterFullSheetDTO(character=character, sections=sections)
 
+    async def get_character_full_sheet_category(
+        self,
+        character: Character,
+        category: TraitCategory,
+        *,
+        include_available_traits: bool = False,
+    ) -> FullSheetTraitCategoryDTO:
+        """Build a single category slice of the character's full sheet.
+
+        Fetch only the subcategories and traits for one category, enabling efficient
+        UI refreshes after a trait edit without rebuilding the entire sheet hierarchy.
+
+        Subcategories are fetched without class/version filtering so that out-of-class
+        traits (e.g. storyteller grants) are naturally included when the client requests
+        a specific category.
+
+        Args:
+            character: The character whose traits to include.
+            category: The trait category to build.
+            include_available_traits: If True, include standard traits the character
+                could add but hasn't yet.
+        """
+        coros: list = [
+            TraitSubcategory.find(
+                TraitSubcategory.is_archived == False,
+                TraitSubcategory.parent_category_id == category.id,
+            )
+            .sort("name")
+            .to_list(),
+            CharacterTrait.find(
+                CharacterTrait.character_id == character.id,
+                fetch_links=True,
+            ).to_list(),
+        ]
+
+        if include_available_traits:
+            coros.append(
+                Trait.find(
+                    Trait.is_archived == False,
+                    Trait.parent_category_id == category.id,
+                    Trait.is_custom == False,
+                )
+                .sort("name")
+                .to_list()
+            )
+
+        results = await gather(*coros)
+        subcategories: list[TraitSubcategory] = results[0]
+        all_character_traits: list[CharacterTrait] = results[1]
+        all_available_traits: list[Trait] = results[2] if include_available_traits else []
+
+        # Filter character traits to those belonging to this category
+        subcategory_ids: set = {s.id for s in subcategories if s.id is not None}
+        traits_by_subcategory: dict = {}
+        traits_by_category_no_sub: dict = {}
+
+        for ct in all_character_traits:
+            trait: Trait = ct.trait  # type: ignore[assignment]
+            if trait.trait_subcategory_id and trait.trait_subcategory_id in subcategory_ids:
+                traits_by_subcategory.setdefault(trait.trait_subcategory_id, []).append(ct)
+            elif trait.parent_category_id == category.id and not trait.trait_subcategory_id:
+                traits_by_category_no_sub.setdefault(category.id, []).append(ct)
+
+        # Build available traits indexes
+        available_by_subcategory: dict = {}
+        available_by_category_no_sub: dict = {}
+
+        if include_available_traits:
+            assigned_trait_ids: set = {
+                ct.trait.id  # type: ignore[union-attr]
+                for ct in all_character_traits
+            }
+            for avail_trait in all_available_traits:
+                if avail_trait.id in assigned_trait_ids:
+                    continue
+                if avail_trait.trait_subcategory_id:
+                    available_by_subcategory.setdefault(
+                        avail_trait.trait_subcategory_id, []
+                    ).append(avail_trait)
+                else:
+                    available_by_category_no_sub.setdefault(
+                        avail_trait.parent_category_id, []
+                    ).append(avail_trait)
+
+        # Assemble the single category DTO
+        def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
+            return FullSheetCharacterTraitDTO(
+                trait=ct.trait,  # type: ignore[arg-type]
+                value=ct.value,
+                id=ct.id,
+                character_id=ct.character_id,
+            )
+
+        return FullSheetTraitCategoryDTO(
+            id=category.id,
+            name=category.name,
+            description=category.description,
+            order=category.order,
+            show_when_empty=category.show_when_empty,
+            initial_cost=category.initial_cost,
+            upgrade_cost=category.upgrade_cost,
+            subcategories=[
+                FullSheetTraitSubcategoryDTO(
+                    id=sub.id,
+                    name=sub.name,
+                    description=sub.description,
+                    show_when_empty=sub.show_when_empty,
+                    initial_cost=sub.initial_cost,
+                    upgrade_cost=sub.upgrade_cost,
+                    requires_parent=sub.requires_parent,
+                    pool=sub.pool,
+                    system=sub.system,
+                    hunter_edge_type=sub.hunter_edge_type,
+                    character_traits=[
+                        _build_trait_dto(ct) for ct in traits_by_subcategory.get(sub.id, [])
+                    ],
+                    available_traits=available_by_subcategory.get(sub.id, []),
+                )
+                for sub in subcategories
+            ],
+            character_traits=[
+                _build_trait_dto(ct) for ct in traits_by_category_no_sub.get(category.id, [])
+            ],
+            available_traits=available_by_category_no_sub.get(category.id, []),
+        )
+
     @staticmethod
     async def _backfill_missing_structures(
         skeleton_sections: list[CharSheetSection],
