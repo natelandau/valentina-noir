@@ -921,3 +921,52 @@ class TestCharacterService:
             # Then no section should appear more than once
             section_names = [s.name for s in result.sections]
             assert len(section_names) == len(set(section_names))
+
+        async def test_available_traits_empty_when_flag_off(
+            self, character_factory: Callable[[dict[str, Any]], Character]
+        ) -> None:
+            """Verify available_traits is empty on all categories and subcategories when flag is off."""
+            # Given a character with no traits
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # When we get the full sheet without include_available_traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(character)
+
+            # Then all categories and subcategories have empty available_traits
+            for section in result.sections:
+                for category in section.categories:
+                    assert category.available_traits == []
+                    for sub in category.subcategories:
+                        assert sub.available_traits == []
+
+        async def test_available_traits_populated_when_flag_on(
+            self, character_factory: Callable[[dict[str, Any]], Character]
+        ) -> None:
+            """Verify available_traits contains matching standard traits when flag is on."""
+            # Given a character with no assigned traits
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # And the total count of standard traits for this character's class/version
+            expected_trait_count = await Trait.find(
+                Trait.is_archived == False,
+                Trait.character_classes == character.character_class,
+                Trait.game_versions == character.game_version,
+                Trait.is_custom == False,
+            ).count()
+
+            # When we get the full sheet with include_available_traits=True
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then the total available traits across all categories and subcategories
+            # equals the expected count
+            total_available = sum(
+                len(category.available_traits)
+                + sum(len(sub.available_traits) for sub in category.subcategories)
+                for section in result.sections
+                for category in section.categories
+            )
+            assert total_available == expected_trait_count
