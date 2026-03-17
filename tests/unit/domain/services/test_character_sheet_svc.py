@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from beanie.operators import In, NotIn
 
 from vapi.constants import CharacterClass
 from vapi.db.models import (
@@ -386,7 +387,7 @@ class TestCharacterSheetService:
             shared_trait = await Trait.find_one(
                 Trait.is_archived == False,
                 Trait.game_versions == character.game_version,
-                {"sheet_section_id": {"$in": list(mortal_section_ids)}},
+                In(Trait.sheet_section_id, list(mortal_section_ids)),
             )
             if shared_trait is None:
                 pytest.skip("Pre-seeded DB needs a trait in a shared section")
@@ -569,7 +570,7 @@ class TestCharacterSheetService:
                 Trait.is_archived == False,
                 Trait.is_custom == False,
                 Trait.character_classes == character.character_class,
-                {"game_versions": {"$nin": [character.game_version.value]}},
+                NotIn(Trait.game_versions, [character.game_version]),
             )
             if other_version_trait is None:
                 pytest.skip("Pre-seeded DB needs a trait exclusive to a different game version")
