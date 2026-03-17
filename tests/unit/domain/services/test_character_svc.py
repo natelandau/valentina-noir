@@ -970,3 +970,217 @@ class TestCharacterService:
                 for category in section.categories
             )
             assert total_available == expected_trait_count
+
+        async def test_assigned_traits_excluded_from_available(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        ) -> None:
+            """Verify assigned traits do not appear in available_traits."""
+            # Given a character with a specific trait assigned
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+            trait = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.character_classes == CharacterClass.MORTAL,
+                Trait.game_versions == character.game_version,
+                Trait.is_custom == False,
+            )
+            assert trait is not None
+            await character_trait_factory(character_id=character.id, trait=trait, value=2)
+
+            # When we get the full sheet with available traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then the assigned trait should not appear in any available_traits list
+            all_available_ids = {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for t in category.available_traits
+            } | {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for sub in category.subcategories
+                for t in sub.available_traits
+            }
+            assert trait.id not in all_available_ids
+
+        async def test_custom_traits_excluded_from_available(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            trait_factory: Callable[[dict[str, Any]], Trait],
+        ) -> None:
+            """Verify custom traits do not appear in available_traits."""
+            # Given a character
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # And a custom trait exists for this character
+            custom_trait = await trait_factory(
+                is_custom=True,
+                custom_for_character_id=character.id,
+                character_classes=[CharacterClass.MORTAL],
+                game_versions=[character.game_version],
+            )
+
+            # When we get the full sheet with available traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then the custom trait should not appear in any available_traits list
+            all_available_ids = {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for t in category.available_traits
+            } | {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for sub in category.subcategories
+                for t in sub.available_traits
+            }
+            assert custom_trait.id not in all_available_ids
+
+        async def test_available_traits_sorted_by_name(
+            self, character_factory: Callable[[dict[str, Any]], Character]
+        ) -> None:
+            """Verify available traits are sorted alphabetically by name."""
+            # Given a character with no assigned traits
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # When we get the full sheet with available traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then available traits in each category and subcategory are sorted by name
+            for section in result.sections:
+                for category in section.categories:
+                    names = [t.name for t in category.available_traits]
+                    assert names == sorted(names), (
+                        f"Category '{category.name}' available_traits not sorted"
+                    )
+                    for sub in category.subcategories:
+                        sub_names = [t.name for t in sub.available_traits]
+                        assert sub_names == sorted(sub_names), (
+                            f"Subcategory '{sub.name}' available_traits not sorted"
+                        )
+
+        async def test_out_of_class_traits_excluded_from_available(
+            self, character_factory: Callable[[dict[str, Any]], Character]
+        ) -> None:
+            """Verify traits from other character classes do not appear in available_traits."""
+            # Given a mortal character
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # And a vampire-only trait exists
+            vampire_trait = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.character_classes == CharacterClass.VAMPIRE,
+                Trait.is_custom == False,
+            )
+            if vampire_trait is None:
+                pytest.skip("Pre-seeded DB needs a vampire-only trait")
+
+            # When we get the full sheet with available traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then the vampire trait should not appear in any available_traits list
+            all_available_ids = {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for t in category.available_traits
+            } | {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for sub in category.subcategories
+                for t in sub.available_traits
+            }
+            if CharacterClass.MORTAL not in (vampire_trait.character_classes or []):
+                assert vampire_trait.id not in all_available_ids
+
+        async def test_wrong_game_version_traits_excluded_from_available(
+            self, character_factory: Callable[[dict[str, Any]], Character]
+        ) -> None:
+            """Verify traits from a different game version do not appear in available_traits."""
+            # Given a character
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # And a trait that exists only for a different game version
+            other_version_trait = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.is_custom == False,
+                Trait.character_classes == character.character_class,
+                {"game_versions": {"$nin": [character.game_version.value]}},
+            )
+            if other_version_trait is None:
+                pytest.skip("Pre-seeded DB needs a trait exclusive to a different game version")
+
+            # When we get the full sheet with available traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then the other-version trait should not appear
+            all_available_ids = {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for t in category.available_traits
+            } | {
+                t.id
+                for section in result.sections
+                for category in section.categories
+                for sub in category.subcategories
+                for t in sub.available_traits
+            }
+            assert other_version_trait.id not in all_available_ids
+
+        async def test_available_traits_empty_when_all_assigned(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        ) -> None:
+            """Verify available_traits is empty when all matching standard traits are assigned."""
+            # Given a character
+            character = await character_factory(character_class=CharacterClass.MORTAL)
+
+            # And all matching standard traits are assigned to the character
+            all_traits = await Trait.find(
+                Trait.is_archived == False,
+                Trait.character_classes == character.character_class,
+                Trait.game_versions == character.game_version,
+                Trait.is_custom == False,
+            ).to_list()
+            for trait in all_traits:
+                await character_trait_factory(character_id=character.id, trait=trait, value=1)
+
+            # When we get the full sheet with available traits
+            service = CharacterService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then all available_traits lists should be empty
+            for section in result.sections:
+                for category in section.categories:
+                    assert category.available_traits == [], (
+                        f"Category '{category.name}' has available traits"
+                    )
+                    for sub in category.subcategories:
+                        assert sub.available_traits == [], (
+                            f"Subcategory '{sub.name}' has available traits"
+                        )
