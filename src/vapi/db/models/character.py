@@ -33,6 +33,7 @@ from vapi.db.models.shared import Specialty  # noqa: TC001
 from vapi.lib.validation import empty_string_to_none
 
 from .base import HashedBaseModel, NameDescriptionSubDocument
+from .character_concept import CharacterConcept
 
 
 class CharacterTrait(Document):
@@ -200,6 +201,7 @@ class Character(BaseDocument):
     concept_id: Annotated[PydanticObjectId | None, Field(examples=["68c1f7152cae3787a09a74fa"])] = (
         None
     )
+    concept_name: Annotated[str | None, Field(default=None)] = None
 
     specialties: list[Specialty] = Field(default_factory=list)
 
@@ -238,6 +240,14 @@ class Character(BaseDocument):
     async def delete_character_traits(self) -> None:
         """Delete the character traits before the character is deleted."""
         await CharacterTrait.find(CharacterTrait.character_id == self.id).delete()
+
+    @before_event(Insert, Replace, Save, Update, SaveChanges)
+    async def update_concept_name(self) -> None:
+        """Update the concept_name field."""
+        if self.concept_id:
+            concept = await CharacterConcept.get(self.concept_id)
+            if concept and self.concept_name != concept.name:
+                self.concept_name = concept.name
 
     class Settings:
         """Settings for the Character model."""
