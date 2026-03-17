@@ -8,7 +8,7 @@ import pytest
 from beanie import PydanticObjectId
 
 from vapi.constants import CharacterClass, CharacterStatus, GameVersion
-from vapi.db.models import Character, CharacterTrait, Trait
+from vapi.db.models import Character, CharacterConcept, CharacterTrait, Trait
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -70,3 +70,48 @@ class TestModelHooks:
         assert not character_traits, (
             f"Character traits should be deleted when the character is deleted: {[x.id for x in character_traits]=}"
         )
+
+    async def test_update_concept_name_on_save(
+        self,
+        character_factory: Callable[..., Character],
+        character_concept_factory: Callable[..., CharacterConcept],
+    ) -> None:
+        """Verify concept_name is synced from the linked CharacterConcept on save."""
+        # Given a character concept
+        concept = await character_concept_factory(name="Scholar")
+
+        # Given a character with that concept_id but no concept_name
+        character = await character_factory(concept_id=concept.id)
+
+        # Then the concept_name is populated from the concept
+        assert character.concept_name == "Scholar"
+
+    async def test_update_concept_name_when_concept_changes(
+        self,
+        character_factory: Callable[..., Character],
+        character_concept_factory: Callable[..., CharacterConcept],
+    ) -> None:
+        """Verify concept_name updates when the linked concept's name changes."""
+        # Given a character linked to a concept
+        concept = await character_concept_factory(name="Scholar")
+        character = await character_factory(concept_id=concept.id)
+        assert character.concept_name == "Scholar"
+
+        # When the concept's name changes and the character is saved
+        concept.name = "Warrior"
+        await concept.save()
+        await character.save()
+
+        # Then the concept_name reflects the new name
+        assert character.concept_name == "Warrior"
+
+    async def test_update_concept_name_skipped_when_no_concept_id(
+        self,
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify concept_name is unchanged when concept_id is None."""
+        # Given a character with no concept_id and an arbitrary concept_name
+        character = await character_factory(concept_id=None, concept_name="Stale Name")
+
+        # Then the hook does not modify concept_name
+        assert character.concept_name == "Stale Name"

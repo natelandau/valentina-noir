@@ -1296,6 +1296,7 @@ class TestCharacterCreate:
         assert character.vampire_attributes.sire == "Test Sire"
         assert character.vampire_attributes.generation == 1
         assert character.concept_id == concept.id
+        assert character.concept_name == concept.name
         assert character.user_player_id == user_player.id
         # Add one to the size of the list b/c willpower is created
         assert len(character.character_trait_ids) == len(traits) + 1
