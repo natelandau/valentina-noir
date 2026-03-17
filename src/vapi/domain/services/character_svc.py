@@ -221,54 +221,175 @@ class CharacterService:
             await character_trait_service.after_save(character_trait)
 
     async def get_character_full_sheet(self, character: Character) -> CharacterFullSheetDTO:
-        """Build the hierarchical full character sheet (sections > categories > subcategories > traits)."""
-        all_character_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id,
-            fetch_links=True,
-        ).to_list()
+        """Build the hierarchical full character sheet (sections > categories > subcategories > traits).
 
-        sheet_section_ids: set = set()
-        category_ids: set = set()
-        subcategory_ids: set = set()
+        The sheet skeleton includes all sections, categories, and subcategories that match the
+        character's class and game version, even if the character has no traits in them. Traits the
+        character actually has are then slotted into that skeleton.
 
-        # Pre-index traits by category and subcategory for O(1) lookups
+        A storyteller may grant traits outside a character's class/version (e.g. a vampire discipline
+        on a mortal). To handle this, we fetch the class/version skeleton and the character's traits
+        in parallel, then merge any additional parent structures referenced by out-of-class traits.
+        This avoids an extra DB round-trip for the common case while still capturing edge-case traits.
+        """
+        # Fetch the sheet skeleton for this character's class/version and the character's actual
+        # traits in parallel. Both queries are independent so we can run them concurrently.
+        (
+            skeleton_sections,
+            skeleton_categories,
+            skeleton_subcategories,
+            all_character_traits,
+        ) = await gather(
+            CharSheetSection.find(
+                CharSheetSection.is_archived == False,
+                CharSheetSection.character_classes == character.character_class,
+                CharSheetSection.game_versions == character.game_version,
+            )
+            .sort("order")
+            .to_list(),
+            TraitCategory.find(
+                TraitCategory.is_archived == False,
+                TraitCategory.character_classes == character.character_class,
+                TraitCategory.game_versions == character.game_version,
+            )
+            .sort("order")
+            .to_list(),
+            TraitSubcategory.find(
+                TraitSubcategory.is_archived == False,
+                TraitSubcategory.character_classes == character.character_class,
+                TraitSubcategory.game_versions == character.game_version,
+            )
+            .sort("name")
+            .to_list(),
+            CharacterTrait.find(
+                CharacterTrait.character_id == character.id,
+                fetch_links=True,
+            ).to_list(),
+        )
+
+        # Index skeleton results by ID for deduplication when merging trait-referenced structures
+        skeleton_section_ids: set = {s.id for s in skeleton_sections if s.id is not None}
+        skeleton_category_ids: set = {c.id for c in skeleton_categories if c.id is not None}
+        skeleton_subcategory_ids: set = {s.id for s in skeleton_subcategories if s.id is not None}
+
+        # Index traits by their parent subcategory/category for O(1) lookups during assembly
         traits_by_subcategory: dict = {}
         traits_by_category_no_sub: dict = {}
 
+        # Track IDs of structures referenced by traits that fall outside the character's
+        # class/version skeleton (e.g. a vampire discipline granted to a mortal by a storyteller)
+        missing_section_ids: set = set()
+        missing_category_ids: set = set()
+        missing_subcategory_ids: set = set()
+
         for ct in all_character_traits:
             trait: Trait = ct.trait  # type: ignore[assignment]
-            sheet_section_ids.add(trait.sheet_section_id)
-            category_ids.add(trait.parent_category_id)
-            subcategory_ids.add(trait.trait_subcategory_id)
+
+            if trait.sheet_section_id not in skeleton_section_ids:
+                missing_section_ids.add(trait.sheet_section_id)
+            if trait.parent_category_id not in skeleton_category_ids:
+                missing_category_ids.add(trait.parent_category_id)
+            if (
+                trait.trait_subcategory_id
+                and trait.trait_subcategory_id not in skeleton_subcategory_ids
+            ):
+                missing_subcategory_ids.add(trait.trait_subcategory_id)
 
             if trait.trait_subcategory_id:
                 traits_by_subcategory.setdefault(trait.trait_subcategory_id, []).append(ct)
             else:
                 traits_by_category_no_sub.setdefault(trait.parent_category_id, []).append(ct)
 
-        subcategory_ids.discard(None)
-
-        sections_objects, categories_objects, subcategories_objects = await gather(
-            CharSheetSection.find(
-                CharSheetSection.is_archived == False,
-                In(CharSheetSection.id, sheet_section_ids),
-            )
-            .sort("order")
-            .to_list(),
-            TraitCategory.find(
-                TraitCategory.is_archived == False,
-                In(TraitCategory.id, category_ids),
-            )
-            .sort("order")
-            .to_list(),
-            TraitSubcategory.find(
-                TraitSubcategory.is_archived == False,
-                In(TraitSubcategory.id, subcategory_ids),
-            )
-            .sort("name")
-            .to_list(),
+        # Backfill any structures referenced by out-of-class/version traits
+        await self._backfill_missing_structures(
+            skeleton_sections,
+            skeleton_categories,
+            skeleton_subcategories,
+            missing_section_ids,
+            missing_category_ids,
+            missing_subcategory_ids,
         )
 
+        sections = self._assemble_sheet_sections(
+            skeleton_sections,
+            skeleton_categories,
+            skeleton_subcategories,
+            traits_by_subcategory,
+            traits_by_category_no_sub,
+        )
+
+        return CharacterFullSheetDTO(character=character, sections=sections)
+
+    @staticmethod
+    async def _backfill_missing_structures(
+        skeleton_sections: list[CharSheetSection],
+        skeleton_categories: list[TraitCategory],
+        skeleton_subcategories: list[TraitSubcategory],
+        missing_section_ids: set,
+        missing_category_ids: set,
+        missing_subcategory_ids: set,
+    ) -> None:
+        """Fetch and merge sheet structures referenced by out-of-class/version traits.
+
+        A storyteller may grant traits outside a character's class/version (e.g. a vampire
+        discipline on a mortal). This method fetches the parent sections, categories, and
+        subcategories for those traits and merges them into the skeleton lists in-place.
+
+        Args:
+            skeleton_sections: The sections list to extend (mutated in-place).
+            skeleton_categories: The categories list to extend (mutated in-place).
+            skeleton_subcategories: The subcategories list to extend (mutated in-place).
+            missing_section_ids: Section IDs referenced by traits but absent from the skeleton.
+            missing_category_ids: Category IDs referenced by traits but absent from the skeleton.
+            missing_subcategory_ids: Subcategory IDs referenced by traits but absent from the skeleton.
+        """
+        if not (missing_section_ids or missing_category_ids or missing_subcategory_ids):
+            return
+
+        # Build only the queries we actually need rather than using no-op placeholders
+        targets: list[tuple[list, set]] = [
+            (skeleton_sections, missing_section_ids),
+            (skeleton_categories, missing_category_ids),
+            (skeleton_subcategories, missing_subcategory_ids),
+        ]
+        models = [CharSheetSection, TraitCategory, TraitSubcategory]
+
+        coros = []
+        active_targets: list[list] = []
+        for (target_list, id_set), model in zip(targets, models, strict=True):
+            if id_set:
+                coros.append(model.find(model.is_archived == False, In(model.id, id_set)).to_list())
+                active_targets.append(target_list)
+
+        results = await gather(*coros)
+        for target_list, extra in zip(active_targets, results, strict=True):
+            target_list.extend(extra)
+
+        # Re-sort after merging to maintain consistent ordering
+        skeleton_sections.sort(key=lambda s: s.order)
+        skeleton_categories.sort(key=lambda c: c.order)
+        skeleton_subcategories.sort(key=lambda s: s.name)
+
+    @staticmethod
+    def _assemble_sheet_sections(
+        sections_objects: list[CharSheetSection],
+        categories_objects: list[TraitCategory],
+        subcategories_objects: list[TraitSubcategory],
+        traits_by_subcategory: dict,
+        traits_by_category_no_sub: dict,
+    ) -> list[FullSheetTraitSectionDTO]:
+        """Assemble the nested section > category > subcategory > trait DTO hierarchy.
+
+        Args:
+            sections_objects: All sheet sections to include.
+            categories_objects: All trait categories to include.
+            subcategories_objects: All trait subcategories to include.
+            traits_by_subcategory: Character traits indexed by subcategory ID.
+            traits_by_category_no_sub: Character traits indexed by category ID (no subcategory).
+
+        Returns:
+            list[FullSheetTraitSectionDTO]: The assembled section hierarchy.
+        """
         # Pre-index subcategories by parent category
         subcategories_by_category: dict = {}
         for subcategory in subcategories_objects:
@@ -285,7 +406,7 @@ class CharacterService:
         def _build_trait_dto(ct: CharacterTrait) -> FullSheetCharacterTraitDTO:
             return FullSheetCharacterTraitDTO(trait=ct.trait, value=ct.value)  # type: ignore[arg-type]
 
-        sections = [
+        return [
             FullSheetTraitSectionDTO(
                 name=section.name,
                 description=section.description,
@@ -327,5 +448,3 @@ class CharacterService:
             )
             for section in sections_objects
         ]
-
-        return CharacterFullSheetDTO(character=character, sections=sections)
