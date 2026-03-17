@@ -34,4 +34,6 @@ The character will no longer be accessible.
 
 GET_CHARACTER_FULL_SHEET_DESCRIPTION = """\
 Retrieve the full character sheet including all traits, attributes, and other character data. Traits are organized in a hierarchical dictionary of sheet sections, categories, optional subcategories, traits, and values.
+
+Set `include_available_traits=true` to also include standard traits that the character could add but hasn't yet, organized within the same category and subcategory hierarchy.
 """
