@@ -24,6 +24,8 @@ from vapi.domain.controllers.character.dto import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     from vapi.db.models import Character
 
 
@@ -184,7 +186,7 @@ class CharacterSheetService:
             include_available_traits: If True, include standard traits the character
                 could add but hasn't yet.
         """
-        coros: list = [
+        coros: list[Awaitable[list]] = [
             TraitSubcategory.find(
                 TraitSubcategory.is_archived == False,
                 TraitSubcategory.parent_category_id == category.id,
@@ -280,7 +282,7 @@ class CharacterSheetService:
         models = [CharSheetSection, TraitCategory, TraitSubcategory]
 
         coros = []
-        active_targets: list[list] = []
+        active_targets: list[list[CharSheetSection | TraitCategory | TraitSubcategory]] = []
         for (target_list, id_set), model in zip(targets, models, strict=True):
             if id_set:
                 coros.append(model.find(model.is_archived == False, In(model.id, id_set)).to_list())
