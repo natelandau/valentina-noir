@@ -98,6 +98,50 @@ Provide the trait name, parent category, and optional cost overrides. If you omi
 
     Custom trait names must be unique on the character (case-insensitive) and can't match any existing system trait name.
 
+### Bulk Assigning Traits
+
+Assign multiple traits to a character in a single request. Each assignment is processed independently — successful traits are saved and failed ones are reported with error details.
+
+```json
+[
+    {
+        "trait_id": "69679d6b92e8772cd93d8185",
+        "value": 2,
+        "currency": "NO_COST"
+    },
+    {
+        "trait_id": "69679d6b92e8772cd93d8186",
+        "value": 1,
+        "currency": "XP"
+    }
+]
+```
+
+The response groups results into `succeeded` and `failed` lists:
+
+```json
+{
+    "succeeded": [
+        {
+            "trait_id": "69679d6b92e8772cd93d8185",
+            "character_trait": { "id": "...", "value": 2, "..." }
+        }
+    ],
+    "failed": [
+        {
+            "trait_id": "69679d6b92e8772cd93d8186",
+            "error": "Not enough XP to add trait"
+        }
+    ]
+}
+```
+
+!!! warning "Running Currency Balance"
+
+    Currency balances are tracked across the batch. If early traits spend XP or starting points, later traits in the same request see the reduced balance. Flaw traits (which grant currency) increase the running balance, making subsequent traits more affordable.
+
+The maximum batch size is 200 items.
+
 ## Modifying Trait Values
 
 Modify trait values using one of three currencies.
@@ -202,6 +246,10 @@ Retrieve a single character trait with its full details.
 ### POST `/traits/assign`
 
 Assign an existing system trait to the character. See [Assigning Constant Traits](#assigning-constant-traits) above.
+
+### POST `/traits/bulk-assign`
+
+Assign multiple traits at once. See [Bulk Assigning Traits](#bulk-assigning-traits) above. Maximum batch size: 200 items.
 
 ### POST `/traits/create`
 
