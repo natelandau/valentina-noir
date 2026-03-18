@@ -9,6 +9,7 @@ from beanie.operators import In
 from pydantic import ValidationError as PydanticValidationError
 
 from vapi.constants import (
+    TRAIT_NAMES_FOR_WILLPOWER,
     CharacterClass,
     PermissionsFreeTraitChanges,
     TraitModifyCurrency,
@@ -293,17 +294,21 @@ class CharacterTraitService:
             character_trait: The trait that was just saved (should be Composure or Resolve).
         """
         await character_trait.fetch_all_links()
-        if character_trait.trait.name not in ["Composure", "Resolve"]:  # type: ignore [attr-defined]
+        if character_trait.trait.name not in TRAIT_NAMES_FOR_WILLPOWER:  # type: ignore [attr-defined]
             return
 
-        total_willpower_value = (
-            await CharacterTrait.find(
-                CharacterTrait.character_id == character_trait.character_id,
-                In(CharacterTrait.trait.name, ["Composure", "Resolve"]),  # type: ignore [attr-defined]
-                fetch_links=True,
-            ).sum(CharacterTrait.value)
-            or 0
-        )
+        if character_trait.trait.name in ["Composure", "Resolve"]:  # type: ignore [attr-defined]
+            total_willpower_value = (
+                await CharacterTrait.find(
+                    CharacterTrait.character_id == character_trait.character_id,
+                    In(CharacterTrait.trait.name, ["Composure", "Resolve"]),  # type: ignore [attr-defined]
+                    fetch_links=True,
+                ).sum(CharacterTrait.value)
+                or 0
+            )
+
+        if character_trait.trait.name == "Courage":  # type: ignore [attr-defined]
+            total_willpower_value = character_trait.value
 
         character_willpower = await CharacterTrait.find_one(
             CharacterTrait.character_id == character_trait.character_id,

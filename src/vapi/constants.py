@@ -23,6 +23,7 @@ DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
+TRAIT_NAMES_FOR_WILLPOWER: Final[set[str]] = {"Composure", "Resolve", "Courage"}
 
 
 class BlueprintTraitOrderBy(StrEnum):

@@ -811,6 +811,7 @@ class TestUpdateCharacterWillpower:
             Trait.name != "Composure",
             Trait.name != "Resolve",
             Trait.name != "Willpower",
+            Trait.name != "Courage",
         )
         character_trait = await character_trait_factory(
             character_id=character.id, trait=trait, value=3
@@ -830,7 +831,7 @@ class TestUpdateCharacterWillpower:
         # Given a character with a Composure trait
         character = await character_factory(character_class="MORTAL")
 
-        composure_trait = await Trait.find_one(Trait.name == "Composure")
+        composure_trait = await Trait.find_one(Trait.name == "Courage")
         character_trait = await character_trait_factory(
             character_id=character.id, trait=composure_trait, value=3
         )
@@ -846,7 +847,7 @@ class TestUpdateCharacterWillpower:
             fetch_links=True,
         )
         assert willpower is not None
-        assert willpower.value == 3  # Only Composure, no Resolve yet
+        assert willpower.value == 3
 
     async def test_update_willpower_sums_composure_and_resolve(
         self,
