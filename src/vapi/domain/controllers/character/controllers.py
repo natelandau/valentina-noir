@@ -74,13 +74,15 @@ class CharacterController(Controller):
         | None = None,
         status: Annotated[CharacterStatus, Parameter(description="Show characters of this status.")]
         | None = None,
+        is_temporary: Annotated[
+            bool, Parameter(description="Filter by temporary characters.")
+        ] = False,
     ) -> OffsetPagination[Character]:
         """List all characters."""
         query = {
             "company_id": company.id,
             "is_archived": False,
             "campaign_id": campaign.id,
-            "is_temporary": False,
         }
 
         if user_player_id:
@@ -93,6 +95,10 @@ class CharacterController(Controller):
             query["type"] = character_type.name
         if status:
             query["status"] = status.name
+        if is_temporary:
+            query["is_temporary"] = True
+        else:
+            query["is_temporary"] = False
 
         count = await Character.find(query).count()
         characters = await Character.find(query).skip(offset).limit(limit).to_list()

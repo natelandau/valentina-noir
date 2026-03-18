@@ -43,7 +43,6 @@ pytestmark = pytest.mark.anyio
 EXCLUDE_CHARACTER_FIELDS = {
     "archive_date",
     "is_archived",
-    "is_temporary",
     "is_chargen",
 }
 
@@ -614,6 +613,83 @@ class TestCharacterList:
         await character_archived.delete()
         await character_temporary.delete()
 
+    async def test_list_characters_with_results_specify_show_temporary(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        get_company_user_and_campaign: tuple[Company, User, Campaign],
+        character_factory: Callable[[dict[str, ...]], Character],
+        token_global_admin: dict[str, str],
+        debug: Callable[[...], None],
+    ) -> None:
+        """Verify we can list characters."""
+        # Given a company, user, campaign, and characters
+        company, user, campaign = get_company_user_and_campaign
+        second_user_id = PydanticObjectId()
+        character1 = await character_factory(
+            company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
+        )
+        character_dead = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            status=CharacterStatus.DEAD,
+        )
+        character_storyteller = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            campaign_id=campaign.id,
+            type=CharacterType.STORYTELLER,
+        )
+        character_different_user = await character_factory(
+            company_id=company.id,
+            user_creator_id=user.id,
+            user_player_id=second_user_id,
+            campaign_id=campaign.id,
+        )
+        character_different_campaign = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=PydanticObjectId(),
+        )
+        character_archived = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            is_archived=True,
+        )
+        character_temporary = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            is_temporary=True,
+        )
+
+        # When we list characters
+        response = await client.get(
+            build_url(
+                CharacterURL.LIST,
+                company_id=company.id,
+                user_id=user.id,
+                campaign_id=campaign.id,
+            ),
+            params={"is_temporary": True},
+            headers=token_global_admin,
+        )
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == [
+            character_temporary.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
+        ]
+
+        # Cleanup
+        await character1.delete()
+        await character_dead.delete()
+        await character_storyteller.delete()
+        await character_different_user.delete()
+        await character_different_campaign.delete()
+        await character_archived.delete()
+        await character_temporary.delete()
+
 
 class TestCharacterController:
     """Test character controller."""
@@ -1123,7 +1199,6 @@ class TestCharacterCreate:
             exclude={
                 "archive_date",
                 "is_archived",
-                "is_temporary",
                 "is_chargen",
                 "chargen_session_id",
             },
@@ -1276,7 +1351,6 @@ class TestCharacterCreate:
             exclude={
                 "archive_date",
                 "is_archived",
-                "is_temporary",
                 "is_chargen",
                 "chargen_session_id",
             },

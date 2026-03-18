@@ -52,6 +52,12 @@ Characters track their living status, which the system uses to manage gameplay s
 | `ALIVE` | Character is alive and active                                   |
 | `DEAD`  | Character is deceased (automatically records the date of death) |
 
+### Temporary Characters
+
+Characters can be marked as being temporary by setting the `is_temporary` flag to `True` when creating or updating a character. Temporary characters are not displayed in the character list by default, but can be filtered by setting the `is_temporary` flag to `True` in the character list endpoint.
+
+This can be useful when creating characters in multi-stage creation sessions. Don't forget to set the `is_temporary` flag to `False` when the character is finalized.
+
 ### Class-Specific Attributes
 
 Some character classes have additional attributes beyond the standard set.

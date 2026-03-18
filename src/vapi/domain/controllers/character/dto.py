@@ -39,7 +39,6 @@ class CharacterPatchDTO(PydanticDTO[Character]):
             "hunter_attributes.edges",
             "specialties",
             "is_chargen",
-            "is_temporary",
             "starting_points",
             "asset_ids",
             "date_killed",
@@ -52,7 +51,7 @@ class CharacterPatchDTO(PydanticDTO[Character]):
 class CharacterResponseDTO(PydanticDTO[Character]):
     """Character response DTO."""
 
-    config = dto_config(exclude={"is_chargen", "is_temporary"})
+    config = dto_config(exclude={"is_chargen"})
 
 
 class CharacterTraitCreate(BaseModel):
@@ -78,7 +77,6 @@ CreateCharacterDTO = create_model_without_fields(
         "date_modified",
         "is_archived",
         "is_chargen",
-        "is_temporary",
         "model_version",
         "name",
         "name_full",
@@ -194,7 +192,7 @@ class CharacterFullSheetDTO(BaseModel):
         """Serialize the character."""
         return character.model_dump(
             mode="json",
-            exclude=COMMON_EXCLUDES | {"character_trait_ids", "is_chargen", "is_temporary"},
+            exclude=COMMON_EXCLUDES | {"character_trait_ids", "is_chargen"},
         )
 
 
