@@ -277,7 +277,12 @@ async def _purge_orphaned_character_traits() -> None:
 
 
 async def purge_db_expired_items(_: Context) -> None:
-    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+    """Purge expired and archived data across all database models, S3 assets, and sessions.
+
+    Delegate to focused helper functions for each cleanup concern. Each helper
+    handles its own imports, error handling, and logging so that a failure in one
+    does not prevent the others from running.
+    """
     from vapi.lib.database import init_database
 
     logger.info(
