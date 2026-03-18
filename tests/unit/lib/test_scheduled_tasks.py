@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.db.models import AuditLog, Character
+from vapi.db.models import AuditLog, Character, S3Asset, Trait
+from vapi.db.models.character import CharacterTrait
+from vapi.domain.services import AWSS3Service
 from vapi.lib.scheduled_tasks import purge_db_expired_items
 from vapi.utils.time import time_now
 
@@ -154,3 +156,304 @@ class TestPurgeDBExpiredItems:
         # cleanup
         await audit_log_old.delete()
         await audit_log_new.delete()
+
+
+class TestPurgeS3AssetsErrorIsolation:
+    """Tests for per-asset error isolation in S3 cleanup."""
+
+    async def test_s3_per_asset_error_does_not_block_others(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a failure deleting one S3 asset does not prevent deletion of subsequent assets."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+
+        # Given two archived S3 assets older than 30 days
+        from vapi.constants import AssetType
+
+        old_date = time_now() - timedelta(days=60)
+        asset_1 = await S3Asset(
+            company_id=PydanticObjectId(),
+            uploaded_by=PydanticObjectId(),
+            asset_type=AssetType.IMAGE,
+            mime_type="image/png",
+            original_filename="asset1.png",
+            s3_key="test/asset1.png",
+            s3_bucket="test-bucket",
+            public_url="https://example.com/asset1.png",
+            is_archived=True,
+        ).insert()
+        asset_2 = await S3Asset(
+            company_id=PydanticObjectId(),
+            uploaded_by=PydanticObjectId(),
+            asset_type=AssetType.IMAGE,
+            mime_type="image/png",
+            original_filename="asset2.png",
+            s3_key="test/asset2.png",
+            s3_bucket="test-bucket",
+            public_url="https://example.com/asset2.png",
+            is_archived=True,
+        ).insert()
+
+        collection = S3Asset.get_pymongo_collection()
+        await collection.update_one({"_id": asset_1.id}, {"$set": {"date_modified": old_date}})
+        await collection.update_one({"_id": asset_2.id}, {"$set": {"date_modified": old_date}})
+
+        # Given delete_asset fails on the first asset but succeeds on the second
+        call_count = 0
+
+        async def mock_delete_asset(asset) -> None:
+            nonlocal call_count
+            call_count += 1
+            if asset.id == asset_1.id:
+                msg = "Simulated S3 failure"
+                raise RuntimeError(msg)
+            await asset.delete()
+
+        mocker.patch.object(AWSS3Service, "delete_asset", side_effect=mock_delete_asset)
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then both assets were attempted (delete_asset called twice)
+        assert call_count == 2
+
+        # Then asset_1 still exists (delete failed) and asset_2 was deleted (delete succeeded)
+        assert await S3Asset.get(asset_1.id) is not None
+        assert await S3Asset.get(asset_2.id) is None
+
+        # Cleanup
+        await asset_1.delete()
+
+
+class TestPurgeTemporaryCharacters:
+    """Tests for the _purge_temporary_characters helper."""
+
+    async def test_purge_old_temporary_characters(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify temporary non-chargen characters modified more than 24 hours ago are deleted."""
+        # Given: Mock init_database since DB is already initialized by test fixtures
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+
+        # Given a company and user
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a temporary non-chargen character modified more than 24 hours ago
+        old_temp = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            is_temporary=True,
+            is_chargen=False,
+        )
+        collection = Character.get_pymongo_collection()
+        old_date = time_now() - timedelta(hours=48)
+        await collection.update_one({"_id": old_temp.id}, {"$set": {"date_modified": old_date}})
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the old temporary character is deleted
+        assert await Character.get(old_temp.id) is None
+
+    async def test_keep_recent_temporary_characters(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify temporary characters modified within the last 24 hours are not deleted."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a temporary non-chargen character modified recently
+        recent_temp = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            is_temporary=True,
+            is_chargen=False,
+        )
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the recent temporary character is NOT deleted
+        assert await Character.get(recent_temp.id) is not None
+
+    async def test_keep_chargen_temporary_characters(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify temporary characters with is_chargen=True are not deleted."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a temporary chargen character modified more than 24 hours ago
+        chargen_char = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            is_temporary=True,
+            is_chargen=True,
+        )
+        collection = Character.get_pymongo_collection()
+        old_date = time_now() - timedelta(hours=48)
+        await collection.update_one({"_id": chargen_char.id}, {"$set": {"date_modified": old_date}})
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the chargen character is NOT deleted (chargen session cleanup handles these)
+        assert await Character.get(chargen_char.id) is not None
+
+    async def test_keep_non_temporary_characters(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify non-temporary characters are never deleted by the temporary purge."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a regular character
+        regular_char = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            is_temporary=False,
+            is_chargen=False,
+        )
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the regular character is NOT deleted
+        assert await Character.get(regular_char.id) is not None
+
+    async def test_purge_temporary_character_cleans_up_traits(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify CharacterTraits are cleaned up when a temporary character is purged."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a temporary character
+        temp_char = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            is_temporary=True,
+            is_chargen=False,
+        )
+
+        # Given a CharacterTrait inserted directly (not via fixture factory to avoid teardown conflicts)
+        existing_trait = await Trait.find_one(Trait.is_archived == False)
+        trait_doc = CharacterTrait(
+            character_id=temp_char.id,
+            trait=existing_trait,
+            value=3,
+        )
+        await trait_doc.insert()
+
+        # Given the character is older than 24 hours
+        collection = Character.get_pymongo_collection()
+        old_date = time_now() - timedelta(hours=48)
+        await collection.update_one({"_id": temp_char.id}, {"$set": {"date_modified": old_date}})
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then both the character and its trait are deleted
+        assert await Character.get(temp_char.id) is None
+        assert await CharacterTrait.get(trait_doc.id) is None
+
+
+class TestPurgeOrphanedCharacterTraits:
+    """Tests for the _purge_orphaned_character_traits helper."""
+
+    async def test_purge_orphaned_traits(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify CharacterTrait documents referencing a non-existent Character are deleted."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+
+        # Given an orphaned CharacterTrait (character_id points to nothing)
+        existing_trait = await Trait.find_one(Trait.is_archived == False)
+        orphaned_trait = CharacterTrait(
+            character_id=PydanticObjectId(),
+            trait=existing_trait,
+            value=5,
+        )
+        await orphaned_trait.insert()
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the orphaned trait is deleted
+        assert await CharacterTrait.get(orphaned_trait.id) is None
+
+    async def test_keep_valid_traits(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify CharacterTrait documents referencing an existing Character are not deleted."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a character with a trait
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+        )
+        existing_trait = await Trait.find_one(Trait.is_archived == False)
+        valid_trait = CharacterTrait(
+            character_id=character.id,
+            trait=existing_trait,
+            value=3,
+        )
+        await valid_trait.insert()
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the valid trait is NOT deleted
+        assert await CharacterTrait.get(valid_trait.id) is not None
+
+        # Cleanup
+        await valid_trait.delete()
