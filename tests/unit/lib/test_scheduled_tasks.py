@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.db.models import AuditLog, Character
+from vapi.db.models import AuditLog, Character, S3Asset
+from vapi.domain.services import AWSS3Service
 from vapi.lib.scheduled_tasks import purge_db_expired_items
 from vapi.utils.time import time_now
 
@@ -154,3 +155,73 @@ class TestPurgeDBExpiredItems:
         # cleanup
         await audit_log_old.delete()
         await audit_log_new.delete()
+
+
+class TestPurgeS3AssetsErrorIsolation:
+    """Tests for per-asset error isolation in S3 cleanup."""
+
+    async def test_s3_per_asset_error_does_not_block_others(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a failure deleting one S3 asset does not prevent deletion of subsequent assets."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+
+        # Given two archived S3 assets older than 30 days
+        from vapi.constants import AssetType
+
+        old_date = time_now() - timedelta(days=60)
+        asset_1 = await S3Asset(
+            company_id=PydanticObjectId(),
+            uploaded_by=PydanticObjectId(),
+            asset_type=AssetType.IMAGE,
+            mime_type="image/png",
+            original_filename="asset1.png",
+            s3_key="test/asset1.png",
+            s3_bucket="test-bucket",
+            public_url="https://example.com/asset1.png",
+            is_archived=True,
+        ).insert()
+        asset_2 = await S3Asset(
+            company_id=PydanticObjectId(),
+            uploaded_by=PydanticObjectId(),
+            asset_type=AssetType.IMAGE,
+            mime_type="image/png",
+            original_filename="asset2.png",
+            s3_key="test/asset2.png",
+            s3_bucket="test-bucket",
+            public_url="https://example.com/asset2.png",
+            is_archived=True,
+        ).insert()
+
+        collection = S3Asset.get_pymongo_collection()
+        await collection.update_one({"_id": asset_1.id}, {"$set": {"date_modified": old_date}})
+        await collection.update_one({"_id": asset_2.id}, {"$set": {"date_modified": old_date}})
+
+        # Given delete_asset fails on the first asset but succeeds on the second
+        call_count = 0
+
+        async def mock_delete_asset(asset) -> None:
+            nonlocal call_count
+            call_count += 1
+            if asset.id == asset_1.id:
+                msg = "Simulated S3 failure"
+                raise RuntimeError(msg)
+            await asset.delete()
+
+        mocker.patch.object(AWSS3Service, "delete_asset", side_effect=mock_delete_asset)
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then both assets were attempted (delete_asset called twice)
+        assert call_count == 2
+
+        # Then asset_1 still exists (delete failed) and asset_2 was deleted (delete succeeded)
+        assert await S3Asset.get(asset_1.id) is not None
+        assert await S3Asset.get(asset_2.id) is None
+
+        # Cleanup
+        await asset_1.delete()

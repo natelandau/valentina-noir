@@ -98,42 +98,38 @@ async def _purge_audit_logs() -> None:
         )
 
 
-async def purge_db_expired_items(_: Context) -> None:
-    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+async def _purge_s3_assets() -> None:
+    """Purge archived S3 assets older than 30 days."""
     from beanie.odm.operators.find.comparison import LT
 
-    from vapi.db.models import (
-        ChargenSession,
-        S3Asset,
-    )
-    from vapi.lib.database import init_database
-
-    logger.info(
-        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
-    )
-
-    # We need to initialize the database here b/c the tasks are run in a separate process from the main application.
-    await init_database()
-
-    await _purge_archived_models()
-    await _purge_audit_logs()
+    from vapi.db.models import S3Asset
 
     cutoff_date = time_now() - timedelta(days=30)
 
     try:
-        aws_service = AWSS3Service()
         assets = await S3Asset.find(
             S3Asset.is_archived == True, LT(S3Asset.date_modified, cutoff_date)
         ).to_list()
+
+        aws_service = AWSS3Service()
+        purged = 0
         for asset in assets:
-            await aws_service.delete_asset(asset)
+            try:
+                await aws_service.delete_asset(asset)
+                purged += 1
+            except Exception:
+                logger.exception(
+                    "Failed to purge S3Asset %s.",
+                    asset.id,
+                    extra={"component": "saq", "task": "purge_db_expired_items"},
+                )
 
         logger.info(
             "Purge old S3Assets.",
             extra={
                 "component": "saq",
                 "task": "purge_db_expired_items",
-                "num_purged": len(assets),
+                "num_purged": purged,
             },
         )
     except Exception:
@@ -142,14 +138,26 @@ async def purge_db_expired_items(_: Context) -> None:
             extra={"component": "saq", "task": "purge_db_expired_items"},
         )
 
-    # Purge expired chargen sessions and their temporary characters
+
+async def _purge_chargen_sessions() -> None:
+    """Purge expired chargen sessions and their linked characters."""
+    from vapi.db.models import ChargenSession
+
     try:
         expired_sessions = await ChargenSession.find(
             ChargenSession.expires_at < time_now(), fetch_links=True
         ).to_list()
         for session in expired_sessions:
             for character in session.characters:
-                await character.delete()  # type: ignore [attr-defined]
+                try:
+                    await character.delete()  # type: ignore [attr-defined]
+                except Exception:
+                    logger.exception(
+                        "Failed to delete character %s from session %s.",
+                        getattr(character, "id", "unknown"),
+                        session.id,
+                        extra={"component": "saq", "task": "purge_db_expired_items"},
+                    )
             await session.delete()
 
         logger.info(
@@ -165,6 +173,22 @@ async def purge_db_expired_items(_: Context) -> None:
             "Failed to purge ChargenSessions.",
             extra={"component": "saq", "task": "purge_db_expired_items"},
         )
+
+
+async def purge_db_expired_items(_: Context) -> None:
+    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+    from vapi.lib.database import init_database
+
+    logger.info(
+        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
+    )
+
+    await init_database()
+
+    await _purge_archived_models()
+    await _purge_audit_logs()
+    await _purge_s3_assets()
+    await _purge_chargen_sessions()
 
     logger.info(
         "Database cleanup completed.",
