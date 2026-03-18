@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.db.models import AuditLog, Character, S3Asset
+from vapi.db.models import AuditLog, Character, S3Asset, Trait
 from vapi.db.models.character import CharacterTrait
 from vapi.domain.services import AWSS3Service
 from vapi.lib.scheduled_tasks import purge_db_expired_items
@@ -373,8 +373,6 @@ class TestPurgeTemporaryCharacters:
         )
 
         # Given a CharacterTrait inserted directly (not via fixture factory to avoid teardown conflicts)
-        from vapi.db.models import Trait
-
         existing_trait = await Trait.find_one(Trait.is_archived == False)
         trait_doc = CharacterTrait(
             character_id=temp_char.id,
@@ -409,8 +407,6 @@ class TestPurgeOrphanedCharacterTraits:
         mocker.patch("vapi.lib.database.init_database", return_value=None)
 
         # Given an orphaned CharacterTrait (character_id points to nothing)
-        from vapi.db.models import Trait
-
         existing_trait = await Trait.find_one(Trait.is_archived == False)
         orphaned_trait = CharacterTrait(
             character_id=PydanticObjectId(),
@@ -444,8 +440,6 @@ class TestPurgeOrphanedCharacterTraits:
             company_id=company.id,
             user_player_id=user.id,
         )
-        from vapi.db.models import Trait
-
         existing_trait = await Trait.find_one(Trait.is_archived == False)
         valid_trait = CharacterTrait(
             character_id=character.id,

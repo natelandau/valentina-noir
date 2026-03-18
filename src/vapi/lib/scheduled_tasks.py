@@ -14,6 +14,8 @@ from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
 
+_LOG_EXTRA = {"component": "saq", "task": "purge_db_expired_items"}
+
 
 async def _purge_archived_models() -> None:
     """Purge archived documents older than 30 days across all tracked models."""
@@ -59,17 +61,13 @@ async def _purge_archived_models() -> None:
             logger.info(
                 "Purge old %s.",
                 model.__name__,
-                extra={
-                    "component": "saq",
-                    "task": "purge_db_expired_items",
-                    "num_purged": deleted.deleted_count,
-                },
+                extra={**_LOG_EXTRA, "num_purged": deleted.deleted_count},
             )
         except Exception:
             logger.exception(
                 "Failed to purge %s.",
                 model.__name__,
-                extra={"component": "saq", "task": "purge_db_expired_items"},
+                extra=_LOG_EXTRA,
             )
 
 
@@ -85,16 +83,12 @@ async def _purge_audit_logs() -> None:
         deleted = await AuditLog.find(LT(AuditLog.date_modified, cutoff_date)).delete_many()
         logger.info(
             "Purge old AuditLogs.",
-            extra={
-                "component": "saq",
-                "task": "purge_db_expired_items",
-                "num_purged": deleted.deleted_count,
-            },
+            extra={**_LOG_EXTRA, "num_purged": deleted.deleted_count},
         )
     except Exception:
         logger.exception(
             "Failed to purge AuditLogs.",
-            extra={"component": "saq", "task": "purge_db_expired_items"},
+            extra=_LOG_EXTRA,
         )
 
 
@@ -121,21 +115,17 @@ async def _purge_s3_assets() -> None:
                 logger.exception(
                     "Failed to purge S3Asset %s.",
                     asset.id,
-                    extra={"component": "saq", "task": "purge_db_expired_items"},
+                    extra=_LOG_EXTRA,
                 )
 
         logger.info(
             "Purge old S3Assets.",
-            extra={
-                "component": "saq",
-                "task": "purge_db_expired_items",
-                "num_purged": purged,
-            },
+            extra={**_LOG_EXTRA, "num_purged": purged},
         )
     except Exception:
         logger.exception(
             "Failed to purge S3Assets.",
-            extra={"component": "saq", "task": "purge_db_expired_items"},
+            extra=_LOG_EXTRA,
         )
 
 
@@ -156,22 +146,18 @@ async def _purge_chargen_sessions() -> None:
                         "Failed to delete character %s from session %s.",
                         getattr(character, "id", "unknown"),
                         session.id,
-                        extra={"component": "saq", "task": "purge_db_expired_items"},
+                        extra=_LOG_EXTRA,
                     )
             await session.delete()
 
         logger.info(
             "Purge expired ChargenSessions.",
-            extra={
-                "component": "saq",
-                "task": "purge_db_expired_items",
-                "num_purged": len(expired_sessions),
-            },
+            extra={**_LOG_EXTRA, "num_purged": len(expired_sessions)},
         )
     except Exception:
         logger.exception(
             "Failed to purge ChargenSessions.",
-            extra={"component": "saq", "task": "purge_db_expired_items"},
+            extra=_LOG_EXTRA,
         )
 
 
@@ -198,21 +184,17 @@ async def _purge_temporary_characters() -> None:
                 logger.exception(
                     "Failed to delete temporary Character %s.",
                     character.id,
-                    extra={"component": "saq", "task": "purge_db_expired_items"},
+                    extra=_LOG_EXTRA,
                 )
 
         logger.info(
             "Purge expired temporary Characters.",
-            extra={
-                "component": "saq",
-                "task": "purge_db_expired_items",
-                "num_purged": purged,
-            },
+            extra={**_LOG_EXTRA, "num_purged": purged},
         )
     except Exception:
         logger.exception(
             "Failed to purge temporary Characters.",
-            extra={"component": "saq", "task": "purge_db_expired_items"},
+            extra=_LOG_EXTRA,
         )
 
 
@@ -238,17 +220,17 @@ async def _purge_orphaned_character_traits() -> None:
         if not trait_character_ids:
             logger.info(
                 "Purge orphaned CharacterTraits.",
-                extra={
-                    "component": "saq",
-                    "task": "purge_db_expired_items",
-                    "num_purged": 0,
-                },
+                extra={**_LOG_EXTRA, "num_purged": 0},
             )
             return
 
-        # Find which of those character_ids still exist
-        existing_characters = await Character.find(In(Character.id, trait_character_ids)).to_list()
-        existing_ids = {char.id for char in existing_characters}
+        # Find which of those character_ids still exist (project only _id to avoid fetching full docs)
+        existing_docs = (
+            await Character.find(In(Character.id, trait_character_ids))
+            .aggregate([{"$project": {"_id": 1}}])
+            .to_list()
+        )
+        existing_ids = {PydanticObjectId(doc["_id"]) for doc in existing_docs}
 
         # Compute orphaned IDs
         orphaned_ids = [cid for cid in trait_character_ids if cid not in existing_ids]
@@ -263,16 +245,12 @@ async def _purge_orphaned_character_traits() -> None:
 
         logger.info(
             "Purge orphaned CharacterTraits.",
-            extra={
-                "component": "saq",
-                "task": "purge_db_expired_items",
-                "num_purged": purged_count,
-            },
+            extra={**_LOG_EXTRA, "num_purged": purged_count},
         )
     except Exception:
         logger.exception(
             "Failed to purge orphaned CharacterTraits.",
-            extra={"component": "saq", "task": "purge_db_expired_items"},
+            extra=_LOG_EXTRA,
         )
 
 
@@ -285,9 +263,7 @@ async def purge_db_expired_items(_: Context) -> None:
     """
     from vapi.lib.database import init_database
 
-    logger.info(
-        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
-    )
+    logger.info("Start database cleanup.", extra=_LOG_EXTRA)
 
     await init_database()
 
@@ -300,5 +276,5 @@ async def purge_db_expired_items(_: Context) -> None:
 
     logger.info(
         "Database cleanup completed.",
-        extra={"component": "saq", "task": "purge_db_expired_items"},
+        extra=_LOG_EXTRA,
     )
