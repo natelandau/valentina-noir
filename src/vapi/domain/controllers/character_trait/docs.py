@@ -54,3 +54,17 @@ Remove a trait from a character.
 
 **Note:** Only storyteller users and character owners can use this endpoint.
 """
+
+BULK_ASSIGN_TRAITS_DESCRIPTION = """\
+Assign multiple traits to a character in a single request.
+
+Accepts a list of trait assignments, each with a `trait_id`, `value`, and `currency`. Each trait is processed independently with best-effort semantics — successful assignments are saved and failed ones are reported with error details.
+
+The response contains `succeeded` and `failed` lists. Retry only the failed items.
+
+**Currency balances are tracked across the batch.** If early traits in the list spend XP or starting points, later traits see the reduced balance. Flaw traits (which grant currency) increase the running balance.
+
+**Maximum batch size:** 200 items.
+
+**Note:** Only storyteller users and character owners can use this endpoint.
+"""

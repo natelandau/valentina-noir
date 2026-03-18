@@ -20,7 +20,10 @@ from vapi.db.models import (
     TraitCategory,
     User,
 )
-from vapi.domain.controllers.character_trait.dto import CharacterTraitCreateCustomDTO
+from vapi.domain.controllers.character_trait.dto import (
+    CharacterTraitAddConstant,
+    CharacterTraitCreateCustomDTO,
+)
 from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
 from vapi.lib.exceptions import (
     ConflictError,
@@ -2695,3 +2698,327 @@ class TestDeleteTrait:
                 character=character,
                 character_trait=character_trait,
             )
+
+
+class TestBulkAddConstantTraitsToCharacter:
+    """Test the bulk_add_constant_traits_to_character method."""
+
+    async def test_all_succeed_no_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify all traits succeed when using NO_COST currency."""
+        # Given a character and multiple unused traits
+        company, user, character = get_company_user_character
+        existing_trait_ids = [
+            ct.trait.id
+            for ct in await CharacterTrait.find(
+                CharacterTrait.character_id == character.id, fetch_links=True
+            ).to_list()
+        ]
+
+        traits = await Trait.find(
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        ).to_list()
+        test_traits = traits[:3]
+
+        items = [
+            CharacterTraitAddConstant(trait_id=t.id, value=1, currency=TraitModifyCurrency.NO_COST)
+            for t in test_traits
+        ]
+
+        # When bulk assigning traits
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then all traits succeed
+        assert len(result.succeeded) == 3
+        assert len(result.failed) == 0
+        for success in result.succeeded:
+            assert success.character_trait is not None
+            assert success.character_trait.value == 1
+
+    async def test_conflict_trait_already_exists(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify duplicate trait appears in failed list while others succeed."""
+        # Given a character with an existing trait
+        company, user, character = get_company_user_character
+        existing_ct = await character_trait_factory(character_id=character.id)
+        await existing_ct.fetch_all_links()
+        existing_trait = existing_ct.trait  # type: ignore [attr-defined]
+        existing_cts = [existing_ct]
+
+        # And an unused trait
+        existing_trait_ids = [ct.trait.id for ct in existing_cts]
+        unused_trait = await Trait.find_one(
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        )
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=existing_trait.id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=unused_trait.id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+        ]
+
+        # When bulk assigning
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then the duplicate fails and the other succeeds
+        assert len(result.succeeded) == 1
+        assert len(result.failed) == 1
+        assert result.failed[0].trait_id == existing_trait.id
+        assert "already exists" in result.failed[0].error.lower()
+
+    async def test_validation_failure_value_out_of_bounds(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify trait with value exceeding max appears in failed list."""
+        # Given a character and an unused trait
+        company, user, character = get_company_user_character
+        existing_trait_ids = [
+            ct.trait.id
+            for ct in await CharacterTrait.find(
+                CharacterTrait.character_id == character.id, fetch_links=True
+            ).to_list()
+        ]
+        trait = await Trait.find_one(
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        )
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=trait.id,
+                value=trait.max_value + 1,
+                currency=TraitModifyCurrency.NO_COST,
+            ),
+        ]
+
+        # When bulk assigning with invalid value
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then the trait fails validation
+        assert len(result.succeeded) == 0
+        assert len(result.failed) == 1
+        assert "value" in result.failed[0].error.lower()
+
+    async def test_trait_not_found(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify non-existent trait_id appears in failed list."""
+        # Given a character and a fake trait_id
+        company, user, character = get_company_user_character
+        fake_id = PydanticObjectId()
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=fake_id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+        ]
+
+        # When bulk assigning with non-existent trait
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then the trait fails
+        assert len(result.succeeded) == 0
+        assert len(result.failed) == 1
+        assert "not found" in result.failed[0].error.lower()
+
+    async def test_empty_list(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify empty input returns empty succeeded and failed lists."""
+        # Given a character and an empty list
+        company, user, character = get_company_user_character
+
+        # When bulk assigning nothing
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=[],
+        )
+
+        # Then both lists are empty
+        assert len(result.succeeded) == 0
+        assert len(result.failed) == 0
+
+    async def test_xp_exhaustion_mid_batch(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify later traits fail when XP runs out mid-batch."""
+        # Given a character whose user has limited XP
+        company, user, character = get_company_user_character
+        await user.get_or_create_campaign_experience(character.campaign_id)
+
+        # And multiple unused traits
+        existing_trait_ids = [
+            ct.trait.id
+            for ct in await CharacterTrait.find(
+                CharacterTrait.character_id == character.id, fetch_links=True
+            ).to_list()
+        ]
+        traits = await Trait.find(
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        ).to_list()
+
+        # Create items that will collectively exceed available XP
+        # Use value=1 with XP currency — each costs initial_cost
+        items = [
+            CharacterTraitAddConstant(trait_id=t.id, value=1, currency=TraitModifyCurrency.XP)
+            for t in traits[:10]
+        ]
+
+        # When bulk assigning
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then some succeed and the rest fail due to insufficient XP
+        total = len(result.succeeded) + len(result.failed)
+        assert total == 10
+        assert len(result.failed) > 0
+        for failure in result.failed:
+            assert "xp" in failure.error.lower() or "not enough" in failure.error.lower()
+
+    async def test_mixed_currencies_running_balance(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify independent running balances for XP and starting points."""
+        # Given a character with some XP and starting points
+        company, user, character = get_company_user_character
+
+        # And multiple unused traits
+        existing_trait_ids = [
+            ct.trait.id
+            for ct in await CharacterTrait.find(
+                CharacterTrait.character_id == character.id, fetch_links=True
+            ).to_list()
+        ]
+        traits = await Trait.find(
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        ).to_list()
+
+        # Mix of NO_COST, XP, and STARTING_POINTS
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=traits[0].id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=traits[1].id, value=1, currency=TraitModifyCurrency.XP
+            ),
+            CharacterTraitAddConstant(
+                trait_id=traits[2].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+        ]
+
+        # When bulk assigning with mixed currencies
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then all items are accounted for (succeeded + failed = total)
+        assert len(result.succeeded) + len(result.failed) == 3
+        # NO_COST always succeeds
+        assert any(s.trait_id == traits[0].id for s in result.succeeded)
+
+    async def test_flaw_trait_increases_running_balance(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify flaw trait with XP currency increases running XP balance."""
+        # Given a character whose user has limited XP
+        company, user, character = get_company_user_character
+
+        # Find a flaw trait (parent category named "Flaws")
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        existing_trait_ids = [
+            ct.trait.id
+            for ct in await CharacterTrait.find(
+                CharacterTrait.character_id == character.id, fetch_links=True
+            ).to_list()
+        ]
+        flaw_trait = await Trait.find_one(
+            Trait.parent_category_id == flaws_category.id,
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        )
+        normal_trait = await Trait.find_one(
+            Trait.parent_category_id != flaws_category.id,
+            Trait.is_archived == False,
+            Not(In(Trait.id, existing_trait_ids)),
+        )
+
+        # Assign flaw first (grants XP), then normal trait (spends XP)
+        # Use min_value to satisfy flaw trait's minimum value constraint
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=flaw_trait.id,
+                value=flaw_trait.min_value,
+                currency=TraitModifyCurrency.XP,
+            ),
+            CharacterTraitAddConstant(
+                trait_id=normal_trait.id, value=1, currency=TraitModifyCurrency.XP
+            ),
+        ]
+
+        # When bulk assigning
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then flaw trait succeeds (grants XP to running balance)
+        assert any(s.trait_id == flaw_trait.id for s in result.succeeded)
+        # And both items are accounted for
+        assert len(result.succeeded) + len(result.failed) == 2

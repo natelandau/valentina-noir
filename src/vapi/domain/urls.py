@@ -202,6 +202,7 @@ class Characters:
     TRAIT_UPDATE = TRAIT_DETAIL
     TRAIT_ASSIGN = f"{TRAITS}/assign"
     TRAIT_CREATE = f"{TRAITS}/create"
+    TRAIT_BULK_ASSIGN = f"{TRAITS}/bulk-assign"
     TRAIT_VALUE_OPTIONS = f"{TRAIT_DETAIL}/value-options"
     TRAIT_VALUE = f"{TRAIT_DETAIL}/value"
 

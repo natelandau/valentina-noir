@@ -12,6 +12,7 @@ URL_ROOT_PATH: Final[str] = "/api/v1"
 AUTH_HEADER_KEY: Final[str] = "X-API-KEY"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
 COOL_POINT_VALUE: Final[int] = 10
+MAX_BULK_TRAIT_ASSIGN: Final[int] = 200
 MAX_DANGER: Final[int] = 5
 MAX_DESPERATION: Final[int] = 5
 IGNORE_RATE_LIMIT_HEADER_KEY: Final[str] = "X-Testing-Ignore-Rate-Limit"

@@ -10,11 +10,12 @@ from litestar.di import Provide
 from litestar.handlers import delete, get, post, put
 from litestar.params import Parameter
 
-from vapi.constants import TraitModifyCurrency  # noqa: TC001
+from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
 from vapi.db.models import Character, CharacterTrait, Company, User  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterTraitService
+from vapi.lib.exceptions import ValidationError
 from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 
@@ -94,6 +95,34 @@ class CharacterTraitController(Controller):
             trait_id=data.trait_id,
             value=data.value,
             currency=data.currency,
+        )
+
+    @post(
+        path=urls.Characters.TRAIT_BULK_ASSIGN,
+        summary="Bulk assign traits to character",
+        operation_id="bulkAssignTraitsToCharacter",
+        description=docs.BULK_ASSIGN_TRAITS_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+        status_code=200,
+    )
+    async def bulk_assign_traits_to_character(
+        self,
+        company: Company,
+        user: User,
+        character: Character,
+        data: list[dto.CharacterTraitAddConstant],
+    ) -> dto.BulkAssignTraitResponse:
+        """Assign multiple traits to a character in a single request."""
+        if len(data) > MAX_BULK_TRAIT_ASSIGN:
+            msg = f"Batch size must not exceed {MAX_BULK_TRAIT_ASSIGN} items"
+            raise ValidationError(detail=msg)
+
+        service = CharacterTraitService()
+        return await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=data,
         )
 
     @post(

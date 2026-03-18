@@ -17,7 +17,7 @@ class AuditLog(BaseDocument):
     handler: str | None = None
     method: str
     url: str
-    request_json: dict | None = None
+    request_json: dict | list | None = None
     request_body: str | None = None
     path_params: dict | None = None
     query_params: dict | None = None

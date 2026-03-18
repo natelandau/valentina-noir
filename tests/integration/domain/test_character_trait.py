@@ -12,6 +12,7 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
@@ -745,3 +746,92 @@ class TestGetValueOptions:
         await character_player_user.delete()
         await character.delete()
         await character_trait.delete()
+
+
+class TestBulkAssignTraitsToCharacter:
+    """Test the bulk assign traits endpoint."""
+
+    async def test_bulk_assign_mixed_outcomes(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        base_character: Character,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        token_company_admin: dict[str, str],
+    ) -> None:
+        """Verify bulk assign returns succeeded and failed lists with mixed outcomes."""
+        # Given a character with one existing trait
+        character = base_character
+        existing_ct = await character_trait_factory(character_id=character.id)
+        await existing_ct.fetch_all_links()
+        existing_trait = existing_ct.trait
+
+        # And two unused traits
+        unused_traits = await Trait.find(
+            Trait.is_archived == False,
+            NotIn(Trait.id, [existing_trait.id]),
+        ).to_list()
+        valid_trait_1 = unused_traits[0]
+        valid_trait_2 = unused_traits[1]
+
+        # When bulk assigning: 2 valid + 1 duplicate
+        response = await client.post(
+            build_url(Characters.TRAIT_BULK_ASSIGN, character_id=character.id),
+            headers=token_company_admin,
+            json=[
+                {
+                    "trait_id": str(valid_trait_1.id),
+                    "value": 1,
+                    "currency": TraitModifyCurrency.NO_COST.value,
+                },
+                {
+                    "trait_id": str(existing_trait.id),
+                    "value": 1,
+                    "currency": TraitModifyCurrency.NO_COST.value,
+                },
+                {
+                    "trait_id": str(valid_trait_2.id),
+                    "value": 1,
+                    "currency": TraitModifyCurrency.NO_COST.value,
+                },
+            ],
+        )
+
+        # Then response is 200 with correct succeeded/failed
+        assert response.status_code == HTTP_200_OK
+        body = response.json()
+        assert len(body["succeeded"]) == 2
+        assert len(body["failed"]) == 1
+        assert body["failed"][0]["trait_id"] == str(existing_trait.id)
+
+        # And succeeded traits are persisted in the database
+        for item in body["succeeded"]:
+            ct = await CharacterTrait.get(item["character_trait"]["id"], fetch_links=True)
+            assert ct is not None
+            assert ct.value == 1
+
+    async def test_exceeds_max_batch_size(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        base_character: Character,
+        token_company_admin: dict[str, str],
+    ) -> None:
+        """Verify request with more than 200 items returns 400."""
+        # Given a batch of 201 items (using a fake trait_id repeated)
+        character = base_character
+        fake_id = str(PydanticObjectId())
+        items = [
+            {"trait_id": fake_id, "value": 1, "currency": TraitModifyCurrency.NO_COST.value}
+            for _ in range(201)
+        ]
+
+        # When sending the oversized batch
+        response = await client.post(
+            build_url(Characters.TRAIT_BULK_ASSIGN, character_id=character.id),
+            headers=token_company_admin,
+            json=items,
+        )
+
+        # Then the request is rejected
+        assert response.status_code == HTTP_400_BAD_REQUEST
