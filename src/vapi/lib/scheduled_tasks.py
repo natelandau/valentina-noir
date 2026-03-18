@@ -175,6 +175,47 @@ async def _purge_chargen_sessions() -> None:
         )
 
 
+async def _purge_temporary_characters() -> None:
+    """Purge temporary non-chargen characters not modified in the last 24 hours."""
+    from beanie.odm.operators.find.comparison import LT
+
+    from vapi.db.models import Character
+
+    cutoff_date = time_now() - timedelta(hours=24)
+
+    try:
+        characters = await Character.find(
+            Character.is_chargen == False,
+            Character.is_temporary == True,
+            LT(Character.date_modified, cutoff_date),
+        ).to_list()
+        purged = 0
+        for character in characters:
+            try:
+                await character.delete()
+                purged += 1
+            except Exception:
+                logger.exception(
+                    "Failed to delete temporary Character %s.",
+                    character.id,
+                    extra={"component": "saq", "task": "purge_db_expired_items"},
+                )
+
+        logger.info(
+            "Purge expired temporary Characters.",
+            extra={
+                "component": "saq",
+                "task": "purge_db_expired_items",
+                "num_purged": purged,
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Failed to purge temporary Characters.",
+            extra={"component": "saq", "task": "purge_db_expired_items"},
+        )
+
+
 async def purge_db_expired_items(_: Context) -> None:
     """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
     from vapi.lib.database import init_database
@@ -189,6 +230,7 @@ async def purge_db_expired_items(_: Context) -> None:
     await _purge_audit_logs()
     await _purge_s3_assets()
     await _purge_chargen_sessions()
+    await _purge_temporary_characters()
 
     logger.info(
         "Database cleanup completed.",
