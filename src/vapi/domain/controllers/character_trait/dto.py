@@ -8,7 +8,7 @@ from beanie import PydanticObjectId  # noqa: TC002
 from pydantic import BaseModel, Field, field_serializer
 
 from vapi.constants import TraitModifyCurrency  # noqa: TC001
-from vapi.db.models import Trait  # noqa: TC001
+from vapi.db.models import CharacterTrait, Trait  # noqa: TC001
 from vapi.lib.dto import COMMON_EXCLUDES
 
 
@@ -66,3 +66,24 @@ class TraitModifyRequest(BaseModel):
 
     target_value: int
     currency: TraitModifyCurrency
+
+
+class BulkAssignTraitSuccess(BaseModel):
+    """Single successfully assigned trait in a bulk operation."""
+
+    trait_id: PydanticObjectId
+    character_trait: CharacterTrait
+
+
+class BulkAssignTraitFailure(BaseModel):
+    """Single failed trait assignment in a bulk operation."""
+
+    trait_id: PydanticObjectId
+    error: str
+
+
+class BulkAssignTraitResponse(BaseModel):
+    """Response for bulk trait assignment."""
+
+    succeeded: list[BulkAssignTraitSuccess]
+    failed: list[BulkAssignTraitFailure]
