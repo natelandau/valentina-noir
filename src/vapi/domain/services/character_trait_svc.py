@@ -24,7 +24,12 @@ from vapi.domain.controllers.character_trait.dto import (
     TraitValueOptionDetail,
     TraitValueOptionsResponse,
 )
-from vapi.lib.exceptions import ConflictError, PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import (
+    ConflictError,
+    NotEnoughXPError,
+    PermissionDeniedError,
+    ValidationError,
+)
 from vapi.utils.time import time_now
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
@@ -557,18 +562,14 @@ class CharacterTraitService:
                     cost = self._calculate_upgrade_cost(character_trait, num_dots)
                     is_flaw = await self._is_flaw_trait(character_trait)
 
-                    if is_flaw:
-                        running_xp += cost
-                    else:
-                        if running_xp < cost:
-                            failed.append(
-                                BulkAssignTraitFailure(
-                                    trait_id=trait_id,
-                                    error="Not enough XP to add trait",
-                                )
+                    if not is_flaw and running_xp < cost:
+                        failed.append(
+                            BulkAssignTraitFailure(
+                                trait_id=trait_id,
+                                error="Not enough XP to add trait",
                             )
-                            continue
-                        running_xp -= cost
+                        )
+                        continue
 
                     result_ct = await self._apply_xp_change(
                         character=character,
@@ -577,6 +578,13 @@ class CharacterTraitService:
                         num_dots=num_dots,
                         is_increase=True,
                     )
+
+                    # Adjust running balance only after successful apply
+                    if is_flaw:
+                        running_xp += cost
+                    else:
+                        running_xp -= cost
+
                 elif currency == TraitModifyCurrency.STARTING_POINTS:
                     # Pre-check running starting points balance
                     await character_trait.fetch_all_links()
@@ -584,18 +592,14 @@ class CharacterTraitService:
                     cost = self._calculate_upgrade_cost(character_trait, num_dots)
                     is_flaw = await self._is_flaw_trait(character_trait)
 
-                    if is_flaw:
-                        running_starting_points += cost
-                    else:
-                        if running_starting_points < cost:
-                            failed.append(
-                                BulkAssignTraitFailure(
-                                    trait_id=trait_id,
-                                    error="Not enough starting points to add trait",
-                                )
+                    if not is_flaw and running_starting_points < cost:
+                        failed.append(
+                            BulkAssignTraitFailure(
+                                trait_id=trait_id,
+                                error="Not enough starting points to add trait",
                             )
-                            continue
-                        running_starting_points -= cost
+                        )
+                        continue
 
                     result_ct = await self._apply_starting_points_change(
                         user=user,
@@ -604,6 +608,12 @@ class CharacterTraitService:
                         num_dots=num_dots,
                         is_increase=True,
                     )
+
+                    # Adjust running balance only after successful apply
+                    if is_flaw:
+                        running_starting_points += cost
+                    else:
+                        running_starting_points -= cost
                 else:
                     assert_never(currency)
 
@@ -616,7 +626,7 @@ class CharacterTraitService:
                 # Track the newly added trait to prevent duplicates within the batch
                 existing_trait_ids.add(trait_id)
 
-            except Exception as e:  # noqa: BLE001
+            except (ValidationError, ConflictError, PermissionDeniedError, NotEnoughXPError) as e:
                 failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=str(e)))
 
         return BulkAssignTraitResponse(succeeded=succeeded, failed=failed)

@@ -10,7 +10,7 @@ from litestar.di import Provide
 from litestar.handlers import delete, get, post, put
 from litestar.params import Parameter
 
-from vapi.constants import TraitModifyCurrency  # noqa: TC001
+from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
 from vapi.db.models import Character, CharacterTrait, Company, User  # noqa: TC001
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
@@ -113,8 +113,8 @@ class CharacterTraitController(Controller):
         data: list[dto.CharacterTraitAddConstant],
     ) -> dto.BulkAssignTraitResponse:
         """Assign multiple traits to a character in a single request."""
-        if len(data) > 200:  # noqa: PLR2004
-            msg = "Batch size must not exceed 200 items"
+        if len(data) > MAX_BULK_TRAIT_ASSIGN:
+            msg = f"Batch size must not exceed {MAX_BULK_TRAIT_ASSIGN} items"
             raise ValidationError(detail=msg)
 
         service = CharacterTraitService()
