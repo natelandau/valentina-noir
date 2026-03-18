@@ -73,29 +73,14 @@ async def _purge_archived_models() -> None:
             )
 
 
-async def purge_db_expired_items(_: Context) -> None:
-    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+async def _purge_audit_logs() -> None:
+    """Purge audit log entries older than 30 days."""
     from beanie.odm.operators.find.comparison import LT
 
-    from vapi.db.models import (
-        AuditLog,
-        ChargenSession,
-        S3Asset,
-    )
-    from vapi.lib.database import init_database
-
-    logger.info(
-        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
-    )
-
-    # We need to initialize the database here b/c the tasks are run in a separate process from the main application.
-    await init_database()
-
-    await _purge_archived_models()
+    from vapi.db.models import AuditLog
 
     cutoff_date = time_now() - timedelta(days=30)
 
-    # Purge audit logs separately because they are not archived
     try:
         deleted = await AuditLog.find(LT(AuditLog.date_modified, cutoff_date)).delete_many()
         logger.info(
@@ -111,6 +96,29 @@ async def purge_db_expired_items(_: Context) -> None:
             "Failed to purge AuditLogs.",
             extra={"component": "saq", "task": "purge_db_expired_items"},
         )
+
+
+async def purge_db_expired_items(_: Context) -> None:
+    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+    from beanie.odm.operators.find.comparison import LT
+
+    from vapi.db.models import (
+        ChargenSession,
+        S3Asset,
+    )
+    from vapi.lib.database import init_database
+
+    logger.info(
+        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
+    )
+
+    # We need to initialize the database here b/c the tasks are run in a separate process from the main application.
+    await init_database()
+
+    await _purge_archived_models()
+    await _purge_audit_logs()
+
+    cutoff_date = time_now() - timedelta(days=30)
 
     try:
         aws_service = AWSS3Service()
