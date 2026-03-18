@@ -15,36 +15,26 @@ from vapi.utils.time import time_now
 logger = logging.getLogger("vapi")
 
 
-async def purge_db_expired_items(_: Context) -> None:
-    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+async def _purge_archived_models() -> None:
+    """Purge archived documents older than 30 days across all tracked models."""
     from beanie.odm.operators.find.comparison import LT
 
     from vapi.db.models import (
-        AuditLog,
         Campaign,
         CampaignBook,
         CampaignChapter,
         Character,
         CharacterConcept,
         CharacterInventory,
-        ChargenSession,
         Company,
         DiceRoll,
         DictionaryTerm,
         Note,
         QuickRoll,
-        S3Asset,
         Trait,
         User,
     )
-    from vapi.lib.database import init_database
 
-    logger.info(
-        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
-    )
-
-    # We need to initialize the database here b/c the tasks are run in a separate process from the main application.
-    await init_database()
     cutoff_date = time_now() - timedelta(days=30)
 
     for model in [
@@ -81,6 +71,29 @@ async def purge_db_expired_items(_: Context) -> None:
                 model.__name__,
                 extra={"component": "saq", "task": "purge_db_expired_items"},
             )
+
+
+async def purge_db_expired_items(_: Context) -> None:
+    """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
+    from beanie.odm.operators.find.comparison import LT
+
+    from vapi.db.models import (
+        AuditLog,
+        ChargenSession,
+        S3Asset,
+    )
+    from vapi.lib.database import init_database
+
+    logger.info(
+        "Start database cleanup.", extra={"component": "saq", "task": "purge_db_expired_items"}
+    )
+
+    # We need to initialize the database here b/c the tasks are run in a separate process from the main application.
+    await init_database()
+
+    await _purge_archived_models()
+
+    cutoff_date = time_now() - timedelta(days=30)
 
     # Purge audit logs separately because they are not archived
     try:
