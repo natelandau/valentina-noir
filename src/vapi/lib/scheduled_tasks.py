@@ -216,6 +216,66 @@ async def _purge_temporary_characters() -> None:
         )
 
 
+async def _purge_orphaned_character_traits() -> None:
+    """Purge CharacterTrait documents whose parent Character no longer exists.
+
+    Act as a safety net for any deletion path that bypasses the Character
+    @before_event(Delete) hook (e.g., delete_many, manual DB operations).
+    """
+    from beanie import PydanticObjectId
+    from beanie.operators import In
+
+    from vapi.db.models import Character
+    from vapi.db.models.character import CharacterTrait
+
+    try:
+        # Collect all distinct character_ids referenced by CharacterTrait documents
+        pipeline_result = await CharacterTrait.aggregate(
+            [{"$group": {"_id": "$character_id"}}]
+        ).to_list()
+        trait_character_ids = [PydanticObjectId(doc["_id"]) for doc in pipeline_result]
+
+        if not trait_character_ids:
+            logger.info(
+                "Purge orphaned CharacterTraits.",
+                extra={
+                    "component": "saq",
+                    "task": "purge_db_expired_items",
+                    "num_purged": 0,
+                },
+            )
+            return
+
+        # Find which of those character_ids still exist
+        existing_characters = await Character.find(In(Character.id, trait_character_ids)).to_list()
+        existing_ids = {char.id for char in existing_characters}
+
+        # Compute orphaned IDs
+        orphaned_ids = [cid for cid in trait_character_ids if cid not in existing_ids]
+
+        if orphaned_ids:
+            deleted = await CharacterTrait.find(
+                In(CharacterTrait.character_id, orphaned_ids)
+            ).delete_many()
+            purged_count = deleted.deleted_count
+        else:
+            purged_count = 0
+
+        logger.info(
+            "Purge orphaned CharacterTraits.",
+            extra={
+                "component": "saq",
+                "task": "purge_db_expired_items",
+                "num_purged": purged_count,
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Failed to purge orphaned CharacterTraits.",
+            extra={"component": "saq", "task": "purge_db_expired_items"},
+        )
+
+
 async def purge_db_expired_items(_: Context) -> None:
     """Purge expired and archived data across all database models, S3 assets, and chargen sessions."""
     from vapi.lib.database import init_database
@@ -231,6 +291,7 @@ async def purge_db_expired_items(_: Context) -> None:
     await _purge_s3_assets()
     await _purge_chargen_sessions()
     await _purge_temporary_characters()
+    await _purge_orphaned_character_traits()
 
     logger.info(
         "Database cleanup completed.",

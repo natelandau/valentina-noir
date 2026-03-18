@@ -395,3 +395,71 @@ class TestPurgeTemporaryCharacters:
         # Then both the character and its trait are deleted
         assert await Character.get(temp_char.id) is None
         assert await CharacterTrait.get(trait_doc.id) is None
+
+
+class TestPurgeOrphanedCharacterTraits:
+    """Tests for the _purge_orphaned_character_traits helper."""
+
+    async def test_purge_orphaned_traits(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify CharacterTrait documents referencing a non-existent Character are deleted."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+
+        # Given an orphaned CharacterTrait (character_id points to nothing)
+        from vapi.db.models import Trait
+
+        existing_trait = await Trait.find_one(Trait.is_archived == False)
+        orphaned_trait = CharacterTrait(
+            character_id=PydanticObjectId(),
+            trait=existing_trait,
+            value=5,
+        )
+        await orphaned_trait.insert()
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the orphaned trait is deleted
+        assert await CharacterTrait.get(orphaned_trait.id) is None
+
+    async def test_keep_valid_traits(
+        self,
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_factory: Callable[[dict[str, ...]], Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify CharacterTrait documents referencing an existing Character are not deleted."""
+        # Given
+        mocker.patch("vapi.lib.database.init_database", return_value=None)
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+
+        # Given a character with a trait
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+        )
+        from vapi.db.models import Trait
+
+        existing_trait = await Trait.find_one(Trait.is_archived == False)
+        valid_trait = CharacterTrait(
+            character_id=character.id,
+            trait=existing_trait,
+            value=3,
+        )
+        await valid_trait.insert()
+
+        # When we run the task
+        mock_ctx: dict[str, ...] = {}
+        await purge_db_expired_items(mock_ctx)
+
+        # Then the valid trait is NOT deleted
+        assert await CharacterTrait.get(valid_trait.id) is not None
+
+        # Cleanup
+        await valid_trait.delete()
