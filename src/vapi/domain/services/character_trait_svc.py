@@ -19,6 +19,7 @@ from vapi.domain.controllers.character_trait.dto import (
     BulkAssignTraitFailure,
     BulkAssignTraitResponse,
     BulkAssignTraitSuccess,
+    CharacterTraitAddConstant,
     CharacterTraitCreateCustomDTO,
     TraitValueOptionDetail,
     TraitValueOptionsResponse,
@@ -443,7 +444,7 @@ class CharacterTraitService:
         company: Company,
         character: Character,
         user: User,
-        items: list[dict],
+        items: list[CharacterTraitAddConstant],
     ) -> BulkAssignTraitResponse:
         """Assign multiple constant traits to a character with best-effort semantics.
 
@@ -456,7 +457,7 @@ class CharacterTraitService:
             company: The company to check permissions for.
             character: The character to add traits to.
             user: The user performing the operation.
-            items: List of dicts with keys: trait_id, value, currency.
+            items: Validated trait assignment requests.
 
         Returns:
             BulkAssignTraitResponse with succeeded and failed lists.
@@ -472,7 +473,7 @@ class CharacterTraitService:
         self._guard_permissions_free_trait_changes(company, character, user)
 
         # Batch-fetch all Trait documents
-        trait_ids = [item["trait_id"] for item in items]
+        trait_ids = [item.trait_id for item in items]
         all_traits = await Trait.find(In(Trait.id, trait_ids)).to_list()
         trait_lookup: dict[PydanticObjectId, Trait] = {t.id: t for t in all_traits}
 
@@ -493,9 +494,9 @@ class CharacterTraitService:
         running_starting_points = character.starting_points
 
         for item in items:
-            trait_id = item["trait_id"]
-            value = item["value"]
-            currency = item["currency"]
+            trait_id = item.trait_id
+            value = item.value
+            currency = item.currency
 
             # Validate trait exists
             trait = trait_lookup.get(trait_id)

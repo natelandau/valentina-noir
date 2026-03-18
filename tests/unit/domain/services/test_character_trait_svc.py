@@ -20,7 +20,10 @@ from vapi.db.models import (
     TraitCategory,
     User,
 )
-from vapi.domain.controllers.character_trait.dto import CharacterTraitCreateCustomDTO
+from vapi.domain.controllers.character_trait.dto import (
+    CharacterTraitAddConstant,
+    CharacterTraitCreateCustomDTO,
+)
 from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
 from vapi.lib.exceptions import (
     ConflictError,
@@ -2721,7 +2724,7 @@ class TestBulkAddConstantTraitsToCharacter:
         test_traits = traits[:3]
 
         items = [
-            {"trait_id": t.id, "value": 1, "currency": TraitModifyCurrency.NO_COST}
+            CharacterTraitAddConstant(trait_id=t.id, value=1, currency=TraitModifyCurrency.NO_COST)
             for t in test_traits
         ]
 
@@ -2762,8 +2765,12 @@ class TestBulkAddConstantTraitsToCharacter:
         )
 
         items = [
-            {"trait_id": existing_trait.id, "value": 1, "currency": TraitModifyCurrency.NO_COST},
-            {"trait_id": unused_trait.id, "value": 1, "currency": TraitModifyCurrency.NO_COST},
+            CharacterTraitAddConstant(
+                trait_id=existing_trait.id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=unused_trait.id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
         ]
 
         # When bulk assigning
@@ -2800,11 +2807,11 @@ class TestBulkAddConstantTraitsToCharacter:
         )
 
         items = [
-            {
-                "trait_id": trait.id,
-                "value": trait.max_value + 1,
-                "currency": TraitModifyCurrency.NO_COST,
-            },
+            CharacterTraitAddConstant(
+                trait_id=trait.id,
+                value=trait.max_value + 1,
+                currency=TraitModifyCurrency.NO_COST,
+            ),
         ]
 
         # When bulk assigning with invalid value
@@ -2831,7 +2838,9 @@ class TestBulkAddConstantTraitsToCharacter:
         fake_id = PydanticObjectId()
 
         items = [
-            {"trait_id": fake_id, "value": 1, "currency": TraitModifyCurrency.NO_COST},
+            CharacterTraitAddConstant(
+                trait_id=fake_id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
         ]
 
         # When bulk assigning with non-existent trait
@@ -2893,7 +2902,8 @@ class TestBulkAddConstantTraitsToCharacter:
         # Create items that will collectively exceed available XP
         # Use value=1 with XP currency — each costs initial_cost
         items = [
-            {"trait_id": t.id, "value": 1, "currency": TraitModifyCurrency.XP} for t in traits[:10]
+            CharacterTraitAddConstant(trait_id=t.id, value=1, currency=TraitModifyCurrency.XP)
+            for t in traits[:10]
         ]
 
         # When bulk assigning
@@ -2908,9 +2918,9 @@ class TestBulkAddConstantTraitsToCharacter:
         # Then some succeed and the rest fail due to insufficient XP
         total = len(result.succeeded) + len(result.failed)
         assert total == 10
-        if result.failed:
-            for failure in result.failed:
-                assert "xp" in failure.error.lower() or "not enough" in failure.error.lower()
+        assert len(result.failed) > 0
+        for failure in result.failed:
+            assert "xp" in failure.error.lower() or "not enough" in failure.error.lower()
 
     async def test_mixed_currencies_running_balance(
         self,
@@ -2934,9 +2944,15 @@ class TestBulkAddConstantTraitsToCharacter:
 
         # Mix of NO_COST, XP, and STARTING_POINTS
         items = [
-            {"trait_id": traits[0].id, "value": 1, "currency": TraitModifyCurrency.NO_COST},
-            {"trait_id": traits[1].id, "value": 1, "currency": TraitModifyCurrency.XP},
-            {"trait_id": traits[2].id, "value": 1, "currency": TraitModifyCurrency.STARTING_POINTS},
+            CharacterTraitAddConstant(
+                trait_id=traits[0].id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=traits[1].id, value=1, currency=TraitModifyCurrency.XP
+            ),
+            CharacterTraitAddConstant(
+                trait_id=traits[2].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
         ]
 
         # When bulk assigning with mixed currencies
@@ -2983,12 +2999,14 @@ class TestBulkAddConstantTraitsToCharacter:
         # Assign flaw first (grants XP), then normal trait (spends XP)
         # Use min_value to satisfy flaw trait's minimum value constraint
         items = [
-            {
-                "trait_id": flaw_trait.id,
-                "value": flaw_trait.min_value,
-                "currency": TraitModifyCurrency.XP,
-            },
-            {"trait_id": normal_trait.id, "value": 1, "currency": TraitModifyCurrency.XP},
+            CharacterTraitAddConstant(
+                trait_id=flaw_trait.id,
+                value=flaw_trait.min_value,
+                currency=TraitModifyCurrency.XP,
+            ),
+            CharacterTraitAddConstant(
+                trait_id=normal_trait.id, value=1, currency=TraitModifyCurrency.XP
+            ),
         ]
 
         # When bulk assigning
