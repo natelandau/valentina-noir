@@ -483,8 +483,8 @@ class CharacterTraitService:
             fetch_links=True,
         ).to_list()
         existing_trait_ids: set[PydanticObjectId] = {
-            ct.trait.id
-            for ct in existing_cts  # type: ignore [attr-defined]
+            ct.trait.id  # type: ignore [attr-defined]
+            for ct in existing_cts
         }
 
         # Initialize running balances
