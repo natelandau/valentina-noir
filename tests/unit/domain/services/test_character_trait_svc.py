@@ -2744,14 +2744,15 @@ class TestBulkAddConstantTraitsToCharacter:
     async def test_conflict_trait_already_exists(
         self,
         get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
     ) -> None:
         """Verify duplicate trait appears in failed list while others succeed."""
         # Given a character with an existing trait
         company, user, character = get_company_user_character
-        existing_cts = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id, fetch_links=True
-        ).to_list()
-        existing_trait = existing_cts[0].trait
+        existing_ct = await character_trait_factory(character_id=character.id)
+        await existing_ct.fetch_all_links()
+        existing_trait = existing_ct.trait  # type: ignore [attr-defined]
+        existing_cts = [existing_ct]
 
         # And an unused trait
         existing_trait_ids = [ct.trait.id for ct in existing_cts]
@@ -2980,8 +2981,13 @@ class TestBulkAddConstantTraitsToCharacter:
         )
 
         # Assign flaw first (grants XP), then normal trait (spends XP)
+        # Use min_value to satisfy flaw trait's minimum value constraint
         items = [
-            {"trait_id": flaw_trait.id, "value": 1, "currency": TraitModifyCurrency.XP},
+            {
+                "trait_id": flaw_trait.id,
+                "value": flaw_trait.min_value,
+                "currency": TraitModifyCurrency.XP,
+            },
             {"trait_id": normal_trait.id, "value": 1, "currency": TraitModifyCurrency.XP},
         ]
 

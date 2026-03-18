@@ -16,6 +16,9 @@ from vapi.constants import (
 )
 from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
 from vapi.domain.controllers.character_trait.dto import (
+    BulkAssignTraitFailure,
+    BulkAssignTraitResponse,
+    BulkAssignTraitSuccess,
     CharacterTraitCreateCustomDTO,
     TraitValueOptionDetail,
     TraitValueOptionsResponse,
@@ -433,6 +436,189 @@ class CharacterTraitService:
             num_dots=num_dots,
             is_increase=True,
         )
+
+    async def bulk_add_constant_traits_to_character(  # noqa: C901, PLR0912, PLR0915
+        self,
+        *,
+        company: Company,
+        character: Character,
+        user: User,
+        items: list[dict],
+    ) -> BulkAssignTraitResponse:
+        """Assign multiple constant traits to a character with best-effort semantics.
+
+        Batch-fetch all trait documents and existing character traits up front for
+        efficiency. Process each item individually, reusing existing currency methods.
+        Maintain running XP and starting points balances to prevent over-spending
+        across the batch. Flaw traits invert currency direction.
+
+        Args:
+            company: The company to check permissions for.
+            character: The character to add traits to.
+            user: The user performing the operation.
+            items: List of dicts with keys: trait_id, value, currency.
+
+        Returns:
+            BulkAssignTraitResponse with succeeded and failed lists.
+        """
+        succeeded: list[BulkAssignTraitSuccess] = []
+        failed: list[BulkAssignTraitFailure] = []
+
+        if not items:
+            return BulkAssignTraitResponse(succeeded=succeeded, failed=failed)
+
+        # Permission check once for the whole batch
+        self.guard_user_can_manage_character(character, user)
+        self._guard_permissions_free_trait_changes(company, character, user)
+
+        # Batch-fetch all Trait documents
+        trait_ids = [item["trait_id"] for item in items]
+        all_traits = await Trait.find(In(Trait.id, trait_ids)).to_list()
+        trait_lookup: dict[PydanticObjectId, Trait] = {t.id: t for t in all_traits}
+
+        # Batch-fetch existing CharacterTraits for conflict detection
+        existing_cts = await CharacterTrait.find(
+            CharacterTrait.character_id == character.id,
+            fetch_links=True,
+        ).to_list()
+        existing_trait_ids: set[PydanticObjectId] = {
+            ct.trait.id
+            for ct in existing_cts  # type: ignore [attr-defined]
+        }
+
+        # Initialize running balances
+        target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
+        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        running_xp = campaign_xp.xp_current
+        running_starting_points = character.starting_points
+
+        for item in items:
+            trait_id = item["trait_id"]
+            value = item["value"]
+            currency = item["currency"]
+
+            # Validate trait exists
+            trait = trait_lookup.get(trait_id)
+            if trait is None:
+                failed.append(BulkAssignTraitFailure(trait_id=trait_id, error="Trait not found"))
+                continue
+
+            # Validate not already on character
+            if trait_id in existing_trait_ids:
+                failed.append(
+                    BulkAssignTraitFailure(
+                        trait_id=trait_id,
+                        error=f"Trait named '{trait.name}' already exists on character",
+                    )
+                )
+                continue
+
+            # Validate value bounds
+            if value > trait.max_value:
+                failed.append(
+                    BulkAssignTraitFailure(
+                        trait_id=trait_id,
+                        error=f"Value must be less than or equal to {trait.max_value}",
+                    )
+                )
+                continue
+
+            if value < trait.min_value:
+                failed.append(
+                    BulkAssignTraitFailure(
+                        trait_id=trait_id,
+                        error=f"Value must be greater than or equal to {trait.min_value}",
+                    )
+                )
+                continue
+
+            # Create the CharacterTrait with value=0 (currency methods handle increment)
+            character_trait = CharacterTrait(
+                character_id=character.id,
+                trait=trait,
+                value=0,
+            )
+            num_dots = value
+
+            try:
+                if currency == TraitModifyCurrency.NO_COST:
+                    result_ct = await self.increase_character_trait_value(
+                        company=company,
+                        user=user,
+                        character=character,
+                        character_trait=character_trait,
+                        num_dots=num_dots,
+                    )
+                elif currency == TraitModifyCurrency.XP:
+                    # Pre-check running XP balance
+                    await character_trait.fetch_all_links()
+                    self._guard_is_safe_increase(character_trait, num_dots)
+                    cost = self._calculate_upgrade_cost(character_trait, num_dots)
+                    is_flaw = await self._is_flaw_trait(character_trait)
+
+                    if is_flaw:
+                        running_xp += cost
+                    else:
+                        if running_xp < cost:
+                            failed.append(
+                                BulkAssignTraitFailure(
+                                    trait_id=trait_id,
+                                    error="Not enough XP to add trait",
+                                )
+                            )
+                            continue
+                        running_xp -= cost
+
+                    result_ct = await self._apply_xp_change(
+                        character=character,
+                        user=user,
+                        character_trait=character_trait,
+                        num_dots=num_dots,
+                        is_increase=True,
+                    )
+                elif currency == TraitModifyCurrency.STARTING_POINTS:
+                    # Pre-check running starting points balance
+                    await character_trait.fetch_all_links()
+                    self._guard_is_safe_increase(character_trait, num_dots)
+                    cost = self._calculate_upgrade_cost(character_trait, num_dots)
+                    is_flaw = await self._is_flaw_trait(character_trait)
+
+                    if is_flaw:
+                        running_starting_points += cost
+                    else:
+                        if running_starting_points < cost:
+                            failed.append(
+                                BulkAssignTraitFailure(
+                                    trait_id=trait_id,
+                                    error="Not enough starting points to add trait",
+                                )
+                            )
+                            continue
+                        running_starting_points -= cost
+
+                    result_ct = await self._apply_starting_points_change(
+                        user=user,
+                        character=character,
+                        character_trait=character_trait,
+                        num_dots=num_dots,
+                        is_increase=True,
+                    )
+                else:
+                    assert_never(currency)
+
+                succeeded.append(
+                    BulkAssignTraitSuccess(
+                        trait_id=trait_id,
+                        character_trait=result_ct,
+                    )
+                )
+                # Track the newly added trait to prevent duplicates within the batch
+                existing_trait_ids.add(trait_id)
+
+            except Exception as e:  # noqa: BLE001
+                failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=str(e)))
+
+        return BulkAssignTraitResponse(succeeded=succeeded, failed=failed)
 
     async def create_custom_trait(
         self,
