@@ -46,6 +46,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             app_config: The app config.
         """
         from beanie import PydanticObjectId
+        from litestar.config.compression import CompressionConfig
         from litestar.config.cors import CORSConfig
         from litestar.config.response_cache import ResponseCacheConfig
         from litestar.exceptions import HTTPException
@@ -99,6 +100,8 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 middleware_logging_config.middleware,
             ]
         )
+
+        app_config.compression_config = CompressionConfig(backend="gzip", gzip_compress_level=9)
 
         if settings.cors.enabled:
             app_config.cors_config = CORSConfig(
