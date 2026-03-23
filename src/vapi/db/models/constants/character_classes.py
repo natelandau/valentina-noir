@@ -39,7 +39,6 @@ class VampireClan(CharacterClassConstant):
 class WerewolfAuspice(CharacterClassConstant):
     """Werewolf auspice model."""
 
-    gift_ids: list[PydanticObjectId] = Field(default_factory=list)
     link: str | None = None
 
 
@@ -50,26 +49,4 @@ class WerewolfTribe(CharacterClassConstant):
     patron_spirit: str | None = None
     favor: str | None = None
     ban: str | None = None
-    gift_ids: list[PydanticObjectId] = Field(default_factory=list)
     link: str | None = None
-
-
-class WerewolfGift(CharacterClassConstant):
-    """Werewolf gift model."""
-
-    renown: WerewolfRenown
-    cost: str | None = None
-    duration: str | None = None
-    dice_pool: list[str] = Field(default_factory=list)
-    opposing_pool: list[str] = Field(default_factory=list)
-    minimum_renown: int | None = None
-    is_native_gift: bool = False
-    notes: str | None = None
-    tribe_id: PydanticObjectId | None = Field(default=None, examples=["68c1f7152cae3787a09a74fa"])
-    auspice_id: PydanticObjectId | None = Field(default=None, examples=["68c1f7152cae3787a09a74fa"])
-
-
-class WerewolfRite(CharacterClassConstant):
-    """Werewolf rite model."""
-
-    pool: str | None = None

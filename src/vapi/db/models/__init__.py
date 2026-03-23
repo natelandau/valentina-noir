@@ -11,8 +11,6 @@ from .constants.character_classes import (
     CharacterClassConstant,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 from .constants.sheet_section import CharSheetSection
@@ -52,8 +50,6 @@ __all__ = (
     "User",
     "VampireClan",
     "WerewolfAuspice",
-    "WerewolfGift",
-    "WerewolfRite",
     "WerewolfTribe",
 )
 
@@ -83,7 +79,5 @@ init_beanie_models = [
     User,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 ]
