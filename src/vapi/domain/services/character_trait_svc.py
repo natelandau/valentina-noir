@@ -638,6 +638,7 @@ class CharacterTraitService:
         campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
         running_xp = campaign_xp.xp_current
         running_starting_points = character.starting_points
+        running_gift_count = await self._count_character_gifts(character.id)
 
         for item in items:
             trait_id = item.trait_id
@@ -709,7 +710,10 @@ class CharacterTraitService:
                     await character_trait.fetch_all_links()
                     self._guard_is_safe_increase(character_trait, num_dots)
                     cost = await self._calculate_upgrade_cost(
-                        character_trait, num_dots, character_id=character_trait.character_id
+                        character_trait,
+                        num_dots,
+                        character_id=character_trait.character_id,
+                        gift_count_override=running_gift_count,
                     )
                     is_flaw = await self._is_flaw_trait(character_trait)
 
@@ -728,6 +732,7 @@ class CharacterTraitService:
                         character_trait=character_trait,
                         num_dots=num_dots,
                         is_increase=True,
+                        gift_count_override=running_gift_count,
                     )
 
                     # Adjust running balance only after successful apply
@@ -741,7 +746,10 @@ class CharacterTraitService:
                     await character_trait.fetch_all_links()
                     self._guard_is_safe_increase(character_trait, num_dots)
                     cost = await self._calculate_upgrade_cost(
-                        character_trait, num_dots, character_id=character_trait.character_id
+                        character_trait,
+                        num_dots,
+                        character_id=character_trait.character_id,
+                        gift_count_override=running_gift_count,
                     )
                     is_flaw = await self._is_flaw_trait(character_trait)
 
@@ -760,6 +768,7 @@ class CharacterTraitService:
                         character_trait=character_trait,
                         num_dots=num_dots,
                         is_increase=True,
+                        gift_count_override=running_gift_count,
                     )
 
                     # Adjust running balance only after successful apply
@@ -778,6 +787,10 @@ class CharacterTraitService:
                 )
                 # Track the newly added trait to prevent duplicates within the batch
                 existing_trait_ids.add(trait_id)
+                # Increment running gift count so subsequent gifts in this batch
+                # are priced at the correct position without re-querying the DB
+                if trait.gift_attributes is not None:
+                    running_gift_count += 1
 
             except (ValidationError, ConflictError, PermissionDeniedError, NotEnoughXPError) as e:
                 failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=str(e)))

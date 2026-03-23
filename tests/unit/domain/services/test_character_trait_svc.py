@@ -3770,3 +3770,223 @@ class TestAddGiftToCharacter:
         # Then starting points reduced by 4 (2nd gift: 2 x 2)
         await character.sync()
         assert character.starting_points == sp_before - 4
+
+
+class TestBulkAddGifts:
+    """Test running gift count tracking in bulk_add_constant_traits_to_character."""
+
+    async def test_bulk_add_three_gifts_incremental_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify bulk-adding gifts uses incrementing count so each gift costs more than the last."""
+        # Given a werewolf character with 2 existing gifts and enough starting points
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+            starting_points=100,
+        )
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(5)
+        if len(gift_traits) < 5:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough for all gifts
+        character.werewolf_attributes.total_renown = 100
+        await character.save()
+
+        # Add 2 existing gifts so the next 3 are positions 3, 4, 5
+        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=1)
+
+        sp_before = character.starting_points
+        # Costs: 3rd gift=6, 4th gift=8, 5th gift=10 => total=24
+        expected_cost = 6 + 8 + 10
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[2].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[3].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[4].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+        ]
+
+        # When bulk-adding 3 gifts
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then all 3 succeed and starting points decreased by the incremental total
+        assert len(result.succeeded) == 3
+        assert len(result.failed) == 0
+        await character.sync()
+        assert character.starting_points == sp_before - expected_cost
+
+    async def test_bulk_add_no_cost_gifts_increment_count(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+    ) -> None:
+        """Verify NO_COST gifts increment the running count so subsequent XP gifts cost correctly."""
+        # Given a werewolf character with no existing gifts and enough XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(3)
+        if len(gift_traits) < 3:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough for all gifts; NO_COST skips renown guard
+        character.werewolf_attributes.total_renown = 100
+        await character.save()
+
+        # Add enough XP for the 3rd gift (cost = 3 * 2 = 6)
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.add_xp(campaign.id, 50, update_total=True)
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        xp_before = campaign_xp.xp_current
+
+        # 2 NO_COST gifts, then 1 XP gift => XP gift is the 3rd gift: cost = 3 * 2 = 6
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[0].id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[1].id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[2].id, value=1, currency=TraitModifyCurrency.XP
+            ),
+        ]
+
+        # When bulk-adding 2 NO_COST gifts then 1 XP gift
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then all 3 succeed and the XP gift cost 6 (3rd gift position)
+        assert len(result.succeeded) == 3
+        assert len(result.failed) == 0
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.sync()
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        assert campaign_xp.xp_current == xp_before - 6
+
+    async def test_bulk_add_mixed_gifts_and_non_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+    ) -> None:
+        """Verify gift and non-gift traits are costed independently during a bulk add."""
+        # Given a werewolf character with enough starting points
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+            starting_points=100,
+        )
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait with minimum_renown found in database")
+
+        # Find a non-gift trait with known costs; exclude flaws
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        non_gift_trait = await Trait.find_one(
+            Trait.gift_attributes == None,
+            Trait.is_archived == False,
+            Trait.parent_category_id != flaws_category.id,
+        )
+        if non_gift_trait is None:
+            pytest.skip("No non-gift trait found in database")
+
+        # Set renown high enough
+        character.werewolf_attributes.total_renown = 100
+        await character.save()
+
+        sp_before = character.starting_points
+        # 1st gift costs 1 * 2 = 2; non-gift value=3 costs initial_cost + 2*upgrade_cost + 3*upgrade_cost
+        expected_gift_cost = 2
+        expected_non_gift_cost = (
+            non_gift_trait.initial_cost
+            + 2 * non_gift_trait.upgrade_cost
+            + 3 * non_gift_trait.upgrade_cost
+        )
+        expected_total = expected_gift_cost + expected_non_gift_cost
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_trait.id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+            CharacterTraitAddConstant(
+                trait_id=non_gift_trait.id,
+                value=3,
+                currency=TraitModifyCurrency.STARTING_POINTS,
+            ),
+        ]
+
+        # When bulk-adding a gift and a non-gift trait
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then both succeed and the total cost reflects separate costing
+        assert len(result.succeeded) == 2
+        assert len(result.failed) == 0
+        await character.sync()
+        assert character.starting_points == sp_before - expected_total
