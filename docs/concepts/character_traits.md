@@ -64,6 +64,16 @@ Each category and subcategory in the full sheet response includes an `available_
 
 Custom traits are not included in the available traits lists. Only standard system traits appear.
 
+#### Werewolf Gift Filtering
+
+For werewolf characters, the `available_traits` lists automatically filter gift traits to only those the character is eligible for. A gift appears in the list when it meets any of these conditions:
+
+- It's a **native gift** (`is_native_gift=true`), available to all werewolves
+- Its `tribe_id` matches the character's tribe
+- Its `auspice_id` matches the character's auspice
+
+Gifts belonging to other tribes or auspices are excluded. Non-gift traits (attributes, skills, merits, flaws, rites, etc.) are unaffected by this filtering.
+
 ## Adding Traits
 
 Add traits to a character using one of two approaches.

@@ -14,6 +14,8 @@ from vapi.db.models import (
     CharSheetSection,
     Trait,
     TraitCategory,
+    WerewolfAuspice,
+    WerewolfTribe,
 )
 from vapi.domain.services import CharacterSheetService
 
@@ -620,3 +622,85 @@ class TestCharacterSheetService:
                         assert sub.available_traits == [], (
                             f"Subcategory '{sub.name}' has available traits"
                         )
+
+        async def test_werewolf_available_gifts_filtered_by_tribe_and_auspice(
+            self,
+            character_factory: Callable[[dict[str, Any]], Character],
+        ) -> None:
+            """Verify werewolf available gifts include only tribe, auspice, and native gifts."""
+            # Given a werewolf character (factory auto-assigns tribe and auspice)
+            character = await character_factory(character_class=CharacterClass.WEREWOLF)
+            assert character.werewolf_attributes is not None
+            tribe_id = character.werewolf_attributes.tribe_id
+            auspice_id = character.werewolf_attributes.auspice_id
+            assert tribe_id is not None
+            assert auspice_id is not None
+
+            # And there exist gift traits for a different tribe
+            other_tribe = await WerewolfTribe.find_one(
+                WerewolfTribe.is_archived == False,
+                WerewolfTribe.id != tribe_id,
+            )
+            if other_tribe is None:
+                pytest.skip("Pre-seeded DB needs at least two werewolf tribes")
+
+            # Exclude gifts that also match the character's auspice
+            other_tribe_gift = await Trait.find_one(
+                Trait.is_archived == False,
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.tribe_id == other_tribe.id,
+                Trait.gift_attributes.auspice_id != auspice_id,
+                Trait.gift_attributes.is_native_gift == False,
+            )
+            if other_tribe_gift is None:
+                pytest.skip("Pre-seeded DB needs a gift exclusive to a different tribe")
+
+            # And there exist gift traits for a different auspice
+            other_auspice = await WerewolfAuspice.find_one(
+                WerewolfAuspice.is_archived == False,
+                WerewolfAuspice.id != auspice_id,
+            )
+            other_auspice_gift = None
+            if other_auspice is not None:
+                other_auspice_gift = await Trait.find_one(
+                    Trait.is_archived == False,
+                    Trait.gift_attributes != None,
+                    Trait.gift_attributes.auspice_id == other_auspice.id,
+                    Trait.gift_attributes.tribe_id != tribe_id,
+                    Trait.gift_attributes.is_native_gift == False,
+                )
+
+            # When we get the full sheet with available traits
+            service = CharacterSheetService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=True
+            )
+
+            # Then the available traits should not include gifts from the other tribe/auspice
+            all_available_ids = _collect_all_available_trait_ids(result)
+            assert other_tribe_gift.id not in all_available_ids
+
+            if other_auspice_gift is not None:
+                assert other_auspice_gift.id not in all_available_ids
+
+            # And available gifts should only be native, matching tribe, or matching auspice
+            all_available_gifts = [
+                t
+                for section in result.sections
+                for category in section.categories
+                for t in category.available_traits
+                if t.gift_attributes is not None
+            ] + [
+                t
+                for section in result.sections
+                for category in section.categories
+                for sub in category.subcategories
+                for t in sub.available_traits
+                if t.gift_attributes is not None
+            ]
+            for gift in all_available_gifts:
+                assert (
+                    gift.gift_attributes.is_native_gift
+                    or gift.gift_attributes.tribe_id == tribe_id
+                    or gift.gift_attributes.auspice_id == auspice_id
+                ), f"Gift '{gift.name}' should not be available to this werewolf"

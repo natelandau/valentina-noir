@@ -355,6 +355,8 @@ Gift traits include a `gift_attributes` field with werewolf-specific metadata:
     }
     ```
 
+When requesting a werewolf's [full character sheet](./character_traits.md#available-traits) with `include_available_traits=true`, gift traits are automatically filtered to those matching the character's tribe, auspice, or marked as native. See [Werewolf Gift Filtering](./character_traits.md#werewolf-gift-filtering) for details.
+
 Rite traits use the standard `pool` field for their dice pool and have no additional metadata beyond standard trait fields.
 
 ### Mages

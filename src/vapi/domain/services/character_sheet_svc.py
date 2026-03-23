@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from beanie import PydanticObjectId  # noqa: TC002
 from beanie.operators import In
 
+from vapi.constants import CharacterClass
 from vapi.db.models import (
     CharacterTrait,
     CharSheetSection,
@@ -148,8 +149,10 @@ class CharacterSheetService:
             missing_subcategory_ids,
         )
 
+        filtered_available_traits = self._filter_available_traits(character, all_available_traits)
+
         available_by_subcategory, available_by_category_no_sub = self._index_available_traits(
-            all_available_traits, all_character_traits
+            filtered_available_traits, all_character_traits
         )
 
         sections = self._assemble_sheet_sections(
@@ -227,8 +230,10 @@ class CharacterSheetService:
             elif trait.parent_category_id == category.id and not trait.trait_subcategory_id:
                 category_traits_no_sub.append(ct)
 
+        filtered_available_traits = self._filter_available_traits(character, all_available_traits)
+
         available_by_subcategory, available_by_category_no_sub = self._index_available_traits(
-            all_available_traits, all_character_traits
+            filtered_available_traits, all_character_traits
         )
 
         return FullSheetTraitCategoryDTO(
@@ -359,6 +364,37 @@ class CharacterSheetService:
                 )
 
         return available_by_subcategory, available_by_category_no_sub
+
+    @staticmethod
+    def _filter_available_traits(
+        character: Character, available_traits: list[Trait]
+    ) -> list[Trait]:
+        """Filter available traits based on character-specific eligibility.
+
+        For werewolves, restrict gift traits to those matching the character's tribe,
+        auspice, or marked as native (available to all werewolves). Non-gift traits
+        (merits, flaws, rites, etc.) pass through unfiltered.
+
+        Args:
+            character: The character to filter traits for.
+            available_traits: The full list of available traits to filter.
+        """
+        if character.character_class is not CharacterClass.WEREWOLF:
+            return available_traits
+
+        tribe_id = character.werewolf_attributes.tribe_id if character.werewolf_attributes else None
+        auspice_id = (
+            character.werewolf_attributes.auspice_id if character.werewolf_attributes else None
+        )
+
+        return [
+            t
+            for t in available_traits
+            if t.gift_attributes is None
+            or t.gift_attributes.is_native_gift
+            or (tribe_id and t.gift_attributes.tribe_id == tribe_id)
+            or (auspice_id and t.gift_attributes.auspice_id == auspice_id)
+        ]
 
     @staticmethod
     def _assemble_sheet_sections(
