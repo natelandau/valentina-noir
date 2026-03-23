@@ -4083,3 +4083,76 @@ class TestBulkAddGifts:
         assert len(result.failed) == 0
         await character.sync()
         assert character.starting_points == sp_before - expected_total
+
+
+class TestGetValueOptionsGifts:
+    """Test get_value_options for gift traits with count-based costing."""
+
+    async def test_gift_at_value_0_shows_upgrade_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gift at value=0 shows count-based upgrade cost and DELETE with cost 0."""
+        _, _, character = get_company_user_character
+        character.character_class = CharacterClass.WEREWOLF
+        await character.save()
+
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=0
+        )
+
+        result = await service.get_value_options(
+            character=character, character_trait=character_trait
+        )
+
+        # Upgrade to 1 should use count-based cost
+        assert "1" in result.options
+        assert result.options["1"].direction == "increase"
+        assert result.options["1"].point_change == 2  # 1st gift: 1 x 2
+
+        # DELETE option with cost 0 (nothing to delete)
+        assert "DELETE" in result.options
+        assert result.options["DELETE"].point_change == 0
+
+    async def test_gift_at_value_1_shows_delete_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gift at value=1 (at min_value) shows only DELETE with count-based cost."""
+        _, _, character = get_company_user_character
+        character.character_class = CharacterClass.WEREWOLF
+        await character.save()
+
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=1
+        )
+
+        result = await service.get_value_options(
+            character=character, character_trait=character_trait
+        )
+
+        # Gift traits in the DB have min_value=1, so at value=1 no numeric downgrade key exists
+        # DELETE is always present and uses count-based cost (1st gift: 1 x 2 = 2)
+        assert "DELETE" in result.options
+        assert result.options["DELETE"].direction == "decrease"
+        assert result.options["DELETE"].point_change == 2  # 1 gift: 1 x 2
