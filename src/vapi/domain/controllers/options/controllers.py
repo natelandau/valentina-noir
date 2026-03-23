@@ -101,16 +101,9 @@ class OptionsController(Controller):
                     "vampire_clans": _build_url(urls.CharacterBlueprints.VAMPIRE_CLANS),
                     "werewolf_tribes": _build_url(urls.CharacterBlueprints.WEREWOLF_TRIBES),
                     "werewolf_auspices": _build_url(urls.CharacterBlueprints.WEREWOLF_AUSPICES),
-                    "werewolf_gifts": _build_url(urls.CharacterBlueprints.WEREWOLF_GIFTS),
                     "vampire_clan_detail": _build_url(urls.CharacterBlueprints.VAMPIRE_CLAN_DETAIL),
                     "werewolf_auspice_detail": _build_url(
                         urls.CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL
-                    ),
-                    "werewolf_gift_detail": _build_url(
-                        urls.CharacterBlueprints.WEREWOLF_GIFT_DETAIL
-                    ),
-                    "werewolf_rite_detail": _build_url(
-                        urls.CharacterBlueprints.WEREWOLF_RITE_DETAIL
                     ),
                     "werewolf_tribe_detail": _build_url(
                         urls.CharacterBlueprints.WEREWOLF_TRIBE_DETAIL

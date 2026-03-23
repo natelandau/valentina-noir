@@ -213,18 +213,6 @@ class Characters:
     INVENTORY_UPDATE = INVENTORY_DETAIL
     INVENTORY_DELETE = INVENTORY_DETAIL
 
-    # Werewolf Gifts
-    GIFTS = f"{DETAIL}/gifts"
-    GIFT_DETAIL = f"{GIFTS}/{{werewolf_gift_id:str}}"
-    GIFT_ADD = GIFT_DETAIL
-    GIFT_REMOVE = GIFT_DETAIL
-
-    # Werewolf Rites
-    RITES = f"{DETAIL}/rites"
-    RITE_DETAIL = f"{RITES}/{{werewolf_rite_id:str}}"
-    RITE_ADD = RITE_DETAIL
-    RITE_REMOVE = RITE_DETAIL
-
 
 class CharacterBlueprints:
     """Character blueprints endpoints."""
@@ -256,10 +244,6 @@ class CharacterBlueprints:
     WEREWOLF_TRIBE_DETAIL = f"{WEREWOLF_TRIBES}/{{werewolf_tribe_id:str}}"
     WEREWOLF_AUSPICES = f"{BASE}/werewolf-auspices"
     WEREWOLF_AUSPICE_DETAIL = f"{WEREWOLF_AUSPICES}/{{werewolf_auspice_id:str}}"
-    WEREWOLF_GIFTS = f"{BASE}/werewolf-gifts"
-    WEREWOLF_GIFT_DETAIL = f"{WEREWOLF_GIFTS}/{{werewolf_gift_id:str}}"
-    WEREWOLF_RITES = f"{BASE}/werewolf-rites"
-    WEREWOLF_RITE_DETAIL = f"{WEREWOLF_RITES}/{{werewolf_rite_id:str}}"
 
 
 class Dictionaries:

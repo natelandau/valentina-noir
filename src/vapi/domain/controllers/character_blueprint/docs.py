@@ -101,25 +101,3 @@ Auspices represent the moon phase under which a werewolf was born. Optionally fi
 GET_WEREWOLF_AUSPICE_DESCRIPTION = """\
 Retrieve a specific werewolf auspice including its name, gifts, and role description.
 """
-
-# Werewolf Gifts
-LIST_WEREWOLF_GIFTS_BLUEPRINT_DESCRIPTION = """\
-Retrieve all werewolf gifts available in the system.
-
-Gifts are supernatural abilities. Optionally filter by tribe, auspice, or game version.
-"""
-
-GET_WEREWOLF_GIFT_BLUEPRINT_DESCRIPTION = """\
-Retrieve a specific werewolf gift including its level, cost, and effect description.
-"""
-
-# Werewolf Rites
-LIST_WEREWOLF_RITES_BLUEPRINT_DESCRIPTION = """\
-Retrieve all werewolf rites available in the system.
-
-Rites are ceremonial abilities that werewolves can learn and perform.
-"""
-
-GET_WEREWOLF_RITE_BLUEPRINT_DESCRIPTION = """\
-Retrieve a specific werewolf rite including its level, requirements, and effect description.
-"""

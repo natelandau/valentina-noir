@@ -29,8 +29,6 @@ from vapi.db.models import (
     User,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 from vapi.lib.exceptions import NotFoundError
@@ -229,28 +227,6 @@ async def provide_werewolf_auspice_by_id(werewolf_auspice_id: PydanticObjectId) 
     if not werewolf_auspice:
         raise NotFoundError(detail="Werewolf auspice not found")
     return werewolf_auspice
-
-
-async def provide_werewolf_gift_by_id(werewolf_gift_id: PydanticObjectId) -> WerewolfGift:
-    """Provide a werewolf gift by ID."""
-    werewolf_gift = await WerewolfGift.find_one(
-        WerewolfGift.id == werewolf_gift_id,
-        WerewolfGift.is_archived == False,
-    )
-    if not werewolf_gift:
-        raise NotFoundError(detail="Werewolf gift not found")
-    return werewolf_gift
-
-
-async def provide_werewolf_rite_by_id(werewolf_rite_id: PydanticObjectId) -> WerewolfRite:
-    """Provide a werewolf rite by ID."""
-    werewolf_rite = await WerewolfRite.find_one(
-        WerewolfRite.id == werewolf_rite_id,
-        WerewolfRite.is_archived == False,
-    )
-    if not werewolf_rite:
-        raise NotFoundError(detail="Werewolf rite not found")
-    return werewolf_rite
 
 
 async def provide_dictionary_term_by_id(
