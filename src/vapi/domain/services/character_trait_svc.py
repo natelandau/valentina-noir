@@ -128,7 +128,7 @@ class CharacterTraitService:
             gift_position: The 1-based position of the gift (e.g., 4th gift = position 4).
 
         Returns:
-            The cost for that gift position: position x 2.
+            The cost for that gift position: position * 2.
         """
         return gift_position * 2
 
@@ -249,7 +249,9 @@ class CharacterTraitService:
         await character_trait.fetch_all_links()
         max_increase = character_trait.trait.max_value - character_trait.value  # type: ignore [attr-defined]
         for num_dots in range(1, max_increase + 1):
-            upgrade_costs[str(num_dots)] = self._calculate_upgrade_cost(character_trait, num_dots)
+            upgrade_costs[str(num_dots)] = await self._calculate_upgrade_cost(
+                character_trait, num_dots, character_id=character_trait.character_id
+            )
         return upgrade_costs
 
     async def calculate_all_downgrade_savings(
@@ -296,10 +298,43 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be raised above max value.
         """
         await character_trait.fetch_all_links()
-        return self._calculate_upgrade_cost(character_trait, increase_by)
+        return await self._calculate_upgrade_cost(
+            character_trait, increase_by, character_id=character_trait.character_id
+        )
 
-    def _calculate_upgrade_cost(self, character_trait: CharacterTrait, increase_by: int) -> int:
-        """Calculate upgrade cost assuming links are already fetched."""
+    async def _calculate_upgrade_cost(
+        self,
+        character_trait: CharacterTrait,
+        increase_by: int,
+        *,
+        character_id: PydanticObjectId,
+        gift_count_override: int | None = None,
+    ) -> int:
+        """Calculate upgrade cost assuming links are already fetched.
+
+        For gift traits, uses count-based pricing (Nth gift costs N * 2).
+        For all other traits, uses the existing per-dot model.
+
+        Args:
+            character_trait: The trait (links must be fetched).
+            increase_by: The number of dots to increase by.
+            character_id: The character's ID (needed for gift count query).
+            gift_count_override: If provided, use this as the current gift count
+                instead of querying the DB. Used by bulk operations.
+
+        Returns:
+            The total cost to upgrade.
+
+        Raises:
+            ValidationError: If the trait would exceed max value.
+        """
+        if character_trait.trait.gift_attributes is not None:  # type: ignore [attr-defined]
+            if gift_count_override is not None:
+                current_count = gift_count_override
+            else:
+                current_count = await self._count_character_gifts(character_id)
+            return self._cost_for_gift(current_count + 1)
+
         cost = 0
         new_trait_value = character_trait.value
 
@@ -642,7 +677,9 @@ class CharacterTraitService:
                     # Pre-check running XP balance
                     await character_trait.fetch_all_links()
                     self._guard_is_safe_increase(character_trait, num_dots)
-                    cost = self._calculate_upgrade_cost(character_trait, num_dots)
+                    cost = await self._calculate_upgrade_cost(
+                        character_trait, num_dots, character_id=character_trait.character_id
+                    )
                     is_flaw = await self._is_flaw_trait(character_trait)
 
                     if not is_flaw and running_xp < cost:
@@ -672,7 +709,9 @@ class CharacterTraitService:
                     # Pre-check running starting points balance
                     await character_trait.fetch_all_links()
                     self._guard_is_safe_increase(character_trait, num_dots)
-                    cost = self._calculate_upgrade_cost(character_trait, num_dots)
+                    cost = await self._calculate_upgrade_cost(
+                        character_trait, num_dots, character_id=character_trait.character_id
+                    )
                     is_flaw = await self._is_flaw_trait(character_trait)
 
                     if not is_flaw and running_starting_points < cost:
@@ -883,9 +922,12 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         await character_trait.fetch_all_links()
 
+        cost: int
         if is_increase:
             self._guard_is_safe_increase(character_trait, num_dots)
-            cost = self._calculate_upgrade_cost(character_trait, num_dots)
+            cost = await self._calculate_upgrade_cost(
+                character_trait, num_dots, character_id=character_trait.character_id
+            )
         else:
             if not deleting_trait:
                 self._guard_is_safe_decrease(character_trait, num_dots)
@@ -934,9 +976,12 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         await character_trait.fetch_all_links()
 
+        cost: int
         if is_increase:
             self._guard_is_safe_increase(character_trait, num_dots)
-            cost = self._calculate_upgrade_cost(character_trait, num_dots)
+            cost = await self._calculate_upgrade_cost(
+                character_trait, num_dots, character_id=character_trait.character_id
+            )
         else:
             if not deleting_trait:
                 self._guard_is_safe_decrease(character_trait, num_dots)

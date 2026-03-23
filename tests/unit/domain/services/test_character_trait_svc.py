@@ -888,6 +888,108 @@ class TestCalculateAllDowngradeSavings:
             assert savings > 0
 
 
+class TestGiftUpgradeCost:
+    """Test upgrade cost calculation for gift traits."""
+
+    async def test_first_gift_costs_2(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify first gift costs 2 (1 * 2)."""
+        # Given a character with no existing gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=0
+        )
+
+        # When calculating upgrade cost
+        cost = await service.calculate_upgrade_cost(character_trait, 1)
+
+        # Then cost is 2 (1st gift: 1 * 2)
+        assert cost == 2
+
+    async def test_fourth_gift_costs_8(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify fourth gift costs 8 (4 * 2)."""
+        # Given a character with 3 existing gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(4)
+        if len(gift_traits) < 4:
+            pytest.skip("Not enough gift traits in database")
+
+        # Add 3 existing gifts with value=1
+        for i in range(3):
+            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+
+        # Create the 4th gift at value=0 (about to be purchased)
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_traits[3], value=0
+        )
+
+        # When calculating upgrade cost
+        cost = await service.calculate_upgrade_cost(character_trait, 1)
+
+        # Then cost is 8 (4th gift: 4 * 2)
+        assert cost == 8
+
+    async def test_gift_upgrade_cost_with_override(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gift_count_override bypasses DB query."""
+        # Given a gift trait
+        service = CharacterTraitService()
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(), trait=gift_trait, value=0
+        )
+        await character_trait.fetch_all_links()
+
+        # When calculating with override of 5 existing gifts
+        cost = await service._calculate_upgrade_cost(
+            character_trait, 1, character_id=character_trait.character_id, gift_count_override=5
+        )
+
+        # Then cost is 12 (6th gift: 6 * 2)
+        assert cost == 12
+
+
 class TestCalculateCosts:
     """Test the calculate_upgrade_cost and calculate_downgrade_savings methods."""
 
@@ -1812,7 +1914,9 @@ class TestChangeCharacterTraitValue:
         spy_get_user_by_id.assert_called_once_with(ANY, target_user.id)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_upgrade_cost.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_upgrade_cost.assert_called_once_with(
+            ANY, character_trait, 1, character_id=character_trait.character_id
+        )
         await target_user.sync()
         campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
         assert (
@@ -1991,7 +2095,9 @@ class TestChangeCharacterTraitValue:
 
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_upgrade_cost.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_upgrade_cost.assert_called_once_with(
+            ANY, character_trait, 1, character_id=character_trait.character_id
+        )
         spy_after_save.assert_called_once_with(ANY, result)
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
         await character.sync()
