@@ -1,5 +1,6 @@
 """RNG character generation library."""
 
+import asyncio
 import logging
 import random
 from dataclasses import dataclass
@@ -601,37 +602,43 @@ class CharacterAutogenerationHandler:
         auspice_id = character.werewolf_attributes.auspice_id
         tribe_id = character.werewolf_attributes.tribe_id
 
-        tribe_gifts = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.tribe_id == tribe_id,
-            Trait.gift_attributes.minimum_renown <= total_renown,
-        ).to_list()
+        (
+            tribe_gifts,
+            auspice_gifts,
+            native_gifts,
+            rites_category,
+            existing_char_traits,
+        ) = await asyncio.gather(
+            Trait.find(
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.tribe_id == tribe_id,
+                Trait.gift_attributes.minimum_renown <= total_renown,
+            ).to_list(),
+            Trait.find(
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.auspice_id == auspice_id,
+                Trait.gift_attributes.minimum_renown <= total_renown,
+            ).to_list(),
+            Trait.find(
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.is_native_gift == True,
+                Trait.gift_attributes.minimum_renown <= total_renown,
+            ).to_list(),
+            TraitCategory.find_one(TraitCategory.name == "Rites"),
+            CharacterTrait.find(
+                CharacterTrait.character_id == character.id,
+                fetch_links=True,
+            ).to_list(),
+        )
 
-        auspice_gifts = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.auspice_id == auspice_id,
-            Trait.gift_attributes.minimum_renown <= total_renown,
-        ).to_list()
-
-        native_gifts = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.is_native_gift == True,
-            Trait.gift_attributes.minimum_renown <= total_renown,
-        ).to_list()
-
-        rites_category = await TraitCategory.find_one(TraitCategory.name == "Rites")
         rites = (
             await Trait.find(Trait.parent_category_id == rites_category.id).to_list()
             if rites_category
             else []
         )
-
-        existing_char_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id,
-            fetch_links=True,
-        ).to_list()
         existing_trait_ids: set[PydanticObjectId] = {
-            ct.trait.id for ct in existing_char_traits  # type: ignore[attr-defined]
+            ct.trait.id  # type: ignore[attr-defined]
+            for ct in existing_char_traits
         }
 
         value_modifiers = divide_total_randomly(

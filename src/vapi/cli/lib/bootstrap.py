@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
     from vapi.db.models.constants.trait import Trait
+
 from rich.console import Console
 
 from vapi.constants import PROJECT_ROOT_PATH
@@ -273,8 +274,10 @@ async def resolve_gift_trait_references() -> None:
     gift_fixture_map = _build_gift_fixture_map()
     gift_traits = await Trait.find(Trait.gift_attributes != None).to_list()
 
-    tribes_by_name = {t.name: t.id for t in await WerewolfTribe.find().to_list()}
-    auspices_by_name = {a.name: a.id for a in await WerewolfAuspice.find().to_list()}
+    tribes = await WerewolfTribe.find().to_list()
+    auspices = await WerewolfAuspice.find().to_list()
+    tribes_by_name = {t.name: t.id for t in tribes}
+    auspices_by_name = {a.name: a.id for a in auspices}
 
     updated = 0
     for trait in gift_traits:
@@ -289,7 +292,6 @@ async def resolve_gift_trait_references() -> None:
             await trait.save()
             updated += 1
 
-    # Populate gift_trait_ids on tribes and auspices
     tribe_gift_map: dict[PydanticObjectId, list[PydanticObjectId]] = {}
     auspice_gift_map: dict[PydanticObjectId, list[PydanticObjectId]] = {}
     for trait in gift_traits:
@@ -299,11 +301,11 @@ async def resolve_gift_trait_references() -> None:
         if attrs and attrs.auspice_id:
             auspice_gift_map.setdefault(attrs.auspice_id, []).append(trait.id)
 
-    for tribe in await WerewolfTribe.find().to_list():
+    for tribe in tribes:
         tribe.gift_trait_ids = tribe_gift_map.get(tribe.id, [])
         await tribe.save()
 
-    for auspice in await WerewolfAuspice.find().to_list():
+    for auspice in auspices:
         auspice.gift_trait_ids = auspice_gift_map.get(auspice.id, [])
         await auspice.save()
 
