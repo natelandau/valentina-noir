@@ -19,10 +19,8 @@ from vapi.db.models import (
     TraitCategory,
     TraitSubcategory,
     VampireClan,
-    WerewolfAuspice,
-    WerewolfGift,
-    WerewolfTribe,
 )
+from vapi.db.models.constants.trait import GiftAttributes
 
 T = TypeVar("T", bound=Document)
 
@@ -32,7 +30,6 @@ __all__ = (
     "TraitSyncResult",
     "document_differs_from_fixture",
     "get_differing_fields",
-    "gift_link_to_tribe_and_auspice",
     "link_disciplines_to_clan",
     "sync_fixture_traits",
     "sync_section_categories",
@@ -86,77 +83,6 @@ async def link_disciplines_to_clan(clan: VampireClan, fixture_clan: dict[str, An
         if discipline and discipline.id not in clan.discipline_ids:
             clan.discipline_ids.append(discipline.id)
             await clan.save()
-            is_updated = True
-
-    return is_updated
-
-
-async def gift_link_to_tribe_and_auspice(  # noqa: C901, PLR0912
-    gift: WerewolfGift,
-    fixture_gift: dict[str, Any],
-    tribes: list[WerewolfTribe],
-    auspices: list[WerewolfAuspice],
-) -> bool:
-    """Link a gift to a tribe and auspice.
-
-    Args:
-        gift (WerewolfGift): The gift to link to a tribe and auspice.
-        fixture_gift (dict[str, Any]): The fixture data for the gift.
-        tribes (list[WerewolfTribe]): The list of tribes to link the gift to.
-        auspices (list[WerewolfAuspice]): The list of auspices to link the gift to.
-
-    Returns:
-        bool: True if the gift was linked to a tribe and auspice, False otherwise.
-    """
-    is_updated = False
-    tribe_name = fixture_gift.get("tribe_name")
-    auspice_name = fixture_gift.get("auspice_name")
-    if not tribe_name and not auspice_name:
-        return False
-
-    if tribe_name:
-        requested_tribe = next((tribe for tribe in tribes if tribe.name == tribe_name), None)
-        if not requested_tribe:
-            msg = f"Tribe not found: {tribe_name}"
-            logger.error(
-                msg, extra={"component": "cli", "command": "gift_link_to_tribe_and_auspice"}
-            )
-            raise click.Abort
-        if gift.tribe_id and gift.tribe_id != requested_tribe.id:
-            old_tribe = await WerewolfTribe.find_one(WerewolfTribe.id == gift.tribe_id)
-            if old_tribe and gift.id in old_tribe.gift_ids:
-                old_tribe.gift_ids.remove(gift.id)
-                await old_tribe.save()
-        if gift.id not in requested_tribe.gift_ids:
-            requested_tribe.gift_ids.append(gift.id)
-            await requested_tribe.save()
-        if gift.tribe_id != requested_tribe.id:
-            gift.tribe_id = requested_tribe.id
-            await gift.save()
-            is_updated = True
-
-    if auspice_name:
-        requested_auspice = next(
-            (auspice for auspice in auspices if auspice.name == auspice_name),
-            None,
-        )
-        if not requested_auspice:
-            msg = f"Auspice not found: {auspice_name}"
-            logger.error(
-                msg, extra={"component": "cli", "command": "gift_link_to_tribe_and_auspice"}
-            )
-            raise click.Abort
-        if gift.auspice_id and gift.auspice_id != requested_auspice.id:
-            old_auspice = await WerewolfAuspice.find_one(WerewolfAuspice.id == gift.auspice_id)
-            if old_auspice and gift.id in old_auspice.gift_ids:
-                old_auspice.gift_ids.remove(gift.id)
-                await old_auspice.save()
-        if gift.id not in requested_auspice.gift_ids:
-            requested_auspice.gift_ids.append(gift.id)
-            await requested_auspice.save()
-        if gift.auspice_id != requested_auspice.id:
-            gift.auspice_id = requested_auspice.id
-            await gift.save()
             is_updated = True
 
     return is_updated
@@ -468,6 +394,15 @@ async def sync_single_trait(  # noqa: C901, PLR0912
         query.append(Trait.trait_subcategory_id == subcategory.id)
 
     trait = await Trait.find_one(*query)
+
+    # Convert gift_attributes dict to GiftAttributes object, stripping fixture-only fields.
+    # tribe_id/auspice_id are resolved later by resolve_gift_trait_references()
+    # after WerewolfTribe/WerewolfAuspice documents exist in the database.
+    gift_attrs_raw = fixture_trait.pop("gift_attributes", None)
+    if gift_attrs_raw is not None:
+        gift_attrs_raw.pop("tribe_name", None)
+        gift_attrs_raw.pop("auspice_name", None)
+        fixture_trait["gift_attributes"] = GiftAttributes(**gift_attrs_raw)
 
     if not trait:
         trait = Trait(

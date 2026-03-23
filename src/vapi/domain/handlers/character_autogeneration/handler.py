@@ -1,5 +1,6 @@
 """RNG character generation library."""
 
+import asyncio
 import logging
 import random
 from dataclasses import dataclass
@@ -24,8 +25,6 @@ from vapi.db.models import (
     User,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 from vapi.db.models.character import (
@@ -585,9 +584,9 @@ class CharacterAutogenerationHandler:
         return character
 
     async def _generate_werewolf_gifts_and_rites(self, character: Character) -> Character:
-        """Randomly generate werewolf gifts for the character.
+        """Randomly generate werewolf gifts and rites for the character.
 
-        Generate and assign random werewolf gifts for the given character based on their concept, class, and experience level.
+        Generate and assign random werewolf gifts and rites for the given character based on their concept, class, and experience level. Creates CharacterTrait documents instead of modifying werewolf_attributes directly.
 
         Args:
             character (Character): The character for which to generate werewolf gifts.
@@ -603,46 +602,61 @@ class CharacterAutogenerationHandler:
         auspice_id = character.werewolf_attributes.auspice_id
         tribe_id = character.werewolf_attributes.tribe_id
 
-        tribe_gifts = await WerewolfGift.find(
-            WerewolfGift.tribe_id == tribe_id, WerewolfGift.minimum_renown <= total_renown
-        ).to_list()
-        auspice_gifts = await WerewolfGift.find(
-            WerewolfGift.auspice_id == auspice_id, WerewolfGift.minimum_renown <= total_renown
-        ).to_list()
-        native_gifts = await WerewolfGift.find(
-            WerewolfGift.is_native_gift == True, WerewolfGift.minimum_renown <= total_renown
-        ).to_list()
-        rites = await WerewolfRite.find().to_list()
+        (
+            tribe_gifts,
+            auspice_gifts,
+            native_gifts,
+            rites_category,
+            existing_char_traits,
+        ) = await asyncio.gather(
+            Trait.find(
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.tribe_id == tribe_id,
+                Trait.gift_attributes.minimum_renown <= total_renown,
+            ).to_list(),
+            Trait.find(
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.auspice_id == auspice_id,
+                Trait.gift_attributes.minimum_renown <= total_renown,
+            ).to_list(),
+            Trait.find(
+                Trait.gift_attributes != None,
+                Trait.gift_attributes.is_native_gift == True,
+                Trait.gift_attributes.minimum_renown <= total_renown,
+            ).to_list(),
+            TraitCategory.find_one(TraitCategory.name == "Rites"),
+            CharacterTrait.find(
+                CharacterTrait.character_id == character.id,
+                fetch_links=True,
+            ).to_list(),
+        )
+
+        rites = (
+            await Trait.find(Trait.parent_category_id == rites_category.id).to_list()
+            if rites_category
+            else []
+        )
+        existing_trait_ids: set[PydanticObjectId] = {
+            ct.trait.id  # type: ignore[attr-defined]
+            for ct in existing_char_traits
+        }
 
         value_modifiers = divide_total_randomly(
             total=EXTRA_WEREWOLF_GIFT_MAP[self.experience_level], num=3, max_value=5
         )
 
-        for _ in range(1 + value_modifiers[0]):
-            gift_id = random.choice(
-                [x.id for x in tribe_gifts if x.id not in character.werewolf_attributes.gift_ids]
-            )
-            character.werewolf_attributes.gift_ids.append(gift_id)
+        async def _assign_random_traits(pool: list[Trait], count: int) -> None:
+            available = [t for t in pool if t.id not in existing_trait_ids]
+            chosen = random.sample(available, min(count, len(available)))
+            for trait in chosen:
+                char_trait = CharacterTrait(character_id=character.id, trait=trait, value=1)
+                await char_trait.save()
+                existing_trait_ids.add(trait.id)
 
-        for _ in range(1 + value_modifiers[1]):
-            gift_id = random.choice(
-                [x.id for x in auspice_gifts if x.id not in character.werewolf_attributes.gift_ids]
-            )
-            character.werewolf_attributes.gift_ids.append(gift_id)
-
-        for _ in range(1 + value_modifiers[2]):
-            gift_id = random.choice(
-                [x.id for x in native_gifts if x.id not in character.werewolf_attributes.gift_ids]
-            )
-            character.werewolf_attributes.gift_ids.append(gift_id)
-
-        for _ in range(NUM_WEREWOLF_RITE_MAP[self.experience_level]):
-            rite_id = random.choice(
-                [x.id for x in rites if x.id not in character.werewolf_attributes.rite_ids]
-            )
-            character.werewolf_attributes.rite_ids.append(rite_id)
-
-        await character.save()
+        await _assign_random_traits(tribe_gifts, 1 + value_modifiers[0])
+        await _assign_random_traits(auspice_gifts, 1 + value_modifiers[1])
+        await _assign_random_traits(native_gifts, 1 + value_modifiers[2])
+        await _assign_random_traits(rites, NUM_WEREWOLF_RITE_MAP[self.experience_level])
 
         return character
 

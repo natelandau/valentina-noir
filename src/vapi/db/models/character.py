@@ -127,8 +127,6 @@ class WerewolfAttributes(HashedBaseModel):
         None
     )
     auspice_name: Annotated[str | None, Field(default=None)] = None
-    gift_ids: list[PydanticObjectId] = Field(default_factory=list)
-    rite_ids: list[PydanticObjectId] = Field(default_factory=list)
     total_renown: int = 0
 
 

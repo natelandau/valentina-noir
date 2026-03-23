@@ -7,7 +7,6 @@ from .aws_service import AWSS3Service
 from .campaign_svc import CampaignService
 from .character_blueprint_svc import CharacterBlueprintService
 from .character_sheet_svc import CharacterSheetService
-from .character_specials_svc import CharacterGiftsService, CharacterRitesService
 from .character_svc import CharacterService
 from .character_trait_svc import CharacterTraitService
 from .company_svc import CompanyService
@@ -20,8 +19,6 @@ __all__ = (
     "AWSS3Service",
     "CampaignService",
     "CharacterBlueprintService",
-    "CharacterGiftsService",
-    "CharacterRitesService",
     "CharacterService",
     "CharacterSheetService",
     "CharacterTraitService",

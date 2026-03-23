@@ -9,7 +9,6 @@ from .character.controllers import CharacterController
 from .character_blueprint.controllers import CharacterBlueprintSectionController
 from .character_generation.controllers import CharacterGenerationController
 from .character_inventory.controllers import CharacterInventoryController
-from .character_specials.werewolf_controller import WerewolfSpecialsController
 from .character_trait.controllers import CharacterTraitController
 from .company.controllers import CompanyController
 from .developer.controllers import DeveloperController
@@ -72,6 +71,5 @@ __all__ = (
     "UserAssetsController",
     "UserController",
     "UserNoteController",
-    "WerewolfSpecialsController",
     "html_static_files_router",
 )

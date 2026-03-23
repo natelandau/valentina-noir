@@ -12,8 +12,6 @@ from vapi.db.models import (
     TraitSubcategory,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 from vapi.lib.dto import dto_config
@@ -63,17 +61,5 @@ class WerewolfTribeDTO(PydanticDTO[WerewolfTribe]):
 
 class WerewolfAuspiceDTO(PydanticDTO[WerewolfAuspice]):
     """Werewolf auspice DTO."""
-
-    config = dto_config()
-
-
-class WerewolfGiftDTO(PydanticDTO[WerewolfGift]):
-    """Werewolf gift DTO."""
-
-    config = dto_config()
-
-
-class WerewolfRiteDTO(PydanticDTO[WerewolfRite]):
-    """Werewolf rite DTO."""
 
     config = dto_config()

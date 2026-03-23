@@ -1,9 +1,18 @@
 """Bootstrap utilities."""
 
+from __future__ import annotations
+
 import json
 import logging
+from typing import TYPE_CHECKING
 
 import click
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
+
+    from vapi.db.models.constants.trait import Trait
+
 from rich.console import Console
 
 from vapi.constants import PROJECT_ROOT_PATH
@@ -11,8 +20,6 @@ from vapi.db.models import (
     CharacterConcept,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 
@@ -22,7 +29,6 @@ from .utils import (
     create_global_dictionary_term,
     document_differs_from_fixture,
     get_differing_fields,
-    gift_link_to_tribe_and_auspice,
     link_disciplines_to_clan,
     sync_section_categories,
     sync_single_section,
@@ -256,89 +262,105 @@ async def sync_werewolf_tribes() -> None:
     )
 
 
-async def sync_werewolf_gifts() -> None:
-    """Sync werewolf gifts."""
-    fixture_file = FIXTURES_PATH / "werewolf_gifts.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(msg, extra={"component": "cli", "command": "bootstrap sync_werewolf_gifts"})
-        raise click.Abort
+async def resolve_gift_trait_references() -> None:
+    """Resolve tribe_name/auspice_name to tribe_id/auspice_id on gift traits.
 
-    auspices = await WerewolfAuspice.find().to_list()
+    Run after werewolf tribes and auspices are synced so the documents
+    exist for lookup. During initial trait sync the tribe/auspice IDs
+    are left as None because those documents don't exist yet.
+    """
+    from vapi.db.models.constants.trait import Trait
+
+    gift_fixture_map = _build_gift_fixture_map()
+    gift_traits = await Trait.find(Trait.gift_attributes != None).to_list()
+
     tribes = await WerewolfTribe.find().to_list()
+    auspices = await WerewolfAuspice.find().to_list()
+    tribes_by_name = {t.name: t.id for t in tribes}
+    auspices_by_name = {a.name: a.id for a in auspices}
 
-    with fixture_file.open("r") as file:
-        fixture_werewolf_gifts = json.load(file)
+    updated = 0
+    for trait in gift_traits:
+        fixture_ga = gift_fixture_map.get(trait.name)
+        if not fixture_ga:
+            continue
 
-    created_gifts = 0
-    updated_gifts = 0
-    for fixture_gift in fixture_werewolf_gifts:
-        created_gift = False
-        gift = await WerewolfGift.find_one(WerewolfGift.name == fixture_gift["name"])
-        if not gift:
-            gift = WerewolfGift(**fixture_gift)
-            await gift.save()
-            created_gifts += 1
-            created_gift = True
+        changed = _resolve_single_gift_references(
+            trait, fixture_ga, tribes_by_name, auspices_by_name
+        )
+        if changed:
+            await trait.save()
+            updated += 1
 
-        elif document_differs_from_fixture(gift, fixture_gift):
-            differences = get_differing_fields(gift, fixture_gift)
-            for field_name in differences:
-                setattr(gift, field_name, fixture_gift[field_name])
-            await gift.save()
+    tribe_gift_map: dict[PydanticObjectId, list[PydanticObjectId]] = {}
+    auspice_gift_map: dict[PydanticObjectId, list[PydanticObjectId]] = {}
+    for trait in gift_traits:
+        attrs = trait.gift_attributes
+        if attrs and attrs.tribe_id:
+            tribe_gift_map.setdefault(attrs.tribe_id, []).append(trait.id)
+        if attrs and attrs.auspice_id:
+            auspice_gift_map.setdefault(attrs.auspice_id, []).append(trait.id)
 
-        is_updated = await gift_link_to_tribe_and_auspice(gift, fixture_gift, tribes, auspices)
-        if is_updated and not created_gift:
-            updated_gifts += 1
+    for tribe in tribes:
+        tribe.gift_trait_ids = tribe_gift_map.get(tribe.id, [])
+        await tribe.save()
+
+    for auspice in auspices:
+        auspice.gift_trait_ids = auspice_gift_map.get(auspice.id, [])
+        await auspice.save()
 
     logger.info(
-        "Bootstrapped werewolf gifts",
+        "Resolved gift trait tribe/auspice references",
         extra={
-            "num_created": created_gifts,
-            "num_updated": updated_gifts,
-            "num_total": len(fixture_werewolf_gifts),
+            "num_updated": updated,
+            "num_total": len(gift_traits),
             "component": "cli",
             "command": "bootstrap",
         },
     )
 
 
-async def sync_werewolf_rites() -> None:
-    """Sync werewolf rites."""
-    fixture_file = FIXTURES_PATH / "werewolf_rites.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(msg, extra={"component": "cli", "command": "bootstrap sync_werewolf_rites"})
-        raise click.Abort
-
+def _build_gift_fixture_map() -> dict[str, dict]:
+    """Build a mapping of gift trait name to fixture gift_attributes dict."""
+    fixture_file = FIXTURES_PATH / "traits.json"
     with fixture_file.open("r") as file:
-        fixture_werewolf_rites = json.load(file)
+        fixture_data = json.load(file, cls=JSONWithCommentsDecoder)
 
-    created_rites = 0
-    updated_rites = 0
-    for fixture_rite in fixture_werewolf_rites:
-        rite = await WerewolfRite.find_one(WerewolfRite.name == fixture_rite["name"])
-        if not rite:
-            rite = WerewolfRite(**fixture_rite)
-            await rite.save()
-            created_rites += 1
-        elif document_differs_from_fixture(rite, fixture_rite):
-            differences = get_differing_fields(rite, fixture_rite)
-            for field_name in differences:
-                setattr(rite, field_name, fixture_rite[field_name])
-            await rite.save()
-            updated_rites += 1
+    result: dict[str, dict] = {}
+    for section in fixture_data:
+        for cat in section.get("categories", []):
+            if cat.get("name") == "Gifts":
+                for t in cat.get("traits", []):
+                    if "gift_attributes" in t:
+                        result[t["name"].strip().title()] = t["gift_attributes"]
+    return result
 
-    logger.info(
-        "Bootstrapped werewolf rites",
-        extra={
-            "num_created": created_rites,
-            "num_updated": updated_rites,
-            "num_total": len(fixture_werewolf_rites),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
+
+def _resolve_single_gift_references(
+    trait: Trait,
+    fixture_ga: dict,
+    tribes_by_name: dict[str, PydanticObjectId],
+    auspices_by_name: dict[str, PydanticObjectId],
+) -> bool:
+    """Resolve tribe/auspice names to IDs on a single gift trait."""
+    attrs = trait.gift_attributes
+    changed = False
+
+    tribe_name = fixture_ga.get("tribe_name")
+    if tribe_name and attrs.tribe_id is None:
+        tribe_id = tribes_by_name.get(tribe_name)
+        if tribe_id:
+            attrs.tribe_id = tribe_id
+            changed = True
+
+    auspice_name = fixture_ga.get("auspice_name")
+    if auspice_name and attrs.auspice_id is None:
+        auspice_id = auspices_by_name.get(auspice_name)
+        if auspice_id:
+            attrs.auspice_id = auspice_id
+            changed = True
+
+    return changed
 
 
 async def sync_character_concepts() -> None:

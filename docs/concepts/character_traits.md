@@ -4,9 +4,15 @@ icon: lucide/sliders-horizontal
 
 # Character Traits
 
-Character traits represent attributes, skills, disciplines, and other abilities on a character sheet. Each trait has a numeric value (measured in dots) that you can modify through gameplay.
+Character traits represent attributes, skills, disciplines, and other abilities on a character sheet. Most traits have a numeric value (measured in dots) that you can modify through gameplay. Some traits are binary — you either have them or you don't. Binary traits use `min_value=1` and `max_value=1`.
 
 This page covers how to add, modify, and remove traits from a character. For information on the traits themselves (what's available per class and game version), see the [character blueprint](./character_blueprint.md) documentation.
+
+## Binary Traits
+
+Werewolf gifts and rites are binary traits. Assign them with `value=1` using the standard [trait assignment](#assigning-constant-traits) endpoint. Remove them by deleting the character trait. There's no value to increase or decrease — the character either has the trait or doesn't.
+
+Gift traits include a `gift_attributes` field with werewolf-specific metadata (renown, dice pools, tribe/auspice associations). Rite traits use the standard `pool` field for their dice pool. For more on browsing available gifts and rites, see the [blueprint documentation](./character_blueprint.md#gifts-and-rites).
 
 ## Trait Subcategories
 

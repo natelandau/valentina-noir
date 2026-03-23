@@ -33,7 +33,6 @@ from .controllers import (
     UserAssetsController,
     UserController,
     UserNoteController,
-    WerewolfSpecialsController,
     html_static_files_router,
 )
 
@@ -68,7 +67,6 @@ __all__ = (
     "UserAssetsController",
     "UserController",
     "UserNoteController",
-    "WerewolfSpecialsController",
     "html_static_files_router",
 )
 
@@ -103,6 +101,5 @@ route_handlers: list[type[Controller] | Router] = [
     UserAssetsController,
     UserController,
     UserNoteController,
-    WerewolfSpecialsController,
     html_static_files_router,
 ]

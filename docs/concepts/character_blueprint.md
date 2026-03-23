@@ -272,19 +272,19 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-auspices?limit=10
       "id": null,
       "date_created": "2026-01-15T18:47:12.709Z",
       "date_modified": "2026-01-15T18:47:12.709Z",
-      "name": "Ragabash", //
+      "name": "Ragabash",
       "description": "string",
       "game_versions": ["V4", "V5"],
-      "gift_ids": [ // (1)!
+      "gift_trait_ids": [ // (1)!
           "69679d6b92e8772cd93d8185",
           "69679d6b92e8772cd93d8185",
-          "69679d6b92e8772cd93d8185"]
-      ,
+          "69679d6b92e8772cd93d8185"
+      ],
       "link": "https://wta.paradoxwikis.com/Ragabash"
     }
     ```
 
-    1.  An array of gift IDs which are native to this auspice. For example, Ragabash has the gifts `The Thousand Forms`, `Whelp Body`, and `Coup de Grâce`.
+    1.  An array of Trait IDs for gifts native to this auspice. For example, Ragabash has the gifts `The Thousand Forms`, `Whelp Body`, and `Coup de Grâce`.
 
 #### Tribe
 
@@ -310,86 +310,52 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-tribes?limit=10&o
       "patron_spirit": "Gorgon",
       "favor": "Black Furies player can add a die to a pool used to oppose or circumvent...",
       "ban": "If a Black Fury let an injustice persist when they could've prevented or addressed it...",
-      "gift_ids": [ // (1)!
+      "gift_trait_ids": [ // (1)!
           "69679d6b92e8772cd93d8185",
           "69679d6b92e8772cd93d8185",
-          "69679d6b92e8772cd93d8185"]
-      ,
+          "69679d6b92e8772cd93d8185"
+      ],
       "link": "https://wta.paradoxwikis.com/Black_Furies"
     }
     ```
 
-    1.  An array of gift IDs which are native to this tribe. For example, the Black Furies has the gifts `Whelp Body`, `Kali's Scar`, and `Coup de Grâce`.
+    1.  An array of Trait IDs for gifts native to this tribe. For example, the Black Furies have the gifts `Whelp Body`, `Kali's Scar`, and `Coup de Grâce`.
 
-#### Gifts
+#### Gifts and Rites
 
-List all available gifts for a game version:
+Werewolf gifts and rites are managed as traits under the "Other" sheet section. Gifts belong to the "Gifts" category and rites belong to the "Rites" category. Browse them using the [trait blueprint endpoints](#listing-traits) with the appropriate `parent_category_id` filter.
 
-```shell
-GET /api/v1/companies/{company_id}/characterblueprint/werewolf-gifts?limit=10&offset=0&game_version=V5
-```
+Both gifts and rites are binary traits (`min_value=1`, `max_value=1`). Assign them to a character with `value=1` through the standard [trait assignment](./character_traits.md#assigning-constant-traits) endpoint.
 
-??? example "Gift Object"
+Gift traits include a `gift_attributes` field with werewolf-specific metadata:
 
-    Each gift object has the following fields:
+??? example "Gift Trait Object"
 
     ```json
     {
       "id": "69679d6b92e8772cd93d8185",
-      "date_created": "2026-01-15T18:47:12.709Z",
-      "date_modified": "2026-01-15T18:47:12.709Z",
       "name": "Blissful Ignorance",
       "description": "By remaining completely still, the Garou can become invisible to others...",
-      "game_versions": ["V4","V5"],
-      "renown": "GLORY", // (1)!
-      "cost": "1 Willpower", // (2)!
-      "duration": "One scene", // (3)!
-      "dice_pool": ["Wisdom"], // (4)!
-      "opposing_pool": ["Composure", "Stealth"], // (5)!
-      "minimum_renown": 2, // (6)!
-      "is_native_gift": false, // (7)!
-      "notes": "When used in attempt to ambush it follows the normal ambush rules, allowing the target a chance to spot the attacker, Wits + Awareness against the attacker's Composure + Stealth.", // (8)!
-      "tribe_id": "68c1f7152cae3787a09a74fa", // (9)!
-      "auspice_id": null // (10)!
+      "character_classes": ["WEREWOLF"],
+      "game_versions": ["V4", "V5"],
+      "min_value": 1,
+      "max_value": 1,
+      "gift_attributes": {
+        "renown": "WISDOM",
+        "cost": "1 Willpower",
+        "duration": "One scene",
+        "dice_pool": [],
+        "opposing_pool": [],
+        "minimum_renown": 2,
+        "is_native_gift": false,
+        "notes": "When used in attempt to ambush...",
+        "tribe_id": "68c1f7152cae3787a09a74fa",
+        "auspice_id": null
+      }
     }
     ```
 
-    1.  The renown this gift is associated with.
-    2.  The cost to use the gift.
-    3.  How long the gift lasts.
-    4.  The dice pool to use when using the gift.
-    5.  The opposing pool to use when using the gift.
-    6.  The minimum renown required to use the gift.
-    7.  Whether the gift is native to all werewolves
-    8.  Notes about using the gift.
-    9.  The tribe ID which the gift is native to.
-    10.  The auspice ID which the gift is native to.
-
-#### Rites
-
-List all available rites for a game version:
-
-```shell
-GET /api/v1/companies/{company_id}/characterblueprint/werewolf-rites?limit=10&offset=0&game_version=V5
-```
-
-??? example "Rite Object"
-
-    Each rite object has the following fields:
-
-    ```json
-    {
-      "id": "69679d6b92e8772cd93d8185",
-      "date_created": "2026-01-15T18:47:12.709Z",
-      "date_modified": "2026-01-15T18:47:12.709Z",
-      "name": "Rite of Abjuration",
-      "description": "This Rite will purify a person, place, or object, driving out any spiritual possessions.",
-      "game_versions": ["V4","V5"],
-      "pool": "Honor + Occult", // (1)!
-    }
-    ```
-
-    1.  The dice pool required to use the rite.
+Rite traits use the standard `pool` field for their dice pool and have no additional metadata beyond standard trait fields.
 
 ### Mages
 
