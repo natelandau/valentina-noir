@@ -78,6 +78,32 @@ class CharacterTraitService:
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
             raise ValidationError(detail=msg)
 
+    def _guard_has_minimum_renown(self, trait: Trait, character: Character) -> None:
+        """Check if the character meets the minimum renown required for a gift.
+
+        Args:
+            trait: The trait being added.
+            character: The character to check renown for.
+
+        Raises:
+            ValidationError: If the character's renown is below the gift's minimum requirement.
+        """
+        if trait.gift_attributes is None:
+            return
+        if trait.gift_attributes.minimum_renown is None:
+            return
+
+        total_renown = character.werewolf_attributes.total_renown
+        if total_renown < trait.gift_attributes.minimum_renown:
+            msg = (
+                f"Character's Renown ({total_renown}) does not meet the minimum "
+                f"required ({trait.gift_attributes.minimum_renown}) for gift '{trait.name}'"
+            )
+            raise ValidationError(
+                detail=msg,
+                invalid_parameters=[{"field": "trait_id", "message": msg}],
+            )
+
     def _cost_for_dot(self, character_trait: CharacterTrait, dot_value: int) -> int:
         """Return the cost for a single dot at the given value.
 
@@ -403,6 +429,9 @@ class CharacterTraitService:
             raise ValidationError(
                 detail=msg, invalid_parameters=[{"field": "value", "message": msg}]
             )
+
+        if currency != TraitModifyCurrency.NO_COST:
+            self._guard_has_minimum_renown(trait, character)
 
         # Idempotent operation - if the trait already exists, update the value
         character_trait = await CharacterTrait.find_one(

@@ -10,7 +10,12 @@ import pytest
 from beanie import PydanticObjectId
 from beanie.operators import In, Not
 
-from vapi.constants import PermissionsFreeTraitChanges, TraitModifyCurrency, UserRole
+from vapi.constants import (
+    CharacterClass,
+    PermissionsFreeTraitChanges,
+    TraitModifyCurrency,
+    UserRole,
+)
 from vapi.db.models import (
     Campaign,
     Character,
@@ -1176,6 +1181,230 @@ class TestAddConstantTraitToCharacter:
                 value=trait.min_value - 1,
                 currency=TraitModifyCurrency.NO_COST,
             )
+
+
+class TestGuardHasMinimumRenown:
+    """Test the renown guard when adding gifts."""
+
+    async def test_add_gift_insufficient_renown(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify adding a gift fails when character renown is below minimum."""
+        # Given a werewolf character with total_renown=0
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+        assert character.werewolf_attributes.total_renown == 0
+
+        # Given a gift trait with minimum_renown > 0
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift with minimum_renown found in database")
+
+        # When adding the gift with XP currency
+        # Then a ValidationError is raised
+        service = CharacterTraitService()
+        with pytest.raises(ValidationError, match="Renown"):
+            await service.add_constant_trait_to_character(
+                company=company,
+                user=user,
+                character=character,
+                trait_id=gift_trait.id,
+                value=1,
+                currency=TraitModifyCurrency.XP,
+            )
+
+    async def test_add_gift_sufficient_renown(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify adding a gift succeeds when character renown meets minimum."""
+        # Given a werewolf character with enough renown and XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        await user.add_xp(campaign.id, 500)
+        character = await character_factory(
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+
+        # Given a gift trait with minimum_renown > 0
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift with minimum_renown found in database")
+
+        # Set character's total_renown above the requirement
+        character.werewolf_attributes.total_renown = gift_trait.gift_attributes.minimum_renown + 1
+        await character.save()
+
+        # When adding the gift with XP
+        service = CharacterTraitService()
+        result = await service.add_constant_trait_to_character(
+            company=company,
+            user=user,
+            character=character,
+            trait_id=gift_trait.id,
+            value=1,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then the trait is added successfully
+        assert result.value == 1
+
+    async def test_add_gift_no_cost_bypasses_renown_check(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify adding a gift with NO_COST bypasses the renown check."""
+        # Given a werewolf character with total_renown=0
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+        assert character.werewolf_attributes.total_renown == 0
+
+        # Given a gift trait with minimum_renown > 0
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift with minimum_renown found in database")
+
+        # When adding the gift with NO_COST
+        service = CharacterTraitService()
+        result = await service.add_constant_trait_to_character(
+            company=company,
+            user=user,
+            character=character,
+            trait_id=gift_trait.id,
+            value=1,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+        # Then the trait is added successfully despite insufficient renown
+        assert result.value == 1
+
+    async def test_add_gift_no_minimum_renown_succeeds(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify adding a gift with minimum_renown=None skips the check."""
+        # Given a werewolf character with XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        await user.add_xp(campaign.id, 500)
+        character = await character_factory(
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+
+        # Given a gift trait with no minimum_renown requirement
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown == None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift without minimum_renown found in database")
+
+        # When adding the gift with XP currency so the guard is actually invoked
+        service = CharacterTraitService()
+        result = await service.add_constant_trait_to_character(
+            company=company,
+            user=user,
+            character=character,
+            trait_id=gift_trait.id,
+            value=1,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then the trait is added successfully
+        assert result.value == 1
+
+    async def test_add_non_gift_trait_skips_renown_check(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify adding a non-gift trait does not trigger the renown guard."""
+        # Given a werewolf character with XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        await user.add_xp(campaign.id, 500)
+        character = await character_factory(
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+
+        # Given a non-gift trait
+        non_gift_trait = await Trait.find_one(
+            Trait.gift_attributes == None,
+            Trait.is_archived == False,
+        )
+        if non_gift_trait is None:
+            pytest.skip("No non-gift trait found in database")
+
+        # When adding the trait with XP currency so the guard is actually invoked
+        service = CharacterTraitService()
+        result = await service.add_constant_trait_to_character(
+            company=company,
+            user=user,
+            character=character,
+            trait_id=non_gift_trait.id,
+            value=1,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then the trait is added successfully
+        assert result.value == 1
 
 
 class TestCreateCustomTrait:
