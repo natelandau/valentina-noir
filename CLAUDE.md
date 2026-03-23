@@ -51,6 +51,7 @@ duty dev-setup                # Initialize development environment
 - DTO pattern for API contracts (separate from database models)
 - Dependency injection via Litestar's DI system
 - Async-first (all code uses async/await)
+- Use Beanie's native query operators instead of raw MongoDB dicts. Beanie supports Python comparison operators on nested Pydantic BaseModel fields (e.g., `Trait.gift_attributes.tribe_id == tribe_id` not `{"gift_attributes.tribe_id": tribe_id}`).
 
 ## Critical Files
 
