@@ -17,7 +17,6 @@
     ],
     "order": 1,
     "categories": [
-      // Physical
       {
         "name": "Physical",
         "description": "Measure of physical ability. Used to resolve all actions involving fighting, lifting things, running, etc.",
@@ -98,7 +97,6 @@
           }
         ]
       },
-      // Social
       {
         "name": "Social",
         "description": "Measure of charm, attractiveness, and presence. Used to resolve all tasks concerned with trying to coerce, seduce, convince or con someone into doing something.",
@@ -195,7 +193,6 @@
           }
         ]
       },
-      // Mental
       {
         "name": "Mental",
         "description": "Measure of brains, reasoning ability, wits and cunning. Used to resolve all tasks concerned with trying to notice something, puzzle out a clue or think quickly.",
@@ -312,7 +309,6 @@
     ],
     "order": 2,
     "categories": [
-      // Physical
       {
         "name": "Physical",
         "description": "Physical abilities your character can work out on their own or develop intuitively.",
@@ -572,7 +568,6 @@
           }
         ]
       },
-      // Social
       {
         "name": "Social",
         "description": "Social abilities your character can use to interact with others.",
@@ -783,7 +778,6 @@
           }
         ]
       },
-      // Mental
       {
         "name": "Mental",
         "description": "Mental acuity and learned skills that require focus and concentration.",
@@ -1097,7 +1091,6 @@
     ],
     "order": 3,
     "categories": [
-      // Disciplines
       {
         "name": "Disciplines",
         "description": "The supernatural powers a vampire possesses.",
@@ -1389,7 +1382,6 @@
           }
         ]
       },
-      // Spheres
       {
         "name": "Spheres",
         "description": "Magic abilities and mystical powers.",
@@ -1533,7 +1525,6 @@
           }
         ]
       },
-      // Edges
       {
         "name": "Edges",
         "description": "Supernature abilities granted to Hunters",
@@ -2681,7 +2672,6 @@
           }
         ]
       },
-      // Gifts
       {
         "name": "Gifts",
         "description": "Supernature abilities granted to Werewolves.",
@@ -2694,11 +2684,4340 @@
           "WEREWOLF"
         ],
         "order": 4,
-        "initial_cost": 7, // TODO: check if this is correct
-        "upgrade_cost": 3, // TODO: check if this is correct
-        "traits": []
+        "initial_cost": 7,
+        "upgrade_cost": 3,
+        "traits": [
+          {
+            "name": "Blissful Ignorance",
+            "description": "By remaining completely still, the Garou can become invisible to others, including monitoring devices and most spirits. Any attempt to spot the Garou is done at Difficulty 2+ the Gift user's Wisdom. Movement breaks the effect. This is granted by a chameleon-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "When used in attempt to ambush it follows the normal ambush rules, allowing the target a chance to spot the attacker, Wits + Awareness against the attacker's Composure + Stealth.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Crow's Laughter",
+            "description": "A target within sight and hearing can be enticed to attack the user. This is granted by a crow-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene or until resisted",
+              "dice_pool": [
+                "Manipulation",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Insight"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Upon winning the test, the target must attack the user or spend one point of Willpower to resist. This gift can also be used in homid form.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Spider's Song",
+            "description": "The Garou can eavesdrop on any long-distance verbal conversations. Landline conversations must be listened through a telephone wire or cord, to hear cellphones they only need to see the device. This is granted by a spider-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "On the Gift test, a few successes give scattered words, whereas five or more (or critical wins) allow them to hear every word and possibly identify the voices. Encryption increases the Difficulty by 1 or more. This gift can also be used in homid form.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Umbral Pocket",
+            "description": "Send a small object hidden on one's person into the Umbra.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene or until removed",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The item cannot be found except by those who can see into the Umbra, and can be retrieved by the Gift's user at will.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Blur of the Milky Eye",
+            "description": "The Garou gains their Wisdom bonus to all stealth tests and physical defensive attacks. This is granted by a chameleon-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "This Gift ends when they directly interact with a subject, such as attack or conversation.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Open Seal",
+            "description": "Mechanical locks or bars open automatically. Electronic or supernatural devices required a Gift test with a Difficulty set by the Storyteller. This is granted by a raccoon-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene or until resisted",
+              "dice_pool": [
+                "Manipulation",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "The Difficulty can be 2 for regular electronic locks up to 5 for sorcery augmented fingerprint scanners. In some cases, locks may be beyond this Gift's ability to open as determined by the Storyteller.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Pulse of the Prey",
+            "description": "The werewolf can track down an individual. Humans who are not hiding do not require a Gift test to be located. This is granted by a dog-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One session",
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [
+                "Intelligence",
+                "Streetwise"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Supernatural or humans who are actively hiding must be tested against. Time required depends on the distance to the target and the result of the roll, supernatural ways to hide can increase the Difficulty. This gift can also be used in lupus form.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Scent of Running Water",
+            "description": "The Garou can make themselves impossible to track through mundane means and difficulty through supernatural means by removing their physical evidence of passing through. This is granted by a fox-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "Free",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "They also gain their Wisdom as a bonus to avoid supernatural tracking. This Gift is free to activate, but they can spend 1 Willpower to extend the Gift's effects to their pack for one scene. This gift can also be used in lupus form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Luna's Blessing",
+            "description": "With the moon visible to the Garou, they howl and are no longer weak to silver. This is granted by a Lune.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check + 1 Willpower",
+              "duration": "One night",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Silver damage is taken, up to the Wisdom level of the user, as Superficial.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Thieving Talons of the Magpie",
+            "description": "The Garou can steal the supernatural powers (Gifts, vampire powers or equivalents) of others for their own use. The ability must be learned by the target and witnessed by the user. This power becomes unavailable to the original owner while in Garou's possession. Granted by magpie spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One turn for each Willpower spent",
+              "dice_pool": [
+                "Intelligence",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The Gift test is made against the level of the power, such as Rank of a Gift and if another supernatural trait, the Storyteller determines it's appropriate Difficulty. The Garou is able to use it upon the next turn, using Honor as a replacement for any non-Garou traits needed.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "The Thousand Forms",
+            "description": "Transform into any mundane animal, from a bear to a chicken. They are still limited in communication as when in lupus form. Particularly small, large or exotic forms may increase the Difficulty by 1 or more as determined by the Storyteller. This is granted by a Wyld-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 or more Rage Checks",
+              "duration": "One scene",
+              "dice_pool": [
+                "Dexterity",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Upon a fail, the user can attempt again by making another Rage Check and adding the successes from their previous attempt. The user keeps their Mental Attributes but their other pools depend on the shape taken. This gift can be used in any form.",
+              "tribe_name": "Red Talons",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Whelp Body",
+            "description": "Weaken and shrivel the body of a target, the use of this Gift on another Garou is considered a dire affront. This is granted by a disease-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One story",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Stamina",
+                "Occult"
+              ],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "This can be used on a target within sight and five meters. For each success from the user's margin, the target loses a single dot from one of their Physical Attributes with a minimum of 0. The effects last for the rest of the story, but can become permanent up to the Storyteller's discretion.",
+              "tribe_name": "Black Furies",
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Ensnare Spirit",
+            "description": "Weaken a spirit within the same realm, giving them a two-dice penalty to resist the user's will. This can also stop a spirit unless they are able to break free with a resistance roll. This is granted by a weaver-spirit of law.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Wits",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Power"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "This Gift does not work on hostile spirits and attempts to harm the spirit breaks the Gift.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Mother's Touch",
+            "description": "Heal other creatures with a Gift test, for as many successes rolled. However, this Gift cannot heal spirits or the undead. This is granted by a bear-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Intelligence",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "If the amount of successes is greater than the subject's Rage, it is possible to heal one Aggravated instead of one Superficial. This gift can also be used in any form.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Shadow Sense",
+            "description": "Determine if supernatural creatures or elements are nearby without pinpointing the exact location or identity. This is granted by a raven-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One turn",
+              "dice_pool": [
+                "Wits",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The Difficulty of the Gift test is 2, but can be modified by powers that allow creatures to hide their supernatural features.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Sight from Beyond",
+            "description": "The Garou receives unclear visions, that can warn for future choices or immediate danger. This can be used either by choice once per scene by spending 1 Willpower and making the Gift test or given freely by the Storyteller. This is granted by a dream-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower or free",
+              "duration": null,
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "When given freely, the Storyteller determines if a Gift test is needed, with the amount of successes determining how clear it is and what clues are gained.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Entreat",
+            "description": "Temporarily bond with a spirit to gain some of its abilities.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Power"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Although the spirit does not need to be willing, it cannot be in active conflict with the Gift user.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Summon Implement",
+            "description": "Instantly summon a talisman or Dedicated item.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Resolve",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The summoned item must belong to or be Dedicated to the Gift user.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Grasp from Beyond",
+            "description": "Bring objects in and out of the Umbra. This is granted by a magpie, beaver, or possum spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1-3 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Resolve",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Willpower amount needed depends on the size of the object with a small object being 1 and large objects being 3.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Mindspeak",
+            "description": "Send and receive thoughts to a single subject, which can establish two-way communication.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene or until contact breaks",
+              "dice_pool": [
+                "Resolve",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "This Gift does not allow the user to read minds. This Gift can also be used in any form.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Umbral Tether",
+            "description": "Create a thread that allows the user to find their way back to the Umbra entry point.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "This also grants their Wisdom rating as bonus dice to navigate the Spirit Wilds. This Gift can also be used in any form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Bolt Hole",
+            "description": "Retreat into a personal, room-sized pocket of the Umbra.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Composure",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Additional people up to the margin of the win can be brought inside by holding onto the user while the Gift is used.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Command Spirit",
+            "description": "Allows the Garou to issue commands to a spirit that must be followed through upon. This is granted by a Incarna avatar.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Power"
+              ],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "This Gift does not work to summon spirits, banish spirits, or inflict harm on themselves.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Drain Spirit",
+            "description": "Suck the essence of a spirit and heal superficial Willpower. This is granted by a leach or lamprey-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Resolve",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Failure of the contest gives one point of Aggravated Willpower damage to the user. This can only affect the same spirit once per scene.",
+              "tribe_name": "Black Furies",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Feral Regression",
+            "description": "Erode a victims Mental Attributes, turning them more animal-like. This is granted by Various Wyld gafflings.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One story",
+              "dice_pool": [
+                "Intelligence",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Resolve",
+                "Occult"
+              ],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The effects last for the rest of the story, they can be become permanent dependent on the Storyteller. Attributes cannot go below 0.",
+              "tribe_name": "Red Talons",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Living Ward",
+            "description": "The Garou can turn themselves into a ward against spirits, preventing them from coming within three meters. This is granted by a legendary wolf-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene unless ended earlier",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Power"
+              ],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "They cannot perform any other actions during this.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Gaia's Candor",
+            "description": "Determine if someone believes their answer is the truth based on scent. This is granted by a truth-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One question",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Subterfuge"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "No test is required for humans unaware of the Garou. Victims can refuse to answer.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Porcupine's Reprisal",
+            "description": "When receiving brawl or melee damage, the user can make a Rage Check to deal superficial damage equal to their Glory back on the attacker. This is granted by a hedgehog-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The damage dealt cannot surpass the amount of damage received from the initial attack.",
+              "tribe_name": "Black Furies",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Sense the True Form",
+            "description": "Determine if someone is something other than a mundane human through sense of smell. This is granted by a vulture-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Wits",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "If they have not met the creature before they may not identify the scent. The Gift can be used in any form.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Indomitable Spirit",
+            "description": "Ignore the effects of injury.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The Gift user ignores physical impairment penalties upon activation.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Beast's Fealty",
+            "description": "Command the loyalty of a single animal. This is granted by a falcon or lion-spirit of law.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "Until lapsed",
+              "dice_pool": [
+                "Charisma",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "This lasts until until the Garou releases the animal or it dies, this can only be used on one animal at a time.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Command the Gathering",
+            "description": "Draw the attention of those within hearing and viewing distance, regardless if they speak the same language. This is granted by a bird-of-paradise-spirit or another eye catching spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene or until it is broken or lapses",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Add the Garou's Glory to their dice pools to any public speech/presentation with the Skills Persuasion or Performance. Cannot be used in combat and breaks when any physical altercation begins.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Fangs of Judgment",
+            "description": "Bolster their allies claws and fangs against a single enemy who has previously harmed the pack. This is granted by any number of predator-spirits.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "Until the target dies or the sentence is revoked.",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "A successful Gift test at Difficulty 3, grants the pack a +1 damage against the target. This can only be used one target and cannot stack by others using the same Gift.",
+              "tribe_name": "Red Talons",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Scent of the Past",
+            "description": "By smelling an object, the Garou can determine events that unfolded in the area. This is granted by a crow-spirit or other spirits that thrive in multiple environments.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One turn",
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "The Difficulty is determined by the information sought, with each point of margin revealing more information. This can be used in lupus form.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Calcify",
+            "description": "Make a physical feature more difficult to open, destroy, or otherwise bypass.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Composure",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Cannot affect a material beyond a radius of one meter.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Geas",
+            "description": "Command another to perform a task, but it cannot be used to extract information. Commands that would result in direct harm automatically fail. This is granted by a weaver-spirit and spirits that observed rigid hierarchies.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "Completion of task, scene ends, or geas is lifted.",
+              "dice_pool": [
+                "Manipulation",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Other supernatural creatures or those aware of the Garou can resist the command, or if it goes against their nature or would cause harm those they love.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Oathbreaker's Bane",
+            "description": "Bind another to a promise, one that they understand and accept. This is granted by a elephant or snake-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "Indefinite or until oath is broken",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The oath giver receives a bonus to track down the oathbreaker equal to their Honor.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Strength of Purpose",
+            "description": "Roll one die for each point of Honor and heal one point of Superficial Willpower damage for each success or one of Aggravated Willpower per two success. This is granted by a stone or fire-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "This Gift can only be used once per session. This Gift can be used in any form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Take the True Form",
+            "description": "Force a shapeshifting creature to return to its \"natural\" form. This is granted by a river-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "Margin number of turns or until user changes form",
+              "dice_pool": [
+                "Manipulation",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Stamina",
+                "Resolve"
+              ],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "This Gift can be used in homid or lupus form.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Animal Magnetism",
+            "description": "Exudes a feral aura that draws the attention of humans. This is granted by a peacock-spirit or spirit associated with attraction.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Grants Glory as bonus dice against humans with Social Skill tests.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Howl of Assembly",
+            "description": "Heal a Willpower point of other Garou who join in the presence of the user, each margin increase the range by 100 meters. This is granted by a song-spirit or a spirit of an animal known for its unique call.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Charisma",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "This can only affect a character once per session. This Gift can be used in lupus form.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Song of Rage",
+            "description": "The Garou can sing a song to increase nearby packmates rage by 1.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Two points of Rage are given on a critical win. Characters can only be affected by this once per session.",
+              "tribe_name": "Red Talons",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Song of Serenity",
+            "description": "The Garou can sing a song to decrease nearby packmates rage by 1.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Composure",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Two points of Rage are lost on a critical win with a minimum of 1. This power can also help snap pack members out of frenzy. Characters can only be affected by this once per session.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Howl of Despair",
+            "description": "Inflict Willpower damage on non-allies in earshot with a howl.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Affects everyone in earshot except for the Gift user's pack. Can also be used in lupus form.",
+              "tribe_name": "Black Furies",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Lullaby",
+            "description": "Force a target to fall asleep.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "Until awoken or the scene ends",
+              "dice_pool": [
+                "Composure",
+                "Wisdom"
+              ],
+              "opposing_pool": [
+                "Wits",
+                "Resolve"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The victim can be awoken as easily as normal sleep, unless a critical win was scored against them. Supernatural targets ignore this critical condition and can resist the Gift entirely by spending Willpower.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Call the Ridden",
+            "description": "Attract creatures possessed by spirits. This is granted by any spirit with the ability to posses.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Composure",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Resolve",
+                "Insight"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Those unable to resist will make every effort to reach the user, but will not go through any obvious hazards.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Eyes of the Cobra",
+            "description": "Draw in a victim as if they are in a trance. This is granted by a snake-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "One scene or until broken",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Those who are aware of the Garou or supernatural creatures can attempt to resist. Any violence towards the victim or other life threatening situations break the trance.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Song of Inspiration",
+            "description": "The Garou can sing a song to buff either a Mental or Social Skill for their packmates.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Manipulation",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "On a win, other members of the pack gain a bonus die for tests using that Skill, a critical win increases the bonus to two dice.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Against the Odds",
+            "description": "Restore superficial Willpower of the Gift user and pack. This is granted by a warthog or badger-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Each success of the test heals one Superficial Willpower. This can only be used once per story.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Break the Shackles",
+            "description": "Break mind control or coercion from another supernatural. This is granted by any winged spirit, or spirits associated with Gorgon.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Resolve",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The Storyteller can allow the victim to add their Resolve to the Gift test pool if they are actively trying to resist as well.",
+              "tribe_name": "Black Furies",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Defy Death",
+            "description": "Rapidly heal when they are fully filled with Aggravated damage. This is granted by a wolf or bear-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "Free",
+              "duration": null,
+              "dice_pool": [
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Each success heals one level of Health damage. This can only be used once per session and can be used in any form.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Dreamwalk",
+            "description": "Use a spirit to enter another's dreams, leaving messages to scare them or better understand them. This is granted by a dream-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Wits",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "If the attempt is to scare the victim, they gain no Willpower and lose an additional Willpower for each success of margin. This Gift can also be used in any form.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Halt the Coward's Flight",
+            "description": "Those attempting to flee have their movement reduced to walking speed and airborne targets brought down to the ground. This is granted by a bog-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Survival"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "This generally works on any mundane victim, whereas supernatural creatures can attempt to resist as determined by the Storyteller.",
+              "tribe_name": "Black Furies",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Rapid Shift",
+            "description": "Rapidly shapeshift with a risk for damage. This is granted by any Gaian spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "Free plus any form costs",
+              "duration": null,
+              "dice_pool": [
+                "Dexterity",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The Difficulty is dependent on the form; homid is 1, glabro and hispo is 2, and crinos is 3. Minor action penalty is removed, this can be used in any form.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Razor Claws",
+            "description": "Grow supernaturally sharp claws. This is granted by a predatory animal spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "This is free and instant for crinos and deal damage equal to half their Glory (rounded up).",
+              "tribe_name": "Red Talons",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Sense Danger",
+            "description": "Add the users Wisdom to any attempt to detect traps, ambushes or other surprise attacks. This is granted by a prey animal spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": null,
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "This should only be added when failure will result in immediate danger.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Tug the Leash",
+            "description": "Gain control over oneself while frenzying and leave frenzy more easily.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "Free",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The Gift user can make a test to choose a target to attack, but must still attack someone.",
+              "tribe_name": "Red Talons",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Snarl of Challenge",
+            "description": "Reduce attackers pools by two dice when they attack anyone but the user. Gain additional Health equal to the Honor upon success. This is granted by a bear-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Insight"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "The additional Health only absorbs one point of Superficial damage each. They do not protect against Aggravated damage.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "True Fear",
+            "description": "Instill fear to drive the victim away or terror that freezes the victim in place. This is granted by spirits of Fear.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Mundane victims are automatically affected, supernatural creatures and those aware of the Garou may resist. Supernatural may shake off the effect after one turn by spending one point of Willpower.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Wind Claws",
+            "description": "Ignore armor and damage reduction by an amount equal to the user's Wisdom. This is granted by a wind-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Wits",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "This is instant and free for crinos form.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Light of the Moon",
+            "description": "Glow brightly enough to blind anyone looking directly at oneself and damage nearby vampires.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene or until ended",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Wits",
+                "Composure"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Ends early if the Gift user is incapacitated or chooses to end the Gift.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Closing the Gap",
+            "description": "Move long distances to close the gap between them and an enemy. This is granted by a grasshopper or mantis-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One turn",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The amount covered is equal to 3 meters times their total Glory. They cannot go through things not physically possible to traverse.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Kiss of Helios",
+            "description": "Take no damage from fire and reduce damage from stronger sources by the Glory per turn. This is granted by a sun ray-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "Anyone who strikes barehanded takes Superficial damage equal to the user's Glory.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Luna's Armor",
+            "description": "Turn Aggravated damage from fire or silver into Superficial. This is granted by a Lune.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The amount turned is equal to their Honor, but it is not halved.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Silver Claws",
+            "description": "Turn the Garou's claws into silver to deal massive damage to other Garou. This is granted by a spite-spirit or elemental spirit of silver.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "This is free and instant for crinos form.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Catfeet",
+            "description": "Automatically succeed any test to keep their balance, as long as it can hold their weight. This is granted by a cat-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "This gift can be activated reflexively if surprised with a Wits + Survival test Difficulty 3. Can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "An Exchange with Luna",
+            "description": "Send one's Rage away, to be summoned back later.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "Free",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "Regain all Rage lost this way with a Resolve + Honor test at Difficulty 3, while one can see the moon. Can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Eyes of the Owl",
+            "description": "Grants the ability to see in complete darkness. This is granted by an owl- or cat-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "Should the source be supernatural, they can their Wisdom as bonus dice if there is a resistance pool.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Hare's Leap",
+            "description": "Leap great distances horizontally or vertically. This is granted by a leaping animal spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Strength",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "For every success on the test, they leap 3 meters.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "The Howl Carries",
+            "description": "Have a howl-based message travel further by being repeated by ordinary wolves.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "Until dusk or dawn",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "Garou and some spirits can notice the unusual nature of the relayed howl, but not humans. The effect can be contained to the bawn of one's caern by making a Rage Check.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Penumbral Senses",
+            "description": "This allows the Garou to perceive both the physical realm and the Umbra at the same time without penalty. This is granted by a pattern spider.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "The test is performed against the Difficulty of the local Gauntlet (2-5 generally).",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Raging Strike",
+            "description": "Garou channel their Rage into their strikes.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One attack",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "Gain a dice bonus equal to their Glory on a single Brawl attack. This is granted by a dire wolf-spirit.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Resist Toxin",
+            "description": "Become more resistant to poisons, diseases, drugs, and similar toxic substances.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Stamina",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "A test to resist can be made against an appropriate Difficulty if one would not normally occur. Recreational drugs can be resisted by making a Rage Check and rolling against Difficulty 2.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Shredding Skin",
+            "description": "Sacrifice health instead of Rage to change form.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "Free",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "Associated with the Wyrm. The pain that this Gift inflicts does not grant Rage.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Staredown",
+            "description": "When used on a single human or animal, they get out of the Garou's way while cowering from them. Succeeds automatically on unaware mortals. This is granted by a legendary wolf-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 1,
+              "is_native_gift": true,
+              "notes": "When used against supernatural creatures or mortals aware of the Garou, a test must be made. A subject can be targeted by this power only once per scene and itcannot be used during physical combat. This can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Bestial Regression",
+            "description": "Make a touched victim unable to communicate in any way beyond simple grunts and growls",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Wisdom"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "Humans rationalize being affected by this Gift due to the Delirium, while supernatural beings can ignore it with Willpower but suffer a penalty to social rolls for the remainder. Can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Bite of the Lycan",
+            "description": "Induce violent impulses in a bitten human.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One night per margin of success",
+              "dice_pool": [
+                "Manipulation",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "Associated with the Wyrm. The effects of this Gift intensify with each passing night, with the victim only fully succumbing from the third night onwards.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Gnaw",
+            "description": "Gain a bonus to chew through any physical barrier or restraint.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "Can be used in crinos, hispo or lupus form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Sharpened Senses",
+            "description": "Heightens the werewolf's senses. While in Glabro they gain the senses of awolf, whereas in crinos, hispo or lupus sharpen to that of a human. This is granted by a wolf-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "The Difficulty of all Awareness tests are lowered by the character's Wisdom, minimum of 2. This can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Spirit of the Fray",
+            "description": "The Garou can attack additional opponents within range, up to the character's Glory without a penalty. This is granted by an wolverine- or badger-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check per additional opponent",
+              "duration": "One attack",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "A single attack roll is made an applied to every opponent engaged and covered by the cost. Any other bonuses of the attack apply to all opponents.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Thwarting the Arrow",
+            "description": "Grant a bonus equal to their Honor to all test to avoid projectile weapons. This is granted by a Weaver vector-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "This Gift can only be used in crinos form.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Urban Hunter",
+            "description": "Gain a bonus to hunting a certain quarry while within an urban setting.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 4,
+              "is_native_gift": true,
+              "notes": "Associated with the Wyrm.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Body Shift",
+            "description": "Finetunethe shape of physical body to become stronger, smaller, or more dense without changing forms completely. This is granted by a water-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Stamina",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 7,
+              "is_native_gift": true,
+              "notes": "The Gift test is made at Difficulty 2. For each success of the margin they can redistribute one dot from one Physical Attribute to another. No Attribute can be reduced below 0 or taken above 5. Up to the Storytellers discretion, this Gift also allows the user to fit into small spaces, with the Difficulty based on the dimensions of the space.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Jam Technology",
+            "description": "Temporarily wreak havoc on technology so that it no longer works. Once the duration expires, its normal operation resumes. This is granted by a Wyld spirit of discord.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 7,
+              "is_native_gift": true,
+              "notes": "The Gift test is madeagainst a Difficulty as determined by the device complexity level, all equipment within 20 meters stops working based on the number of successes. It is possible to take out a wider range of devices than intended. Refer to the chart on page 148 of the Corebook.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Tongue of the Beasts",
+            "description": "Communicate and speak freely with any animal as if they were a person, only limited by the animal's perspective and mind. This is granted by a lion- or moose-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Manipulation",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 7,
+              "is_native_gift": true,
+              "notes": "They can be convinced to aid in a task or yield information withthe Difficulties ranging from 2 to 5 depending on how close it is to mammals or how dire the information/task is.",
+              "tribe_name": null,
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Gremlins",
+            "description": "A device within sight and five meters can be rendered useless, if the result is a critical win the device becomes inoperable and beyond repair. This is granted by a havoc-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene or permanent",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "The difficulty of this test is determined by the device complexity level, refer to page 150 of the Corebook for the chart. This gift can also be used in lupus form.",
+              "tribe_name": null,
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Corrupted Memories",
+            "description": "Replace oneself with someone else in the recent memories of a victim.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "Permanent",
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [
+                "Wits",
+                "Resolve"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Associated with the Wyrm. Alters one scene's worth of memories, and can only be used on humans who have no experience with or knowledge of the Garou.",
+              "tribe_name": null,
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Jump Scare",
+            "description": "Show a victim a brief glimpse of the depths of the Umbra to terrify them.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One action",
+              "dice_pool": [
+                "Manipulation",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Wits"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "The victim can resist this Gift's effects by spending Willpower, but then cannot spend Willpower to reroll dice. Can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": "Ragabash"
+            }
+          },
+          {
+            "name": "Hungry Teeth",
+            "description": "Turn one's teeth more dangerous against spirits and fomori and regain Willpower from killing supernatural entities.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Associated with the Wyrm. Free and instantaneous in crinos form.",
+              "tribe_name": null,
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Banish Spirit",
+            "description": "The Garou can send present spirits possessing a host on the same realm back to the Umbra. This is granted by a Incarna avatar.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Power"
+              ],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "The spirit can cause Aggravated damage to it's host equal to Power minus the margin of the test.",
+              "tribe_name": null,
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Ghost Walk",
+            "description": "Turn intangible to pass through a solid surface.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "Until they pass through",
+              "dice_pool": [
+                "Stamina",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 8,
+              "is_native_gift": false,
+              "notes": "The state of intangibility only applies to inorganic surfaces, so this Gift cannot be used to avoid grapples or attacks.",
+              "tribe_name": null,
+              "auspice_name": "Theurge"
+            }
+          },
+          {
+            "name": "Ancestral Conviction",
+            "description": "Gain their Honor as bonus dice on Persuasion Skill tests against other Garou. This is granted by a legendary wolf-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "This can be used in any form.",
+              "tribe_name": null,
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Wyrm-Speech",
+            "description": "Damage spirits and Talismans with a roar or chant.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "As damage inflicted",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Resolve"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Associated with the Wyrm. Critical successes can deal partial Aggravated damage or permanently destroy Talismans.",
+              "tribe_name": null,
+              "auspice_name": "Philodox"
+            }
+          },
+          {
+            "name": "Cutting Words",
+            "description": "Inflict social and mental impairment on a target in a conversation, along with visible blood loss",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One turn per point of margin",
+              "dice_pool": [
+                "Manipulation",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Intelligence"
+              ],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Associated with the Wyrm. The inflicted blood loss only causes actual damage on a Brutal Outcome. Aside from the blood, the conversation appears normal to those without supernatural senses.",
+              "tribe_name": null,
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Song of Valor",
+            "description": "The Garou can sing a song to buff their packmates Willpower rerolls.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "Willpower rerolls can roll any amount of dice, rather than just 3. It cannot be used to reroll Brutal results. This Gift can only be used once per session.",
+              "tribe_name": null,
+              "auspice_name": "Galliard"
+            }
+          },
+          {
+            "name": "Mouth Full of Teeth",
+            "description": "Fill one's mouth with deadly but fragile additional fangs.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene or until the fangs' damage becomes 0",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 2,
+              "is_native_gift": false,
+              "notes": "Associated with the Wyrm. Every bite attack reduces the damage bonus by 1, and once it reaches 0 the Gift user cannot make any bite attacks until they rest in their breed form.",
+              "tribe_name": null,
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Primal Anger",
+            "description": "Inflict one Aggravated Damage to a victim and gain Rage. This is granted by a legendary wolf-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": null,
+              "duration": null,
+              "dice_pool": [
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 5,
+              "is_native_gift": false,
+              "notes": "The amount of Rage gained is dependent on the number of successes on a Glory test. This can only be used once per session.",
+              "tribe_name": null,
+              "auspice_name": "Ahroun"
+            }
+          },
+          {
+            "name": "Curse of Aeolus",
+            "description": "Call upon a fog to cover the area. This is granted by a fog-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "Those in the fog suffer a negative two dice penalty to Awareness and Firearms tests. This Gift can also be used in any form.",
+              "tribe_name": "Black Furies",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Coup de Grâce",
+            "description": "Add the Glory rating into their next attack to end the opponent in one hit. This is granted by any spirit associated with pride.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "Next Brawl or Melee attack, or the scene ends",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "Only works if the damage would reduce the opponents Health to 0.",
+              "tribe_name": "Black Furies",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Kali's Scar",
+            "description": "Any damage dealt by these claws cannot be healed even with supernatural means. This is granted by a rot-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "A night and a day",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The user also gains bonus dice equal to their Glory in attempts to track or locate the victim while the Gift is active.",
+              "tribe_name": "Black Furies",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Wasp Talons",
+            "description": "Make ranged attacks with their claws. This is granted by a wasp-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": null,
+              "duration": null,
+              "dice_pool": [
+                "Dexterity",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "Gain one Superficial damage from their claws being damaged and cannot use claw attacks until this is healed.",
+              "tribe_name": "Black Furies",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Gorgon's Visage",
+            "description": "Paralyze someone by making eye contact. This is granted by an avatar of Gorgon.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Wits",
+                "Occult"
+              ],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Those who break free cannot be paralyzed again for the remainder of the scene.",
+              "tribe_name": "Black Furies",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Odious Aroma",
+            "description": "Stop others from coming near the Garou by releasing a horrible stench. This is granted by a skunk-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Stamina",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Survival"
+              ],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This Gift can only be applied outside of combat. This Gift can also be used in any form.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Face in the Crowd",
+            "description": "Disappear into a crowd to shake off pursuers, adding their Honor rating to the Difficulty rating to find them. This is granted by a roach-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "This can only be used in homid form or lupus form, depending on which group they are blending into.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Streets Tell Stories",
+            "description": "Listen in on nearby conversations by placing their ear to the ground. This is granted by a city-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "Upon success the conversation can be heard as if they were there, but it does not pick up ambient sounds such as cars or the other end of a phone conversation. This Gift can also be used in any form.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "A Thousand Eyes",
+            "description": "See through the eyes of any animal nearby as long as they are cockroach sized are larger. This is granted by an ant-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Wits",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Should the animal be killed while the Gift is being used, the user suffers one point of Aggravated Willpower damage.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Between the Cracks",
+            "description": "Disappear and reappear through a crack that is the result from wear or damage. This is granted by a spirit of shadow, decay, or ruin.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One turn",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "The Garou must be able to see both cracks.",
+              "tribe_name": "Bone Gnawers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Brother's Scent",
+            "description": "Blend into a group as long as their form matches those around them. This is granted by an avatar of Unicorn.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This Gift only works in Homid form unless it's a Garou gathering, this also doesn't prevent them from being noticed for acting unfit to the situation or if the person looking already knows them by sight.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Calm the Furious Beast",
+            "description": "Bring another supernatural creature out of Frenzy. This is granted by a legendary wolf spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Composure",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The Gift test is made against the target's current Rage or Difficulty 3 for other supernaturals. This Gift can also be used in any form.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Reveal Trauma",
+            "description": "Learn of a targets greatest physical, mental, or supernatural ailment. This is granted by a spirit of suffering.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "Any attempt to help heal or repair gains a two-dice bonus. This Gift can also be used in any form.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Life's Presence",
+            "description": "The user becomes aware of all mundane life as well as any supernatural. This is granted by a spirit of the soil.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Composure",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Only those that feign a living body can be detected, either through possessing a body or feigning life.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Share the Pain",
+            "description": "Take away half of the physical damage a packmate would receive and the user takes it as either as Health or Willpower. This is granted by a bee-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "The Garou picks a number of packmates equal to their Wisdom. Any defensive Gifts used by the user apply as normal.",
+              "tribe_name": "Children of Gaia",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Camouflage",
+            "description": "Blend into the wilderness. This is granted by a deer-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "By spending a full turn and 1 Willpower they can increase this to their entire pack, should they move or make any sound it breaks. This Gift can also be used in any form.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Lacerating Wind",
+            "description": "Target a group of foes with powerful wind that reduces their physical attack pools by 2. This is granted by an avatar of the north wind.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "Margin turns",
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Stamina",
+                "Survival"
+              ],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "It can also be used against a single target to knock them off their feet or off whatever they are standing on.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Chill Cloak",
+            "description": "Add their Honor rating to any Stealth, Survival, or Larceny attempt when avoiding heat based, movement based or light based sensors. This is granted by a alligator-spirit or other cold-blooded predatory spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "By spending a full turn and 1 Willpower they can extended this effect to all packmates nearby.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Blood of the Wastes",
+            "description": "The user becomes immune everything but the most extreme environmental conditions. They are able to travel for long periods of time without shelter. This is granted by hardly or hibernating spirit such as a bear or turtle-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "Free",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Add their Honor rating to any tests of Survival to find food or water, also reduce environmental penalties by their Honor rating. This Gift can also be used in any form.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Claws of Frozen Death",
+            "description": "Create claws that when they hit someone they receive a two-dice penalty to defend or dodge future attacks. This is granted by a ice or winter-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage",
+              "duration": "One scene",
+              "dice_pool": [
+                "Wits",
+                "Honor"
+              ],
+              "opposing_pool": [
+                "Stamina",
+                "Survival"
+              ],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "This is instant and free in Crinos form.",
+              "tribe_name": "Galestalkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Augur",
+            "description": "Look into a reflective surface and see through another reflective surface in another area. This is granted by a water-spirit or spirit associated with knowledge.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "They cannot hear or smell what is going on, only able to see. This Gift can also be used in any form.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Blackout",
+            "description": "Extinguish one light source within eyesight per dot of Wisdom. This is granted by a spirit associated with darkness or are nocturnal animal.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "Those who cannot see in the dark and/or do not have a light source are subject to a penalty. This Gift can be used in any form.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Serpent's Coil",
+            "description": "Summon a snake like fog to restrict opponents. This is granted by a constrictor snake-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene until ended or destroyed",
+              "dice_pool": [
+                "Wits",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The serpents share three Health levels and use the user's Wits + Wisdom to avoid and take attacks, but can only be attacked with fire or supernatural attacks that hurt the incorporeal.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Hands of the Earth",
+            "description": "Move large or small objects at a distance. This is granted by a earth or stone-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "Up to one scene",
+              "dice_pool": [
+                "Resolve",
+                "Wisdom,"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The Garou must concentrate for the full turn to use the Gift and do nothing else while using it.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Shrouded Aspect",
+            "description": "The Garou becomes invisible to onlookers and conventional cameras. This is granted by a smoke-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "A number of turns equal to the Wisdom of the user",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "The Garou can not move faster than a walking pace or it will break.",
+              "tribe_name": "Ghost Council",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Skinbind",
+            "description": "Transform mundane items into a tattoo-like image on their skin, the items cannot be too heavy for them to lift and the weight is still felt. This is granted by a moth-spirit or a spirit associated with drawing/writing.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "Indefinitely",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "Store an amount of objects up to their Wisdom rating and non-mundane may come with side effects. Storing the item takes a full turn but retrieving it is a minor action.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Energize",
+            "description": "Power any object as if it was plugged in or fueled up.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1+ Rage Checks",
+              "duration": "One scene / Margin of turns",
+              "dice_pool": [
+                "Resolve",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "This Gift does not repair destroyed items and does not equate them having knowledge to use it.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Control Machine",
+            "description": "Issue simple commands to machines. This is granted by a machine-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "Up to one scene",
+              "dice_pool": [
+                "Manipulation",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "The commands cannot harm the machine.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Doppelganger",
+            "description": "Take on the likeness of another humanoid or wolf. This is granted by a shadow or mockingbird-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Manipulation",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "The Gift user must know the subject being copied by face. This Gift can also be used in any form.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Recover Memory",
+            "description": "Retrieve damaged or destroyed information from an object. This is granted by a data-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "This Gift does not give the ability to understand the material, additional tests may be required. This Gift can also be used in any form.",
+              "tribe_name": "Glass Walkers",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Sacred Boundary",
+            "description": "Create a boundary that when broken while still active gives the user a glimpse of the movement. This is granted by a dog-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "Free",
+              "duration": "A day or a night or until broken",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This lasts either for a day and a night unless the objects anchoring it are moved/destroyed. This Gift can also be used in any form.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Blessed Brew",
+            "description": "Infuse a drink so that it increases resistance to fear or supernatural mental abilities by adding the Gift users Glory to the resistance pool . This is granted by a hearth or herb-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "Up to one session",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This Gift can only be used once per session and can also be used in any form.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Territorial Dominance",
+            "description": "The user gains a bonus die on marked territory. This is granted by a lion-spirit or other feral cat-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "A number of nights equal to the user's Glory",
+              "dice_pool": [
+                "pool"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "Damage to the territory gives Willpower damage to the user.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Balor's Gaze",
+            "description": "Look upon someone and cause horrible paint with a 2 dice penalty to all tests. This is granted by a pain-spirit or spirit of age and time.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Charisma",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Occult"
+              ],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Only one subject can be affected at any given time.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "The Living Wood",
+            "description": "Use nature to protect themselves, anyone attempting to harm them must deal with grapple attacks from nearby trees and plants. This is granted by a Glade Child.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Manipulation",
+                "Glory"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "If there are no suitable plants or trees the gift fails.",
+              "tribe_name": "Hart Wardens",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Hidden Killer",
+            "description": "Cover up how someone died. This is granted by a beetle or spider-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "Mundane attempts to gather information fail, those familiar with the Garou can make the attempt but suffer a dice penalty equal to the Gift user's Honor.",
+              "tribe_name": "Red Talons",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Render Down",
+            "description": "Rot or erode any inert material they touch. This is granted by a insect-spirit or a spirit associated with carrion.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": null,
+              "dice_pool": [
+                "Resolve",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "The process takes a few minutes, where the user must maintain contact with the object.",
+              "tribe_name": "Red Talons",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Gaia's Embrace",
+            "description": "Pull those flying to the ground. This is granted by a rock and mountain-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "Up to one scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "Maintaining this Gift requires the users' full attention and lapses when they perform another action or use another Gift.",
+              "tribe_name": "Red Talons",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Quicksand",
+            "description": "Turn the ground into a sticky surface that gives a 2-dice penalty to all physical defense pools and reduces movement to a slow walking pace. This is granted by a earth elemental.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Intelligence",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "This Gift can only be used on natural ground, not indoors or paved surfaces.",
+              "tribe_name": "Red Talons",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Shield of the Wyld",
+            "description": "Ignore physical damage levels equal to the user's Honor each turn as long as it's caused by mundane weapons. This is granted by a Serpentine-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Natural weapons such as claws and fangs are unaffected and while this is active the user cannot use tools or technological devices.",
+              "tribe_name": "Red Talons",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Fatal Flaw",
+            "description": "Learn a method not yet known to deal Aggravated damage to a target, if there is nothing they gain a bonus die to attacks. This is granted by a termite-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": null,
+              "dice_pool": [
+                "Intelligence",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Composure",
+                "Subterfuge"
+              ],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "During the full turn studying they can do nothing else. This Gift can also be used in any form.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Icy Chill of Despair",
+            "description": "Gain Glory as bonus dice for Intimidation tests. This is granted by a Stormcrow.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "Those nearby, other than the packmates, cannot reroll using Willpower or regain Willpower other than through mystical means.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Dire Distraction",
+            "description": "Cause a distraction that makes the target lose dice equal to the user's Glory on their next action. This is granted by a shadow-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "One action",
+              "dice_pool": [
+                "Composure",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Wits",
+                "Occult"
+              ],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "A subject can only be affected by this Gift once per scene. This Gift can also be used in any form.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Thunderclap",
+            "description": "Stun everyone within 20 meters. This is granted by a Incarna of Thunder.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Rage Check",
+              "duration": "One turn / one scene",
+              "dice_pool": [
+                "Strength",
+                "Glory"
+              ],
+              "opposing_pool": [
+                "Stamina",
+                "Wits"
+              ],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Those who pass receive a two-dice penalty to any action other than to defend for a turn, unless it's a critical. Everyone else is knocked to the ground.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Under the Gun",
+            "description": "Touch someone and they can no longer use Gifts to dodge projectiles, attackers also gain two bonus dice against the victim with projectiles. This is granted by a raven-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "GLORY",
+              "cost": "1 Willpower",
+              "duration": "One day per dot of Glory",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "Can be removed by the Rite of Abjuration.",
+              "tribe_name": "Shadow Lords",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Fetch Bounty",
+            "description": "Locate mundane nonliving objects. This is granted by a magpie-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Wits",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This Gift can also be used in any form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Speech of the World",
+            "description": "Read and speak any living language. This is granted by a parrot-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Intelligence",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This Gift can also be used in any form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Whispered Passage",
+            "description": "Muffle the natural sounds when moving. This is granted by a cat-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This Gift can also be used in any form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Burrow",
+            "description": "Rapidly tunnel into the earth to get past obstacles or seek shelter. This is granted by a mole-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [
+                "Strength",
+                "Wisdom"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The tunnels are unstable and only last one scene.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "The Golden Path",
+            "description": "Add the users Wisdom rating to test to navigate an area with static danger or obstacles. This is granted by a ant-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "WISDOM",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "This bonus can be shared with packmates if the user can communicate with them. This Gift can also be used in any form.",
+              "tribe_name": "Silent Striders",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Pack Instinct",
+            "description": "The Garou has instinctual knowledge of the whereabouts of their packmates. This is granted by a bee or other hive insect-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Willpower",
+              "duration": "One scene",
+              "dice_pool": [
+                "Composure",
+                "Honor"
+              ],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "They must be within a 10-kilometer radius. This Gift can also be used in any form.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "The Silver Compact",
+            "description": "Invoke a compact and receive protection from an otherwise hostile spirit. This is granted by a -spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 3,
+              "is_native_gift": false,
+              "notes": "This also allows the user to ignore Health or Willpower damage equal to their Honor rating each turn. This Gift can also be used in any form.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Blood of the Pack",
+            "description": "Members of the pack can make Rage Checks for one another. This is granted by a wasp-spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One turn",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The total amount of Rage Checks able to be made this way are equal to the Gift user's Honor. It cannot be used if Unity of the Pack has been used in the same scene. This Gift can be used in any form.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Unity of the Pack",
+            "description": "Members of the pack can spend Willpower for one another. This is granted by any familial spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One turn",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 6,
+              "is_native_gift": false,
+              "notes": "The total amount of Willpower spent this way is equal to the Gift user's Honor. It cannot be used if Blood of the Pack has been used in the same scene. This Gift can be used in any form.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": null
+            }
+          },
+          {
+            "name": "Luna's Avenger",
+            "description": "Gain a bonus of one die for each Impaired packmate and two for each member with their Health tracker filled with Aggravated damage for all physical combat attacks and defense tests. This is granted by a Lune.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "gift_attributes": {
+              "renown": "HONOR",
+              "cost": "1 Rage Check",
+              "duration": "One scene",
+              "dice_pool": [],
+              "opposing_pool": [],
+              "minimum_renown": 9,
+              "is_native_gift": false,
+              "notes": "The bonus dice cannot exceed the Gift user's Honor.",
+              "tribe_name": "Silver Fangs",
+              "auspice_name": null
+            }
+          }
+        ]
       },
-      // Other
       {
         "name": "Other",
         "description": null,
@@ -2746,8 +7065,8 @@
             "max_value": 10,
             "min_value": 0,
             "show_when_zero": false,
-            "initial_cost": 10, // TODO: check if this is correct
-            "upgrade_cost": 10 // TODO: check if this is correct
+            "initial_cost": 10,
+            "upgrade_cost": 10
           },
           {
             "name": "Paradox",
@@ -2767,7 +7086,7 @@
             "name": "Willpower",
             "game_versions": [
               "V4"
-            ], // V5 characters use composure and resolve instead
+            ],
             "description": "Willpower is a tracker, with both a maximum rating and a temporary amount of points to be used. It represents the character's confidence and determination to accomplish a task.",
             "max_value": 10,
             "min_value": 0,
@@ -2809,8 +7128,8 @@
             "max_value": 40,
             "min_value": 0,
             "show_when_zero": false,
-            "initial_cost": 1, // TODO: check if this is correct
-            "upgrade_cost": 1 // TODO: check if this is correct
+            "initial_cost": 1,
+            "upgrade_cost": 1
           },
           {
             "name": "Blood Potency",
@@ -2857,8 +7176,8 @@
             ],
             "min_value": 0,
             "show_when_zero": true,
-            "initial_cost": 2, // TODO: check if this is correct
-            "upgrade_cost": 2 // TODO: check if this is correct
+            "initial_cost": 2,
+            "upgrade_cost": 2
           },
           {
             "name": "Gnosis",
@@ -2894,7 +7213,6 @@
           }
         ]
       },
-      // Resonance
       {
         "name": "Resonance",
         "description": null,
@@ -2907,8 +7225,8 @@
           "MAGE"
         ],
         "order": 2,
-        "initial_cost": 2, // TODO: check if this is correct
-        "upgrade_cost": 2, // TODO: check if this is correct
+        "initial_cost": 2,
+        "upgrade_cost": 2,
         "traits": [
           {
             "name": "Dynamic",
@@ -2954,7 +7272,6 @@
           }
         ]
       },
-      // Renown
       {
         "name": "Renown",
         "description": null,
@@ -3012,7 +7329,6 @@
           }
         ]
       },
-      // Virtues
       {
         "name": "Virtues",
         "description": null,
@@ -3030,8 +7346,8 @@
           "MORTAL"
         ],
         "order": 4,
-        "initial_cost": 2, // TODO: check if this is correct for all traits
-        "upgrade_cost": 2, // TODO: check if this is correct for all traits
+        "initial_cost": 2,
+        "upgrade_cost": 2,
         "traits": [
           {
             "name": "Mercy",
@@ -3121,10 +7437,596 @@
             "show_when_zero": false
           }
         ]
+      },
+      {
+        "name": "Rites",
+        "description": "Sacred rituals performed by Werewolves.",
+        "game_versions": [
+          "V4",
+          "V5"
+        ],
+        "show_when_empty": false,
+        "character_classes": [
+          "WEREWOLF"
+        ],
+        "order": 5,
+        "initial_cost": 5,
+        "upgrade_cost": 3,
+        "traits": [
+          {
+            "name": "Rite of Abjuration",
+            "description": "This Rite will purify a person, place, or object, driving out any spiritual possessions.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Occult"
+          },
+          {
+            "name": "Rite of Rage",
+            "description": "Increase the Rage of the participants.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Glory + Intimidation"
+          },
+          {
+            "name": "Rite of Tranquility",
+            "description": "Reduce the Rage of everyone participating.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Performance"
+          },
+          {
+            "name": "Rite of Contrition",
+            "description": "A Rite used to either make amends with a spirit or to remove chagrin.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Etiquette"
+          },
+          {
+            "name": "Rite of Forgetful Record",
+            "description": "This Rite is used to wreak havoc on any recorded information about the Garou.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Investigation"
+          },
+          {
+            "name": "Rite of the Living Caern",
+            "description": "A Rite used to bring life to a caern, strengthening their bond and it's spiritual connection to the Umbra",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Craft "
+          },
+          {
+            "name": "Rite of Shadow Passage",
+            "description": "This Rite allows a pack to open a pathway between the physical world and the Umbra.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Renown (any) + Occult"
+          },
+          {
+            "name": "Rite of Dedication",
+            "description": "A Rite used to bind clothing to Garou, so that when they shapeshift their clothes do not rip off.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Rite of Kinseeking",
+            "description": "A Rite Used to locate Kin before accidents occur.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Investigation"
+          },
+          {
+            "name": "Rite of Spirit Summoning",
+            "description": "A Rite used to summon an absent, unaware, or unwilling spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Persuasion vs Power"
+          },
+          {
+            "name": "Rite of Binding",
+            "description": "A Rite used to bind a spirit to a physical feature.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Glory + Occult"
+          },
+          {
+            "name": "Rite of Shame",
+            "description": "A Rite that is used as a form of punishment.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Rite of Patronage",
+            "description": "A Rite used to adopt a Patron Spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Renown (the type associated with the new Patron Spirit) + Etiquette"
+          },
+          {
+            "name": "Rite of Celebration",
+            "description": "A Rite used to celebrate victories.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Performance"
+          },
+          {
+            "name": "Rite of Caern Building",
+            "description": "A Rite usually performed by an entire sept and takes many days and nights, this results in the opening of a new caern.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Craft"
+          },
+          {
+            "name": "Rite of the Wolf Reborn",
+            "description": "A Rite used to help a Garou who has Lost the Wolf.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Renown (highest of target) + Leadership"
+          },
+          {
+            "name": "Rite of the Whispering Field",
+            "description": "A Rite used at a caern to allow participants to become attuned to themselves and their surroundings to detect trespassers.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Survival"
+          },
+          {
+            "name": "Rite of the Shrouded Glen",
+            "description": "A Rite used to hide a caern from mundane individuals.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Craft"
+          },
+          {
+            "name": "Rite of the Borne Word",
+            "description": "Use a friendly spirit to deliver a secure message. The spirit must be capable of traveling swiftly, i.e a bird spirit, a wind spirit, etc.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Etiquette"
+          },
+          {
+            "name": "Rite of the Broken Sun (Broken Son)",
+            "description": "A rite used as a severe form of punishment, usually after the target has undergone several Rite of Shames. A successful use of this rite stops the targets ability to shapeshift and call on mystical rites besides the Rite of Contrition.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Occult"
+          },
+          {
+            "name": "Rite of Caging",
+            "description": "This rite makes it more difficult for a creature in the physical world to interact with the Umbra. It can even remove someone from the Umbra. Cannot be used on spirits.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Awareness"
+          },
+          {
+            "name": "Rite of Chiminage",
+            "description": "This rite allows a Garou to better understand the wants and needs of a spirit.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Etiquette"
+          },
+          {
+            "name": "Rite of the Grim Reach",
+            "description": "This rite turns a large area more hostile and even dangerous. Can be used to protect caerns or places important to Garou.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Glory + Survival"
+          },
+          {
+            "name": "Rite of the Living Tale",
+            "description": "This rite adds an olfactory dimension to the telling of a story, making it all the more immersive for your listeners. Especially appreciated by Lupus-born.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Wisdom + Survival"
+          },
+          {
+            "name": "Rite of the Moon's Fickle Grace",
+            "description": "The performer asks Luna herself for a bit of luck. It can only be performed under a full moon and has the potential to both help and harm you.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Glory + Performance"
+          },
+          {
+            "name": "Rite of Renunciation",
+            "description": "This rite allows a Garou to gracefully leave their tribe, becoming Forsworn when completed.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "None"
+          },
+          {
+            "name": "Rite of the Sacred Scar",
+            "description": "This rite marks a Garou's flesh with a mystical scar or tattoo related to their renown. This marking allows for an additional point of renown on all gifts and Rites appropriate to the glyph they have been marked with.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Any appropriate renown + Craft"
+          },
+          {
+            "name": "Rite of Shared Fury",
+            "description": "A rite that allows the participants to pool their rage and then redistribute it amongst all involved. Requires a performance of violence or confrontation between members.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": "Honor + Politics"
+          },
+          {
+            "name": "Rite of Passage",
+            "description": "Before they are called Garou, Kin as set on a dangerous task to prove they have the means and represent what it means to be a true werewolf.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Satire Rite",
+            "description": "A Rite used to ridicule another.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Rite of Accomplishment",
+            "description": "A rite used to honor a Garou for the trials they have endured to reach their current standing.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Gathering for the Departed",
+            "description": "A Rite to honor the newly dead.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Rite of the Winter Wolf",
+            "description": "A Rite used for the too-wounded or too-old Garou to end their lives; if done by two members at the same time, they fight to the death in ritual combat.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Rite of the Ban Shared",
+            "description": "All participants in this rite agree to adhere to a Ban not of their own tribe. There are not any mechanical interactions tied to this, purely role-play.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Cleansing Rite",
+            "description": "A rite that uses sacred materials to cleanse the spirit and physical form of a Garou. Often done after encounters with powerful Banes or Black Spiral Dancers.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "The Long Vigil",
+            "description": "A rite in which all associated packs gather together, temporarily putting aside all animosity to celebrate Helios, praise Luna and tell the tales of their victories over the past several years. When all is said and done, all involved burn their trophies and make a final appeal to Luna and Helios to guard Gaia to the last.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "Pledging Rite",
+            "description": "A rite that is used by a Pack to define a specific goal such as ;Destroy my local oil plant' - When the goal is completed storyteller's may grant additional glory or mitigate chagrin.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          },
+          {
+            "name": "The Renewal Circle",
+            "description": "A rite in which a Garou who has been struggling emotionally or spiritually is joined by their allies and friends in silence, awaiting their moment to support their friend in need.",
+            "character_classes": [
+              "WEREWOLF"
+            ],
+            "game_versions": [
+              "V4",
+              "V5"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 1,
+            "pool": null
+          }
+        ]
       }
     ]
   },
-  // Advantages
   {
     "name": "Advantages",
     "description": "Benefits a character has over 'normal' folk.",
@@ -3145,7 +8047,6 @@
     "initial_cost": 2,
     "upgrade_cost": 3,
     "categories": [
-      // Backgrounds
       {
         "name": "Backgrounds",
         "description": "Backgrounds describe advantages of relationship, circumstance, and opportunity: material possessions, social networks, and the like.",
@@ -3188,7 +8089,7 @@
             "traits": [
               {
                 "name": "Allies",
-                "description": "A group who will support or aid the Character. Family, friends, or an organization that has loyalty. Build them between (\u2022 - \u2022\u2022\u2022) Effectiveness and (\u2022-\u2022\u2022\u2022) Reliability, the maximum amount of total points is 6. Effectiveness defines how proficient they are at a task. Reliability determines how dependable they are.",
+                "description": "A group who will support or aid the Character. Family, friends, or an organization that has loyalty. Build them between (• - •••) Effectiveness and (•-•••) Reliability, the maximum amount of total points is 6. Effectiveness defines how proficient they are at a task. Reliability determines how dependable they are.",
                 "character_classes": [
                   "VAMPIRE",
                   "WEREWOLF",
@@ -3507,7 +8408,7 @@
               },
               {
                 "name": "Luxury",
-                "description": "Rich and full of value, the safe house is well decorated with high-end d\u00e9cor and items. +2 dice bonus to Social tests when mortals are inside the safe house. Without at least 3 dots in Resources, these items are stolen or illegally obtained.",
+                "description": "Rich and full of value, the safe house is well decorated with high-end décor and items. +2 dice bonus to Social tests when mortals are inside the safe house. Without at least 3 dots in Resources, these items are stolen or illegally obtained.",
                 "character_classes": [
                   "VAMPIRE",
                   "WEREWOLF",
@@ -4203,7 +9104,6 @@
         ],
         "traits": []
       },
-      // Merits
       {
         "name": "Merits",
         "description": "Merits are special abilities or advantages that are rare or unique in the general population.",
@@ -4400,7 +9300,7 @@
                 "upgrade_cost": 3
               },
               {
-                "name": "Ing\u00e9nue",
+                "name": "Ingénue",
                 "description": "They appear innocent and blameless, add two dice to any rolls related to avoiding suspicion or deflecting blame at the Storytellers' discretion",
                 "character_classes": [
                   "VAMPIRE",
@@ -4791,7 +9691,7 @@
               },
               {
                 "name": "Object of Power",
-                "description": "Posesss a rare but powerful item. \u2022 Reroll one die per story, excluding Hunger. \u2022\u2022 Gain one bonus die to all Level 1 Ritual tests. \u2022\u2022\u2022 Free premonition warning once per session, when someone will cause them harm.",
+                "description": "Posesss a rare but powerful item. • Reroll one die per story, excluding Hunger. •• Gain one bonus die to all Level 1 Ritual tests. ••• Free premonition warning once per session, when someone will cause them harm.",
                 "character_classes": [
                   "VAMPIRE"
                 ],
@@ -5442,7 +10342,7 @@
               },
               {
                 "name": "Moot Caller",
-                "description": "Select 5 social rites, you\u2019ve mastered them. If allowed during a moot, you can assist in any rite so long as it is performed at a moot or substantially similar gathering of Garou.",
+                "description": "Select 5 social rites, you’ve mastered them. If allowed during a moot, you can assist in any rite so long as it is performed at a moot or substantially similar gathering of Garou.",
                 "character_classes": [
                   "WEREWOLF"
                 ],
@@ -5477,7 +10377,6 @@
         ],
         "traits": []
       },
-      // Flaws
       {
         "name": "Flaws",
         "description": "Flaws are liabilities or disadvantages that pose challenges to a character's  existence.",
@@ -5540,7 +10439,7 @@
                 "upgrade_cost": 3
               },
               {
-                "name": "El Mala Educaci\u00f3n",
+                "name": "El Mala Educación",
                 "description": "Requires the `Dead Tongues` merit. The character makes some mistakes because of their lackluster education in the language. The Danger rating increases by 1 on total failures or critical results when they attempt to translate any extinct language",
                 "character_classes": [
                   "VAMPIRE",
