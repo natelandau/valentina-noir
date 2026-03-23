@@ -50,6 +50,7 @@ class CharacterTraitService:
     """
 
     _flaws_category_id: PydanticObjectId | None = None
+    _gift_trait_ids: list[PydanticObjectId] | None = None
 
     def _guard_is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
         """Check if increasing the trait value is safe.
@@ -119,24 +120,15 @@ class CharacterTraitService:
         return dot_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
 
     def _cost_for_gift(self, gift_position: int) -> int:
-        """Return the cost for the Nth gift on a character.
-
-        Gift costs are count-based rather than dot-based: each successive gift
-        costs its position number times 2.
-
-        Args:
-            gift_position: The 1-based position of the gift (e.g., 4th gift = position 4).
-
-        Returns:
-            The cost for that gift position: position * 2.
-        """
+        """Return the cost for the Nth gift: position * 2."""
         return gift_position * 2
 
     async def _count_character_gifts(self, character_id: PydanticObjectId) -> int:
         """Count how many active gifts a character currently has.
 
-        Uses a two-step query: first fetches all gift trait IDs, then counts
-        CharacterTrait records matching those IDs with value > 0.
+        Caches the set of gift trait IDs at the class level (gift traits are
+        reference data that does not change at runtime), then counts matching
+        CharacterTrait records with value > 0.
 
         Args:
             character_id: The character to count gifts for.
@@ -144,18 +136,17 @@ class CharacterTraitService:
         Returns:
             The number of gift traits the character has with value > 0.
         """
-        gift_traits = await Trait.find(
-            Trait.gift_attributes != None,
-        ).to_list()
-        gift_trait_ids = [t.id for t in gift_traits]
-        if not gift_trait_ids:
+        if CharacterTraitService._gift_trait_ids is None:
+            gift_traits = await Trait.find(Trait.gift_attributes != None).to_list()
+            CharacterTraitService._gift_trait_ids = [t.id for t in gift_traits]
+
+        if not CharacterTraitService._gift_trait_ids:
             return 0
 
         return await CharacterTrait.find(
             CharacterTrait.character_id == character_id,
-            In(CharacterTrait.trait.id, gift_trait_ids),  # type: ignore [attr-defined]
+            In(CharacterTrait.trait.id, CharacterTraitService._gift_trait_ids),  # type: ignore [attr-defined]
             CharacterTrait.value > 0,
-            fetch_links=True,
         ).count()
 
     async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
@@ -248,9 +239,18 @@ class CharacterTraitService:
         upgrade_costs: dict[str, int] = {}
         await character_trait.fetch_all_links()
         max_increase = character_trait.trait.max_value - character_trait.value  # type: ignore [attr-defined]
+
+        # Pre-fetch gift count once so the loop doesn't re-query per iteration
+        gift_count: int | None = None
+        if character_trait.trait.gift_attributes is not None:  # type: ignore [attr-defined]
+            gift_count = await self._count_character_gifts(character_trait.character_id)
+
         for num_dots in range(1, max_increase + 1):
             upgrade_costs[str(num_dots)] = await self._calculate_upgrade_cost(
-                character_trait, num_dots, character_id=character_trait.character_id
+                character_trait,
+                num_dots,
+                character_id=character_trait.character_id,
+                gift_count_override=gift_count,
             )
         return upgrade_costs
 
@@ -271,13 +271,25 @@ class CharacterTraitService:
         downgrade_savings: dict[str, int] = {}
         await character_trait.fetch_all_links()
         max_decrease = character_trait.value - character_trait.trait.min_value  # type: ignore [attr-defined]
+
+        # Pre-fetch gift count once so the loop doesn't re-query per iteration
+        gift_count: int | None = None
+        if character_trait.trait.gift_attributes is not None:  # type: ignore [attr-defined]
+            gift_count = await self._count_character_gifts(character_trait.character_id)
+
         for num_dots in range(1, max_decrease + 1):
             downgrade_savings[str(num_dots)] = await self._calculate_downgrade_savings(
-                character_trait, num_dots, character_id=character_trait.character_id
+                character_trait,
+                num_dots,
+                character_id=character_trait.character_id,
+                gift_count_override=gift_count,
             )
 
         downgrade_savings["DELETE"] = await self._calculate_downgrade_savings(
-            character_trait, character_trait.value, character_id=character_trait.character_id
+            character_trait,
+            character_trait.value,
+            character_id=character_trait.character_id,
+            gift_count_override=gift_count,
         )
 
         return downgrade_savings
@@ -787,8 +799,6 @@ class CharacterTraitService:
                 )
                 # Track the newly added trait to prevent duplicates within the batch
                 existing_trait_ids.add(trait_id)
-                # Increment running gift count so subsequent gifts in this batch
-                # are priced at the correct position without re-querying the DB
                 if trait.gift_attributes is not None:
                     running_gift_count += 1
 
