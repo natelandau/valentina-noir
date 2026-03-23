@@ -118,6 +118,46 @@ class CharacterTraitService:
             return character_trait.trait.initial_cost  # type: ignore [attr-defined]
         return dot_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
 
+    def _cost_for_gift(self, gift_position: int) -> int:
+        """Return the cost for the Nth gift on a character.
+
+        Gift costs are count-based rather than dot-based: each successive gift
+        costs its position number times 2.
+
+        Args:
+            gift_position: The 1-based position of the gift (e.g., 4th gift = position 4).
+
+        Returns:
+            The cost for that gift position: position x 2.
+        """
+        return gift_position * 2
+
+    async def _count_character_gifts(self, character_id: PydanticObjectId) -> int:
+        """Count how many active gifts a character currently has.
+
+        Uses a two-step query: first fetches all gift trait IDs, then counts
+        CharacterTrait records matching those IDs with value > 0.
+
+        Args:
+            character_id: The character to count gifts for.
+
+        Returns:
+            The number of gift traits the character has with value > 0.
+        """
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+        ).to_list()
+        gift_trait_ids = [t.id for t in gift_traits]
+        if not gift_trait_ids:
+            return 0
+
+        return await CharacterTrait.find(
+            CharacterTrait.character_id == character_id,
+            In(CharacterTrait.trait.id, gift_trait_ids),  # type: ignore [attr-defined]
+            CharacterTrait.value > 0,
+            fetch_links=True,
+        ).count()
+
     async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
         """Check if the trait is a flaw based on its parent category.
 

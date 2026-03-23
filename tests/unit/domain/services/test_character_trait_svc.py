@@ -535,6 +535,149 @@ class TestCostForDot:
         assert result == 15
 
 
+class TestCostForGift:
+    """Test the _cost_for_gift helper method."""
+
+    @pytest.mark.parametrize(
+        ("gift_position", "expected"),
+        [
+            (1, 2),
+            (2, 4),
+            (5, 10),
+            (10, 20),
+        ],
+    )
+    def test_cost_for_gift_position(self, gift_position: int, expected: int) -> None:
+        """Verify gift cost is position times 2."""
+        service = CharacterTraitService()
+        assert service._cost_for_gift(gift_position) == expected
+
+
+class TestCountCharacterGifts:
+    """Test the _count_character_gifts method."""
+
+    async def test_count_with_no_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+    ) -> None:
+        """Verify count is zero when character has no gifts."""
+        # Given a character with no traits
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(company_id=company.id, user_player_id=user.id)
+        service = CharacterTraitService()
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then count is zero
+        assert result == 0
+
+    async def test_count_with_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify count reflects the number of gift traits with value > 0."""
+        # Given a character with gift traits
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        # Find two gift traits from the DB
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(2)
+        if len(gift_traits) < 2:
+            pytest.skip("Not enough gift traits in database")
+
+        # Add them to the character with value=1
+        for gift_trait in gift_traits:
+            await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then count is 2
+        assert result == 2
+
+    async def test_count_excludes_zero_value_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gifts with value=0 are excluded from count."""
+        # Given a character with one active gift and one inactive gift
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(2)
+        if len(gift_traits) < 2:
+            pytest.skip("Not enough gift traits in database")
+
+        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=0)
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then only the active gift is counted
+        assert result == 1
+
+    async def test_count_excludes_non_gift_traits(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify non-gift traits are excluded from count."""
+        # Given a character with a non-gift trait and a gift trait
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        # Explicitly set gift_attributes=None to ensure this is not treated as a gift trait
+        non_gift_trait = await trait_factory(is_custom=True, gift_attributes=None)
+        await character_trait_factory(character_id=character.id, trait=non_gift_trait, value=3)
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then only the gift is counted
+        assert result == 1
+
+
 class TestCalculateAllUpgradeCosts:
     """Test the calculate_all_upgrade_costs method."""
 
