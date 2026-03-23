@@ -1178,7 +1178,7 @@ class CharacterTraitService:
             options=options,
         )
 
-    async def modify_trait_value(  # noqa: PLR0911
+    async def modify_trait_value(  # noqa: PLR0911, PLR0913
         self,
         *,
         company: Company,
@@ -1188,6 +1188,7 @@ class CharacterTraitService:
         target_value: int,
         currency: TraitModifyCurrency,
         deleting_trait: bool = False,
+        gift_count_override: int | None = None,
     ) -> CharacterTrait:
         """Modify a trait to a target value using the specified currency.
 
@@ -1199,6 +1200,8 @@ class CharacterTraitService:
             target_value: The desired target value for the trait.
             currency: The currency to use (NO_COST, XP, or STARTING_POINTS).
             deleting_trait: Whether the trait is being deleted.
+            gift_count_override: If provided, use this as the current gift count
+                instead of querying the DB. Used by bulk operations.
 
         Returns:
             The updated CharacterTrait.
@@ -1232,6 +1235,7 @@ class CharacterTraitService:
                     character_trait=character_trait,
                     num_dots=num_dots,
                     is_increase=True,
+                    gift_count_override=gift_count_override,
                 )
             return await self._apply_starting_points_change(
                 user=user,
@@ -1239,6 +1243,7 @@ class CharacterTraitService:
                 character_trait=character_trait,
                 num_dots=num_dots,
                 is_increase=True,
+                gift_count_override=gift_count_override,
             )
 
         if currency == TraitModifyCurrency.NO_COST:
@@ -1257,6 +1262,7 @@ class CharacterTraitService:
                 num_dots=num_dots,
                 is_increase=False,
                 deleting_trait=deleting_trait,
+                gift_count_override=gift_count_override,
             )
         return await self._apply_starting_points_change(
             user=user,
@@ -1265,6 +1271,7 @@ class CharacterTraitService:
             num_dots=num_dots,
             is_increase=False,
             deleting_trait=deleting_trait,
+            gift_count_override=gift_count_override,
         )
 
     async def delete_trait(

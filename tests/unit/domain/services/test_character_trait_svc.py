@@ -1117,6 +1117,42 @@ class TestCalculateCosts:
             await service.calculate_downgrade_savings(character_trait, 3)
 
 
+class TestNonGiftCostRegression:
+    """Regression test: non-gift traits still use per-dot cost model after gift changes."""
+
+    async def test_non_gift_upgrade_cost_unchanged(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify non-gift trait upgrade cost still uses dot-based model."""
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(), trait=trait, value=2
+        )
+        cost = await service.calculate_upgrade_cost(character_trait, 2)
+        assert cost == 14  # (3x2) + (4x2) = 6 + 8
+
+    async def test_non_gift_downgrade_savings_unchanged(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify non-gift trait downgrade savings still uses dot-based model."""
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(), trait=trait, value=3
+        )
+        savings = await service.calculate_downgrade_savings(character_trait, 2)
+        assert savings == 10  # (3x2) + (2x2) = 6 + 4
+
+
 class TestUpdateCharacterWillpower:
     """Test the update_character_willpower method."""
 
@@ -3270,6 +3306,63 @@ class TestDeleteTrait:
                 character=character,
                 character_trait=character_trait,
             )
+
+
+class TestDeleteGiftTrait:
+    """Test deleting a gift trait with count-based cost refund."""
+
+    async def test_delete_gift_with_xp_refunds_count_based_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify deleting a gift via XP refunds using count-based pricing."""
+        # Given a character with 3 gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(3)
+        if len(gift_traits) < 3:
+            pytest.skip("Not enough gift traits in database")
+
+        for gift_trait in gift_traits:
+            await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+
+        # Give user some initial XP
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.add_xp(character.campaign_id, 50, update_total=True)
+        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        xp_before = campaign_xp.xp_current
+
+        # Get the 3rd gift's character_trait to delete
+        character_trait = await CharacterTrait.find_one(
+            CharacterTrait.character_id == character.id,
+            CharacterTrait.trait.id == gift_traits[2].id,
+            fetch_links=True,
+        )
+
+        # When deleting the gift with XP refund
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then XP is refunded by 6 (3rd gift: 3 x 2)
+        await target_user.sync()
+        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        assert campaign_xp.xp_current == xp_before + 6
 
 
 class TestBulkAddConstantTraitsToCharacter:
