@@ -13,13 +13,28 @@ from beanie import (
 )
 from pydantic import BeforeValidator, Field
 
-from vapi.constants import CharacterClass, GameVersion
-from vapi.db.models.base import BaseDocument
+from vapi.constants import CharacterClass, GameVersion, WerewolfRenown
+from vapi.db.models.base import BaseDocument, HashedBaseModel
 from vapi.lib.validation import empty_string_to_none
 
 from .sheet_section import CharSheetSection
 from .trait_categories import TraitCategory
 from .trait_subcategories import TraitSubcategory
+
+
+class GiftAttributes(HashedBaseModel):
+    """Werewolf gift-specific attributes embedded on a Trait."""
+
+    renown: WerewolfRenown
+    cost: str | None = None
+    duration: str | None = None
+    dice_pool: list[str] = Field(default_factory=list)
+    opposing_pool: list[str] = Field(default_factory=list)
+    minimum_renown: int | None = None
+    is_native_gift: bool = False
+    notes: str | None = None
+    tribe_id: Annotated[PydanticObjectId | None, Field(default=None)] = None
+    auspice_id: Annotated[PydanticObjectId | None, Field(default=None)] = None
 
 
 class Trait(BaseDocument):
@@ -55,6 +70,7 @@ class Trait(BaseDocument):
 
     pool: str | None = None
     system: str | None = None
+    gift_attributes: GiftAttributes | None = None
 
     @before_event(Insert, Replace, Save, Update, SaveChanges)
     async def update_fields(self) -> None:
@@ -88,4 +104,7 @@ class Trait(BaseDocument):
             "custom_for_character_id",
             "parent_category_id",
             "trait_subcategory_id",
+            "gift_attributes.renown",
+            "gift_attributes.tribe_id",
+            "gift_attributes.auspice_id",
         ]
