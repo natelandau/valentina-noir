@@ -289,6 +289,24 @@ async def resolve_gift_trait_references() -> None:
             await trait.save()
             updated += 1
 
+    # Populate gift_trait_ids on tribes and auspices
+    tribe_gift_map: dict[PydanticObjectId, list[PydanticObjectId]] = {}
+    auspice_gift_map: dict[PydanticObjectId, list[PydanticObjectId]] = {}
+    for trait in gift_traits:
+        attrs = trait.gift_attributes
+        if attrs and attrs.tribe_id:
+            tribe_gift_map.setdefault(attrs.tribe_id, []).append(trait.id)
+        if attrs and attrs.auspice_id:
+            auspice_gift_map.setdefault(attrs.auspice_id, []).append(trait.id)
+
+    for tribe in await WerewolfTribe.find().to_list():
+        tribe.gift_trait_ids = tribe_gift_map.get(tribe.id, [])
+        await tribe.save()
+
+    for auspice in await WerewolfAuspice.find().to_list():
+        auspice.gift_trait_ids = auspice_gift_map.get(auspice.id, [])
+        await auspice.save()
+
     logger.info(
         "Resolved gift trait tribe/auspice references",
         extra={

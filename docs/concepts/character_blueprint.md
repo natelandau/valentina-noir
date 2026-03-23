@@ -272,12 +272,19 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-auspices?limit=10
       "id": null,
       "date_created": "2026-01-15T18:47:12.709Z",
       "date_modified": "2026-01-15T18:47:12.709Z",
-      "name": "Ragabash", //
+      "name": "Ragabash",
       "description": "string",
       "game_versions": ["V4", "V5"],
+      "gift_trait_ids": [ // (1)!
+          "69679d6b92e8772cd93d8185",
+          "69679d6b92e8772cd93d8185",
+          "69679d6b92e8772cd93d8185"
+      ],
       "link": "https://wta.paradoxwikis.com/Ragabash"
     }
     ```
+
+    1.  An array of Trait IDs for gifts native to this auspice. For example, Ragabash has the gifts `The Thousand Forms`, `Whelp Body`, and `Coup de Grâce`.
 
 #### Tribe
 
@@ -303,9 +310,16 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-tribes?limit=10&o
       "patron_spirit": "Gorgon",
       "favor": "Black Furies player can add a die to a pool used to oppose or circumvent...",
       "ban": "If a Black Fury let an injustice persist when they could've prevented or addressed it...",
+      "gift_trait_ids": [ // (1)!
+          "69679d6b92e8772cd93d8185",
+          "69679d6b92e8772cd93d8185",
+          "69679d6b92e8772cd93d8185"
+      ],
       "link": "https://wta.paradoxwikis.com/Black_Furies"
     }
     ```
+
+    1.  An array of Trait IDs for gifts native to this tribe. For example, the Black Furies have the gifts `Whelp Body`, `Kali's Scar`, and `Coup de Grâce`.
 
 #### Gifts and Rites
 

@@ -39,6 +39,7 @@ class VampireClan(CharacterClassConstant):
 class WerewolfAuspice(CharacterClassConstant):
     """Werewolf auspice model."""
 
+    gift_trait_ids: list[PydanticObjectId] = Field(default_factory=list)
     link: str | None = None
 
 
@@ -49,4 +50,5 @@ class WerewolfTribe(CharacterClassConstant):
     patron_spirit: str | None = None
     favor: str | None = None
     ban: str | None = None
+    gift_trait_ids: list[PydanticObjectId] = Field(default_factory=list)
     link: str | None = None

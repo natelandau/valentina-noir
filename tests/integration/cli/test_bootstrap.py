@@ -245,6 +245,25 @@ class TestBootstrapAsync:
         # Then: Expected gift count should match (152 gifts from fixture data)
         assert gift_count == 152
 
+    async def test_gift_traits_linked_to_tribes_and_auspices(self) -> None:
+        """Verify bootstrap populates gift_trait_ids on tribes and auspices."""
+        # Given: Bootstrapped tribes and auspices
+        tribes = await WerewolfTribe.find().to_list()
+        auspices = await WerewolfAuspice.find().to_list()
+
+        # Then: At least one tribe and one auspice have gift_trait_ids populated
+        tribes_with_gifts = [t for t in tribes if t.gift_trait_ids]
+        auspices_with_gifts = [a for a in auspices if a.gift_trait_ids]
+        assert len(tribes_with_gifts) > 0
+        assert len(auspices_with_gifts) > 0
+
+        # Then: The IDs reference actual Trait documents with gift_attributes
+        sample_tribe = tribes_with_gifts[0]
+        trait = await Trait.get(sample_tribe.gift_trait_ids[0])
+        assert trait is not None
+        assert trait.gift_attributes is not None
+        assert trait.gift_attributes.tribe_id == sample_tribe.id
+
     async def test_bootstrap_creates_char_sheet_sections(self, traits_fixture: list[dict]) -> None:
         """Verify bootstrap creates all character sheet sections from fixture."""
         # Given: The fixture data with expected sections
