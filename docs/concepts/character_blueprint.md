@@ -309,7 +309,39 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-tribes?limit=10&o
 
 #### Gifts and Rites
 
-Werewolf gifts and rites are available as traits under the "Gifts" and "Rites" categories in the "Other" sheet section. Browse them using the trait blueprint endpoints with the appropriate `parent_category_id` filter.
+Werewolf gifts and rites are managed as traits under the "Other" sheet section. Gifts belong to the "Gifts" category and rites belong to the "Rites" category. Browse them using the [trait blueprint endpoints](#listing-traits) with the appropriate `parent_category_id` filter.
+
+Both gifts and rites are binary traits (`min_value=1`, `max_value=1`). Assign them to a character with `value=1` through the standard [trait assignment](./character_traits.md#assigning-constant-traits) endpoint.
+
+Gift traits include a `gift_attributes` field with werewolf-specific metadata:
+
+??? example "Gift Trait Object"
+
+    ```json
+    {
+      "id": "69679d6b92e8772cd93d8185",
+      "name": "Blissful Ignorance",
+      "description": "By remaining completely still, the Garou can become invisible to others...",
+      "character_classes": ["WEREWOLF"],
+      "game_versions": ["V4", "V5"],
+      "min_value": 1,
+      "max_value": 1,
+      "gift_attributes": {
+        "renown": "WISDOM",
+        "cost": "1 Willpower",
+        "duration": "One scene",
+        "dice_pool": [],
+        "opposing_pool": [],
+        "minimum_renown": 2,
+        "is_native_gift": false,
+        "notes": "When used in attempt to ambush...",
+        "tribe_id": "68c1f7152cae3787a09a74fa",
+        "auspice_id": null
+      }
+    }
+    ```
+
+Rite traits use the standard `pool` field for their dice pool and have no additional metadata beyond standard trait fields.
 
 ### Mages
 
