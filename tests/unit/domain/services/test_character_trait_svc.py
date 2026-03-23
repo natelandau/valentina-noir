@@ -1988,7 +1988,11 @@ class TestChangeCharacterTraitValue:
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_upgrade_cost.assert_called_once_with(
-            ANY, character_trait, 1, character_id=character_trait.character_id
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
         )
         await target_user.sync()
         campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
@@ -2121,7 +2125,11 @@ class TestChangeCharacterTraitValue:
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_downgrade_savings.assert_called_once_with(
-            ANY, character_trait, 1, character_id=character_trait.character_id
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
         )
 
         # Cleanup
@@ -2171,7 +2179,11 @@ class TestChangeCharacterTraitValue:
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_upgrade_cost.assert_called_once_with(
-            ANY, character_trait, 1, character_id=character_trait.character_id
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
         )
         spy_after_save.assert_called_once_with(ANY, result)
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
@@ -2292,7 +2304,11 @@ class TestChangeCharacterTraitValue:
         spy_after_save.assert_called_once_with(ANY, result)
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_downgrade_savings.assert_called_once_with(
-            ANY, character_trait, 1, character_id=character_trait.character_id
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
         )
         spyguard_user_can_manage_character.assert_called_once()
 
@@ -3639,3 +3655,118 @@ class TestBulkAddConstantTraitsToCharacter:
         assert "Renown" in result.failed[0].error
         assert len(result.succeeded) == 1
         assert result.succeeded[0].character_trait.trait.id == non_gift_trait.id
+
+
+class TestAddGiftToCharacter:
+    """Test adding gift traits through the full add_constant_trait_to_character flow."""
+
+    async def test_add_gift_via_xp_charges_count_based_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify adding a gift via XP deducts count-based cost from XP."""
+        # Given a werewolf character with 2 existing gifts and some XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(3)
+        if len(gift_traits) < 3:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough to satisfy the most demanding gift's requirement
+        max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
+        character.werewolf_attributes.total_renown = max_renown + 1
+        await character.save()
+
+        for i in range(2):
+            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.add_xp(campaign.id, 50, update_total=True)
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        xp_before = campaign_xp.xp_current
+
+        # When adding a 3rd gift via XP
+        await service.add_constant_trait_to_character(
+            company=company,
+            character=character,
+            user=user,
+            trait_id=gift_traits[2].id,
+            value=1,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then XP is reduced by 6 (3rd gift: 3 x 2)
+        await target_user.sync()
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        assert campaign_xp.xp_current == xp_before - 6
+
+    async def test_add_gift_via_starting_points_charges_count_based_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify adding a gift via starting points deducts count-based cost."""
+        # Given a werewolf character with 1 existing gift and starting points
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+            starting_points=50,
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(2)
+        if len(gift_traits) < 2:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough to satisfy the most demanding gift's requirement
+        max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
+        character.werewolf_attributes.total_renown = max_renown + 1
+        await character.save()
+
+        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        sp_before = character.starting_points
+
+        # When adding a 2nd gift via starting points
+        await service.add_constant_trait_to_character(
+            company=company,
+            character=character,
+            user=user,
+            trait_id=gift_traits[1].id,
+            value=1,
+            currency=TraitModifyCurrency.STARTING_POINTS,
+        )
+
+        # Then starting points reduced by 4 (2nd gift: 2 x 2)
+        await character.sync()
+        assert character.starting_points == sp_before - 4

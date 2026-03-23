@@ -933,6 +933,7 @@ class CharacterTraitService:
         num_dots: int,
         is_increase: bool,
         deleting_trait: bool = False,
+        gift_count_override: int | None = None,
     ) -> CharacterTrait:
         """Apply an XP-based trait change, handling flaw inversion.
 
@@ -946,6 +947,8 @@ class CharacterTraitService:
             num_dots: The number of dots to change.
             is_increase: True for increase, False for decrease.
             deleting_trait: Whether the trait is being deleted.
+            gift_count_override: If provided, use this as the current gift count
+                instead of querying the DB. Used by bulk operations.
 
         Returns:
             The updated CharacterTrait.
@@ -957,13 +960,19 @@ class CharacterTraitService:
         if is_increase:
             self._guard_is_safe_increase(character_trait, num_dots)
             cost = await self._calculate_upgrade_cost(
-                character_trait, num_dots, character_id=character_trait.character_id
+                character_trait,
+                num_dots,
+                character_id=character_trait.character_id,
+                gift_count_override=gift_count_override,
             )
         else:
             if not deleting_trait:
                 self._guard_is_safe_decrease(character_trait, num_dots)
             cost = await self._calculate_downgrade_savings(
-                character_trait, num_dots, character_id=character_trait.character_id
+                character_trait,
+                num_dots,
+                character_id=character_trait.character_id,
+                gift_count_override=gift_count_override,
             )
 
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
@@ -989,6 +998,7 @@ class CharacterTraitService:
         num_dots: int,
         is_increase: bool,
         deleting_trait: bool = False,
+        gift_count_override: int | None = None,
     ) -> CharacterTrait:
         """Apply a starting-points-based trait change, handling flaw inversion.
 
@@ -1002,6 +1012,8 @@ class CharacterTraitService:
             num_dots: The number of dots to change.
             is_increase: True for increase, False for decrease.
             deleting_trait: Whether the trait is being deleted.
+            gift_count_override: If provided, use this as the current gift count
+                instead of querying the DB. Used by bulk operations.
 
         Returns:
             The updated CharacterTrait.
@@ -1013,13 +1025,19 @@ class CharacterTraitService:
         if is_increase:
             self._guard_is_safe_increase(character_trait, num_dots)
             cost = await self._calculate_upgrade_cost(
-                character_trait, num_dots, character_id=character_trait.character_id
+                character_trait,
+                num_dots,
+                character_id=character_trait.character_id,
+                gift_count_override=gift_count_override,
             )
         else:
             if not deleting_trait:
                 self._guard_is_safe_decrease(character_trait, num_dots)
             cost = await self._calculate_downgrade_savings(
-                character_trait, num_dots, character_id=character_trait.character_id
+                character_trait,
+                num_dots,
+                character_id=character_trait.character_id,
+                gift_count_override=gift_count_override,
             )
 
         is_flaw = await self._is_flaw_trait(character_trait)
