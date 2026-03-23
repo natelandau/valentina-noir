@@ -763,17 +763,26 @@ class TestGenerateWerewolfAttributes:
             character, werewolf_tribe=werewolf_tribe, werewolf_auspice=werewolf_auspice
         )
         character = await chargen._generate_werewolf_gifts_and_rites(character)
-        # debug(character.werewolf_attributes.gift_ids)
+
+        # Gifts and rites are now stored as CharacterTrait documents referencing Trait objects
+        char_traits = await CharacterTrait.find(
+            CharacterTrait.character_id == character.id, fetch_links=True
+        ).to_list()
+        gift_trait_ids = {
+            t.id for t in await Trait.find({"gift_attributes": {"$ne": None}}).to_list()
+        }
+        rites_category = await TraitCategory.find_one(TraitCategory.name == "Rites")
+        rite_trait_ids = {
+            t.id for t in await Trait.find(Trait.parent_category_id == rites_category.id).to_list()
+        }
+
+        gift_char_traits = [ct for ct in char_traits if ct.trait.id in gift_trait_ids]
+        rite_char_traits = [ct for ct in char_traits if ct.trait.id in rite_trait_ids]
 
         gift_id_modifiers = EXTRA_WEREWOLF_GIFT_MAP
 
-        assert (
-            len(character.werewolf_attributes.gift_ids) == 3 + gift_id_modifiers[experience_level]
-        )
-
-        assert (
-            len(character.werewolf_attributes.rite_ids) == NUM_WEREWOLF_RITE_MAP[experience_level]
-        )
+        assert len(gift_char_traits) == 3 + gift_id_modifiers[experience_level]
+        assert len(rite_char_traits) == NUM_WEREWOLF_RITE_MAP[experience_level]
 
 
 class TestGenerateHunterAttributes:

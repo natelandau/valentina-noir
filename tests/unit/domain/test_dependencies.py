@@ -29,8 +29,6 @@ from vapi.db.models import (
     User,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 from vapi.domain import deps
@@ -535,56 +533,6 @@ class TestProvideWerewolfAuspiceById:
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Werewolf auspice not found"):
             await deps.provide_werewolf_auspice_by_id(non_existent_id)
-
-
-class TestProvideWerewolfGiftById:
-    """Test provide_werewolf_gift_by_id dependency."""
-
-    async def test_returns_werewolf_gift_when_found(self) -> None:
-        """Verify returning a werewolf gift when found by ID."""
-        # Given a werewolf gift exists (from bootstrap)
-        gift = await WerewolfGift.find_one(WerewolfGift.is_archived == False)
-        assert gift is not None
-
-        # When we provide the gift by ID
-        result = await deps.provide_werewolf_gift_by_id(gift.id)
-
-        # Then the gift is returned
-        assert result.id == gift.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when werewolf gift does not exist."""
-        # Given a non-existent gift ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Werewolf gift not found"):
-            await deps.provide_werewolf_gift_by_id(non_existent_id)
-
-
-class TestProvideWerewolfRiteById:
-    """Test provide_werewolf_rite_by_id dependency."""
-
-    async def test_returns_werewolf_rite_when_found(self) -> None:
-        """Verify returning a werewolf rite when found by ID."""
-        # Given a werewolf rite exists (from bootstrap)
-        rite = await WerewolfRite.find_one(WerewolfRite.is_archived == False)
-        assert rite is not None
-
-        # When we provide the rite by ID
-        result = await deps.provide_werewolf_rite_by_id(rite.id)
-
-        # Then the rite is returned
-        assert result.id == rite.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when werewolf rite does not exist."""
-        # Given a non-existent rite ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Werewolf rite not found"):
-            await deps.provide_werewolf_rite_by_id(non_existent_id)
 
 
 class TestProvideDictionaryTermById:

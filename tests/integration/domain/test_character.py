@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from typing import TYPE_CHECKING
 
 import pytest
@@ -24,8 +23,6 @@ from vapi.db.models import (
     TraitCategory,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 from vapi.domain.controllers.character.dto import CharacterTraitCreate, CreateCharacterDTO
@@ -974,8 +971,6 @@ class TestWerewolfAttributes:
         """Verify we can create a werewolf character."""
         werewolf_tribe = await WerewolfTribe.find_one({"is_archived": False})
         werewolf_auspice = await WerewolfAuspice.find_one({"is_archived": False})
-        rites = await WerewolfRite.find().limit(3).to_list()
-        gifts = await WerewolfGift.find().limit(3).to_list()
         response = await client.post(
             build_url(CharacterURL.CREATE),
             headers=token_company_admin,
@@ -988,8 +983,6 @@ class TestWerewolfAttributes:
                 "werewolf_attributes": {
                     "tribe_id": str(werewolf_tribe.id),
                     "auspice_id": str(werewolf_auspice.id),
-                    "gift_ids": [str(gift.id) for gift in gifts],
-                    "rite_ids": [str(rite.id) for rite in rites],
                 },
             },
         )
@@ -1003,8 +996,6 @@ class TestWerewolfAttributes:
         assert character.werewolf_attributes.tribe_name == werewolf_tribe.name
         assert character.werewolf_attributes.auspice_id == werewolf_auspice.id
         assert character.werewolf_attributes.auspice_name == werewolf_auspice.name
-        assert len(character.werewolf_attributes.gift_ids) == 3
-        assert len(character.werewolf_attributes.rite_ids) == 3
 
         # Cleanup
         await character.delete()
@@ -1051,54 +1042,6 @@ class TestWerewolfAttributes:
         # Cleanup
         await updated_character.delete()
 
-    async def test_patch_werewolf_gifts_and_rites(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        character_factory: Callable[[dict[str, ...]], Character],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Test werewolf gifts and rites can be patched."""
-        # Given a werewolf character with full werewolf attributes
-        character = await character_factory(character_class="WEREWOLF")
-        auspice = await WerewolfAuspice.find_one({"is_archived": False})
-        tribe = await WerewolfTribe.find_one({"is_archived": False})
-        rites = await WerewolfRite.find().to_list()
-        gifts = await WerewolfGift.find().to_list()
-
-        character.werewolf_attributes.tribe_id = tribe.id
-        character.werewolf_attributes.auspice_id = auspice.id
-        character.werewolf_attributes.tribe_name = tribe.name
-        character.werewolf_attributes.auspice_name = auspice.name
-        character.werewolf_attributes.rite_ids = [random.choice(rites).id for _ in range(3)]
-        character.werewolf_attributes.gift_ids = [random.choice(gifts).id for _ in range(3)]
-        await character.save()
-
-        # When we patch the character with a new gift
-        new_gift = random.choice(gifts)
-        response = await client.patch(
-            build_url(CharacterURL.UPDATE, character_id=character.id),
-            headers=token_company_admin,
-            json={
-                "werewolf_attributes": {"gift_ids": [str(new_gift.id)]},
-            },
-        )
-        # debug(response.json())
-
-        # Then verify the character was updated successfully
-        updated_character = await Character.get(character.id)
-        await updated_character.sync()
-        assert updated_character.werewolf_attributes.gift_ids == [new_gift.id]
-        assert (
-            updated_character.werewolf_attributes.rite_ids == character.werewolf_attributes.rite_ids
-        )
-        assert updated_character.werewolf_attributes.auspice_name == auspice.name
-        assert updated_character.werewolf_attributes.tribe_name == tribe.name
-        assert response.json() == updated_character.model_dump(
-            mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
-        )
-
     async def test_patch_werewolf_tribe(
         self,
         client: AsyncClient,
@@ -1112,14 +1055,10 @@ class TestWerewolfAttributes:
         character = await character_factory(character_class="WEREWOLF")
         auspice = await WerewolfAuspice.find_one({"is_archived": False})
         tribe = await WerewolfTribe.find_one({"is_archived": False})
-        rites = await WerewolfRite.find().to_list()
-        gifts = await WerewolfGift.find().to_list()
         character.werewolf_attributes.tribe_id = tribe.id
         character.werewolf_attributes.auspice_id = auspice.id
         character.werewolf_attributes.tribe_name = tribe.name
         character.werewolf_attributes.auspice_name = auspice.name
-        character.werewolf_attributes.rite_ids = [random.choice(rites).id for _ in range(3)]
-        character.werewolf_attributes.gift_ids = [random.choice(gifts).id for _ in range(3)]
         await character.save()
 
         # When we patch the character with a new tribe
@@ -1142,12 +1081,6 @@ class TestWerewolfAttributes:
         assert updated_character.werewolf_attributes.tribe_name == new_tribe.name
         assert updated_character.werewolf_attributes.auspice_id == auspice.id
         assert updated_character.werewolf_attributes.auspice_name == auspice.name
-        assert (
-            updated_character.werewolf_attributes.rite_ids == character.werewolf_attributes.rite_ids
-        )
-        assert (
-            updated_character.werewolf_attributes.gift_ids == character.werewolf_attributes.gift_ids
-        )
         assert response.json() == updated_character.model_dump(
             mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
         )

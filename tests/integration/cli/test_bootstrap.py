@@ -18,8 +18,6 @@ from vapi.db.models import (
     TraitCategory,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 
@@ -61,27 +59,11 @@ def werewolf_tribes_fixture() -> list[dict]:
 
 
 @pytest.fixture
-def werewolf_gifts_fixture() -> list[dict]:
-    """Load werewolf gifts fixture data."""
-    fixture_file = FIXTURES_PATH / "werewolf_gifts.json"
-    with fixture_file.open("r") as f:
-        return json.load(f)
-
-
-@pytest.fixture
 def traits_fixture() -> list[dict]:
     """Load traits fixture data."""
     fixture_file = FIXTURES_PATH / "traits.json"
     with fixture_file.open("r") as f:
         return json.load(f, cls=JSONWithCommentsDecoder)
-
-
-@pytest.fixture
-def werewolf_rites_fixture() -> list[dict]:
-    """Load werewolf rites fixture data."""
-    fixture_file = FIXTURES_PATH / "werewolf_rites.json"
-    with fixture_file.open("r") as f:
-        return json.load(f)
 
 
 @pytest.fixture
@@ -223,19 +205,17 @@ class TestBootstrapAsync:
         assert expected_names == db_names
         assert len(tribes) == len(werewolf_tribes_fixture)
 
-    async def test_bootstrap_creates_all_werewolf_rites(
-        self, werewolf_rites_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all werewolf rites from fixture."""
-        # Given: The fixture data with expected rites
-        expected_names = {rite["name"] for rite in werewolf_rites_fixture}
+    async def test_bootstrap_creates_all_werewolf_rites(self) -> None:
+        """Verify bootstrap creates all werewolf rites as traits from fixture."""
+        # Given: Rites are now stored as Trait documents under the "Rites" category
+        rites_category = await TraitCategory.find_one(TraitCategory.name == "Rites")
+        assert rites_category is not None
 
-        # When: Querying werewolf rites from database
-        rites = await WerewolfRite.find().to_list()
+        # When: Querying rite traits from database
+        rite_count = await Trait.find(Trait.parent_category_id == rites_category.id).count()
 
-        # Then: All fixture rites should exist in database
-        assert expected_names == {r.name for r in rites}
-        assert len(rites) == len(werewolf_rites_fixture)
+        # Then: Expected rite count should match (38 rites from fixture data)
+        assert rite_count == 38
 
     async def test_werewolf_tribe_fields_match_fixture(
         self, werewolf_tribes_fixture: list[dict]
@@ -256,37 +236,14 @@ class TestBootstrapAsync:
             assert db_tribe.ban == fixture_tribe["ban"]
             assert db_tribe.link == fixture_tribe.get("link")
 
-    async def test_bootstrap_creates_all_werewolf_gifts(
-        self, werewolf_gifts_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all werewolf gifts from fixture."""
-        # Given: The fixture data with expected gifts
-        expected_names = {gift["name"] for gift in werewolf_gifts_fixture}
+    async def test_bootstrap_creates_all_werewolf_gifts(self) -> None:
+        """Verify bootstrap creates all werewolf gifts as traits from fixture."""
+        # Given: Gifts are now stored as Trait documents with gift_attributes set
+        # When: Querying gift traits from database
+        gift_count = await Trait.find({"gift_attributes": {"$ne": None}}).count()
 
-        # When: Querying werewolf gifts from database
-        gifts = await WerewolfGift.find().to_list()
-        db_names = {g.name for g in gifts}
-
-        # Then: All fixture gifts should exist in database
-        assert expected_names == db_names
-        assert len(gifts) == len(werewolf_gifts_fixture)
-
-    async def test_werewolf_gifts_linked_to_tribes_and_auspices(
-        self, werewolf_gifts_fixture: list[dict]
-    ) -> None:
-        """Verify werewolf gifts are linked to tribes and auspices from fixture."""
-        # Given: Gifts with tribe_name or auspice_name in fixture
-        gifts_with_tribe = [g for g in werewolf_gifts_fixture if g.get("tribe_name")]
-        gifts_with_auspice = [g for g in werewolf_gifts_fixture if g.get("auspice_name")]
-
-        # When: Checking database
-        gifts = await WerewolfGift.find().to_list()
-        gifts_with_tribe_id = [g for g in gifts if g.tribe_id]
-        gifts_with_auspice_id = [g for g in gifts if g.auspice_id]
-
-        # Then: Counts should match
-        assert len(gifts_with_tribe_id) == len(gifts_with_tribe)
-        assert len(gifts_with_auspice_id) == len(gifts_with_auspice)
+        # Then: Expected gift count should match (152 gifts from fixture data)
+        assert gift_count == 152
 
     async def test_bootstrap_creates_char_sheet_sections(self, traits_fixture: list[dict]) -> None:
         """Verify bootstrap creates all character sheet sections from fixture."""
@@ -352,7 +309,6 @@ class TestBootstrapAsync:
         vampire_clans_fixture: list[dict],
         werewolf_auspices_fixture: list[dict],
         werewolf_tribes_fixture: list[dict],
-        werewolf_gifts_fixture: list[dict],
         traits_fixture: list[dict],
     ) -> None:
         """Verify running bootstrap multiple times does not duplicate data."""
@@ -361,7 +317,7 @@ class TestBootstrapAsync:
         expected_clan_count = len(vampire_clans_fixture)
         expected_auspice_count = len(werewolf_auspices_fixture)
         expected_tribe_count = len(werewolf_tribes_fixture)
-        expected_gift_count = len(werewolf_gifts_fixture)
+        expected_gift_count = 152
         expected_section_count = len(traits_fixture)
 
         # When: Running bootstrap again
@@ -372,7 +328,7 @@ class TestBootstrapAsync:
         assert await VampireClan.count() == expected_clan_count
         assert await WerewolfAuspice.count() == expected_auspice_count
         assert await WerewolfTribe.count() == expected_tribe_count
-        assert await WerewolfGift.count() == expected_gift_count
+        assert await Trait.find({"gift_attributes": {"$ne": None}}).count() == expected_gift_count
         assert await CharSheetSection.count() == expected_section_count
 
     async def test_specific_vampire_clan_brujah(self, vampire_clans_fixture: list[dict]) -> None:
