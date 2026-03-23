@@ -271,7 +271,7 @@ async def resolve_gift_trait_references() -> None:
     from vapi.db.models.constants.trait import Trait
 
     gift_fixture_map = _build_gift_fixture_map()
-    gift_traits = await Trait.find({"gift_attributes": {"$ne": None}}).to_list()
+    gift_traits = await Trait.find(Trait.gift_attributes != None).to_list()
 
     tribes_by_name = {t.name: t.id for t in await WerewolfTribe.find().to_list()}
     auspices_by_name = {a.name: a.id for a in await WerewolfAuspice.find().to_list()}

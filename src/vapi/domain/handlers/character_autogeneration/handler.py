@@ -601,23 +601,22 @@ class CharacterAutogenerationHandler:
         auspice_id = character.werewolf_attributes.auspice_id
         tribe_id = character.werewolf_attributes.tribe_id
 
-        # Raw MongoDB dict queries are required for embedded Pydantic sub-models like GiftAttributes
         tribe_gifts = await Trait.find(
-            {"gift_attributes": {"$ne": None}},
-            {"gift_attributes.tribe_id": tribe_id},
-            {"gift_attributes.minimum_renown": {"$lte": total_renown}},
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.tribe_id == tribe_id,
+            Trait.gift_attributes.minimum_renown <= total_renown,
         ).to_list()
 
         auspice_gifts = await Trait.find(
-            {"gift_attributes": {"$ne": None}},
-            {"gift_attributes.auspice_id": auspice_id},
-            {"gift_attributes.minimum_renown": {"$lte": total_renown}},
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.auspice_id == auspice_id,
+            Trait.gift_attributes.minimum_renown <= total_renown,
         ).to_list()
 
         native_gifts = await Trait.find(
-            {"gift_attributes": {"$ne": None}},
-            {"gift_attributes.is_native_gift": True},
-            {"gift_attributes.minimum_renown": {"$lte": total_renown}},
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.is_native_gift == True,
+            Trait.gift_attributes.minimum_renown <= total_renown,
         ).to_list()
 
         rites_category = await TraitCategory.find_one(TraitCategory.name == "Rites")

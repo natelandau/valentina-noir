@@ -240,7 +240,7 @@ class TestBootstrapAsync:
         """Verify bootstrap creates all werewolf gifts as traits from fixture."""
         # Given: Gifts are now stored as Trait documents with gift_attributes set
         # When: Querying gift traits from database
-        gift_count = await Trait.find({"gift_attributes": {"$ne": None}}).count()
+        gift_count = await Trait.find(Trait.gift_attributes != None).count()
 
         # Then: Expected gift count should match (152 gifts from fixture data)
         assert gift_count == 152
@@ -328,7 +328,7 @@ class TestBootstrapAsync:
         assert await VampireClan.count() == expected_clan_count
         assert await WerewolfAuspice.count() == expected_auspice_count
         assert await WerewolfTribe.count() == expected_tribe_count
-        assert await Trait.find({"gift_attributes": {"$ne": None}}).count() == expected_gift_count
+        assert await Trait.find(Trait.gift_attributes != None).count() == expected_gift_count
         assert await CharSheetSection.count() == expected_section_count
 
     async def test_specific_vampire_clan_brujah(self, vampire_clans_fixture: list[dict]) -> None:
