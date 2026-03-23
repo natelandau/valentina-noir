@@ -10,7 +10,12 @@ from beanie import PydanticObjectId
 from vapi.constants import PermissionsGrantXP, UserRole
 from vapi.db.models import QuickRoll, Trait, User
 from vapi.db.models.user import CampaignExperience, DiscordProfile, GitHubProfile, GoogleProfile
-from vapi.domain.controllers.user.dto import UserPatchDTO, UserPostDTO, UserRegisterDTO
+from vapi.domain.controllers.user.dto import (
+    DiscordProfileInput,
+    UserPatchDTO,
+    UserPostDTO,
+    UserRegisterDTO,
+)
 from vapi.domain.services import UserQuickRollService, UserService, UserXPService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
@@ -108,7 +113,7 @@ class TestUserService:
             username="test_user",
             email="test@example.com",
             role=UserRole.PLAYER,
-            discord_profile=DiscordProfile(global_name="global name"),
+            discord_profile=DiscordProfileInput(global_name="global name"),
             google_profile=GoogleProfile(email="test@gmail.com", username="Test User"),
             github_profile=GitHubProfile(login="testuser", email="test@github.com"),
             requesting_user_id=requesting_user.id,
@@ -162,7 +167,7 @@ class TestUserService:
 
         data = UserPatchDTO(
             name_first="update",
-            discord_profile=DiscordProfile(global_name="global name updated"),
+            discord_profile=DiscordProfileInput(global_name="global name updated"),
             google_profile=GoogleProfile(username="Updated Google User"),
             github_profile=GitHubProfile(username="Updated GitHub User"),
             requesting_user_id=target_user.id,

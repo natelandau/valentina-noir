@@ -90,14 +90,20 @@ def patch_document_from_dict[T: Document](document: T, data: dict[str, Any]) -> 
     """
 
     def _patch_internal_dict(original: T, data: dict[str, Any]) -> None:
+        computed = original.model_computed_fields
         for key, value in data.items():
+            if key in computed:
+                continue
             if key in original.model_dump():
                 if isinstance(value, dict):
                     _patch_internal_dict(getattr(original, key), value)
                 else:
                     setattr(original, key, value)
 
+    computed = document.model_computed_fields
     for key, value in data.items():
+        if key in computed:
+            continue
         if key in document.model_dump():
             if isinstance(value, dict):
                 _patch_internal_dict(getattr(document, key), value)

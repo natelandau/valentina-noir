@@ -16,6 +16,7 @@ from vapi.db.models import (
     User,
 )
 from vapi.db.models.company import CompanySettings
+from vapi.db.models.user import DiscordOauth, DiscordProfile, GitHubProfile, GoogleProfile
 
 fake = Faker()
 
@@ -117,6 +118,12 @@ class UserFactory(BeanieDocumentFactory[User]):
     __min_collection_length__ = 2
     __max_collection_length__ = 12
     __randomize_collection_length__ = True
+    is_archived: bool = False
+    model_version: int = 1
+    discord_profile: DiscordProfile = DiscordProfile()
+    google_profile: GoogleProfile = GoogleProfile()
+    github_profile: GitHubProfile = GitHubProfile()
+    discord_oauth: DiscordOauth = DiscordOauth()
 
     @classmethod
     def name_first(cls) -> str:
@@ -133,14 +140,6 @@ class UserFactory(BeanieDocumentFactory[User]):
     @classmethod
     def username(cls) -> str:
         return fake.user_name()
-
-    @classmethod
-    def is_archived(cls) -> bool:
-        return False
-
-    @classmethod
-    def model_version(cls) -> int:
-        return 1
 
     @classmethod
     def player_characters(cls) -> list:

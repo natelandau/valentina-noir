@@ -16,7 +16,7 @@ from litestar.status_codes import (
 
 from vapi.constants import UserRole
 from vapi.db.models import AuditLog, QuickRoll, Trait, User
-from vapi.db.models.user import CampaignExperience
+from vapi.db.models.user import CampaignExperience, DiscordProfile, GitHubProfile, GoogleProfile
 from vapi.domain.urls import Users as UsersURL
 
 if TYPE_CHECKING:
@@ -1026,12 +1026,15 @@ class TestUserRegistration:
             company = await company_factory()
             admin_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
             primary_user = await user_factory(
-                company_id=company.id, google_profile={}, github_profile={}, discord_profile={}
+                company_id=company.id,
+                google_profile=GoogleProfile(),
+                github_profile=GitHubProfile(),
+                discord_profile=DiscordProfile(),
             )
             secondary_user = await user_factory(
                 company_id=company.id,
                 role=UserRole.UNAPPROVED,
-                google_profile={"email": "secondary@gmail.com", "username": "Secondary"},
+                google_profile=GoogleProfile(email="secondary@gmail.com", username="Secondary"),
             )
 
             # When we merge the users

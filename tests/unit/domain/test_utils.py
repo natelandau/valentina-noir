@@ -38,12 +38,11 @@ class TestPatchDocumentFromDict:
             role=UserRole.PLAYER,
             company_id=company.id,
             discord_profile=DiscordProfile(
-                id="discord id",
+                id="193148575306350592",
                 username="username",
                 global_name="global name",
-                avatar_id="avatar id",
-                avatar_url="avatar url",
-                discriminator="discriminator",
+                avatar_id="605d4417d0fa196299aa60386c895bc0",
+                discriminator="0",
                 email="test@example.com",
                 verified=True,
             ),
@@ -91,7 +90,10 @@ class TestPatchDocumentFromDict:
         assert patched_user.discord_profile.id == user.discord_profile.id
         assert patched_user.discord_profile.global_name == "updated global name"
         assert patched_user.discord_profile.avatar_id is None
-        assert patched_user.discord_profile.avatar_url == user.discord_profile.avatar_url
+        assert (
+            patched_user.discord_profile.avatar_url
+            == "https://cdn.discordapp.com/embed/avatars/0.png"
+        )
         assert patched_user.google_profile.id == "google123"
         assert patched_user.google_profile.username == "Updated Google User"
         assert patched_user.google_profile.locale == "fr"
