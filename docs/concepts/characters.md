@@ -63,7 +63,7 @@ This can be useful when creating characters in multi-stage creation sessions. Do
 Some character classes have additional attributes beyond the standard set.
 
 - **Vampires** - Clan, generation, sire, bane, and compulsion (auto-populated from clan data)
-- **Werewolves** - Tribe, auspice, pack name, gifts, rites, and total renown (computed from Honor + Wisdom + Glory)
+- **Werewolves** - Tribe, auspice, pack name, and total renown (computed from Honor + Wisdom + Glory). Gifts and rites are managed as [traits](./character_traits.md) under the "Other" section.
 - **Mages** - Sphere and tradition
 - **Hunters** - Creed and edges (managed as traits via [subcategories](./character_traits.md#trait-subcategories))
 
