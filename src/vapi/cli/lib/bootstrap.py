@@ -1,10 +1,17 @@
 """Bootstrap utilities."""
 
+from __future__ import annotations
+
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING
 
 import click
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
+
+    from vapi.db.models.constants.trait import Trait
 from rich.console import Console
 
 from vapi.constants import PROJECT_ROOT_PATH
@@ -266,13 +273,18 @@ async def resolve_gift_trait_references() -> None:
     gift_fixture_map = _build_gift_fixture_map()
     gift_traits = await Trait.find({"gift_attributes": {"$ne": None}}).to_list()
 
+    tribes_by_name = {t.name: t.id for t in await WerewolfTribe.find().to_list()}
+    auspices_by_name = {a.name: a.id for a in await WerewolfAuspice.find().to_list()}
+
     updated = 0
     for trait in gift_traits:
         fixture_ga = gift_fixture_map.get(trait.name)
         if not fixture_ga:
             continue
 
-        changed = await _resolve_single_gift_references(trait, fixture_ga)
+        changed = _resolve_single_gift_references(
+            trait, fixture_ga, tribes_by_name, auspices_by_name
+        )
         if changed:
             await trait.save()
             updated += 1
@@ -292,7 +304,7 @@ def _build_gift_fixture_map() -> dict[str, dict]:
     """Build a mapping of gift trait name to fixture gift_attributes dict."""
     fixture_file = FIXTURES_PATH / "traits.json"
     with fixture_file.open("r") as file:
-        fixture_data = json.load(file)
+        fixture_data = json.load(file, cls=JSONWithCommentsDecoder)
 
     result: dict[str, dict] = {}
     for section in fixture_data:
@@ -304,23 +316,28 @@ def _build_gift_fixture_map() -> dict[str, dict]:
     return result
 
 
-async def _resolve_single_gift_references(trait: Any, fixture_ga: dict) -> bool:
+def _resolve_single_gift_references(
+    trait: Trait,
+    fixture_ga: dict,
+    tribes_by_name: dict[str, PydanticObjectId],
+    auspices_by_name: dict[str, PydanticObjectId],
+) -> bool:
     """Resolve tribe/auspice names to IDs on a single gift trait."""
     attrs = trait.gift_attributes
     changed = False
 
     tribe_name = fixture_ga.get("tribe_name")
     if tribe_name and attrs.tribe_id is None:
-        tribe = await WerewolfTribe.find_one(WerewolfTribe.name == tribe_name)
-        if tribe:
-            attrs.tribe_id = tribe.id
+        tribe_id = tribes_by_name.get(tribe_name)
+        if tribe_id:
+            attrs.tribe_id = tribe_id
             changed = True
 
     auspice_name = fixture_ga.get("auspice_name")
     if auspice_name and attrs.auspice_id is None:
-        auspice = await WerewolfAuspice.find_one(WerewolfAuspice.name == auspice_name)
-        if auspice:
-            attrs.auspice_id = auspice.id
+        auspice_id = auspices_by_name.get(auspice_name)
+        if auspice_id:
+            attrs.auspice_id = auspice_id
             changed = True
 
     return changed

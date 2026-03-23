@@ -641,9 +641,8 @@ class CharacterAutogenerationHandler:
 
         async def _assign_random_traits(pool: list[Trait], count: int) -> None:
             available = [t for t in pool if t.id not in existing_trait_ids]
-            for _ in range(min(count, len(available))):
-                trait = random.choice(available)
-                available.remove(trait)
+            chosen = random.sample(available, min(count, len(available)))
+            for trait in chosen:
                 char_trait = CharacterTrait(character_id=character.id, trait=trait, value=1)
                 await char_trait.save()
                 existing_trait_ids.add(trait.id)
