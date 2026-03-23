@@ -71,7 +71,7 @@ class UserService:
             email=data.email,
             role=data.role,
             company_id=company.id,
-            discord_profile=data.discord_profile,
+            discord_profile=data.discord_profile.model_dump(),
             google_profile=data.google_profile,
             github_profile=data.github_profile,
         )
@@ -94,7 +94,7 @@ class UserService:
             email=data.email,
             role=UserRole.UNAPPROVED,
             company_id=company.id,
-            discord_profile=data.discord_profile,
+            discord_profile=data.discord_profile.model_dump(),
             google_profile=data.google_profile,
             github_profile=data.github_profile,
         )

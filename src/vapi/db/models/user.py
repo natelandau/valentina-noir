@@ -11,11 +11,11 @@ from beanie import (
     Update,
     before_event,
 )
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, computed_field
 
 from vapi.constants import COOL_POINT_VALUE, UserRole
 from vapi.lib.exceptions import NotEnoughXPError
-from vapi.utils.strings import slugify
+from vapi.utils.strings import get_discord_avatar_url, slugify
 
 from .base import BaseDocument, HashedBaseModel
 
@@ -64,10 +64,21 @@ class DiscordProfile(HashedBaseModel):
     username: Annotated[str | None, Field(examples=["John Doe"])] = None
     global_name: Annotated[str | None, Field(examples=["John Doe"])] = None
     avatar_id: Annotated[str | None, Field(examples=["1234567890"])] = None
-    avatar_url: Annotated[str | None, Field(examples=["https://example.com/avatar.png"])] = None
     discriminator: Annotated[str | None, Field(examples=["1234"])] = None
     email: Annotated[str | None, Field(examples=["john.doe@example.com"])] = None
     verified: Annotated[bool | None, Field(examples=[True])] = None
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def avatar_url(self) -> str | None:
+        """Return the user's avatar URL."""
+        if not self.id:
+            return None
+        return get_discord_avatar_url(
+            avatar_hash=self.avatar_id,
+            discord_user_id=int(self.id),
+            discriminator=self.discriminator,
+        )
 
 
 class CampaignExperience(HashedBaseModel):

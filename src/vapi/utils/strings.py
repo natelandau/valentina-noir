@@ -84,3 +84,63 @@ def random_string(length: int) -> str:
         >>> assert len(random_string(10)) == 10
     """
     return "".join(random.choice(string.ascii_letters) for _ in range(length))
+
+
+def get_discord_avatar_url(
+    avatar_hash: str, discord_user_id: int, discriminator: str
+) -> str | None:
+    """Return the URL of the user's Discord avatar.
+
+    Args:
+        avatar_hash (str): The hash of the Discord avatar.
+        discord_user_id (int): The ID of the Discord user.
+        discriminator (str): The discriminator of the Discord user.
+
+    Returns:
+        str | None: The URL of the Discord avatar.
+    """
+    discord_image_format: str = "png"
+    discord_animated_image_format: str = "gif"
+    discord_image_base_url: str = "https://cdn.discordapp.com/"
+    discord_user_avatar_base_url: str = (
+        discord_image_base_url + "avatars/{user_id}/{avatar_hash}.{format}"
+    )
+    discord_default_user_avatar_base_url: str = (
+        discord_image_base_url + "embed/avatars/{modulo5}.png"
+    )
+
+    def _is_avatar_animated(avatar_hash: str) -> bool:
+        """A boolean representing if Discord avatar of user is animated. Meaning user has GIF avatar.
+
+        Args:
+            avatar_hash (str): The hash of the Discord avatar.
+
+        Returns:
+            bool: True if the Discord avatar is animated, False otherwise.
+        """
+        try:
+            return avatar_hash.startswith("a_")
+        except AttributeError:
+            return False
+
+    def _default_avatar_url(discriminator: str) -> str:
+        """Return the default Discord avatar URL as when user doesn't has any Discord avatar set.
+
+        Args:
+            discriminator (str): The discriminator of the Discord user.
+
+        Returns:
+            str: The default avatar URL.
+        """
+        return discord_default_user_avatar_base_url.format(modulo5=int(discriminator) % 5)
+
+    if not avatar_hash:
+        if not discriminator:
+            return None
+        return _default_avatar_url(discriminator)
+    image_format = (
+        discord_animated_image_format if _is_avatar_animated(avatar_hash) else discord_image_format
+    )
+    return discord_user_avatar_base_url.format(
+        user_id=discord_user_id, avatar_hash=avatar_hash, format=image_format
+    )
