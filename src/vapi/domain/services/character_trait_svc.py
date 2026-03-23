@@ -272,12 +272,12 @@ class CharacterTraitService:
         await character_trait.fetch_all_links()
         max_decrease = character_trait.value - character_trait.trait.min_value  # type: ignore [attr-defined]
         for num_dots in range(1, max_decrease + 1):
-            downgrade_savings[str(num_dots)] = self._calculate_downgrade_savings(
-                character_trait, num_dots
+            downgrade_savings[str(num_dots)] = await self._calculate_downgrade_savings(
+                character_trait, num_dots, character_id=character_trait.character_id
             )
 
-        downgrade_savings["DELETE"] = self._calculate_downgrade_savings(
-            character_trait, character_trait.value
+        downgrade_savings["DELETE"] = await self._calculate_downgrade_savings(
+            character_trait, character_trait.value, character_id=character_trait.character_id
         )
 
         return downgrade_savings
@@ -368,12 +368,43 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be lowered below min value.
         """
         await character_trait.fetch_all_links()
-        return self._calculate_downgrade_savings(character_trait, decrease_by)
+        return await self._calculate_downgrade_savings(
+            character_trait, decrease_by, character_id=character_trait.character_id
+        )
 
-    def _calculate_downgrade_savings(
-        self, character_trait: CharacterTrait, decrease_by: int
+    async def _calculate_downgrade_savings(
+        self,
+        character_trait: CharacterTrait,
+        decrease_by: int,
+        *,
+        character_id: PydanticObjectId,
+        gift_count_override: int | None = None,
     ) -> int:
-        """Calculate downgrade savings assuming links are already fetched."""
+        """Calculate downgrade savings assuming links are already fetched.
+
+        For gift traits, uses count-based pricing (Nth gift refunds N x 2).
+        For all other traits, uses the existing per-dot model.
+
+        Args:
+            character_trait: The trait (links must be fetched).
+            decrease_by: The number of dots to decrease by.
+            character_id: The character's ID (needed for gift count query).
+            gift_count_override: If provided, use this as the current gift count
+                instead of querying the DB. Used by bulk operations.
+
+        Returns:
+            The total savings from downgrading.
+
+        Raises:
+            ValidationError: If the trait would go below zero.
+        """
+        if character_trait.trait.gift_attributes is not None:  # type: ignore [attr-defined]
+            if gift_count_override is not None:
+                current_count = gift_count_override
+            else:
+                current_count = await self._count_character_gifts(character_id)
+            return self._cost_for_gift(current_count)
+
         savings = 0
         new_trait_value = character_trait.value
 
@@ -931,7 +962,9 @@ class CharacterTraitService:
         else:
             if not deleting_trait:
                 self._guard_is_safe_decrease(character_trait, num_dots)
-            cost = self._calculate_downgrade_savings(character_trait, num_dots)
+            cost = await self._calculate_downgrade_savings(
+                character_trait, num_dots, character_id=character_trait.character_id
+            )
 
         target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
         is_flaw = await self._is_flaw_trait(character_trait)
@@ -985,7 +1018,9 @@ class CharacterTraitService:
         else:
             if not deleting_trait:
                 self._guard_is_safe_decrease(character_trait, num_dots)
-            cost = self._calculate_downgrade_savings(character_trait, num_dots)
+            cost = await self._calculate_downgrade_savings(
+                character_trait, num_dots, character_id=character_trait.character_id
+            )
 
         is_flaw = await self._is_flaw_trait(character_trait)
 

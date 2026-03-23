@@ -990,6 +990,79 @@ class TestGiftUpgradeCost:
         assert cost == 12
 
 
+class TestGiftDowngradeSavings:
+    """Test downgrade savings calculation for gift traits."""
+
+    async def test_removing_only_gift_refunds_2(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify removing the only gift refunds 2 (1 x 2)."""
+        # Given a character with 1 gift
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=1
+        )
+
+        # When calculating downgrade savings
+        savings = await service.calculate_downgrade_savings(character_trait, 1)
+
+        # Then savings is 2 (1 gift: 1 x 2)
+        assert savings == 2
+
+    async def test_removing_fifth_gift_refunds_10(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify removing a gift when character has 5 refunds 10 (5 x 2)."""
+        # Given a character with 5 gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(5)
+        if len(gift_traits) < 5:
+            pytest.skip("Not enough gift traits in database")
+
+        for i in range(4):
+            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+        # The 5th gift is the one being removed
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_traits[4], value=1
+        )
+
+        # When calculating downgrade savings
+        savings = await service.calculate_downgrade_savings(character_trait, 1)
+
+        # Then savings is 10 (5th gift: 5 x 2)
+        assert savings == 10
+
+
 class TestCalculateCosts:
     """Test the calculate_upgrade_cost and calculate_downgrade_savings methods."""
 
@@ -2047,7 +2120,9 @@ class TestChangeCharacterTraitValue:
         spy_get_user_by_id.assert_called_once_with(ANY, target_user.id)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_downgrade_savings.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_downgrade_savings.assert_called_once_with(
+            ANY, character_trait, 1, character_id=character_trait.character_id
+        )
 
         # Cleanup
         await character.delete()
@@ -2216,7 +2291,9 @@ class TestChangeCharacterTraitValue:
         assert character.starting_points == 100 + character_trait.trait.initial_cost * 5
         spy_after_save.assert_called_once_with(ANY, result)
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_downgrade_savings.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_downgrade_savings.assert_called_once_with(
+            ANY, character_trait, 1, character_id=character_trait.character_id
+        )
         spyguard_user_can_manage_character.assert_called_once()
 
         # Cleanup
