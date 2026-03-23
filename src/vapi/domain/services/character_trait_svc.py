@@ -430,6 +430,7 @@ class CharacterTraitService:
                 detail=msg, invalid_parameters=[{"field": "value", "message": msg}]
             )
 
+        # NO_COST allows storytellers to bypass renown requirements
         if currency != TraitModifyCurrency.NO_COST:
             self._guard_has_minimum_renown(trait, character)
 
@@ -571,6 +572,14 @@ class CharacterTraitService:
                     )
                 )
                 continue
+
+            # Validate minimum renown for gifts (NO_COST allows storyteller bypass)
+            if currency != TraitModifyCurrency.NO_COST:
+                try:
+                    self._guard_has_minimum_renown(trait, character)
+                except ValidationError as exc:
+                    failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=exc.detail))
+                    continue
 
             # Create the CharacterTrait with value=0 (currency methods handle increment)
             character_trait = CharacterTrait(

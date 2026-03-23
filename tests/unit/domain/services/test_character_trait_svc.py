@@ -3252,3 +3252,64 @@ class TestBulkAddConstantTraitsToCharacter:
         assert any(s.trait_id == flaw_trait.id for s in result.succeeded)
         # And both items are accounted for
         assert len(result.succeeded) + len(result.failed) == 2
+
+    async def test_bulk_gift_insufficient_renown_fails(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        user_factory: Callable[[dict[str, ...]], User],
+        company_factory: Callable[[dict[str, ...]], Company],
+    ) -> None:
+        """Verify a gift with insufficient renown appears in failed list during bulk add."""
+        # Given a werewolf character with total_renown=0
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            company_id=company.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+        assert character.werewolf_attributes.total_renown == 0
+
+        # Given a gift trait with minimum_renown > 0 and a non-gift trait
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        )
+        non_gift_trait = await Trait.find_one(
+            Trait.gift_attributes == None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift with minimum_renown found in database")
+        if non_gift_trait is None:
+            pytest.skip("No non-gift trait found in database")
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_trait.id, value=1, currency=TraitModifyCurrency.XP
+            ),
+            CharacterTraitAddConstant(
+                trait_id=non_gift_trait.id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+        ]
+
+        # When bulk assigning
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then the gift fails and the non-gift succeeds
+        assert len(result.failed) == 1
+        assert result.failed[0].trait_id == gift_trait.id
+        assert "Renown" in result.failed[0].error
+        assert len(result.succeeded) == 1
+        assert result.succeeded[0].character_trait.trait.id == non_gift_trait.id
