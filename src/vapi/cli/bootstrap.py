@@ -26,12 +26,11 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     Commands need to be run in the following order because they are dependent on each other:
 
     1. Advantage Categories
-    2. Traits
+    2. Traits (includes werewolf gifts/rites)
     3. Vampire Clans
-    4. Werewolf Aspirices
+    4. Werewolf Auspices
     5. Werewolf Tribes
-    6. Werewolf Gifts
-    7. Character Concepts
+    6. Character Concepts
     """
     if do_setup_database:
         await setup_database()
@@ -40,8 +39,6 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     await utils.sync_vampire_clans()
     await utils.sync_werewolf_auspices()
     await utils.sync_werewolf_tribes()
-    await utils.sync_werewolf_gifts()
-    await utils.sync_werewolf_rites()
     await utils.sync_character_concepts()
 
     logger.info(

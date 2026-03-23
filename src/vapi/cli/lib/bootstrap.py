@@ -11,8 +11,6 @@ from vapi.db.models import (
     CharacterConcept,
     VampireClan,
     WerewolfAuspice,
-    WerewolfGift,
-    WerewolfRite,
     WerewolfTribe,
 )
 
@@ -22,7 +20,6 @@ from .utils import (
     create_global_dictionary_term,
     document_differs_from_fixture,
     get_differing_fields,
-    gift_link_to_tribe_and_auspice,
     link_disciplines_to_clan,
     sync_section_categories,
     sync_single_section,
@@ -250,91 +247,6 @@ async def sync_werewolf_tribes() -> None:
             "num_created": created_tribes,
             "num_updated": updated_tribes,
             "num_total": len(fixture_werewolf_tribes),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
-
-
-async def sync_werewolf_gifts() -> None:
-    """Sync werewolf gifts."""
-    fixture_file = FIXTURES_PATH / "werewolf_gifts.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(msg, extra={"component": "cli", "command": "bootstrap sync_werewolf_gifts"})
-        raise click.Abort
-
-    auspices = await WerewolfAuspice.find().to_list()
-    tribes = await WerewolfTribe.find().to_list()
-
-    with fixture_file.open("r") as file:
-        fixture_werewolf_gifts = json.load(file)
-
-    created_gifts = 0
-    updated_gifts = 0
-    for fixture_gift in fixture_werewolf_gifts:
-        created_gift = False
-        gift = await WerewolfGift.find_one(WerewolfGift.name == fixture_gift["name"])
-        if not gift:
-            gift = WerewolfGift(**fixture_gift)
-            await gift.save()
-            created_gifts += 1
-            created_gift = True
-
-        elif document_differs_from_fixture(gift, fixture_gift):
-            differences = get_differing_fields(gift, fixture_gift)
-            for field_name in differences:
-                setattr(gift, field_name, fixture_gift[field_name])
-            await gift.save()
-
-        is_updated = await gift_link_to_tribe_and_auspice(gift, fixture_gift, tribes, auspices)
-        if is_updated and not created_gift:
-            updated_gifts += 1
-
-    logger.info(
-        "Bootstrapped werewolf gifts",
-        extra={
-            "num_created": created_gifts,
-            "num_updated": updated_gifts,
-            "num_total": len(fixture_werewolf_gifts),
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
-
-
-async def sync_werewolf_rites() -> None:
-    """Sync werewolf rites."""
-    fixture_file = FIXTURES_PATH / "werewolf_rites.json"
-    if not fixture_file.exists():
-        msg = f"Fixture file not found at path: {str(fixture_file)!r}"
-        logger.error(msg, extra={"component": "cli", "command": "bootstrap sync_werewolf_rites"})
-        raise click.Abort
-
-    with fixture_file.open("r") as file:
-        fixture_werewolf_rites = json.load(file)
-
-    created_rites = 0
-    updated_rites = 0
-    for fixture_rite in fixture_werewolf_rites:
-        rite = await WerewolfRite.find_one(WerewolfRite.name == fixture_rite["name"])
-        if not rite:
-            rite = WerewolfRite(**fixture_rite)
-            await rite.save()
-            created_rites += 1
-        elif document_differs_from_fixture(rite, fixture_rite):
-            differences = get_differing_fields(rite, fixture_rite)
-            for field_name in differences:
-                setattr(rite, field_name, fixture_rite[field_name])
-            await rite.save()
-            updated_rites += 1
-
-    logger.info(
-        "Bootstrapped werewolf rites",
-        extra={
-            "num_created": created_rites,
-            "num_updated": updated_rites,
-            "num_total": len(fixture_werewolf_rites),
             "component": "cli",
             "command": "bootstrap",
         },
