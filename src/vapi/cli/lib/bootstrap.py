@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Any
 
 import click
 from rich.console import Console
@@ -251,6 +252,78 @@ async def sync_werewolf_tribes() -> None:
             "command": "bootstrap",
         },
     )
+
+
+async def resolve_gift_trait_references() -> None:
+    """Resolve tribe_name/auspice_name to tribe_id/auspice_id on gift traits.
+
+    Run after werewolf tribes and auspices are synced so the documents
+    exist for lookup. During initial trait sync the tribe/auspice IDs
+    are left as None because those documents don't exist yet.
+    """
+    from vapi.db.models.constants.trait import Trait
+
+    gift_fixture_map = _build_gift_fixture_map()
+    gift_traits = await Trait.find({"gift_attributes": {"$ne": None}}).to_list()
+
+    updated = 0
+    for trait in gift_traits:
+        fixture_ga = gift_fixture_map.get(trait.name)
+        if not fixture_ga:
+            continue
+
+        changed = await _resolve_single_gift_references(trait, fixture_ga)
+        if changed:
+            await trait.save()
+            updated += 1
+
+    logger.info(
+        "Resolved gift trait tribe/auspice references",
+        extra={
+            "num_updated": updated,
+            "num_total": len(gift_traits),
+            "component": "cli",
+            "command": "bootstrap",
+        },
+    )
+
+
+def _build_gift_fixture_map() -> dict[str, dict]:
+    """Build a mapping of gift trait name to fixture gift_attributes dict."""
+    fixture_file = FIXTURES_PATH / "traits.json"
+    with fixture_file.open("r") as file:
+        fixture_data = json.load(file)
+
+    result: dict[str, dict] = {}
+    for section in fixture_data:
+        for cat in section.get("categories", []):
+            if cat.get("name") == "Gifts":
+                for t in cat.get("traits", []):
+                    if "gift_attributes" in t:
+                        result[t["name"].strip().title()] = t["gift_attributes"]
+    return result
+
+
+async def _resolve_single_gift_references(trait: Any, fixture_ga: dict) -> bool:
+    """Resolve tribe/auspice names to IDs on a single gift trait."""
+    attrs = trait.gift_attributes
+    changed = False
+
+    tribe_name = fixture_ga.get("tribe_name")
+    if tribe_name and attrs.tribe_id is None:
+        tribe = await WerewolfTribe.find_one(WerewolfTribe.name == tribe_name)
+        if tribe:
+            attrs.tribe_id = tribe.id
+            changed = True
+
+    auspice_name = fixture_ga.get("auspice_name")
+    if auspice_name and attrs.auspice_id is None:
+        auspice = await WerewolfAuspice.find_one(WerewolfAuspice.name == auspice_name)
+        if auspice:
+            attrs.auspice_id = auspice.id
+            changed = True
+
+    return changed
 
 
 async def sync_character_concepts() -> None:

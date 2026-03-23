@@ -395,24 +395,13 @@ async def sync_single_trait(  # noqa: C901, PLR0912
 
     trait = await Trait.find_one(*query)
 
-    # Resolve gift_attributes tribe_name/auspice_name to IDs
+    # Convert gift_attributes dict to GiftAttributes object, stripping fixture-only fields.
+    # tribe_id/auspice_id are resolved later by resolve_gift_trait_references()
+    # after WerewolfTribe/WerewolfAuspice documents exist in the database.
     gift_attrs_raw = fixture_trait.pop("gift_attributes", None)
     if gift_attrs_raw is not None:
-        from vapi.db.models.constants.character_classes import WerewolfAuspice, WerewolfTribe
-
-        tribe_name = gift_attrs_raw.pop("tribe_name", None)
-        auspice_name = gift_attrs_raw.pop("auspice_name", None)
-
-        if tribe_name:
-            tribe = await WerewolfTribe.find_one(WerewolfTribe.name == tribe_name)
-            if tribe:
-                gift_attrs_raw["tribe_id"] = tribe.id
-
-        if auspice_name:
-            auspice = await WerewolfAuspice.find_one(WerewolfAuspice.name == auspice_name)
-            if auspice:
-                gift_attrs_raw["auspice_id"] = auspice.id
-
+        gift_attrs_raw.pop("tribe_name", None)
+        gift_attrs_raw.pop("auspice_name", None)
         fixture_trait["gift_attributes"] = GiftAttributes(**gift_attrs_raw)
 
     if not trait:

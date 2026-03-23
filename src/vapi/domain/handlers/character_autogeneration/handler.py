@@ -628,15 +628,12 @@ class CharacterAutogenerationHandler:
         )
 
         existing_char_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id
+            CharacterTrait.character_id == character.id,
+            fetch_links=True,
         ).to_list()
-        existing_trait_ids: set[PydanticObjectId] = set()
-        for ct in existing_char_traits:
-            trait_ref = ct.trait
-            if hasattr(trait_ref, "ref"):
-                existing_trait_ids.add(trait_ref.ref.id)
-            else:
-                existing_trait_ids.add(trait_ref.id)
+        existing_trait_ids: set[PydanticObjectId] = {
+            ct.trait.id for ct in existing_char_traits  # type: ignore[attr-defined]
+        }
 
         value_modifiers = divide_total_randomly(
             total=EXTRA_WEREWOLF_GIFT_MAP[self.experience_level], num=3, max_value=5
