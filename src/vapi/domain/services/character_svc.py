@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from beanie.operators import In
@@ -99,12 +100,13 @@ class CharacterService:
                 ],
             )
 
-        tribe = await GetModelByIdValidationService().get_werewolf_tribe_by_id(
-            character.werewolf_attributes.tribe_id
-        )
-
-        auspice = await GetModelByIdValidationService().get_werewolf_auspice_by_id(
-            character.werewolf_attributes.auspice_id
+        tribe, auspice = await asyncio.gather(
+            GetModelByIdValidationService().get_werewolf_tribe_by_id(
+                character.werewolf_attributes.tribe_id
+            ),
+            GetModelByIdValidationService().get_werewolf_auspice_by_id(
+                character.werewolf_attributes.auspice_id
+            ),
         )
 
         character.werewolf_attributes = character.werewolf_attributes.model_copy(
