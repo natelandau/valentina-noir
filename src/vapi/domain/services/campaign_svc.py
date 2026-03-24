@@ -11,19 +11,19 @@ class CampaignService:
 
     async def get_next_book_number(self, campaign: Campaign) -> int:
         """Get the next book number for a campaign."""
-        campaign_books = await CampaignBook.find(
+        count = await CampaignBook.find(
             CampaignBook.campaign_id == campaign.id,
             CampaignBook.is_archived == False,
-        ).to_list()
-        return len(campaign_books) + 1
+        ).count()
+        return count + 1
 
     async def get_next_chapter_number(self, book: CampaignBook) -> int:
         """Get the next chapter number for a book."""
-        campaign_chapters = await CampaignChapter.find(
+        count = await CampaignChapter.find(
             CampaignChapter.book_id == book.id,
             CampaignChapter.is_archived == False,
-        ).to_list()
-        return len(campaign_chapters) + 1
+        ).count()
+        return count + 1
 
     async def renumber_books(self, book: CampaignBook, new_number: int) -> CampaignBook:
         """Renumber the books for a campaign."""
