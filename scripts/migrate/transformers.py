@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
-    from scripts.migrate.id_map import IDMap
+
+    from .id_map import IDMap
 
 from vapi.constants import (
     CharacterClass,

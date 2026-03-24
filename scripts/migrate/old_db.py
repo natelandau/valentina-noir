@@ -5,7 +5,8 @@ from typing import Any
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from scripts.migrate.config import get_old_settings
+
+from .config import get_old_settings
 
 logger = logging.getLogger("migrate")
 

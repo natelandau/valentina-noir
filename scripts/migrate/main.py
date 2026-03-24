@@ -3,8 +3,8 @@
 Migrate data from the old Valentina Discord bot database to the new Valentina Noir API database.
 
 Usage:
-    uv run python scripts/migrate/main.py --dry-run
-    uv run python scripts/migrate/main.py
+    uv run python -m scripts.migrate.main --dry-run
+    uv run python -m scripts.migrate.main
 """
 
 from __future__ import annotations
@@ -14,9 +14,14 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from scripts.migrate.id_map import IDMap
-from scripts.migrate.new_db import connect_new_db
-from scripts.migrate.old_db import (
+from vapi.config import settings
+from vapi.db.models.campaign import Campaign
+from vapi.db.models.character import CharacterTrait
+from vapi.db.models.constants.trait import Trait
+
+from .id_map import IDMap
+from .new_db import connect_new_db
+from .old_db import (
     connect_old_db,
     read_campaign_books,
     read_campaign_chapters,
@@ -29,8 +34,8 @@ from scripts.migrate.old_db import (
     read_roll_statistics,
     read_users,
 )
-from scripts.migrate.s3_copy import S3Migrator
-from scripts.migrate.transformers import (
+from .s3_copy import S3Migrator
+from .transformers import (
     build_campaign_experience_list,
     transform_campaign,
     transform_campaign_book,
@@ -42,11 +47,6 @@ from scripts.migrate.transformers import (
     transform_roll_statistic,
     transform_user,
 )
-
-from vapi.config import settings
-from vapi.db.models.campaign import Campaign
-from vapi.db.models.character import CharacterTrait
-from vapi.db.models.constants.trait import Trait
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId

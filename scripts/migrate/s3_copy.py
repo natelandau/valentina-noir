@@ -7,9 +7,10 @@ from pathlib import Path
 import boto3
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
-from scripts.migrate.config import get_old_settings
 
 from vapi.config import settings
+
+from .config import get_old_settings
 
 logger = logging.getLogger("migrate")
 
