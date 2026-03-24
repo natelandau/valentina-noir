@@ -54,6 +54,7 @@ class Trait(BaseDocument):
     is_custom: Annotated[bool, Field(default=False)] = False
     initial_cost: Annotated[int, Field(ge=0, le=100, default=1)] = 1
     upgrade_cost: Annotated[int, Field(ge=0, le=100, default=2)] = 2
+    is_rollable: Annotated[bool, Field(default=True)] = True
 
     sheet_section_name: str | None = None
     sheet_section_id: PydanticObjectId

@@ -50,6 +50,7 @@ class CharacterTraitController(Controller):
             PydanticObjectId, Parameter(description="Show traits in this parent category.")
         ]
         | None = None,
+        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
     ) -> OffsetPagination[CharacterTrait]:
         """List all character traits."""
         service = CharacterTraitService()
@@ -58,6 +59,7 @@ class CharacterTraitController(Controller):
             limit=limit,
             offset=offset,
             parent_category_id=parent_category_id,
+            is_rollable=is_rollable,
         )
         return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
 

@@ -161,7 +161,7 @@ class CharacterBlueprintSectionController(Controller):
             "category": Provide(deps.provide_trait_category_by_id),
         },
     )
-    async def list_category_traits(
+    async def list_category_traits(  # noqa: PLR0913
         self,
         *,
         game_version: GameVersion,
@@ -169,6 +169,7 @@ class CharacterBlueprintSectionController(Controller):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         exclude_subcategory_traits: bool = False,
+        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
         character_class: Annotated[
             CharacterClass,
             Parameter(
@@ -194,6 +195,7 @@ class CharacterBlueprintSectionController(Controller):
             category=category,
             character_class=character_class,
             character_id=character_id,
+            is_rollable=is_rollable,
             limit=limit,
             offset=offset,
         )
@@ -293,6 +295,7 @@ class CharacterBlueprintSectionController(Controller):
             ),
         ]
         | None = None,
+        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[Trait]:
@@ -302,6 +305,7 @@ class CharacterBlueprintSectionController(Controller):
             game_version=game_version,
             subcategory=subcategory,
             character_class=character_class,
+            is_rollable=is_rollable,
             limit=limit,
             offset=offset,
         )
@@ -333,6 +337,7 @@ class CharacterBlueprintSectionController(Controller):
             PydanticObjectId | None,
             Parameter(description="Show traits for this category.", title="Category ID"),
         ] = None,
+        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
         order_by: Annotated[
             BlueprintTraitOrderBy,
             Parameter(description="Sort traits by this field.", title="Sort"),
@@ -344,6 +349,7 @@ class CharacterBlueprintSectionController(Controller):
             game_version=game_version,
             character_class=character_class,
             parent_category_id=parent_category_id,
+            is_rollable=is_rollable,
             order_by=order_by,
             limit=limit,
             offset=offset,
