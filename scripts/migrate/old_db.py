@@ -5,7 +5,7 @@ from typing import Any
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from scripts.migrate.config import old_settings
+from scripts.migrate.config import get_old_settings
 
 logger = logging.getLogger("migrate")
 
@@ -16,6 +16,7 @@ async def connect_old_db() -> tuple[AsyncMongoClient, AsyncDatabase]:
     Returns:
         Tuple of (client, database) for the old database.
     """
+    old_settings = get_old_settings()
     client: AsyncMongoClient = AsyncMongoClient(old_settings.mongo_uri, tz_aware=True)
     db = client[old_settings.mongo_database_name]
     logger.info("Connected to old database: %s", old_settings.mongo_database_name)

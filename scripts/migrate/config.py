@@ -21,4 +21,13 @@ class OldDatabaseSettings(BaseSettings):
     s3_bucket_name: str = Field(description="S3 bucket name for the old database")
 
 
-old_settings = OldDatabaseSettings()  # type: ignore[call-arg]
+def get_old_settings() -> OldDatabaseSettings:
+    """Lazily instantiate old database settings.
+
+    Defers validation until the settings are actually needed, allowing
+    imports to succeed without the .env.old file present.
+
+    Returns:
+        The validated OldDatabaseSettings instance.
+    """
+    return OldDatabaseSettings()  # type: ignore[call-arg]

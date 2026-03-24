@@ -7,7 +7,7 @@ from pathlib import Path
 import boto3
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
-from scripts.migrate.config import old_settings
+from scripts.migrate.config import get_old_settings
 
 from vapi.config import settings
 
@@ -27,6 +27,7 @@ class S3Migrator:
         self.dry_run = dry_run
         self._copied_keys: list[str] = []
 
+        old_settings = get_old_settings()
         self._old_client = boto3.client(
             "s3",
             aws_access_key_id=old_settings.aws_access_key_id,
