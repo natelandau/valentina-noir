@@ -833,11 +833,12 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         self._guard_permissions_free_trait_changes(company, character, user)
 
-        all_character_traits = await CharacterTrait.find(
+        existing = await CharacterTrait.find(
             CharacterTrait.character_id == character.id,
+            CharacterTrait.trait.name == data.name.strip().title(),  # type: ignore [attr-defined]
             fetch_links=True,
-        ).to_list()
-        if data.name.lower() in [trait.trait.name.lower() for trait in all_character_traits]:  # type: ignore [attr-defined]
+        ).first_or_none()
+        if existing:
             raise ConflictError(detail=f"Trait named '{data.name}' already exists on character")
 
         existing_trait = await Trait.find_one(
