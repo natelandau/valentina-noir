@@ -535,6 +535,149 @@ class TestCostForDot:
         assert result == 15
 
 
+class TestCostForGift:
+    """Test the _cost_for_gift helper method."""
+
+    @pytest.mark.parametrize(
+        ("gift_position", "expected"),
+        [
+            (1, 2),
+            (2, 4),
+            (5, 10),
+            (10, 20),
+        ],
+    )
+    def test_cost_for_gift_position(self, gift_position: int, expected: int) -> None:
+        """Verify gift cost is position times 2."""
+        service = CharacterTraitService()
+        assert service._cost_for_gift(gift_position) == expected
+
+
+class TestCountCharacterGifts:
+    """Test the _count_character_gifts method."""
+
+    async def test_count_with_no_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+    ) -> None:
+        """Verify count is zero when character has no gifts."""
+        # Given a character with no traits
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(company_id=company.id, user_player_id=user.id)
+        service = CharacterTraitService()
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then count is zero
+        assert result == 0
+
+    async def test_count_with_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify count reflects the number of gift traits with value > 0."""
+        # Given a character with gift traits
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        # Find two gift traits from the DB
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(2)
+        if len(gift_traits) < 2:
+            pytest.skip("Not enough gift traits in database")
+
+        # Add them to the character with value=1
+        for gift_trait in gift_traits:
+            await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then count is 2
+        assert result == 2
+
+    async def test_count_excludes_zero_value_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gifts with value=0 are excluded from count."""
+        # Given a character with one active gift and one inactive gift
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(2)
+        if len(gift_traits) < 2:
+            pytest.skip("Not enough gift traits in database")
+
+        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=0)
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then only the active gift is counted
+        assert result == 1
+
+    async def test_count_excludes_non_gift_traits(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify non-gift traits are excluded from count."""
+        # Given a character with a non-gift trait and a gift trait
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        # Explicitly set gift_attributes=None to ensure this is not treated as a gift trait
+        non_gift_trait = await trait_factory(is_custom=True, gift_attributes=None)
+        await character_trait_factory(character_id=character.id, trait=non_gift_trait, value=3)
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+
+        # When counting gifts
+        result = await service._count_character_gifts(character.id)
+
+        # Then only the gift is counted
+        assert result == 1
+
+
 class TestCalculateAllUpgradeCosts:
     """Test the calculate_all_upgrade_costs method."""
 
@@ -745,6 +888,181 @@ class TestCalculateAllDowngradeSavings:
             assert savings > 0
 
 
+class TestGiftUpgradeCost:
+    """Test upgrade cost calculation for gift traits."""
+
+    async def test_first_gift_costs_2(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify first gift costs 2 (1 * 2)."""
+        # Given a character with no existing gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=0
+        )
+
+        # When calculating upgrade cost
+        cost = await service.calculate_upgrade_cost(character_trait, 1)
+
+        # Then cost is 2 (1st gift: 1 * 2)
+        assert cost == 2
+
+    async def test_fourth_gift_costs_8(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify fourth gift costs 8 (4 * 2)."""
+        # Given a character with 3 existing gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(4)
+        if len(gift_traits) < 4:
+            pytest.skip("Not enough gift traits in database")
+
+        # Add 3 existing gifts with value=1
+        for i in range(3):
+            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+
+        # Create the 4th gift at value=0 (about to be purchased)
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_traits[3], value=0
+        )
+
+        # When calculating upgrade cost
+        cost = await service.calculate_upgrade_cost(character_trait, 1)
+
+        # Then cost is 8 (4th gift: 4 * 2)
+        assert cost == 8
+
+    async def test_gift_upgrade_cost_with_override(
+        self,
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gift_count_override bypasses DB query."""
+        # Given a gift trait
+        service = CharacterTraitService()
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(), trait=gift_trait, value=0
+        )
+        await character_trait.fetch_all_links()
+
+        # When calculating with override of 5 existing gifts
+        cost = await service._calculate_upgrade_cost(
+            character_trait, 1, character_id=character_trait.character_id, gift_count_override=5
+        )
+
+        # Then cost is 12 (6th gift: 6 * 2)
+        assert cost == 12
+
+
+class TestGiftDowngradeSavings:
+    """Test downgrade savings calculation for gift traits."""
+
+    async def test_removing_only_gift_refunds_2(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify removing the only gift refunds 2 (1 x 2)."""
+        # Given a character with 1 gift
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=1
+        )
+
+        # When calculating downgrade savings
+        savings = await service.calculate_downgrade_savings(character_trait, 1)
+
+        # Then savings is 2 (1 gift: 1 x 2)
+        assert savings == 2
+
+    async def test_removing_fifth_gift_refunds_10(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify removing a gift when character has 5 refunds 10 (5 x 2)."""
+        # Given a character with 5 gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(5)
+        if len(gift_traits) < 5:
+            pytest.skip("Not enough gift traits in database")
+
+        for i in range(4):
+            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+        # The 5th gift is the one being removed
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_traits[4], value=1
+        )
+
+        # When calculating downgrade savings
+        savings = await service.calculate_downgrade_savings(character_trait, 1)
+
+        # Then savings is 10 (5th gift: 5 x 2)
+        assert savings == 10
+
+
 class TestCalculateCosts:
     """Test the calculate_upgrade_cost and calculate_downgrade_savings methods."""
 
@@ -797,6 +1115,42 @@ class TestCalculateCosts:
         )
         with pytest.raises(ValidationError):
             await service.calculate_downgrade_savings(character_trait, 3)
+
+
+class TestNonGiftCostRegression:
+    """Regression test: non-gift traits still use per-dot cost model after gift changes."""
+
+    async def test_non_gift_upgrade_cost_unchanged(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify non-gift trait upgrade cost still uses dot-based model."""
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(), trait=trait, value=2
+        )
+        cost = await service.calculate_upgrade_cost(character_trait, 2)
+        assert cost == 14  # (3x2) + (4x2) = 6 + 8
+
+    async def test_non_gift_downgrade_savings_unchanged(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify non-gift trait downgrade savings still uses dot-based model."""
+        service = CharacterTraitService()
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(
+            character_id=PydanticObjectId(), trait=trait, value=3
+        )
+        savings = await service.calculate_downgrade_savings(character_trait, 2)
+        assert savings == 10  # (3x2) + (2x2) = 6 + 4
 
 
 class TestUpdateCharacterWillpower:
@@ -1669,7 +2023,13 @@ class TestChangeCharacterTraitValue:
         spy_get_user_by_id.assert_called_once_with(ANY, target_user.id)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_upgrade_cost.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_upgrade_cost.assert_called_once_with(
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
+        )
         await target_user.sync()
         campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
         assert (
@@ -1800,7 +2160,13 @@ class TestChangeCharacterTraitValue:
         spy_get_user_by_id.assert_called_once_with(ANY, target_user.id)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_downgrade_savings.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_downgrade_savings.assert_called_once_with(
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
+        )
 
         # Cleanup
         await character.delete()
@@ -1848,7 +2214,13 @@ class TestChangeCharacterTraitValue:
 
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_upgrade_cost.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_upgrade_cost.assert_called_once_with(
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
+        )
         spy_after_save.assert_called_once_with(ANY, result)
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
         await character.sync()
@@ -1967,7 +2339,13 @@ class TestChangeCharacterTraitValue:
         assert character.starting_points == 100 + character_trait.trait.initial_cost * 5
         spy_after_save.assert_called_once_with(ANY, result)
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
-        spy_calculate_downgrade_savings.assert_called_once_with(ANY, character_trait, 1)
+        spy_calculate_downgrade_savings.assert_called_once_with(
+            ANY,
+            character_trait,
+            1,
+            character_id=character_trait.character_id,
+            gift_count_override=None,
+        )
         spyguard_user_can_manage_character.assert_called_once()
 
         # Cleanup
@@ -2930,6 +3308,63 @@ class TestDeleteTrait:
             )
 
 
+class TestDeleteGiftTrait:
+    """Test deleting a gift trait with count-based cost refund."""
+
+    async def test_delete_gift_with_xp_refunds_count_based_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify deleting a gift via XP refunds using count-based pricing."""
+        # Given a character with 3 gifts
+        company = await company_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        ).to_list(3)
+        if len(gift_traits) < 3:
+            pytest.skip("Not enough gift traits in database")
+
+        for gift_trait in gift_traits:
+            await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+
+        # Give user some initial XP
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.add_xp(character.campaign_id, 50, update_total=True)
+        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        xp_before = campaign_xp.xp_current
+
+        # Get the 3rd gift's character_trait to delete
+        character_trait = await CharacterTrait.find_one(
+            CharacterTrait.character_id == character.id,
+            CharacterTrait.trait.id == gift_traits[2].id,
+            fetch_links=True,
+        )
+
+        # When deleting the gift with XP refund
+        await service.delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then XP is refunded by 6 (3rd gift: 3 x 2)
+        await target_user.sync()
+        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        assert campaign_xp.xp_current == xp_before + 6
+
+
 class TestBulkAddConstantTraitsToCharacter:
     """Test the bulk_add_constant_traits_to_character method."""
 
@@ -3313,3 +3748,411 @@ class TestBulkAddConstantTraitsToCharacter:
         assert "Renown" in result.failed[0].error
         assert len(result.succeeded) == 1
         assert result.succeeded[0].character_trait.trait.id == non_gift_trait.id
+
+
+class TestAddGiftToCharacter:
+    """Test adding gift traits through the full add_constant_trait_to_character flow."""
+
+    async def test_add_gift_via_xp_charges_count_based_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify adding a gift via XP deducts count-based cost from XP."""
+        # Given a werewolf character with 2 existing gifts and some XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(3)
+        if len(gift_traits) < 3:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough to satisfy the most demanding gift's requirement
+        max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
+        character.werewolf_attributes.total_renown = max_renown + 1
+        await character.save()
+
+        for i in range(2):
+            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.add_xp(campaign.id, 50, update_total=True)
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        xp_before = campaign_xp.xp_current
+
+        # When adding a 3rd gift via XP
+        await service.add_constant_trait_to_character(
+            company=company,
+            character=character,
+            user=user,
+            trait_id=gift_traits[2].id,
+            value=1,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # Then XP is reduced by 6 (3rd gift: 3 x 2)
+        await target_user.sync()
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        assert campaign_xp.xp_current == xp_before - 6
+
+    async def test_add_gift_via_starting_points_charges_count_based_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify adding a gift via starting points deducts count-based cost."""
+        # Given a werewolf character with 1 existing gift and starting points
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+            starting_points=50,
+        )
+        service = CharacterTraitService()
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(2)
+        if len(gift_traits) < 2:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough to satisfy the most demanding gift's requirement
+        max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
+        character.werewolf_attributes.total_renown = max_renown + 1
+        await character.save()
+
+        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        sp_before = character.starting_points
+
+        # When adding a 2nd gift via starting points
+        await service.add_constant_trait_to_character(
+            company=company,
+            character=character,
+            user=user,
+            trait_id=gift_traits[1].id,
+            value=1,
+            currency=TraitModifyCurrency.STARTING_POINTS,
+        )
+
+        # Then starting points reduced by 4 (2nd gift: 2 x 2)
+        await character.sync()
+        assert character.starting_points == sp_before - 4
+
+
+class TestBulkAddGifts:
+    """Test running gift count tracking in bulk_add_constant_traits_to_character."""
+
+    async def test_bulk_add_three_gifts_incremental_cost(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify bulk-adding gifts uses incrementing count so each gift costs more than the last."""
+        # Given a werewolf character with 2 existing gifts and enough starting points
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+            starting_points=100,
+        )
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(5)
+        if len(gift_traits) < 5:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough for all gifts
+        character.werewolf_attributes.total_renown = 100
+        await character.save()
+
+        # Add 2 existing gifts so the next 3 are positions 3, 4, 5
+        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=1)
+
+        sp_before = character.starting_points
+        # Costs: 3rd gift=6, 4th gift=8, 5th gift=10 => total=24
+        expected_cost = 6 + 8 + 10
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[2].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[3].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[4].id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+        ]
+
+        # When bulk-adding 3 gifts
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then all 3 succeed and starting points decreased by the incremental total
+        assert len(result.succeeded) == 3
+        assert len(result.failed) == 0
+        await character.sync()
+        assert character.starting_points == sp_before - expected_cost
+
+    async def test_bulk_add_no_cost_gifts_increment_count(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+    ) -> None:
+        """Verify NO_COST gifts increment the running count so subsequent XP gifts cost correctly."""
+        # Given a werewolf character with no existing gifts and enough XP
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+        )
+
+        gift_traits = await Trait.find(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        ).to_list(3)
+        if len(gift_traits) < 3:
+            pytest.skip("Not enough gift traits with minimum_renown in database")
+
+        # Set renown high enough for all gifts; NO_COST skips renown guard
+        character.werewolf_attributes.total_renown = 100
+        await character.save()
+
+        # Add enough XP for the 3rd gift (cost = 3 * 2 = 6)
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.add_xp(campaign.id, 50, update_total=True)
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        xp_before = campaign_xp.xp_current
+
+        # 2 NO_COST gifts, then 1 XP gift => XP gift is the 3rd gift: cost = 3 * 2 = 6
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[0].id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[1].id, value=1, currency=TraitModifyCurrency.NO_COST
+            ),
+            CharacterTraitAddConstant(
+                trait_id=gift_traits[2].id, value=1, currency=TraitModifyCurrency.XP
+            ),
+        ]
+
+        # When bulk-adding 2 NO_COST gifts then 1 XP gift
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then all 3 succeed and the XP gift cost 6 (3rd gift position)
+        assert len(result.succeeded) == 3
+        assert len(result.failed) == 0
+        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
+        await target_user.sync()
+        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        assert campaign_xp.xp_current == xp_before - 6
+
+    async def test_bulk_add_mixed_gifts_and_non_gifts(
+        self,
+        character_factory: Callable[[dict[str, ...]], Character],
+        campaign_factory: Callable[[dict[str, ...]], Campaign],
+        company_factory: Callable[[dict[str, ...]], Company],
+        user_factory: Callable[[dict[str, ...]], User],
+    ) -> None:
+        """Verify gift and non-gift traits are costed independently during a bulk add."""
+        # Given a werewolf character with enough starting points
+        company = await company_factory()
+        campaign = await campaign_factory()
+        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        character = await character_factory(
+            company_id=company.id,
+            user_player_id=user.id,
+            campaign_id=campaign.id,
+            character_class=CharacterClass.WEREWOLF,
+            starting_points=100,
+        )
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.gift_attributes.minimum_renown != None,
+            Trait.gift_attributes.minimum_renown > 0,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait with minimum_renown found in database")
+
+        # Find a non-gift trait with known costs; exclude flaws
+        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        non_gift_trait = await Trait.find_one(
+            Trait.gift_attributes == None,
+            Trait.is_archived == False,
+            Trait.parent_category_id != flaws_category.id,
+        )
+        if non_gift_trait is None:
+            pytest.skip("No non-gift trait found in database")
+
+        # Set renown high enough
+        character.werewolf_attributes.total_renown = 100
+        await character.save()
+
+        sp_before = character.starting_points
+        # 1st gift costs 1 * 2 = 2; non-gift value=3 costs initial_cost + 2*upgrade_cost + 3*upgrade_cost
+        expected_gift_cost = 2
+        expected_non_gift_cost = (
+            non_gift_trait.initial_cost
+            + 2 * non_gift_trait.upgrade_cost
+            + 3 * non_gift_trait.upgrade_cost
+        )
+        expected_total = expected_gift_cost + expected_non_gift_cost
+
+        items = [
+            CharacterTraitAddConstant(
+                trait_id=gift_trait.id, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            ),
+            CharacterTraitAddConstant(
+                trait_id=non_gift_trait.id,
+                value=3,
+                currency=TraitModifyCurrency.STARTING_POINTS,
+            ),
+        ]
+
+        # When bulk-adding a gift and a non-gift trait
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then both succeed and the total cost reflects separate costing
+        assert len(result.succeeded) == 2
+        assert len(result.failed) == 0
+        await character.sync()
+        assert character.starting_points == sp_before - expected_total
+
+
+class TestGetValueOptionsGifts:
+    """Test get_value_options for gift traits with count-based costing."""
+
+    async def test_gift_at_value_0_shows_upgrade_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gift at value=0 shows count-based upgrade cost and DELETE with cost 0."""
+        _, _, character = get_company_user_character
+        character.character_class = CharacterClass.WEREWOLF
+        await character.save()
+
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=0
+        )
+
+        result = await service.get_value_options(
+            character=character, character_trait=character_trait
+        )
+
+        # Upgrade to 1 should use count-based cost
+        assert "1" in result.options
+        assert result.options["1"].direction == "increase"
+        assert result.options["1"].point_change == 2  # 1st gift: 1 x 2
+
+        # DELETE option with cost 0 (nothing to delete)
+        assert "DELETE" in result.options
+        assert result.options["DELETE"].point_change == 0
+
+    async def test_gift_at_value_1_shows_delete_cost(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+    ) -> None:
+        """Verify gift at value=1 (at min_value) shows only DELETE with count-based cost."""
+        _, _, character = get_company_user_character
+        character.character_class = CharacterClass.WEREWOLF
+        await character.save()
+
+        service = CharacterTraitService()
+
+        gift_trait = await Trait.find_one(
+            Trait.gift_attributes != None,
+            Trait.is_archived == False,
+        )
+        if gift_trait is None:
+            pytest.skip("No gift trait in database")
+
+        character_trait = await character_trait_factory(
+            character_id=character.id, trait=gift_trait, value=1
+        )
+
+        result = await service.get_value_options(
+            character=character, character_trait=character_trait
+        )
+
+        # Gift traits in the DB have min_value=1, so at value=1 no numeric downgrade key exists
+        # DELETE is always present and uses count-based cost (1st gift: 1 x 2 = 2)
+        assert "DELETE" in result.options
+        assert result.options["DELETE"].direction == "decrease"
+        assert result.options["DELETE"].point_change == 2  # 1 gift: 1 x 2
