@@ -121,7 +121,7 @@ class CharacterBlueprintService:
         )
         return count, subcategories
 
-    async def list_sheet_category_traits(
+    async def list_sheet_category_traits(  # noqa: PLR0913
         self,
         *,
         game_version: GameVersion,
@@ -129,6 +129,7 @@ class CharacterBlueprintService:
         exclude_subcategory_traits: bool = False,
         character_class: CharacterClass | None = None,
         character_id: PydanticObjectId | None = None,
+        is_rollable: bool | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> tuple[int, list[Trait]]:
@@ -140,6 +141,7 @@ class CharacterBlueprintService:
             exclude_subcategory_traits: Whether to exclude traits from subcategories.
             character_class: The character class to list the traits for.
             character_id: Include custom traits assigned to this character.
+            is_rollable: Whether to list the rollable traits.
             limit: The limit of traits to return.
             offset: The offset of the traits to return.
 
@@ -153,6 +155,8 @@ class CharacterBlueprintService:
         ]
         if character_class:
             filters.append(Trait.character_classes == character_class)
+        if is_rollable is not None:
+            filters.append(Trait.is_rollable == is_rollable)
 
         if character_id:
             filters.append(

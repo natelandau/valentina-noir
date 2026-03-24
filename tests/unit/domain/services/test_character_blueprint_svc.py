@@ -518,6 +518,190 @@ class TestListSheetCategoryTraits:
         # Then the subcategory trait should be included
         assert subcategory_trait.id in [t.id for t in traits]
 
+    async def test_list_sheet_category_traits_is_rollable_true(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_traits filters to only rollable traits."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a rollable and a non-rollable trait in the category
+        rollable_trait = await trait_factory(
+            name="rollable category trait",
+            description="a rollable trait",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=True,
+        )
+        non_rollable_trait = await trait_factory(
+            name="non-rollable category trait",
+            description="a non-rollable trait",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=False,
+        )
+
+        # When listing only rollable traits
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            is_rollable=True,
+            limit=100,
+        )
+
+        # Then only rollable traits are returned
+        trait_ids = [t.id for t in traits]
+        assert rollable_trait.id in trait_ids
+        assert non_rollable_trait.id not in trait_ids
+        for trait in traits:
+            assert trait.is_rollable is True
+
+    async def test_list_sheet_category_traits_is_rollable_false(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_traits filters to only non-rollable traits."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a rollable and a non-rollable trait in the category
+        rollable_trait = await trait_factory(
+            name="rollable category trait for false test",
+            description="a rollable trait",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=True,
+        )
+        non_rollable_trait = await trait_factory(
+            name="non-rollable category trait for false test",
+            description="a non-rollable trait",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=False,
+        )
+
+        # When listing only non-rollable traits
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            is_rollable=False,
+            limit=100,
+        )
+
+        # Then only non-rollable traits are returned
+        trait_ids = [t.id for t in traits]
+        assert non_rollable_trait.id in trait_ids
+        assert rollable_trait.id not in trait_ids
+        for trait in traits:
+            assert trait.is_rollable is False
+
+    async def test_list_sheet_category_traits_is_rollable_none(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_traits returns all traits when is_rollable is None."""
+        # Given a section and category
+        sheet_section = await CharSheetSection.find_one(
+            CharSheetSection.is_archived == False,
+            CharSheetSection.game_versions == GameVersion.V5,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.is_archived == False,
+            TraitCategory.game_versions == GameVersion.V5,
+            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        )
+
+        # Given a rollable and a non-rollable trait in the category
+        rollable_trait = await trait_factory(
+            name="rollable category trait for none test",
+            description="a rollable trait",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=True,
+        )
+        non_rollable_trait = await trait_factory(
+            name="non-rollable category trait for none test",
+            description="a non-rollable trait",
+            game_versions=[GameVersion.V5],
+            parent_category_id=category.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=False,
+        )
+
+        # When listing traits without is_rollable filter
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_traits(
+            game_version=GameVersion.V5,
+            category=category,
+            is_rollable=None,
+            limit=100,
+        )
+
+        # Then both rollable and non-rollable traits are returned
+        trait_ids = [t.id for t in traits]
+        assert rollable_trait.id in trait_ids
+        assert non_rollable_trait.id in trait_ids
+
 
 class TestListSheetCategorySubcategoryTraits:
     """Test the list_sheet_category_subcategory_traits method."""
