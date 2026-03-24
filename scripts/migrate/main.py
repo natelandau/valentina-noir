@@ -14,6 +14,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from beanie import PydanticObjectId
+
 from vapi.config import settings
 from vapi.db.models.campaign import Campaign
 from vapi.db.models.character import CharacterTrait
@@ -49,7 +51,6 @@ from .transformers import (
 )
 
 if TYPE_CHECKING:
-    from beanie import PydanticObjectId
     from pymongo.asynchronous.database import AsyncDatabase
 
 logger = logging.getLogger("migrate")
@@ -122,11 +123,19 @@ class MigrationStats:
 async def _save(doc: Any, *, dry_run: bool) -> None:
     """Save a document, respecting dry-run mode.
 
+    In dry-run mode, assigns a synthetic ObjectId so downstream ID map
+    lookups still work correctly.
+
     Args:
         doc: The Beanie document to save.
         dry_run: If True, skip the actual save.
     """
-    if not dry_run:
+    if dry_run:
+        if doc.id is None:
+            from bson import ObjectId
+
+            doc.id = PydanticObjectId(ObjectId())
+    else:
         await doc.insert()
 
 
