@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
@@ -57,6 +58,18 @@ logger = logging.getLogger("migrate")
 
 # Minimum trait name length before padding with underscores
 MIN_TRAIT_NAME_LENGTH = 3
+
+# Collected during migration for review
+_unmatched_traits: list[str] = []
+
+# Old trait name (lowercase) → corrected name for matching against new blueprints
+_TRAIT_NAME_REMAPS: dict[str, str] = {
+    "bloodpool": "Blood Pool",
+    "computer": "Technology",
+    "crafts": "Craft",
+    "lockpicking": "Larceny",
+    "technomancy": "The Path of Technomancy",
+}
 
 
 class MigrationStats:
@@ -607,6 +620,9 @@ async def _migrate_trait(
     trait_name = trait_doc.get("name", "")
     trait_value = trait_doc.get("value", 0)
 
+    # Remap known trait names before matching
+    trait_name = _TRAIT_NAME_REMAPS.get(trait_name.lower(), trait_name)
+
     # Try to find an existing trait blueprint by name (case-insensitive via title())
     existing_trait = await Trait.find_one(
         Trait.name == trait_name.title(),
@@ -622,6 +638,10 @@ async def _migrate_trait(
         await _save(char_trait, dry_run=dry_run)
         stats.record_created("trait_matched")
     else:
+        # Log unmatched trait name for review
+        logger.debug("Unmatched trait: %s (character_id=%s)", trait_name, character_id)
+        _unmatched_traits.append(trait_name)
+
         # Create a custom trait blueprint when no standard trait matches
         from vapi.db.models.constants.sheet_section import CharSheetSection
         from vapi.db.models.constants.trait_categories import TraitCategory
@@ -704,6 +724,18 @@ def _build_s3_asset(
     )
 
 
+def _write_unmatched_traits() -> None:
+    """Write unmatched trait names to a file for review."""
+    unmatched_path = Path("scripts/migrate/unmatched_traits.txt")
+    sorted_unique = sorted(set(_unmatched_traits))
+    unmatched_path.write_text("\n".join(sorted_unique) + "\n")
+    logger.info(
+        "Wrote %d unique unmatched trait names to %s",
+        len(sorted_unique),
+        unmatched_path,
+    )
+
+
 async def run_migration(*, dry_run: bool) -> None:
     """Run the full migration pipeline.
 
@@ -733,6 +765,10 @@ async def run_migration(*, dry_run: bool) -> None:
 
         # Save S3 asset log for future cleanup
         s3.save_log()
+
+        # Write unmatched traits to file for review
+        if _unmatched_traits:
+            _write_unmatched_traits()
 
     finally:
         await old_client.close()
