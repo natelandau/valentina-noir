@@ -69,6 +69,7 @@ _TRAIT_NAME_REMAPS: dict[str, str] = {
     "crafts": "Craft",
     "lockpicking": "Larceny",
     "technomancy": "The Path of Technomancy",
+    "thaumaturgy: weather control": "Weather Control",
 }
 
 
@@ -789,7 +790,7 @@ def main() -> None:
 
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        format="%(levelname)s %(name)s: %(message)s",
     )
 
     asyncio.run(run_migration(dry_run=args.dry_run))
