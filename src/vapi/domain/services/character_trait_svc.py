@@ -1102,13 +1102,17 @@ class CharacterTraitService:
             A tuple containing the total number of traits and the list of traits.
         """
         filters = [CharacterTrait.character_id == character.id]
+        needs_link_filters = False
         if is_rollable is not None:
             filters.append(CharacterTrait.trait.is_rollable == is_rollable)  # type: ignore [attr-defined]
+            needs_link_filters = True
 
         if parent_category_id:
             filters.append(CharacterTrait.trait.parent_category_id == parent_category_id)  # type: ignore [attr-defined]
+            needs_link_filters = True
 
-        count = await CharacterTrait.find(*filters, fetch_links=True).count()
+        # Only use fetch_links on count when filters reference linked fields
+        count = await CharacterTrait.find(*filters, fetch_links=needs_link_filters).count()
         traits = (
             await CharacterTrait.find(*filters, fetch_links=True)
             .sort(CharacterTrait.trait.parent_category_id)  # type: ignore [attr-defined]
