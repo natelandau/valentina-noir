@@ -136,7 +136,7 @@ def transform_guild_to_company(guild: dict[str, Any]) -> Company:
     permissions = guild.get("permissions", {})
     return Company(
         name=_pad_name(guild["name"][:50]),
-        email=f"guild-{guild['_id']}@migrated.local",
+        email=f"guild-{guild['_id']}@migrated.example.com",
         settings=_map_permissions(permissions),
     )
 
@@ -185,7 +185,7 @@ def transform_user(
         name_first=name_first,
         name_last=name_last,
         username=username,
-        email=f"{old_id}@migrated.local",
+        email=f"{old_id}@migrated.example.com",
         role=role,
         company_id=company_id,
         discord_profile=DiscordProfile(
