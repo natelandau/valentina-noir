@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from beanie.operators import In
+
 from vapi.constants import CharacterClass, CharacterStatus
-from vapi.db.models import Character, CharacterTrait
+from vapi.db.models import Character, CharacterTrait, Trait
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.time import time_now
 
@@ -13,6 +15,8 @@ from .character_trait_svc import CharacterTraitService
 from .validation_svc import GetModelByIdValidationService
 
 if TYPE_CHECKING:
+    from beanie import PydanticObjectId
+
     from vapi.db.models.character import NameDescriptionSubDocument
     from vapi.domain.controllers.character.dto import CharacterTraitCreate
 
@@ -192,8 +196,15 @@ class CharacterService:
         Raises:
             ValidationError: If a trait is not found.
         """
+        trait_ids = [t.trait_id for t in trait_create_data]
+        all_traits = await Trait.find(In(Trait.id, trait_ids)).to_list()
+        trait_lookup: dict[PydanticObjectId, Trait] = {t.id: t for t in all_traits}
+
         for trait in trait_create_data:
-            trait_obj = await GetModelByIdValidationService().get_trait_by_id(trait.trait_id)
+            trait_obj = trait_lookup.get(trait.trait_id)
+            if trait_obj is None:
+                raise ValidationError(detail=f"Trait {trait.trait_id} not found")
+
             character_trait = await CharacterTrait(
                 character_id=character.id,
                 trait=trait_obj,
