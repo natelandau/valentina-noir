@@ -677,6 +677,193 @@ class TestListSheetCategorySubcategoryTraits:
         assert count == total_count
         assert len(traits) <= 1
 
+    async def test_list_subcategory_traits_is_rollable_true(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits filters to only rollable traits."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a rollable and a non-rollable trait in the subcategory
+        rollable_trait = await trait_factory(
+            name="rollable subcategory trait",
+            description="a rollable trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=True,
+        )
+        non_rollable_trait = await trait_factory(
+            name="non-rollable subcategory trait",
+            description="a non-rollable trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=False,
+        )
+
+        # When listing only rollable subcategory traits
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            is_rollable=True,
+            limit=100,
+        )
+
+        # Then only rollable traits are returned
+        trait_ids = [t.id for t in traits]
+        assert rollable_trait.id in trait_ids
+        assert non_rollable_trait.id not in trait_ids
+        for trait in traits:
+            assert trait.is_rollable is True
+
+    async def test_list_subcategory_traits_is_rollable_false(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits filters to only non-rollable traits."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a rollable and a non-rollable trait in the subcategory
+        rollable_trait = await trait_factory(
+            name="rollable subcategory trait for false test",
+            description="a rollable trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=True,
+        )
+        non_rollable_trait = await trait_factory(
+            name="non-rollable subcategory trait for false test",
+            description="a non-rollable trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=False,
+        )
+
+        # When listing only non-rollable subcategory traits
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            is_rollable=False,
+            limit=100,
+        )
+
+        # Then only non-rollable traits are returned
+        trait_ids = [t.id for t in traits]
+        assert non_rollable_trait.id in trait_ids
+        assert rollable_trait.id not in trait_ids
+        for trait in traits:
+            assert trait.is_rollable is False
+
+    async def test_list_subcategory_traits_is_rollable_none(
+        self,
+        trait_factory: Callable[[dict[str, ...]], Trait],
+    ) -> None:
+        """Verify that list_sheet_category_subcategory_traits returns all traits when is_rollable is None."""
+        # Given a subcategory with a parent category
+        subcategory = await TraitSubcategory.find_one(
+            TraitSubcategory.is_archived == False,
+            TraitSubcategory.parent_category_id != None,
+        )
+        category = await TraitCategory.find_one(
+            TraitCategory.id == subcategory.parent_category_id,
+        )
+        game_version = category.game_versions[0]
+
+        # Given a rollable and a non-rollable trait in the subcategory
+        rollable_trait = await trait_factory(
+            name="rollable trait for none test",
+            description="a rollable trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=True,
+        )
+        non_rollable_trait = await trait_factory(
+            name="non-rollable trait for none test",
+            description="a non-rollable trait",
+            game_versions=[game_version],
+            parent_category_id=category.id,
+            trait_subcategory_id=subcategory.id,
+            min_value=0,
+            max_value=5,
+            show_when_zero=True,
+            initial_cost=1,
+            upgrade_cost=2,
+            character_classes=[CharacterClass.VAMPIRE],
+            is_custom=False,
+            is_rollable=False,
+        )
+
+        # When listing subcategory traits without is_rollable filter
+        service = CharacterBlueprintService()
+        _count, traits = await service.list_sheet_category_subcategory_traits(
+            game_version=game_version,
+            subcategory=subcategory,
+            is_rollable=None,
+            limit=100,
+        )
+
+        # Then both rollable and non-rollable traits are returned
+        trait_ids = [t.id for t in traits]
+        assert rollable_trait.id in trait_ids
+        assert non_rollable_trait.id in trait_ids
+
 
 class TestListAllTraits:
     """Test the list_all_traits method."""
@@ -818,3 +1005,84 @@ class TestListAllTraits:
                 "Resolve",
                 "Wits",
             ]
+
+    async def test_list_all_traits_is_rollable_true(self) -> None:
+        """Verify that list_all_traits filters to only rollable traits."""
+        # Given the expected rollable traits
+        filters = [
+            Trait.is_archived == False,
+            Trait.custom_for_character_id == None,
+            Trait.is_rollable == True,
+        ]
+        expected_count = await Trait.find(*filters).count()
+        expected_traits = await Trait.find(*filters).sort("name").limit(10).to_list()
+
+        # When listing only rollable traits
+        service = CharacterBlueprintService()
+        count, traits = await service.list_all_traits(is_rollable=True)
+
+        # Then only rollable traits are returned
+        assert count == expected_count
+        assert traits == expected_traits
+        for trait in traits:
+            assert trait.is_rollable is True
+
+    async def test_list_all_traits_is_rollable_false(self) -> None:
+        """Verify that list_all_traits filters to only non-rollable traits."""
+        # Given the expected non-rollable traits
+        filters = [
+            Trait.is_archived == False,
+            Trait.custom_for_character_id == None,
+            Trait.is_rollable == False,
+        ]
+        expected_count = await Trait.find(*filters).count()
+        expected_traits = await Trait.find(*filters).sort("name").limit(10).to_list()
+
+        # When listing only non-rollable traits
+        service = CharacterBlueprintService()
+        count, traits = await service.list_all_traits(is_rollable=False)
+
+        # Then only non-rollable traits are returned
+        assert count == expected_count
+        assert traits == expected_traits
+        for trait in traits:
+            assert trait.is_rollable is False
+
+    async def test_list_all_traits_is_rollable_none(self) -> None:
+        """Verify that list_all_traits returns all traits when is_rollable is None."""
+        # Given the expected total traits (no is_rollable filter)
+        filters = [
+            Trait.is_archived == False,
+            Trait.custom_for_character_id == None,
+        ]
+        expected_count = await Trait.find(*filters).count()
+
+        # When listing traits without is_rollable filter
+        service = CharacterBlueprintService()
+        count, _traits = await service.list_all_traits(is_rollable=None)
+
+        # Then all traits are returned regardless of is_rollable value
+        assert count == expected_count
+
+    @pytest.mark.clean_db
+    async def test_list_all_traits_is_rollable_with_sheet_ordering(self) -> None:
+        """Verify that list_all_traits filters by is_rollable when using sheet ordering."""
+        # Given the expected rollable traits
+        filters = [
+            Trait.is_archived == False,
+            Trait.custom_for_character_id == None,
+            Trait.is_rollable == True,
+        ]
+        expected_count = await Trait.find(*filters).count()
+
+        # When listing rollable traits with sheet ordering
+        service = CharacterBlueprintService()
+        count, traits = await service.list_all_traits(
+            is_rollable=True,
+            order_by=BlueprintTraitOrderBy.SHEET,
+        )
+
+        # Then the count matches and all returned traits are rollable
+        assert count == expected_count
+        for trait in traits:
+            assert trait.is_rollable is True

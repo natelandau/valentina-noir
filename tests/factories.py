@@ -311,6 +311,7 @@ class TraitFactory(BeanieDocumentFactory[Trait]):
     sheet_section_name: str | None = None
     trait_subcategory_id: PydanticObjectId | None = None
     trait_subcategory_name: str | None = None
+    is_rollable: bool = True
     gift_attributes: None = None  # Prevent polyfactory from randomly generating gift traits
 
     @classmethod

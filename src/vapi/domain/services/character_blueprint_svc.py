@@ -184,10 +184,23 @@ class CharacterBlueprintService:
         game_version: GameVersion,
         subcategory: TraitSubcategory,
         character_class: CharacterClass | None = None,
+        is_rollable: bool | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> tuple[int, list[Trait]]:
-        """List all character blueprint subcategory traits."""
+        """List all character blueprint subcategory traits.
+
+        Args:
+            game_version: The game version to list the traits for.
+            subcategory: The subcategory to list the traits for.
+            character_class: The character class to list the traits for.
+            is_rollable: Whether to list the rollable traits.
+            limit: The limit of traits to return.
+            offset: The offset of the traits to return.
+
+        Returns:
+            A tuple containing the total number of traits and the list of traits.
+        """
         filters = [
             Trait.is_archived == False,
             Trait.trait_subcategory_id == subcategory.id,
@@ -195,17 +208,20 @@ class CharacterBlueprintService:
         ]
         if character_class:
             filters.append(Trait.character_classes == character_class)
+        if is_rollable is not None:
+            filters.append(Trait.is_rollable == is_rollable)
 
         count = await Trait.find(*filters).count()
         traits = await Trait.find(*filters).sort("order").skip(offset).limit(limit).to_list()
         return count, traits
 
-    async def list_all_traits(
+    async def list_all_traits(  # noqa: C901
         self,
         *,
         game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
         parent_category_id: PydanticObjectId | None = None,
+        is_rollable: bool | None = None,
         order_by: BlueprintTraitOrderBy = BlueprintTraitOrderBy.NAME,
         limit: int = 10,
         offset: int = 0,
@@ -216,6 +232,7 @@ class CharacterBlueprintService:
             game_version: The game version to list the traits for.
             character_class: The character class to list the traits for.
             parent_category_id: The parent category id to list the traits for.
+            is_rollable: Whether to list the rollable traits.
             order_by: The order by to list the traits for.
             limit: The limit of traits to return.
             offset: The offset of the traits to return.
@@ -233,6 +250,8 @@ class CharacterBlueprintService:
             filters.append(Trait.character_classes == character_class)
         if parent_category_id:
             filters.append(Trait.parent_category_id == parent_category_id)
+        if is_rollable is not None:
+            filters.append(Trait.is_rollable == is_rollable)
 
         count = await Trait.find(*filters).count()
 
@@ -247,6 +266,8 @@ class CharacterBlueprintService:
                 match_conditions["character_classes"] = character_class.value
             if parent_category_id:
                 match_conditions["parent_category_id"] = parent_category_id
+            if is_rollable is not None:
+                match_conditions["is_rollable"] = is_rollable
 
             # Aggregation pipeline to sort by CharSheetSection.order, TraitCategory.order, Trait.name
             pipeline = [

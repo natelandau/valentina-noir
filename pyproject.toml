@@ -3,8 +3,8 @@
     dependencies = [
         "asyncio>=4.0.0",
         "beanie>=2.0.1,<3.0.0",
-        "boto3>=1.42.64",
-        "faker>=40.8.0",
+        "boto3>=1.42.74",
+        "faker>=40.11.1",
         "httpx-oauth>=0.16.1",
         "inflect>=7.5.0",
         "litestar-granian>=0.14.2",
@@ -39,26 +39,26 @@
 [dependency-groups]
     dev = [
         "commitizen>=4.13.9",
-        "coverage>=7.13.4",
+        "coverage>=7.13.5",
         "docker>=7.1.0",
         "duty>=1.9.0",
         "mypy>=1.19.1",
-        "prek>=0.3.5",
+        "prek>=0.3.8",
         "pytest-clarity>=1.0.1",
-        "pytest-cov>=7.0.0",
-        "pytest-databases[mongodb,redis]>=0.16.0",
+        "pytest-cov>=7.1.0",
+        "pytest-databases[mongodb,redis]>=0.17.0",
         "pytest-devtools>=1.0.0",
         "pytest-mock>=3.15.1",
         "pytest-repeat>=0.9.4",
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.0.2",
-        "ruff>=0.15.5",
+        "ruff>=0.15.7",
         "shellcheck-py>=0.11.0.1",
         "typos>=1.44.0",
         "yamllint>=1.38.0",
     ]
-    docs = ["zensical>=0.0.24"]
+    docs = ["zensical>=0.0.29"]
 
 [tool.commitizen]
     bump_message               = "bump(release): v$current_version → v$new_version"

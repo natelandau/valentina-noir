@@ -1084,7 +1084,9 @@ class CharacterTraitService:
         character: Character,
         limit: int = 10,
         offset: int = 0,
+        *,
         parent_category_id: PydanticObjectId | None = None,
+        is_rollable: bool | None = None,
     ) -> tuple[int, list[CharacterTrait]]:
         """List all character traits.
 
@@ -1093,20 +1095,25 @@ class CharacterTraitService:
             limit: The limit of traits to return.
             offset: The offset of the traits to return.
             parent_category_id: The parent category id to filter the traits by.
+            is_rollable: Whether to filter the traits by rollable traits.
+
+        Returns:
+            A tuple containing the total number of traits and the list of traits.
         """
         filters = [CharacterTrait.character_id == character.id]
+        if is_rollable is not None:
+            filters.append(CharacterTrait.trait.is_rollable == is_rollable)  # type: ignore [attr-defined]
 
         if parent_category_id:
             filters.append(CharacterTrait.trait.parent_category_id == parent_category_id)  # type: ignore [attr-defined]
 
-        count = await CharacterTrait.find(*filters, fetch_links=True).count()
-        traits = (
+        all_traits = (
             await CharacterTrait.find(*filters, fetch_links=True)
             .sort(CharacterTrait.trait.parent_category_id)  # type: ignore [attr-defined]
-            .skip(offset)
-            .limit(limit)
             .to_list()
         )
+        count = len(all_traits)
+        traits = all_traits[offset : offset + limit]
         return count, traits
 
     async def get_value_options(

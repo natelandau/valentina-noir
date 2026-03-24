@@ -1557,35 +1557,40 @@
                 "description": "Up to the margin of the win, the hunter can provide additional copies of the same weapon.",
                 "min_value": 0,
                 "max_value": 1,
-                "show_when_zero": false
+                "show_when_zero": false,
+                "is_rollable": false
               },
               {
                 "name": "Exotics",
                 "description": "The Hunter is able to procure rare or one-of-a-kind weapons or ammunition. The Difficulty of the test can increase in the case of something extremely rare or unique, as determined by the Storyteller.",
                 "min_value": 0,
                 "max_value": 1,
-                "show_when_zero": false
+                "show_when_zero": false,
+                "is_rollable": false
               },
               {
                 "name": "Backup Piece",
                 "description": "As long as they can hide the piece on their person, once per scene, they can declare a weapon. This occurs even if the Hunter fails the test to activate this Edge. The weapon has no Perks and can be stolen or otherwise detected by ordinary means. If it is lost, a backup cannot be acquired until the next scene.",
                 "min_value": 0,
                 "max_value": 1,
-                "show_when_zero": false
+                "show_when_zero": false,
+                "is_rollable": false
               },
               {
                 "name": "Special Features",
                 "description": "The weapon obtained comes with a number of special features, up to the margin of the win. The features can range from thermal signs to disguised cases, the Storyteller makes the final decision of what qualifies as a special feature.",
                 "min_value": 0,
                 "max_value": 1,
-                "show_when_zero": false
+                "show_when_zero": false,
+                "is_rollable": false
               },
               {
                 "name": "Untraceable",
                 "description": "The weapons are completely untraceable and will never lead authorities or quarry to the Hunters.",
                 "min_value": 0,
                 "max_value": 1,
-                "show_when_zero": false
+                "show_when_zero": false,
+                "is_rollable": false
               }
             ]
           },
@@ -1615,7 +1620,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Surveillance",
@@ -1625,7 +1631,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Hidden Cache",
@@ -1635,7 +1642,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Performance",
@@ -1645,7 +1653,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Untraceable",
@@ -1655,7 +1664,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Wagon Train",
@@ -1665,7 +1675,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               }
             ]
           },
@@ -1695,7 +1706,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Exotics",
@@ -1705,7 +1717,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Non-lethal Munitions",
@@ -1715,7 +1728,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               },
               {
                 "name": "Disguised Delivery",
@@ -1725,7 +1739,8 @@
                 "show_when_zero": false,
                 "initial_cost": 3,
                 "upgrade_cost": 3,
-                "link": null
+                "link": null,
+                "is_rollable": false
               }
             ]
           },
@@ -1754,7 +1769,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "How to Halt Them",
@@ -1763,7 +1779,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Binge",
@@ -1772,7 +1789,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Group Study",
@@ -1781,7 +1799,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "How to Silence Them",
@@ -1790,7 +1809,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Where they Go",
@@ -1799,7 +1819,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Who They Are",
@@ -1808,7 +1829,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "How to Harm Them",
@@ -1817,7 +1839,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Friendly Librarian",
@@ -1826,7 +1849,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Permanent Fixture",
@@ -1835,7 +1859,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Pattern Analysis",
@@ -1844,7 +1869,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -1868,7 +1894,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Phoenix Protocol",
@@ -1877,7 +1904,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Monstrous Enhancement",
@@ -1886,7 +1914,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Unstable Steroids",
@@ -1895,7 +1924,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -1924,7 +1954,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Specialization",
@@ -1933,7 +1964,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Made to Last",
@@ -1942,7 +1974,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Mass Production",
@@ -1951,7 +1984,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Speed Crafting",
@@ -1960,7 +1994,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -1989,7 +2024,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Money Trap",
@@ -1998,7 +2034,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Digital Cannon Fodder",
@@ -2007,7 +2044,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Spoof",
@@ -2016,7 +2054,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "All-Access Pass",
@@ -2025,7 +2064,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "The Letter of the Law",
@@ -2034,7 +2074,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Intranet Insertion",
@@ -2043,7 +2084,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2072,7 +2114,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Specialist Skill",
@@ -2081,7 +2124,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Payload",
@@ -2090,7 +2134,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Variants",
@@ -2099,7 +2144,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Armaments",
@@ -2108,7 +2154,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Electronic Shield",
@@ -2117,7 +2164,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2146,7 +2194,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Complex Commands",
@@ -2155,7 +2204,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Supernatural Scent",
@@ -2164,7 +2214,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Menagerie",
@@ -2173,7 +2224,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Incognito",
@@ -2182,7 +2234,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2211,7 +2264,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Stick to the Plan",
@@ -2220,7 +2274,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Poker Face",
@@ -2229,7 +2284,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "We Come as a Team",
@@ -2238,7 +2294,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2267,7 +2324,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Precision",
@@ -2276,7 +2334,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Horrid Detail",
@@ -2285,7 +2344,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Range",
@@ -2294,7 +2354,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Handsfree",
@@ -2303,7 +2364,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Network",
@@ -2312,7 +2374,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2341,7 +2404,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Creature Specialization",
@@ -2350,7 +2414,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Damage",
@@ -2359,7 +2424,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Handsfree",
@@ -2368,7 +2434,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2397,7 +2464,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Recognition",
@@ -2406,7 +2474,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Redirection",
@@ -2415,7 +2484,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Ward",
@@ -2424,7 +2494,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Handsfree",
@@ -2433,7 +2504,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2462,7 +2534,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Detection",
@@ -2471,7 +2544,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Feature Unlocked",
@@ -2480,7 +2554,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Attraction",
@@ -2489,7 +2564,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Shield",
@@ -2498,7 +2574,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2527,7 +2604,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Trace the Threads",
@@ -2536,7 +2614,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Inflict Stigmata",
@@ -2545,7 +2624,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Psychic Backlash",
@@ -2554,7 +2634,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2583,7 +2664,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Sacred Insight",
@@ -2592,7 +2674,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Heavenly Resolve",
@@ -2601,7 +2684,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Influence Fate",
@@ -2610,7 +2694,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           },
@@ -2639,7 +2724,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Neuropathway Practice",
@@ -2648,7 +2734,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Maximuzed Neuropathways",
@@ -2657,7 +2744,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               },
               {
                 "name": "Handsfree",
@@ -2666,7 +2754,8 @@
                 "max_value": 1,
                 "show_when_zero": false,
                 "initial_cost": 3,
-                "upgrade_cost": 3
+                "upgrade_cost": 3,
+                "is_rollable": false
               }
             ]
           }
@@ -2708,7 +2797,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Crow's Laughter",
@@ -2733,7 +2823,8 @@
               "tribe_name": "Hart Wardens",
               "auspice_name": "Ragabash"
             },
-            "opposing_pool": "Composure + Insight"
+            "opposing_pool": "Composure + Insight",
+            "is_rollable": false
           },
           {
             "name": "Spider's Song",
@@ -2757,7 +2848,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Umbral Pocket",
@@ -2780,7 +2872,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Blur of the Milky Eye",
@@ -2803,7 +2896,8 @@
               "is_native_gift": false,
               "tribe_name": "Shadow Lords",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Open Seal",
@@ -2827,7 +2921,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Pulse of the Prey",
@@ -2852,7 +2947,8 @@
               "tribe_name": "Galestalkers",
               "auspice_name": "Ragabash"
             },
-            "opposing_pool": "Intelligence + Streetwise"
+            "opposing_pool": "Intelligence + Streetwise",
+            "is_rollable": false
           },
           {
             "name": "Scent of Running Water",
@@ -2875,7 +2971,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Luna's Blessing",
@@ -2898,7 +2995,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Thieving Talons of the Magpie",
@@ -2922,7 +3020,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "The Thousand Forms",
@@ -2946,7 +3045,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Whelp Body",
@@ -2971,7 +3071,8 @@
               "tribe_name": "Black Furies",
               "auspice_name": "Ragabash"
             },
-            "opposing_pool": "Stamina + Occult"
+            "opposing_pool": "Stamina + Occult",
+            "is_rollable": false
           },
           {
             "name": "Ensnare Spirit",
@@ -2996,7 +3097,8 @@
               "tribe_name": "Galestalkers",
               "auspice_name": "Theurge"
             },
-            "opposing_pool": "Power"
+            "opposing_pool": "Power",
+            "is_rollable": false
           },
           {
             "name": "Mother's Touch",
@@ -3020,7 +3122,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Shadow Sense",
@@ -3044,7 +3147,8 @@
               "is_native_gift": false,
               "tribe_name": "Shadow Lords",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Sight from Beyond",
@@ -3068,7 +3172,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Entreat",
@@ -3093,7 +3198,8 @@
               "tribe_name": "Ghost Council",
               "auspice_name": "Theurge"
             },
-            "opposing_pool": "Power"
+            "opposing_pool": "Power",
+            "is_rollable": false
           },
           {
             "name": "Summon Implement",
@@ -3117,7 +3223,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Grasp from Beyond",
@@ -3141,7 +3248,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Mindspeak",
@@ -3165,7 +3273,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Umbral Tether",
@@ -3188,7 +3297,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Bolt Hole",
@@ -3212,7 +3322,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Command Spirit",
@@ -3237,7 +3348,8 @@
               "tribe_name": "Silver Fangs",
               "auspice_name": "Theurge"
             },
-            "opposing_pool": "Power"
+            "opposing_pool": "Power",
+            "is_rollable": false
           },
           {
             "name": "Drain Spirit",
@@ -3261,7 +3373,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Feral Regression",
@@ -3286,7 +3399,8 @@
               "tribe_name": "Red Talons",
               "auspice_name": "Theurge"
             },
-            "opposing_pool": "Resolve + Occult"
+            "opposing_pool": "Resolve + Occult",
+            "is_rollable": false
           },
           {
             "name": "Living Ward",
@@ -3311,7 +3425,8 @@
               "tribe_name": "Hart Wardens",
               "auspice_name": "Theurge"
             },
-            "opposing_pool": "Power"
+            "opposing_pool": "Power",
+            "is_rollable": false
           },
           {
             "name": "Gaia's Candor",
@@ -3336,7 +3451,8 @@
               "tribe_name": "Glass Walkers",
               "auspice_name": "Philodox"
             },
-            "opposing_pool": "Composure + Subterfuge"
+            "opposing_pool": "Composure + Subterfuge",
+            "is_rollable": false
           },
           {
             "name": "Porcupine's Reprisal",
@@ -3359,7 +3475,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Sense the True Form",
@@ -3383,7 +3500,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Indomitable Spirit",
@@ -3406,7 +3524,8 @@
               "is_native_gift": false,
               "tribe_name": "Galestalkers",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Beast's Fealty",
@@ -3430,7 +3549,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Command the Gathering",
@@ -3453,7 +3573,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Fangs of Judgment",
@@ -3477,7 +3598,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Scent of the Past",
@@ -3501,7 +3623,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Calcify",
@@ -3525,7 +3648,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Geas",
@@ -3550,7 +3674,8 @@
               "tribe_name": "Shadow Lords",
               "auspice_name": "Philodox"
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Oathbreaker's Bane",
@@ -3573,7 +3698,8 @@
               "is_native_gift": false,
               "tribe_name": "Galestalkers",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Strength of Purpose",
@@ -3597,7 +3723,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Take the True Form",
@@ -3622,7 +3749,8 @@
               "tribe_name": "Ghost Council",
               "auspice_name": "Philodox"
             },
-            "opposing_pool": "Stamina + Resolve"
+            "opposing_pool": "Stamina + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Animal Magnetism",
@@ -3645,7 +3773,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Howl of Assembly",
@@ -3669,7 +3798,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Song of Rage",
@@ -3693,7 +3823,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Song of Serenity",
@@ -3717,7 +3848,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Howl of Despair",
@@ -3741,7 +3873,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Lullaby",
@@ -3766,7 +3899,8 @@
               "tribe_name": "Children of Gaia",
               "auspice_name": "Galliard"
             },
-            "opposing_pool": "Wits + Resolve"
+            "opposing_pool": "Wits + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Call the Ridden",
@@ -3791,7 +3925,8 @@
               "tribe_name": "Galestalkers",
               "auspice_name": "Galliard"
             },
-            "opposing_pool": "Resolve + Insight"
+            "opposing_pool": "Resolve + Insight",
+            "is_rollable": false
           },
           {
             "name": "Eyes of the Cobra",
@@ -3816,7 +3951,8 @@
               "tribe_name": "Shadow Lords",
               "auspice_name": "Galliard"
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Song of Inspiration",
@@ -3840,7 +3976,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Against the Odds",
@@ -3864,7 +4001,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Break the Shackles",
@@ -3888,7 +4026,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Defy Death",
@@ -3912,7 +4051,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Dreamwalk",
@@ -3936,7 +4076,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Halt the Coward's Flight",
@@ -3961,7 +4102,8 @@
               "tribe_name": "Black Furies",
               "auspice_name": "Ahroun"
             },
-            "opposing_pool": "Composure + Survival"
+            "opposing_pool": "Composure + Survival",
+            "is_rollable": false
           },
           {
             "name": "Rapid Shift",
@@ -3985,7 +4127,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Razor Claws",
@@ -4008,7 +4151,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Sense Danger",
@@ -4031,7 +4175,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Tug the Leash",
@@ -4054,7 +4199,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Snarl of Challenge",
@@ -4079,7 +4225,8 @@
               "tribe_name": "Glass Walkers",
               "auspice_name": "Ahroun"
             },
-            "opposing_pool": "Composure + Insight"
+            "opposing_pool": "Composure + Insight",
+            "is_rollable": false
           },
           {
             "name": "True Fear",
@@ -4104,7 +4251,8 @@
               "tribe_name": "Shadow Lords",
               "auspice_name": "Ahroun"
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Wind Claws",
@@ -4128,7 +4276,8 @@
               "is_native_gift": false,
               "tribe_name": "Galestalkers",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Light of the Moon",
@@ -4153,7 +4302,8 @@
               "tribe_name": "Silver Fangs",
               "auspice_name": "Ahroun"
             },
-            "opposing_pool": "Wits + Composure"
+            "opposing_pool": "Wits + Composure",
+            "is_rollable": false
           },
           {
             "name": "Closing the Gap",
@@ -4176,7 +4326,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Kiss of Helios",
@@ -4199,7 +4350,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Luna's Armor",
@@ -4222,7 +4374,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Silver Claws",
@@ -4245,7 +4398,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Catfeet",
@@ -4268,7 +4422,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "An Exchange with Luna",
@@ -4291,7 +4446,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Eyes of the Owl",
@@ -4314,7 +4470,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Hare's Leap",
@@ -4338,7 +4495,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "The Howl Carries",
@@ -4361,7 +4519,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Penumbral Senses",
@@ -4385,7 +4544,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Raging Strike",
@@ -4408,7 +4568,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Resist Toxin",
@@ -4432,7 +4593,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Shredding Skin",
@@ -4455,7 +4617,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Staredown",
@@ -4480,7 +4643,8 @@
               "tribe_name": null,
               "auspice_name": null
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Bestial Regression",
@@ -4505,7 +4669,8 @@
               "tribe_name": null,
               "auspice_name": null
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Bite of the Lycan",
@@ -4530,7 +4695,8 @@
               "tribe_name": null,
               "auspice_name": null
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Gnaw",
@@ -4553,7 +4719,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Sharpened Senses",
@@ -4576,7 +4743,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Spirit of the Fray",
@@ -4599,7 +4767,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Thwarting the Arrow",
@@ -4622,7 +4791,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Urban Hunter",
@@ -4645,7 +4815,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Body Shift",
@@ -4669,7 +4840,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Jam Technology",
@@ -4693,7 +4865,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Tongue of the Beasts",
@@ -4717,7 +4890,8 @@
               "is_native_gift": true,
               "tribe_name": null,
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Gremlins",
@@ -4741,7 +4915,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Ragabash"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Corrupted Memories",
@@ -4766,7 +4941,8 @@
               "tribe_name": null,
               "auspice_name": "Ragabash"
             },
-            "opposing_pool": "Wits + Resolve"
+            "opposing_pool": "Wits + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Jump Scare",
@@ -4791,7 +4967,8 @@
               "tribe_name": null,
               "auspice_name": "Ragabash"
             },
-            "opposing_pool": "Composure + Wits"
+            "opposing_pool": "Composure + Wits",
+            "is_rollable": false
           },
           {
             "name": "Hungry Teeth",
@@ -4814,7 +4991,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Banish Spirit",
@@ -4839,7 +5017,8 @@
               "tribe_name": null,
               "auspice_name": "Theurge"
             },
-            "opposing_pool": "Power"
+            "opposing_pool": "Power",
+            "is_rollable": false
           },
           {
             "name": "Ghost Walk",
@@ -4863,7 +5042,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Theurge"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Ancestral Conviction",
@@ -4886,7 +5066,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Philodox"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Wyrm-Speech",
@@ -4911,7 +5092,8 @@
               "tribe_name": null,
               "auspice_name": "Philodox"
             },
-            "opposing_pool": "Composure + Resolve"
+            "opposing_pool": "Composure + Resolve",
+            "is_rollable": false
           },
           {
             "name": "Cutting Words",
@@ -4936,7 +5118,8 @@
               "tribe_name": null,
               "auspice_name": "Galliard"
             },
-            "opposing_pool": "Composure + Intelligence"
+            "opposing_pool": "Composure + Intelligence",
+            "is_rollable": false
           },
           {
             "name": "Song of Valor",
@@ -4960,7 +5143,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Galliard"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Mouth Full of Teeth",
@@ -4983,7 +5167,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Primal Anger",
@@ -5007,7 +5192,8 @@
               "is_native_gift": false,
               "tribe_name": null,
               "auspice_name": "Ahroun"
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Curse of Aeolus",
@@ -5031,7 +5217,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Coup de Grâce",
@@ -5054,7 +5241,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Kali's Scar",
@@ -5077,7 +5265,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Wasp Talons",
@@ -5101,7 +5290,8 @@
               "is_native_gift": false,
               "tribe_name": "Black Furies",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Gorgon's Visage",
@@ -5126,7 +5316,8 @@
               "tribe_name": "Black Furies",
               "auspice_name": null
             },
-            "opposing_pool": "Wits + Occult"
+            "opposing_pool": "Wits + Occult",
+            "is_rollable": false
           },
           {
             "name": "Odious Aroma",
@@ -5151,7 +5342,8 @@
               "tribe_name": "Bone Gnawers",
               "auspice_name": null
             },
-            "opposing_pool": "Composure + Survival"
+            "opposing_pool": "Composure + Survival",
+            "is_rollable": false
           },
           {
             "name": "Face in the Crowd",
@@ -5174,7 +5366,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Streets Tell Stories",
@@ -5198,7 +5391,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "A Thousand Eyes",
@@ -5222,7 +5416,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Between the Cracks",
@@ -5245,7 +5440,8 @@
               "is_native_gift": false,
               "tribe_name": "Bone Gnawers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Brother's Scent",
@@ -5268,7 +5464,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Calm the Furious Beast",
@@ -5292,7 +5489,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Reveal Trauma",
@@ -5316,7 +5514,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Life's Presence",
@@ -5340,7 +5539,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Share the Pain",
@@ -5363,7 +5563,8 @@
               "is_native_gift": false,
               "tribe_name": "Children of Gaia",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Camouflage",
@@ -5386,7 +5587,8 @@
               "is_native_gift": false,
               "tribe_name": "Galestalkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Lacerating Wind",
@@ -5411,7 +5613,8 @@
               "tribe_name": "Galestalkers",
               "auspice_name": null
             },
-            "opposing_pool": "Stamina + Survival"
+            "opposing_pool": "Stamina + Survival",
+            "is_rollable": false
           },
           {
             "name": "Chill Cloak",
@@ -5434,7 +5637,8 @@
               "is_native_gift": false,
               "tribe_name": "Galestalkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Blood of the Wastes",
@@ -5457,7 +5661,8 @@
               "is_native_gift": false,
               "tribe_name": "Galestalkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Claws of Frozen Death",
@@ -5482,7 +5687,8 @@
               "tribe_name": "Galestalkers",
               "auspice_name": null
             },
-            "opposing_pool": "Stamina + Survival"
+            "opposing_pool": "Stamina + Survival",
+            "is_rollable": false
           },
           {
             "name": "Augur",
@@ -5506,7 +5712,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Blackout",
@@ -5529,7 +5736,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Serpent's Coil",
@@ -5553,7 +5761,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Hands of the Earth",
@@ -5577,7 +5786,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Shrouded Aspect",
@@ -5600,7 +5810,8 @@
               "is_native_gift": false,
               "tribe_name": "Ghost Council",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Skinbind",
@@ -5623,7 +5834,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Energize",
@@ -5647,7 +5859,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Control Machine",
@@ -5671,7 +5884,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Doppelganger",
@@ -5695,7 +5909,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Recover Memory",
@@ -5719,7 +5934,8 @@
               "is_native_gift": false,
               "tribe_name": "Glass Walkers",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Sacred Boundary",
@@ -5742,7 +5958,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Blessed Brew",
@@ -5765,7 +5982,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Territorial Dominance",
@@ -5788,7 +6006,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Balor's Gaze",
@@ -5813,7 +6032,8 @@
               "tribe_name": "Hart Wardens",
               "auspice_name": null
             },
-            "opposing_pool": "Composure + Occult"
+            "opposing_pool": "Composure + Occult",
+            "is_rollable": false
           },
           {
             "name": "The Living Wood",
@@ -5837,7 +6057,8 @@
               "is_native_gift": false,
               "tribe_name": "Hart Wardens",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Hidden Killer",
@@ -5860,7 +6081,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Render Down",
@@ -5884,7 +6106,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Gaia's Embrace",
@@ -5907,7 +6130,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Quicksand",
@@ -5931,7 +6155,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Shield of the Wyld",
@@ -5954,7 +6179,8 @@
               "is_native_gift": false,
               "tribe_name": "Red Talons",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Fatal Flaw",
@@ -5979,7 +6205,8 @@
               "tribe_name": "Shadow Lords",
               "auspice_name": null
             },
-            "opposing_pool": "Composure + Subterfuge"
+            "opposing_pool": "Composure + Subterfuge",
+            "is_rollable": false
           },
           {
             "name": "Icy Chill of Despair",
@@ -6002,7 +6229,8 @@
               "is_native_gift": false,
               "tribe_name": "Shadow Lords",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Dire Distraction",
@@ -6027,7 +6255,8 @@
               "tribe_name": "Shadow Lords",
               "auspice_name": null
             },
-            "opposing_pool": "Wits + Occult"
+            "opposing_pool": "Wits + Occult",
+            "is_rollable": false
           },
           {
             "name": "Thunderclap",
@@ -6052,7 +6281,8 @@
               "tribe_name": "Shadow Lords",
               "auspice_name": null
             },
-            "opposing_pool": "Stamina + Wits"
+            "opposing_pool": "Stamina + Wits",
+            "is_rollable": false
           },
           {
             "name": "Under the Gun",
@@ -6075,7 +6305,8 @@
               "is_native_gift": false,
               "tribe_name": "Shadow Lords",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Fetch Bounty",
@@ -6099,7 +6330,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Speech of the World",
@@ -6123,7 +6355,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Whispered Passage",
@@ -6146,7 +6379,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Burrow",
@@ -6170,7 +6404,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "The Golden Path",
@@ -6193,7 +6428,8 @@
               "is_native_gift": false,
               "tribe_name": "Silent Striders",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Pack Instinct",
@@ -6217,7 +6453,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "The Silver Compact",
@@ -6240,7 +6477,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Blood of the Pack",
@@ -6263,7 +6501,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Unity of the Pack",
@@ -6286,7 +6525,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           },
           {
             "name": "Luna's Avenger",
@@ -6309,7 +6549,8 @@
               "is_native_gift": false,
               "tribe_name": "Silver Fangs",
               "auspice_name": null
-            }
+            },
+            "is_rollable": false
           }
         ]
       },
@@ -6634,7 +6875,6 @@
         "show_when_empty": false,
         "character_classes": [
           "VAMPIRE",
-          "WEREWOLF",
           "MAGE",
           "HUNTER",
           "GHOUL",
@@ -6691,7 +6931,8 @@
             "character_classes": [
               "MORTAL",
               "VAMPIRE",
-              "GHOUL"
+              "GHOUL",
+              "MAGE"
             ],
             "description": null,
             "game_versions": [
@@ -6706,7 +6947,8 @@
             "character_classes": [
               "MORTAL",
               "VAMPIRE",
-              "GHOUL"
+              "GHOUL",
+              "MAGE"
             ],
             "description": null,
             "game_versions": [
@@ -6721,7 +6963,8 @@
             "character_classes": [
               "MORTAL",
               "VAMPIRE",
-              "GHOUL"
+              "GHOUL",
+              "MAGE"
             ],
             "description": null,
             "game_versions": [
@@ -6761,7 +7004,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Occult"
+            "pool": "Honor + Occult",
+            "is_rollable": false
           },
           {
             "name": "Rite of Rage",
@@ -6776,7 +7020,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Glory + Intimidation"
+            "pool": "Glory + Intimidation",
+            "is_rollable": false
           },
           {
             "name": "Rite of Tranquility",
@@ -6791,7 +7036,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Performance"
+            "pool": "Wisdom + Performance",
+            "is_rollable": false
           },
           {
             "name": "Rite of Contrition",
@@ -6806,7 +7052,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Etiquette"
+            "pool": "Honor + Etiquette",
+            "is_rollable": false
           },
           {
             "name": "Rite of Forgetful Record",
@@ -6821,7 +7068,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Investigation"
+            "pool": "Wisdom + Investigation",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Living Caern",
@@ -6836,7 +7084,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Craft "
+            "pool": "Wisdom + Craft ",
+            "is_rollable": false
           },
           {
             "name": "Rite of Shadow Passage",
@@ -6851,7 +7100,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Renown (any) + Occult"
+            "pool": "Renown (any) + Occult",
+            "is_rollable": false
           },
           {
             "name": "Rite of Dedication",
@@ -6866,7 +7116,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Rite of Kinseeking",
@@ -6881,7 +7132,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Investigation"
+            "pool": "Wisdom + Investigation",
+            "is_rollable": false
           },
           {
             "name": "Rite of Spirit Summoning",
@@ -6896,7 +7148,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Persuasion vs Power"
+            "pool": "Honor + Persuasion vs Power",
+            "is_rollable": false
           },
           {
             "name": "Rite of Binding",
@@ -6911,7 +7164,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Glory + Occult"
+            "pool": "Glory + Occult",
+            "is_rollable": false
           },
           {
             "name": "Rite of Shame",
@@ -6926,7 +7180,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Rite of Patronage",
@@ -6941,7 +7196,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Renown (the type associated with the new Patron Spirit) + Etiquette"
+            "pool": "Renown (the type associated with the new Patron Spirit) + Etiquette",
+            "is_rollable": false
           },
           {
             "name": "Rite of Celebration",
@@ -6956,7 +7212,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Performance"
+            "pool": "Honor + Performance",
+            "is_rollable": false
           },
           {
             "name": "Rite of Caern Building",
@@ -6971,7 +7228,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Craft"
+            "pool": "Wisdom + Craft",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Wolf Reborn",
@@ -6986,7 +7244,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Renown (highest of target) + Leadership"
+            "pool": "Renown (highest of target) + Leadership",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Whispering Field",
@@ -7001,7 +7260,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Survival"
+            "pool": "Wisdom + Survival",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Shrouded Glen",
@@ -7016,7 +7276,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Craft"
+            "pool": "Wisdom + Craft",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Borne Word",
@@ -7031,7 +7292,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Etiquette"
+            "pool": "Honor + Etiquette",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Broken Sun (Broken Son)",
@@ -7046,7 +7308,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Occult"
+            "pool": "Honor + Occult",
+            "is_rollable": false
           },
           {
             "name": "Rite of Caging",
@@ -7061,7 +7324,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Awareness"
+            "pool": "Wisdom + Awareness",
+            "is_rollable": false
           },
           {
             "name": "Rite of Chiminage",
@@ -7076,7 +7340,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Etiquette"
+            "pool": "Wisdom + Etiquette",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Grim Reach",
@@ -7091,7 +7356,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Glory + Survival"
+            "pool": "Glory + Survival",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Living Tale",
@@ -7106,7 +7372,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Wisdom + Survival"
+            "pool": "Wisdom + Survival",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Moon's Fickle Grace",
@@ -7121,7 +7388,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Glory + Performance"
+            "pool": "Glory + Performance",
+            "is_rollable": false
           },
           {
             "name": "Rite of Renunciation",
@@ -7136,7 +7404,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "None"
+            "pool": "None",
+            "is_rollable": false
           },
           {
             "name": "Rite of the Sacred Scar",
@@ -7151,7 +7420,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Any appropriate renown + Craft"
+            "pool": "Any appropriate renown + Craft",
+            "is_rollable": false
           },
           {
             "name": "Rite of Shared Fury",
@@ -7166,7 +7436,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": "Honor + Politics"
+            "pool": "Honor + Politics",
+            "is_rollable": false
           },
           {
             "name": "Rite of Passage",
@@ -7181,7 +7452,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Satire Rite",
@@ -7196,7 +7468,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Rite of Accomplishment",
@@ -7211,7 +7484,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Gathering for the Departed",
@@ -7226,7 +7500,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Rite of the Winter Wolf",
@@ -7241,7 +7516,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Rite of the Ban Shared",
@@ -7256,7 +7532,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Cleansing Rite",
@@ -7271,7 +7548,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "The Long Vigil",
@@ -7286,7 +7564,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "Pledging Rite",
@@ -7301,7 +7580,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           },
           {
             "name": "The Renewal Circle",
@@ -7316,7 +7596,8 @@
             "show_when_zero": false,
             "max_value": 1,
             "min_value": 1,
-            "pool": null
+            "pool": null,
+            "is_rollable": false
           }
         ]
       }

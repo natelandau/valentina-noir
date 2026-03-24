@@ -380,13 +380,25 @@ def _build_gift_attributes_definition(
     Returns:
         str: Formatted gift attributes string.
     """
+    cost_string = f"  - Cost: `{gift_attributes.cost or '-'}`\n" if gift_attributes.cost else ""
+    duration_string = (
+        f"  - Duration: `{gift_attributes.duration}`\n" if gift_attributes.duration else ""
+    )
+    minimum_renown_string = (
+        f"  - Minimum Renown: `{gift_attributes.minimum_renown}`\n"
+        if gift_attributes.minimum_renown
+        else ""
+    )
+    tribe_string = f"  - Tribe: `{tribe_name}`\n" if tribe_name else ""
+    auspice_string = f"  - Auspice: `{auspice_name}`\n" if auspice_name else ""
+
     result = "\n- Gift Attributes:\n"
     result += f"  - Renown: `{gift_attributes.renown.value.title()}`\n"
-    result += f"  - Cost: `{gift_attributes.cost or '-'}`\n"
-    result += f"  - Duration: `{gift_attributes.duration or '-'}`\n"
-    result += f"  - Minimum Renown: `{gift_attributes.minimum_renown or '-'}`\n"
-    result += f"  - Tribe: `{tribe_name or '-'}`\n"
-    result += f"  - Auspice: `{auspice_name or '-'}`\n"
+    result += cost_string
+    result += duration_string
+    result += minimum_renown_string
+    result += tribe_string
+    result += auspice_string
     return result
 
 
@@ -418,17 +430,20 @@ def _build_trait_definition(
     if trait.trait_subcategory_name:
         section_string += f" > `{trait.trait_subcategory_name.title()}`"
 
+    pool_string = f"\n- Pool: `{trait.pool or '-'}`" if trait.pool else ""
+    opposing_pool_string = (
+        f"\n- Opposing Pool: `{trait.opposing_pool.title()}`" if trait.opposing_pool else ""
+    )
+    system_string = f"\n- System: `{trait.system or '-'}`" if trait.system else ""
+
     definition = f"""\
 {trait.description}
 
 ### Trait Details:
 - Sheet Section: {section_string}
 - Character Classes: `{"`, `".join(c.title() for c in trait.character_classes)}`
-- Game Versions: `{"`, `".join(v.title() for v in trait.game_versions)}`
-- Pool: `{trait.pool or "-"}`
-- Opposing Pool: `{trait.opposing_pool or "-"}`
-- System: `{trait.system or "-"}`
-"""
+- Game Versions: `{"`, `".join(v.title() for v in trait.game_versions)}`{pool_string}{opposing_pool_string}{system_string}"""
+
     if trait.gift_attributes:
         definition += _build_gift_attributes_definition(
             trait.gift_attributes, tribe_name=tribe_name, auspice_name=auspice_name
