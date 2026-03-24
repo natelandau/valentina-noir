@@ -833,11 +833,12 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         self._guard_permissions_free_trait_changes(company, character, user)
 
-        all_character_traits = await CharacterTrait.find(
+        existing = await CharacterTrait.find(
             CharacterTrait.character_id == character.id,
+            CharacterTrait.trait.name == data.name.strip().title(),  # type: ignore [attr-defined]
             fetch_links=True,
-        ).to_list()
-        if data.name.lower() in [trait.trait.name.lower() for trait in all_character_traits]:  # type: ignore [attr-defined]
+        ).first_or_none()
+        if existing:
             raise ConflictError(detail=f"Trait named '{data.name}' already exists on character")
 
         existing_trait = await Trait.find_one(
@@ -1101,19 +1102,24 @@ class CharacterTraitService:
             A tuple containing the total number of traits and the list of traits.
         """
         filters = [CharacterTrait.character_id == character.id]
+        needs_link_filters = False
         if is_rollable is not None:
             filters.append(CharacterTrait.trait.is_rollable == is_rollable)  # type: ignore [attr-defined]
+            needs_link_filters = True
 
         if parent_category_id:
             filters.append(CharacterTrait.trait.parent_category_id == parent_category_id)  # type: ignore [attr-defined]
+            needs_link_filters = True
 
-        all_traits = (
+        # Only use fetch_links on count when filters reference linked fields
+        count = await CharacterTrait.find(*filters, fetch_links=needs_link_filters).count()
+        traits = (
             await CharacterTrait.find(*filters, fetch_links=True)
             .sort(CharacterTrait.trait.parent_category_id)  # type: ignore [attr-defined]
+            .skip(offset)
+            .limit(limit)
             .to_list()
         )
-        count = len(all_traits)
-        traits = all_traits[offset : offset + limit]
         return count, traits
 
     async def get_value_options(

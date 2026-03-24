@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from vapi.db.models import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
 
@@ -11,19 +13,19 @@ class CampaignService:
 
     async def get_next_book_number(self, campaign: Campaign) -> int:
         """Get the next book number for a campaign."""
-        campaign_books = await CampaignBook.find(
+        count = await CampaignBook.find(
             CampaignBook.campaign_id == campaign.id,
             CampaignBook.is_archived == False,
-        ).to_list()
-        return len(campaign_books) + 1
+        ).count()
+        return count + 1
 
     async def get_next_chapter_number(self, book: CampaignBook) -> int:
         """Get the next chapter number for a book."""
-        campaign_chapters = await CampaignChapter.find(
+        count = await CampaignChapter.find(
             CampaignChapter.book_id == book.id,
             CampaignChapter.is_archived == False,
-        ).to_list()
-        return len(campaign_chapters) + 1
+        ).count()
+        return count + 1
 
     async def renumber_books(self, book: CampaignBook, new_number: int) -> CampaignBook:
         """Renumber the books for a campaign."""
@@ -44,17 +46,22 @@ class CampaignService:
 
         if new_number > original_number:
             # Shift books down if the new number is higher
+            saves = []
             for b in all_campaign_books:
                 if original_number < b.number <= new_number:
                     b.number -= 1
-                    await b.save()
-
+                    saves.append(b.save())
+            if saves:
+                await asyncio.gather(*saves)
         else:
             # Shift books up if the new number is lower
+            saves = []
             for b in all_campaign_books:
                 if new_number <= b.number < original_number:
                     b.number += 1
-                    await b.save()
+                    saves.append(b.save())
+            if saves:
+                await asyncio.gather(*saves)
 
         await book.save()
         return book
@@ -78,17 +85,22 @@ class CampaignService:
 
         if new_number > original_number:
             # Shift chapters down if the new number is higher
+            saves = []
             for c in all_book_chapters:
                 if original_number < c.number <= new_number:
                     c.number -= 1
-                    await c.save()
-
+                    saves.append(c.save())
+            if saves:
+                await asyncio.gather(*saves)
         else:
             # Shift chapters up if the new number is lower
+            saves = []
             for c in all_book_chapters:
                 if new_number <= c.number < original_number:
                     c.number += 1
-                    await c.save()
+                    saves.append(c.save())
+            if saves:
+                await asyncio.gather(*saves)
 
         await chapter.save()
         return chapter
@@ -99,10 +111,13 @@ class CampaignService:
             CampaignBook.campaign_id == book.campaign_id,
             CampaignBook.is_archived == False,
         ).to_list()
+        saves = []
         for b in all_campaign_books:
             if b.number > book.number:
                 b.number -= 1
-                await b.save()
+                saves.append(b.save())
+        if saves:
+            await asyncio.gather(*saves)
 
         book.is_archived = True
         await book.save()
@@ -113,10 +128,13 @@ class CampaignService:
             CampaignChapter.book_id == chapter.book_id,
             CampaignChapter.is_archived == False,
         ).to_list()
+        saves = []
         for c in all_book_chapters:
             if c.number > chapter.number:
                 c.number -= 1
-                await c.save()
+                saves.append(c.save())
+        if saves:
+            await asyncio.gather(*saves)
 
         chapter.is_archived = True
         await chapter.save()
