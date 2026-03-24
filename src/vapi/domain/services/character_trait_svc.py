@@ -1107,13 +1107,14 @@ class CharacterTraitService:
         if parent_category_id:
             filters.append(CharacterTrait.trait.parent_category_id == parent_category_id)  # type: ignore [attr-defined]
 
-        all_traits = (
+        count = await CharacterTrait.find(*filters, fetch_links=True).count()
+        traits = (
             await CharacterTrait.find(*filters, fetch_links=True)
             .sort(CharacterTrait.trait.parent_category_id)  # type: ignore [attr-defined]
+            .skip(offset)
+            .limit(limit)
             .to_list()
         )
-        count = len(all_traits)
-        traits = all_traits[offset : offset + limit]
         return count, traits
 
     async def get_value_options(
