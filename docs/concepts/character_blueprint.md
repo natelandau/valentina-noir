@@ -340,15 +340,14 @@ Gift traits include a `gift_attributes` field with werewolf-specific metadata:
       "game_versions": ["V4", "V5"],
       "min_value": 1,
       "max_value": 1,
+      "pool": "Wisdom + Glory",
+      "opposing_pool": "Resolve + Honor",
       "gift_attributes": {
         "renown": "WISDOM",
         "cost": "1 Willpower",
         "duration": "One scene",
-        "dice_pool": [],
-        "opposing_pool": [],
         "minimum_renown": 2,
         "is_native_gift": false,
-        "notes": "When used in attempt to ambush...",
         "tribe_id": "68c1f7152cae3787a09a74fa",
         "auspice_id": null
       }

@@ -364,7 +364,80 @@ async def sync_single_subcategory(  # noqa: C901
     return subcategory, created, updated
 
 
-async def sync_single_trait(  # noqa: C901, PLR0912
+def _build_gift_attributes_definition(
+    gift_attributes: GiftAttributes,
+    *,
+    tribe_name: str | None = None,
+    auspice_name: str | None = None,
+) -> str:
+    """Build the gift attributes portion of a trait definition.
+
+    Args:
+        gift_attributes: The gift attributes to format.
+        tribe_name: Pre-resolved tribe name from the fixture.
+        auspice_name: Pre-resolved auspice name from the fixture.
+
+    Returns:
+        str: Formatted gift attributes string.
+    """
+    result = "\n- Gift Attributes:\n"
+    result += f"  - Renown: `{gift_attributes.renown.value.title()}`\n"
+    result += f"  - Cost: `{gift_attributes.cost or '-'}`\n"
+    result += f"  - Duration: `{gift_attributes.duration or '-'}`\n"
+    result += f"  - Minimum Renown: `{gift_attributes.minimum_renown or '-'}`\n"
+    result += f"  - Tribe: `{tribe_name or '-'}`\n"
+    result += f"  - Auspice: `{auspice_name or '-'}`\n"
+    return result
+
+
+def _build_trait_definition(
+    trait: Trait,
+    *,
+    tribe_name: str | None = None,
+    auspice_name: str | None = None,
+) -> str | None:
+    """Build a dictionary definition string for a trait.
+
+    Combine the trait's description, details, gift attributes, system, pool, and opposing pool
+    into a formatted definition suitable for a global dictionary term.
+
+    Args:
+        trait: The trait to build a definition for.
+        tribe_name: Pre-resolved tribe name from the fixture.
+        auspice_name: Pre-resolved auspice name from the fixture.
+
+    Returns:
+        str | None: The formatted definition, or None if the trait has no description.
+    """
+    if not trait.description:
+        return None
+
+    section_string = (
+        f"`{trait.sheet_section_name.title()}` > `{trait.parent_category_name.title()}`"
+    )
+    if trait.trait_subcategory_name:
+        section_string += f" > `{trait.trait_subcategory_name.title()}`"
+
+    definition = f"""\
+{trait.description}
+
+### Trait Details:
+- Sheet Section: {section_string}
+- Character Classes: `{"`, `".join(c.title() for c in trait.character_classes)}`
+- Game Versions: `{"`, `".join(v.title() for v in trait.game_versions)}`
+- Pool: `{trait.pool or "-"}`
+- Opposing Pool: `{trait.opposing_pool or "-"}`
+- System: `{trait.system or "-"}`
+"""
+    if trait.gift_attributes:
+        definition += _build_gift_attributes_definition(
+            trait.gift_attributes, tribe_name=tribe_name, auspice_name=auspice_name
+        )
+
+    return definition
+
+
+async def sync_single_trait(  # noqa: C901
     fixture_trait: dict[str, Any],
     *,
     category: TraitCategory,
@@ -399,9 +472,11 @@ async def sync_single_trait(  # noqa: C901, PLR0912
     # tribe_id/auspice_id are resolved later by resolve_gift_trait_references()
     # after WerewolfTribe/WerewolfAuspice documents exist in the database.
     gift_attrs_raw = fixture_trait.pop("gift_attributes", None)
+    gift_tribe_name: str | None = None
+    gift_auspice_name: str | None = None
     if gift_attrs_raw is not None:
-        gift_attrs_raw.pop("tribe_name", None)
-        gift_attrs_raw.pop("auspice_name", None)
+        gift_tribe_name = gift_attrs_raw.pop("tribe_name", None)
+        gift_auspice_name = gift_attrs_raw.pop("auspice_name", None)
         fixture_trait["gift_attributes"] = GiftAttributes(**gift_attrs_raw)
 
     if not trait:
@@ -432,9 +507,9 @@ async def sync_single_trait(  # noqa: C901, PLR0912
                 subcategory.character_classes if subcategory else category.character_classes or []
             )
         if not fixture_trait.get("pool"):
-            trait.pool = subcategory.pool if subcategory else None
+            trait.pool = subcategory.pool if subcategory and subcategory.pool else None
         if not fixture_trait.get("system"):
-            trait.system = subcategory.system if subcategory else None
+            trait.system = subcategory.system if subcategory and subcategory.system else None
         await trait.save()
         created = True
 
@@ -445,16 +520,15 @@ async def sync_single_trait(  # noqa: C901, PLR0912
         await trait.save()
         updated = True
 
-    if trait.description or trait.link:
-        desc = trait.description or ""
-        if trait.system:
-            desc += "\n## System:\n" + trait.system
-        if trait.pool:
-            desc += "\n## Pool:\n" + trait.pool
+    definition = _build_trait_definition(
+        trait, tribe_name=gift_tribe_name, auspice_name=gift_auspice_name
+    )
+
+    if definition or trait.link:
         await create_global_dictionary_term(
             term=trait.name,
-            definition=desc,
-            link=trait.link,
+            definition=definition,
+            link=trait.link or None,
         )
 
     return trait, created, updated
