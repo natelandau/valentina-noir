@@ -12,15 +12,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 
-from vapi.config import settings
 from vapi.db.models.campaign import Campaign
 from vapi.db.models.character import CharacterTrait
 from vapi.db.models.constants.trait import Trait
+from vapi.domain.services.aws_service import AWSS3Service
 
 from .id_map import IDMap
 from .new_db import connect_new_db
@@ -344,6 +345,7 @@ async def _migrate_character_contents(
     new_char: Any,
     company: Any,
     s3: S3Migrator,
+    aws_service: AWSS3Service,
     stats: MigrationStats,
     *,
     dry_run: bool,
@@ -356,8 +358,9 @@ async def _migrate_character_contents(
         new_char: The newly created Character document.
         company: The newly created Company document.
         s3: The S3 migrator.
+        aws_service: The AWS S3 service for uploading assets.
         stats: Migration statistics tracker.
-        dry_run: If True, don't write to the new database or copy S3 objects.
+        dry_run: If True, don't write to the new database or upload S3 objects.
     """
     old_char_id = str(char["_id"])
 
@@ -379,30 +382,29 @@ async def _migrate_character_contents(
         except Exception as e:  # noqa: BLE001
             stats.record_failed("inventory", item.get("_id"), e)
 
-    # Images → S3Asset
+    # Images → S3Asset via AWSS3Service
     for old_key in char.get("images", []):
         try:
-            new_key = old_key  # preserve the key path
-            s3.copy_object(old_key, new_key)
-
-            asset = _build_s3_asset(
-                old_key=old_key,
-                new_key=new_key,
-                s3=s3,
-                character_id=new_char.id,
-                company_id=company.id,
-                uploaded_by=new_char.user_creator_id,
-            )
-            await _save(asset, dry_run=dry_run)
-            if not dry_run:
-                new_char.asset_ids.append(asset.id)
-            stats.record_created("s3_asset")
+            if dry_run:
+                logger.info(
+                    "[DRY RUN] Would upload %s for character %s", Path(old_key).name, new_char.id
+                )
+                stats.record_created("s3_asset")
+            else:
+                data = s3.download_object(old_key)
+                filename = Path(old_key).name
+                mime_type = mimetypes.guess_type(old_key)[0] or "application/octet-stream"
+                await aws_service.upload_asset(
+                    parent=new_char,
+                    company_id=company.id,
+                    upload_user_id=new_char.user_creator_id,
+                    data=data,
+                    filename=filename,
+                    mime_type=mime_type,
+                )
+                stats.record_created("s3_asset")
         except Exception as e:  # noqa: BLE001
             stats.record_failed("s3_asset", old_key, e)
-
-    # Save updated asset_ids back to character
-    if char.get("images") and not dry_run:
-        await new_char.save()
 
 
 async def _migrate_characters(
@@ -412,6 +414,7 @@ async def _migrate_characters(
     company: Any,
     id_map: IDMap,
     s3: S3Migrator,
+    aws_service: AWSS3Service,
     stats: MigrationStats,
     *,
     dry_run: bool,
@@ -425,8 +428,9 @@ async def _migrate_characters(
         company: The newly created Company document.
         id_map: The ID map registry.
         s3: The S3 migrator.
+        aws_service: The AWS S3 service for uploading assets.
         stats: Migration statistics tracker.
-        dry_run: If True, don't write to the new database or copy S3 objects.
+        dry_run: If True, don't write to the new database or upload S3 objects.
     """
     # Created on first use to avoid empty campaigns when all chars have campaigns
     uncategorized_campaign_id: PydanticObjectId | None = None
@@ -458,7 +462,7 @@ async def _migrate_characters(
             logger.info("Character %s → %s", old_char_id, new_char.id)
 
             await _migrate_character_contents(
-                old_db, char, new_char, company, s3, stats, dry_run=dry_run
+                old_db, char, new_char, company, s3, aws_service, stats, dry_run=dry_run
             )
         except Exception as e:  # noqa: BLE001
             stats.record_failed("character", old_char_id, e)
@@ -540,6 +544,7 @@ async def migrate_guild(
     old_db: AsyncDatabase,
     id_map: IDMap,
     s3: S3Migrator,
+    aws_service: AWSS3Service,
     stats: MigrationStats,
     *,
     dry_run: bool,
@@ -554,8 +559,9 @@ async def migrate_guild(
         old_db: The old database connection.
         id_map: The ID map registry.
         s3: The S3 migrator.
+        aws_service: The AWS S3 service for uploading assets.
         stats: Migration statistics tracker.
-        dry_run: If True, don't write to new DB or copy S3 objects.
+        dry_run: If True, don't write to new DB or upload S3 objects.
     """
     guild_id = guild["_id"]
     logger.info("Migrating guild: %s (id=%s)", guild.get("name"), guild_id)
@@ -567,6 +573,7 @@ async def migrate_guild(
         id_map.add("guild", guild_id, company.id)
         stats.record_created("company")
         logger.info("Guild %s → Company %s", guild_id, company.id)
+        s3.record_company(company.id)
     except Exception as e:  # noqa: BLE001
         stats.record_failed("company", guild_id, e)
         return
@@ -591,7 +598,7 @@ async def migrate_guild(
 
     # Step 5: Characters + Traits + Inventory + Images
     await _migrate_characters(
-        old_db, all_characters, guild_id, company, id_map, s3, stats, dry_run=dry_run
+        old_db, all_characters, guild_id, company, id_map, s3, aws_service, stats, dry_run=dry_run
     )
 
     # Step 6: Notes
@@ -674,50 +681,6 @@ async def _migrate_trait(
             )
 
 
-def _build_s3_asset(
-    old_key: str,
-    new_key: str,
-    s3: S3Migrator,
-    character_id: PydanticObjectId,
-    company_id: PydanticObjectId,
-    uploaded_by: PydanticObjectId,
-) -> Any:
-    """Build an S3Asset document for a migrated image.
-
-    Args:
-        old_key: The old S3 key.
-        new_key: The new S3 key.
-        s3: The S3 migrator instance.
-        character_id: The new Character ID.
-        company_id: The new Company ID.
-        uploaded_by: The uploader's user ID.
-
-    Returns:
-        An S3Asset instance (not yet saved).
-    """
-    import mimetypes
-
-    from vapi.constants import AssetParentType, AssetType
-    from vapi.db.models.aws import S3Asset
-
-    filename = Path(old_key).name
-    mime_type_guess, _ = mimetypes.guess_type(old_key)
-    mime_type = mime_type_guess or "application/octet-stream"
-
-    return S3Asset(
-        asset_type=AssetType.IMAGE,
-        mime_type=mime_type,
-        original_filename=filename,
-        parent_type=AssetParentType.CHARACTER,
-        parent_id=character_id,
-        company_id=company_id,
-        uploaded_by=uploaded_by,
-        s3_key=new_key,
-        s3_bucket=settings.aws.s3_bucket_name,
-        public_url=s3.build_public_url(new_key),
-    )
-
-
 async def run_migration(*, dry_run: bool) -> None:
     """Run the full migration pipeline.
 
@@ -734,18 +697,19 @@ async def run_migration(*, dry_run: bool) -> None:
     id_map = IDMap()
     stats = MigrationStats()
     s3 = S3Migrator(dry_run=dry_run)
+    aws_service = AWSS3Service()
 
-    # Clean up S3 objects from any previous migration run
-    s3.cleanup_previous_run()
+    # Clean up S3 objects and DB records from any previous migration run
+    await s3.cleanup_previous_run()
 
     try:
         guilds = await read_guilds(old_db)
         logger.info("%sFound %d guilds to migrate", prefix, len(guilds))
 
         for guild in guilds:
-            await migrate_guild(guild, old_db, id_map, s3, stats, dry_run=dry_run)
+            await migrate_guild(guild, old_db, id_map, s3, aws_service, stats, dry_run=dry_run)
 
-        # Save S3 asset log for future cleanup
+        # Save company ID log for future cleanup
         s3.save_log()
 
     finally:
