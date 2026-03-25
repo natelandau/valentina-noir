@@ -12,6 +12,7 @@ from vapi.cli.constants import dictionary_term_counts
 from vapi.lib.database import setup_database
 
 from .lib import bootstrap as utils
+from .lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
 
 console = Console()
 logger = logging.getLogger("vapi")
@@ -35,11 +36,11 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     if do_setup_database:
         await setup_database()
 
-    await utils.sync_traits()
+    await TraitSyncer().sync()
     await utils.sync_vampire_clans()
     await utils.sync_werewolf_auspices()
     await utils.sync_werewolf_tribes()
-    await utils.resolve_gift_trait_references()
+    await resolve_gift_trait_references()
     await utils.sync_character_concepts()
 
     logger.info(
