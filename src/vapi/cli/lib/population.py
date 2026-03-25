@@ -113,7 +113,7 @@ class PopulationService:
         """Create users for each company."""
         users: list[User] = []
         for company in companies:
-            for i, _ in enumerate(range(num_users)):
+            for i in range(num_users):
                 if i == 0:
                     user = factories.UserFactory.build(company_id=company.id, role=UserRole.ADMIN)
                 else:
@@ -221,8 +221,8 @@ class PopulationService:
             API_KEYS_FILE.unlink()
         API_KEYS_FILE.touch(exist_ok=True)
 
-        for user in api_key_users:
-            with API_KEYS_FILE.open("a") as f:
+        with API_KEYS_FILE.open("a") as f:
+            for user in api_key_users:
                 f.write(f"""\
 id:              {user.developer_id}
 username:        {user.developer_name}

@@ -11,7 +11,6 @@ import click
 from vapi.cli.lib.comparison import (
     FIXTURES_PATH,
     JSONWithCommentsDecoder,
-    document_differs_from_fixture,
     get_differing_fields,
 )
 from vapi.db.models import (
@@ -63,8 +62,7 @@ class FixtureSyncer:
                 await document.save()
                 created += 1
                 created_this = True
-            elif document_differs_from_fixture(document, fixture_item):
-                differences = get_differing_fields(document, fixture_item)
+            elif differences := get_differing_fields(document, fixture_item):
                 for field_name in differences:
                     setattr(document, field_name, fixture_item[field_name])
                 await document.save()

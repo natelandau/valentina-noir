@@ -160,5 +160,5 @@ class JSONWithCommentsDecoder(json.JSONDecoder):
     def decode(self, s: str) -> Any:  # type: ignore [override]
         """Decode the JSON with comments."""
         regex = r"""("(?:\\"|[^"])*?")|(\/\*(?:.|\s)*?\*\/|\/\/.*)"""
-        s = re.sub(regex, r"\1", s)  # , flags = re.X | re.M)
+        s = re.sub(regex, r"\1", s)
         return super().decode(s)

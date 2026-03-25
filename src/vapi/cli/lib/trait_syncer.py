@@ -9,14 +9,13 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 import click
 
 from vapi.cli.lib.comparison import (
     FIXTURES_PATH,
     JSONWithCommentsDecoder,
-    document_differs_from_fixture,
     get_differing_fields,
 )
 from vapi.db.models import (
@@ -49,6 +48,13 @@ class SyncCounts:
     created: int = 0
     updated: int = 0
     total: int = 0
+
+    def __iadd__(self, other: SyncCounts) -> Self:
+        """Accumulate counts from another SyncCounts instance."""
+        self.created += other.created
+        self.updated += other.updated
+        self.total += other.total
+        return self
 
 
 @dataclass
@@ -94,15 +100,9 @@ class TraitSyncer:
             category_counts, subcategory_counts, trait_counts = await self._sync_section_categories(
                 fixture_section, section
             )
-            self.result.categories.created += category_counts.created
-            self.result.categories.updated += category_counts.updated
-            self.result.categories.total += category_counts.total
-            self.result.subcategories.created += subcategory_counts.created
-            self.result.subcategories.updated += subcategory_counts.updated
-            self.result.subcategories.total += subcategory_counts.total
-            self.result.traits.created += trait_counts.created
-            self.result.traits.updated += trait_counts.updated
-            self.result.traits.total += trait_counts.total
+            self.result.categories += category_counts
+            self.result.subcategories += subcategory_counts
+            self.result.traits += trait_counts
 
         logger.info(
             "Bootstrapped character sheet sections",
@@ -166,8 +166,7 @@ class TraitSyncer:
             section = CharSheetSection(**fixture_section)
             await section.save()
             created = True
-        elif document_differs_from_fixture(section, fixture_section):
-            differences = get_differing_fields(section, fixture_section)
+        elif differences := get_differing_fields(section, fixture_section):
             for field_name in differences:
                 setattr(section, field_name, fixture_section[field_name])
             await section.save()
@@ -208,8 +207,7 @@ class TraitSyncer:
                 category.game_versions = section.game_versions
             await category.save()
 
-        elif document_differs_from_fixture(category, fixture_category):
-            differences = get_differing_fields(category, fixture_category)
+        elif differences := get_differing_fields(category, fixture_category):
             for field_name in differences:
                 setattr(category, field_name, fixture_category[field_name])
             await category.save()
@@ -262,8 +260,7 @@ class TraitSyncer:
 
             await subcategory.save()
 
-        elif document_differs_from_fixture(subcategory, fixture_subcategory):
-            differences = get_differing_fields(subcategory, fixture_subcategory)
+        elif differences := get_differing_fields(subcategory, fixture_subcategory):
             for field_name in differences:
                 setattr(subcategory, field_name, fixture_subcategory[field_name])
             await subcategory.save()
@@ -349,8 +346,7 @@ class TraitSyncer:
             await trait.save()
             created = True
 
-        elif document_differs_from_fixture(trait, fixture_trait):
-            differences = get_differing_fields(trait, fixture_trait)
+        elif differences := get_differing_fields(trait, fixture_trait):
             for field_name in differences:
                 setattr(trait, field_name, fixture_trait[field_name])
             await trait.save()
@@ -438,16 +434,12 @@ class TraitSyncer:
                     category=category,
                     section=section,
                 )
-                trait_counts.created += subcategory_traits_result.created
-                trait_counts.updated += subcategory_traits_result.updated
-                trait_counts.total += subcategory_traits_result.total
+                trait_counts += subcategory_traits_result
 
             traits_result = await self._sync_traits_batch(
                 fixture_category, category=category, section=section
             )
-            trait_counts.created += traits_result.created
-            trait_counts.updated += traits_result.updated
-            trait_counts.total += traits_result.total
+            trait_counts += traits_result
 
         return category_counts, subcategory_counts, trait_counts
 

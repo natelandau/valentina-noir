@@ -506,7 +506,6 @@ class TestSyncSingleSection:
         mock_section_class = mocker.patch("vapi.cli.lib.trait_syncer.CharSheetSection")
         mock_section_class.find_one = AsyncMock(return_value=existing_section)
 
-        mocker.patch("vapi.cli.lib.trait_syncer.document_differs_from_fixture", return_value=True)
         mocker.patch(
             "vapi.cli.lib.trait_syncer.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},
@@ -538,7 +537,7 @@ class TestSyncSingleSection:
         mock_section_class = mocker.patch("vapi.cli.lib.trait_syncer.CharSheetSection")
         mock_section_class.find_one = AsyncMock(return_value=existing_section)
 
-        mocker.patch("vapi.cli.lib.trait_syncer.document_differs_from_fixture", return_value=False)
+        mocker.patch("vapi.cli.lib.trait_syncer.get_differing_fields", return_value={})
 
         # When: Syncing
         syncer = TraitSyncer()
@@ -600,7 +599,6 @@ class TestSyncSingleCategory:
         mock_category_class = mocker.patch("vapi.cli.lib.trait_syncer.TraitCategory")
         mock_category_class.find_one = AsyncMock(return_value=existing_category)
 
-        mocker.patch("vapi.cli.lib.trait_syncer.document_differs_from_fixture", return_value=True)
         mocker.patch(
             "vapi.cli.lib.trait_syncer.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},
@@ -678,7 +676,6 @@ class TestSyncSingleTrait:
         mock_trait_class = mocker.patch("vapi.cli.lib.trait_syncer.Trait")
         mock_trait_class.find_one = AsyncMock(return_value=existing_trait)
 
-        mocker.patch("vapi.cli.lib.trait_syncer.document_differs_from_fixture", return_value=True)
         mocker.patch(
             "vapi.cli.lib.trait_syncer.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},

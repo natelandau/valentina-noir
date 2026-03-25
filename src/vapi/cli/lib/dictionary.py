@@ -28,11 +28,15 @@ class DictionaryService:
     def __init__(self) -> None:
         self.created: int = 0
         self.updated: int = 0
-        self.total: int = 0
         self._tribes: list[WerewolfTribe] = []
         self._auspices: list[WerewolfAuspice] = []
         self._tribes_by_id: dict[PydanticObjectId, str] = {}
         self._auspices_by_id: dict[PydanticObjectId, str] = {}
+
+    @property
+    def total(self) -> int:
+        """Derive total from created + updated counts."""
+        return self.created + self.updated
 
     async def sync_all(self) -> None:
         """Build dictionary terms for all entity types, then log counts."""
@@ -73,13 +77,11 @@ class DictionaryService:
                 is_global=True,
             ).insert()
             self.created += 1
-            self.total += 1
         elif existing_term.definition != definition or existing_term.link != link:
             existing_term.definition = definition.strip() if definition else None
             existing_term.link = link.strip() if link else None
             await existing_term.save()
             self.updated += 1
-            self.total += 1
 
     def _build_gift_attributes_definition(
         self,
