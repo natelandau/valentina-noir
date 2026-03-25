@@ -1247,6 +1247,21 @@
             "show_when_zero": false
           },
           {
+            "name": "Obeah",
+            "description": "The Salubri bloodline's Discipline known to its Healer Class. Salubri Healers are valorous combat healers, and with the power of Obeah, they heal the gravest of injuries, so that the righteous may fight on.",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "link": "https://guidetothemasquerade.weebly.com/obeah.html",
+            "min_value": 0,
+            "max_value": 5,
+            "show_when_zero": false
+          },
+          {
             "name": "Oblivion",
             "description": "Has two branches: one allows the user to manipulate shadows at will and the other enables necromancy or usage of spirits, though both tap into the Abyss.",
             "character_classes": [
@@ -6555,6 +6570,325 @@
         ]
       },
       {
+        "name": "Thaumaturgy Paths",
+        "description": "Supernature abilities granted to Werewolves.",
+        "game_versions": [
+          "V4"
+        ],
+        "show_when_empty": false,
+        "character_classes": [
+          "VAMPIRE",
+          "GHOUL"
+        ],
+        "order": 6,
+        "initial_cost": 7,
+        "upgrade_cost": 3,
+        "traits": [
+          {
+            "name": "Path of Blood",
+            "description": "Almost every Tremere studies the Path of Blood as her primary path. It encompasses some of the most fundamental principles of Thaumaturgy, based as it is on the manipulation of Kindred vitae. If a player wishes to select another path as her character's primary path, she'd better have a good reason (though choosing a different path is by no means unheard of).",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "link": "http://snakepit.wikidot.com/the-path-of-blood"
+          },
+          {
+            "name": "Weather Control",
+            "description": "Command over the weather has long been a staple power of wisards both mortal and immortal, and this path is said by many to predate the Tremere by millennia. The proliferation of usage of this path outside the clan tends to confirm this theory; Weather Control is quite common outside the Tremere, and even outside the Camarilla. Lower levels of this path allow subtle manipulations, while higher stages of mastery allow a vampire to call up raging storms. The area affected by this power is usually rather small, no more than three or four miles in diameter, and the changes the wreaks are not always immediate.",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "link": "http://snakepit.wikidot.com/weather-control",
+            "system": " The number of successes rolled indicates how long it takes the weather magic to take effect. One success indicates an entire day may pass before the weather changes to the thaumaturge's liking, while a roll with five successes brings an almost instant effect.\n\nThe difficulty of the Willpower roll necessary to invoke this power may change depending on the current local weather conditions and the weather the character is attempting to create. The Storyteller should impose a bonus (-1 or -2 difficulty) for relatively minor shifts, such as clearing away a light drizzle or calling lightning when a severe thunderstorm is already raging. Conversely, a penalty (+1 or +2 difficulty) should be applied when the desired change is at odds with the current conditions, such as summoning the same light drizzle in the middle of the Sahara Desert or calling down lightning from a cloudless sky.\n\nIf the character tries to strike a specific target with lightning, the player must roll Perception + Occult (difficulty 6 if the target is standing in open terrain, 8 if he is under shelter, or 10 if he inside but near a window) in addition to the base roll to use Thaumaturgy. Otherwise the bolt goes astray, with the relative degree of failure of the roll determining where exactly the lightning strikes."
+          },
+          {
+            "name": "The Lure of Flames",
+            "description": "This path grants the thaumaturge the ability to conjure forth mystical flames - small fires at first, but skilled magicians may create great conflagrations. The Lure of Flames is greatly feared, as fire is one of the surest ways to bring Final Death upon a vampire.",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "The number of successes determines how accurately the thaumaturge places the flame in his desired location. One success is all that is necessary to conjure a flame in one's hand, while five successes place a flame anywhere in the Kindred's line of sight.",
+            "link": "http://snakepit.wikidot.com/the-lure-of-flames"
+          },
+          {
+            "name": "Movement of the Mind",
+            "description": "This path gives the thaumaturge the ability to move objects telekinetically through the mystic power of blood. At higher levels, even flight is possible (but be careful who sees you…). Objects under the character's control may be manipulated as if she held them - they may be lifted, spun, juggled or even 'thrown,' though creating enough force to inflict actual damage requires mastery of the fourth level or greater. Some thaumaturges skilled in this path even use it to guard their havens, animating swords, axes and firearms to ward off intruders. This path may frighten and disconcert onlookers. Many people are quite put off when the pages of a book turn by themselves!",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "link": "http://snakepit.wikidot.com/movement-of-the-mind",
+            "system": "The number of successes indicates the duration of the thaumaturge's control over the object (or subject). Each success allows one turn of manipulation, though the Kindred may attempt to maintain control after this time by making a new roll (she need not spend additional blood to maintain control). If the roll is successful, control is maintained. If a thaumaturge loses or relaxes control over an object and later manipulates it again, her player must spend another blood point, as a new attempt is being made. If this power is used to manipulate a living being, the subject may attempt to resist. In this case, the thaumaturge and the subject make opposed Willpower rolls each turn the control is exercised.",
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true
+          },
+          {
+            "name": "The Path of Conjuring",
+            "description": "Invoking objects 'out of thin air' has been a staple of occult and supernatural legend since long before the rise of the Tremere. This Thaumaturgical path enables powerful conjurations limited only by the mind of the practitioner. Objects summoned via this path bear two distinct characteristics. They are uniformly 'generic' in that each object summoned, if summoned again, would look exactly as it did at first. For example, a knife would be precisely the same knife if created twice; the two would be indistinguishable. Even a specific knife - the one a character's father used to threaten her - would appear identical every time it was conjured. A rat would have repeated 'tiled' patterns over its fur, and a garbage can would have the exact same fluted texture over its surface. Additionally, conjured objects bear no flaws: Weapons have no dents or scratches, tools have no distinguishing marks, and computers have featureless casings.",
+            "link": "http://snakepit.wikidot.com/the-path-of-conjuring",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "system": "The limit on the size of conjured objects appears to be that of the conjurer; nothing larger than the thaumaturge can be created. The conjurer must also have some degree of familiarity with the object he wishes to call forth. Simply working from a picture or imagination calls for a higher difficulty, while objects with which the character is intimately familiar (such as the knife described above) may actually lower the difficulty, at the Storyteller's discretion.\n\nWhen a player rolls to conjure something, the successes gained on the roll indicate the quality of the summoned object. One success yields a shoddy, imperfect creation, while five successes garner the thaumaturge a nearly perfect replica.",
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true
+          },
+          {
+            "name": "Hands of Destruction",
+            "description": "This Path is practiced almost exclusively by the thaumaturges of the Sabbat. Though it is not widely seen outside that sect, a few Camarilla Tremere have managed to learn the secrets of this path over the centuries. The Hands of Destruction has an infamous history, and some Tremere refuse to practice it due to rumors that it is demonic in origin. Brutal and painful, this path provides thaumaturges with offensive capabilities not found in other, less martial paths. It embodies the violent nature of its Sabbat wielders, existing solely to cause entropy and decay.",
+            "link": "http://snakepit.wikidot.com/hands-of-destruction",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true
+          },
+          {
+            "name": "Oneiromancy",
+            "description": "Although the corrupt dream-magic of the Path of Morpheus had been used by the Sabbat for decades, the original augury that it was based upon has been a long-held secret by the Tremere. Oneiromancy, divination rooted in the somnolent state of consciousness, is actually based upon ancient Greek philosophies of prophecy. The Tremere, adopting these ancient sortileges, developed them into the thaumaturgical path of Oneiromancy shortly after their transformation to vampiric magi. With the recent loss of the Sabbat's Tremere antitribu, the Path of Morpheus has since fallen from common knowledge, and Oneiromancy no longer carries the stigma once associated with its practitioners. With the approaching of Gehenna, the elders of Clan Tremere have again re-thought their disdain of Oneiromancy in the clan in an effort to gain more information on unfolding events.",
+            "link": "http://snakepit.wikidot.com/oneiromancy",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "Use of any of these powers requires at least five minutes of reading the signs during which the Warlock goes into a trance similar to sleep. Awareness of his surroundings is limited, and he can 'awaken' from the trance at any time but will suffer the same penalties as if awakening during the day for three turns (maximum dice pool equals his Humanity score). Oneiromancy powers can also be used while the thaumaturge is in torpor."
+          },
+          {
+            "name": "Mastery Of The Mortal Shell",
+            "description": "A thaumaturge practicing Mastery of the Mortal Shell explores the fundamental functions of the body, granting control over the physical workings of a subject. Lesser powers of this path are clumsy in their control of the body, but become increasingly precise and complete. In the early nights, Mastery of the Mortal Shell was created to assist in the hunting the Tzimisce and Gangrel enemies of the Tremere, but its uses were expanded to enforce subservience among enslaved Gargoyles after their first revolt. The powers of this path form the foundation for many tales of witches' curses and possession in folklore.",
+            "link": "http://snakepit.wikidot.com/mastery-of-the-mortal-shell",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "Unless otherwise stated, the powers of Mastery of the Mortal Shell last the number of turns equal to the number of successes a thaumaturge scores on his activation roll."
+          },
+          {
+            "name": "Alchemy",
+            "description": "Thaumaturgy has some of it's roots in the early practices of Hermetic alchemy, which concerned itself with changing the properties of given ideals. Indeed, much of Thaumaturgy's codified structure and basic principles are very similar too those of alchemy.\n\nIn the near-millennium that has passed since the Tremere's earliest efforts with blood magic, alchemy has fallen by the wayside, however. Modern technology makes possible almost anything this path can do and far more - it is easier and more reliable to mine for gold, for example, than it is to create it by transmuting other materials. Still old habits die hard among vampires, and the Tremere are no exception. A few elders still practice this path, and of these, some still teach it to their childer to illustrate the basic tenets of modern blood magic.",
+            "link": "http://snakepit.wikidot.com/alchemy",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "The number of successes on the activation roll determines how radically a thaumaturge may alter a given compound's form. He need not use all his successes - a thaumaturge wishing to effect only a simple change in form need not turn lead into gold if he accumulates five successes. The thaumaturge must, however, acquire at least the minimum number of successes suggested by the table below to generate the effects he seeks.\nChanging one element into another requires familarity with both elements. One cannot suddenly decide he wants to change a balloon's worth of helium into a sphere of solid titanium if he has never dealt with either of those elements before. Simply knowing an atomic number isn't enough to warp the laws of nature so radically. It is worthwhile to note, however, that Alchemy makes no distinction between naturally occurring and man-made elements - it affects Einsteinium as readily as it affects carbon.\n\nNote also that this path has fallen out of practice because it is less useful in modern nights than it was in the past. Transmutations create Hermetic 'ideals' rather than perfect real-world resources which cannot be broken down into lesser constructs. A hunk of gold is a hunk of gold - an attempt to cast coins with it will reduce the hunk to a pile of inert sludge. Before you ask - yes, this means your Tremere anarch will not be able to create nuclear bombs by turning the prince's shoes into uranium. There's nothing wrong with converting lead into gold and selling that hunk of gold to someone else, however - caveat emptor!"
+          },
+          {
+            "name": "Biothaumaturgy",
+            "description": "This bizarre path reputedly has its roots in the secret tomes of the inscrutable Black Hand. Over the past few years, its esoteric secrets have spread among certain cabals of Tremere, who regard it as a curious mixture of Hermetic science and genetics. Biothaumaturgy concerns itself with the manipulation of life energies. In the laboratories of inspired biothaumaturges may be found strange creatures almost out of myth, veritable Frankenstein's monsters and less wholesome creations. Although it is not considered a 'taboo' path, Biothaumaturgy is nonetheless strange and unsettling to those who observe its results.",
+            "link": "http://snakepit.wikidot.com/biothaumaturgy",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "Biothaumaturgy does not require the expenditure of blood points to create its magic. Rather, the powers of this path take one week per level to complete at Levels One and Two, and one month per level to complete at Levels Three through Five. For example, the Level One power takes one week to work, while the Level Three power takes three months for the biothaumaturge's experiments to come to fruition. Biothaumaturgy also requires the thaumaturge to have a laboratory where he may conduct his experiments. This need be nothing more complex than a doctor's table and a few sharp knives, but it may be as complex as the 'mad scientist' affairs of pulp fiction, with steaming alembics and crackling generators. The Storyteller should feel free to modify a character's Biothaumaturgy difficulties if he has an excellent laboratory resources or his facilities are utterly lacking. Working with a crude lab may add two to the difficulty while a high-grade facility may lower the difficulties by two."
+          },
+          {
+            "name": "The Focused Mind",
+            "description": "Developed by a Tremere Kabbalah scholar, this little-known path of Thaumaturgy has been around for a few centuries and remains in practice by a select few. Practitioners of the Focused Mind greatly enhance their mental alacrity and readiness, allowing better comprehension of problems and situations. Thaumaturges, already disciplined of mind, become frightfully powerful in the realm of the cerebral when mastering this path.",
+            "link": "http://snakepit.wikidot.com/the-focused-mind",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "Unlike most Thaumaturgy, the powers of this path do not require an action to invoke, although they still require the normal blood expenditure and Willpower activation roll. Each of these powers is usable only once per turn."
+          },
+          {
+            "name": "The Hearth Path",
+            "description": "For those Tremere who maintain private havens, secrecy is paramount. The Hearth Path seems to have evolved from a collection of rituals designed to protect the integrity of a vampire's sanctum sanctorum. Havens protected by these powers often acquire reputations as 'haunted' houses and the like. The Tremere are quick to point out, however, that these reputations help to strengthen the Masquerade rather than jeopardize it. When people find out that the house is just a house with a spooky atmosphere, they chastise themselves for being so foolish as to believe in ghosts.",
+            "link": "http://snakepit.wikidot.com/the-hearth-path",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "This Path functions only with the thaumaturge's primary haven; their home, as it were, which contains their sanctum sanctorum."
+          },
+          {
+            "name": "Path of The Blood's Curse",
+            "description": "Elder vampires have forever flaunted their powers over their lessers, the ancillae and neonates. With the approaching threat of Gehenna, young Kindred actively pursue ways to circumvent the stranglehold these powerful elders possess in the Jyhad. With this desire driving their ambitions, a few rogue Panders and Caitiff thaumaturges gathered together and developed this thaumaturgal path as a means of ousting those above them.\n\nThese rebels resorted to a very basic concept for this path of thaumaturgy by exposing the inherent disadvantages that accompany the vampiric Embrace. The elder' paranoia has only increased exponentially due to this movement toward a new method of usurping their power and vitae.",
+            "link": "http://snakepit.wikidot.com/path-of-the-blood-s-curse",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": ""
+          },
+          {
+            "name": "Path Of Curses",
+            "description": "Mankind learned early in history to hate, envy, lust and wish malice upon itself. In such spitefulness curses were born. Most were just plain words and gestures, but some, spoken with such vehemence and spite, became tangible and formed true curses. In the dark depths of passionate hate, curses gained more weight, more substance, until people could use the evil eye or a spoken word to afflict such banes upon their fellow men. Early in the history of Thaumaturgy, the Path of Curses was developed and refined. It is still known by its early names in certain circles: Makficium, Hexen-Kraft, the Evil Eye. Victims of this path, often called accursed, are subject to extreme treatment and psychological feelings of inadequacy, often to the point of becoming social outcasts. When accursed are afflicted, friends and society tend to distance themselves from the victim, creating a social schism and driving the accursed toward alienation.",
+            "link": "http://snakepit.wikidot.com/path-of-curses",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": "When cursing a victim, the thaumaturge is obvious - curses must be spoken aloud and directly toward the target of their ill effects, although the curse itself is often comprised of dead languages and sounds like gibberish. In modem, industrialized countries, many tend to discount the verbal telltales of being cursed, while some areas of the world might see a witch who acts so brazenly outright assaulted. Additionally, the thaumaturge requires some essence of the victim to curse him. This essence can be hair, blood, flesh or any other part of the victim. This link binds the mystic energies bringing the malison to the accursed.\n\nBecause of the severe psychological effects on a victim, the target may attempt to resist all the powers of this path with a Willpower roll (difficulty 7, unless stated otherwise). This is the victim asserting his own strength of will and personality to throw off the yoke of anathema. The thaumaturge can lift the curses that she brings down at any time she wishes, which makes an excellent bargaining chip."
+          },
+          {
+            "name": "Path of Transmutation",
+            "description": "Thaumaturges practicing the art of Alchemy can manipulate the forms of solids, liquids and gases. Guns and knives melt into pools of metal, wood petrifies and becomes brittle, and common boundaries such as walls and doors transmute to vapor. The laws of chemistry do not bind Warlocks employing the powers of transmutation, as materials shift their state regardless of their temperature. Effects similar to those achieved by true alchemy can be achieved by using the Path of Transmutation. This path is looked upon somewhat unfavorably among the Tremere, as it reflects a 'quick and dirty' effect rather than true mastery of alchemical transmutation.",
+            "link": "http://snakepit.wikidot.com/path-of-transmutation",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": ""
+          },
+          {
+            "name": "The Vine of Dionysus",
+            "description": "Years before the rise of the mighty Roman Empire, pagan sects dedicated to the Greek god Dionysus thrived. Small cults of vampires worshiped the lord of rebirth as a release from the burdens of undeath. Symbolized in oinos, or wine, and orgy, the cults of Dionysus spread their intoxicating practices throughout Eastern Europe. In practice, members of the cult of Dionysus would gather at night and debauch themselves with oinos, orgies and other euphoric activities. When the ecstasy rose to fevered pitch, the rites might culminate in castration or even cannibalism. Any practitioner of the Vine of Dionysus often refers to himself/herself as a thyrsus (females are occasionally called 'Maenads', preferably from a safe distance). These Warlocks sometimes wear jewelry or other accouterments with ivy and/or pine cone motifs as symbols of their dedication.",
+            "link": "http://snakepit.wikidot.com/the-vine-of-dionysus",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "system": ""
+          },
+          {
+            "name": "The Path of Technomancy",
+            "description": "The newest path to be accepted by the Tremere hierarchy as part of the clan's official body of knowledge, the Path of Technomancy is a relatively recent innovation. It was developed in the latter half of the 20th century, and has not yet spread far beyond the North American Pontifices. The path focuses on the control of electronic devices, from wristwatches to computers, and its proponents maintain that it is a prime example of the versatility of Thaumaturgy with regards to a changing world. More conservative Tremere state that mixing Tremere magic with mortal science borders on treason or even blasphemy, and some European Regents have gone so far as to declare knowledge of Technomancy grounds for expulsion from their chantries. The Inner Council did approve the introduction of the path into the clan's grimoires, but has yet to voice any opinion on the conservative opposition to Technomancy.",
+            "link": "http://snakepit.wikidot.com/the-path-of-technomancy",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true
+          },
+          {
+            "name": "Elemental Mastery",
+            "description": "This path allows a thaumaturge limited control over and communication with inanimate objects. Mistakenly believed by many to be related to the four basic elements (earth, air, fire, and water), this path is actually closer to an amalgamation of Spirit Thaumaturgy and The Path of Conjuring. Elemental Mastery can only be used to affect the unliving - a vampire couldn't cause a tree to walk by using Animate the Unmoving, for instance.",
+            "link": "http://snakepit.wikidot.com/elemental-mastery",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true
+          }
+        ]
+      },
+      {
         "name": "Other",
         "description": null,
         "game_versions": [
@@ -6884,6 +7218,20 @@
         "initial_cost": 2,
         "upgrade_cost": 2,
         "traits": [
+          {
+            "name": "True Faith",
+            "character_classes": [
+              "HUNTER",
+              "MORTAL"
+            ],
+            "description": null,
+            "game_versions": [
+              "V4"
+            ],
+            "max_value": 5,
+            "min_value": 0,
+            "show_when_zero": false
+          },
           {
             "name": "Mercy",
             "character_classes": [

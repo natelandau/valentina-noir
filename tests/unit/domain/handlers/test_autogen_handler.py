@@ -768,9 +768,7 @@ class TestGenerateWerewolfAttributes:
         char_traits = await CharacterTrait.find(
             CharacterTrait.character_id == character.id, fetch_links=True
         ).to_list()
-        gift_trait_ids = {
-            t.id for t in await Trait.find(Trait.gift_attributes != None).to_list()
-        }
+        gift_trait_ids = {t.id for t in await Trait.find(Trait.gift_attributes != None).to_list()}
         rites_category = await TraitCategory.find_one(TraitCategory.name == "Rites")
         rite_trait_ids = {
             t.id for t in await Trait.find(Trait.parent_category_id == rites_category.id).to_list()
