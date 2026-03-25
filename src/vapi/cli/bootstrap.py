@@ -8,7 +8,7 @@ import logging
 import click
 from rich.console import Console
 
-from vapi.cli.constants import dictionary_term_counts
+from vapi.cli.lib.dictionary import DictionaryService
 from vapi.cli.lib.fixture_syncer import (
     CharacterConceptSyncer,
     VampireClanSyncer,
@@ -37,6 +37,7 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     4. Werewolf Tribes
     5. Resolve gift trait tribe/auspice IDs (must run after auspices/tribes exist)
     6. Character Concepts
+    7. Dictionary terms (post-sync pass over fully resolved models)
     """
     if do_setup_database:
         await setup_database()
@@ -47,17 +48,7 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     await WerewolfTribeSyncer().sync()
     await resolve_gift_trait_references()
     await CharacterConceptSyncer().sync()
-
-    logger.info(
-        "Dictionary terms",
-        extra={
-            "num_created": dictionary_term_counts["created"],
-            "num_updated": dictionary_term_counts["updated"],
-            "num_total": dictionary_term_counts["total"],
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
+    await DictionaryService().sync_all()
 
 
 @click.command(
