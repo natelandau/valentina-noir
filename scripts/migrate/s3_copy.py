@@ -58,9 +58,6 @@ class S3Migrator:
 
         Returns:
             The raw bytes of the object.
-
-        Raises:
-            ClientError: If the download fails.
         """
         response = self._old_client.get_object(Bucket=self._old_bucket, Key=old_key)
         return response["Body"].read()
@@ -92,16 +89,20 @@ class S3Migrator:
                 logger.info("[DRY RUN] Would delete S3Asset records for company %s", company_id)
                 continue
 
-            # List and delete all S3 objects under the company prefix
-            response = self._new_client.list_objects_v2(Bucket=self._new_bucket, Prefix=prefix)
-            objects = response.get("Contents", [])
-            if objects:
-                delete_keys = [{"Key": obj["Key"]} for obj in objects]
-                self._new_client.delete_objects(
-                    Bucket=self._new_bucket,
-                    Delete={"Objects": delete_keys},
-                )
-                logger.info("Deleted %d S3 objects under %s", len(delete_keys), prefix)
+            # List and delete all S3 objects under the company prefix (paginated)
+            paginator = self._new_client.get_paginator("list_objects_v2")
+            deleted_total = 0
+            for page in paginator.paginate(Bucket=self._new_bucket, Prefix=prefix):
+                objects = page.get("Contents", [])
+                if objects:
+                    delete_keys = [{"Key": obj["Key"]} for obj in objects]
+                    self._new_client.delete_objects(
+                        Bucket=self._new_bucket,
+                        Delete={"Objects": delete_keys},
+                    )
+                    deleted_total += len(delete_keys)
+            if deleted_total:
+                logger.info("Deleted %d S3 objects under %s", deleted_total, prefix)
 
             # Delete S3Asset database records for this company
             deleted_count = await S3Asset.find(S3Asset.company_id == company_id).delete()
