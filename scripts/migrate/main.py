@@ -725,7 +725,7 @@ def main() -> None:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Log all operations without writing to the new database or copying S3 objects",
+        help="Log all operations without writing to the new database or uploading S3 objects",
     )
     args = parser.parse_args()
 
