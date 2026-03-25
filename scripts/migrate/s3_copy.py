@@ -62,6 +62,56 @@ class S3Migrator:
         response = self._old_client.get_object(Bucket=self._old_bucket, Key=old_key)
         return response["Body"].read()
 
+    @staticmethod
+    def _parse_company_ids(lines: list[str]) -> list[PydanticObjectId]:
+        """Parse company IDs from log file lines, skipping invalid entries.
+
+        Handles old-format logs that contain individual S3 keys instead of ObjectIds.
+
+        Args:
+            lines: Raw lines from the log file.
+
+        Returns:
+            Valid PydanticObjectId values parsed from the lines.
+        """
+        company_ids: list[PydanticObjectId] = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                company_ids.append(PydanticObjectId(stripped))
+            except Exception:  # noqa: BLE001
+                logger.warning("Skipping invalid company ID in log: %s", stripped)
+        return company_ids
+
+    async def _cleanup_company(self, company_id: PydanticObjectId) -> None:
+        """Delete all S3 objects and database records for a single company.
+
+        Args:
+            company_id: The company whose assets should be deleted.
+        """
+        prefix = f"{self._prefix}{company_id}/"
+
+        # List and delete all S3 objects under the company prefix (paginated)
+        paginator = self._new_client.get_paginator("list_objects_v2")
+        deleted_total = 0
+        for page in paginator.paginate(Bucket=self._new_bucket, Prefix=prefix):
+            objects = page.get("Contents", [])
+            if objects:
+                delete_keys = [{"Key": obj["Key"]} for obj in objects]
+                self._new_client.delete_objects(
+                    Bucket=self._new_bucket,
+                    Delete={"Objects": delete_keys},
+                )
+                deleted_total += len(delete_keys)
+        if deleted_total:
+            logger.info("Deleted %d S3 objects under %s", deleted_total, prefix)
+
+        # Delete S3Asset database records for this company
+        deleted_count = await S3Asset.find(S3Asset.company_id == company_id).delete()
+        logger.info("Deleted %s S3Asset records for company %s", deleted_count, company_id)
+
     async def cleanup_previous_run(self) -> None:
         """Delete S3 objects and database records from a previous migration run.
 
@@ -76,37 +126,23 @@ class S3Migrator:
         if not lines:
             return
 
-        company_ids = [PydanticObjectId(line.strip()) for line in lines if line.strip()]
+        company_ids = self._parse_company_ids(lines)
+        if not company_ids:
+            logger.info("No valid company IDs found in log file, skipping cleanup")
+            return
+
         logger.info("Cleaning up %d companies from previous run", len(company_ids))
 
         for company_id in company_ids:
-            prefix = f"{self._prefix}{company_id}/"
-
             if self.dry_run:
+                prefix = f"{self._prefix}{company_id}/"
                 logger.info(
                     "[DRY RUN] Would delete all objects under s3://%s/%s", self._new_bucket, prefix
                 )
                 logger.info("[DRY RUN] Would delete S3Asset records for company %s", company_id)
                 continue
 
-            # List and delete all S3 objects under the company prefix (paginated)
-            paginator = self._new_client.get_paginator("list_objects_v2")
-            deleted_total = 0
-            for page in paginator.paginate(Bucket=self._new_bucket, Prefix=prefix):
-                objects = page.get("Contents", [])
-                if objects:
-                    delete_keys = [{"Key": obj["Key"]} for obj in objects]
-                    self._new_client.delete_objects(
-                        Bucket=self._new_bucket,
-                        Delete={"Objects": delete_keys},
-                    )
-                    deleted_total += len(delete_keys)
-            if deleted_total:
-                logger.info("Deleted %d S3 objects under %s", deleted_total, prefix)
-
-            # Delete S3Asset database records for this company
-            deleted_count = await S3Asset.find(S3Asset.company_id == company_id).delete()
-            logger.info("Deleted %s S3Asset records for company %s", deleted_count, company_id)
+            await self._cleanup_company(company_id)
 
         # Clear the log file after cleanup to prevent re-deleting on crash before save_log
         if not self.dry_run:
