@@ -72,6 +72,7 @@ class TraitSyncer:
 
     def __init__(self) -> None:
         self.result = TraitSyncResult()
+        self.gift_fixture_map: dict[str, dict] = {}
 
     async def sync(self) -> None:
         """Load the traits fixture and sync all sections, categories, and traits.
@@ -88,6 +89,9 @@ class TraitSyncer:
 
         with fixture_file.open("r") as file:
             fixture_traits = json.load(file, cls=JSONWithCommentsDecoder)
+
+        # Build gift map before sync loop because _sync_trait mutates fixture dicts via .pop()
+        self.gift_fixture_map = _build_gift_fixture_map(fixture_traits)
 
         for fixture_section in fixture_traits:
             section, created, updated = await self._sync_section(fixture_section)
@@ -444,14 +448,21 @@ class TraitSyncer:
         return category_counts, subcategory_counts, trait_counts
 
 
-async def resolve_gift_trait_references() -> None:
+async def resolve_gift_trait_references(
+    gift_fixture_map: dict[str, dict] | None = None,
+) -> None:
     """Resolve tribe_name/auspice_name to tribe_id/auspice_id on gift traits.
 
     Run after werewolf tribes and auspices are synced so the documents
     exist for lookup. During initial trait sync the tribe/auspice IDs
     are left as None because those documents don't exist yet.
+
+    Args:
+        gift_fixture_map: Pre-built mapping of gift trait names to fixture gift_attributes.
+            If None, reads and parses traits.json from disk.
     """
-    gift_fixture_map = _build_gift_fixture_map()
+    if gift_fixture_map is None:
+        gift_fixture_map = _build_gift_fixture_map()
     gift_traits = await Trait.find(Trait.gift_attributes != None).to_list()
 
     tribes = await WerewolfTribe.find().to_list()
@@ -500,11 +511,18 @@ async def resolve_gift_trait_references() -> None:
     )
 
 
-def _build_gift_fixture_map() -> dict[str, dict]:
-    """Build a mapping of gift trait name to fixture gift_attributes dict."""
-    fixture_file = FIXTURES_PATH / "traits.json"
-    with fixture_file.open("r") as file:
-        fixture_data = json.load(file, cls=JSONWithCommentsDecoder)
+def _build_gift_fixture_map(
+    fixture_data: list[dict[str, Any]] | None = None,
+) -> dict[str, dict]:
+    """Build a mapping of gift trait name to fixture gift_attributes dict.
+
+    Args:
+        fixture_data: Pre-parsed traits.json sections. If None, reads from disk.
+    """
+    if fixture_data is None:
+        fixture_file = FIXTURES_PATH / "traits.json"
+        with fixture_file.open("r") as file:
+            fixture_data = json.load(file, cls=JSONWithCommentsDecoder)
 
     result: dict[str, dict] = {}
     for section in fixture_data:
@@ -512,7 +530,8 @@ def _build_gift_fixture_map() -> dict[str, dict]:
             if cat.get("name") == "Gifts":
                 for t in cat.get("traits", []):
                     if "gift_attributes" in t:
-                        result[t["name"].strip().title()] = t["gift_attributes"]
+                        # Copy to avoid mutation by _sync_trait's .pop() calls
+                        result[t["name"].strip().title()] = dict(t["gift_attributes"])
     return result
 
 

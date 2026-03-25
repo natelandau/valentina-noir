@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import click
+from beanie.operators import In
 
 from vapi.cli.lib.comparison import (
     FIXTURES_PATH,
@@ -22,7 +23,7 @@ from vapi.db.models import (
 )
 
 if TYPE_CHECKING:
-    from beanie import Document
+    from beanie import Document, PydanticObjectId
 
 logger = logging.getLogger("vapi")
 
@@ -129,30 +130,52 @@ class VampireClanSyncer(FixtureSyncer):
         Raises:
             click.Abort: If a discipline ID on the clan references a non-existent trait.
         """
-        is_updated = False
-
-        if not fixture_clan.get("disciplines_to_link") and not clan.discipline_ids:
+        names_to_link = fixture_clan.get("disciplines_to_link", [])
+        if not names_to_link and not clan.discipline_ids:
             return False
 
-        for discipline_id in clan.discipline_ids:
-            discipline = await Trait.find_one(Trait.id == discipline_id, Trait.is_archived == False)
-            if not discipline:
-                msg = f"Trait not found: {discipline_id}"
-                logger.error(msg, extra={"component": "cli", "command": "link_disciplines_to_clan"})
-                raise click.Abort
-            if discipline.name not in fixture_clan.get("disciplines_to_link", []):
-                clan.discipline_ids.remove(discipline_id)
-                await clan.save()
+        is_updated = False
+
+        # Bulk fetch existing disciplines by ID
+        existing_by_id: dict[PydanticObjectId, Trait] = {}
+        if clan.discipline_ids:
+            existing = await Trait.find(
+                In(Trait.id, list(clan.discipline_ids)), Trait.is_archived == False
+            ).to_list()
+            existing_by_id = {t.id: t for t in existing}
+
+            # Validate all IDs reference existing traits
+            for discipline_id in clan.discipline_ids:
+                if discipline_id not in existing_by_id:
+                    msg = f"Trait not found: {discipline_id}"
+                    logger.error(
+                        msg, extra={"component": "cli", "command": "link_disciplines_to_clan"}
+                    )
+                    raise click.Abort
+
+            # Remove stale links via comprehension (avoids mutation during iteration)
+            new_ids = [
+                did for did in clan.discipline_ids if existing_by_id[did].name in names_to_link
+            ]
+            if len(new_ids) != len(clan.discipline_ids):
+                clan.discipline_ids = new_ids
                 is_updated = True
 
-        for discipline_name in fixture_clan.get("disciplines_to_link", []):
-            discipline = await Trait.find_one(
-                Trait.name == discipline_name, Trait.is_archived == False
-            )
-            if discipline and discipline.id not in clan.discipline_ids:
-                clan.discipline_ids.append(discipline.id)
-                await clan.save()
-                is_updated = True
+        # Bulk fetch disciplines to add by name
+        if names_to_link:
+            by_name_list = await Trait.find(
+                In(Trait.name, names_to_link), Trait.is_archived == False
+            ).to_list()
+            by_name = {t.name: t for t in by_name_list}
+
+            for discipline_name in names_to_link:
+                discipline = by_name.get(discipline_name)
+                if discipline and discipline.id not in clan.discipline_ids:
+                    clan.discipline_ids.append(discipline.id)
+                    is_updated = True
+
+        if is_updated:
+            await clan.save()
 
         return is_updated
 

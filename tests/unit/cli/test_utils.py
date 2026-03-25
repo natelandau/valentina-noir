@@ -406,8 +406,11 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan = {"disciplines_to_link": ["Dominate"]}
 
+        # Mock bulk find: name-based query returns the discipline
+        mock_find_result = MagicMock()
+        mock_find_result.to_list = AsyncMock(return_value=[discipline])
         mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
-        mock_trait.find_one = AsyncMock(return_value=discipline)
+        mock_trait.find = MagicMock(return_value=mock_find_result)
 
         # When: Linking disciplines
         syncer = VampireClanSyncer()
@@ -416,7 +419,7 @@ class TestLinkDisciplinesToClan:
         # Then: Should return True and add discipline
         assert result is True
         assert discipline_id in clan.discipline_ids
-        clan.save.assert_called()
+        clan.save.assert_called_once()
 
     async def test_removes_unlisted_discipline(self, mocker: MockerFixture) -> None:
         """Verify removing a discipline not in fixture."""
@@ -432,8 +435,11 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan = {"disciplines_to_link": []}
 
+        # Mock bulk find: ID-based query returns the discipline
+        mock_find_result = MagicMock()
+        mock_find_result.to_list = AsyncMock(return_value=[discipline])
         mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
-        mock_trait.find_one = AsyncMock(return_value=discipline)
+        mock_trait.find = MagicMock(return_value=mock_find_result)
 
         # When: Linking disciplines
         syncer = VampireClanSyncer()
@@ -442,6 +448,7 @@ class TestLinkDisciplinesToClan:
         # Then: Should return True and remove discipline
         assert result is True
         assert discipline_id not in clan.discipline_ids
+        clan.save.assert_called_once()
 
     async def test_raises_on_missing_discipline(self, mocker: MockerFixture) -> None:
         """Verify raises Abort when discipline not found."""
@@ -452,8 +459,11 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan: dict[str, Any] = {}
 
+        # Mock bulk find: ID-based query returns empty (discipline not found)
+        mock_find_result = MagicMock()
+        mock_find_result.to_list = AsyncMock(return_value=[])
         mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
-        mock_trait.find_one = AsyncMock(return_value=None)
+        mock_trait.find = MagicMock(return_value=mock_find_result)
 
         # When/Then: Should raise click.Abort
         syncer = VampireClanSyncer()

@@ -32,6 +32,7 @@ class DictionaryService:
         self._auspices: list[WerewolfAuspice] = []
         self._tribes_by_id: dict[PydanticObjectId, str] = {}
         self._auspices_by_id: dict[PydanticObjectId, str] = {}
+        self._existing_terms: dict[str, DictionaryTerm] = {}
 
     @property
     def total(self) -> int:
@@ -45,6 +46,10 @@ class DictionaryService:
         self._auspices = await WerewolfAuspice.find().to_list()
         self._tribes_by_id = {t.id: t.name for t in self._tribes}
         self._auspices_by_id = {a.id: a.name for a in self._auspices}
+
+        # Bulk-fetch all existing global terms to avoid N+1 find_one queries in _upsert_term
+        all_terms = await DictionaryTerm.find(DictionaryTerm.is_global == True).to_list()
+        self._existing_terms = {t.term: t for t in all_terms}
 
         await self._sync_vampire_clan_terms()
         await self._sync_werewolf_auspice_terms()
@@ -66,16 +71,17 @@ class DictionaryService:
         if not definition and not link:
             return
 
-        existing_term = await DictionaryTerm.find_one(
-            DictionaryTerm.term == term.lower().strip(), DictionaryTerm.is_global == True
-        )
+        normalized_term = term.lower().strip()
+        existing_term = self._existing_terms.get(normalized_term)
         if not existing_term:
-            await DictionaryTerm(
-                term=term.lower().strip(),
+            new_term = DictionaryTerm(
+                term=normalized_term,
                 definition=definition.strip() if definition else None,
                 link=link.strip() if link else None,
                 is_global=True,
-            ).insert()
+            )
+            await new_term.insert()
+            self._existing_terms[normalized_term] = new_term
             self.created += 1
         elif existing_term.definition != definition or existing_term.link != link:
             existing_term.definition = definition.strip() if definition else None

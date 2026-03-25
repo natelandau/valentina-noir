@@ -25,11 +25,12 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
     if do_setup_database:
         await setup_database()
 
-    await TraitSyncer().sync()
+    trait_syncer = TraitSyncer()
+    await trait_syncer.sync()
     await VampireClanSyncer().sync()
     await WerewolfAuspiceSyncer().sync()
     await WerewolfTribeSyncer().sync()
-    await resolve_gift_trait_references()
+    await resolve_gift_trait_references(gift_fixture_map=trait_syncer.gift_fixture_map)
     await CharacterConceptSyncer().sync()
     await DictionaryService().sync_all()
 
