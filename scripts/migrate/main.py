@@ -434,7 +434,7 @@ async def _migrate_characters(
     for char in all_characters:
         old_char_id = str(char["_id"])
 
-        # Determine campaign_id — fall back to an uncategorized campaign if needed
+        # Determine campaign_id - fall back to an uncategorized campaign if needed
         old_campaign_ref = char.get("campaign")
         if old_campaign_ref:
             campaign_id = id_map.get("campaign", str(old_campaign_ref))
@@ -628,16 +628,15 @@ async def _migrate_trait(
         Trait.is_custom == False,
     )
 
-
-    char_trait = CharacterTrait(
-        character_id=character_id,
-        trait=existing_trait,
-        value=trait_value,
-    )
-    await _save(char_trait, dry_run=dry_run)
-    stats.record_created("trait_matched")
-
-
+    if existing_trait:
+        char_trait = CharacterTrait(
+            character_id=character_id,
+            trait=existing_trait,
+            value=trait_value,
+        )
+        await _save(char_trait, dry_run=dry_run)
+        stats.record_created("trait_matched")
+    else:
         # Create a custom trait blueprint when no standard trait matches
         from vapi.db.models.constants.sheet_section import CharSheetSection
         from vapi.db.models.constants.trait_categories import TraitCategory
@@ -697,7 +696,6 @@ def _build_s3_asset(
         An S3Asset instance (not yet saved).
     """
     import mimetypes
-    from pathlib import Path
 
     from vapi.constants import AssetParentType, AssetType
     from vapi.db.models.aws import S3Asset
@@ -718,9 +716,6 @@ def _build_s3_asset(
         s3_bucket=settings.aws.s3_bucket_name,
         public_url=s3.build_public_url(new_key),
     )
-
-
-
 
 
 async def run_migration(*, dry_run: bool) -> None:
