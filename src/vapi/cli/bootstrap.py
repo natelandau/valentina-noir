@@ -6,7 +6,6 @@ import asyncio
 import logging
 
 import click
-from rich.console import Console
 
 from vapi.cli.lib.dictionary import DictionaryService
 from vapi.cli.lib.fixture_syncer import (
@@ -15,30 +14,14 @@ from vapi.cli.lib.fixture_syncer import (
     WerewolfAuspiceSyncer,
     WerewolfTribeSyncer,
 )
+from vapi.cli.lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
 from vapi.lib.database import setup_database
 
-from .lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
-
-console = Console()
 logger = logging.getLogger("vapi")
 
 
 async def bootstrap_async(*, do_setup_database: bool = True) -> None:
-    """The bootstrap function.
-
-    Args:
-        do_setup_database (bool): Whether to setup the database. Defaults to True.
-
-    Commands need to be run in the following order because they are dependent on each other:
-
-    1. Traits (needed by vampire clans for discipline linking)
-    2. Vampire Clans
-    3. Werewolf Auspices
-    4. Werewolf Tribes
-    5. Resolve gift trait tribe/auspice IDs (must run after auspices/tribes exist)
-    6. Character Concepts
-    7. Dictionary terms (post-sync pass over fully resolved models)
-    """
+    """The bootstrap function."""
     if do_setup_database:
         await setup_database()
 
