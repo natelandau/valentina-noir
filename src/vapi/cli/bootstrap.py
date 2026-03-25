@@ -9,9 +9,14 @@ import click
 from rich.console import Console
 
 from vapi.cli.constants import dictionary_term_counts
+from vapi.cli.lib.fixture_syncer import (
+    CharacterConceptSyncer,
+    VampireClanSyncer,
+    WerewolfAuspiceSyncer,
+    WerewolfTribeSyncer,
+)
 from vapi.lib.database import setup_database
 
-from .lib import bootstrap as utils
 from .lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
 
 console = Console()
@@ -37,11 +42,11 @@ async def bootstrap_async(*, do_setup_database: bool = True) -> None:
         await setup_database()
 
     await TraitSyncer().sync()
-    await utils.sync_vampire_clans()
-    await utils.sync_werewolf_auspices()
-    await utils.sync_werewolf_tribes()
+    await VampireClanSyncer().sync()
+    await WerewolfAuspiceSyncer().sync()
+    await WerewolfTribeSyncer().sync()
     await resolve_gift_trait_references()
-    await utils.sync_character_concepts()
+    await CharacterConceptSyncer().sync()
 
     logger.info(
         "Dictionary terms",

@@ -18,13 +18,11 @@ from vapi.cli.lib.comparison import (
     document_differs_from_fixture,
     get_differing_fields,
 )
+from vapi.cli.lib.fixture_syncer import VampireClanSyncer
 from vapi.cli.lib.trait_syncer import (
     SyncCounts,
     TraitSyncer,
     TraitSyncResult,
-)
-from vapi.cli.lib.utils import (
-    link_disciplines_to_clan,
 )
 
 if TYPE_CHECKING:
@@ -378,7 +376,7 @@ class TestGetDifferingFields:
 
 
 class TestLinkDisciplinesToClan:
-    """Tests for the link_disciplines_to_clan function."""
+    """Tests for the VampireClanSyncer._link_disciplines_to_clan method."""
 
     async def test_no_disciplines_to_link(self, mocker: MockerFixture) -> None:
         """Verify returns False when no disciplines to link."""
@@ -388,7 +386,8 @@ class TestLinkDisciplinesToClan:
         fixture_clan: dict[str, Any] = {}
 
         # When: Linking disciplines
-        result = await link_disciplines_to_clan(clan, fixture_clan)
+        syncer = VampireClanSyncer()
+        result = await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
         # Then: Should return False
         assert result is False
@@ -407,11 +406,12 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan = {"disciplines_to_link": ["Dominate"]}
 
-        mock_trait = mocker.patch("vapi.cli.lib.utils.Trait")
+        mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
         mock_trait.find_one = AsyncMock(return_value=discipline)
 
         # When: Linking disciplines
-        result = await link_disciplines_to_clan(clan, fixture_clan)
+        syncer = VampireClanSyncer()
+        result = await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
         # Then: Should return True and add discipline
         assert result is True
@@ -432,11 +432,12 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan = {"disciplines_to_link": []}
 
-        mock_trait = mocker.patch("vapi.cli.lib.utils.Trait")
+        mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
         mock_trait.find_one = AsyncMock(return_value=discipline)
 
         # When: Linking disciplines
-        result = await link_disciplines_to_clan(clan, fixture_clan)
+        syncer = VampireClanSyncer()
+        result = await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
         # Then: Should return True and remove discipline
         assert result is True
@@ -451,12 +452,13 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan: dict[str, Any] = {}
 
-        mock_trait = mocker.patch("vapi.cli.lib.utils.Trait")
+        mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
         mock_trait.find_one = AsyncMock(return_value=None)
 
         # When/Then: Should raise click.Abort
+        syncer = VampireClanSyncer()
         with pytest.raises(click.Abort):
-            await link_disciplines_to_clan(clan, fixture_clan)
+            await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
 
 class TestSyncSingleSection:

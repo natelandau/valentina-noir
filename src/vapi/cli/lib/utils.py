@@ -1,9 +1,6 @@
 """Utilities."""
 
 import logging
-from typing import Any
-
-import click
 
 from vapi.cli.constants import dictionary_term_counts
 from vapi.cli.lib.comparison import (
@@ -19,7 +16,6 @@ from vapi.cli.lib.trait_syncer import (
 from vapi.db.models import (
     DictionaryTerm,
     Trait,
-    VampireClan,
 )
 from vapi.db.models.constants.trait import GiftAttributes
 
@@ -30,38 +26,9 @@ __all__ = (
     "TraitSyncer",
     "document_differs_from_fixture",
     "get_differing_fields",
-    "link_disciplines_to_clan",
 )
 
 logger = logging.getLogger("vapi")
-
-
-async def link_disciplines_to_clan(clan: VampireClan, fixture_clan: dict[str, Any]) -> bool:
-    """Link disciplines to a clan."""
-    is_updated = False
-
-    if not fixture_clan.get("disciplines_to_link") and not clan.discipline_ids:
-        return False
-
-    for discipline_id in clan.discipline_ids:
-        discipline = await Trait.find_one(Trait.id == discipline_id, Trait.is_archived == False)
-        if not discipline:
-            msg = f"Trait not found: {discipline_id}"
-            logger.error(msg, extra={"component": "cli", "command": "link_disciplines_to_clan"})
-            raise click.Abort
-        if discipline and discipline.name not in fixture_clan.get("disciplines_to_link", []):
-            clan.discipline_ids.remove(discipline_id)
-            await clan.save()
-            is_updated = True
-
-    for discipline_name in fixture_clan.get("disciplines_to_link", []):
-        discipline = await Trait.find_one(Trait.name == discipline_name, Trait.is_archived == False)
-        if discipline and discipline.id not in clan.discipline_ids:
-            clan.discipline_ids.append(discipline.id)
-            await clan.save()
-            is_updated = True
-
-    return is_updated
 
 
 def _build_gift_attributes_definition(
