@@ -13,18 +13,16 @@ from beanie import PydanticObjectId
 from pydantic import BaseModel
 
 from tests.factories import CharSheetSectionFactory, TraitCategoryFactory
-from vapi.cli.lib.utils import (
+from vapi.cli.lib.comparison import (
     JSONWithCommentsDecoder,
-    SyncCounts,
-    TraitSyncResult,
     document_differs_from_fixture,
     get_differing_fields,
-    link_disciplines_to_clan,
-    sync_fixture_traits,
-    sync_section_categories,
-    sync_single_category,
-    sync_single_section,
-    sync_single_trait,
+)
+from vapi.cli.lib.fixture_syncer import VampireClanSyncer
+from vapi.cli.lib.trait_syncer import (
+    SyncCounts,
+    TraitSyncer,
+    TraitSyncResult,
 )
 
 if TYPE_CHECKING:
@@ -378,7 +376,7 @@ class TestGetDifferingFields:
 
 
 class TestLinkDisciplinesToClan:
-    """Tests for the link_disciplines_to_clan function."""
+    """Tests for the VampireClanSyncer._link_disciplines_to_clan method."""
 
     async def test_no_disciplines_to_link(self, mocker: MockerFixture) -> None:
         """Verify returns False when no disciplines to link."""
@@ -388,7 +386,8 @@ class TestLinkDisciplinesToClan:
         fixture_clan: dict[str, Any] = {}
 
         # When: Linking disciplines
-        result = await link_disciplines_to_clan(clan, fixture_clan)
+        syncer = VampireClanSyncer()
+        result = await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
         # Then: Should return False
         assert result is False
@@ -407,16 +406,20 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan = {"disciplines_to_link": ["Dominate"]}
 
-        mock_trait = mocker.patch("vapi.cli.lib.utils.Trait")
-        mock_trait.find_one = AsyncMock(return_value=discipline)
+        # Mock bulk find: name-based query returns the discipline
+        mock_find_result = MagicMock()
+        mock_find_result.to_list = AsyncMock(return_value=[discipline])
+        mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
+        mock_trait.find = MagicMock(return_value=mock_find_result)
 
         # When: Linking disciplines
-        result = await link_disciplines_to_clan(clan, fixture_clan)
+        syncer = VampireClanSyncer()
+        result = await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
         # Then: Should return True and add discipline
         assert result is True
         assert discipline_id in clan.discipline_ids
-        clan.save.assert_called()
+        clan.save.assert_called_once()
 
     async def test_removes_unlisted_discipline(self, mocker: MockerFixture) -> None:
         """Verify removing a discipline not in fixture."""
@@ -432,15 +435,20 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan = {"disciplines_to_link": []}
 
-        mock_trait = mocker.patch("vapi.cli.lib.utils.Trait")
-        mock_trait.find_one = AsyncMock(return_value=discipline)
+        # Mock bulk find: ID-based query returns the discipline
+        mock_find_result = MagicMock()
+        mock_find_result.to_list = AsyncMock(return_value=[discipline])
+        mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
+        mock_trait.find = MagicMock(return_value=mock_find_result)
 
         # When: Linking disciplines
-        result = await link_disciplines_to_clan(clan, fixture_clan)
+        syncer = VampireClanSyncer()
+        result = await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
         # Then: Should return True and remove discipline
         assert result is True
         assert discipline_id not in clan.discipline_ids
+        clan.save.assert_called_once()
 
     async def test_raises_on_missing_discipline(self, mocker: MockerFixture) -> None:
         """Verify raises Abort when discipline not found."""
@@ -451,16 +459,20 @@ class TestLinkDisciplinesToClan:
 
         fixture_clan: dict[str, Any] = {}
 
-        mock_trait = mocker.patch("vapi.cli.lib.utils.Trait")
-        mock_trait.find_one = AsyncMock(return_value=None)
+        # Mock bulk find: ID-based query returns empty (discipline not found)
+        mock_find_result = MagicMock()
+        mock_find_result.to_list = AsyncMock(return_value=[])
+        mock_trait = mocker.patch("vapi.cli.lib.fixture_syncer.Trait")
+        mock_trait.find = MagicMock(return_value=mock_find_result)
 
         # When/Then: Should raise click.Abort
+        syncer = VampireClanSyncer()
         with pytest.raises(click.Abort):
-            await link_disciplines_to_clan(clan, fixture_clan)
+            await syncer._link_disciplines_to_clan(clan, fixture_clan)
 
 
 class TestSyncSingleSection:
-    """Tests for the sync_single_section function."""
+    """Tests for the TraitSyncer._sync_section method."""
 
     async def test_creates_new_section(self, mocker: MockerFixture) -> None:
         """Verify creating a new section when not found."""
@@ -471,14 +483,15 @@ class TestSyncSingleSection:
             "order": 1,
         }
 
-        mock_section_class = mocker.patch("vapi.cli.lib.utils.CharSheetSection")
+        mock_section_class = mocker.patch("vapi.cli.lib.trait_syncer.CharSheetSection")
         mock_section_class.find_one = AsyncMock(return_value=None)
         mock_section_instance = MagicMock()
         mock_section_instance.save = AsyncMock()
         mock_section_class.return_value = mock_section_instance
 
         # When: Syncing
-        _, created, updated = await sync_single_section(fixture_section)
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_section(fixture_section)
 
         # Then: Should create new section
         assert created is True
@@ -500,17 +513,17 @@ class TestSyncSingleSection:
         existing_section.order = 1
         existing_section.save = AsyncMock()
 
-        mock_section_class = mocker.patch("vapi.cli.lib.utils.CharSheetSection")
+        mock_section_class = mocker.patch("vapi.cli.lib.trait_syncer.CharSheetSection")
         mock_section_class.find_one = AsyncMock(return_value=existing_section)
 
-        mocker.patch("vapi.cli.lib.utils.document_differs_from_fixture", return_value=True)
         mocker.patch(
-            "vapi.cli.lib.utils.get_differing_fields",
+            "vapi.cli.lib.trait_syncer.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},
         )
 
         # When: Syncing
-        _, created, updated = await sync_single_section(fixture_section)
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_section(fixture_section)
 
         # Then: Should update existing section
         assert created is False
@@ -531,13 +544,14 @@ class TestSyncSingleSection:
         existing_section.description = "Description"
         existing_section.order = 1
 
-        mock_section_class = mocker.patch("vapi.cli.lib.utils.CharSheetSection")
+        mock_section_class = mocker.patch("vapi.cli.lib.trait_syncer.CharSheetSection")
         mock_section_class.find_one = AsyncMock(return_value=existing_section)
 
-        mocker.patch("vapi.cli.lib.utils.document_differs_from_fixture", return_value=False)
+        mocker.patch("vapi.cli.lib.trait_syncer.get_differing_fields", return_value={})
 
         # When: Syncing
-        _, created, updated = await sync_single_section(fixture_section)
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_section(fixture_section)
 
         # Then: Should not create or update
         assert created is False
@@ -545,7 +559,7 @@ class TestSyncSingleSection:
 
 
 class TestSyncSingleCategory:
-    """Tests for the sync_single_category function."""
+    """Tests for the TraitSyncer._sync_category method."""
 
     async def test_creates_new_category(self, mocker: MockerFixture) -> None:
         """Verify creating a new category when not found."""
@@ -559,14 +573,15 @@ class TestSyncSingleCategory:
         section = MagicMock()
         section.id = PydanticObjectId()
 
-        mock_category_class = mocker.patch("vapi.cli.lib.utils.TraitCategory")
+        mock_category_class = mocker.patch("vapi.cli.lib.trait_syncer.TraitCategory")
         mock_category_class.find_one = AsyncMock(return_value=None)
         mock_category_instance = MagicMock()
         mock_category_instance.save = AsyncMock()
         mock_category_class.return_value = mock_category_instance
 
         # When: Syncing
-        _, created, updated = await sync_single_category(fixture_category, section)
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_category(fixture_category, section)
 
         # Then: Should create new category
         assert created is True
@@ -591,17 +606,17 @@ class TestSyncSingleCategory:
         existing_category.order = 1
         existing_category.save = AsyncMock()
 
-        mock_category_class = mocker.patch("vapi.cli.lib.utils.TraitCategory")
+        mock_category_class = mocker.patch("vapi.cli.lib.trait_syncer.TraitCategory")
         mock_category_class.find_one = AsyncMock(return_value=existing_category)
 
-        mocker.patch("vapi.cli.lib.utils.document_differs_from_fixture", return_value=True)
         mocker.patch(
-            "vapi.cli.lib.utils.get_differing_fields",
+            "vapi.cli.lib.trait_syncer.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},
         )
 
         # When: Syncing
-        _, created, updated = await sync_single_category(fixture_category, section)
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_category(fixture_category, section)
 
         # Then: Should update existing category
         assert created is False
@@ -610,7 +625,7 @@ class TestSyncSingleCategory:
 
 
 class TestSyncSingleTrait:
-    """Tests for the sync_single_trait function."""
+    """Tests for the TraitSyncer._sync_trait method."""
 
     async def test_creates_new_trait(self, mocker: MockerFixture) -> None:
         """Verify creating a new trait when not found."""
@@ -623,7 +638,7 @@ class TestSyncSingleTrait:
 
         category = TraitCategoryFactory.build()
 
-        mock_trait_class = mocker.patch("vapi.cli.lib.utils.Trait")
+        mock_trait_class = mocker.patch("vapi.cli.lib.trait_syncer.Trait")
         mock_trait_class.find_one = AsyncMock(return_value=None)
 
         mock_trait_instance = MagicMock()
@@ -635,10 +650,9 @@ class TestSyncSingleTrait:
         mock_trait_instance.pool = None
         mock_trait_class.return_value = mock_trait_instance
 
-        mocker.patch("vapi.cli.lib.utils.create_global_dictionary_term", new_callable=AsyncMock)
-
         # When: Syncing
-        _, created, updated = await sync_single_trait(
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_trait(
             fixture_trait, category=category, section=fixture_section
         )
 
@@ -669,18 +683,17 @@ class TestSyncSingleTrait:
         existing_trait.pool = None
         existing_trait.save = AsyncMock()
 
-        mock_trait_class = mocker.patch("vapi.cli.lib.utils.Trait")
+        mock_trait_class = mocker.patch("vapi.cli.lib.trait_syncer.Trait")
         mock_trait_class.find_one = AsyncMock(return_value=existing_trait)
 
-        mocker.patch("vapi.cli.lib.utils.document_differs_from_fixture", return_value=True)
         mocker.patch(
-            "vapi.cli.lib.utils.get_differing_fields",
+            "vapi.cli.lib.trait_syncer.get_differing_fields",
             return_value={"description": ("Old description", "Updated description")},
         )
-        mocker.patch("vapi.cli.lib.utils.create_global_dictionary_term", new_callable=AsyncMock)
 
         # When: Syncing
-        _, created, updated = await sync_single_trait(
+        syncer = TraitSyncer()
+        _, created, updated = await syncer._sync_trait(
             fixture_trait, category=category, section=fixture_section
         )
 
@@ -691,7 +704,7 @@ class TestSyncSingleTrait:
 
 
 class TestSyncCategoryTraits:
-    """Tests for the sync_fixture_traits function."""
+    """Tests for the TraitSyncer._sync_traits_batch method."""
 
     async def test_syncs_multiple_traits(self, mocker: MockerFixture) -> None:
         """Verify syncing multiple traits within a category."""
@@ -709,7 +722,8 @@ class TestSyncCategoryTraits:
         category = MagicMock()
         category.id = PydanticObjectId()
 
-        mock_sync_single = mocker.patch("vapi.cli.lib.utils.sync_single_trait")
+        syncer = TraitSyncer()
+        mock_sync_single = mocker.patch.object(syncer, "_sync_trait")
         mock_sync_single.side_effect = [
             (MagicMock(), True, False),  # created
             (MagicMock(), False, True),  # updated
@@ -717,7 +731,7 @@ class TestSyncCategoryTraits:
         ]
 
         # When: Syncing
-        counts = await sync_fixture_traits(
+        counts = await syncer._sync_traits_batch(
             fixture_category, category=category, section=fixture_section
         )
 
@@ -735,7 +749,8 @@ class TestSyncCategoryTraits:
         fixture_section = CharSheetSectionFactory.build()
 
         # When: Syncing
-        counts = await sync_fixture_traits(
+        syncer = TraitSyncer()
+        counts = await syncer._sync_traits_batch(
             fixture_category, category=category, section=fixture_section
         )
 
@@ -746,7 +761,7 @@ class TestSyncCategoryTraits:
 
 
 class TestSyncSectionCategories:
-    """Tests for the sync_section_categories function."""
+    """Tests for the TraitSyncer._sync_section_categories method."""
 
     async def test_syncs_categories_and_traits(self, mocker: MockerFixture) -> None:
         """Verify syncing categories and their traits within a section."""
@@ -770,20 +785,21 @@ class TestSyncSectionCategories:
 
         mock_category = TraitCategoryFactory.build()
 
-        mock_sync_category = mocker.patch("vapi.cli.lib.utils.sync_single_category")
+        syncer = TraitSyncer()
+        mock_sync_category = mocker.patch.object(syncer, "_sync_category")
         mock_sync_category.side_effect = [
             (mock_category, True, False),  # first category created
             (mock_category, False, True),  # second category updated
         ]
 
-        mock_sync_traits = mocker.patch("vapi.cli.lib.utils.sync_fixture_traits")
+        mock_sync_traits = mocker.patch.object(syncer, "_sync_traits_batch")
         mock_sync_traits.side_effect = [
             SyncCounts(created=2, updated=0, total=2),
             SyncCounts(created=1, updated=0, total=1),
         ]
 
         # When: Syncing
-        category_counts, subcategory_counts, trait_counts = await sync_section_categories(
+        category_counts, subcategory_counts, trait_counts = await syncer._sync_section_categories(
             fixture_section, section
         )
 
@@ -805,7 +821,8 @@ class TestSyncSectionCategories:
         section = MagicMock()
 
         # When: Syncing
-        category_counts, subcategory_counts, trait_counts = await sync_section_categories(
+        syncer = TraitSyncer()
+        category_counts, subcategory_counts, trait_counts = await syncer._sync_section_categories(
             fixture_section, section
         )
 

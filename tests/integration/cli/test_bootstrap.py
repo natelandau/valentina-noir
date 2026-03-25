@@ -9,7 +9,7 @@ from beanie.operators import In
 from click.testing import CliRunner
 
 from vapi.cli.bootstrap import bootstrap, bootstrap_async
-from vapi.cli.lib.utils import JSONWithCommentsDecoder
+from vapi.cli.lib.comparison import JSONWithCommentsDecoder
 from vapi.constants import PROJECT_ROOT_PATH, WerewolfRenown
 from vapi.db.models import (
     CharacterConcept,

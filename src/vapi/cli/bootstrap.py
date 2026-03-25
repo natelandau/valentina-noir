@@ -6,52 +6,33 @@ import asyncio
 import logging
 
 import click
-from rich.console import Console
 
-from vapi.cli.constants import dictionary_term_counts
+from vapi.cli.lib.dictionary import DictionaryService
+from vapi.cli.lib.fixture_syncer import (
+    CharacterConceptSyncer,
+    VampireClanSyncer,
+    WerewolfAuspiceSyncer,
+    WerewolfTribeSyncer,
+)
+from vapi.cli.lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
 from vapi.lib.database import setup_database
 
-from .lib import bootstrap as utils
-
-console = Console()
 logger = logging.getLogger("vapi")
 
 
 async def bootstrap_async(*, do_setup_database: bool = True) -> None:
-    """The bootstrap function.
-
-    Args:
-        do_setup_database (bool): Whether to setup the database. Defaults to True.
-
-    Commands need to be run in the following order because they are dependent on each other:
-
-    1. Traits (needed by vampire clans for discipline linking)
-    2. Vampire Clans
-    3. Werewolf Auspices
-    4. Werewolf Tribes
-    5. Resolve gift trait tribe/auspice IDs (must run after auspices/tribes exist)
-    6. Character Concepts
-    """
+    """The bootstrap function."""
     if do_setup_database:
         await setup_database()
 
-    await utils.sync_traits()
-    await utils.sync_vampire_clans()
-    await utils.sync_werewolf_auspices()
-    await utils.sync_werewolf_tribes()
-    await utils.resolve_gift_trait_references()
-    await utils.sync_character_concepts()
-
-    logger.info(
-        "Dictionary terms",
-        extra={
-            "num_created": dictionary_term_counts["created"],
-            "num_updated": dictionary_term_counts["updated"],
-            "num_total": dictionary_term_counts["total"],
-            "component": "cli",
-            "command": "bootstrap",
-        },
-    )
+    trait_syncer = TraitSyncer()
+    await trait_syncer.sync()
+    await VampireClanSyncer().sync()
+    await WerewolfAuspiceSyncer().sync()
+    await WerewolfTribeSyncer().sync()
+    await resolve_gift_trait_references(gift_fixture_map=trait_syncer.gift_fixture_map)
+    await CharacterConceptSyncer().sync()
+    await DictionaryService().sync_all()
 
 
 @click.command(

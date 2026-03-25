@@ -14,7 +14,7 @@ from vapi.config import settings
 from vapi.lib.database import setup_database
 
 from .bootstrap import bootstrap_async
-from .lib import development as utils
+from .lib.population import PopulationService
 
 if TYPE_CHECKING:
     from pymongo import AsyncMongoClient
@@ -96,17 +96,13 @@ def populate_db(
         # Then we bootstrap the database with the necessary data
         await bootstrap_async(do_setup_database=False)
 
-        # Then we purge the database and populate it with dummy data
-        developers = await utils.create_developers()
-        companies = await utils.create_companies(developers=developers, num_companies=num_companies)
-        users = await utils.create_users(companies=companies, num_users=num_users)
-        campaigns = await utils.create_campaigns(companies=companies, num_campaigns=num_campaigns)
-        await utils.create_characters(
-            campaigns=campaigns, users=users, num_characters=num_characters
+        # Then we populate the database with dummy data
+        service = PopulationService()
+        await service.populate(
+            num_companies=num_companies,
+            num_users=num_users,
+            num_campaigns=num_campaigns,
+            num_characters=num_characters,
         )
-        api_key_users = await utils.generate_api_key_for_developers(developers=developers)
-
-        utils.write_api_keys_to_stdout(api_key_users=api_key_users, companies=companies)
-        utils.write_api_keys_to_file(api_key_users=api_key_users)
 
     asyncio.run(populate_db_async())
