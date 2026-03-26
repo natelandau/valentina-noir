@@ -2790,6 +2790,7 @@
         "order": 4,
         "initial_cost": 7,
         "upgrade_cost": 3,
+        "count_based_cost_multiplier": 2,
         "traits": [
           {
             "name": "Blissful Ignorance",
@@ -7996,6 +7997,7 @@
         "order": 11,
         "initial_cost": 10,
         "upgrade_cost": 7,
+        "count_based_cost_multiplier": 3,
         "subcategories": [
           {
             "name": "Level 1",
@@ -9138,6 +9140,7 @@
         "order": 12,
         "initial_cost": 10,
         "upgrade_cost": 7,
+        "count_based_cost_multiplier": 3,
         "subcategories": [
           {
             "name": "Level 1",
