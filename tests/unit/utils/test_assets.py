@@ -31,43 +31,46 @@ class TestSanitizeFilename:
     @pytest.mark.parametrize(
         ("filename", "expected"),
         [
-            # Normal filenames
-            ("File.txt", "File.txt"),
-            ("my_document.pdf", "my_document.pdf"),
+            # Normal filenames are lowercased
+            ("File.txt", "file.txt"),
             ("image.jpg", "image.jpg"),
-            # Filenames with dangerous characters - HTTP header injection
-            ("file\r\n.txt", "file.txt"),
+            # Spaces and underscores become hyphens
+            ("my document.pdf", "my-document.pdf"),
+            ("my_document.pdf", "my-document.pdf"),
+            ("multiple   spaces.txt", "multiple-spaces.txt"),
+            # Unicode is transliterated to ASCII
+            ("café-résumé.pdf", "cafe-resume.pdf"),
+            ("naïve señor.txt", "naive-senor.txt"),
+            # macOS screenshot narrow no-break space (\u202f)
+            (
+                "Screenshot 2026-03-15 at 5.56.20\u202fPM.png",
+                "screenshot-2026-03-15-at-55620-pm.png",
+            ),
+            # Dangerous characters are stripped
             ('file"name.txt', "filename.txt"),
-            ("file'name.txt", "filename.txt"),
             ("file;name.txt", "filename.txt"),
-            ("file:name.txt", "filename.txt"),
+            ("file<name>.txt", "filename.txt"),
+            ("file&name.txt", "filename.txt"),
+            ("file%name.txt", "filename.txt"),
             # Path traversal attempts - Path().name extracts final component
             ("../../../etc/passwd", "passwd"),
             ("file/../name.txt", "name.txt"),
             ("/path/to/file.txt", "file.txt"),
-            # Windows-style backslashes are stripped (not path separators on POSIX)
-            ("C:\\Users\\file.txt", "CUsersfile.txt"),
-            ("..\\..\\system32", "system32"),
-            # Control characters
+            # Control characters (\x00 is stripped by Path().name, \x1f matches \s → hyphen, \x7f stripped)
             ("file\x00name.txt", "filename.txt"),
-            ("file\x1fname.txt", "filename.txt"),
+            ("file\x1fname.txt", "file-name.txt"),
             ("file\x7fname.txt", "filename.txt"),
-            # Special character replacements
-            ("file&name.txt", "fileandname.txt"),
-            ("file%name.txt", "filename.txt"),
-            ("file|name.txt", "file-name.txt"),
-            ("file<name>.txt", "filename.txt"),
-            # Whitespace handling
-            ("  file.txt  ", "file.txt"),
             # Empty or minimal after sanitization
-            ("...", "."),  # ".." removed, leaving single "."
-            ("..", "upload"),  # ".." removed entirely
             ("", "upload"),
             ("   ", "upload"),
+            ("...", "upload"),
+            ("..", "upload"),
+            # Extension is preserved and lowercased
+            ("PHOTO.JPG", "photo.jpg"),
         ],
     )
     def test_sanitize_filename_basic(self, filename: str, expected: str) -> None:
-        """Verify filename sanitization removes dangerous characters."""
+        """Verify filename sanitization normalizes to a URL-safe ASCII slug."""
         assert assets.sanitize_filename(filename) == expected
 
     def test_sanitize_filename_long_filename_without_extension(self) -> None:
@@ -91,7 +94,7 @@ class TestSanitizeFilename:
         result = assets.sanitize_filename(long_name)
 
         # Then: Filename is truncated but extension is preserved
-        # max_length(200) - len("pdf")(3) - 1 = 196 chars for name + "." + "pdf"
+        # max_stem(196) + "." + "pdf" = 200
         assert len(result) == 200
         assert result.endswith(".pdf")
         assert result == "a" * 196 + ".pdf"
@@ -104,13 +107,14 @@ class TestSanitizeFilename:
         # When: Sanitizing the filename
         result = assets.sanitize_filename(dangerous)
 
-        # Then: All dangerous patterns are removed
-        assert ".." not in result
+        # Then: Result is ASCII-only, lowercase, no special characters
+        assert result.isascii()
         assert "\r" not in result
         assert "\n" not in result
         assert ";" not in result
         assert "<" not in result
         assert ">" not in result
+        assert result.endswith(".txt")
 
 
 class TestDetermineAssetType:

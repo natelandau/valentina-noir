@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -39,57 +40,49 @@ del _expected, _missing
 
 
 def sanitize_filename(filename: str) -> str:
-    """Sanitize filename for Content-Disposition header and general safety.
+    """Normalize an uploaded filename into a URL-safe, ASCII-only slug.
 
-    Removes characters that could cause issues in HTTP headers, filesystems,
-    or security vulnerabilities.
+    Transliterates Unicode to ASCII, lowercases, replaces whitespace and
+    underscores with hyphens, and strips everything except alphanumerics,
+    hyphens, and dots. The result is safe for S3 metadata, Content-Disposition
+    headers, and filesystem storage.
 
     Args:
         filename: Original filename to sanitize.
 
     Returns:
-        Sanitized filename safe for Content-Disposition header.
+        Sanitized filename safe for S3 metadata and HTTP headers.
     """
-    # Get just the filename without path (security: prevent directory traversal)
+    # Strip path components to prevent directory traversal
     filename = Path(filename).name
 
-    # Remove or replace dangerous characters
-    # HTTP header injection
-    filename = filename.replace("\r", "").replace("\n", "")
-    filename = filename.replace('"', "").replace("'", "")
-    filename = filename.replace(";", "").replace(":", "")
+    # Separate stem and extension so the extension stays intact
+    path = Path(filename)
+    stem = path.stem
+    ext = path.suffix.lstrip(".").lower()
 
-    # Path traversal attempts
-    filename = filename.replace("..", "")
-    filename = filename.replace("/", "").replace("\\", "")
+    # Transliterate Unicode to closest ASCII equivalents (é→e, ñ→n, etc.)
+    stem = unicodedata.normalize("NFKD", stem).encode("ascii", errors="ignore").decode("ascii")
 
-    # Control characters (ASCII 0-31 and 127)
-    filename = re.sub(r"[\x00-\x1f\x7f]", "", filename)
+    stem = stem.lower()
 
-    # Optional: Replace problematic characters with safe alternatives
-    filename = filename.replace("&", "and")
-    filename = filename.replace("%", "")
-    filename = filename.replace("|", "-")
-    filename = filename.replace("<", "").replace(">", "")
+    # Replace spaces and underscores with hyphens
+    stem = re.sub(r"[\s_]+", "-", stem)
 
-    # Trim whitespace and limit length
-    filename = filename.strip()
+    # Strip everything except alphanumeric and hyphens
+    stem = re.sub(r"[^a-z0-9-]", "", stem)
 
-    # Ensure we still have a filename
-    if not filename:
-        filename = "upload"
+    # Collapse consecutive hyphens and strip leading/trailing hyphens
+    stem = re.sub(r"-{2,}", "-", stem).strip("-")
 
-    # Limit length (some systems have 255 char limits)
-    max_length = 200  # Leave room for extension
-    if len(filename) > max_length:
-        # Preserve extension if present
-        if "." in filename:
-            name, ext = filename.rsplit(".", 1)
-            filename = name[: max_length - len(ext) - 1] + "." + ext
-        else:
-            filename = filename[:max_length]
+    if not stem:
+        stem = "upload"
 
-    return filename
+    # Truncate stem to keep total length under 200 characters
+    max_stem = 200 - len(ext) - 1 if ext else 200
+    stem = stem[:max_stem].rstrip("-")
+
+    return f"{stem}.{ext}" if ext else stem
 
 
 def determine_asset_type(mime_type: str) -> AssetType:  # noqa: PLR0911
