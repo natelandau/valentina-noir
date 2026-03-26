@@ -6601,6 +6601,39 @@
             "link": "http://snakepit.wikidot.com/the-path-of-blood"
           },
           {
+            "name": "Thaumaturgical Countermagic",
+            "description": "This is less of a path than it is a separate Discipline, as the power to resist Thaumaturgy can be taught independently of Thaumaturgy, even to those Kindred who are incapable of mastering even the simplest ritual. However, the techniques of Thaumaturgical Countermagic are not officially taught outside Clan Tremere, for obvious reasons. Any non-Tremere who displays the ability to resist Thaumaturgy quickly becomes the subject of potentially fatal scrutiny from the entirety of Clan Tremere.",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "link": "http://snakepit.wikidot.com/discipliner:thaumaturgical-countermagic",
+            "system": "Thaumaturgical Countermagic is treated as a separate Discipline. It cannot be taken as a character's primary path, and a rating in it does not allow the character to perform rituals. The use of Thaumaturgical Countermagic is treated as a free action in combat and does not require a split dice pool. To oppose a Thaumaturgy power or ritual, a character must have a Thaumaturgical Countermagic rating equal to or greater than the rating of that power or ritual (which means that rituals of Level Six or greater cannot ever be countered with this power). The player spends a blood point and rolls the number of dice indicated by the character's Thaumaturgical Countermagic rating (difficulty equal to the difficulty of the power in use). Each success cancels one of the opposing thaumaturge's successes.\n\nThaumaturgical Countermagic can only be used against Tremere Thaumaturgy at full effectiveness. It works with halved dice pools against non-Tremere blood magic and mortal 'hedge wizardry', and is completely ineffective against non-vampiric magics and powers. Thaumaturgical Countermagic can be learned by characters who are unable to learn Thaumaturgy (e.g. those with the Merit Magic Resistance). Any non-Tremere character with a rating in this power automatically gains the Flaw Clan Enmity (Tremere), receiving no freebie points for it. This power cannot be taken during character creation and cannot be spontaneously developed. It costs the same as any other non-clan Discipline to learn."
+          },
+          {
+            "name": "Spirit Manipulation",
+            "description": "Not to be confused with, or perhaps derived from the ancient Path of Spirit Thaumaturgy (Dark Ages Companion, p. 107) Spirit Manipulation is a relatively recent innovation of the Tremere. Created to replace the rituals practiced by the clan in the days when it was a band of mortal wizards, Spirit Manipulation is the art of forcing spirits into actions and situations that would normally be anathema to them. Spirit Manipulation simulates many effects that can be created by Lupine, and shamanic mages, but does so by forcing the spirits involved into a grotesque mockery of their normal behaviors. Any botch with Spirit Manipulation not only inflicts the normal loss of Will power involved with thaumaturgical mishaps but also turns the full force of the spirit's wrath against the offending vampire.",
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V4"
+            ],
+            "show_when_zero": false,
+            "max_value": 1,
+            "min_value": 5,
+            "is_rollable": true,
+            "link": "http://snakepit.wikidot.com/spirit-manipulation"
+          },
+          {
             "name": "Weather Control",
             "description": "Command over the weather has long been a staple power of wisards both mortal and immortal, and this path is said by many to predate the Tremere by millennia. The proliferation of usage of this path outside the clan tends to confirm this theory; Weather Control is quite common outside the Tremere, and even outside the Camarilla. Lower levels of this path allow subtle manipulations, while higher stages of mastery allow a vampire to call up raging storms. The area affected by this power is usually rather small, no more than three or four miles in diameter, and the changes the wreaks are not always immediate.",
             "character_classes": [
@@ -7946,6 +7979,1520 @@
             "min_value": 1,
             "pool": null,
             "is_rollable": false
+          }
+        ]
+      },
+      {
+        "name": "Blood Sorcery Rituals",
+        "description": "Rituals are Blood Sorcery practices that require extended preparation and precise execution.",
+        "game_versions": [
+          "V5"
+        ],
+        "show_when_empty": false,
+        "character_classes": [
+          "VAMPIRE",
+          "GHOUL"
+        ],
+        "order": 11,
+        "initial_cost": 10,
+        "upgrade_cost": 7,
+        "subcategories": [
+          {
+            "name": "Level 1",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Astromancy",
+                "description": "Learn information such as Skills, Desires and Convictions about someone\n\nIf you know the correct Birth or Embrace date, you can add 1 die to the Ritual pool. This does not stack if you know both.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Beelzebeatit",
+                "description": "Animals avoid the area.\n\nNothing prevents directed or controlled creatures from entering.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Bind the Accusing Tongue",
+                "description": "Prevent someone from communicating something negative about the caster\n\nVictim can break free by rolling Composure + Resolve.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Blood Apocrypha",
+                "description": "Embed messages into Blood or vessels.\n\nThe first person receives the message if they are the intended recipient or if they have A Taste For Blood.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Blood Walk",
+                "description": "Learn characters generation, name, and sire.\n\nRequires one Rouse Check from the subject to be performed.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Bloody Message",
+                "description": "Make a message appear to a specific type of person then disappear once read.\n\nMake the Ritual Roll when enchanting the surface.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Blood to Water",
+                "description": "Turn blood into water.\n\nRemoves all traces of blood.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Clinging of the Insect",
+                "description": "Cling to walls like an insect.\n\nThe user must cling with both their hands and feet.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Coax the Garden",
+                "description": "Use plant life to defend.\n\nThe plants will target anyone who isn't the caster.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Craft Bloodstone",
+                "description": "Craft a tracking stone.\n\nA caster may have up to as many stones as they have Resolve.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Douse the Fear Errata",
+                "description": "Remove their fear of fire temporarily.\n\nThe power wears off once the scene ends.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Enrich the Blood",
+                "description": "Make a mortal more nourishing.\n\nThis does not work on Kindred vitae.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Herd Ward (Minor)",
+                "description": "Ward a single kine of a herd to prevent unauthorized feeding.\n\nMake the Ritual Roll when someone else feeds off the herd.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Letter Ward",
+                "description": "Place a ward on a letter\n\nMake the Ritual Roll if anyone other than the intended recipient opens it.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Revealing the Crimson Trail",
+                "description": "Reveal traces of spilled blood.\n\nVery old traces require a Resolve + Awareness test.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Seal the Brand",
+                "description": "Make a tattoo permanent on a vampire\n\nThe process inflicts 1 Superficial damage",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Shared Memory",
+                "description": "Observe another's Memoriam.\n\nParticipants observe the events and can offer advice but cannot directly influence the events.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Wake with Evening’s Freshness",
+                "description": "Awakens the caster at any signs of danger during day sleep.\n\nDo not make the Ritual roll until true danger appears.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Ward Against Ghouls",
+                "description": "Protect themselves against Ghouls.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Blood Missive",
+                "description": "Send messages through blood.\n\nThe first person to taste the blood, receives it as if it was intended for them or they possess A Taste for Blood.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Sanguine Tidings",
+                "description": "Make a message appear on a mirror when a type of person comes nearby.\n\nIt disappears from the mirror once it's been read once.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              }
+            ]
+          },
+          {
+            "name": "Level 2",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "As Fog on Water",
+                "description": "Walk on water silently.\n\nThis can be ended early or kept to allow them to walk on water for the rest of the night.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Calling the Aura’s Remnants",
+                "description": "Speak with the residual aura of someone who has died.\n\nThe aura only has memories up to the time of death.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Calix Secretus",
+                "description": "Store vitae for a later use.\n\nTwo Rouse Checks stored will slake one Hunger.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Communicate with Kindred Sire",
+                "description": "Creates a long-distance telepathic link between Sire and Childe\n\nMajor disturbance on either side breaks the connection.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Craftmaster",
+                "description": "Temporarily gain dots and specialty in certain skills (Academics, Craft, Performance or Science)\n\nDots replace any skill that caster already has but gain an extra die if they already have the specialty. On a total failure, caster takes Aggravated Damage.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Depths of Nightmare",
+                "description": "Curse someone with nightmares that cause Willpower Damage, which can't be healed during the Ritual's duration.\n\nOn a total failure, the victim has pleasant dreams and is pointed towards the caster.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Elemental Grasp",
+                "description": "Command your chosen element to interfere with a target\n\nTarget takes Superficial Health Damage and must make an appropriate roll to continue. Caster gains one die to their Ritual pool if the element is already active, like water during a flood.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Enhance Dyscrasia",
+                "description": "Allow multiple Kindred to feed from one Dyscrasia without destroying it.\n\nUsually, they will use Enrich the Blood first.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Eyes of Babel",
+                "description": "By consuming the eyes and tongue of another, they gain the ability to read and speak any language known by the victim.\n\nThis Ritual may incur Stains.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Illuminate Trail of Prey",
+                "description": "Allows the caster to follow the trail of a specific person.\n\nThe victim's face must be known by the caster.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Le Sang de l'Amour",
+                "description": "Create a connection between two people, providing they desire each other at the time the Ritual is cast\n\nBoth participants can use Resolve + Awareness to get an estimation of where the other is. On a total failure of the initial Ritual, this roll disorients them and their Composure is temporarily reduced by one.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Soporific Touch Errata",
+                "description": "Convert a dose of vitae to weaken their victim against mundane manipulations or mind-altering Disciplines.\n\nThe Ritual Roll is made after the victim makes contact and is contested against with Stamina + Resolve.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Silentia Mortis",
+                "description": "Replicates Silence of Death (Obfuscate ●), which creates a radius of silence\n\nIf intended for someone other than the caster, they will also have to make their own Rouse Check.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Shroud of Silence",
+                "description": "Prevent sounds from escaping a room.\n\nRequires vitae from a Kindred who possesses Obfuscate",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Stolen Memory",
+                "description": "Access sire's memories.\n\nCan access memories of grandsire or beyond with Difficulty increase of 2 per generation past their sire.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Tiamat Glistens",
+                "description": "Attune yourself to a place of power, like a Furcus\n\nCaster gains bonuses to Rituals they cast. Only one caster can be attuned to a place of power. If someone else performs the Ritual, the original caster loses their bonus immediately.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Truth of Blood",
+                "description": "The caster can discern truth from lies.\n\nThe target rolls Composure+Occult to resist. This Ritual cannot get past memory wiping Disciplines.",
+                "pool": "Resolve + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Unseen Underground",
+                "description": "Become invisible underground.\n\nImmediately ends if they go above ground, or they take hostile actions, otherwise it only lasts for one hour. Errata",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Viscera Garden",
+                "description": "Grow Blood-addicted plants that can consume corpses\n\nCan be eaten by Kindred, they do not slake hunger but they stay down. Mortals who ingest a plant are more susceptible to Disciplines.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Ward against Spirits",
+                "description": "Protect themselves against spirits.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Warding Circle against Ghouls",
+                "description": "Protect themselves against Ghouls.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Web of Hunger",
+                "description": "Avoid the pull of the Beckoning. Errata\n\nWithout the dagger, this ritual would be 4th level. With the dagger it can be treated as level 2. Errata",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              }
+            ]
+          },
+          {
+            "name": "Level 3",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Bladed Hands",
+                "description": "Sharpens the user's hands into a weapon.\n\nTreated as a light piercing Brawl weapon with a +2 modifier.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Bloodless Feast",
+                "description": "Purify blood, creating a clear blood-like substance.\n\nThose who consume the clear vitae enough are weaker to diablerie.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Blood Sigil",
+                "description": "Create a tattoo on a Kindred which also contains a message\n\nCan read the message with a Resolve + Occult roll or by Sense the Unseen (Auspex ●). Caster can remove the Blood Sigil by spending Willpower and touching the tattoo.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Communal Vigor",
+                "description": "A Pack Priest shares their Blood Potency with their pack.\n\nThe Priest gains three bonus dice on Dominate and Presence tests against packmates.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Dagon’s Call",
+                "description": "The caster can rupture the blood vessels of a victim from afar.\n\nThe caster can use this up to two additional times, each costing an additional Rouse Check. The opposing roll is Stamina + Resolve.",
+                "pool": "Resolve + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Deflection of Wooden Doom",
+                "description": "This ritual protects them from being staked.\n\nDo not roll the Ritual Roll until staked.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Elemental Shelter",
+                "description": "Meld with your chosen element, similar to Earth Meld (Protean ●●●)\n\nFire Kolduns must resist terror frenzy before casting this ritual. Koldun's form can be seen with a Wits + Awareness roll or by Sense the Unseen (Auspex ●). If bonded element is removed, such as the fire going out, the Koldun enters torpor.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Essence of Air",
+                "description": "Allows for flight.\n\nThe Camarilla frowns upon this Ritual due to its Masquerade dangers.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Eyes of the Past",
+                "description": "See what happened at their current location in the past.\n\nIt only holds events within the last five years.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Fire in the Blood",
+                "description": "Create anguish of fire in one's blood to incapacitate\n\nA victim can only be affected by this Ritual once per night. Errata",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Firewalker",
+                "description": "Allow themselves and their comrades to become resistant to fire.\n\nThis ritual can be performed on others, but the fingertip removal must all come from the caster.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Galvanic Ruination",
+                "description": "Short out electronics and wiring nearby.\n\nGenerally, it only affects the range of a warehouse or three-story building, but can be extended by adding 1 Difficulty per additional building.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Gentle Mind",
+                "description": "Protect the mind of a target against Frenzy.\n\nThe caster must share blood with another and cannot cast it upon themselves.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Grim Chrysalis",
+                "description": "Create a cocoon out of hardened vitae that heals damage taken.\n\nThe cocoon itself is hard and protects the user from outside damage to some extent.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Haunted House",
+                "description": "Make a haven appear as if it's haunted.\n\nThe effects last for 10 years.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Herd Ward (Major)",
+                "description": "Ward a herd against unauthorized feeding by warding the door to protect multiple people within.\n\nMake the Ritual Roll when someone else feeds off the herd.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Illusion of Peaceful Death",
+                "description": "Make a corpse appear as if it'd died a natural death.\n\nThe body must have at least half of the body's blood to succeed.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Illusion of Perfection",
+                "description": "Become a nondescript person to blend into crowds.\n\nSimilar to the ability Mask of a Thousand Faces.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Nepenthe",
+                "description": "Create a draught that can remove Stains, but prolonged use of it can make those Stains permanent\n\nUsing Nepenthe two sessions in a row causes one Stain to become permanent. This is cumulative, e.g. four sessions gives two permanent Stains.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "One with the Blade",
+                "description": "Claim ownership of a weapon and protect it from damage.\n\nOnly one weapon can hold this ritual at a time.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Sanguine Watcher",
+                "description": "Create a small rat out of vitae.\n\nThe caster can send the rat to go where they instruct to observe or steal, but the instructions must be very explicit.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Seeing with the Sky's Eyes",
+                "description": "Observe a target from above\n\nPlayer can ask one question about location and surrounding per success roll. Critical Wins give 3 extra questions and can gain information about Ambitions, Desires, Convictions and Humanity.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Seeking Tiamat",
+                "description": "Find veins of the Earth\n\nCritical wins discover the closest vein and points towards 2 Furcae on that vein",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Sleep of Judas",
+                "description": "Incapacitate a vampire by drugging them.\n\nMake the Ritual Roll when the target is drugged.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Soul of the Hemonculus",
+                "description": "Create a Hemonculus, a shriveled, smaller and weaker version of the caster, who must obey your every command\n\nImmune to the sun but cannot be Embraced, made into a ghoul or have a Blood Bond. Vampires slake no Hunger if they drink from it.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Stone of the True Form",
+                "description": "Dispel illusions and creatures altered via Disciplines and Rituals\n\nMust throw the stone with Dexterity + Athletics. The target resists the Ritual with Resolve + Occult. On a win, illusions are dispelled, shapeshifters are painfully returned to their original form and beings made through Disciplines, like a Vozhd, are separated to their original components.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "The Unseen Change",
+                "description": "Lupines entering the area are forced into Wolf Form.\n\nIf they do not succeed on the Ritual Roll against a contested Willpower test, they enter in Lupus Form.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Trespass",
+                "description": "Allows the caster to easily sneak around a building, such as by flowing through crevices that blood can fit through\n\nUnlike Incorporeal Passage, the caster can be attacked providing they are able to notice the caster.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Viral Haruspex",
+                "description": "Gather information from everyone in an area suffering from a certain disease\n\nCaster must drink from someone with the disease within 24 hours before casting this Ritual.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Ward against Lupines",
+                "description": "Protects themselves against Werewolves.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Warding Circle against Spirits",
+                "description": "Protect themselves against spirits.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              }
+            ]
+          },
+          {
+            "name": "Level 4",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Balm of Bathory",
+                "description": "Make a balm from the blood of a young mortal to make the user appear younger\n\nThe balm gives the user a temporary Stunning ( ••••) Merit. However, each subsequent use takes double the amount of mortal blood as the last batch.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Compel the Inanimate",
+                "description": "Give a simple command to an inanimate object which it follows a few minutes later\n\nThe caster must remain in the same general area as the object. Sense the Unseen (Auspex ●) can detect the caster with a Wits + Auspex vs. caster's Composure + Blood Sorcery roll.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Defense of the Sacred Haven",
+                "description": "Protect a haven with mystical darkness from the sun.\n\nThe Ritual roll is made once the sun rises.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Egregore Consultation",
+                "description": "By hosting an illness, the caster is able to enhance Skills by access the experiences of everyone with that illness in the area\n\nIf a Skill is very common in an area, like Finance in New York, the caster can get extra die to their roll, at a maximum of two.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Eyes of the Nighthawk",
+                "description": "Take control of a carnivorous bird and act through them.\n\nThe user can use most non-physical Disciplines through the bird.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Feast of Ashes",
+                "description": "Stop another Kindred from drinking blood for one night.\n\nThe ritual roll is made against the victim’s Resolve + Willpower. The victim can eat the ashes to slake hunger but only down to 3.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Guided Memory",
+                "description": "With the Blood of another vampire, experience their memories guided by them.\n\nThis can be used to unlock Discipline powers, Merits and other gifts.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Incorporeal Passage",
+                "description": "The caster's form becomes ghost-like.\n\nThey may only interact through speech and sight.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Innocence of the Child’s Heart",
+                "description": "Put up a blockade against Scry the Soul to hide diablerie and other vampiric traits.\n\nThere's no record of Nicolai sharing this ritual with his fellow Tremere and is only learned by capturing his notes or by ST discretion.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Innocence's Veil",
+                "description": "Temporarily make traces of Diablerie undetectable.\n\nCannot be detected by A Taste for Blood or Scry The Soul",
+                "pool": "",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Invisible Chains of Binding",
+                "description": "Confine a victim to a single spot\n\nThe victim is unable to move from that spot for one hour per success in the margin unless the chain is destroyed or removed.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Land's Sustenance",
+                "description": "Feed from a place of power, turning it into a place of suffering where injuries become more severe.\n\nLasts until end of the Story before needing to be renewed. Once per Session, they can automatically pass a number of Rouse Checks equal to their margin on the Ritual roll.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Rending the Sweet Earth",
+                "description": "Pull a vampire from the earth who is using Earth Meld.\n\nThe ritual automatically awakens the other vampire unless they are in torpor or the Ritual Roll is a Critical Win.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Riding the Earth's Vein",
+                "description": "Travel from one furcus to another random one.\n\nThe caster has no control over where they end up. This Ritual is one way and only activates where it was first cast",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Protean Curse",
+                "description": "Transform a target into a bat similar to Metamorphosis.\n\nThis cannot be used on the caster.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Ward against Cainites",
+                "description": "Protects themselves against Kindred.\n\nUses standard rules for Wards. A vampire examining this ward may read the name of the caster with an Intelligence + Auspex vs Intelligence + Blood Sorcery roll.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Warding Circle against Lupines",
+                "description": "Protects themselves against Werewolves.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Seek the Gathered Vitae",
+                "description": "Discovered gatherings of Kindred with a collective Blood Potency of 13 or higher.\n\nGhouls count as 1/4th and Duskborn count as 1/2.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              }
+            ]
+          },
+          {
+            "name": "Level 5",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Antebrachia Ignium Errata",
+                "description": "Set their arms on fire\n\nThe user is only resistant to fire on their arms.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Atrocity's Release",
+                "description": "Reverses the effects of Diablerie\n\nCan be resisted with a Resolve + Blood Sorcery test.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Dominion",
+                "description": "Stop the use of Animalism, Auspex, Dominate, and Presence within a building.\n\nThe area of effect is determined by the amount of Rouse Checks.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Eden’s Bounty",
+                "description": "Drain blood from nearby creatures\n\nFor the remainder of the chapter, mortals suffer 1 die penalty to Physical rolls and take 1 Aggravated health damage.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Elemental Attack",
+                "description": "The Koldun commands their chosen element to attack a foe. This can be a Chain Ritual\n\nIf their element is already active, like Air during a storm, they get an extra die to their Ritual pool. If Chained with Elemental Grasp and Tiamat Glistens, the Ritual becomes a natural disaster, e.g. Tornado, Magma Flow or Tsunami",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Escape to True Sanctuary",
+                "description": "Create a one-way portal.\n\nA caster may only have one set of these circles active at a time.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Fisher King",
+                "description": "Makes the caster one with their land, giving them access to it's secrets. This can be a Chain Ritual\n\nCan make a Wits + Streetwise or Survival roll to ask questions about the land. The caster can ask one extra question per session. This Ritual lasts until the end of the story. If Chained with Land's Sustenance and Compel the Inanimate, the casters gain complete control over the land and the casters can heal a total of 5 Aggravated damage each night",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Heart of Stone",
+                "description": "Turns their heart to stone preventing staking. The Caster also suffers from emotional detachment, taking penalties to Remorse or active Social-related rolls.\n\nThey are unable to use Presence during this ritual's use but gain a bonus when resisting its use on them.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Reawakened Vigor",
+                "description": "Regain Blood Potency faster after extended torpor.\n\nInflicts aggravated damage to anyone other than the caster.",
+                "pool": "",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Shaft of Belated Dissolution",
+                "description": "A stake that will seek out another vampire's heart and will cause final death if it finds it.\n\nEven if an attack with this stake fails to hit the heart, if it hits, a splinter will break and move towards the heart to eradicate the victim.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Simulacrum Gate",
+                "description": "Create a gate to teleport multiple vampires.\n\nThere is only one of these known to exist currently.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Transferring the Soul",
+                "description": "Take over a body from diablerie.\n\nThis ritual requires another Kindred who knows Oblivion ●●●●●. It is possible to be done by one Kindred who possess level 5 in both powers.",
+                "pool": "Intelligence + Blood Sorcery, Intelligence + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              },
+              {
+                "name": "Warding Circle against Cainites",
+                "description": "Protects themselves against Kindred.\n\nUses standard rules for Wards.",
+                "pool": "Intelligence + Blood Sorcery",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Blood_Sorcery_Rituals"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Oblivion Ceremonies",
+        "description": "Ceremonies are Oblivion practices that require extended preparation and precise execution.",
+        "game_versions": [
+          "V5"
+        ],
+        "show_when_empty": false,
+        "character_classes": [
+          "VAMPIRE",
+          "GHOUL"
+        ],
+        "order": 12,
+        "initial_cost": 10,
+        "upgrade_cost": 7,
+        "subcategories": [
+          {
+            "name": "Level 1",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Gift of False Life",
+                "description": "Raise either a single corpse or a group to perform simple single or repetitive tasks.\n\nCorpses are mindless creatures and do not defend themselves from attacks, decaying as normal for\n the duration of the ceremony.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Knowing Stone",
+                "description": "Identify the locations and existences of specific ghosts.\n\nThey must know the ghost's name.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Summon Spirit",
+                "description": "Summon a spirit from the Underworld.\n\nThe wraith will disappear at the end of the scene unless a ceremony is used to keep them there\n such as Compel Spirit.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Traveler's Call",
+                "description": "Summon another Shalimite.\n\nThe victim can choose to ignore it, taking -2 to all pools in relation to concentration for one\n scene. This ceremony is connected to the Cult of\n Shalim.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              }
+            ]
+          },
+          {
+            "name": "Level 2",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Ashen Relic",
+                "description": "Preservation of a Kindred's body.\n\nThree successes in the margin preserves more.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Awaken the Homuncular Servant",
+                "description": "Create spies and stalkers out of body parts or small animals.\n\nThe servant can scale or hop walls and hide, but it cannot speak. It is only able to\n telepathically communicate single images to its creator.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Blinding the Alloy Eye",
+                "description": "Cameras cannot perceive the user clearly.\n\nDo not make the ritual roll until the effect is active. This ceremony is connected to the Sabbat.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Compel Spirit",
+                "description": "Bend a wraith to a vampire's will.\n\nThe ritual roll is made against the wraith's Resolve + Composure or Willpower.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Maw of Ahriman",
+                "description": "Open a portal to the Abyss, usually\n within their mouth.\n\nThe user cannot speak till it is either cancelled or the next sunrise.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              }
+            ]
+          },
+          {
+            "name": "Level 3",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Create Corpse Suit",
+                "description": "Sew a garment made out of mortal flesh that warns the wearer of subtle signs of danger\n\nThe garment is semi-sentient and needs to be persuaded with a test. While worn, the wearer gains a\n Folkoric Bane and Folkloric Block of the Storyteller's Choice",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Create Flesh Golem",
+                "description": "Build a flesh golem from parts of a corpse\n\nCan be assembled manually or with the help of Fleshcrafting",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Fortezza Sindonica",
+                "description": "Create a barrier that harms wraiths.\n\nDo not make the Ritual Roll until a wraith attempts to pass. This ceremony is connected to the Hecata.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Harrowhaunt",
+                "description": "Keep unwanted visitors from their haven.\n\nVampires are able to enter making a fear Frenzy check each turn while inside. This ceremony is\n connected to the Sabbat.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Host Spirit",
+                "description": "Allows the user to open their body to a ghost for possession.\n\nAlongside the bonus of +2 to Physical Attribute rolls and +2 health, the wraiths Skills can be\n substituted for the vampire’s own at Storyteller discretion. Errata",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Knit the Veil",
+                "description": "Turn a shroud impenetrable.\n\nWhen not disturbed this effect does not change for as many nights as the user's Oblivion rating.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Name of the Father",
+                "description": "Strike a victim's mind with the empty void of Oblivion, leaving them paralyzed.\n\nThe victim can spend willpower equal to the number of turns they would remain paralyzed to free\n themselves. This ceremony is connected to the Cult\n of Shalim.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Shallow Slumber",
+                "description": "Reduces time spent in torpor.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Shambling Hordes",
+                "description": "Raise a group of aggressive walking dead.\n\nIf left without commands, they attack anyone around them other than their master.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Wisdom of the Dead",
+                "description": "Gain information from a corpse skull or head.\n\nAdd two dice to their dice pool if they are still carrying the skull/head for the rest of the\n night.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              }
+            ]
+          },
+          {
+            "name": "Level 4",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Befoul Vessel",
+                "description": "Turn a mortal's blood into poison for other vampires.\n\nThis power leaves no trace other than the mortal dying the next night with the smell of mildew and\n sweat. This ceremony is connected to the Sabbat.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Bind the Spirit",
+                "description": "Bind a wraith to a specific location or person.\n\nBound wraiths have the same powers as specters.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Bind to Mortal Form",
+                "description": "Extend the life of a mortal without ghouling them.\n\nThe ceremony does not keep the mortal young, and continues to age both physically and mentally,\n albeit past their natural lifespan.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Death Rattle",
+                "description": "Inflict the sensory experience of a wraith's death onto a target.\n\nThe victim contests the ritual roll with Composure + Resolve.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Split the Veil Errata",
+                "description": "Create a tear into a shroud to allow wraiths to enter.\n\nThis Ceremony reduces the density of the veil and can reduce it to absent, allowing wraiths to\n come through. The veil increased to frayed after the session ends, stopping any more\n wraiths. Errata",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              }
+            ]
+          },
+          {
+            "name": "Level 5",
+            "description": null,
+            "requires_parent": false,
+            "character_classes": [
+              "VAMPIRE",
+              "GHOUL"
+            ],
+            "game_versions": [
+              "V5"
+            ],
+            "show_when_empty": false,
+            "traits": [
+              {
+                "name": "Ex Nihilo",
+                "description": "Enter the Shadowlands\n\nThe Shadowlands have several rules that do not exist in the world of the living.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Gift of True Life",
+                "description": "Extend a mortal's life by shortening the life of another\n\nThe receiving mortal ages half as quickly until the extra lifespan granted has been spent, after\n which, they begin to age normally.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Lazarene Blessing",
+                "description": "Bring a fresh corpse back to life\n\nThis lasts until the body dies again or the wraith is exorcised from the host.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              },
+              {
+                "name": "Pit of Contemplation",
+                "description": "Cast an enemy into Oblivion itself.\n\nMortals sucked in are instantly killed. This ceremony is connected to the Cult of Shalim.",
+                "pool": "Resolve + Oblivion",
+                "min_value": 1,
+                "max_value": 1,
+                "show_when_zero": false,
+                "is_rollable": false,
+                "link": "https://vtm.paradoxwikis.com/Oblivion_Ceremonies"
+              }
+            ]
           }
         ]
       }

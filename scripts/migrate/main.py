@@ -20,7 +20,10 @@ from beanie import PydanticObjectId
 
 from vapi.db.models.campaign import Campaign
 from vapi.db.models.character import CharacterTrait
+from vapi.db.models.constants.sheet_section import CharSheetSection
 from vapi.db.models.constants.trait import Trait
+from vapi.db.models.constants.trait_categories import TraitCategory
+from vapi.db.models.constants.trait_subcategories import TraitSubcategory
 from vapi.domain.services.aws_service import AWSS3Service
 
 from .id_map import IDMap
@@ -56,7 +59,6 @@ if TYPE_CHECKING:
     from pymongo.asynchronous.database import AsyncDatabase
 
 logger = logging.getLogger("migrate")
-
 # Minimum trait name length before padding with underscores
 MIN_TRAIT_NAME_LENGTH = 3
 
@@ -69,6 +71,7 @@ _TRAIT_NAME_REMAPS: dict[str, str] = {
     "lockpicking": "Larceny",
     "technomancy": "The Path of Technomancy",
     "thaumaturgy: weather control": "Weather Control",
+    "lure of flames": "The Lure Of Flames",
 }
 
 
@@ -608,7 +611,7 @@ async def migrate_guild(
     await _migrate_dice_rolls(old_db, guild_id, id_map, stats, dry_run=dry_run)
 
 
-async def _migrate_trait(
+async def _migrate_trait(  # noqa: C901, PLR0915
     trait_doc: dict[str, Any],
     character_id: PydanticObjectId,
     stats: MigrationStats,
@@ -623,11 +626,19 @@ async def _migrate_trait(
         stats: Migration statistics.
         dry_run: If True, skip saves.
     """
+    advantages_section = await CharSheetSection.find_one(CharSheetSection.name == "Advantages")
+    abilities_section = await CharSheetSection.find_one(CharSheetSection.name == "Abilities")
+    other_section = await CharSheetSection.find_one(CharSheetSection.name == "Other")
+    subcategory = await TraitSubcategory.find_one(
+        TraitSubcategory.name == trait_doc.get("name", "")
+    )
     trait_name = trait_doc.get("name", "")
     trait_value = trait_doc.get("value", 0)
 
     # Remap known trait names before matching
     trait_name = _TRAIT_NAME_REMAPS.get(trait_name.lower(), trait_name)
+    if trait_name == "Desperation":
+        return
 
     # Try to find an existing trait blueprint by name (case-insensitive via title())
     existing_trait = await Trait.find_one(
@@ -635,21 +646,90 @@ async def _migrate_trait(
         Trait.is_custom == False,
     )
 
-    if existing_trait:
+    if existing_trait and trait_name != "Surveillance":
         char_trait = CharacterTrait(
             character_id=character_id,
             trait=existing_trait,
             value=trait_value,
         )
+
+        if (
+            existing_trait.sheet_section_id in [advantages_section.id, other_section.id]
+            and char_trait.value == 0
+        ):
+            return
+
         await _save(char_trait, dry_run=dry_run)
         stats.record_created("trait_matched")
+    elif subcategory:
+        subcategory_traits = await Trait.find(
+            Trait.trait_subcategory_id == subcategory.id
+        ).to_list()
+        for dot in range(trait_value):
+            trait_to_assign = subcategory_traits[dot] if dot < len(subcategory_traits) else None
+            if trait_to_assign:
+                char_trait = CharacterTrait(
+                    character_id=character_id,
+                    trait=trait_to_assign,
+                    value=1,
+                )
+                await _save(char_trait, dry_run=dry_run)
+                stats.record_created("trait_matched")
+    elif trait_name == "Surveillance":
+        category = await TraitCategory.find_one(
+            TraitCategory.name == "Social",
+            TraitCategory.parent_sheet_section_id == abilities_section.id,
+        )
+        custom_trait = Trait(
+            name=(
+                trait_name.title()
+                if len(trait_name) >= MIN_TRAIT_NAME_LENGTH
+                else f"{trait_name}___"
+            ),
+            is_custom=True,
+            custom_for_character_id=character_id,
+            sheet_section_id=abilities_section.id,
+            parent_category_id=category.id,
+            max_value=trait_doc.get("max_value", 5),
+        )
+        await _save(custom_trait, dry_run=dry_run)
+        char_trait = CharacterTrait(
+            character_id=character_id,
+            trait=custom_trait,
+            value=trait_value,
+        )
+        await _save(char_trait, dry_run=dry_run)
+        stats.record_created("trait_custom")
     else:
-        # Create a custom trait blueprint when no standard trait matches
-        from vapi.db.models.constants.sheet_section import CharSheetSection
-        from vapi.db.models.constants.trait_categories import TraitCategory
+        old_category_name = trait_doc.get("category_name")
+        if old_category_name == "TALENTS":
+            section = abilities_section
+            category = await TraitCategory.find_one(
+                TraitCategory.name == "Physical",
+                TraitCategory.parent_sheet_section_id == abilities_section.id,
+            )
 
-        section = await CharSheetSection.find_one()
-        category = await TraitCategory.find_one()
+        elif old_category_name == "SKILLS":
+            section = abilities_section
+            category = await TraitCategory.find_one(
+                TraitCategory.name == "Social",
+                TraitCategory.parent_sheet_section_id == abilities_section.id,
+            )
+        elif old_category_name == "KNOWLEDGES":
+            section = abilities_section
+            category = await TraitCategory.find_one(
+                TraitCategory.name == "Mental",
+                TraitCategory.parent_sheet_section_id == abilities_section.id,
+            )
+        else:
+            possible_categories = await TraitCategory.find(
+                TraitCategory.name == old_category_name.title()
+            ).to_list()
+            if len(possible_categories) == 1:
+                category = possible_categories[0]
+                section = await CharSheetSection.find_one(
+                    CharSheetSection.id == category.parent_sheet_section_id
+                )
 
         if section and category:
             custom_trait = Trait(
