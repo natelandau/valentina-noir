@@ -14,6 +14,34 @@ Werewolf gifts and rites are binary traits. Assign them with `value=1` using the
 
 Gift traits include a `gift_attributes` field with werewolf-specific metadata (renown, dice pools, tribe/auspice associations). Rite traits use the standard `pool` field for their dice pool. For more on browsing available gifts and rites, see the [blueprint documentation](./character_blueprint.md#gifts-and-rites).
 
+## Count-Based Traits
+
+Some trait categories use count-based pricing where the cost to add a trait depends on how many traits the character already owns in that category, rather than on per-dot costs. These are always binary traits (`min_value=1`, `max_value=1`) — a character either has the trait or doesn't.
+
+### Cost Formula
+
+- **Adding:** `(existing_count + 1) × multiplier`
+- **Removing (refund):** `existing_count × multiplier`
+
+Where `existing_count` is the number of traits with value > 0 in the same category, and `multiplier` is the category's cost multiplier.
+
+### Categories Using Count-Based Pricing
+
+| Category | Multiplier | Example |
+|---|---|---|
+| Werewolf Gifts | 2 | 1st gift costs 2, 2nd costs 4, 3rd costs 6 |
+| Blood Sorcery Rituals | 3 | 1st ritual costs 3, 2nd costs 6, 3rd costs 9 |
+| Oblivion Ceremonies | 3 | 1st ceremony costs 3, 2nd costs 6, 3rd costs 9 |
+
+!!! example "Count-Based Cost Example"
+
+    A vampire character with 2 existing Blood Sorcery Rituals wants to learn a 3rd:
+
+    - **Cost to add:** `(2 + 1) × 3 = 9 XP`
+    - **If later removed (refund):** `3 × 3 = 9 XP` (count is 3 at time of removal)
+
+For count-based traits, the `initial_cost` and `upgrade_cost` fields on the trait are not used in cost calculations. The `value-options` endpoint shows a `DELETE` option with the refund amount for owned count-based traits.
+
 ## Trait Subcategories
 
 Some trait categories contain subcategories that provide an additional level of grouping. Subcategories organize related traits within a category, making it easier to navigate and display traits that share a common theme.
@@ -186,7 +214,9 @@ Use no-cost modifications to:
 
 ## Cost Calculations
 
-Calculate upgrade or refund costs using two trait properties:
+Most traits use a per-dot cost model described below. Some categories use [count-based pricing](#count-based-traits) instead, where cost depends on how many traits the character owns in that category.
+
+Calculate per-dot upgrade or refund costs using two trait properties:
 
 - **Initial Cost** - Cost to purchase the first dot (0 to 1)
 - **Upgrade Cost** - Multiplier for subsequent dots
