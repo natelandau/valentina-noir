@@ -130,6 +130,8 @@ class CharacterTraitService:
         Returns:
             The number of traits with value > 0 in the category.
         """
+        # fetch_links=True is required because parent_category_id lives on the
+        # linked Trait document, not on CharacterTrait itself
         return await CharacterTrait.find(
             CharacterTrait.character_id == character_id,
             CharacterTrait.trait.parent_category_id == parent_category_id,  # type: ignore [attr-defined]
@@ -314,6 +316,10 @@ class CharacterTraitService:
         """
         multiplier = character_trait.trait.count_based_cost_multiplier  # type: ignore [attr-defined]
         if multiplier is not None:
+            # Count-based traits are binary (max_value=1), so increase_by is always 1
+            if increase_by != 1:
+                msg = f"Count-based traits only support single-dot increases, got {increase_by}"
+                raise ValidationError(detail=msg)
             count = await self._count_category_traits(
                 character_id,
                 character_trait.trait.parent_category_id,  # type: ignore [attr-defined]

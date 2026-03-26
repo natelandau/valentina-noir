@@ -3939,6 +3939,7 @@ class TestAddCountBasedTraitToCharacter:
         service = CharacterTraitService()
 
         gift_traits = await Trait.find(
+            Trait.count_based_cost_multiplier == 2,
             Trait.gift_attributes != None,
             Trait.gift_attributes.minimum_renown != None,
             Trait.gift_attributes.minimum_renown > 0,
@@ -3998,6 +3999,7 @@ class TestAddCountBasedTraitToCharacter:
         service = CharacterTraitService()
 
         gift_traits = await Trait.find(
+            Trait.count_based_cost_multiplier == 2,
             Trait.gift_attributes != None,
             Trait.gift_attributes.minimum_renown != None,
             Trait.gift_attributes.minimum_renown > 0,
@@ -4054,6 +4056,7 @@ class TestBulkAddCountBasedTraits:
         )
 
         gift_traits = await Trait.find(
+            Trait.count_based_cost_multiplier == 2,
             Trait.gift_attributes != None,
             Trait.gift_attributes.minimum_renown != None,
             Trait.gift_attributes.minimum_renown > 0,
