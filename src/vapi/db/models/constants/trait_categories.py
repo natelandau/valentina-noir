@@ -22,6 +22,7 @@ class TraitCategory(BaseDocument):
 
     initial_cost: int = Field(default=1)
     upgrade_cost: int = Field(default=2)
+    count_based_cost_multiplier: int | None = Field(default=None)
 
     class Settings:
         """Settings for the model."""

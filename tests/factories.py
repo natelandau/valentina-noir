@@ -312,7 +312,8 @@ class TraitFactory(BeanieDocumentFactory[Trait]):
     trait_subcategory_id: PydanticObjectId | None = None
     trait_subcategory_name: str | None = None
     is_rollable: bool = True
-    gift_attributes: None = None  # Prevent polyfactory from randomly generating gift traits
+    count_based_cost_multiplier: None = None
+    gift_attributes: None = None
 
     @classmethod
     def name(cls) -> str:

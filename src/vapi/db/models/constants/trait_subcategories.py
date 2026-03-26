@@ -26,6 +26,7 @@ class TraitSubcategory(BaseDocument):
     show_when_empty: Annotated[bool, Field(default=True)] = True
     initial_cost: Annotated[int, Field(ge=0, le=100, default=1)] = 1
     upgrade_cost: Annotated[int, Field(ge=0, le=100, default=2)] = 2
+    count_based_cost_multiplier: int | None = Field(default=None)
     character_classes: list[CharacterClass] = Field(default_factory=list)
     # 'Requires parent' means that this subcategory must be explicitly added to a character before any child traits can be added.
     requires_parent: Annotated[bool, Field(default=False)] = False
