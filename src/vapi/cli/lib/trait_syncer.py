@@ -257,6 +257,8 @@ class TraitSyncer:
                 subcategory.initial_cost = category.initial_cost
             if not fixture_subcategory.get("upgrade_cost"):
                 subcategory.upgrade_cost = category.upgrade_cost
+            if not fixture_subcategory.get("count_based_cost_multiplier"):
+                subcategory.count_based_cost_multiplier = category.count_based_cost_multiplier
             if not fixture_subcategory.get("game_versions"):
                 subcategory.game_versions = category.game_versions
             if not fixture_subcategory.get("character_classes"):
@@ -332,6 +334,12 @@ class TraitSyncer:
             if not fixture_trait.get("upgrade_cost"):
                 trait.upgrade_cost = (
                     subcategory.upgrade_cost if subcategory else category.upgrade_cost or 1
+                )
+            if not fixture_trait.get("count_based_cost_multiplier"):
+                trait.count_based_cost_multiplier = (
+                    subcategory.count_based_cost_multiplier
+                    if subcategory
+                    else category.count_based_cost_multiplier
                 )
             if not fixture_trait.get("game_versions"):
                 trait.game_versions = (
