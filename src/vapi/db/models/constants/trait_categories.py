@@ -19,6 +19,7 @@ class TraitCategory(BaseDocument):
     show_when_empty: bool = Field(default=False)
     order: int = Field(default=0)
     parent_sheet_section_id: PydanticObjectId
+    parent_sheet_section_name: str | None = None
 
     initial_cost: int = Field(default=1)
     upgrade_cost: int = Field(default=2)

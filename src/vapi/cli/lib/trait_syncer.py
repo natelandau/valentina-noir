@@ -201,7 +201,11 @@ class TraitSyncer:
             TraitCategory.parent_sheet_section_id == section.id,
         )
         if not category:
-            category = TraitCategory(**fixture_category, parent_sheet_section_id=section.id)
+            category = TraitCategory(
+                **fixture_category,
+                parent_sheet_section_id=section.id,
+                parent_sheet_section_name=section.name,
+            )
 
             created = True
 
@@ -223,6 +227,7 @@ class TraitSyncer:
         self,
         fixture_subcategory: dict[str, Any],
         category: TraitCategory,
+        section: CharSheetSection,
     ) -> tuple[TraitSubcategory, bool, bool]:
         """Sync a single trait subcategory.
 
@@ -232,6 +237,7 @@ class TraitSyncer:
         Args:
             fixture_subcategory: Fixture data for the subcategory.
             category: Parent category for the subcategory.
+            section: Parent section for the subcategory.
 
         Returns:
             tuple[TraitSubcategory, bool, bool]: The subcategory, whether it was created,
@@ -249,6 +255,8 @@ class TraitSyncer:
                 **fixture_subcategory,
                 parent_category_id=category.id,
                 parent_category_name=category.name,
+                sheet_section_id=section.id,
+                sheet_section_name=section.name,
             )
 
             created = True
@@ -313,8 +321,6 @@ class TraitSyncer:
         # after WerewolfTribe/WerewolfAuspice documents exist in the database.
         gift_attrs_raw = fixture_trait.pop("gift_attributes", None)
         if gift_attrs_raw is not None:
-            gift_attrs_raw.pop("tribe_name", None)
-            gift_attrs_raw.pop("auspice_name", None)
             fixture_trait["gift_attributes"] = GiftAttributes(**gift_attrs_raw)
 
         if not trait:
@@ -432,7 +438,7 @@ class TraitSyncer:
 
             for fixture_subcategory in fixture_category.get("subcategories", []):
                 subcategory, created, updated = await self._sync_subcategory(
-                    fixture_subcategory, category
+                    fixture_subcategory, category=category, section=section
                 )
                 subcategory_counts.total += 1
                 if created:

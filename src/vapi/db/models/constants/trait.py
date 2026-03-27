@@ -31,7 +31,9 @@ class GiftAttributes(HashedBaseModel):
     minimum_renown: int | None = None
     is_native_gift: bool = False
     tribe_id: Annotated[PydanticObjectId | None, Field(default=None)] = None
+    tribe_name: str | None = None
     auspice_id: Annotated[PydanticObjectId | None, Field(default=None)] = None
+    auspice_name: str | None = None
 
 
 class Trait(BaseDocument):

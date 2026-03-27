@@ -36,3 +36,6 @@ class TraitSubcategory(BaseDocument):
 
     parent_category_id: PydanticObjectId | None = None
     parent_category_name: str | None = None
+
+    sheet_section_id: PydanticObjectId | None = None
+    sheet_section_name: str | None = None
