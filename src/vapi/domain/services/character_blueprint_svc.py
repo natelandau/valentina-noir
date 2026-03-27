@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from beanie.operators import Or
-
 from vapi.constants import BlueprintTraitOrderBy
 from vapi.db.models import CharSheetSection, Trait, TraitCategory, TraitSubcategory
 
@@ -21,7 +19,7 @@ class CharacterBlueprintService:
     async def list_sheet_sections(
         self,
         *,
-        game_version: GameVersion,
+        game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
         limit: int = 10,
         offset: int = 0,
@@ -29,8 +27,8 @@ class CharacterBlueprintService:
         """List all character blueprint sections.
 
         Args:
-            game_version: The game version to list the sections for.
-            character_class: The character class to list the sections for.
+            game_version: Filter sections by game version.
+            character_class: Filter sections by character class.
             limit: The limit of sections to return.
             offset: The offset of the sections to return.
 
@@ -39,8 +37,9 @@ class CharacterBlueprintService:
         """
         filters = [
             CharSheetSection.is_archived == False,
-            CharSheetSection.game_versions == game_version,
         ]
+        if game_version:
+            filters.append(CharSheetSection.game_versions == game_version)
         if character_class:
             filters.append(CharSheetSection.character_classes == character_class)
 
@@ -54,8 +53,8 @@ class CharacterBlueprintService:
     async def list_sheet_categories(
         self,
         *,
-        game_version: GameVersion,
-        section: CharSheetSection,
+        game_version: GameVersion | None = None,
+        section_id: PydanticObjectId | None = None,
         character_class: CharacterClass | None = None,
         limit: int = 10,
         offset: int = 0,
@@ -63,9 +62,9 @@ class CharacterBlueprintService:
         """List all character blueprint categories.
 
         Args:
-            game_version: The game version to list the categories for.
-            section: The section to list the categories for.
-            character_class: The character class to list the categories for.
+            game_version: Filter categories by game version.
+            section_id: Filter categories by parent sheet section.
+            character_class: Filter categories by character class.
             limit: The limit of categories to return.
             offset: The offset of the categories to return.
 
@@ -74,9 +73,11 @@ class CharacterBlueprintService:
         """
         filters = [
             TraitCategory.is_archived == False,
-            TraitCategory.game_versions == game_version,
-            TraitCategory.parent_sheet_section_id == section.id,
         ]
+        if game_version:
+            filters.append(TraitCategory.game_versions == game_version)
+        if section_id:
+            filters.append(TraitCategory.parent_sheet_section_id == section_id)
         if character_class:
             filters.append(TraitCategory.character_classes == character_class)
 
@@ -89,18 +90,18 @@ class CharacterBlueprintService:
     async def list_sheet_category_subcategories(
         self,
         *,
-        game_version: GameVersion,
-        category: TraitCategory,
+        game_version: GameVersion | None = None,
+        category_id: PydanticObjectId | None = None,
         character_class: CharacterClass | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> tuple[int, list[TraitSubcategory]]:
-        """List all character blueprint category subcategories.
+        """List all character blueprint subcategories.
 
         Args:
-            game_version: The game version to list the subcategories for.
-            category: The category to list the subcategories for.
-            character_class: The character class to list the subcategories for.
+            game_version: Filter subcategories by game version.
+            category_id: Filter subcategories by parent category.
+            character_class: Filter subcategories by character class.
             limit: The limit of subcategories to return.
             offset: The offset of the subcategories to return.
 
@@ -109,9 +110,11 @@ class CharacterBlueprintService:
         """
         filters = [
             TraitSubcategory.is_archived == False,
-            TraitSubcategory.game_versions == game_version,
-            TraitSubcategory.parent_category_id == category.id,
         ]
+        if game_version:
+            filters.append(TraitSubcategory.game_versions == game_version)
+        if category_id:
+            filters.append(TraitSubcategory.parent_category_id == category_id)
         if character_class:
             filters.append(TraitSubcategory.character_classes == character_class)
 
@@ -121,110 +124,14 @@ class CharacterBlueprintService:
         )
         return count, subcategories
 
-    async def list_sheet_category_traits(  # noqa: PLR0913
-        self,
-        *,
-        game_version: GameVersion,
-        category: TraitCategory,
-        exclude_subcategory_traits: bool = False,
-        character_class: CharacterClass | None = None,
-        character_id: PydanticObjectId | None = None,
-        is_rollable: bool | None = None,
-        limit: int = 10,
-        offset: int = 0,
-    ) -> tuple[int, list[Trait]]:
-        """List all character blueprint category traits.
-
-        Args:
-            game_version: The game version to list the traits for.
-            category: The category to list the traits for.
-            exclude_subcategory_traits: Whether to exclude traits from subcategories.
-            character_class: The character class to list the traits for.
-            character_id: Include custom traits assigned to this character.
-            is_rollable: Whether to list the rollable traits.
-            limit: The limit of traits to return.
-            offset: The offset of the traits to return.
-
-        Returns:
-            A tuple containing the total number of traits and the list of traits.
-        """
-        filters = [
-            Trait.is_archived == False,
-            Trait.parent_category_id == category.id,
-            Trait.game_versions == game_version,
-        ]
-        if character_class:
-            filters.append(Trait.character_classes == character_class)
-        if is_rollable is not None:
-            filters.append(Trait.is_rollable == is_rollable)
-
-        if character_id:
-            filters.append(
-                Or(  # type: ignore [arg-type]
-                    Trait.custom_for_character_id == character_id,
-                    Trait.custom_for_character_id == None,
-                )
-            )
-        else:
-            filters.append(Trait.custom_for_character_id == None)
-
-        if exclude_subcategory_traits:
-            filters.append(Trait.trait_subcategory_id == None)
-
-        count = await Trait.find(*filters).count()
-        traits = (
-            await Trait.find(*filters)
-            .sort("parent_category_id")
-            .sort("order")
-            .skip(offset)
-            .limit(limit)
-            .to_list()
-        )
-        return count, traits
-
-    async def list_sheet_category_subcategory_traits(
-        self,
-        *,
-        game_version: GameVersion,
-        subcategory: TraitSubcategory,
-        character_class: CharacterClass | None = None,
-        is_rollable: bool | None = None,
-        limit: int = 10,
-        offset: int = 0,
-    ) -> tuple[int, list[Trait]]:
-        """List all character blueprint subcategory traits.
-
-        Args:
-            game_version: The game version to list the traits for.
-            subcategory: The subcategory to list the traits for.
-            character_class: The character class to list the traits for.
-            is_rollable: Whether to list the rollable traits.
-            limit: The limit of traits to return.
-            offset: The offset of the traits to return.
-
-        Returns:
-            A tuple containing the total number of traits and the list of traits.
-        """
-        filters = [
-            Trait.is_archived == False,
-            Trait.trait_subcategory_id == subcategory.id,
-            Trait.game_versions == game_version,
-        ]
-        if character_class:
-            filters.append(Trait.character_classes == character_class)
-        if is_rollable is not None:
-            filters.append(Trait.is_rollable == is_rollable)
-
-        count = await Trait.find(*filters).count()
-        traits = await Trait.find(*filters).sort("order").skip(offset).limit(limit).to_list()
-        return count, traits
-
-    async def list_all_traits(  # noqa: C901
+    async def list_all_traits(  # noqa: C901, PLR0912, PLR0913
         self,
         *,
         game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
         parent_category_id: PydanticObjectId | None = None,
+        subcategory_id: PydanticObjectId | None = None,
+        exclude_subcategory_traits: bool = False,
         is_rollable: bool | None = None,
         order_by: BlueprintTraitOrderBy = BlueprintTraitOrderBy.NAME,
         limit: int = 10,
@@ -236,6 +143,8 @@ class CharacterBlueprintService:
             game_version: The game version to list the traits for.
             character_class: The character class to list the traits for.
             parent_category_id: The parent category id to list the traits for.
+            subcategory_id: Filter traits by subcategory.
+            exclude_subcategory_traits: When True, only return traits without a subcategory.
             is_rollable: Whether to list the rollable traits.
             order_by: The order by to list the traits for.
             limit: The limit of traits to return.
@@ -254,6 +163,10 @@ class CharacterBlueprintService:
             filters.append(Trait.character_classes == character_class)
         if parent_category_id:
             filters.append(Trait.parent_category_id == parent_category_id)
+        if subcategory_id:
+            filters.append(Trait.trait_subcategory_id == subcategory_id)
+        if exclude_subcategory_traits:
+            filters.append(Trait.trait_subcategory_id == None)
         if is_rollable is not None:
             filters.append(Trait.is_rollable == is_rollable)
 
@@ -270,6 +183,10 @@ class CharacterBlueprintService:
                 match_conditions["character_classes"] = character_class.value
             if parent_category_id:
                 match_conditions["parent_category_id"] = parent_category_id
+            if subcategory_id:
+                match_conditions["trait_subcategory_id"] = subcategory_id
+            if exclude_subcategory_traits:
+                match_conditions["trait_subcategory_id"] = None
             if is_rollable is not None:
                 match_conditions["is_rollable"] = is_rollable
 
