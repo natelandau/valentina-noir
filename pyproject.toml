@@ -2,8 +2,8 @@
     authors = [{ name = "Nate Landau", email = "github@natelandau.com" }]
     dependencies = [
         "asyncio>=4.0.0",
-        "beanie>=2.0.1,<3.0.0",
-        "boto3>=1.42.74",
+        "beanie>=2.1.0,<3.0.0",
+        "boto3>=1.42.77",
         "faker>=40.11.1",
         "httpx-oauth>=0.16.1",
         "inflect>=7.5.0",
@@ -53,7 +53,7 @@
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.0.2",
-        "ruff>=0.15.7",
+        "ruff>=0.15.8",
         "shellcheck-py>=0.11.0.1",
         "typos>=1.44.0",
         "yamllint>=1.38.0",
