@@ -105,7 +105,7 @@ class TestDictionaryController:
         assert dictionary_term.definition == "Foo is a bar."
         assert dictionary_term.company_id == base_company.id
         assert dictionary_term.link == "https://example.com"
-        assert dictionary_term.is_global == False
+        assert dictionary_term.source_type is None
 
         # Cleanup
         await dictionary_term.delete()
@@ -143,9 +143,8 @@ class TestDictionaryController:
             term="Foo",
             definition="Foo is a bar.",
             company_id=base_company.id,
-            is_global=False,
         )
-        spy = mocker.spy(DictionaryService, "verify_is_company_dictionary_term")
+        spy = mocker.spy(DictionaryService, "verify_term_is_editable")
 
         response = await client.patch(
             build_url(Dictionaries.UPDATE, dictionary_term_id=term.id),
@@ -177,7 +176,6 @@ class TestDictionaryController:
             definition="Foo is a bar.",
             company_id=base_company.id,
             link=None,
-            is_global=False,
         )
 
         # When we update the dictionary term with invalid data
@@ -205,9 +203,8 @@ class TestDictionaryController:
             term="Foo",
             definition="Foo is a bar.",
             company_id=base_company.id,
-            is_global=False,
         )
-        spy = mocker.spy(DictionaryService, "verify_is_company_dictionary_term")
+        spy = mocker.spy(DictionaryService, "verify_term_is_editable")
 
         # When we delete the dictionary term
         response = await client.delete(
@@ -220,5 +217,5 @@ class TestDictionaryController:
         await term.sync()
         assert term.is_archived
         assert term.archive_date is not None
-        # Then the verify_is_company_dictionary_term method should have been called
+        # Then the verify_term_is_editable method should have been called
         assert spy.call_count == 1

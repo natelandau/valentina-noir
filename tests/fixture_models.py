@@ -1003,9 +1003,10 @@ async def dictionary_term_factory(base_company) -> DictionaryTerm:
             "definition": "Test definition",
             "link": "https://example.com/test",
             "synonyms": ["Test Synonym", "Test Synonym 2"],
-            "company_id": base_company.id,
+            "company_id": kwargs.get("company_id") or base_company.id,
+            "source_type": kwargs.get("source_type") or None,
+            "source_id": kwargs.get("source_id") or None,
             "is_archived": False,
-            "is_global": True,
         }
 
         for key, value in kwargs.items():

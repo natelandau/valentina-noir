@@ -236,7 +236,7 @@ async def provide_dictionary_term_by_id(
     dictionary_term = await DictionaryTerm.find_one(
         DictionaryTerm.id == dictionary_term_id,
         DictionaryTerm.is_archived == False,
-        Or(DictionaryTerm.company_id == company.id, DictionaryTerm.is_global == True),
+        Or(DictionaryTerm.company_id == company.id, DictionaryTerm.source_type != None),
     )
     if not dictionary_term:
         raise NotFoundError(detail="Dictionary term not found")
