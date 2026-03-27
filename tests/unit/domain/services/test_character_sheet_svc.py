@@ -254,7 +254,14 @@ class TestCharacterSheetService:
             character_factory: Callable[[dict[str, Any]], Character],
             character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
         ) -> None:
-            """Verify a category can have both direct traits and subcategory traits."""
+            """Verify a category can have both direct traits and subcategory traits.
+
+            NOTE: This test skips when no category in the fixture data contains both
+            direct traits (no subcategory) and subcategory traits. Currently every
+            category is uniform — either all traits are direct or all are organized
+            into subcategories. If the fixture data in traits.json is updated to
+            include a category with both patterns, this test will run automatically.
+            """
             # Given a trait with a subcategory
             character = await character_factory(character_class=CharacterClass.MORTAL)
             trait_with_sub = await Trait.find_one(
@@ -305,35 +312,32 @@ class TestCharacterSheetService:
             }
             assert trait_with_sub.id in sub_trait_ids
 
-        async def test_out_of_class_trait_backfills_parent_structures(
+        async def test_out_of_class_trait_backfills_parent_category(
             self,
             character_factory: Callable[[dict[str, Any]], Character],
             character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
         ) -> None:
-            """Verify a trait from a different class pulls in its parent section and category."""
+            """Verify a trait from a category outside the character's class backfills that category."""
             # Given a mortal character
             character = await character_factory(character_class=CharacterClass.MORTAL)
 
-            # And the mortal skeleton sections for this game version
-            mortal_sections = await CharSheetSection.find(
-                CharSheetSection.is_archived == False,
-                CharSheetSection.character_classes == CharacterClass.MORTAL,
-                CharSheetSection.game_versions == character.game_version,
+            # And the mortal skeleton categories for this game version
+            mortal_categories = await TraitCategory.find(
+                TraitCategory.is_archived == False,
+                TraitCategory.character_classes == CharacterClass.MORTAL,
+                TraitCategory.game_versions == character.game_version,
             ).to_list()
-            mortal_section_ids = {s.id for s in mortal_sections}
+            mortal_category_ids = {c.id for c in mortal_categories}
 
-            # And a trait that belongs exclusively to a different class (e.g. vampire)
+            # And a vampire-only trait whose category is not in the mortal skeleton
             vampire_only_trait = await Trait.find_one(
                 Trait.is_archived == False,
-                Trait.character_classes == CharacterClass.VAMPIRE,
                 Trait.game_versions == character.game_version,
+                NotIn(Trait.parent_category_id, list(mortal_category_ids)),
             )
-            if vampire_only_trait is None:
-                pytest.skip("Pre-seeded DB needs a vampire-only trait")
-
-            # And that trait's section is not in the mortal skeleton
-            if vampire_only_trait.sheet_section_id in mortal_section_ids:
-                pytest.skip("Need a trait whose section is exclusive to vampires")
+            assert vampire_only_trait is not None, (
+                "Pre-seeded DB needs a trait in a category outside the mortal skeleton"
+            )
 
             # When we assign the out-of-class trait to the mortal
             await character_trait_factory(
@@ -344,15 +348,9 @@ class TestCharacterSheetService:
             service = CharacterSheetService()
             result = await service.get_character_full_sheet(character)
 
-            # Then the result should include the mortal skeleton sections
-            result_section_names = {s.name for s in result.sections}
-            for section in mortal_sections:
-                assert section.name in result_section_names
-
-            # And also include the backfilled section from the out-of-class trait
-            backfilled_section = await CharSheetSection.get(vampire_only_trait.sheet_section_id)
-            assert backfilled_section is not None
-            assert backfilled_section.name in result_section_names
+            # Then the backfilled category should appear in the sheet
+            result_category_names = {c.name for s in result.sections for c in s.categories}
+            assert vampire_only_trait.parent_category_name in result_category_names
 
             # And the trait should be present in the backfilled structure
             all_trait_ids = {

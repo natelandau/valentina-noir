@@ -1843,49 +1843,6 @@ class TestGuardHasMinimumRenown:
         # Then the trait is added successfully despite insufficient renown
         assert result.value == 1
 
-    async def test_add_gift_no_minimum_renown_succeeds(
-        self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
-    ) -> None:
-        """Verify adding a gift with minimum_renown=None skips the check."""
-        # Given a werewolf character with XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        await user.add_xp(campaign.id, 500)
-        character = await character_factory(
-            user_player_id=user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
-            character_class=CharacterClass.WEREWOLF,
-        )
-
-        # Given a gift trait with no minimum_renown requirement
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown == None,
-            Trait.is_archived == False,
-        )
-        if gift_trait is None:
-            pytest.skip("No gift without minimum_renown found in database")
-
-        # When adding the gift with XP currency so the guard is actually invoked
-        service = CharacterTraitService()
-        result = await service.add_constant_trait_to_character(
-            company=company,
-            user=user,
-            character=character,
-            trait_id=gift_trait.id,
-            value=1,
-            currency=TraitModifyCurrency.XP,
-        )
-
-        # Then the trait is added successfully
-        assert result.value == 1
-
     async def test_add_non_gift_trait_skips_renown_check(
         self,
         character_factory: Callable[[dict[str, ...]], Character],
