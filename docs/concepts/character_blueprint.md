@@ -154,16 +154,23 @@ Optionally filter by `character_class` to get class-specific subcategories.
         "description": "People who support and assist the character.",
         "game_versions": ["V4", "V5"],
         "character_classes": ["VAMPIRE", "WEREWOLF", ...],
-        "show_when_empty": true,
-        "initial_cost": 1,
-        "upgrade_cost": 2,
-        "requires_parent": false,
-        "pool": null,
-        "system": null,
+        "show_when_empty": true, // (1)!
+        "initial_cost": 1, // (2)!
+        "upgrade_cost": 2, // (3)!
+        "requires_parent": false, // (4)!
+        "pool": null, // (5)!
+        "system": null, // (6)!
         "parent_category_id": "69679d6b92e8772cd93d8185",
         "parent_category_name": "Backgrounds"
     }
     ```
+
+    1.  Whether to display the subcategory on a sheet when it has no assigned traits.
+    2.  Default initial cost for traits in this subcategory.
+    3.  Default upgrade cost multiplier for traits in this subcategory.
+    4.  Whether this subcategory must be explicitly added to a character before its child traits can be assigned. Used for hunter edges where the edge itself must be selected before perks become available.
+    5.  A dice pool description associated with this subcategory, if applicable.
+    6.  A system/mechanical rules description for this subcategory, if applicable.
 
 ### Getting a Single Resource
 
