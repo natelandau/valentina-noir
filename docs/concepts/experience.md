@@ -63,10 +63,10 @@ The Experience API provides endpoints for managing player experience:
 
 ## Permission Controls
 
-Who can grant or spend experience is controlled by company settings. See [Company Settings](./company_settings.md) for details on the `permission_grant_xp` setting.
+Who can grant experience is controlled by the `permission_grant_xp` company setting. See [Company Settings](./company_settings.md) for details.
 
-| Permission Level   | Who Can Grant XP                          |
-| ------------------ | ----------------------------------------- |
-| `UNRESTRICTED`     | Any user can grant XP to any user         |
-| `PLAYER`           | Users can only grant XP to themselves     |
-| `STORYTELLER_ONLY` | Only Storytellers and Admins can grant XP |
+| Setting        | Who Can Grant XP                          |
+| -------------- | ----------------------------------------- |
+| `UNRESTRICTED` | Any user can grant XP to any user         |
+| `PLAYER`       | Users can only grant XP to themselves     |
+| `STORYTELLER`  | Only Storytellers and Admins can grant XP |

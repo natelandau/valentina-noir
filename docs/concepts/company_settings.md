@@ -4,25 +4,34 @@ icon: lucide/settings
 
 # Company Settings
 
-Company administrators configure these settings to customize the game experience.
+Company settings let administrators tailor gameplay rules and permissions for their gaming group. Your client application needs to respect these settings — they determine which actions are available to each user role, how much autogeneration costs, and when free trait changes are allowed.
+
+Retrieve the current settings from the company object:
+
+```shell
+GET /api/v1/companies/{company_id}
+```
+
+The `settings` field in the response contains all configurable values.
 
 ## Campaign Management
 
 Control who creates, updates, and deletes campaigns, books, and chapters.
 
-| Setting            | Behavior                                                  |
-| ------------------ | --------------------------------------------------------- |
-| `UNRESTRICTED`     | Any user manages campaigns, books, and chapters (default) |
-| `STORYTELLER ONLY` | Only storytellers manage campaigns, books, and chapters   |
+| Setting        | Behavior                                                  |
+| -------------- | --------------------------------------------------------- |
+| `UNRESTRICTED` | Any user manages campaigns, books, and chapters (default) |
+| `STORYTELLER`  | Only storytellers manage campaigns, books, and chapters   |
 
 ## XP Management
 
 Control who grants experience points to players.
 
-| Setting            | Behavior                             |
-| ------------------ | ------------------------------------ |
-| `UNRESTRICTED`     | Any user grants experience (default) |
-| `STORYTELLER ONLY` | Only storytellers grant experience   |
+| Setting        | Behavior                             |
+| -------------- | ------------------------------------ |
+| `UNRESTRICTED` | Any user grants experience (default) |
+| `PLAYER`       | Users can only grant XP to themselves |
+| `STORYTELLER`  | Only storytellers grant experience   |
 
 ## Character Autogeneration
 
@@ -49,8 +58,8 @@ Control when players update traits without spending experience points.
 | Setting            | Behavior                                                                 |
 | ------------------ | ------------------------------------------------------------------------ |
 | `UNRESTRICTED`     | Character owners change trait values at any time without cost (default)  |
-| `WITHIN 24 HOURS`  | Character owners make free changes within 24 hours of character creation |
-| `STORYTELLER ONLY` | Only storytellers make free trait changes                                |
+| `WITHIN_24_HOURS`  | Character owners make free changes within 24 hours of character creation |
+| `STORYTELLER`      | Only storytellers make free trait changes                                |
 
 !!! info "Storyteller Privileges"
 

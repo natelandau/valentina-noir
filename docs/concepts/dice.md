@@ -42,6 +42,6 @@ Tally all dice using these rules:
 
 ## Quick Rolls
 
-Users save trait combinations for one-click rolling.
+Users can save trait combinations for one-click rolling. For example, a "Shoot" quick roll combines `Firearms` and `Dexterity`. Select a character and the API sums the character's trait values to determine the dice pool.
 
-For example, a "Shoot" quick roll combines `Firearms` and `Dexterity`. Select a character and the system automatically calculates the dice pool.
+See the [Quick Rolls](./quick_rolls.md) documentation for details on creating, managing, and executing quick rolls.

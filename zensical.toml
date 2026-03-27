@@ -24,6 +24,7 @@
             { "Dice Rolling" = "concepts/dice.md" },
             { "Dictionary Terms" = "concepts/dictionary.md" },
             { "Experience" = "concepts/experience.md" },
+            { "Quick Rolls" = "concepts/quick_rolls.md" },
             { "Storytellers" = "concepts/storytellers.md" },
         ] },
         { "Technical Details" = [
