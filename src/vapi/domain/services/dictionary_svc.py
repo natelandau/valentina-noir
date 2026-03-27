@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from beanie import PydanticObjectId  # noqa: TC002
 from beanie.operators import Or
 
 from vapi.db.models import Company, DictionaryTerm
@@ -14,10 +15,15 @@ class DictionaryService:
     def __init__(self) -> None:
         """Initialize the dictionary service."""
 
-    def verify_is_company_dictionary_term(self, dictionary_term: DictionaryTerm) -> bool:
-        """Check if the dictionary term is a global dictionary term."""
-        if dictionary_term.is_global:
-            raise ValidationError(detail="You may only update company dictionary terms.")
+    def verify_term_is_editable(
+        self, dictionary_term: DictionaryTerm, company_id: PydanticObjectId
+    ) -> bool:
+        """Check if the dictionary term is editable by the company."""
+        if dictionary_term.company_id != company_id or dictionary_term.source_type is not None:
+            raise ValidationError(
+                detail="You may not update dictionary terms that are not owned by your company."
+            )
+
         return True
 
     async def list_all_dictionary_terms(
@@ -36,7 +42,7 @@ class DictionaryService:
         """
         query = [
             DictionaryTerm.is_archived == False,
-            Or(DictionaryTerm.company_id == company.id, DictionaryTerm.is_global == True),
+            Or(DictionaryTerm.company_id == company.id, DictionaryTerm.source_type != None),
         ]
         if term:
             query.append(
@@ -46,9 +52,9 @@ class DictionaryService:
                 )
             )
 
-        count = await DictionaryTerm.find(*query, with_children=True).count()  # type: ignore [call-overload]
+        count = await DictionaryTerm.find(*query).count()  # type: ignore [call-overload]
         dictionary_terms = (
-            await DictionaryTerm.find(*query, with_children=True)  # type: ignore [call-overload]
+            await DictionaryTerm.find(*query)  # type: ignore [call-overload]
             .sort("term")
             .skip(offset)
             .limit(limit)

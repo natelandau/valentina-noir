@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.constants import InventoryItemType
+from vapi.constants import DictionarySourceType, InventoryItemType
 from vapi.db.models import (
     Campaign,
     CampaignBook,
@@ -543,7 +543,7 @@ class TestProvideDictionaryTermById:
     ) -> None:
         """Verify returning a company-specific dictionary term when found."""
         # Given a company-specific dictionary term exists
-        term = await dictionary_term_factory(company_id=base_company.id, is_global=False)
+        term = await dictionary_term_factory(company_id=base_company.id)
 
         # When we provide the term by ID
         result = await deps.provide_dictionary_term_by_id(base_company, term.id)
@@ -556,7 +556,11 @@ class TestProvideDictionaryTermById:
     ) -> None:
         """Verify returning a global dictionary term."""
         # Given a global dictionary term exists
-        term = await dictionary_term_factory(is_global=True)
+        term = await dictionary_term_factory(
+            source_type=DictionarySourceType.TRAIT, source_id=PydanticObjectId()
+        )
+        term.company_id = None
+        await term.save()
 
         # When we provide the term by ID with any company
         result = await deps.provide_dictionary_term_by_id(base_company, term.id)

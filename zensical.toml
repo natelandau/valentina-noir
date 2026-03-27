@@ -22,6 +22,7 @@
             { "Characters" = "concepts/characters.md" },
             { "Company Settings" = "concepts/company_settings.md" },
             { "Dice Rolling" = "concepts/dice.md" },
+            { "Dictionary Terms" = "concepts/dictionary.md" },
             { "Experience" = "concepts/experience.md" },
             { "Storytellers" = "concepts/storytellers.md" },
         ] },

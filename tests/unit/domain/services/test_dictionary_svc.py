@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from beanie import PydanticObjectId
 
+from vapi.constants import DictionarySourceType
 from vapi.db.models import Company, DictionaryTerm
 from vapi.domain.services import DictionaryService
 from vapi.lib.exceptions import ValidationError
@@ -20,21 +21,58 @@ pytestmark = pytest.mark.anyio
 class TestDictionaryService:
     """Test the dictionary service."""
 
-    def test_verify_is_company_dictionary_false(self) -> None:
-        """Test the verify_is_company_dictionary_term method."""
-        dictionary_term = DictionaryTerm(term="Foo", definition="Foo is a bar.", is_global=True)
-        with pytest.raises(ValidationError, match=r"You may only update company dictionary terms"):
-            DictionaryService().verify_is_company_dictionary_term(dictionary_term)
-
-    def test_verify_is_company_dictionary_true(self) -> None:
-        """Test the verify_is_company_dictionary_term method."""
+    def test_verify_term_is_editable_false(self) -> None:
+        """Test the verify_term_is_editable method."""
         dictionary_term = DictionaryTerm(
             term="Foo",
             definition="Foo is a bar.",
-            is_global=False,
-            company_id=PydanticObjectId(),
+            source_type="trait",
+            source_id=PydanticObjectId(),
         )
-        assert DictionaryService().verify_is_company_dictionary_term(dictionary_term)
+        with pytest.raises(
+            ValidationError,
+            match=r"You may not update dictionary terms that are not owned by your company",
+        ):
+            DictionaryService().verify_term_is_editable(
+                dictionary_term, company_id=PydanticObjectId()
+            )
+
+    def test_verify_term_is_editable_false_not_company(self) -> None:
+        """Test the verify_term_is_editable method."""
+        dictionary_term = DictionaryTerm(
+            term="Foo", definition="Foo is a bar.", company_id=PydanticObjectId()
+        )
+        with pytest.raises(
+            ValidationError,
+            match=r"You may not update dictionary terms that are not owned by your company",
+        ):
+            DictionaryService().verify_term_is_editable(
+                dictionary_term, company_id=PydanticObjectId()
+            )
+
+    def test_verify_term_is_editable_false_no_company_id(self) -> None:
+        """Verify term with no company_id is not editable."""
+        # Given a term with no company_id and no source_type
+        dictionary_term = DictionaryTerm(term="Foo", definition="Foo is a bar.")
+        # When we verify editability, Then it should raise
+        with pytest.raises(
+            ValidationError,
+            match=r"You may not update dictionary terms that are not owned by your company",
+        ):
+            DictionaryService().verify_term_is_editable(
+                dictionary_term, company_id=PydanticObjectId()
+            )
+
+    def test_verify_term_is_editable_true(self) -> None:
+        """Test the verify_term_is_editable method."""
+        company_id = PydanticObjectId()
+        dictionary_term = DictionaryTerm(
+            term="Foo",
+            definition="Foo is a bar.",
+            source_type=None,
+            company_id=company_id,
+        )
+        assert DictionaryService().verify_term_is_editable(dictionary_term, company_id)
 
     async def test_list_all_dictionary_terms(
         self,
@@ -49,17 +87,18 @@ class TestDictionaryService:
             term="Foo",
             definition="Foo is a bar.",
             company_id=company.id,
-            is_global=False,
         )
         global_term = await dictionary_term_factory(
             term="Bar",
             definition="Bar is a baz.",
-            is_global=True,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=PydanticObjectId(),
         )
+        global_term.company_id = None
+        await global_term.save()
         non_company_term = await dictionary_term_factory(
             term="Baz",
             definition="Baz is a qux.",
-            is_global=False,
             company_id=PydanticObjectId(),
         )
         archived_term = await dictionary_term_factory(
@@ -105,12 +144,14 @@ class TestDictionaryService:
         global_term = await dictionary_term_factory(
             term="Bar",
             definition="Bar is a baz.",
-            is_global=True,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=PydanticObjectId(),
         )
         await dictionary_term_factory(
             term="Qux",
             definition="Qux is a quux.",
-            is_global=True,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=PydanticObjectId(),
         )
         await dictionary_term_factory(
             term="Baz",
@@ -123,8 +164,8 @@ class TestDictionaryService:
             company=company, limit=10, offset=0, term="bar"
         )
         # Then we should get the correct count and dictionary terms
-        assert count == 2
         assert dictionary_terms == [global_term, company_term]
+        assert count == 2
 
     async def test_list_all_dictionary_terms_skip_and_limit(
         self,
@@ -145,17 +186,20 @@ class TestDictionaryService:
             term="Baz",
             definition="Baz is a qux.",
             company_id=company.id,
-            is_global=True,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=PydanticObjectId(),
         )
         await dictionary_term_factory(
             term="Bar",
             definition="Bar is a baz.",
-            is_global=True,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=PydanticObjectId(),
         )
         await dictionary_term_factory(
             term="Qux",
             definition="Qux is a quux.",
-            is_global=True,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=PydanticObjectId(),
         )
         await dictionary_term_factory(
             term="Qux",

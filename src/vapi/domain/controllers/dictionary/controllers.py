@@ -101,11 +101,11 @@ class DictionaryTermController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_dictionary_term(
-        self, dictionary_term: DictionaryTerm, data: DTOData[DictionaryTerm]
+        self, company: Company, dictionary_term: DictionaryTerm, data: DTOData[DictionaryTerm]
     ) -> DictionaryTerm:
         """Update a dictionary term by ID."""
         service = DictionaryService()
-        service.verify_is_company_dictionary_term(dictionary_term)
+        service.verify_term_is_editable(dictionary_term, company_id=company.id)
 
         dictionary_term, data = await patch_dto_data_internal_objects(
             original=dictionary_term, data=data
@@ -125,10 +125,12 @@ class DictionaryTermController(Controller):
         description=docs.DELETE_DICTIONARY_TERM_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_dictionary_term(self, dictionary_term: DictionaryTerm) -> None:
+    async def delete_dictionary_term(
+        self, company: Company, dictionary_term: DictionaryTerm
+    ) -> None:
         """Delete a dictionary term by ID."""
         service = DictionaryService()
-        service.verify_is_company_dictionary_term(dictionary_term)
+        service.verify_term_is_editable(dictionary_term, company_id=company.id)
 
         dictionary_term.is_archived = True
         await dictionary_term.save()

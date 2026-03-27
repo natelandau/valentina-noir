@@ -80,6 +80,16 @@ class DiceSize(Enum):
     D100 = 100
 
 
+class DictionarySourceType(StrEnum):
+    """Source types for bootstrapped dictionary terms."""
+
+    TRAIT = "trait"
+    CLAN = "clan"
+    TRIBE = "tribe"
+    AUSPICE = "auspice"
+    TRAIT_SUBCATEGORY = "trait_subcategory"
+
+
 class GameVersion(StrEnum):
     """Game version."""
 
