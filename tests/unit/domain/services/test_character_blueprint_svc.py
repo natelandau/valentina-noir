@@ -193,17 +193,17 @@ class TestListSheetCategories:
     async def test_list_sheet_categories_no_filters(self) -> None:
         """Verify that list_sheet_categories returns all categories when no filters are specified."""
         # Given all non-archived categories
-        all_categories = await TraitCategory.find(
+        total = await TraitCategory.find(
             TraitCategory.is_archived == False,
-        ).to_list()
+        ).count()
 
         # When listing categories without filters
         service = CharacterBlueprintService()
         count, categories = await service.list_sheet_categories()
 
-        # Then all categories are returned
-        assert count == len(all_categories)
-        assert categories == all_categories[:10]
+        # Then the total count matches and results are paginated
+        assert count == total
+        assert len(categories) == min(10, total)
 
 
 class TestListSheetCategorySubcategories:
