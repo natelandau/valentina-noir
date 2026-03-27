@@ -44,7 +44,7 @@ For richer UI experiences, use `source_type` to determine which character bluepr
 | `clan` | `/characterblueprint/vampire-clans/{source_id}` | Disciplines, structured bane/compulsion objects |
 | `tribe` | `/characterblueprint/werewolf-tribes/{source_id}` | Gift trait IDs, structured renown/favor/ban fields |
 | `auspice` | `/characterblueprint/werewolf-auspices/{source_id}` | Gift trait IDs |
-| `trait_subcategory` | `/characterblueprint/.../subcategories/{source_id}` | Cost data, `requires_parent`, character class filtering |
+| `trait_subcategory` | `/characterblueprint/subcategories/{source_id}` | Cost data, `requires_parent`, character class filtering |
 | `trait` | `/characterblueprint/traits/{source_id}` | Cost data, min/max values, character classes, game versions, gift attributes |
 
 ## API Endpoints
