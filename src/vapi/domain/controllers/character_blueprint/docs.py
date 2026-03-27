@@ -2,9 +2,9 @@
 
 # Sheet Sections
 LIST_SECTIONS_DESCRIPTION = """\
-Retrieve character sheet sections for a game version.
+Retrieve character sheet sections.
 
-Sections organize trait categories on the character sheet (e.g., Attributes, Abilities, Backgrounds). Optionally filter by character class to get class-specific sections.
+Sections organize trait categories on the character sheet (e.g., Attributes, Abilities, Backgrounds). Optionally filter by game version or character class.
 """
 
 GET_SECTION_DESCRIPTION = """\
@@ -13,37 +13,24 @@ Retrieve a specific character sheet section including its metadata, ordering, an
 
 # Categories
 LIST_CATEGORIES_DESCRIPTION = """\
-Retrieve trait categories within a sheet section for a game version.
+Retrieve trait categories.
 
-Categories group related traits together (e.g., `Physical`, `Social`, `Mental` attributes). Optionally filter by character class for class-specific categories.
+Categories group related traits together (e.g., `Physical`, `Social`, `Mental` attributes). Optionally filter by game version, section, or character class.
 """
 
 GET_CATEGORY_DESCRIPTION = """\
 Retrieve a specific trait category including its cost configuration, value constraints, and metadata.
 """
 
-# Category Traits
-LIST_CATEGORY_TRAITS_DESCRIPTION = """\
-Retrieve traits within a category for a game version.
+# Subcategories
+LIST_SUBCATEGORIES_DESCRIPTION = """\
+Retrieve trait subcategories.
 
-These are the individual traits that can be assigned to characters (e.g., `Strength`, `Firearms`, `Resources`). Optionally filter by character class or include custom traits for a specific character.
+Subcategories group related traits together (e.g., `Resources`, `Allies`, `Flaws`). Optionally filter by game version, category, or character class.
 """
 
-# Category Subcategories
-LIST_CATEGORY_SUBCATEGORIES_DESCRIPTION = """\
-Retrieve subcategories within a category for a game version.
-
-Subcategories group related traits together (e.g., `Resources`, `Allies`, `Flaws`). Optionally filter by character class.
-"""
-
-GET_CATEGORY_SUBCATEGORY_DESCRIPTION = """\
+GET_SUBCATEGORY_DESCRIPTION = """\
 Retrieve a specific trait subcategory including its name, description, and metadata.
-"""
-
-LIST_CATEGORY_SUBCATEGORY_TRAITS_DESCRIPTION = """\
-Retrieve traits within a subcategory for a game version.
-
-These are the individual traits grouped under a subcategory (e.g., traits within `Resources` or `Allies`). Optionally filter by character class.
 """
 
 # Traits
@@ -53,9 +40,9 @@ Retrieve a specific trait including its value range, cost configuration, and met
 
 # All Traits
 LIST_ALL_TRAITS_DESCRIPTION = """\
-Retrieve all system traits regardless of game version or character class.
+Retrieve all system traits.
 
-Excludes custom character-specific traits. Useful for building trait selection interfaces or validating trait references.
+Excludes custom character-specific traits. Supports filtering by game version, character class, category, subcategory, and rollable status. Use `exclude_subcategory_traits` to return only top-level traits.
 """
 
 # Concepts
