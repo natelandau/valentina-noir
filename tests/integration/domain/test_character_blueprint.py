@@ -49,9 +49,12 @@ class TestSheetSection:
         # debug(sheet_section)
 
         response = await client.get(
-            build_url(CharacterBlueprints.SECTIONS, game_version=GameVersion.V4.name),
+            build_url(CharacterBlueprints.SECTIONS),
             headers=token_company_admin,
-            params={"character_class": CharacterClass.VAMPIRE.name},
+            params={
+                "game_version": GameVersion.V4.name,
+                "character_class": CharacterClass.VAMPIRE.name,
+            },
         )
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
@@ -79,7 +82,6 @@ class TestSheetSection:
             build_url(
                 CharacterBlueprints.SECTION_DETAIL,
                 section_id=sheet_section.id,
-                game_version=GameVersion.V4.name,
             ),
             headers=token_company_admin,
         )
@@ -116,8 +118,6 @@ class TestSheetCategory:
             build_url(
                 CharacterBlueprints.CATEGORY_DETAIL,
                 category_id=trait_category.id,
-                section_id=sheet_section.id,
-                game_version=GameVersion.V4.name,
             ),
             headers=token_company_admin,
         )
@@ -154,13 +154,13 @@ class TestSheetCategory:
         )
 
         response = await client.get(
-            build_url(
-                CharacterBlueprints.CATEGORIES,
-                section_id=sheet_section.id,
-                game_version=GameVersion.V4.name,
-            ),
+            build_url(CharacterBlueprints.CATEGORIES),
             headers=token_company_admin,
-            params={"character_class": CharacterClass.VAMPIRE.name},
+            params={
+                "game_version": GameVersion.V4.name,
+                "section_id": str(sheet_section.id),
+                "character_class": CharacterClass.VAMPIRE.name,
+            },
         )
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
@@ -205,13 +205,12 @@ class TestSheetSubcategory:
 
         # When requesting subcategories via the API
         response = await client.get(
-            build_url(
-                CharacterBlueprints.CATEGORY_SUBCATEGORIES,
-                category_id=category.id,
-                section_id=category.parent_sheet_section_id,
-                game_version=game_version.name,
-            ),
+            build_url(CharacterBlueprints.SUBCATEGORIES),
             headers=token_company_admin,
+            params={
+                "game_version": game_version.name,
+                "category_id": str(category.id),
+            },
         )
 
         # Then the response contains the expected subcategories
@@ -230,24 +229,17 @@ class TestSheetSubcategory:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get category subcategory endpoint is working."""
-        # Given a subcategory with a parent category
+        # Given a subcategory
         subcategory = await TraitSubcategory.find_one(
             TraitSubcategory.is_archived == False,
             TraitSubcategory.parent_category_id != None,
         )
-        category = await TraitCategory.find_one(
-            TraitCategory.id == subcategory.parent_category_id,
-        )
-        game_version = category.game_versions[0]
 
         # When requesting the subcategory via the API
         response = await client.get(
             build_url(
-                CharacterBlueprints.CATEGORY_SUBCATEGORY_DETAIL,
+                CharacterBlueprints.SUBCATEGORY_DETAIL,
                 subcategory_id=subcategory.id,
-                category_id=category.id,
-                section_id=category.parent_sheet_section_id,
-                game_version=game_version.name,
             ),
             headers=token_company_admin,
         )
@@ -258,52 +250,6 @@ class TestSheetSubcategory:
         assert response.json() == subcategory.model_dump(
             mode="json", exclude={"is_archived", "archive_date"}
         )
-
-
-class TestSheetSubcategoryTrait:
-    """Test sheet subcategory trait controllers."""
-
-    async def test_list_category_subcategory_traits(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the list category subcategory traits endpoint is working."""
-        # Given a subcategory with traits
-        subcategory = await TraitSubcategory.find_one(
-            TraitSubcategory.is_archived == False,
-            TraitSubcategory.parent_category_id != None,
-        )
-        category = await TraitCategory.find_one(
-            TraitCategory.id == subcategory.parent_category_id,
-        )
-        game_version = category.game_versions[0]
-
-        expected_count = await Trait.find(
-            Trait.is_archived == False,
-            Trait.trait_subcategory_id == subcategory.id,
-            Trait.game_versions == game_version,
-        ).count()
-
-        # When requesting subcategory traits via the API
-        response = await client.get(
-            build_url(
-                CharacterBlueprints.CATEGORY_SUBCATEGORY_TRAITS,
-                subcategory_id=subcategory.id,
-                category_id=category.id,
-                section_id=category.parent_sheet_section_id,
-                game_version=game_version.name,
-            ),
-            headers=token_company_admin,
-        )
-
-        # Then the response contains the expected traits
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert response.json()["total"] == expected_count
-        assert len(response.json()["items"]) == min(10, expected_count)
 
 
 class TestSheetTrait:
@@ -324,7 +270,6 @@ class TestSheetTrait:
             build_url(
                 CharacterBlueprints.TRAIT_DETAIL,
                 trait_id=trait.id,
-                game_version=GameVersion.V4.name,
             ),
             headers=token_company_admin,
         )
@@ -358,44 +303,6 @@ class TestSheetTrait:
             await Trait.find(Trait.is_archived == False).sort("name").limit(1).to_list()
         )
         assert response.json()["items"][0]["name"] == first_alphabetical_trait[0].name
-
-    async def test_list_sheet_traits(
-        self,
-        *,
-        client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Verify the list sheet traits endpoint is working."""
-        trait_category = await TraitCategory.find_one(
-            TraitCategory.is_archived == False,
-        )
-        category_traits = await Trait.find(
-            Trait.is_archived == False,
-            Trait.parent_category_id == trait_category.id,
-            Trait.game_versions == GameVersion.V4,
-            Trait.character_classes == CharacterClass.VAMPIRE,
-            Trait.custom_for_character_id == None,
-        ).to_list()
-        # character = await character_factory()
-        response = await client.get(
-            build_url(
-                CharacterBlueprints.CATEGORY_TRAITS,
-                category_id=trait_category.id,
-                section_id=trait_category.parent_sheet_section_id,
-                game_version=GameVersion.V4.name,
-            ),
-            headers=token_company_admin,
-            params={"character_class": CharacterClass.VAMPIRE.name},
-        )
-        assert response.status_code == HTTP_200_OK
-        # debug(response.json())
-        assert len(response.json()["items"]) == len(category_traits)
-        assert response.json()["items"] == [
-            trait.model_dump(mode="json", exclude={"is_archived", "archive_date"})
-            for trait in category_traits
-        ]
 
 
 class TestClassesConceptsAndSpecificOptions:

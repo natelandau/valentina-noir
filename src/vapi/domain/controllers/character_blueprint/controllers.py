@@ -56,17 +56,19 @@ class CharacterBlueprintSectionController(Controller):
     )
     async def list_character_blueprint_sections(
         self,
-        game_version: GameVersion,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
+        game_version: Annotated[
+            GameVersion | None,
+            Parameter(description="Filter sections by game version.", title="Game Version"),
+        ] = None,
         character_class: Annotated[
-            CharacterClass,
+            CharacterClass | None,
             Parameter(
-                description="Show character blueprint sections for this class.",
+                description="Filter sections by character class.",
                 title="Character Class",
             ),
-        ]
-        | None = None,
+        ] = None,
     ) -> OffsetPagination[CharSheetSection]:
         """List all character blueprint sections."""
         service = CharacterBlueprintService()
@@ -95,7 +97,7 @@ class CharacterBlueprintSectionController(Controller):
         """Get a character blueprint section by ID."""
         return section
 
-    ## SECTION CATEGORIES #######################################################
+    ## CATEGORIES #######################################################
     @get(
         path=urls.CharacterBlueprints.CATEGORIES,
         summary="List trait categories",
@@ -103,31 +105,36 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.LIST_CATEGORIES_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitCategoryDTO,
-        dependencies={
-            "section": Provide(deps.provide_character_blueprint_section_by_id),
-        },
     )
     async def list_character_blueprint_categories(
         self,
         *,
-        game_version: GameVersion,
-        section: CharSheetSection,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-        character_class: Annotated[
-            CharacterClass,
+        game_version: Annotated[
+            GameVersion | None,
+            Parameter(description="Filter categories by game version.", title="Game Version"),
+        ] = None,
+        section_id: Annotated[
+            PydanticObjectId | None,
             Parameter(
-                description="Show all trait categories filtered for this class.",
+                description="Filter categories by parent sheet section.",
+                title="Section ID",
+            ),
+        ] = None,
+        character_class: Annotated[
+            CharacterClass | None,
+            Parameter(
+                description="Filter categories by character class.",
                 title="Character Class",
             ),
-        ]
-        | None = None,
+        ] = None,
     ) -> OffsetPagination[TraitCategory]:
         """List all character blueprint categories."""
         service = CharacterBlueprintService()
         count, categories = await service.list_sheet_categories(
             game_version=game_version,
-            section=section,
+            section_id=section_id,
             character_class=character_class,
             limit=limit,
             offset=offset,
@@ -149,107 +156,44 @@ class CharacterBlueprintSectionController(Controller):
         """Get a character sheet category by ID."""
         return category
 
-    ## CATEGORY TRAITS #######################################################
+    ## SUBCATEGORIES #######################################################
     @get(
-        path=urls.CharacterBlueprints.CATEGORY_TRAITS,
-        summary="List category traits",
-        operation_id="listCharacterBlueprintCategoryTraits",
-        description=docs.LIST_CATEGORY_TRAITS_DESCRIPTION,
-        cache=True,
-        return_dto=dto.TraitDTO,
-        dependencies={
-            "category": Provide(deps.provide_trait_category_by_id),
-        },
-    )
-    async def list_category_traits(  # noqa: PLR0913
-        self,
-        *,
-        game_version: GameVersion,
-        category: TraitCategory,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
-        exclude_subcategory_traits: bool = False,
-        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
-        character_class: Annotated[
-            CharacterClass,
-            Parameter(
-                description="Filter traits by character class.",
-                title="Character Class",
-            ),
-        ]
-        | None = None,
-        character_id: Annotated[
-            PydanticObjectId,
-            Parameter(
-                description="Include custom traits assigned to this character.",
-                title="Character ID",
-            ),
-        ]
-        | None = None,
-    ) -> OffsetPagination[Trait]:
-        """List all character sheet category traits."""
-        service = CharacterBlueprintService()
-        count, traits = await service.list_sheet_category_traits(
-            game_version=game_version,
-            exclude_subcategory_traits=exclude_subcategory_traits,
-            category=category,
-            character_class=character_class,
-            character_id=character_id,
-            is_rollable=is_rollable,
-            limit=limit,
-            offset=offset,
-        )
-        return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
-
-    @get(
-        path=urls.CharacterBlueprints.TRAIT_DETAIL,
-        summary="Get trait",
-        operation_id="getCharacterBlueprintCategoryTrait",
-        description=docs.GET_TRAIT_DESCRIPTION,
-        cache=True,
-        return_dto=dto.TraitDTO,
-        dependencies={
-            "trait": Provide(deps.provide_trait_by_id),
-        },
-    )
-    async def get_trait(self, *, trait: Trait) -> Trait:
-        """Get a character sheet category trait by ID."""
-        return trait
-
-    ## CATEGORY SUBCATEGORIES #######################################################
-
-    @get(
-        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORIES,
-        summary="List category subcategories",
-        operation_id="listCharacterBlueprintCategorySubcategories",
-        description=docs.LIST_CATEGORY_SUBCATEGORIES_DESCRIPTION,
+        path=urls.CharacterBlueprints.SUBCATEGORIES,
+        summary="List subcategories",
+        operation_id="listCharacterBlueprintSubcategories",
+        description=docs.LIST_SUBCATEGORIES_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitSubcategoryDTO,
-        dependencies={
-            "category": Provide(deps.provide_trait_category_by_id),
-        },
     )
-    async def list_category_subcategories(
+    async def list_character_blueprint_subcategories(
         self,
         *,
-        game_version: GameVersion,
-        category: TraitCategory,
+        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        offset: Annotated[int, Parameter(ge=0)] = 0,
+        game_version: Annotated[
+            GameVersion | None,
+            Parameter(description="Filter subcategories by game version.", title="Game Version"),
+        ] = None,
+        category_id: Annotated[
+            PydanticObjectId | None,
+            Parameter(
+                description="Filter subcategories by parent category.",
+                title="Category ID",
+            ),
+        ] = None,
         character_class: Annotated[
-            CharacterClass,
+            CharacterClass | None,
             Parameter(
                 description="Filter subcategories by character class.",
                 title="Character Class",
             ),
-        ]
-        | None = None,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        ] = None,
     ) -> OffsetPagination[TraitSubcategory]:
-        """List all category subcategories."""
+        """List all character blueprint subcategories."""
         service = CharacterBlueprintService()
         count, subcategories = await service.list_sheet_category_subcategories(
             game_version=game_version,
-            category=category,
+            category_id=category_id,
             character_class=character_class,
             limit=limit,
             offset=offset,
@@ -257,59 +201,21 @@ class CharacterBlueprintSectionController(Controller):
         return OffsetPagination(items=subcategories, limit=limit, offset=offset, total=count)
 
     @get(
-        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORY_DETAIL,
+        path=urls.CharacterBlueprints.SUBCATEGORY_DETAIL,
         summary="Get subcategory",
-        operation_id="getCharacterBlueprintCategorySubcategory",
-        description=docs.GET_CATEGORY_SUBCATEGORY_DESCRIPTION,
+        operation_id="getCharacterBlueprintSubcategory",
+        description=docs.GET_SUBCATEGORY_DESCRIPTION,
         cache=True,
         return_dto=dto.TraitSubcategoryDTO,
         dependencies={
             "subcategory": Provide(deps.provide_trait_subcategory_by_id),
         },
     )
-    async def get_category_subcategory(self, *, subcategory: TraitSubcategory) -> TraitSubcategory:
-        """Get a character sheet category subcategory by ID."""
+    async def get_character_blueprint_subcategory(
+        self, *, subcategory: TraitSubcategory
+    ) -> TraitSubcategory:
+        """Get a character blueprint subcategory by ID."""
         return subcategory
-
-    @get(
-        path=urls.CharacterBlueprints.CATEGORY_SUBCATEGORY_TRAITS,
-        summary="List subcategory traits",
-        operation_id="listCharacterBlueprintCategorySubcategoryTraits",
-        description=docs.LIST_CATEGORY_SUBCATEGORY_TRAITS_DESCRIPTION,
-        cache=True,
-        return_dto=dto.TraitDTO,
-        dependencies={
-            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
-        },
-    )
-    async def list_category_subcategory_traits(
-        self,
-        *,
-        subcategory: TraitSubcategory,
-        game_version: GameVersion,
-        character_class: Annotated[
-            CharacterClass,
-            Parameter(
-                description="Filter traits by character class.",
-                title="Character Class",
-            ),
-        ]
-        | None = None,
-        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[Trait]:
-        """List all traits within a subcategory."""
-        service = CharacterBlueprintService()
-        count, traits = await service.list_sheet_category_subcategory_traits(
-            game_version=game_version,
-            subcategory=subcategory,
-            character_class=character_class,
-            is_rollable=is_rollable,
-            limit=limit,
-            offset=offset,
-        )
-        return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
 
     ## ALL TRAITS #######################################################
     @get(
@@ -320,24 +226,34 @@ class CharacterBlueprintSectionController(Controller):
         cache=True,
         return_dto=dto.TraitDTO,
     )
-    async def list_all_traits(
+    async def list_all_traits(  # noqa: PLR0913
         self,
         *,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
-            Parameter(description="Show traits for this game version.", title="Game Version"),
+            Parameter(description="Filter traits by game version.", title="Game Version"),
         ] = None,
         character_class: Annotated[
             CharacterClass | None,
-            Parameter(description="Show traits for this character class.", title="Character Class"),
+            Parameter(description="Filter traits by character class.", title="Character Class"),
         ] = None,
         parent_category_id: Annotated[
             PydanticObjectId | None,
-            Parameter(description="Show traits for this category.", title="Category ID"),
+            Parameter(description="Filter traits by category.", title="Category ID"),
         ] = None,
-        is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
+        subcategory_id: Annotated[
+            PydanticObjectId | None,
+            Parameter(description="Filter traits by subcategory.", title="Subcategory ID"),
+        ] = None,
+        exclude_subcategory_traits: Annotated[
+            bool,
+            Parameter(description="Exclude traits that belong to a subcategory."),
+        ] = False,
+        is_rollable: Annotated[
+            bool | None, Parameter(description="Filter by rollable status.")
+        ] = None,
         order_by: Annotated[
             BlueprintTraitOrderBy,
             Parameter(description="Sort traits by this field.", title="Sort"),
@@ -349,12 +265,29 @@ class CharacterBlueprintSectionController(Controller):
             game_version=game_version,
             character_class=character_class,
             parent_category_id=parent_category_id,
+            subcategory_id=subcategory_id,
+            exclude_subcategory_traits=exclude_subcategory_traits,
             is_rollable=is_rollable,
             order_by=order_by,
             limit=limit,
             offset=offset,
         )
         return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
+
+    @get(
+        path=urls.CharacterBlueprints.TRAIT_DETAIL,
+        summary="Get trait",
+        operation_id="getCharacterBlueprintTrait",
+        description=docs.GET_TRAIT_DESCRIPTION,
+        cache=True,
+        return_dto=dto.TraitDTO,
+        dependencies={
+            "trait": Provide(deps.provide_trait_by_id),
+        },
+    )
+    async def get_trait(self, *, trait: Trait) -> Trait:
+        """Get a character sheet trait by ID."""
+        return trait
 
     ## Classes, Concepts, and class specific options ############################################
 
