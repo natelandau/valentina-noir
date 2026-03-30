@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -180,3 +180,59 @@ class TestRequestIdMiddlewareResponseHeader:
         body_msg = [m for m in sent_messages if m["type"] == "http.response.body"]
         assert len(body_msg) == 1
         assert body_msg[0]["body"] == b"hello"
+
+
+class TestRequestIdInErrorResponses:
+    """Test request ID inclusion in RFC 9457 error response bodies."""
+
+    async def test_request_id_in_error_body(self) -> None:
+        """Verify request_id appears in HTTPError response body."""
+        from vapi.lib.exceptions import NotFoundError
+
+        # Given a request with a known request ID in scope state
+        request_id = "req_test123abc"
+        mock_request = MagicMock()
+        mock_request.scope = {"state": {REQUEST_ID_STATE_KEY: request_id}}
+        mock_request.url = "http://localhost/api/v1/test"
+
+        # When an error response is generated
+        error = NotFoundError(detail="Resource not found")
+        response = error.to_response(mock_request)
+
+        # Then the response body includes the request_id
+        assert response.content["request_id"] == request_id
+
+    async def test_error_body_without_request_id_in_scope(self) -> None:
+        """Verify error response works when no request ID is in scope."""
+        from vapi.lib.exceptions import NotFoundError
+
+        # Given a request with no request ID in scope state
+        mock_request = MagicMock()
+        mock_request.scope = {"state": {}}
+        mock_request.url = "http://localhost/api/v1/test"
+
+        # When an error response is generated
+        error = NotFoundError(detail="Resource not found")
+        response = error.to_response(mock_request)
+
+        # Then the response body does not include request_id
+        assert "request_id" not in response.content
+
+    async def test_request_id_in_validation_error_body(self) -> None:
+        """Verify request_id appears in validation error response body."""
+        from vapi.lib.exceptions import ValidationError
+
+        # Given a request with a known request ID in scope state
+        request_id = "req_validation456"
+        mock_request = MagicMock()
+        mock_request.scope = {"state": {REQUEST_ID_STATE_KEY: request_id}}
+        mock_request.url = "http://localhost/api/v1/test"
+        mock_request.headers = MagicMock()
+        mock_request.headers.get = MagicMock(return_value=None)
+
+        # When a validation error response is generated
+        error = ValidationError(detail="Validation failed")
+        response = error.to_response(mock_request)
+
+        # Then the response body includes the request_id
+        assert response.content["request_id"] == request_id
