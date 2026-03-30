@@ -137,8 +137,10 @@ class TestRequestIdMiddlewareResponseHeader:
         headers = await _collect_response_headers(middleware.handle, scope)
 
         # Then X-Request-Id header is present and matches scope state
-        assert REQUEST_ID_HEADER in headers
-        assert headers[REQUEST_ID_HEADER] == scope["state"][REQUEST_ID_STATE_KEY]
+        # MutableScopeHeaders lowercases header names per HTTP spec
+        header_key = REQUEST_ID_HEADER.lower()
+        assert header_key in headers
+        assert headers[header_key] == scope["state"][REQUEST_ID_STATE_KEY]
 
     async def test_header_value_matches_scope_state(self) -> None:
         """Verify the response header value matches the scope-stored ID."""
@@ -152,7 +154,8 @@ class TestRequestIdMiddlewareResponseHeader:
         headers = await _collect_response_headers(middleware.handle, scope)
 
         # Then the header and scope values are identical
-        assert headers[REQUEST_ID_HEADER] == scope["state"][REQUEST_ID_STATE_KEY]
+        header_key = REQUEST_ID_HEADER.lower()
+        assert headers[header_key] == scope["state"][REQUEST_ID_STATE_KEY]
 
     async def test_non_response_messages_passed_through(self) -> None:
         """Verify non-response-start messages are not modified."""
