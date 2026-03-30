@@ -72,7 +72,6 @@ _TRAIT_NAME_REMAPS: dict[str, str] = {
     "technomancy": "The Path of Technomancy",
     "thaumaturgy: weather control": "Weather Control",
     "lure of flames": "The Lure Of Flames",
-    "warding": "Create Wards",
 }
 
 
