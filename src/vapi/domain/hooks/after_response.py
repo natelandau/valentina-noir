@@ -28,6 +28,8 @@ async def add_audit_log(request: Request) -> None:
         request_body = body_bytes.decode("utf-8") if body_bytes else None
         request_json = await request.json()
 
+    request_id = request.scope.get("state", {}).get("request_id")
+
     await AuditLog(
         developer_id=request.user.id,
         handler=request.route_handler.__str__(),
@@ -41,6 +43,7 @@ async def add_audit_log(request: Request) -> None:
         request_body=request_body,
         path_params=request.path_params,
         query_params=request.query_params,
+        request_id=request_id,
     ).insert()
 
 

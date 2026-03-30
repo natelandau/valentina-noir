@@ -21,3 +21,4 @@ class AuditLog(BaseDocument):
     request_body: str | None = None
     path_params: dict | None = None
     query_params: dict | None = None
+    request_id: str | None = None
