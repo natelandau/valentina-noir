@@ -23,25 +23,21 @@ class CacheControlMiddleware(ASGIMiddleware):
 
     def __init__(self, *, max_age: int = settings.stores.ttl, private: bool = True) -> None:
         self.max_age = max_age
-        self.private = private
+        self.visibility = "private" if private else "public"
 
     async def handle(self, scope: Scope, receive: Receive, send: Send, next_app: ASGIApp) -> None:
         """Add Cache-Control header if route has caching enabled."""
         route_handler = scope.get("route_handler")
         cache_value = route_handler.opt.get("http_cache", None)
 
-        # Fall back to cache attribute if http_cache not set
         if cache_value is None:
             cache_value = getattr(route_handler, "cache", None)
 
-        # Only add headers if caching is explicitly enabled (True or int)
         if cache_value is None or cache_value is False:
             cache_header_value = "no-cache"
         else:
             max_age = self.max_age if isinstance(cache_value, bool) else cache_value
-
-            visibility = "private" if self.private else "public"
-            cache_header_value = f"{visibility}, max-age={max_age}"
+            cache_header_value = f"{self.visibility}, max-age={max_age}"
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -54,4 +50,4 @@ class CacheControlMiddleware(ASGIMiddleware):
         await next_app(scope, receive, send_wrapper)
 
 
-cache_control_middleware = CacheControlMiddleware(max_age=settings.stores.ttl, private=True)
+cache_control_middleware = CacheControlMiddleware()
