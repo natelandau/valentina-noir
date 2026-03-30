@@ -76,6 +76,7 @@ class Server(BaseModel):
     keep_alive: int = Field(default=65)  # 65 seconds > AWS timeout
     reload: bool = Field(default=False)
     reload_dirs: list[str] = Field(default_factory=lambda: [str(MODULE_ROOT_PATH)])
+    request_max_body_size: int = Field(default=5_242_880)  # 5MB
 
     @computed_field  # type: ignore [prop-decorator]
     @property

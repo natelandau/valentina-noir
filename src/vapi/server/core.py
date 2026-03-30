@@ -72,6 +72,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         self.redis = settings.redis.get_client()
         self.app_slug = settings.slug
         app_config.debug = settings.debug
+        app_config.request_max_body_size = settings.server.request_max_body_size
 
         app_config.openapi_config = create_openapi_config()
 
