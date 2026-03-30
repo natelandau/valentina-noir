@@ -26,8 +26,17 @@ async def add_audit_log(request: Request) -> None:
         request_json = None
     else:
         body_bytes = await request.body()
-        request_body = body_bytes.decode("utf-8") if body_bytes else None
-        request_json = await request.json()
+        if body_bytes:
+            request_body = body_bytes.decode("utf-8")
+            try:
+                import json
+
+                request_json = json.loads(request_body)
+            except (ValueError, UnicodeDecodeError):
+                request_json = None
+        else:
+            request_body = None
+            request_json = None
 
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 
