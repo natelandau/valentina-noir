@@ -65,6 +65,7 @@ class RateLimitPolicy(Struct, frozen=True):
 
     def __gt__(self, other: RateLimitPolicy) -> bool:
         """Compare two rate limit policies based on their priority."""
+        # Inverted so .sort() places higher-priority-number (lower precedence) items first
         return self.priority < other.priority
 
 
@@ -103,12 +104,9 @@ class TokenBucket(Struct):
         set_429_headers (bool): Whether to set the 429-related headers in the response.
     """
 
-    # storage related params.
     store: Store
     storage_key: str
     request_identifier: str
-
-    # bucket related params
     name: str
     capacity: int
     refill_rate: float
@@ -248,7 +246,6 @@ class RateLimitMiddleware(ASGIMiddleware):
             global_limits.sort()
 
         self.global_limits = global_limits or []
-        self.identifier_for_request: str = None
 
     async def handle(self, scope: Scope, receive: Receive, send: Send, next_app: ASGIApp) -> None:
         """Handle ASGI call for rate limiting.
@@ -262,14 +259,13 @@ class RateLimitMiddleware(ASGIMiddleware):
         app = scope["litestar_app"]
         request: Request[Any, Any, Any] = app.request_class(scope)
 
-        # Exit early if rate limiting is disabled for this request.
         if request.headers.get(IGNORE_RATE_LIMIT_HEADER_KEY) == "true":
             await next_app(scope, receive, send)
             return
 
         store = app.stores.get(settings.stores.rate_limit_key)
+        request_identifier = self._get_request_identifier(request)
 
-        # Get customized rate limits for a specific route.
         route_handler = scope["route_handler"]
         route_limits: list[RateLimitPolicy] = route_handler.opt.get(self.route_limits_key, [])
         route_limits.sort()
@@ -277,7 +273,10 @@ class RateLimitMiddleware(ASGIMiddleware):
         allowed_buckets: list[TokenBucket] = []
         for limit_policy in chain(self.global_limits, route_limits):
             bucket = await self._handle_limit(
-                limit_policy=limit_policy, request=request, store=store
+                limit_policy=limit_policy,
+                request=request,
+                store=store,
+                request_identifier=request_identifier,
             )
             allowed_buckets.append(bucket)
 
@@ -286,14 +285,17 @@ class RateLimitMiddleware(ASGIMiddleware):
         await next_app(scope, receive, send)
 
     async def _handle_limit(
-        self, limit_policy: RateLimitPolicy, request: Request[Any, Any, Any], store: Store
+        self,
+        limit_policy: RateLimitPolicy,
+        request: Request[Any, Any, Any],
+        store: Store,
+        request_identifier: str,
     ) -> TokenBucket | None:
         """Handle the limit for a given request."""
         is_exempt = limit_policy.is_exempt
         if is_exempt is not None and await is_exempt(request):
             return None
 
-        request_identifier = self._get_request_identifier(request)
         storage_key = f"{request_identifier}:{limit_policy.name}"
         bucket = await TokenBucket.from_store_or_new(
             store=store,
@@ -337,36 +339,32 @@ class RateLimitMiddleware(ASGIMiddleware):
 
         return (
             request.headers.get("X-Forwarded-For", None)
-            or request.headers.get("x-forwarded-for", None)
             or request.headers.get("X-Real-IP", None)
-            or request.headers.get("x-real-ip", None)
             or request.headers.get("CF-Connecting-IP", None)
-            or request.headers.get("cf-connecting-ip", None)
             or getattr(request.client, "host", "anonymous")
         )
 
     def _wrap_send(self, send: Send, buckets: list[TokenBucket]) -> Send:
+        policy_parts: list[str] = []
+        limit_parts: list[str] = []
+        for bucket in buckets:
+            if bucket and bucket.set_headers:
+                headers = bucket.build_headers()
+                policy_parts.append(headers["RateLimit-Policy"])
+                limit_parts.append(headers["RateLimit"])
+
+        headers_to_set: dict[str, str] = {}
+        if policy_parts:
+            headers_to_set["RateLimit-Policy"] = ", ".join(policy_parts)
+        if limit_parts:
+            headers_to_set["RateLimit"] = ", ".join(limit_parts)
+
         async def send_wrapper(message: Message) -> None:
-            headers_to_set: dict[str, str] = {"RateLimit-Policy": "", "RateLimit": ""}
-            for bucket in buckets:
-                if bucket.set_headers:
-                    headers = bucket.build_headers()
-                    headers_to_set["RateLimit-Policy"] += f", {headers['RateLimit-Policy']}"
-                    headers_to_set["RateLimit"] += f", {headers['RateLimit']}"
-
-            headers_to_set["RateLimit-Policy"] = headers_to_set["RateLimit-Policy"].lstrip(", ")
-            headers_to_set["RateLimit"] = headers_to_set["RateLimit"].lstrip(", ")
-
-            if headers_to_set["RateLimit-Policy"] == "":
-                headers_to_set.pop("RateLimit-Policy")
-            if headers_to_set["RateLimit"] == "":
-                headers_to_set.pop("RateLimit")
-
             if message["type"] == "http.response.start":
                 message.setdefault("headers", [])
-                headers = MutableScopeHeaders(message)  # type: ignore [assignment]
+                scope_headers = MutableScopeHeaders(message)
                 for k, v in headers_to_set.items():
-                    headers[k] = v
+                    scope_headers[k] = v
             await send(message)
 
         return send_wrapper
