@@ -1,9 +1,9 @@
 """API application settings."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from redis.asyncio import Redis
 
@@ -45,8 +45,16 @@ class SAQSettings(BaseModel):
     web_enabled: bool = Field(default=False)
     processes: int = Field(default=1)
     enabled: bool = Field(default=True)
-    admin_username: str = Field(default="admin")
-    admin_password: str = Field(default="admin")
+    admin_username: str | None = Field(default=None)
+    admin_password: str | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def validate_web_credentials(self) -> Self:
+        """Ensure admin credentials are set when the SAQ web UI is enabled."""
+        if self.web_enabled and (self.admin_username is None or self.admin_password is None):
+            msg = "SAQ admin_username and admin_password must be set when web_enabled is True"
+            raise ValueError(msg)
+        return self
 
 
 class AWSSettings(BaseModel):
