@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from vapi.constants import REQUEST_ID_HEADER, REQUEST_ID_STATE_KEY
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 pytestmark = pytest.mark.anyio
 
@@ -236,3 +239,90 @@ class TestRequestIdInErrorResponses:
 
         # Then the response body includes the request_id
         assert response.content["request_id"] == request_id
+
+
+class TestRequestIdInAuditLog:
+    """Test request ID inclusion in audit log records."""
+
+    async def test_audit_log_receives_request_id(self, mocker: MockerFixture) -> None:
+        """Verify add_audit_log passes request_id to AuditLog constructor."""
+        # Given a mock request with a known request ID
+        request_id = "req_audit789xyz"
+        mock_request = MagicMock()
+        mock_request.scope = {"state": {REQUEST_ID_STATE_KEY: request_id}}
+        mock_request.headers = MagicMock()
+        mock_request.headers.get = MagicMock(return_value="application/json")
+        mock_request.user = MagicMock()
+        mock_request.user.id = "developer123"
+        mock_request.method = "POST"
+        mock_request.url = "http://localhost/api/v1/test"
+        mock_request.route_handler = MagicMock()
+        mock_request.route_handler.__str__ = MagicMock(return_value="handler_str")
+        mock_request.route_handler.handler_name = "create_thing"
+        mock_request.route_handler.name = "create_thing"
+        mock_request.route_handler.summary = "Create a thing"
+        mock_request.route_handler.operation_id = "create_thing"
+        mock_request.path_params = {}
+        mock_request.query_params = {}
+
+        # Given body() returns empty bytes and json() returns empty dict
+        mock_request.body = AsyncMock(return_value=b"{}")
+        mock_request.json = AsyncMock(return_value={})
+
+        # Given AuditLog.insert is mocked
+        mock_audit_log_cls = mocker.patch(
+            "vapi.db.models.AuditLog",
+        )
+        mock_instance = MagicMock()
+        mock_instance.insert = AsyncMock()
+        mock_audit_log_cls.return_value = mock_instance
+
+        # When add_audit_log is called
+        from vapi.domain.hooks.after_response import add_audit_log
+
+        await add_audit_log(mock_request)
+
+        # Then AuditLog is created with the request_id
+        call_kwargs = mock_audit_log_cls.call_args
+        assert call_kwargs.kwargs.get("request_id") == request_id
+
+    async def test_audit_log_without_request_id(self, mocker: MockerFixture) -> None:
+        """Verify add_audit_log handles missing request_id gracefully."""
+        # Given a mock request with no request ID in scope
+        mock_request = MagicMock()
+        mock_request.scope = {"state": {}}
+        mock_request.headers = MagicMock()
+        mock_request.headers.get = MagicMock(return_value="application/json")
+        mock_request.user = MagicMock()
+        mock_request.user.id = "developer123"
+        mock_request.method = "POST"
+        mock_request.url = "http://localhost/api/v1/test"
+        mock_request.route_handler = MagicMock()
+        mock_request.route_handler.__str__ = MagicMock(return_value="handler_str")
+        mock_request.route_handler.handler_name = "create_thing"
+        mock_request.route_handler.name = "create_thing"
+        mock_request.route_handler.summary = "Create a thing"
+        mock_request.route_handler.operation_id = "create_thing"
+        mock_request.path_params = {}
+        mock_request.query_params = {}
+
+        # Given body() returns empty bytes and json() returns empty dict
+        mock_request.body = AsyncMock(return_value=b"{}")
+        mock_request.json = AsyncMock(return_value={})
+
+        # Given AuditLog.insert is mocked
+        mock_audit_log_cls = mocker.patch(
+            "vapi.db.models.AuditLog",
+        )
+        mock_instance = MagicMock()
+        mock_instance.insert = AsyncMock()
+        mock_audit_log_cls.return_value = mock_instance
+
+        # When add_audit_log is called
+        from vapi.domain.hooks.after_response import add_audit_log
+
+        await add_audit_log(mock_request)
+
+        # Then AuditLog is created with request_id as None
+        call_kwargs = mock_audit_log_cls.call_args
+        assert call_kwargs.kwargs.get("request_id") is None
