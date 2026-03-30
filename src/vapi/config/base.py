@@ -162,6 +162,11 @@ class CORSSettings(BaseModel):
     enabled: bool = Field(default=False)
     allowed_origins: list[str] = Field(default=["*"])
     allow_origin_regex: str | None = Field(default=None)
+    allow_methods: list[str] = Field(
+        default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    )
+    allow_headers: list[str] = Field(default_factory=lambda: ["Content-Type", AUTH_HEADER_KEY])
+    max_age: int = Field(default=3600)
 
 
 class LoggingSettings(BaseModel):
