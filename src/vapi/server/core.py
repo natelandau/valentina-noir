@@ -112,6 +112,13 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 max_age=settings.cors.max_age,
             )
 
+        if settings.allowed_hosts.enabled:
+            from litestar.config.allowed_hosts import AllowedHostsConfig
+
+            app_config.allowed_hosts = AllowedHostsConfig(
+                allowed_hosts=settings.allowed_hosts.hosts
+            )
+
         app_config.exception_handlers = {
             HTTPError: http_error_to_http_response,
             HTTPException: litestar_http_exc_to_http_response,

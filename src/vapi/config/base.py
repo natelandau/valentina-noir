@@ -169,6 +169,13 @@ class CORSSettings(BaseModel):
     max_age: int = Field(default=3600)
 
 
+class AllowedHostsSettings(BaseModel):
+    """Allowed hosts settings for host-header validation."""
+
+    enabled: bool = Field(default=False)
+    hosts: list[str] = Field(default=["*"])
+
+
 class LoggingSettings(BaseModel):
     """Logging settings."""
 
@@ -210,6 +217,7 @@ class Settings(BaseSettings):
 
     log: LoggingSettings = LoggingSettings()
     cors: CORSSettings = CORSSettings()
+    allowed_hosts: AllowedHostsSettings = AllowedHostsSettings()
     mongo: MongoDBSettings = MongoDBSettings()
     oauth: OAuthSettings = OAuthSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
