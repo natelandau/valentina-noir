@@ -137,6 +137,10 @@ class HTTPError(ApplicationError):
 
         problem_details["instance"] = self.instance or str(request.url)
 
+        request_id = request.scope.get("state", {}).get("request_id")
+        if request_id:
+            problem_details["request_id"] = request_id
+
         if self.__class__.__name__ == "NotAuthorizedError":
             problem_details[AUTH_HEADER_KEY] = request.headers.get(AUTH_HEADER_KEY)
 
