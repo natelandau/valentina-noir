@@ -1,9 +1,9 @@
 """API application settings."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from redis.asyncio import Redis
 
@@ -48,15 +48,13 @@ class SAQSettings(BaseModel):
     admin_username: str | None = Field(default=None)
     admin_password: str | None = Field(default=None)
 
-    def validate_web_credentials(self) -> None:
-        """Ensure admin credentials are set when the SAQ web UI is enabled.
-
-        Call during app startup rather than at model construction so that test
-        fixtures can patch settings before validation runs.
-        """
+    @model_validator(mode="after")
+    def validate_web_credentials(self) -> Self:
+        """Ensure admin credentials are set when the SAQ web UI is enabled."""
         if self.web_enabled and (self.admin_username is None or self.admin_password is None):
             msg = "SAQ admin_username and admin_password must be set when web_enabled is True"
             raise ValueError(msg)
+        return self
 
 
 class AWSSettings(BaseModel):
@@ -184,6 +182,15 @@ class LoggingSettings(BaseModel):
 
     level: LogLevel = Field(default=LogLevel.INFO)
     file_path: Path | None = Field(default=None)
+
+    @field_validator("file_path", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: str | Path | None) -> Path | None:
+        """Convert empty strings to None since an empty path is not a valid log file target."""
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return Path(v) if isinstance(v, str) else v
+
     time_in_console: bool = Field(default=True)
     saq_level: LogLevel = Field(default=LogLevel.INFO)
     asgi_server_level: LogLevel = Field(default=LogLevel.INFO)

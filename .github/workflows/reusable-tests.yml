@@ -11,6 +11,7 @@ on:
                 default: false
 
 env:
+    # CI-specific overrides (pytest-env in pyproject.toml provides base test config)
     VAPI_NAME: "ci-test"
     VAPI_DEBUG: false
     VAPI_AUTHENTICATION_ENCRYPTION_KEY: 95bfffc1521e76be955aa786f623f996c85f49e6a5788e126b85d1d630c30245 # gitleaks:allow
@@ -19,13 +20,6 @@ env:
     VAPI_MONGO__DATABASE_NAME: "valentina-ci"
     VAPI_REDIS__URL: "redis://localhost:6379/0"
     VAPI_SERVER__HOST: 0.0.0.0
-    VAPI_SERVER__PORT: 8000
-    VAPI_SERVER__SCHEME: https
-    VAPI_CORS__ENABLED: false
-    VAPI_DOCKER_BOOTSTRAP: false
-    VAPI_OAUTH__DISCORD_CLIENT_ID: "1234567890"
-    VAPI_OAUTH__DISCORD_CLIENT_SECRET: "1234567890"
-    VAPI_OAUTH__DISCORD_CALLBACK_URL: "https://localhost:8000/api/v1/oauth/discord/callback"
 
 jobs:
     test-python-code:

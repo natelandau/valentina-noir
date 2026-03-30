@@ -70,8 +70,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from vapi.server import plugins
         from vapi.server.custom_types import DecodePydanticObjectId
 
-        settings.saq.validate_web_credentials()
-
         self.redis = settings.redis.get_client()
         self.app_slug = settings.slug
         app_config.debug = settings.debug
