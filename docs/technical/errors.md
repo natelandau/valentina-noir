@@ -54,6 +54,7 @@ Validation errors (400 Bad Request) include an `invalid_parameters` array identi
     "title": "Bad Request",
     "detail": "Validation failed for one or more fields.",
     "instance": "/api/v1/companies/abc123/users",
+    "request_id": "req_m4N5o6P7q8R9s0T1",
     "invalid_parameters": [
         {
             "field": "name",
