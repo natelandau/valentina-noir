@@ -111,7 +111,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             app_config.cors_config = CORSConfig(
                 allow_origins=settings.cors.allowed_origins,
                 allow_origin_regex=settings.cors.allow_origin_regex,
-                allow_methods=settings.cors.allow_methods,
+                allow_methods=settings.cors.allow_methods,  # type: ignore [arg-type]
                 allow_headers=settings.cors.allow_headers,
                 max_age=settings.cors.max_age,
             )
