@@ -1,9 +1,9 @@
 """API application settings."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from redis.asyncio import Redis
 
@@ -45,8 +45,16 @@ class SAQSettings(BaseModel):
     web_enabled: bool = Field(default=False)
     processes: int = Field(default=1)
     enabled: bool = Field(default=True)
-    admin_username: str = Field(default="admin")
-    admin_password: str = Field(default="admin")
+    admin_username: str | None = Field(default=None)
+    admin_password: str | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def validate_web_credentials(self) -> Self:
+        """Ensure admin credentials are set when the SAQ web UI is enabled."""
+        if self.web_enabled and (self.admin_username is None or self.admin_password is None):
+            msg = "SAQ admin_username and admin_password must be set when web_enabled is True"
+            raise ValueError(msg)
+        return self
 
 
 class AWSSettings(BaseModel):
@@ -68,6 +76,7 @@ class Server(BaseModel):
     keep_alive: int = Field(default=65)  # 65 seconds > AWS timeout
     reload: bool = Field(default=False)
     reload_dirs: list[str] = Field(default_factory=lambda: [str(MODULE_ROOT_PATH)])
+    request_max_body_size: int = Field(default=5_242_880)  # 5MB
 
     @computed_field  # type: ignore [prop-decorator]
     @property
@@ -154,6 +163,18 @@ class CORSSettings(BaseModel):
     enabled: bool = Field(default=False)
     allowed_origins: list[str] = Field(default=["*"])
     allow_origin_regex: str | None = Field(default=None)
+    allow_methods: list[str] = Field(
+        default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    )
+    allow_headers: list[str] = Field(default_factory=lambda: ["Content-Type", AUTH_HEADER_KEY])
+    max_age: int = Field(default=3600)
+
+
+class AllowedHostsSettings(BaseModel):
+    """Allowed hosts settings for host-header validation."""
+
+    enabled: bool = Field(default=False)
+    hosts: list[str] = Field(default=["*"])
 
 
 class LoggingSettings(BaseModel):
@@ -161,6 +182,15 @@ class LoggingSettings(BaseModel):
 
     level: LogLevel = Field(default=LogLevel.INFO)
     file_path: Path | None = Field(default=None)
+
+    @field_validator("file_path", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: str | Path | None) -> Path | None:
+        """Convert empty strings to None since an empty path is not a valid log file target."""
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return Path(v) if isinstance(v, str) else v
+
     time_in_console: bool = Field(default=True)
     saq_level: LogLevel = Field(default=LogLevel.INFO)
     asgi_server_level: LogLevel = Field(default=LogLevel.INFO)
@@ -197,6 +227,7 @@ class Settings(BaseSettings):
 
     log: LoggingSettings = LoggingSettings()
     cors: CORSSettings = CORSSettings()
+    allowed_hosts: AllowedHostsSettings = AllowedHostsSettings()
     mongo: MongoDBSettings = MongoDBSettings()
     oauth: OAuthSettings = OAuthSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()

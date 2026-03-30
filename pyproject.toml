@@ -48,6 +48,7 @@
         "pytest-cov>=7.1.0",
         "pytest-databases[mongodb,redis]>=0.17.0",
         "pytest-devtools>=1.0.0",
+        "pytest-env>=1.6.0",
         "pytest-mock>=3.15.1",
         "pytest-repeat>=0.9.4",
         "pytest-sugar>=1.1.1",
@@ -57,7 +58,7 @@
         "shellcheck-py>=0.11.0.1",
         "typos>=1.44.0",
         "yamllint>=1.38.0",
-    ]
+]
     docs = ["zensical>=0.0.29"]
 
 [tool.commitizen]
@@ -134,6 +135,36 @@
     ]
     testpaths = ["tests"]
     xfail_strict = true
+
+[tool.pytest_env]
+    VAPI_NAME = "vapi-pytest"
+    VAPI_DEBUG = "true"
+    VAPI_AUTHENTICATION_ENCRYPTION_KEY = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
+    VAPI_RATE_LIMIT__ENCRYPTION_KEY = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
+    VAPI_LOG__LEVEL = "WARNING"
+    VAPI_LOG__FILE_PATH = ""
+    VAPI_LOG__REQUEST_LOG_FIELDS = '["path","method"]'
+    VAPI_LOG__ASGI_SERVER_LEVEL = "WARNING"
+    VAPI_LOG__ROOT_LEVEL = "WARNING"
+    VAPI_LOG__LOG_EXCEPTIONS = "debug"
+    VAPI_LOG__TIME_IN_CONSOLE = "false"
+    VAPI_SERVER__HOST = "testserver"
+    VAPI_OAUTH__DISCORD_CLIENT_ID = "MOCK_CLIENT_ID"
+    VAPI_OAUTH__DISCORD_CLIENT_SECRET = "MOCK_CLIENT_SECRET"
+    VAPI_OAUTH__DISCORD_CALLBACK_URL = "https://localhost:8000/api/v1/oauth/discord/callback"
+    VAPI_AWS__ACCESS_KEY_ID = "MOCK_ACCESS_KEY_ID"
+    VAPI_AWS__SECRET_ACCESS_KEY = "MOCK_SECRET_ACCESS_KEY"
+    VAPI_AWS__S3_BUCKET_NAME = "MOCK_S3_BUCKET_NAME"
+    VAPI_AWS__CLOUDFRONT_ORIGIN_PATH = "MOCK_ORIGIN_PATH"
+    VAPI_AWS__CLOUDFRONT_URL = "MOCK_URL"
+    VAPI_SAQ__WEB_ENABLED = "false"
+    VAPI_SAQ__PROCESSES = "1"
+    VAPI_SAQ__USE_SERVER_LIFESPAN = "true"
+    VAPI_SAQ__ENABLED = "false"
+    VAPI_SAQ__ADMIN_USERNAME = "test_admin"
+    VAPI_SAQ__ADMIN_PASSWORD = "test_password"
+    VAPI_CORS__ENABLED = "false"
+    VAPI_DOCKER_BOOTSTRAP = "false"
 
 [tool.ruff] # https://github.com/charliermarsh/ruff
 

@@ -10,7 +10,6 @@ from redis.asyncio import Redis
 
 from vapi.cli.bootstrap import bootstrap_async
 from vapi.config import settings
-from vapi.constants import LogLevel
 from vapi.lib.database import init_database
 
 if TYPE_CHECKING:
@@ -53,34 +52,7 @@ def anyio_backend():
 
 @pytest.fixture(scope="session", autouse=True)
 def patch_settings():
-    """Patch the settings to use the test mongo client."""
-    settings.log.level = LogLevel.WARNING
-    settings.log.file_path = None
-    settings.log.request_log_fields = ["path", "method"]
-    settings.log.asgi_server_level = LogLevel.WARNING
-    settings.log.root_level = LogLevel.WARNING
-    settings.log.log_exceptions = "debug"
-    settings.log.time_in_console = False
-    settings.debug = True
-    settings.name = "vapi-pytest"
-    settings.oauth.discord_client_id = "MOCK_CLIENT_ID"
-    settings.oauth.discord_client_secret = "MOCK_CLIENT_SECRET"  # noqa: S105
-    settings.rate_limit.encryption_key = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
-    settings.authentication_encryption_key = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
-    settings.server.host = "testserver"
-    settings.aws.access_key_id = "MOCK_ACCESS_KEY_ID"
-    settings.aws.secret_access_key = "MOCK_SECRET_ACCESS_KEY"  # noqa: S105
-    settings.aws.s3_bucket_name = "MOCK_S3_BUCKET_NAME"
-    settings.aws.cloudfront_origin_path = "MOCK_ORIGIN_PATH"
-    settings.aws.cloudfront_url = "MOCK_URL"
-    settings.saq.web_enabled = False
-    settings.saq.processes = 1
-    settings.saq.use_server_lifespan = True
-    settings.saq.enabled = False
-    settings.saq.admin_username = "test_admin"
-    settings.saq.admin_password = "test_password"  # noqa: S105
-
-    # Clear any stray instances of the lru_cache
+    """Clear cached config that may have been created before test env vars were applied."""
     try:
         from vapi.config.oauth import get_discord_oauth_client
 

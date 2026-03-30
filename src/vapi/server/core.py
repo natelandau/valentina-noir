@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, TypeVar
 
 from click import Group  # noqa: TC002
@@ -40,7 +41,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         cli.add_command(development_group)
 
     def on_app_init(self, app_config: AppConfig) -> AppConfig:
-        """Configure application for use with SQLAlchemy.
+        """Configure the Litestar application with routes, middleware, and plugins.
 
         Args:
             app_config: The app config.
@@ -72,6 +73,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         self.redis = settings.redis.get_client()
         self.app_slug = settings.slug
         app_config.debug = settings.debug
+        app_config.request_max_body_size = settings.server.request_max_body_size
 
         app_config.openapi_config = create_openapi_config()
 
@@ -101,12 +103,24 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             ]
         )
 
-        app_config.compression_config = CompressionConfig(backend="gzip", gzip_compress_level=9)
+        app_config.compression_config = CompressionConfig(
+            backend="gzip", gzip_compress_level=6, minimum_size=500
+        )
 
         if settings.cors.enabled:
             app_config.cors_config = CORSConfig(
                 allow_origins=settings.cors.allowed_origins,
                 allow_origin_regex=settings.cors.allow_origin_regex,
+                allow_methods=settings.cors.allow_methods,  # type: ignore [arg-type]
+                allow_headers=settings.cors.allow_headers,
+                max_age=settings.cors.max_age,
+            )
+
+        if settings.allowed_hosts.enabled:
+            from litestar.config.allowed_hosts import AllowedHostsConfig
+
+            app_config.allowed_hosts = AllowedHostsConfig(
+                allowed_hosts=settings.allowed_hosts.hosts
             )
 
         app_config.exception_handlers = {
@@ -122,15 +136,20 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         )
         app_config.stores = StoreRegistry(default_factory=self.redis_store_factory)
         app_config.on_startup.append(setup_database)
-        app_config.on_shutdown.append(self.redis.aclose)
-
-        app_config.listeners.extend([])
+        app_config.on_shutdown.append(self._close_redis)
 
         return app_config
 
     def redis_store_factory(self, name: str) -> RedisStore:
         """Redis store factory."""
         return RedisStore(self.redis, namespace=f"{settings.slug}:{name}")
+
+    async def _close_redis(self) -> None:
+        """Close Redis connection, logging a warning on failure."""
+        try:
+            await self.redis.aclose()
+        except Exception:  # noqa: BLE001
+            logging.getLogger("vapi").warning("Redis connection could not be closed cleanly")
 
     def custom_cache_response_filter(self, scope: HTTPScope, status_code: int) -> bool:
         """Custom cache response filter."""
