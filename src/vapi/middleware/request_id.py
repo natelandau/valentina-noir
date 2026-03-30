@@ -41,7 +41,7 @@ class RequestIdMiddleware(ASGIMiddleware):
             next_app: The next ASGI application in the middleware stack to call.
         """
         request_id = f"req_{secrets.token_urlsafe(16)}"
-        scope.setdefault("state", {})[REQUEST_ID_STATE_KEY] = request_id
+        scope["state"][REQUEST_ID_STATE_KEY] = request_id
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":

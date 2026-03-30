@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, cast
 from litestar import Response, status_codes
 from litestar.exceptions import InternalServerException, ValidationException
 
-from vapi.constants import AUTH_HEADER_KEY
+from vapi.constants import AUTH_HEADER_KEY, REQUEST_ID_STATE_KEY
 
 if TYPE_CHECKING:
     from typing import Any, ClassVar
@@ -137,7 +137,7 @@ class HTTPError(ApplicationError):
 
         problem_details["instance"] = self.instance or str(request.url)
 
-        request_id = request.scope.get("state", {}).get("request_id")
+        request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
         if request_id:
             problem_details["request_id"] = request_id
 

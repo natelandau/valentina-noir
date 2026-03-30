@@ -241,6 +241,29 @@ class TestRequestIdInErrorResponses:
         assert response.content["request_id"] == request_id
 
 
+def _make_audit_log_request(scope_state: dict[str, Any] | None = None) -> MagicMock:
+    """Create a mock request for audit log tests."""
+    mock_request = MagicMock()
+    mock_request.scope = {"state": scope_state or {}}
+    mock_request.headers = MagicMock()
+    mock_request.headers.get = MagicMock(return_value="application/json")
+    mock_request.user = MagicMock()
+    mock_request.user.id = "developer123"
+    mock_request.method = "POST"
+    mock_request.url = "http://localhost/api/v1/test"
+    mock_request.route_handler = MagicMock()
+    mock_request.route_handler.__str__ = MagicMock(return_value="handler_str")
+    mock_request.route_handler.handler_name = "create_thing"
+    mock_request.route_handler.name = "create_thing"
+    mock_request.route_handler.summary = "Create a thing"
+    mock_request.route_handler.operation_id = "create_thing"
+    mock_request.path_params = {}
+    mock_request.query_params = {}
+    mock_request.body = AsyncMock(return_value=b"{}")
+    mock_request.json = AsyncMock(return_value={})
+    return mock_request
+
+
 class TestRequestIdInAuditLog:
     """Test request ID inclusion in audit log records."""
 
@@ -248,31 +271,10 @@ class TestRequestIdInAuditLog:
         """Verify add_audit_log passes request_id to AuditLog constructor."""
         # Given a mock request with a known request ID
         request_id = "req_audit789xyz"
-        mock_request = MagicMock()
-        mock_request.scope = {"state": {REQUEST_ID_STATE_KEY: request_id}}
-        mock_request.headers = MagicMock()
-        mock_request.headers.get = MagicMock(return_value="application/json")
-        mock_request.user = MagicMock()
-        mock_request.user.id = "developer123"
-        mock_request.method = "POST"
-        mock_request.url = "http://localhost/api/v1/test"
-        mock_request.route_handler = MagicMock()
-        mock_request.route_handler.__str__ = MagicMock(return_value="handler_str")
-        mock_request.route_handler.handler_name = "create_thing"
-        mock_request.route_handler.name = "create_thing"
-        mock_request.route_handler.summary = "Create a thing"
-        mock_request.route_handler.operation_id = "create_thing"
-        mock_request.path_params = {}
-        mock_request.query_params = {}
-
-        # Given body() returns empty bytes and json() returns empty dict
-        mock_request.body = AsyncMock(return_value=b"{}")
-        mock_request.json = AsyncMock(return_value={})
+        mock_request = _make_audit_log_request({REQUEST_ID_STATE_KEY: request_id})
 
         # Given AuditLog.insert is mocked
-        mock_audit_log_cls = mocker.patch(
-            "vapi.db.models.AuditLog",
-        )
+        mock_audit_log_cls = mocker.patch("vapi.db.models.AuditLog")
         mock_instance = MagicMock()
         mock_instance.insert = AsyncMock()
         mock_audit_log_cls.return_value = mock_instance
@@ -289,31 +291,10 @@ class TestRequestIdInAuditLog:
     async def test_audit_log_without_request_id(self, mocker: MockerFixture) -> None:
         """Verify add_audit_log handles missing request_id gracefully."""
         # Given a mock request with no request ID in scope
-        mock_request = MagicMock()
-        mock_request.scope = {"state": {}}
-        mock_request.headers = MagicMock()
-        mock_request.headers.get = MagicMock(return_value="application/json")
-        mock_request.user = MagicMock()
-        mock_request.user.id = "developer123"
-        mock_request.method = "POST"
-        mock_request.url = "http://localhost/api/v1/test"
-        mock_request.route_handler = MagicMock()
-        mock_request.route_handler.__str__ = MagicMock(return_value="handler_str")
-        mock_request.route_handler.handler_name = "create_thing"
-        mock_request.route_handler.name = "create_thing"
-        mock_request.route_handler.summary = "Create a thing"
-        mock_request.route_handler.operation_id = "create_thing"
-        mock_request.path_params = {}
-        mock_request.query_params = {}
-
-        # Given body() returns empty bytes and json() returns empty dict
-        mock_request.body = AsyncMock(return_value=b"{}")
-        mock_request.json = AsyncMock(return_value={})
+        mock_request = _make_audit_log_request()
 
         # Given AuditLog.insert is mocked
-        mock_audit_log_cls = mocker.patch(
-            "vapi.db.models.AuditLog",
-        )
+        mock_audit_log_cls = mocker.patch("vapi.db.models.AuditLog")
         mock_instance = MagicMock()
         mock_instance.insert = AsyncMock()
         mock_audit_log_cls.return_value = mock_instance
