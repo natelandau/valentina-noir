@@ -42,6 +42,8 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 ```
 
+All responses include an `X-Request-Id` header with a unique identifier for the request. Save this value to include in support requests or for debugging. See [Request IDs](request_ids.md) for details.
+
 ## Base URL
 
 All API endpoints use the following base URL:

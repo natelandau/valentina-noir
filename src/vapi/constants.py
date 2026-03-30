@@ -18,6 +18,8 @@ MAX_DESPERATION: Final[int] = 5
 IGNORE_RATE_LIMIT_HEADER_KEY: Final[str] = "X-Testing-Ignore-Rate-Limit"
 IDEMPOTENCY_KEY_HEADER: Final[str] = "Idempotency-Key"
 IDEMPOTENCY_TTL_SECONDS: Final[int] = 3600  # 1 hour
+REQUEST_ID_HEADER: Final[str] = "X-Request-Id"
+REQUEST_ID_STATE_KEY: Final[str] = "request_id"
 DEFAULT_CHARACTER_AUTGEN_XP_COST: Final[int] = 10
 DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"

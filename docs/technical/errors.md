@@ -18,6 +18,7 @@ All error responses use the `application/problem+json` media type with these fie
 | `title`    | string  | Short, human-readable summary of the problem type                              |
 | `detail`   | string  | Human-readable explanation specific to this occurrence                         |
 | `instance` | string  | URI reference identifying the specific occurrence (typically the request path) |
+| `request_id` | string  | Unique request identifier (matches the `X-Request-Id` response header) |
 
 ## Standard Error Response
 
@@ -26,7 +27,8 @@ All error responses use the `application/problem+json` media type with these fie
     "status": 404,
     "title": "Not Found",
     "detail": "Character '68c1f7152cae3787a09a74fa' not found",
-    "instance": "/api/v1/companies/abc123/users/def456/campaigns/ghi789/characters/68c1f7152cae3787a09a74fa"
+    "instance": "/api/v1/companies/abc123/users/def456/campaigns/ghi789/characters/68c1f7152cae3787a09a74fa",
+    "request_id": "req_7H2kB9xQ4mN1pL5w3nR2Yg"
 }
 ```
 
@@ -52,6 +54,7 @@ Validation errors (400 Bad Request) include an `invalid_parameters` array identi
     "title": "Bad Request",
     "detail": "Validation failed for one or more fields.",
     "instance": "/api/v1/companies/abc123/users",
+    "request_id": "req_m4N5o6P7q8R9s0T1",
     "invalid_parameters": [
         {
             "field": "name",
@@ -76,7 +79,8 @@ Missing or invalid API key.
     "status": 401,
     "title": "Unauthorized",
     "detail": "API key not provided",
-    "instance": "/api/v1/companies"
+    "instance": "/api/v1/companies",
+    "request_id": "req_a1B2c3D4e5F6g7H8"
 }
 ```
 
@@ -89,7 +93,8 @@ Valid API key but insufficient permissions for the requested action.
     "status": 403,
     "title": "Forbidden",
     "detail": "No rights to access this resource",
-    "instance": "/api/v1/companies/abc123/users"
+    "instance": "/api/v1/companies/abc123/users",
+    "request_id": "req_j9K0l1M2n3O4p5Q6"
 }
 ```
 
@@ -102,7 +107,8 @@ Requested resource does not exist.
     "status": 404,
     "title": "Not Found",
     "detail": "Company 'abc123' not found",
-    "instance": "/api/v1/companies/abc123"
+    "instance": "/api/v1/companies/abc123",
+    "request_id": "req_r7S8t9U0v1W2x3Y4"
 }
 ```
 
@@ -115,7 +121,8 @@ Request conflicts with current state, such as reusing an idempotency key with a 
     "status": 409,
     "title": "Conflict",
     "detail": "Idempotency key 'your-key' was previously used with a different request body. Each unique request must use a unique idempotency key.",
-    "instance": "/api/v1/companies/abc123/users"
+    "instance": "/api/v1/companies/abc123/users",
+    "request_id": "req_z5A6b7C8d9E0f1G2"
 }
 ```
 
@@ -128,7 +135,8 @@ Rate limit exceeded. See [Rate Limiting](rate_limits.md) for details.
     "status": 429,
     "title": "Too Many Requests",
     "detail": "You are being rate limited.",
-    "instance": "/api/v1/companies"
+    "instance": "/api/v1/companies",
+    "request_id": "req_h3I4j5K6l7M8n9O0"
 }
 ```
 
@@ -141,7 +149,8 @@ Unexpected server error occurred.
     "status": 500,
     "title": "Internal Server Error",
     "detail": "Something went wrong on our end. Please contact support if the issue persists.",
-    "instance": "/api/v1/companies"
+    "instance": "/api/v1/companies",
+    "request_id": "req_p1Q2r3S4t5U6v7W8"
 }
 ```
 
@@ -159,6 +168,7 @@ def make_request(url, api_key):
         return response.json()
 
     error = response.json()
+    request_id = error.get("request_id") or response.headers.get("X-Request-Id")
 
     if response.status_code == 400:
         # Handle validation errors
@@ -182,7 +192,7 @@ def make_request(url, api_key):
         raise Exception(f"Rate limited. Retry after {retry_after} seconds")
 
     else:
-        raise Exception(f"API error: {error['detail']}")
+        raise Exception(f"API error ({request_id}): {error['detail']}")
 ```
 
 ### JavaScript
@@ -198,6 +208,7 @@ async function makeRequest(url, apiKey) {
     }
 
     const error = await response.json();
+    const requestId = error.request_id || response.headers.get("X-Request-Id");
 
     switch (response.status) {
         case 400:
@@ -223,7 +234,7 @@ async function makeRequest(url, apiKey) {
             throw new Error(`Rate limited. Retry after ${retryAfter} seconds`);
 
         default:
-            throw new Error(`API error: ${error.detail}`);
+            throw new Error(`API error (${requestId}): ${error.detail}`);
     }
 }
 ```
@@ -234,4 +245,4 @@ async function makeRequest(url, apiKey) {
 2. **Parse the detail field** - Extract specific information about what went wrong
 3. **Handle validation errors** - Check for `invalid_parameters` to provide user-friendly form feedback
 4. **Implement retry logic** - Use exponential backoff for 429 and 5xx errors
-5. **Log the instance field** - Correlate errors with specific requests during debugging
+5. **Include the request ID** - Use the `request_id` field from error responses (or `X-Request-Id` header) when contacting support or correlating with your own logs

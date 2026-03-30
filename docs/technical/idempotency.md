@@ -69,7 +69,8 @@ The API validates that request bodies match when reusing idempotency keys. Sendi
     "status": 409,
     "title": "Conflict",
     "detail": "Idempotency key 'your-key' was previously used with a different request body. Each unique request must use a unique idempotency key.",
-    "instance": "/api/v1/..."
+    "instance": "/api/v1/...",
+    "request_id": "req_z5A6b7C8d9E0f1G2"
 }
 ```
 

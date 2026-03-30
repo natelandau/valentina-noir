@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from vapi.constants import REQUEST_ID_STATE_KEY
 from vapi.db.models import Company
 from vapi.lib.stores import delete_response_cache_for_api_key
 from vapi.utils.time import time_now
@@ -25,8 +26,19 @@ async def add_audit_log(request: Request) -> None:
         request_json = None
     else:
         body_bytes = await request.body()
-        request_body = body_bytes.decode("utf-8") if body_bytes else None
-        request_json = await request.json()
+        if body_bytes:
+            request_body = body_bytes.decode("utf-8")
+            try:
+                import json
+
+                request_json = json.loads(request_body)
+            except (ValueError, UnicodeDecodeError):
+                request_json = None
+        else:
+            request_body = None
+            request_json = None
+
+    request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 
     await AuditLog(
         developer_id=request.user.id,
@@ -41,6 +53,7 @@ async def add_audit_log(request: Request) -> None:
         request_body=request_body,
         path_params=request.path_params,
         query_params=request.query_params,
+        request_id=request_id,
     ).insert()
 
 

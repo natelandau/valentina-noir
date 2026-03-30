@@ -90,7 +90,8 @@ The API returns a `429 Too Many Requests` status when you exceed your rate limit
     "status": 429,
     "title": "Too Many Requests",
     "detail": "You are being rate limited.",
-    "instance": "/api/v1/companies"
+    "instance": "/api/v1/companies",
+    "request_id": "req_h3I4j5K6l7M8n9O0"
 }
 ```
 

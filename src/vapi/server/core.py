@@ -66,6 +66,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from vapi.middleware.cache_control_headers import cache_control_middleware
         from vapi.middleware.idempotency import idempotency_middleware
         from vapi.middleware.rate_limit import rate_limit_middleware
+        from vapi.middleware.request_id import request_id_middleware
         from vapi.openapi.config import create_openapi_config
         from vapi.server import plugins
         from vapi.server.custom_types import DecodePydanticObjectId
@@ -94,6 +95,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         app_config.middleware.extend(
             [
+                request_id_middleware,
                 basic_auth_mw,
                 api_key_auth_mw,
                 rate_limit_middleware,
