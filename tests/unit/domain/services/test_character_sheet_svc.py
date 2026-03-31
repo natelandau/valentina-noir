@@ -129,8 +129,6 @@ class TestCharacterSheetService:
                 CharSheetSection.character_classes == character.character_class,
                 CharSheetSection.game_versions == character.game_version,
             )
-            assert skeleton_section is not None, "Pre-seeded DB must have sections for MORTAL"
-
             expected_category_count = await TraitCategory.find(
                 TraitCategory.is_archived == False,
                 TraitCategory.character_classes == character.character_class,
@@ -160,7 +158,6 @@ class TestCharacterSheetService:
                 Trait.character_classes == CharacterClass.MORTAL,
                 Trait.game_versions == character.game_version,
             )
-            assert trait is not None, "Pre-seeded DB must contain traits without subcategories"
             assert trait.parent_category_name is not None
 
             await character_trait_factory(character_id=character.id, trait=trait, value=3)
@@ -197,7 +194,6 @@ class TestCharacterSheetService:
                 Trait.character_classes == CharacterClass.MORTAL,
                 Trait.game_versions == character.game_version,
             )
-            assert trait is not None, "Pre-seeded DB must contain traits with subcategories"
             assert trait.parent_category_name is not None
             assert trait.trait_subcategory_name is not None
 
@@ -258,7 +254,7 @@ class TestCharacterSheetService:
 
             NOTE: This test skips when no category in the fixture data contains both
             direct traits (no subcategory) and subcategory traits. Currently every
-            category is uniform — either all traits are direct or all are organized
+            category is uniform - either all traits are direct or all are organized
             into subcategories. If the fixture data in traits.json is updated to
             include a category with both patterns, this test will run automatically.
             """
@@ -335,10 +331,6 @@ class TestCharacterSheetService:
                 Trait.game_versions == character.game_version,
                 NotIn(Trait.parent_category_id, list(mortal_category_ids)),
             )
-            assert vampire_only_trait is not None, (
-                "Pre-seeded DB needs a trait in a category outside the mortal skeleton"
-            )
-
             # When we assign the out-of-class trait to the mortal
             await character_trait_factory(
                 character_id=character.id, trait=vampire_only_trait, value=1
@@ -389,9 +381,6 @@ class TestCharacterSheetService:
                 Trait.game_versions == character.game_version,
                 In(Trait.sheet_section_id, list(mortal_section_ids)),
             )
-            if shared_trait is None:
-                pytest.skip("Pre-seeded DB needs a trait in a shared section")
-
             await character_trait_factory(character_id=character.id, trait=shared_trait, value=2)
 
             # When we get the full sheet
@@ -544,9 +533,6 @@ class TestCharacterSheetService:
                 Trait.character_classes == CharacterClass.VAMPIRE,
                 Trait.is_custom == False,
             )
-            if vampire_trait is None:
-                pytest.skip("Pre-seeded DB needs a vampire-only trait")
-
             # When we get the full sheet with available traits
             service = CharacterSheetService()
             result = await service.get_character_full_sheet(
@@ -572,9 +558,6 @@ class TestCharacterSheetService:
                 Trait.character_classes == character.character_class,
                 NotIn(Trait.game_versions, [character.game_version]),
             )
-            if other_version_trait is None:
-                pytest.skip("Pre-seeded DB needs a trait exclusive to a different game version")
-
             # When we get the full sheet with available traits
             service = CharacterSheetService()
             result = await service.get_character_full_sheet(
@@ -639,9 +622,6 @@ class TestCharacterSheetService:
                 WerewolfTribe.is_archived == False,
                 WerewolfTribe.id != tribe_id,
             )
-            if other_tribe is None:
-                pytest.skip("Pre-seeded DB needs at least two werewolf tribes")
-
             # Exclude gifts that also match the character's auspice
             other_tribe_gift = await Trait.find_one(
                 Trait.is_archived == False,
@@ -650,9 +630,6 @@ class TestCharacterSheetService:
                 Trait.gift_attributes.auspice_id != auspice_id,
                 Trait.gift_attributes.is_native_gift == False,
             )
-            if other_tribe_gift is None:
-                pytest.skip("Pre-seeded DB needs a gift exclusive to a different tribe")
-
             # And there exist gift traits for a different auspice
             other_auspice = await WerewolfAuspice.find_one(
                 WerewolfAuspice.is_archived == False,

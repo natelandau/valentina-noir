@@ -676,9 +676,6 @@ class TestCountCategoryTraits:
             Trait.gift_attributes != None,
             Trait.is_archived == False,
         ).to_list(2)
-        if len(gift_traits) < 2:
-            pytest.skip("Not enough gift traits in database")
-
         gifts_category_id = gift_traits[0].parent_category_id
         for gift_trait in gift_traits:
             await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
@@ -704,9 +701,6 @@ class TestCountCategoryTraits:
             Trait.gift_attributes != None,
             Trait.is_archived == False,
         ).to_list(2)
-        if len(gift_traits) < 2:
-            pytest.skip("Not enough gift traits in database")
-
         gifts_category_id = gift_traits[0].parent_category_id
         await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
         await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=0)
@@ -733,9 +727,6 @@ class TestCountCategoryTraits:
             Trait.gift_attributes != None,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift trait in database")
-
         gifts_category_id = gift_trait.parent_category_id
         await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
 
@@ -743,9 +734,6 @@ class TestCountCategoryTraits:
             Trait.parent_category_id != gifts_category_id,
             Trait.is_archived == False,
         )
-        if non_gift_trait is None:
-            pytest.skip("No non-gift trait in database")
-
         await character_trait_factory(character_id=character.id, trait=non_gift_trait, value=3)
 
         # When counting traits in the gifts category
@@ -989,9 +977,6 @@ class TestCountBasedUpgradeCost:
             Trait.count_based_cost_multiplier == 2,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No trait with count_based_cost_multiplier=2 in database")
-
         character_trait = await character_trait_factory(
             character_id=character.id, trait=gift_trait, value=0
         )
@@ -1022,8 +1007,9 @@ class TestCountBasedUpgradeCost:
             Trait.count_based_cost_multiplier == 2,
             Trait.is_archived == False,
         ).to_list(4)
-        if len(gift_traits) < 4:
-            pytest.skip("Not enough traits with count_based_cost_multiplier=2 in database")
+        assert len(gift_traits) >= 4, (
+            "Not enough traits with count_based_cost_multiplier=2 in database"
+        )
 
         # Add 3 existing gifts with value=1
         for i in range(3):
@@ -1058,9 +1044,6 @@ class TestCountBasedUpgradeCost:
             Trait.count_based_cost_multiplier == 3,
             Trait.is_archived == False,
         )
-        if ritual_trait is None:
-            pytest.skip("No trait with count_based_cost_multiplier=3 in database")
-
         character_trait = await character_trait_factory(
             character_id=character.id, trait=ritual_trait, value=0
         )
@@ -1089,15 +1072,13 @@ class TestCountBasedUpgradeCost:
             Trait.count_based_cost_multiplier == 3,
             Trait.is_archived == False,
         ).to_list(3)
-        if len(ritual_traits) < 3:
-            pytest.skip("Not enough traits with count_based_cost_multiplier=3 in database")
+        assert len(ritual_traits) >= 3, (
+            "Not enough traits with count_based_cost_multiplier=3 in database"
+        )
 
         # Ensure all traits are in the same parent category
         category_id = ritual_traits[0].parent_category_id
         same_category_traits = [t for t in ritual_traits if t.parent_category_id == category_id]
-        if len(same_category_traits) < 3:
-            pytest.skip("Not enough rituals in the same category")
-
         # Add 2 existing rituals with value=1
         for i in range(2):
             await character_trait_factory(
@@ -1139,9 +1120,6 @@ class TestCountBasedDowngradeSavings:
             Trait.count_based_cost_multiplier == 2,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No trait with count_based_cost_multiplier=2 in database")
-
         character_trait = await character_trait_factory(
             character_id=character.id, trait=gift_trait, value=1
         )
@@ -1172,8 +1150,9 @@ class TestCountBasedDowngradeSavings:
             Trait.count_based_cost_multiplier == 2,
             Trait.is_archived == False,
         ).to_list(5)
-        if len(gift_traits) < 5:
-            pytest.skip("Not enough traits with count_based_cost_multiplier=2 in database")
+        assert len(gift_traits) >= 5, (
+            "Not enough traits with count_based_cost_multiplier=2 in database"
+        )
 
         for i in range(4):
             await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
@@ -1206,15 +1185,13 @@ class TestCountBasedDowngradeSavings:
             Trait.count_based_cost_multiplier == 3,
             Trait.is_archived == False,
         ).to_list(3)
-        if len(ritual_traits) < 3:
-            pytest.skip("Not enough traits with count_based_cost_multiplier=3 in database")
+        assert len(ritual_traits) >= 3, (
+            "Not enough traits with count_based_cost_multiplier=3 in database"
+        )
 
         # Ensure all traits are in the same parent category
         category_id = ritual_traits[0].parent_category_id
         same_category_traits = [t for t in ritual_traits if t.parent_category_id == category_id]
-        if len(same_category_traits) < 3:
-            pytest.skip("Not enough rituals in the same category")
-
         for i in range(2):
             await character_trait_factory(
                 character_id=character.id, trait=same_category_traits[i], value=1
@@ -1472,10 +1449,6 @@ class TestUpdateWerewolfTotalRenown:
         honor_trait = await Trait.find_one(Trait.name == "Honor")
         wisdom_trait = await Trait.find_one(Trait.name == "Wisdom")
         glory_trait = await Trait.find_one(Trait.name == "Glory")
-
-        # Skip if renown traits don't exist
-        if not all([honor_trait, wisdom_trait, glory_trait]):
-            pytest.skip("Renown traits not found in database")
 
         await character_trait_factory(character_id=character.id, trait=honor_trait, value=2)
         await character_trait_factory(character_id=character.id, trait=wisdom_trait, value=3)
@@ -1735,9 +1708,6 @@ class TestGuardHasMinimumRenown:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift with minimum_renown found in database")
-
         # When adding the gift with XP currency
         # Then a ValidationError is raised
         service = CharacterTraitService()
@@ -1778,9 +1748,6 @@ class TestGuardHasMinimumRenown:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift with minimum_renown found in database")
-
         # Set character's total_renown above the requirement
         character.werewolf_attributes.total_renown = gift_trait.gift_attributes.minimum_renown + 1
         await character.save()
@@ -1826,9 +1793,6 @@ class TestGuardHasMinimumRenown:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift with minimum_renown found in database")
-
         # When adding the gift with NO_COST
         service = CharacterTraitService()
         result = await service.add_constant_trait_to_character(
@@ -1868,9 +1832,6 @@ class TestGuardHasMinimumRenown:
             Trait.gift_attributes == None,
             Trait.is_archived == False,
         )
-        if non_gift_trait is None:
-            pytest.skip("No non-gift trait found in database")
-
         # When adding the trait with XP currency so the guard is actually invoked
         service = CharacterTraitService()
         result = await service.add_constant_trait_to_character(
@@ -3452,9 +3413,6 @@ class TestDeleteCountBasedTrait:
             Trait.gift_attributes != None,
             Trait.is_archived == False,
         ).to_list(3)
-        if len(gift_traits) < 3:
-            pytest.skip("Not enough gift traits in database")
-
         for gift_trait in gift_traits:
             await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
 
@@ -3840,11 +3798,6 @@ class TestBulkAddConstantTraitsToCharacter:
             Trait.gift_attributes == None,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift with minimum_renown found in database")
-        if non_gift_trait is None:
-            pytest.skip("No non-gift trait found in database")
-
         items = [
             CharacterTraitAddConstant(
                 trait_id=gift_trait.id, value=1, currency=TraitModifyCurrency.XP
@@ -3902,9 +3855,6 @@ class TestAddCountBasedTraitToCharacter:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         ).to_list(3)
-        if len(gift_traits) < 3:
-            pytest.skip("Not enough gift traits with minimum_renown in database")
-
         # Set renown high enough to satisfy the most demanding gift's requirement
         max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
         character.werewolf_attributes.total_renown = max_renown + 1
@@ -3962,9 +3912,6 @@ class TestAddCountBasedTraitToCharacter:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         ).to_list(2)
-        if len(gift_traits) < 2:
-            pytest.skip("Not enough gift traits with minimum_renown in database")
-
         # Set renown high enough to satisfy the most demanding gift's requirement
         max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
         character.werewolf_attributes.total_renown = max_renown + 1
@@ -4019,9 +3966,6 @@ class TestBulkAddCountBasedTraits:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         ).to_list(5)
-        if len(gift_traits) < 5:
-            pytest.skip("Not enough gift traits with minimum_renown in database")
-
         # Set renown high enough for all gifts
         character.werewolf_attributes.total_renown = 100
         await character.save()
@@ -4086,9 +4030,6 @@ class TestBulkAddCountBasedTraits:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         ).to_list(3)
-        if len(gift_traits) < 3:
-            pytest.skip("Not enough gift traits with minimum_renown in database")
-
         # Set renown high enough for all gifts; NO_COST skips renown guard
         character.werewolf_attributes.total_renown = 100
         await character.save()
@@ -4155,9 +4096,6 @@ class TestBulkAddCountBasedTraits:
             Trait.gift_attributes.minimum_renown > 0,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift trait with minimum_renown found in database")
-
         # Find a non-gift trait with known costs; exclude flaws
         flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
         non_gift_trait = await Trait.find_one(
@@ -4165,9 +4103,6 @@ class TestBulkAddCountBasedTraits:
             Trait.is_archived == False,
             Trait.parent_category_id != flaws_category.id,
         )
-        if non_gift_trait is None:
-            pytest.skip("No non-gift trait found in database")
-
         # Set renown high enough
         character.werewolf_attributes.total_renown = 100
         await character.save()
@@ -4228,9 +4163,6 @@ class TestGetValueOptionsGifts:
             Trait.gift_attributes != None,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift trait in database")
-
         character_trait = await character_trait_factory(
             character_id=character.id, trait=gift_trait, value=0
         )
@@ -4264,9 +4196,6 @@ class TestGetValueOptionsGifts:
             Trait.gift_attributes != None,
             Trait.is_archived == False,
         )
-        if gift_trait is None:
-            pytest.skip("No gift trait in database")
-
         character_trait = await character_trait_factory(
             character_id=character.id, trait=gift_trait, value=1
         )

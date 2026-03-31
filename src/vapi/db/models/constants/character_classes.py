@@ -1,10 +1,8 @@
 """Models for the character classes such as vampire clans, werewolf tribes, and werewolf auspices that are specific to a character class."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from pydantic import Field
 
 from vapi.constants import GameVersion, WerewolfRenown

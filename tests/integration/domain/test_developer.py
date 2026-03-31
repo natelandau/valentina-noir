@@ -70,9 +70,6 @@ async def test_developer_new_key(
     assert db_developer.hashed_api_key != original_hashed_api_key
     assert db_developer.api_key_fingerprint != original_api_key_fingerprint
 
-    # Cleanup
-    await db_developer.delete()
-
 
 async def test_developer_update(
     client: "AsyncClient",

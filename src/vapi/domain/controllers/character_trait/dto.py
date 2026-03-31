@@ -1,14 +1,12 @@
 """Character trait schemas."""
 
-from __future__ import annotations
-
 from typing import Annotated, Literal
 
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from pydantic import BaseModel, Field, field_serializer
 
-from vapi.constants import TraitModifyCurrency  # noqa: TC001
-from vapi.db.models import CharacterTrait, Trait  # noqa: TC001
+from vapi.constants import TraitModifyCurrency
+from vapi.db.models import CharacterTrait, Trait
 from vapi.lib.dto import COMMON_EXCLUDES
 
 

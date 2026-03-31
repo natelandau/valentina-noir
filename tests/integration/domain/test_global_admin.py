@@ -41,9 +41,6 @@ async def test_admin_list_developers(
 
     assert str(new_developer.id) in [item["id"] for item in json_data["items"]]
 
-    # Cleanup
-    await new_developer.delete()
-
 
 async def test_get_developer(
     client: "AsyncClient",
@@ -90,9 +87,6 @@ async def test_post_developer(
     assert not db_developer.is_global_admin
     assert db_developer.companies == []
 
-    # Cleanuo
-    await db_developer.delete()
-
 
 async def test_patch_developer(
     client: "AsyncClient",
@@ -121,9 +115,6 @@ async def test_patch_developer(
     assert db_developer.is_global_admin == new_developer.is_global_admin
     assert db_developer.companies == new_developer.companies
 
-    # Cleanup
-    await db_developer.delete()
-
 
 async def test_delete_developer(
     client: "AsyncClient",
@@ -143,9 +134,6 @@ async def test_delete_developer(
     db_developer = await Developer.get(new_developer.id)
     assert db_developer.is_archived
     assert db_developer.archive_date is not None
-
-    # Cleanup
-    await db_developer.delete()
 
 
 async def test_new_api_key(
@@ -186,6 +174,3 @@ async def test_new_api_key(
     assert db_developer.api_key_fingerprint is not None
     assert db_developer.hashed_api_key != original_hashed_api_key
     assert db_developer.api_key_fingerprint != original_api_key_fingerprint
-
-    # Cleanup
-    await new_developer.delete()

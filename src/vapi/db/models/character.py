@@ -1,8 +1,6 @@
 """Character model."""
 
-from __future__ import annotations
-
-from datetime import datetime  # noqa: TC003
+from datetime import datetime
 from typing import Annotated, ClassVar
 
 from beanie import (
@@ -28,8 +26,8 @@ from vapi.constants import (
     InventoryItemType,
 )
 from vapi.db.models.base import BaseDocument
-from vapi.db.models.constants.trait import Trait  # noqa: TC001
-from vapi.db.models.shared import Specialty  # noqa: TC001
+from vapi.db.models.constants.trait import Trait
+from vapi.db.models.shared import Specialty
 from vapi.lib.validation import empty_string_to_none
 
 from .base import HashedBaseModel, NameDescriptionSubDocument

@@ -20,7 +20,7 @@ duty test -- -n 0 -v -s -x    # Serial, verbose, show output, stop on first fail
 # Database
 docker compose -f compose-db.yml up -d   # Start MongoDB + Redis
 duty bootstrap                           # Create database collections
-duty populate                            # Populate with test data
+duty populate                            # Delete existing data and populate with test data
 
 # Maintenance
 duty clean                    # Clean project artifacts
@@ -30,7 +30,7 @@ duty dev-setup                # Initialize development environment
 
 ## Workflow Rules
 
-- **Never commit plans, designs, or implementation specs.** These are working documents only — do not stage or commit them to the repository.
+- **Never commit plans, designs, or implementation specs.** These are working documents only - do not stage or commit them to the repository.
 - **Work on branches, not worktrees.** All development is done on git branches in the main repo checkout unless the user gives explicit instructions to use worktrees.
 
 ## Architecture
@@ -68,8 +68,9 @@ duty dev-setup                # Initialize development environment
 
 - Docker required (MongoDB + Redis run in containers via pytest-databases)
 - Tests run in parallel by default (`-n auto --dist loadfile`)
-- Custom markers: `@pytest.mark.clean_db` (wipes non-constant data), `@pytest.mark.serial`
+- Custom markers: `@pytest.mark.serial`
 - The full test suite is slow. During development on a branch with multiple commits, run individual test files (e.g., `uv run pytest tests/unit/domain/services/test_character_trait_svc.py -v -n 0`) and commit with `--no-verify` to skip pre-commit hooks. Run the full test suite once at the end of the session before finalizing.
+- **Never use `pytest.skip()` or `pytest.mark.skip`.** All seed data is expected to be present. If a query for seed data returns nothing, the test should fail - not skip. Only assert in the `# Then` section, not to guard seed data existence.
 
 ## Documentation
 

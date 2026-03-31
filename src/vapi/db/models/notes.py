@@ -1,10 +1,8 @@
 """Notes model."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from pydantic import Field
 
 from vapi.db.models.base import BaseDocument

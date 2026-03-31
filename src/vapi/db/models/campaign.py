@@ -1,10 +1,8 @@
 """Campaign model."""
 
-from __future__ import annotations
-
 from typing import Annotated, ClassVar
 
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from pydantic import BeforeValidator, Field
 
 from vapi.constants import MAX_DANGER, MAX_DESPERATION

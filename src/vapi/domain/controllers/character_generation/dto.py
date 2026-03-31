@@ -1,18 +1,16 @@
 """Character generation schemas."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from litestar.plugins.pydantic import PydanticDTO
 from pydantic import BaseModel
 
-from vapi.constants import CharacterClass, CharacterType  # noqa: TC001
+from vapi.constants import CharacterClass, CharacterType
 from vapi.db.models.chargen_session import ChargenSession
 from vapi.domain.handlers.character_autogeneration.constants import (
-    AbilityFocus,  # noqa: TC001
-    AutoGenExperienceLevel,  # noqa: TC001
+    AbilityFocus,
+    AutoGenExperienceLevel,
 )
 from vapi.lib.dto import dto_config
 

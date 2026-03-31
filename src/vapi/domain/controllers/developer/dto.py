@@ -1,7 +1,5 @@
 """Developer schemas."""
 
-from __future__ import annotations
-
 from litestar.plugins.pydantic import PydanticDTO
 
 from vapi.db.models import Developer

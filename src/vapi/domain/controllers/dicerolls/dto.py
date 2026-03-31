@@ -1,8 +1,6 @@
 """Gameplay schemas."""
 
-from __future__ import annotations
-
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from litestar.plugins.pydantic import PydanticDTO
 from pydantic import BaseModel
 

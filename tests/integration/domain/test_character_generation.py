@@ -129,9 +129,6 @@ class TestAutogenerateCharacter:
         assert character.character_class == CharacterClass.MORTAL
         assert character.concept_id == concept.id
 
-        # Cleanup
-        await character.delete()
-
 
 class TestCharacterChargen:
     """Test character chargen endpoints."""
@@ -177,15 +174,6 @@ class TestCharacterChargen:
         for character in characters:
             assert character["is_temporary"] == (character_autogen_num_choices > 1)
             assert character["is_chargen"] is True
-
-        # Cleanup
-        for character_id in [character["id"] for character in characters]:
-            c = await Character.get(character_id)
-            if c:
-                await c.delete()
-        await ChargenSession.find(
-            ChargenSession.company_id == base_company.id,
-        ).delete()
 
     async def test_start_chargen_without_xp_cost(
         self,
@@ -296,16 +284,6 @@ class TestCharacterChargen:
         # then we should get a 400 bad request response
         assert response.status_code == HTTP_400_BAD_REQUEST
 
-        # Cleanup
-        sessions = await ChargenSession.find(
-            ChargenSession.company_id == base_company.id,
-            fetch_links=True,
-        ).to_list()
-        for session in sessions:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
-
     async def test_finalize_chargen_invalid_selected_character_id(
         self,
         client: AsyncClient,
@@ -340,16 +318,6 @@ class TestCharacterChargen:
 
         # then we should get a 400 bad request response
         assert response.status_code == HTTP_400_BAD_REQUEST
-
-        # Cleanup
-        sessions = await ChargenSession.find(
-            ChargenSession.company_id == base_company.id,
-            fetch_links=True,
-        ).to_list()
-        for session in sessions:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
 
 
 class TestChargenSessions:
@@ -391,15 +359,6 @@ class TestChargenSessions:
         assert len(matching[0]["characters"]) == 2
         assert matching[0]["requires_selection"] is True
 
-        # Cleanup
-        for character in matching[0]["characters"]:
-            c = await Character.get(character["id"])
-            if c:
-                await c.delete()
-        session = await ChargenSession.get(session_id)
-        if session:
-            await session.delete()
-
     async def test_list_chargen_sessions_excludes_expired(
         self,
         client: AsyncClient,
@@ -438,13 +397,6 @@ class TestChargenSessions:
         matching = [s for s in sessions if s["id"] == session_id]
         assert len(matching) == 0
 
-        # Cleanup
-        session = await ChargenSession.get(session_id, fetch_links=True)
-        if session:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
-
     async def test_list_chargen_sessions_excludes_other_users(
         self,
         client: AsyncClient,
@@ -464,7 +416,6 @@ class TestChargenSessions:
             headers=token_company_admin,
         )
         assert start_response.status_code == HTTP_201_CREATED
-        session_id = start_response.json()["id"]
 
         # Create a fake session for a different user
         fake_session = ChargenSession(
@@ -490,14 +441,6 @@ class TestChargenSessions:
         assert str(fake_session.id) not in session_ids
         for s in sessions:
             assert s["user_id"] == str(base_user.id)
-
-        # Cleanup
-        session = await ChargenSession.get(session_id, fetch_links=True)
-        if session:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
-        await fake_session.delete()
 
     async def test_get_chargen_session_by_id(
         self,
@@ -531,13 +474,6 @@ class TestChargenSessions:
         assert response.json()["id"] == session_id
         assert len(response.json()["characters"]) == 2
         assert response.json()["requires_selection"] is True
-
-        # Cleanup
-        session = await ChargenSession.get(session_id, fetch_links=True)
-        if session:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
 
     async def test_get_chargen_session_not_found(
         self,
@@ -593,13 +529,6 @@ class TestChargenSessions:
         # Then we get a 400 error
         assert response.status_code == HTTP_400_BAD_REQUEST
 
-        # Cleanup
-        session = await ChargenSession.get(session_id, fetch_links=True)
-        if session:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
-
     async def test_start_chargen_creates_session_document(
         self,
         client: AsyncClient,
@@ -629,13 +558,6 @@ class TestChargenSessions:
         assert session.user_id == base_user.id
         assert session.company_id == base_company.id
         assert session.campaign_id == base_campaign.id
-
-        # Cleanup
-        session = await ChargenSession.get(session_id, fetch_links=True)
-        if session:
-            for character in session.characters:
-                await character.delete()
-            await session.delete()
 
     async def test_finalize_chargen_deletes_session_document(
         self,
@@ -671,11 +593,6 @@ class TestChargenSessions:
         # Then the session document is deleted
         session = await ChargenSession.get(session_id)
         assert session is None
-
-        # Cleanup selected character
-        c = await Character.get(selected_character_id)
-        if c:
-            await c.delete()
 
     async def test_scheduled_task_cleans_expired_sessions(
         self,

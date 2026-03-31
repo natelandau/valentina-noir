@@ -1,20 +1,16 @@
 """Character schemas."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from beanie import PydanticObjectId
 from litestar.plugins.pydantic import PydanticDTO
 from pydantic import BaseModel, Field, field_serializer
 
+from vapi.constants import HunterEdgeType
+from vapi.db.models import Trait
 from vapi.db.models.character import Character
 from vapi.lib.dto import COMMON_EXCLUDES, dto_config
 from vapi.utils.models import create_model_without_fields
-
-if TYPE_CHECKING:
-    from vapi.constants import HunterEdgeType
-    from vapi.db.models import Trait
 
 
 class CharacterPatchDTO(PydanticDTO[Character]):

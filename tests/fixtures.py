@@ -40,29 +40,16 @@ def build_url(
 
     def _build_url(url: str, **kwargs: Any) -> str:
         url = re.sub(r":[a-z]+}", "}", url, flags=re.IGNORECASE)
-        replacements = {k: str(v) for k, v in kwargs.items()}
-
-        if "company_id" not in replacements:
-            replacements["company_id"] = str(base_company.id)
-
-        if "user_id" not in replacements:
-            replacements["user_id"] = str(base_user.id)
-
-        if "campaign_id" not in replacements:
-            replacements["campaign_id"] = str(base_campaign.id)
-
-        if "character_id" not in replacements:
-            replacements["character_id"] = str(base_character.id)
-
-        if "game_version" not in replacements:
-            replacements["game_version"] = GameVersion.V5.name
-
-        if "book_id" not in replacements:
-            replacements["book_id"] = str(base_campaign_book.id)
-
-        if "chapter_id" not in replacements:
-            replacements["chapter_id"] = str(base_campaign_chapter.id)
-
+        defaults = {
+            "company_id": str(base_company.id),
+            "user_id": str(base_user.id),
+            "campaign_id": str(base_campaign.id),
+            "character_id": str(base_character.id),
+            "game_version": GameVersion.V5.name,
+            "book_id": str(base_campaign_book.id),
+            "chapter_id": str(base_campaign_chapter.id),
+        }
+        replacements = defaults | {k: str(v) for k, v in kwargs.items()}
         return url.format(**replacements)
 
     return _build_url

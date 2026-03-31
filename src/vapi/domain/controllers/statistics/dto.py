@@ -1,8 +1,6 @@
 """Statistics DTOs."""
 
-from __future__ import annotations
-
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import PydanticObjectId
 from pydantic import BaseModel, Field, computed_field
 
 

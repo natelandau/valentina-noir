@@ -1,13 +1,11 @@
 """Dictionary model."""
 
-from __future__ import annotations
-
 from typing import Annotated, Any, Self
 
 from beanie import Insert, PydanticObjectId, Replace, Save, SaveChanges, Update, before_event
 from pydantic import Field, model_validator
 
-from vapi.constants import DictionarySourceType  # noqa: TC001
+from vapi.constants import DictionarySourceType
 from vapi.db.models.base import BaseDocument
 from vapi.lib.exceptions import ValidationError
 

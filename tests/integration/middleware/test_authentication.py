@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 from litestar.status_codes import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
@@ -12,8 +12,6 @@ from vapi.constants import AUTH_HEADER_KEY, IGNORE_RATE_LIMIT_HEADER_KEY
 from vapi.domain import urls as vapi_urls
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from httpx import AsyncClient
 
     from vapi.db.models import Company
@@ -33,7 +31,6 @@ test_data = {
         vapi_urls.Companies.LIST,
         vapi_urls.GlobalAdmin.DEVELOPERS,
         vapi_urls.GlobalAdmin.DEVELOPER_DETAIL,
-        # vapi_urls.Developers.ME,
         vapi_urls.Campaigns.LIST,
         vapi_urls.Campaigns.DETAIL,
         vapi_urls.Campaigns.BOOKS,
@@ -61,7 +58,6 @@ test_data = {
         vapi_urls.Characters.NOTE_CREATE,
         vapi_urls.Companies.CREATE,
         vapi_urls.GlobalAdmin.DEVELOPER_CREATE,
-        # vapi_urls.Developers.NEW_KEY,
         vapi_urls.Campaigns.CREATE,
         vapi_urls.Campaigns.BOOK_CREATE,
         vapi_urls.Campaigns.CHAPTER_CREATE,
@@ -82,7 +78,6 @@ test_data = {
         vapi_urls.Characters.NOTE_UPDATE,
         vapi_urls.Companies.UPDATE,
         vapi_urls.GlobalAdmin.DEVELOPER_UPDATE,
-        # vapi_urls.Developers.UPDATE,
         vapi_urls.Campaigns.UPDATE,
         vapi_urls.Campaigns.BOOK_UPDATE,
         vapi_urls.Campaigns.CHAPTER_UPDATE,
@@ -102,36 +97,41 @@ test_data = {
     ],
 }
 
+_DUMMY_ID = "123"
+_PLACEHOLDER_IDS = {
+    "user_id": _DUMMY_ID,
+    "campaign_id": _DUMMY_ID,
+    "character_id": _DUMMY_ID,
+    "book_id": _DUMMY_ID,
+    "chapter_id": _DUMMY_ID,
+    "game_version": "V4",
+    "section_id": _DUMMY_ID,
+    "character_trait_id": _DUMMY_ID,
+    "diceroll_id": _DUMMY_ID,
+    "category_id": _DUMMY_ID,
+    "trait_id": _DUMMY_ID,
+    "subcategory_id": _DUMMY_ID,
+    "note_id": _DUMMY_ID,
+    "dictionary_term_id": _DUMMY_ID,
+    "developer_id": _DUMMY_ID,
+}
+
+
+def _format_url(url: str, **overrides: str) -> str:
+    """Format a URL template with dummy IDs, allowing specific overrides."""
+    return url.replace(":str", "").format(
+        **{**_PLACEHOLDER_IDS, "company_id": _DUMMY_ID, **overrides}
+    )
+
 
 async def test_no_auth(
     client: AsyncClient,
-    debug: Callable[[Any], None],
 ) -> None:
-    """Test no auth."""
+    """Verify all endpoints reject requests without authentication."""
     for method, urls in test_data.items():
         for url in urls:
-            base_url = url.replace(":str", "").format(
-                company_id="123",
-                user_id="123",
-                campaign_id="123",
-                character_id="123",
-                book_id="123",
-                chapter_id="123",
-                game_version="V4",
-                section_id="123",
-                character_trait_id="123",
-                diceroll_id="123",
-                category_id="123",
-                trait_id="123",
-                subcategory_id="123",
-                note_id="123",
-                dictionary_term_id="123",
-                developer_id="123",
-            )
-            # debug(base_url)
-
             response = await client.request(
-                method, base_url, headers={IGNORE_RATE_LIMIT_HEADER_KEY: "true"}
+                method, _format_url(url), headers={IGNORE_RATE_LIMIT_HEADER_KEY: "true"}
             )
             assert response.status_code == HTTP_401_UNAUTHORIZED
 
@@ -139,40 +139,20 @@ async def test_no_auth(
 async def test_no_company_permission(
     client: AsyncClient,
     base_company: Company,
-    debug: Callable[[Any], None],
 ) -> None:
-    """Test no company permission."""
+    """Verify endpoints reject requests from developers without company access."""
     developer = DeveloperFactory().build(is_archived=False, is_global_admin=False)
     await developer.save()
     api_key = await developer.generate_api_key()
 
     for method, urls in test_data.items():
         for url in urls:
-            if url in [vapi_urls.Companies.LIST, vapi_urls.System.HEALTH]:
+            if url in {vapi_urls.Companies.LIST, vapi_urls.System.HEALTH}:
                 continue
-            base_url = url.replace(":str", "").format(
-                company_id=base_company.id,
-                user_id="123",
-                campaign_id="123",
-                character_id="123",
-                book_id="123",
-                chapter_id="123",
-                game_version="V4",
-                section_id="123",
-                character_trait_id="123",
-                diceroll_id="123",
-                category_id="123",
-                trait_id="123",
-                subcategory_id="123",
-                note_id="123",
-                dictionary_term_id="123",
-                developer_id="123",
-            )
-            # debug(base_url)
 
             response = await client.request(
                 method,
-                base_url,
+                _format_url(url, company_id=str(base_company.id)),
                 headers={AUTH_HEADER_KEY: api_key, IGNORE_RATE_LIMIT_HEADER_KEY: "true"},
             )
             assert response.status_code == HTTP_403_FORBIDDEN

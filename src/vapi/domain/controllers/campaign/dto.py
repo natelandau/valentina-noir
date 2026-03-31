@@ -1,7 +1,5 @@
 """Campaign schemas."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
 from litestar.plugins.pydantic import PydanticDTO

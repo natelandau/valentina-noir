@@ -67,10 +67,6 @@ class TestFetchingCharacterTraits:
         assert response.json()["offset"] == 0
         assert response.json()["items"] == [character_trait1.model_dump(mode="json")]
 
-        # cleanup non-constant traits
-        await trait1.delete()
-        await trait2.delete()
-
     async def test_get_character_trait(
         self,
         client: AsyncClient,
@@ -340,10 +336,6 @@ class TestDeleteCharacterTrait:
         assert campaign_experience.xp_current > initial_xp
         assert campaign_experience.xp_total == initial_xp
 
-        # Cleanup
-        await character_player_user.delete()
-        await character.delete()
-
 
 class TestModifyTraitValue:
     """Test modifying character trait values using the new consolidated endpoint."""
@@ -384,9 +376,6 @@ class TestModifyTraitValue:
             await character_trait.sync()
             assert character_trait.value == 1
 
-        # Cleanup
-        await user.delete()
-
     @pytest.mark.parametrize(
         "user_role", [(UserRole.STORYTELLER), (UserRole.ADMIN), (UserRole.PLAYER)]
     )
@@ -422,9 +411,6 @@ class TestModifyTraitValue:
             assert response.status_code == HTTP_200_OK
             await character_trait.sync()
             assert character_trait.value == trait.max_value - 1
-
-        # Cleanup
-        await user.delete()
 
     async def test_increase_trait_value_with_xp(
         self,
@@ -468,11 +454,6 @@ class TestModifyTraitValue:
         assert campaign_experience.xp_current == 100 - trait.initial_cost
         assert campaign_experience.xp_total == 100
 
-        # Cleanup
-        await character_player_user.delete()
-        await character.delete()
-        await character_trait.delete()
-
     async def test_increase_trait_value_with_xp_as_storyteller(
         self,
         client: AsyncClient,
@@ -510,12 +491,6 @@ class TestModifyTraitValue:
         await character_trait.sync()
         assert character_trait.value == 1
 
-        # Cleanup
-        await character_player_user.delete()
-        await storyteller_user.delete()
-        await character.delete()
-        await character_trait.delete()
-
     async def test_increase_trait_value_fail_as_non_owner_player(
         self,
         client: AsyncClient,
@@ -550,12 +525,6 @@ class TestModifyTraitValue:
 
         # Then the response should be forbidden
         assert response.status_code == HTTP_403_FORBIDDEN
-
-        # Cleanup
-        await character_player_user.delete()
-        await player_user.delete()
-        await character.delete()
-        await character_trait.delete()
 
     async def test_decrease_trait_value_with_xp_refund(
         self,
@@ -599,11 +568,6 @@ class TestModifyTraitValue:
         assert campaign_experience.xp_current == 100 + (trait.initial_cost * trait.max_value)
         assert campaign_experience.xp_total == 100
 
-        # Cleanup
-        await character_player_user.delete()
-        await character.delete()
-        await character_trait.delete()
-
     async def test_increase_trait_value_with_starting_points(
         self,
         client: AsyncClient,
@@ -640,10 +604,6 @@ class TestModifyTraitValue:
         await character.sync()
         assert character.starting_points == 100 - trait.initial_cost
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_decrease_trait_value_with_starting_points_refund(
         self,
         client: AsyncClient,
@@ -679,10 +639,6 @@ class TestModifyTraitValue:
         assert character_trait.value == trait.max_value - 1
         await character.sync()
         assert character.starting_points == 125
-
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
 
 
 class TestGetValueOptions:
@@ -741,11 +697,6 @@ class TestGetValueOptions:
         if trait.min_value < 2:
             assert "1" in result["options"]
             assert result["options"]["1"]["direction"] == "decrease"
-
-        # Cleanup
-        await character_player_user.delete()
-        await character.delete()
-        await character_trait.delete()
 
 
 class TestBulkAssignTraitsToCharacter:

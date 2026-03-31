@@ -34,6 +34,7 @@ from vapi.db.models import (
     CharacterInventory,
     Company,
     Developer,
+    DiceRoll,
     DictionaryTerm,
     Note,
     QuickRoll,
@@ -67,12 +68,17 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.anyio
 
-API_KEY_CACHE: dict[str, str] = {}  # cache plaintext API keys by user id for tests
+API_KEY_CACHE: dict[str, str] = {}
 
 
-async def _create_character(
-    **kwargs: Any,
-) -> Character:
+def _token_header(developer: Developer) -> dict[str, str]:
+    """Build an auth header dict from a developer's cached API key."""
+    api_key = API_KEY_CACHE.get(str(developer.id))
+    assert api_key is not None, f"Missing cached API key for developer {developer.id}"
+    return {AUTH_HEADER_KEY: api_key}
+
+
+async def _create_character(**kwargs: Any) -> Character:
     """Create a character for testing and save it to the database.
 
     Args:
@@ -81,11 +87,10 @@ async def _create_character(
     Returns:
         Character: A character object.
     """
-    if kwargs.get("character_class"):
-        character_class = CharacterClass(kwargs.get("character_class"))
-        del kwargs["character_class"]
-    else:
-        character_class = random.choice(list(CharacterClass))
+    raw_class = kwargs.pop("character_class", None)
+    character_class = (
+        CharacterClass(raw_class) if raw_class else random.choice(list(CharacterClass))
+    )
 
     vampire_attributes = VampireAttributes()
     werewolf_attributes = WerewolfAttributes()
@@ -97,8 +102,8 @@ async def _create_character(
         )
         vampire_attributes = VampireAttributes(clan_id=clan.id)
     elif character_class == CharacterClass.WEREWOLF:
-        tribe = await WerewolfTribe.find_one({"is_archived": False})
-        auspice = await WerewolfAuspice.find_one({"is_archived": False})
+        tribe = await WerewolfTribe.find_one(WerewolfTribe.is_archived == False)
+        auspice = await WerewolfAuspice.find_one(WerewolfAuspice.is_archived == False)
         werewolf_attributes = WerewolfAttributes(tribe_id=tribe.id, auspice_id=auspice.id)
 
     character = CharacterFactory().build(
@@ -116,59 +121,31 @@ async def _create_character(
 
 @pytest.fixture
 async def token_global_admin(base_developer_global_admin: Developer) -> dict[str, str]:
-    """Create a token for a global admin.
-
-    Returns:
-        str: A token for a global admin.
-    """
-    api_key = API_KEY_CACHE.get(str(base_developer_global_admin.id))
-    assert api_key is not None, "Missing cached API key for base_developer_global_admin"
-    return {AUTH_HEADER_KEY: api_key}
+    """Return auth header for the global admin developer."""
+    return _token_header(base_developer_global_admin)
 
 
 @pytest.fixture
-async def token_company_owner(base_developer_company_owner) -> dict[str, str]:
-    """Create a token for a company owner.
-
-    Returns:
-        str: A token for a company owner.
-    """
-    api_key = API_KEY_CACHE.get(str(base_developer_company_owner.id))
-    assert api_key is not None, "Missing cached API key for base_developer_company_owner"
-    return {AUTH_HEADER_KEY: api_key}
+async def token_company_owner(base_developer_company_owner: Developer) -> dict[str, str]:
+    """Return auth header for the company owner developer."""
+    return _token_header(base_developer_company_owner)
 
 
 @pytest.fixture
-async def token_company_admin(base_developer_company_admin) -> dict[str, str]:
-    """Create a token for a company admin.
-
-    Returns:
-        str: A token for a company admin.
-    """
-    api_key = API_KEY_CACHE.get(str(base_developer_company_admin.id))
-    assert api_key is not None, "Missing cached API key for base_developer_company_admin"
-    return {AUTH_HEADER_KEY: api_key}
+async def token_company_admin(base_developer_company_admin: Developer) -> dict[str, str]:
+    """Return auth header for the company admin developer."""
+    return _token_header(base_developer_company_admin)
 
 
 @pytest.fixture
-async def token_company_user(base_developer_company_user) -> dict[str, str]:
-    """Create a token for a company user.
-
-    Returns:
-        str: A token for a company user.
-    """
-    api_key = API_KEY_CACHE.get(str(base_developer_company_user.id))
-    assert api_key is not None, "Missing cached API key for base_developer_company_user"
-    return {AUTH_HEADER_KEY: api_key}
+async def token_company_user(base_developer_company_user: Developer) -> dict[str, str]:
+    """Return auth header for the company user developer."""
+    return _token_header(base_developer_company_user)
 
 
 @pytest.fixture
 async def base_company() -> Company:
-    """Create a base company for testing.
-
-    Returns:
-        Company: A company object.
-    """
+    """Return the base company for testing, creating it if needed."""
     company = await Company.find_one(Company.is_archived == False, Company.name == "Base Company")
     if not company:
         company = CompanyFactory().build(is_archived=False, name="Base Company")
@@ -182,11 +159,7 @@ async def base_company() -> Company:
 
 @pytest.fixture
 async def base_developer_global_admin() -> Developer:
-    """Create a base Developer for testing.
-
-    Returns:
-        Developer: A Developer object.
-    """
+    """Return a global admin developer, creating it if needed."""
     developer = await Developer.find_one(
         Developer.is_archived == False, Developer.is_global_admin == True
     )
@@ -199,28 +172,24 @@ async def base_developer_global_admin() -> Developer:
     return developer
 
 
-@pytest.fixture
-async def base_developer_company_owner(base_company) -> Developer:
-    """Create a base Developer for testing.
-
-    Returns:
-        Developer: A Developer object.
-    """
+async def _get_or_create_company_developer(
+    company: Company, permission: CompanyPermission
+) -> Developer:
+    """Find or create a developer with the given permission for the company."""
     developer = await Developer.find_one(
         Developer.is_archived == False,
         Developer.is_global_admin == False,
-        Developer.companies.company_id == base_company.id,
-        Developer.companies.name == base_company.name,
-        Developer.companies.permission == CompanyPermission.OWNER,
+        Developer.companies.company_id == company.id,
+        Developer.companies.permission == permission,
     )
     if not developer:
         developer = DeveloperFactory().build(
             is_global_admin=False,
             companies=[
                 CompanyPermissions(
-                    company_id=base_company.id,
-                    name=base_company.name,
-                    permission=CompanyPermission.OWNER,
+                    company_id=company.id,
+                    name=company.name,
+                    permission=permission,
                 )
             ],
         )
@@ -228,185 +197,66 @@ async def base_developer_company_owner(base_company) -> Developer:
 
     api_key = await developer.generate_api_key()
     API_KEY_CACHE[str(developer.id)] = api_key
-
     return developer
 
 
 @pytest.fixture
-async def base_developer_company_admin(base_company) -> Developer:
-    """Create a base Developer for testing.
-
-    Returns:
-        Developer: A Developer object.
-    """
-    developer = await Developer.find_one(
-        Developer.is_archived == False,
-        Developer.is_global_admin == False,
-        Developer.companies
-        == CompanyPermissions(
-            company_id=base_company.id, name=base_company.name, permission=CompanyPermission.ADMIN
-        ),
-    )
-    if not developer:
-        developer = DeveloperFactory().build(
-            is_global_admin=False,
-            companies=[
-                CompanyPermissions(
-                    company_id=base_company.id,
-                    name=base_company.name,
-                    permission=CompanyPermission.ADMIN,
-                )
-            ],
-        )
-        await developer.save()
-
-    api_key = await developer.generate_api_key()
-    API_KEY_CACHE[str(developer.id)] = api_key
-
-    return developer
+async def base_developer_company_owner(base_company: Company) -> Developer:
+    """Return a developer with OWNER permission on the base company."""
+    return await _get_or_create_company_developer(base_company, CompanyPermission.OWNER)
 
 
 @pytest.fixture
-async def base_developer_company_user(base_company) -> Developer:
-    """Create a base Developer for testing.
-
-    Returns:
-        Developer: A Developer object.
-    """
-    developer = await Developer.find_one(
-        Developer.is_archived == False,
-        Developer.is_global_admin == False,
-        Developer.companies
-        == CompanyPermissions(
-            company_id=base_company.id, name=base_company.name, permission=CompanyPermission.USER
-        ),
-    )
-    if not developer:
-        developer = DeveloperFactory().build(
-            is_global_admin=False,
-            companies=[
-                CompanyPermissions(
-                    company_id=base_company.id,
-                    name=base_company.name,
-                    permission=CompanyPermission.USER,
-                )
-            ],
-        )
-        await developer.save()
-
-    api_key = await developer.generate_api_key()
-    API_KEY_CACHE[str(developer.id)] = api_key
-
-    return developer
+async def base_developer_company_admin(base_company: Company) -> Developer:
+    """Return a developer with ADMIN permission on the base company."""
+    return await _get_or_create_company_developer(base_company, CompanyPermission.ADMIN)
 
 
 @pytest.fixture
-async def base_user(base_company) -> User:
-    """Create a base user for testing.
+async def base_developer_company_user(base_company: Company) -> Developer:
+    """Return a developer with USER permission on the base company."""
+    return await _get_or_create_company_developer(base_company, CompanyPermission.USER)
 
-    Returns:
-        User: A user object.
-    """
+
+async def _get_or_create_user(company: Company, role: UserRole) -> User:
+    """Find or create a user with the given role in the company."""
     user = await User.find_one(
         User.is_archived == False,
-        User.company_id == base_company.id,
-        User.role == UserRole.PLAYER,
+        User.company_id == company.id,
+        User.role == role,
     )
     if not user:
-        user = UserFactory().build(
-            company_id=base_company.id, is_archived=False, role=UserRole.PLAYER
-        )
+        user = UserFactory().build(company_id=company.id, is_archived=False, role=role)
         await user.save()
 
-    if user.id not in base_company.user_ids:
-        base_company.user_ids.append(user.id)
-        await base_company.save()
+    if user.id not in company.user_ids:
+        company.user_ids.append(user.id)
+        await company.save()
 
     return user
 
 
 @pytest.fixture
-async def base_user_storyteller(base_company) -> User:
-    """Create a base storyteller user for testing.
-
-    Returns:
-        User: A user object.
-    """
-    user = await User.find_one(
-        User.is_archived == False,
-        User.company_id == base_company.id,
-        User.role == UserRole.STORYTELLER,
-    )
-    if not user:
-        user = UserFactory().build(
-            company_id=base_company.id, is_archived=False, role=UserRole.STORYTELLER
-        )
-        await user.save()
-
-    if user.id not in base_company.user_ids:
-        base_company.user_ids.append(user.id)
-        await base_company.save()
-
-    return user
+async def base_user(base_company: Company) -> User:
+    """Return a base player user for testing."""
+    return await _get_or_create_user(base_company, UserRole.PLAYER)
 
 
 @pytest.fixture
-async def base_user_admin(base_company) -> User:
-    """Create a base admin user for testing.
-
-    Returns:
-        User: A user object.
-    """
-    user = await User.find_one(
-        User.is_archived == False,
-        User.company_id == base_company.id,
-        User.role == UserRole.ADMIN,
-    )
-    if not user:
-        user = UserFactory().build(
-            company_id=base_company.id, is_archived=False, role=UserRole.ADMIN
-        )
-        await user.save()
-
-    if user.id not in base_company.user_ids:
-        base_company.user_ids.append(user.id)
-        await base_company.save()
-
-    return user
+async def base_user_storyteller(base_company: Company) -> User:
+    """Return a base storyteller user for testing."""
+    return await _get_or_create_user(base_company, UserRole.STORYTELLER)
 
 
 @pytest.fixture
-async def base_user_player(base_company) -> User:
-    """Create a base user for testing.
-
-    Returns:
-        User: A user object.
-    """
-    user = await User.find_one(
-        User.is_archived == False,
-        User.company_id == base_company.id,
-        User.role == UserRole.PLAYER,
-    )
-    if not user:
-        user = UserFactory().build(
-            company_id=base_company.id, is_archived=False, role=UserRole.PLAYER
-        )
-        await user.save()
-
-    if user.id not in base_company.user_ids:
-        base_company.user_ids.append(user.id)
-        await base_company.save()
-
-    return user
+async def base_user_admin(base_company: Company) -> User:
+    """Return a base admin user for testing."""
+    return await _get_or_create_user(base_company, UserRole.ADMIN)
 
 
 @pytest.fixture
-async def base_campaign(base_company) -> Campaign:
-    """Create a base campaign for testing.
-
-    Returns:
-        Campaign: A campaign object.
-    """
+async def base_campaign(base_company: Company) -> Campaign:
+    """Return the base campaign for testing, creating it if needed."""
     campaign = await Campaign.find_one(
         Campaign.company_id == base_company.id,
         Campaign.is_archived == False,
@@ -419,12 +269,8 @@ async def base_campaign(base_company) -> Campaign:
 
 
 @pytest.fixture
-async def base_campaign_book(base_campaign) -> CampaignBook:
-    """Create a base campaign book for testing.
-
-    Returns:
-        CampaignBook: A campaign book object.
-    """
+async def base_campaign_book(base_campaign: Campaign) -> CampaignBook:
+    """Return the base campaign book for testing, creating it if needed."""
     campaign_book = await CampaignBook.find_one(
         CampaignBook.campaign_id == base_campaign.id,
         CampaignBook.is_archived == False,
@@ -437,12 +283,8 @@ async def base_campaign_book(base_campaign) -> CampaignBook:
 
 
 @pytest.fixture
-async def base_campaign_chapter(base_campaign_book) -> CampaignChapter:
-    """Create a base campaign chapter for testing.
-
-    Returns:
-        CampaignChapter: A campaign chapter object.
-    """
+async def base_campaign_chapter(base_campaign_book: CampaignBook) -> CampaignChapter:
+    """Return the base campaign chapter for testing, creating it if needed."""
     campaign_chapter = await CampaignChapter.find_one(
         CampaignChapter.book_id == base_campaign_book.id,
         CampaignChapter.is_archived == False,
@@ -457,12 +299,10 @@ async def base_campaign_chapter(base_campaign_book) -> CampaignChapter:
 
 
 @pytest.fixture
-async def base_character(base_company, base_user, base_campaign) -> Character:
-    """Create a base character for testing.
-
-    Returns:
-        Character: A character object.
-    """
+async def base_character(
+    base_company: Company, base_user: User, base_campaign: Campaign
+) -> Character:
+    """Return the base character for testing, creating it if needed."""
     character = await Character.find_one(
         Character.company_id == base_company.id,
         Character.user_creator_id == base_user.id,
@@ -486,15 +326,9 @@ async def base_character(base_company, base_user, base_campaign) -> Character:
     return character
 
 
-#########################################################################
 @pytest.fixture
 async def developer_factory(base_company: Company) -> DeveloperFactory:
-    """Create a developer factory for testing.
-
-    Returns:
-        DeveloperFactory: A developer factory object.
-    """
-    created_developers = []  # Track all created developers
+    """Return a factory function that creates Developer instances."""
 
     async def _developer_factory(
         permission: CompanyPermission = CompanyPermission.USER,
@@ -502,10 +336,9 @@ async def developer_factory(base_company: Company) -> DeveloperFactory:
         is_global_admin: bool = False,
         **kwargs: Any,
     ) -> Developer:
-        if "companies" in kwargs:
-            companies = kwargs["companies"]
-            del kwargs["companies"]
-        else:
+        _sentinel = object()
+        companies = kwargs.pop("companies", _sentinel)
+        if companies is _sentinel:
             companies = [
                 CompanyPermissions(
                     company_id=base_company.id,
@@ -520,31 +353,20 @@ async def developer_factory(base_company: Company) -> DeveloperFactory:
             **kwargs,
         )
         await developer.save()
-        created_developers.append(developer)
         return developer
 
-    yield _developer_factory
-
-    # Cleanup: delete all developers created during the test
-    for developer in created_developers:
-        await developer.delete()
+    return _developer_factory
 
 
 @pytest.fixture
 async def company_factory() -> CompanyFactory:
-    """Create a company factory for testing.
-
-    Returns:
-        CompanyFactory: A company factory object.
-    """
-    created_companies = []  # Track all created companies
+    """Return a factory function that creates Company instances."""
 
     async def _company_factory(
         dev_admin_id: PydanticObjectId | str = None, **kwargs: Any
     ) -> Company:
         company = CompanyFactory().build(**kwargs)
         await company.save()
-        created_companies.append(company)
 
         if dev_admin_id:
             developer = await Developer.get(dev_admin_id)
@@ -557,21 +379,12 @@ async def company_factory() -> CompanyFactory:
 
         return company
 
-    yield _company_factory
-
-    # Cleanup: delete all companies created during the test
-    for company in created_companies:
-        await company.delete()
+    return _company_factory
 
 
 @pytest.fixture
-async def user_factory(base_company, debug) -> UserFactory:
-    """Create a user factory for testing.
-
-    Returns:
-        UserFactory: A user factory object.
-    """
-    created_users = []  # Track all created users
+async def user_factory(base_company) -> UserFactory:
+    """Return a factory function that creates User instances."""
 
     async def _user_factory(
         company_id: PydanticObjectId | str = base_company.id, **kwargs: Any
@@ -583,24 +396,14 @@ async def user_factory(base_company, debug) -> UserFactory:
         if company:
             company.user_ids.append(user.id)
             await company.save()
-        created_users.append(user)
         return user
 
-    yield _user_factory
-
-    # Cleanup: delete all users created during the test
-    for user in created_users:
-        await user.delete()
+    return _user_factory
 
 
 @pytest.fixture
 async def character_factory(base_company, base_user, base_campaign) -> CharacterFactory:
-    """Create a character factory for testing.
-
-    Returns:
-        CharacterFactory: A character factory object.
-    """
-    created_characters = []  # Track all created characters
+    """Return a factory function that creates Character instances."""
 
     async def _character_factory(
         company_id: PydanticObjectId | str = base_company.id,
@@ -609,75 +412,40 @@ async def character_factory(base_company, base_user, base_campaign) -> Character
         campaign_id: PydanticObjectId | str = base_campaign.id,
         **kwargs: Any,
     ) -> Character:
-        character = await _create_character(
+        return await _create_character(
             company_id=company_id,
             user_creator_id=user_creator_id,
             user_player_id=user_player_id,
             campaign_id=campaign_id,
             **kwargs,
         )
-        created_characters.append(character)
-        return character
 
-    yield _character_factory
-
-    # Cleanup: delete all characters created during the test
-    for character in created_characters:
-        await character.delete()
+    return _character_factory
 
 
 @pytest.fixture
 async def campaign_factory(base_company) -> CampaignFactory:
-    """Create a campaign factory for testing.
-
-    Returns:
-        CampaignFactory: A campaign factory object.
-    """
-    created_campaigns = []  # Track all created campaigns
+    """Return a factory function that creates Campaign instances."""
 
     async def _campaign_factory(
         company_id: PydanticObjectId | str = base_company.id, **kwargs: Any
     ) -> Campaign:
         campaign = CampaignFactory().build(**kwargs, company_id=company_id)
         await campaign.save()
-        created_campaigns.append(campaign)
         return campaign
 
-    yield _campaign_factory
-
-    # Cleanup: delete all campaigns created during the test
-    for campaign in created_campaigns:
-        await campaign.delete()
+    return _campaign_factory
 
 
 @pytest.fixture
 async def campaign_book_factory(base_campaign: Campaign) -> CampaignBookFactory:
-    """Create a campaign book factory for testing.
-
-    Returns:
-        CampaignBookFactory: A campaign book factory object.
-    """
-    created_campaign_books = []  # Track all created campaign books
+    """Return a factory function that creates CampaignBook instances."""
 
     async def _campaign_book_factory(**kwargs: Any) -> CampaignBook:
-        """Create a campaign book for testing.
-
-        Args:
-            **kwargs: Keyword arguments to pass to the campaign book factory.
-
-        Returns:
-            CampaignBook: A campaign book object.
-        """
-        if kwargs.get("campaign_id"):
-            campaign_id = kwargs.get("campaign_id")
-            kwargs.pop("campaign_id")
-        else:
-            campaign_id = base_campaign.id
-
-        if kwargs.get("number"):
-            number = kwargs.get("number")
-            kwargs.pop("number")
-        else:
+        """Create a campaign book for testing."""
+        campaign_id = kwargs.pop("campaign_id", base_campaign.id)
+        number = kwargs.pop("number", None)
+        if number is None:
             count = await CampaignBook.find(
                 CampaignBook.campaign_id == campaign_id,
                 CampaignBook.is_archived == False,
@@ -688,44 +456,20 @@ async def campaign_book_factory(base_campaign: Campaign) -> CampaignBookFactory:
             **kwargs, campaign_id=campaign_id, number=number
         )
         await campaign_book.save()
-        created_campaign_books.append(campaign_book)
         return campaign_book
 
-    yield _campaign_book_factory
-
-    # Cleanup: delete all campaign books created during the test
-    for campaign_book in created_campaign_books:
-        await campaign_book.delete()
+    return _campaign_book_factory
 
 
 @pytest.fixture
 async def campaign_chapter_factory(base_campaign_book: CampaignBook) -> CampaignChapterFactory:
-    """Create a campaign book factory for testing.
-
-    Returns:
-        CampaignChapterFactory: A campaign chapter factory object.
-    """
-    created_campaign_chapters = []  # Track all created campaign chapters
+    """Return a factory function that creates CampaignChapter instances."""
 
     async def _campaign_chapter_factory(**kwargs: Any) -> CampaignChapter:
-        """Create a campaign book for testing.
-
-        Args:
-            **kwargs: Keyword arguments to pass to the campaign chapter factory.
-
-        Returns:
-            CampaignChapter: A campaign chapter object.
-        """
-        if kwargs.get("book_id"):
-            book_id = kwargs.get("book_id")
-            kwargs.pop("book_id")
-        else:
-            book_id = base_campaign_book.id
-
-        if kwargs.get("number"):
-            number = kwargs.get("number")
-            kwargs.pop("number")
-        else:
+        """Create a campaign chapter for testing."""
+        book_id = kwargs.pop("book_id", base_campaign_book.id)
+        number = kwargs.pop("number", None)
+        if number is None:
             count = await CampaignChapter.find(
                 CampaignChapter.book_id == book_id,
                 CampaignChapter.is_archived == False,
@@ -734,50 +478,30 @@ async def campaign_chapter_factory(base_campaign_book: CampaignBook) -> Campaign
 
         campaign_chapter = CampaignChapterFactory().build(**kwargs, book_id=book_id, number=number)
         await campaign_chapter.save()
-        created_campaign_chapters.append(campaign_chapter)
         return campaign_chapter
 
-    yield _campaign_chapter_factory
-
-    # Cleanup: delete all campaign chapters created during the test
-    for campaign_chapter in created_campaign_chapters:
-        await campaign_chapter.delete()
+    return _campaign_chapter_factory
 
 
 @pytest.fixture
 async def dice_roll_factory(base_company) -> DiceRollFactory:
-    """Create a dice roll factory for testing.
+    """Return a factory function that creates DiceRoll instances."""
 
-    Returns:
-        DiceRollFactory: A dice roll factory object.
-    """
-    created_dice_rolls = []  # Track all created dice rolls
-
-    async def _dice_roll_factory(**kwargs: Any) -> DiceRollFactory:
+    async def _dice_roll_factory(**kwargs: Any) -> DiceRoll:
         """Create a dice roll for testing."""
         if not kwargs.get("company_id"):
             kwargs["company_id"] = base_company.id
 
         dice_roll = DiceRollFactory().build(**kwargs)
         await dice_roll.save()
-        created_dice_rolls.append(dice_roll)
         return dice_roll
 
-    yield _dice_roll_factory
-
-    # Cleanup: delete all dice rolls created during the test
-    for dice_roll in created_dice_rolls:
-        await dice_roll.delete()
+    return _dice_roll_factory
 
 
 @pytest.fixture
 async def note_factory(base_company) -> Note:
-    """Create a note factory for testing.
-
-    Returns:
-        NoteFactory: A note factory object.
-    """
-    created_notes = []  # Track all created notes
+    """Return a factory function that creates Note instances."""
 
     async def _note_factory(**kwargs: Any) -> Note:
         data = {
@@ -786,29 +510,18 @@ async def note_factory(base_company) -> Note:
             "company_id": base_company.id,
         }
 
-        for key, value in kwargs.items():
-            data[key] = value  # noqa: PERF403
+        data |= kwargs
 
         note = Note(**data)
         await note.save()
-        created_notes.append(note)  # Track the created note
         return note
 
-    yield _note_factory
-
-    # Cleanup: delete all notes created during the test
-    for note in created_notes:
-        await note.delete()
+    return _note_factory
 
 
 @pytest.fixture
 async def trait_factory() -> TraitFactory:
-    """Create a trait factory for testing.
-
-    Returns:
-        TraitFactory: A trait factory object.
-    """
-    created_traits = []  # Track all created traits
+    """Return a factory function that creates Trait instances."""
 
     async def _trait_factory(**kwargs: Any) -> Trait:
         if not kwargs.get("parent_category_id"):
@@ -820,40 +533,20 @@ async def trait_factory() -> TraitFactory:
 
         trait = TraitFactory().build(**kwargs)
         await trait.save()
-        created_traits.append(trait)
         return trait
 
-    yield _trait_factory
-
-    # Cleanup: delete all traits created during the test
-    for trait in created_traits:
-        await trait.delete()
+    return _trait_factory
 
 
 @pytest.fixture
 async def character_trait_factory(base_character, trait_factory) -> CharacterTrait:
-    """Create a character trait factory for testing.
-
-    Returns:
-        CharacterTraitFactory: A character trait factory object.
-    """
-    created_traits: list[CharacterTrait] = []
+    """Return a factory function that creates CharacterTrait instances."""
 
     async def _character_trait_factory(
         character_id: PydanticObjectId = base_character.id,
         trait: Trait | None = None,
         **kwargs: Any,
     ) -> CharacterTrait:
-        """Create a character trait for testing.
-
-        Args:
-            character_id: The ID of the character to create the trait for.
-            trait: The trait to create the trait for.
-            **kwargs: Keyword arguments to pass to the character trait factory.
-
-        Returns:
-            CharacterTrait: A character trait object.
-        """
         if not kwargs.get("is_custom"):
             kwargs["is_custom"] = False
 
@@ -873,57 +566,39 @@ async def character_trait_factory(base_character, trait_factory) -> CharacterTra
             **kwargs, character_id=character_id, trait=trait_to_use
         )
         await character_trait.save()
-        created_traits.append(character_trait)
         return character_trait
 
-    yield _character_trait_factory
-
-    # Cleanup all created traits after test completes
-    for character_trait in created_traits:
-        await character_trait.delete()
+    return _character_trait_factory
 
 
 @pytest.fixture
 async def quickroll_factory(base_user) -> QuickRoll:
-    """Create a quick roll factory for testing.
-
-    Returns:
-        QuickRoll: A quick roll object.
-    """
-    created_quickrolls = []  # Track all created quickrolls
+    """Return a factory function that creates QuickRoll instances."""
 
     async def _quickroll_factory(**kwargs: Any) -> QuickRoll:
         """Create a quick roll for testing."""
-        if not kwargs.get("trait_ids"):
-            trait_ids = await Trait.find(Trait.is_archived == False).limit(2).to_list()
-            kwargs["trait_ids"] = [trait.id for trait in trait_ids]
+        if "trait_ids" not in kwargs:
+            traits = await Trait.find(Trait.is_archived == False).limit(2).to_list()
+            kwargs["trait_ids"] = [t.id for t in traits]
 
-        quickroll = QuickRoll(
-            name=kwargs.get("name") or "Quick Roll 1",
-            user_id=kwargs.get("user_id") or base_user.id,
-            trait_ids=kwargs.get("trait_ids") or [],
-            description=kwargs.get("description") or "Quick roll description",
-            is_archived=kwargs.get("is_archived", False),
-        )
+        data = {
+            "name": "Quick Roll 1",
+            "user_id": base_user.id,
+            "description": "Quick roll description",
+            "is_archived": False,
+        }
+        data |= kwargs
+
+        quickroll = QuickRoll(**data)
         await quickroll.save()
-        created_quickrolls.append(quickroll)
         return quickroll
 
-    yield _quickroll_factory
-
-    # Cleanup: delete all quickrolls created during the test
-    for quickroll in created_quickrolls:
-        await quickroll.delete()
+    return _quickroll_factory
 
 
 @pytest.fixture
 async def s3asset_factory(base_company, base_user) -> S3Asset:
-    """Create a note factory for testing.
-
-    Returns:
-        NoteFactory: A note factory object.
-    """
-    created_assets = []  # Track all created assets
+    """Return a factory function that creates S3Asset instances."""
 
     async def _s3asset_factory(**kwargs: Any) -> S3Asset:
         data = {
@@ -940,29 +615,18 @@ async def s3asset_factory(base_company, base_user) -> S3Asset:
             "is_archived": False,
         }
 
-        for key, value in kwargs.items():
-            data[key] = value  # noqa: PERF403
+        data |= kwargs
 
         s3asset = S3Asset(**data)
         await s3asset.save()
-        created_assets.append(s3asset)
         return s3asset
 
-    yield _s3asset_factory
-
-    # Cleanup: delete all assets created during the test
-    for s3asset in created_assets:
-        await s3asset.delete()
+    return _s3asset_factory
 
 
 @pytest.fixture
 async def inventory_item_factory(base_character) -> CharacterInventory:
-    """Create a inventory item factory for testing.
-
-    Returns:
-        InventoryItemFactory: A inventory item factory object.
-    """
-    created_items = []  # Track all created items
+    """Return a factory function that creates CharacterInventory instances."""
 
     async def _inventory_item_factory(**kwargs: Any) -> CharacterInventory:
         data = {
@@ -973,29 +637,18 @@ async def inventory_item_factory(base_character) -> CharacterInventory:
             "is_archived": False,
         }
 
-        for key, value in kwargs.items():
-            data[key] = value  # noqa: PERF403
+        data |= kwargs
 
         inventory_item = CharacterInventory(**data)
         await inventory_item.save()
-        created_items.append(inventory_item)
         return inventory_item
 
-    yield _inventory_item_factory
-
-    # Cleanup: delete all assets created during the test
-    for inventory_item in created_items:
-        await inventory_item.delete()
+    return _inventory_item_factory
 
 
 @pytest.fixture
 async def dictionary_term_factory(base_company) -> DictionaryTerm:
-    """Create a dictionary term factory for testing.
-
-    Returns:
-        DictionaryTermFactory: A dictionary term factory object.
-    """
-    created_terms = []  # Track all created terms
+    """Return a factory function that creates DictionaryTerm instances."""
 
     async def _dictionary_term_factory(**kwargs: Any) -> DictionaryTerm:
         data = {
@@ -1003,35 +656,23 @@ async def dictionary_term_factory(base_company) -> DictionaryTerm:
             "definition": "Test definition",
             "link": "https://example.com/test",
             "synonyms": ["Test Synonym", "Test Synonym 2"],
-            "company_id": kwargs.get("company_id") or base_company.id,
-            "source_type": kwargs.get("source_type") or None,
-            "source_id": kwargs.get("source_id") or None,
+            "company_id": base_company.id,
+            "source_type": None,
+            "source_id": None,
             "is_archived": False,
         }
-
-        for key, value in kwargs.items():
-            data[key] = value  # noqa: PERF403
+        data |= kwargs
 
         dictionary_term = DictionaryTerm(**data)
         await dictionary_term.save()
-        created_terms.append(dictionary_term)
         return dictionary_term
 
-    yield _dictionary_term_factory
-
-    # Cleanup: delete all terms created during the test
-    for dictionary_term in created_terms:
-        await dictionary_term.delete()
+    return _dictionary_term_factory
 
 
 @pytest.fixture
 async def character_concept_factory() -> CharacterConcept:
-    """Create a character concept factory for testing.
-
-    Returns:
-        CharacterConceptFactory: A character concept factory object.
-    """
-    created_concepts = []  # Track all created concepts
+    """Return a factory function that creates CharacterConcept instances."""
 
     async def _character_concept_factory(**kwargs: Any) -> CharacterConcept:
         data = {
@@ -1042,16 +683,10 @@ async def character_concept_factory() -> CharacterConcept:
             "is_archived": False,
         }
 
-        for key, value in kwargs.items():
-            data[key] = value  # noqa: PERF403
+        data |= kwargs
 
         character_concept = CharacterConcept(**data)
         await character_concept.save()
-        created_concepts.append(character_concept)
         return character_concept
 
-    yield _character_concept_factory
-
-    # Cleanup: delete all concepts created during the test
-    for character_concept in created_concepts:
-        await character_concept.delete()
+    return _character_concept_factory
