@@ -1,6 +1,5 @@
 """AWS service."""
 
-import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -29,9 +28,6 @@ from vapi.utils.assets import (
 )
 from vapi.utils.time import time_now
 
-logger = logging.getLogger("vapi")
-
-
 __all__ = ("AWSS3Service",)
 
 
@@ -39,13 +35,7 @@ class AWSS3Service:
     """Service for interacting with AWS."""
 
     def __init__(self) -> None:
-        """Initialize the AWS Service class with credentials.
-
-        Args:
-            aws_access_key_id (str): AWS access key ID.
-            aws_secret_access_key (str): AWS secret access key.
-            bucket_name (str): Name of the S3 bucket to use.
-        """
+        """Initialize the AWS Service class with credentials from settings."""
         self.aws_access_key_id = settings.aws.access_key_id
         self.aws_secret_access_key = settings.aws.secret_access_key
         self.bucket_name = settings.aws.s3_bucket_name
@@ -65,8 +55,6 @@ class AWSS3Service:
             aws_secret_access_key=self.aws_secret_access_key,
             config=Config(retries={"max_attempts": 10, "mode": "standard"}),
         )
-        self.bucket = self.bucket_name
-        self.location = self.s3.get_bucket_location(Bucket=self.bucket)  # Ex. us-east-1
 
     def _generate_aws_key(
         self,
@@ -76,83 +64,36 @@ class AWSS3Service:
         extension: str,
         asset_type: AssetType,
     ) -> str:
-        """Build the full key for an object in the S3 bucket.
+        """Build the full S3 key from company, parent, and asset metadata.
 
         Args:
-            company_id (PydanticObjectId): ID of the company.
-            parent_type (AssetParentType): Type of the parent object.
-            parent_object_id (PydanticObjectId): ID of the parent object.
-            extension (str): Extension of the file.
-            asset_type (AssetType): Type of the asset.
+            company_id: ID of the company.
+            parent_type: Type of the parent object.
+            parent_object_id: ID of the parent object.
+            extension: File extension.
+            asset_type: Type of the asset.
 
         Returns:
             str: The full key for the object in the S3 bucket.
         """
-
-        def _generate_object_filename(extension: str) -> str:
-            """Generate a filename for an object in the S3 bucket.
-
-            The filename is generated based on the date and time of the upload and a unique ID. Append this to the key prefix to get the full key for the full object in the S3 bucket.
-
-            Args:
-                extension (str): Extension of the file.
-
-            Returns:
-                str: The generated filename.
-            """
-            date = time_now().strftime("%Y%m%dT%H%M%S")
-            unique_id = uuid4().hex
-            return f"{date}{unique_id}.{extension}"
-
-        def _build_key_prefix(
-            company_id: PydanticObjectId,
-            parent_type: AssetParentType,
-            parent_object_id: PydanticObjectId,
-            asset_type: AssetType,
-        ) -> str:
-            """Generate a key prefix for an object to be uploaded to Amazon S3.
-
-            The key prefix is generated based on the area (guild, author, character, campaign, etc.)
-            that the object belongs to. Some areas may require additional information like a character_id
-            or a campaign_id.
-
-            Args:
-                company_id (PydanticObjectId): ID of the company.
-                parent_type (AssetParentType): Type of the parent object.
-                parent_object_id (PydanticObjectId): ID of the parent object.
-                asset_type (AssetType): Type of the asset.
-
-            Returns:
-                str: The generated key prefix.
-            """
-            return f"{self.prefix}{company_id}/{parent_type.value}/{parent_object_id}/{asset_type.value}"
-
-        key_prefix = _build_key_prefix(
-            company_id=company_id,
-            parent_type=parent_type,
-            parent_object_id=parent_object_id,
-            asset_type=asset_type,
+        prefix = (
+            f"{self.prefix}{company_id}/{parent_type.value}/{parent_object_id}/{asset_type.value}"
         )
-        generated_filename = _generate_object_filename(extension=extension)
-        return f"{key_prefix}/{generated_filename}"
+        date = time_now().strftime("%Y%m%dT%H%M%S")
+        filename = f"{date}{uuid4().hex}.{extension}"
+        return f"{prefix}/{filename}"
 
     def _delete_object_from_s3(self, key: str) -> None:
         """Delete an object from the S3 bucket.
 
-        Attempt to delete the object from the S3 bucket using the provided key.
-        If the deletion fails, log the error and return False.
-
         Args:
-            key (str): Key of the object to delete from the S3 bucket.
-
-        Returns:
-            bool: True if the deletion is successful, False otherwise.
+            key: Key of the object to delete.
 
         Raises:
             AWSS3Error: If the deletion fails.
         """
         try:
-            self.s3.delete_object(Bucket=self.bucket, Key=key)
+            self.s3.delete_object(Bucket=self.bucket_name, Key=key)
         except ClientError as e:
             msg = "Failed to delete object from AWS S3"
             raise AWSS3Error(detail=msg) from e
@@ -170,28 +111,21 @@ class AWSS3Service:
 
         return f"{settings.aws.cloudfront_url.rstrip('/')}/{key_for_url}"
 
-    def _get_cache_control(self, mime_type: str) -> str:
-        """Determine appropriate cache control header based on MIME type.
+    def _get_cache_control(self, asset_type: AssetType) -> str:
+        """Determine appropriate cache control header based on asset type.
 
         Args:
-            mime_type: MIME type of the file.
+            asset_type: Type of the asset.
 
         Returns:
             Cache-Control header value.
         """
-        # Images can be cached aggressively (1 year)
-        if mime_type.startswith("image/"):
+        if asset_type in {AssetType.IMAGE, AssetType.AUDIO, AssetType.VIDEO}:
             return AWS_ONE_YEAR_CACHE_HEADER
 
-        # Audio/video can also be cached long-term
-        if mime_type.startswith(("audio/", "video/")):
-            return AWS_ONE_YEAR_CACHE_HEADER
-
-        # Documents might change, cache for 1 day
-        if any(doc_type in mime_type.lower() for doc_type in ["pdf", "document", "word", "sheet"]):
+        if asset_type is AssetType.DOCUMENT:
             return AWS_ONE_DAY_CACHE_HEADER
 
-        # Default: cache for 1 hour
         return AWS_ONE_HOUR_CACHE_HEADER
 
     async def _upload_to_s3(self, asset: S3Asset, data: bytes) -> None:
@@ -201,11 +135,11 @@ class AWSS3Service:
             asset: S3Asset document to upload to the S3 bucket.
             data: Data to upload to the S3 bucket.
         """
-        cache_control = self._get_cache_control(asset.mime_type)
+        cache_control = self._get_cache_control(asset.asset_type)
         try:
             self.s3.put_object(
                 Key=asset.s3_key,
-                Bucket=self.bucket,
+                Bucket=self.bucket_name,
                 Body=data,
                 ContentType=asset.mime_type,
                 CacheControl=cache_control,
@@ -219,54 +153,20 @@ class AWSS3Service:
             msg = "Failed to upload file to AWS S3"
             raise AWSS3Error(detail=msg) from e
 
-    async def delete_asset(self, asset: S3Asset) -> bool:
-        """Delete an asset from the S3 bucket, remove it from the parent and delete the database record.
+    async def delete_asset(self, asset: S3Asset) -> None:
+        """Delete an asset from S3, remove it from its parent, and delete the database record.
+
+        S3 delete_object is idempotent, so no existence check is needed.
 
         Args:
-            asset: S3Asset document to delete from the S3 bucket.
-
-        Returns:
-            bool: True if the deletion is successful, False otherwise.
+            asset: S3Asset document to delete.
 
         Raises:
-            AWSS3Error: If the deletion fails.
-            AttributeError: If the parent document does not have the asset_ids attribute.
+            AWSS3Error: If the S3 deletion fails.
         """
-        if self.object_exists(asset):
-            try:
-                self._delete_object_from_s3(key=asset.s3_key)
-            except AWSS3Error as e:
-                msg = f"Failed to delete asset {asset.s3_key} from AWS S3"
-                raise AWSS3Error(detail=msg) from e
-
+        self._delete_object_from_s3(key=asset.s3_key)
         await remove_asset_from_parent(asset=asset)
         await asset.delete()
-
-        return True
-
-    def object_exists(self, asset: S3Asset) -> bool:  # pragma: no cover
-        """Check if an object exists in the S3 bucket.
-
-        Attempt to load the object from the S3 bucket using the provided key.
-        If the object does not exist, or an error occurs, log the error and return False.
-
-        Args:
-            asset (S3Asset): S3Asset document to check in the S3 bucket.
-
-        Returns:
-            bool: True if the object exists, False otherwise.
-        """
-        try:
-            self.s3.head_object(Bucket=self.bucket, Key=asset.s3_key)
-        except ClientError:
-            msg = "Object does not exist in the S3 bucket"
-            logger.exception(
-                msg,
-                extra={"component": "aws_service", "asset_id": asset.id, "s3_key": asset.s3_key},
-            )
-            return False
-
-        return True
 
     async def upload_asset(
         self,

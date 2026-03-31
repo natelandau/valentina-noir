@@ -673,6 +673,7 @@ async def dictionary_term_factory(base_company) -> DictionaryTerm:
 @pytest.fixture
 async def character_concept_factory() -> CharacterConcept:
     """Return a factory function that creates CharacterConcept instances."""
+    created_concepts = []
 
     async def _character_concept_factory(**kwargs: Any) -> CharacterConcept:
         data = {
@@ -687,6 +688,9 @@ async def character_concept_factory() -> CharacterConcept:
 
         character_concept = CharacterConcept(**data)
         await character_concept.save()
+        created_concepts.append(character_concept)
         return character_concept
 
-    return _character_concept_factory
+    yield _character_concept_factory
+    for concept in created_concepts:
+        await concept.delete()

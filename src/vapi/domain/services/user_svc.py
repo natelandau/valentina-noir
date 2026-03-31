@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from vapi.constants import PermissionsGrantXP, UserRole
@@ -13,6 +14,8 @@ from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 from .validation_svc import GetModelByIdValidationService
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
     from beanie import PydanticObjectId
 
     from vapi.db.models.user import CampaignExperience
@@ -30,8 +33,8 @@ class UserService:
         """Validate if the user can manage the user.
 
         Args:
-            user_to_manage_id: The ID of the user to manage.
             requesting_user_id: The ID of the user requesting to manage the user.
+            user_to_manage_id: The ID of the user to manage.
 
         Raises:
             ValidationError: If the requesting user is not found.
@@ -52,11 +55,43 @@ class UserService:
         Args:
             company: The company the user belongs to.
             user: The user to persist.
+
+        Returns:
+            User: The persisted user.
         """
         await user.save()
         company.user_ids.append(user.id)
         await company.save()
         return user
+
+    @staticmethod
+    def _build_user(
+        data: UserPostDTO | UserRegisterDTO,
+        *,
+        company_id: PydanticObjectId,
+        role: UserRole,
+    ) -> User:
+        """Build a User document from DTO fields.
+
+        Args:
+            data: The DTO containing user fields.
+            company_id: The company to associate the user with.
+            role: The role to assign.
+
+        Returns:
+            User: The constructed (unsaved) user document.
+        """
+        return User(
+            name_first=data.name_first,
+            name_last=data.name_last,
+            username=data.username,
+            email=data.email,
+            role=role,
+            company_id=company_id,
+            discord_profile=data.discord_profile.model_dump(),
+            google_profile=data.google_profile,
+            github_profile=data.github_profile,
+        )
 
     async def create_user(self, company: Company, data: UserPostDTO) -> User:
         """Create a user."""
@@ -64,17 +99,7 @@ class UserService:
             requesting_user_id=data.requesting_user_id,
         )
 
-        new_user = User(
-            name_first=data.name_first,
-            name_last=data.name_last,
-            username=data.username,
-            email=data.email,
-            role=data.role,
-            company_id=company.id,
-            discord_profile=data.discord_profile.model_dump(),
-            google_profile=data.google_profile,
-            github_profile=data.github_profile,
-        )
+        new_user = self._build_user(data, company_id=company.id, role=data.role)
         return await self._create_and_attach_user(company=company, user=new_user)
 
     async def register_user(self, company: Company, data: UserRegisterDTO) -> User:
@@ -87,17 +112,7 @@ class UserService:
             company: The company to register the user in.
             data: The registration data.
         """
-        new_user = User(
-            name_first=data.name_first,
-            name_last=data.name_last,
-            username=data.username,
-            email=data.email,
-            role=UserRole.UNAPPROVED,
-            company_id=company.id,
-            discord_profile=data.discord_profile.model_dump(),
-            google_profile=data.google_profile,
-            github_profile=data.github_profile,
-        )
+        new_user = self._build_user(data, company_id=company.id, role=UserRole.UNAPPROVED)
         return await self._create_and_attach_user(company=company, user=new_user)
 
     async def merge_users(
@@ -123,8 +138,7 @@ class UserService:
             ValidationError: If the secondary user is not UNAPPROVED or users are the same.
             PermissionDeniedError: If the requesting user is not an admin.
         """
-        import asyncio
-
+        # Deferred import to break circular dependency: deps → controllers → services → deps
         from vapi.domain import deps
 
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
@@ -290,8 +304,12 @@ class UserXPService:
         company: Company,
         requesting_user_id: PydanticObjectId,
         target_user_id: PydanticObjectId,
-    ) -> bool:
-        """Validate if the user can grant XP."""
+    ) -> None:
+        """Validate if the user can grant XP.
+
+        Raises:
+            PermissionDeniedError: If the user is not authorized to grant XP.
+        """
         requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
         if (
             company.settings.permission_grant_xp == PermissionsGrantXP.UNRESTRICTED
@@ -301,17 +319,54 @@ class UserXPService:
                 UserRole.ADMIN,
             ]
         ):
-            return True
+            return
 
         if (
             company.settings.permission_grant_xp == PermissionsGrantXP.PLAYER
             and requesting_user.id == target_user_id
         ):
-            return True
+            return
 
         raise PermissionDeniedError(
             detail="User not authorized to grant or remove XP for this user"
         )
+
+    async def _apply_xp_operation(
+        self,
+        *,
+        company: Company,
+        requesting_user_id: PydanticObjectId,
+        target_user: User,
+        campaign_id: PydanticObjectId,
+        amount: int,
+        operation: Callable[[PydanticObjectId, int], Coroutine[None, None, CampaignExperience]],
+    ) -> CampaignExperience:
+        """Validate permissions, resolve the campaign, and apply an XP/CP operation.
+
+        Args:
+            company: The company context.
+            requesting_user_id: The user performing the action.
+            target_user: The user receiving the XP/CP change.
+            campaign_id: The campaign to apply the change to.
+            amount: The amount of XP/CP to add or remove.
+            operation: The bound User method to call (e.g. ``target_user.add_xp``).
+
+        Returns:
+            CampaignExperience: The updated campaign experience.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is not authorized.
+        """
+        _, campaign = await asyncio.gather(
+            self._validate_user_can_grant_xp(
+                company=company,
+                requesting_user_id=requesting_user_id,
+                target_user_id=target_user.id,
+            ),
+            GetModelByIdValidationService().get_campaign_by_id(campaign_id),
+        )
+
+        return await operation(campaign.id, amount)
 
     async def add_xp_to_campaign_experience(
         self,
@@ -323,14 +378,14 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Add XP to a campaign experience."""
-        await self._validate_user_can_grant_xp(
+        return await self._apply_xp_operation(
             company=company,
             requesting_user_id=requesting_user_id,
-            target_user_id=target_user.id,
+            target_user=target_user,
+            campaign_id=campaign_id,
+            amount=amount,
+            operation=target_user.add_xp,
         )
-
-        campaign = await GetModelByIdValidationService().get_campaign_by_id(campaign_id)
-        return await target_user.add_xp(campaign_id=campaign.id, amount=amount)
 
     async def remove_xp_from_campaign_experience(
         self,
@@ -342,14 +397,14 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Remove XP from campaign experience."""
-        await self._validate_user_can_grant_xp(
+        return await self._apply_xp_operation(
             company=company,
             requesting_user_id=requesting_user_id,
-            target_user_id=target_user.id,
+            target_user=target_user,
+            campaign_id=campaign_id,
+            amount=amount,
+            operation=target_user.spend_xp,
         )
-
-        campaign = await GetModelByIdValidationService().get_campaign_by_id(campaign_id)
-        return await target_user.spend_xp(campaign_id=campaign.id, amount=amount)
 
     async def add_cp_to_campaign_experience(
         self,
@@ -361,11 +416,11 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Add CP to a campaign experience."""
-        await self._validate_user_can_grant_xp(
+        return await self._apply_xp_operation(
             company=company,
             requesting_user_id=requesting_user_id,
-            target_user_id=target_user.id,
+            target_user=target_user,
+            campaign_id=campaign_id,
+            amount=amount,
+            operation=target_user.add_cp,
         )
-
-        campaign = await GetModelByIdValidationService().get_campaign_by_id(campaign_id)
-        return await target_user.add_cp(campaign_id=campaign.id, amount=amount)
