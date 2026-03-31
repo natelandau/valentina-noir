@@ -55,11 +55,7 @@ async def get_company_user_and_campaign(
     user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
     campaign = await campaign_factory(company_id=company.id)
 
-    yield company, user, campaign
-
-    await user.delete()
-    await company.delete()
-    await campaign.delete()
+    return company, user, campaign
 
 
 class TestCharacterList:
@@ -119,18 +115,18 @@ class TestCharacterList:
             user_player_id=second_user_id,
             campaign_id=campaign.id,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=PydanticObjectId(),
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
             is_archived=True,
         )
-        character_temporary = await character_factory(
+        character_temporary = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
@@ -155,15 +151,6 @@ class TestCharacterList:
             character_different_user.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
     async def test_list_characters_with_results_specify_user_player_id(
         self,
         client: AsyncClient,
@@ -177,16 +164,16 @@ class TestCharacterList:
         # Given a company, user, campaign, and characters
         company, user, campaign = get_company_user_and_campaign
         second_user_id = PydanticObjectId()
-        character1 = await character_factory(
+        character1 = await character_factory(  # noqa: F841
             company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
         )
-        character_dead = await character_factory(
+        character_dead = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
             status=CharacterStatus.DEAD,
         )
-        character_storyteller = await character_factory(
+        character_storyteller = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=user.id,
             campaign_id=campaign.id,
@@ -197,18 +184,18 @@ class TestCharacterList:
             user_player_id=second_user_id,
             campaign_id=campaign.id,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=PydanticObjectId(),
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
             is_archived=True,
         )
-        character_temporary = await character_factory(
+        character_temporary = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
@@ -231,15 +218,6 @@ class TestCharacterList:
             character_different_user.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
     async def test_list_characters_with_results_specify_user_creator_id(
         self,
         client: AsyncClient,
@@ -253,17 +231,17 @@ class TestCharacterList:
         # Given a company, user, campaign, and characters
         company, user, campaign = get_company_user_and_campaign
         second_user_id = PydanticObjectId()
-        character1 = await character_factory(
+        character1 = await character_factory(  # noqa: F841
             company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
         )
-        character_dead = await character_factory(
+        character_dead = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
             campaign_id=campaign.id,
             status=CharacterStatus.DEAD,
         )
-        character_storyteller = await character_factory(
+        character_storyteller = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=user.id,
             campaign_id=campaign.id,
@@ -275,20 +253,20 @@ class TestCharacterList:
             user_player_id=second_user_id,
             campaign_id=campaign.id,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
             campaign_id=PydanticObjectId(),
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
             campaign_id=campaign.id,
             is_archived=True,
         )
-        character_temporary = await character_factory(
+        character_temporary = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -312,15 +290,6 @@ class TestCharacterList:
             character_different_user.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
     async def test_list_characters_with_results_specify_user_type(
         self,
         client: AsyncClient,
@@ -334,14 +303,14 @@ class TestCharacterList:
         # Given a company, user, campaign, and characters
         company, user, campaign = get_company_user_and_campaign
         second_user_id = PydanticObjectId()
-        character1 = await character_factory(
+        character1 = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
             type=CharacterType.PLAYER,
             character_class=CharacterClass.VAMPIRE,
         )
-        character_dead = await character_factory(
+        character_dead = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -357,7 +326,7 @@ class TestCharacterList:
             type=CharacterType.STORYTELLER,
             character_class=CharacterClass.VAMPIRE,
         )
-        character_different_user = await character_factory(
+        character_different_user = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=second_user_id,
             user_player_id=second_user_id,
@@ -365,7 +334,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -373,7 +342,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -382,7 +351,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_temporary = await character_factory(
+        character_temporary = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -408,15 +377,6 @@ class TestCharacterList:
             character_storyteller.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
     async def test_list_characters_with_results_specify_character_class(
         self,
         client: AsyncClient,
@@ -437,7 +397,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.VAMPIRE,
         )
-        character_dead = await character_factory(
+        character_dead = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -453,7 +413,7 @@ class TestCharacterList:
             type=CharacterType.STORYTELLER,
             character_class=CharacterClass.VAMPIRE,
         )
-        character_different_user = await character_factory(
+        character_different_user = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=second_user_id,
             user_player_id=second_user_id,
@@ -461,7 +421,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -469,7 +429,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -478,7 +438,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_temporary = await character_factory(
+        character_temporary = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -505,15 +465,6 @@ class TestCharacterList:
             character_storyteller.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
     async def test_list_characters_with_results_specify_character_status(
         self,
         client: AsyncClient,
@@ -527,7 +478,7 @@ class TestCharacterList:
         # Given a company, user, campaign, and characters
         company, user, campaign = get_company_user_and_campaign
         second_user_id = PydanticObjectId()
-        character1 = await character_factory(
+        character1 = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
@@ -543,14 +494,14 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_storyteller = await character_factory(
+        character_storyteller = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=user.id,
             campaign_id=campaign.id,
             type=CharacterType.STORYTELLER,
             character_class=CharacterClass.VAMPIRE,
         )
-        character_different_user = await character_factory(
+        character_different_user = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=second_user_id,
             user_player_id=second_user_id,
@@ -558,7 +509,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -566,7 +517,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -575,7 +526,7 @@ class TestCharacterList:
             type=CharacterType.PLAYER,
             character_class=CharacterClass.MORTAL,
         )
-        character_temporary = await character_factory(
+        character_temporary = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             user_creator_id=user.id,
@@ -601,15 +552,6 @@ class TestCharacterList:
             character_dead.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS),
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
     async def test_list_characters_with_results_specify_show_temporary(
         self,
         client: AsyncClient,
@@ -623,33 +565,33 @@ class TestCharacterList:
         # Given a company, user, campaign, and characters
         company, user, campaign = get_company_user_and_campaign
         second_user_id = PydanticObjectId()
-        character1 = await character_factory(
+        character1 = await character_factory(  # noqa: F841
             company_id=company.id, user_player_id=user.id, campaign_id=campaign.id
         )
-        character_dead = await character_factory(
+        character_dead = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
             status=CharacterStatus.DEAD,
         )
-        character_storyteller = await character_factory(
+        character_storyteller = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=user.id,
             campaign_id=campaign.id,
             type=CharacterType.STORYTELLER,
         )
-        character_different_user = await character_factory(
+        character_different_user = await character_factory(  # noqa: F841
             company_id=company.id,
             user_creator_id=user.id,
             user_player_id=second_user_id,
             campaign_id=campaign.id,
         )
-        character_different_campaign = await character_factory(
+        character_different_campaign = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=PydanticObjectId(),
         )
-        character_archived = await character_factory(
+        character_archived = await character_factory(  # noqa: F841
             company_id=company.id,
             user_player_id=user.id,
             campaign_id=campaign.id,
@@ -678,15 +620,6 @@ class TestCharacterList:
             character_temporary.model_dump(mode="json", exclude=EXCLUDE_CHARACTER_FIELDS)
         ]
 
-        # Cleanup
-        await character1.delete()
-        await character_dead.delete()
-        await character_storyteller.delete()
-        await character_different_user.delete()
-        await character_different_campaign.delete()
-        await character_archived.delete()
-        await character_temporary.delete()
-
 
 class TestCharacterController:
     """Test character controller."""
@@ -709,9 +642,6 @@ class TestCharacterController:
             mode="json",
             exclude=EXCLUDE_CHARACTER_FIELDS,
         )
-
-        # Cleanup
-        await character.delete()
 
     async def test_get_character_not_found(
         self,
@@ -758,9 +688,6 @@ class TestCharacterController:
         assert updated_character.status == CharacterStatus.DEAD
         assert updated_character.date_killed is not None
 
-        # Cleanup
-        await updated_character.delete()
-
     async def test_delete_character(
         self,
         client: AsyncClient,
@@ -784,9 +711,6 @@ class TestCharacterController:
 
         await character.sync()
         assert character.is_archived
-
-        # Cleanup
-        await character.delete()
 
 
 @pytest.mark.clean_db
@@ -833,9 +757,6 @@ class TestVampireAttributes:
         assert character.vampire_attributes.clan_name == vampire_clan.name
         assert character.vampire_attributes.bane in [vampire_clan.bane, vampire_clan.variant_bane]
         assert character.vampire_attributes.compulsion == vampire_clan.compulsion
-
-        # Cleanup
-        await character.delete()
 
     async def test_update_vampire_sire_and_generation(
         self,
@@ -916,9 +837,6 @@ class TestVampireAttributes:
             mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
         )
 
-        # Cleanup
-        await updated_character.delete()
-
     async def test_update_vampire_bane_and_compulsion(
         self,
         client: AsyncClient,
@@ -952,9 +870,6 @@ class TestVampireAttributes:
         assert updated_character.vampire_attributes.clan_name == original_clan.name
         assert updated_character.vampire_attributes.bane == original_clan.variant_bane
         assert updated_character.vampire_attributes.compulsion == original_clan.compulsion
-
-        # Cleanup
-        await updated_character.delete()
 
 
 @pytest.mark.clean_db
@@ -997,9 +912,6 @@ class TestWerewolfAttributes:
         assert character.werewolf_attributes.auspice_id == werewolf_auspice.id
         assert character.werewolf_attributes.auspice_name == werewolf_auspice.name
 
-        # Cleanup
-        await character.delete()
-
     async def test_update_character_werewolf(
         self,
         client: AsyncClient,
@@ -1038,9 +950,6 @@ class TestWerewolfAttributes:
         assert response.json() == updated_character.model_dump(
             mode="json", exclude=EXCLUDE_CHARACTER_FIELDS
         )
-
-        # Cleanup
-        await updated_character.delete()
 
     async def test_patch_werewolf_tribe(
         self,
@@ -1146,9 +1055,6 @@ class TestCharacterCreate:
         trait_ids = {str(x.trait_id) for x in traits}
 
         assert character_trait_ids == trait_ids
-
-        # Cleanup
-        await character.delete()
 
     @pytest.mark.parametrize(
         "json_data",
@@ -1308,9 +1214,6 @@ class TestCharacterCreate:
         # Add one to the size of the list b/c willpower is created
         assert len(character.character_trait_ids) == len(traits) + 1
         assert character.specialties == concept.specialties
-
-        # Cleanup
-        await character.delete()
 
 
 class TestCharacterFullSheet:

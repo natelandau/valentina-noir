@@ -87,7 +87,6 @@ class TestAfterResponseHooks:
         )
         assert response.status_code == HTTP_201_CREATED
         assert response.json()["discord_profile"]["username"] == "discord_username"
-        created_user = await User.get(response.json()["id"])
 
         # Then: the response cache should be deleted
         cached_keys = [key async for key in redis.scan_iter(match=f"{cache_prefix}:*")]
@@ -123,8 +122,3 @@ class TestAfterResponseHooks:
         # Then: the company data last updated should be updated
         company = await Company.get(base_company.id)
         assert company.resources_modified_at > time_now() - timedelta(days=1)
-
-        # cleanup
-        await requesting_user.delete()
-        await created_user.delete()
-        await audit.delete()

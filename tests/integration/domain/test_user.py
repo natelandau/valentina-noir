@@ -54,9 +54,6 @@ class TestExperienceController:
             campaign_id=PydanticObjectId(base_campaign.id)
         ).model_dump(mode="json", exclude={"is_archived", "archive_date"})
 
-        # clean up
-        await user.delete()
-
     async def test_get_experience_with_experience(
         self,
         client: AsyncClient,
@@ -290,9 +287,6 @@ class TestUserController:
             assert response.status_code == HTTP_200_OK
             assert response.json() == {"items": [], "limit": 10, "offset": 0, "total": 0}
 
-            # Cleanup
-            await company.delete()
-
         async def test_list_users_with_results(
             self,
             client: AsyncClient,
@@ -307,7 +301,7 @@ class TestUserController:
             company = await company_factory()
             user1 = await user_factory(company_id=company.id, role=UserRole.ADMIN)
             user2 = await user_factory(company_id=company.id, role=UserRole.PLAYER)
-            user3 = await user_factory(company_id=PydanticObjectId())
+            await user_factory(company_id=PydanticObjectId())
 
             # When we list users
             response = await client.get(
@@ -330,12 +324,6 @@ class TestUserController:
                 "total": 2,
             }
 
-            # Cleanup
-            await company.delete()
-            await user1.delete()
-            await user2.delete()
-            await user3.delete()
-
         async def test_list_users_with_results_user_role_filter(
             self,
             client: AsyncClient,
@@ -349,8 +337,8 @@ class TestUserController:
             # Given objects
             company = await company_factory()
             user1 = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-            user2 = await user_factory(company_id=company.id, role=UserRole.PLAYER)
-            user3 = await user_factory(company_id=PydanticObjectId(), user_role=UserRole.ADMIN)
+            await user_factory(company_id=company.id, role=UserRole.PLAYER)
+            await user_factory(company_id=PydanticObjectId(), user_role=UserRole.ADMIN)
 
             # When we list users
             response = await client.get(
@@ -371,12 +359,6 @@ class TestUserController:
                 "offset": 0,
                 "total": 1,
             }
-
-            # Cleanup
-            await company.delete()
-            await user1.delete()
-            await user2.delete()
-            await user3.delete()
 
     class TestGetUser:
         """Test GetUser."""
@@ -475,11 +457,6 @@ class TestUserController:
                 mode="json", exclude={"is_archived", "archive_date", "discord_oauth"}
             )
 
-            # Then we cleanup
-            await company.delete()
-            await user.delete()
-            await new_user.delete()
-
     class TestUpdateUser:
         """Test UpdateUser."""
 
@@ -524,10 +501,6 @@ class TestUserController:
             assert user.email == "test@test.com"
             assert user.role == UserRole.ADMIN
             assert user.discord_profile.username == "discord_username"
-
-            # Then we cleanup
-            await company.delete()
-            await user.delete()
 
         async def test_user_validation_error(
             self,
@@ -588,10 +561,6 @@ class TestUserController:
 
             await company.sync()
             assert user.id not in company.user_ids
-
-            # Then we cleanup
-            await company.delete()
-            await user.delete()
 
 
 class TestQuickRollController:
@@ -702,8 +671,6 @@ class TestQuickRollController:
         assert quickroll.name == "Quick Roll 1"
         assert quickroll.user_id == base_user.id
         assert quickroll.trait_ids == [trait.id]
-
-        await quickroll.delete()
 
     async def test_patch_user_quickroll(
         self,
@@ -989,10 +956,6 @@ class TestUserRegistration:
             await company.sync()
             assert new_user.id in company.user_ids
 
-            # Cleanup
-            await new_user.delete()
-            await company.delete()
-
         async def test_register_user_missing_required_fields(
             self,
             client: AsyncClient,
@@ -1058,9 +1021,6 @@ class TestUserRegistration:
             archived_user = await User.get(secondary_user.id)
             assert archived_user is None or archived_user.is_archived is True
 
-            # Cleanup
-            await company.delete()
-
         async def test_merge_users_secondary_not_unapproved(
             self,
             client: AsyncClient,
@@ -1089,9 +1049,6 @@ class TestUserRegistration:
 
             # Then the merge is rejected
             assert response.status_code == HTTP_400_BAD_REQUEST
-
-            # Cleanup
-            await company.delete()
 
 
 class TestListUsersEmailFilter:
@@ -1123,9 +1080,6 @@ class TestListUsersEmailFilter:
         items = response.json()["items"]
         assert len(items) == 1
         assert items[0]["email"] == "alice@example.com"
-
-        # Cleanup
-        await company.delete()
 
     async def test_list_users_email_filter_no_results(
         self,

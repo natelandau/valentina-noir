@@ -120,11 +120,6 @@ class TestCompanyCRUD:
         )
         assert new_permission in base_developer_company_user.companies
 
-        # Cleanup
-        await company.delete()
-        base_developer_company_user.companies.remove(new_permission)
-        await base_developer_company_user.save()
-
     async def test_patch_company(
         self,
         client: AsyncClient,
@@ -159,11 +154,6 @@ class TestCompanyCRUD:
         # Then the company is patched in the database
         patched_company = await Company.get(new_company.id)
         assert patched_company.name == "patched"
-
-        # Cleanup
-        await new_company.delete()
-        base_developer_company_user.companies.remove(permissions)
-        await base_developer_company_user.save()
 
     async def test_patch_company_forbidden_without_admin(
         self,
@@ -224,11 +214,6 @@ class TestCompanyCRUD:
         await company.sync()
         assert company.is_archived is True
 
-        # Cleanup
-        await company.delete()
-        base_developer_company_user.companies.remove(permissions)
-        await base_developer_company_user.save()
-
     async def test_delete_company_forbidden_without_owner(
         self,
         client: AsyncClient,
@@ -256,11 +241,6 @@ class TestCompanyCRUD:
 
         # Then the guard blocks us
         assert response.status_code == HTTP_403_FORBIDDEN
-
-        # Cleanup
-        await new_company.delete()
-        base_developer_company_user.companies.remove(permissions)
-        await base_developer_company_user.save()
 
 
 class TestCompanyPermissions:
@@ -302,9 +282,6 @@ class TestCompanyPermissions:
             )
         ]
 
-        # Cleanup
-        await new_developer.delete()
-
     async def test_control_company_permissions_forbidden_without_owner(
         self,
         client: AsyncClient,
@@ -335,17 +312,27 @@ class TestCompanyValidation:
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
-        token_company_owner: dict[str, str],
-        base_company: Company,
-        debug: Callable[[...], None],
+        base_developer_company_user: Developer,
+        token_company_user: dict[str, str],
+        company_factory: Callable[[dict[str, ...]], Company],
     ) -> None:
-        """Test company validation."""
+        """Verify invalid company settings are rejected."""
+        # Given a separate company so we don't corrupt the base company
+        company = await company_factory(is_archived=False)
+        permissions = CompanyPermissions(
+            company_id=company.id,
+            name=company.name,
+            permission=CompanyPermission.OWNER,
+        )
+        base_developer_company_user.companies.append(permissions)
+        await base_developer_company_user.save()
+
+        # When we patch with invalid settings
         response = await client.patch(
-            build_url(Companies.UPDATE, company_id=base_company.id),
-            headers=token_company_owner,
+            build_url(Companies.UPDATE, company_id=company.id),
+            headers=token_company_user,
             json={"settings": {"character_autogen_num_choices": 0}},
         )
-        assert response.status_code == HTTP_400_BAD_REQUEST
 
-        # cleanup
-        await base_company.delete()
+        # Then the request is rejected
+        assert response.status_code == HTTP_400_BAD_REQUEST

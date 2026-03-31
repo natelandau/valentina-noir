@@ -489,7 +489,7 @@ class TestUserStorytellerGuard:
     async def test_raises_permission_denied_for_player(
         self,
         base_company: Company,
-        base_user_player: User,
+        base_user: User,
         mocker: pytest.MockerFixture,
     ) -> None:
         """Verify guard raises PermissionDeniedError for player role."""
@@ -497,12 +497,12 @@ class TestUserStorytellerGuard:
         mock_connection = mocker.MagicMock()
         mock_connection.path_params.get.side_effect = lambda key: {
             "company_id": str(base_company.id),
-            "user_id": str(base_user_player.id),
+            "user_id": str(base_user.id),
         }.get(key)
 
         # Given a mock store with cached user data
         mock_store = mocker.MagicMock()
-        cached_user_data = encode_json(base_user_player.model_dump(mode="json"))
+        cached_user_data = encode_json(base_user.model_dump(mode="json"))
         mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
         mock_connection.app.stores.get.return_value = mock_store
 
@@ -592,7 +592,7 @@ class TestUserAdminGuard:
     async def test_raises_permission_denied_for_player(
         self,
         base_company: Company,
-        base_user_player: User,
+        base_user: User,
         mocker: pytest.MockerFixture,
     ) -> None:
         """Verify guard raises PermissionDeniedError for player role."""
@@ -600,12 +600,12 @@ class TestUserAdminGuard:
         mock_connection = mocker.MagicMock()
         mock_connection.path_params.get.side_effect = lambda key: {
             "company_id": str(base_company.id),
-            "user_id": str(base_user_player.id),
+            "user_id": str(base_user.id),
         }.get(key)
 
         # Given a mock store with cached user data
         mock_store = mocker.MagicMock()
-        cached_user_data = encode_json(base_user_player.model_dump(mode="json"))
+        cached_user_data = encode_json(base_user.model_dump(mode="json"))
         mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
         mock_connection.app.stores.get.return_value = mock_store
 
@@ -681,7 +681,7 @@ class TestUserNotUnapprovedGuard:
     async def test_passes_for_player(
         self,
         base_company: Company,
-        base_user_player: User,
+        base_user: User,
         mocker: pytest.MockerFixture,
     ) -> None:
         """Verify guard passes for user with player role."""
@@ -689,12 +689,12 @@ class TestUserNotUnapprovedGuard:
         mock_connection = mocker.MagicMock()
         mock_connection.path_params.get.side_effect = lambda key: {
             "company_id": str(base_company.id),
-            "user_id": str(base_user_player.id),
+            "user_id": str(base_user.id),
         }.get(key)
 
         # Given a mock store with cached user data
         mock_store = mocker.MagicMock()
-        cached_user_data = encode_json(base_user_player.model_dump(mode="json"))
+        cached_user_data = encode_json(base_user.model_dump(mode="json"))
         mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
         mock_connection.app.stores.get.return_value = mock_store
 
@@ -731,7 +731,7 @@ class TestUserNotUnapprovedGuard:
 
     async def test_raises_permission_denied_for_wrong_company(
         self,
-        base_user_player: User,
+        base_user: User,
         company_factory: Callable[..., Company],
         mocker: pytest.MockerFixture,
     ) -> None:
@@ -743,12 +743,12 @@ class TestUserNotUnapprovedGuard:
         mock_connection = mocker.MagicMock()
         mock_connection.path_params.get.side_effect = lambda key: {
             "company_id": str(other_company.id),
-            "user_id": str(base_user_player.id),
+            "user_id": str(base_user.id),
         }.get(key)
 
         # Given a mock store with cached user data
         mock_store = mocker.MagicMock()
-        cached_user_data = encode_json(base_user_player.model_dump(mode="json"))
+        cached_user_data = encode_json(base_user.model_dump(mode="json"))
         mock_store.get = mocker.AsyncMock(return_value=cached_user_data)
         mock_connection.app.stores.get.return_value = mock_store
 

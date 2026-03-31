@@ -107,9 +107,6 @@ class TestDictionaryController:
         assert dictionary_term.link == "https://example.com"
         assert dictionary_term.source_type is None
 
-        # Cleanup
-        await dictionary_term.delete()
-
     async def test_create_dictionary_term_invalid_data(
         self,
         client: AsyncClient,

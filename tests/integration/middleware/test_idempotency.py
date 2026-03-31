@@ -9,12 +9,14 @@ import pytest
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_409_CONFLICT
 
 from vapi.constants import IDEMPOTENCY_KEY_HEADER, IGNORE_RATE_LIMIT_HEADER_KEY
-from vapi.db.models import Campaign
+from vapi.domain.urls import Campaigns
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from httpx import AsyncClient
+
+    from vapi.db.models import User
 
 pytestmark = pytest.mark.anyio
 
@@ -27,11 +29,9 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        base_user_storyteller,
+        base_user_storyteller: User,
     ) -> None:
         """Verify POST requests with same idempotency key and body return cached response."""
-        from vapi.domain.urls import Campaigns
-
         # Given an idempotency key and a fixed request body
         idempotency_key = str(uuid.uuid4())
         headers = {
@@ -63,20 +63,14 @@ class TestIdempotencyMiddleware:
         assert response1.json()["id"] == response2.json()["id"]
         assert response1.json()["name"] == response2.json()["name"]
 
-        # cleanup
-        await Campaign.find(Campaign.id == response1.json()["id"]).delete()
-        await Campaign.find(Campaign.id == response2.json()["id"]).delete()
-
     async def test_post_with_same_key_different_body_raises_conflict(
         self,
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        base_user_storyteller,
+        base_user_storyteller: User,
     ) -> None:
         """Verify POST requests with same idempotency key but different body raise ConflictError."""
-        from vapi.domain.urls import Campaigns
-
         # Given an idempotency key
         idempotency_key = str(uuid.uuid4())
         headers = {
@@ -106,19 +100,14 @@ class TestIdempotencyMiddleware:
         assert response2.status_code == HTTP_409_CONFLICT
         assert "different request body" in response2.json()["detail"]
 
-        # cleanup
-        await Campaign.find(Campaign.id == response1.json()["id"]).delete()
-
     async def test_post_without_idempotency_key_creates_new_resources(
         self,
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        base_user_storyteller,
+        base_user_storyteller: User,
     ) -> None:
         """Verify POST requests without idempotency header create new resources each time."""
-        from vapi.domain.urls import Campaigns
-
         # Given headers without an idempotency key
         headers = {
             **token_company_admin,
@@ -146,10 +135,6 @@ class TestIdempotencyMiddleware:
         assert response2.status_code == HTTP_201_CREATED
         assert response1.json()["id"] != response2.json()["id"]
 
-        # cleanup
-        await Campaign.find(Campaign.id == response1.json()["id"]).delete()
-        await Campaign.find(Campaign.id == response2.json()["id"]).delete()
-
     async def test_get_request_ignores_idempotency_header(
         self,
         client: AsyncClient,
@@ -157,8 +142,6 @@ class TestIdempotencyMiddleware:
         token_company_user: dict[str, str],
     ) -> None:
         """Verify GET requests ignore the idempotency header entirely."""
-        from vapi.domain.urls import Campaigns
-
         # Given an idempotency key on a GET request
         idempotency_key = str(uuid.uuid4())
         headers = {

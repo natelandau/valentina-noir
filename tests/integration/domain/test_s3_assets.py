@@ -213,9 +213,6 @@ async def test_upload_image(
     assert db_asset.uploaded_by == user.id
     assert db_asset.public_url == response_json["public_url"]
 
-    # cleanup
-    await db_asset.delete()
-
 
 async def test_delete_image(
     client: AsyncClient,

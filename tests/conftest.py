@@ -10,6 +10,24 @@ from redis.asyncio import Redis
 
 from vapi.cli.bootstrap import bootstrap_async
 from vapi.config import settings
+from vapi.db.models import (
+    AuditLog,
+    Campaign,
+    CampaignBook,
+    CampaignChapter,
+    Character,
+    CharacterInventory,
+    CharacterTrait,
+    Company,
+    Developer,
+    DiceRoll,
+    DictionaryTerm,
+    Note,
+    QuickRoll,
+    S3Asset,
+    Trait,
+    User,
+)
 from vapi.lib.database import init_database
 
 if TYPE_CHECKING:
@@ -19,15 +37,6 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
     from pytest_databases.docker.mongodb import MongoDBService
     from pytest_databases.docker.redis import RedisService
-
-    from vapi.db.models import (
-        Campaign,
-        CampaignBook,
-        CampaignChapter,
-        Character,
-        Company,
-        User,
-    )
 
 
 pytest_plugins = (
@@ -61,6 +70,26 @@ def patch_settings():
         pass
 
 
+_CLEANUP_MODELS = [
+    AuditLog,
+    Campaign,
+    CampaignBook,
+    CampaignChapter,
+    Character,
+    CharacterInventory,
+    CharacterTrait,
+    Company,
+    Developer,
+    DiceRoll,
+    DictionaryTerm,
+    Note,
+    QuickRoll,
+    User,
+    S3Asset,
+    Trait,
+]
+
+
 async def _cleanup_non_constant_db_data(
     base_company_id: PydanticObjectId | None = None,
     base_user_id: PydanticObjectId | None = None,
@@ -68,56 +97,26 @@ async def _cleanup_non_constant_db_data(
     base_character_id: PydanticObjectId | None = None,
     base_campaign_book_id: PydanticObjectId | None = None,
     base_campaign_chapter_id: PydanticObjectId | None = None,
-) -> AsyncGenerator[None]:
-    """Cleanup non-constant data from the database."""
-    from vapi.db.models import (
-        AuditLog,
-        Campaign,
-        CampaignBook,
-        CampaignChapter,
-        Character,
-        CharacterInventory,
-        CharacterTrait,
-        Company,
-        DiceRoll,
-        DictionaryTerm,
-        Note,
-        QuickRoll,
-        S3Asset,
-        Trait,
-        User,
-    )
+) -> None:
+    """Delete all non-constant data from the database.
 
-    for model in [
-        AuditLog,
-        Campaign,
-        CampaignBook,
-        CampaignChapter,
-        Character,
-        CharacterInventory,
-        CharacterTrait,
-        Company,
-        DiceRoll,
-        DictionaryTerm,
-        Note,
-        QuickRoll,
-        User,
-        S3Asset,
-        Trait,
-    ]:
-        if model == Company and base_company_id:
-            await model.find(Company.id != base_company_id).delete_many()
-        elif model == User and base_user_id:
-            await model.find(User.id != base_user_id).delete_many()
-        elif model == Campaign and base_campaign_id:
-            await model.find(Campaign.id != base_campaign_id).delete_many()
-        elif model == Character and base_character_id:
-            await model.find(Character.id != base_character_id).delete_many()
-        elif model == CampaignBook and base_campaign_book_id:
-            await model.find(CampaignBook.id != base_campaign_book_id).delete_many()
-        elif model == CampaignChapter and base_campaign_chapter_id:
-            await model.find(CampaignChapter.id != base_campaign_chapter_id).delete_many()
-        elif model == Trait:
+    Constant data (e.g. built-in Traits) is preserved; custom traits are removed.
+    Base fixtures are preserved by ID so they don't need to be recreated each test.
+    """
+    preserve_by_id: dict[type, PydanticObjectId | None] = {
+        Company: base_company_id,
+        User: base_user_id,
+        Campaign: base_campaign_id,
+        Character: base_character_id,
+        CampaignBook: base_campaign_book_id,
+        CampaignChapter: base_campaign_chapter_id,
+    }
+
+    for model in _CLEANUP_MODELS:
+        exclude_id = preserve_by_id.get(model)
+        if exclude_id:
+            await model.find(model.id != exclude_id).delete_many()
+        elif model is Trait:
             await model.find(Trait.is_custom == True).delete_many()
         else:
             await model.delete_all()
@@ -133,7 +132,11 @@ async def cleanup_database(
     base_campaign_book: CampaignBook,
     base_campaign_chapter: CampaignChapter,
 ) -> AsyncGenerator[None]:
-    """Cleanup the database before the test when '@pytest.mark.clean_db()' is called and clean up non-constant data from the database after the test unless '()' is called."""
+    """Cleanup non-constant database data around each test.
+
+    Before: runs full cleanup only when the test is marked with ``@pytest.mark.clean_db``.
+    After: always runs full cleanup so tests cannot leak data to subsequent tests.
+    """
     if "clean_db" in request.keywords:
         await _cleanup_non_constant_db_data(
             base_company_id=base_company.id,
@@ -143,6 +146,17 @@ async def cleanup_database(
             base_campaign_book_id=base_campaign_book.id,
             base_campaign_chapter_id=base_campaign_chapter.id,
         )
+
+    yield
+
+    await _cleanup_non_constant_db_data(
+        base_company_id=base_company.id,
+        base_user_id=base_user.id,
+        base_campaign_id=base_campaign.id,
+        base_character_id=base_character.id,
+        base_campaign_book_id=base_campaign_book.id,
+        base_campaign_chapter_id=base_campaign_chapter.id,
+    )
 
 
 @pytest.fixture(scope="session")
