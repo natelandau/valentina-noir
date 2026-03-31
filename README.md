@@ -8,11 +8,11 @@ Valentina Noir is a comprehensive API for managing World of Darkness tabletop ro
 
 Valentina is built using the following core technologies:
 
--   [Litestar](https://litestar.dev/) - Lightweight and flexible Python ASGI framework
--   [MongoDB](https://www.mongodb.com/) - NoSQL database
--   [Beanie](https://beanie-orm.dev/) - MongoDB ORM for Python
--   [Redis](https://redis.io/) - In-memory data structure store
--   [Granian](https://github.com/emmett-framework/granian) - ASGI server for Python
+- [Litestar](https://litestar.dev/) - Lightweight and flexible Python ASGI framework
+- [MongoDB](https://www.mongodb.com/) - NoSQL database
+- [Beanie](https://beanie-orm.dev/) - MongoDB ORM for Python
+- [Redis](https://redis.io/) - In-memory data structure store
+- [Granian](https://github.com/emmett-framework/granian) - ASGI server for Python
 
 ## Running with Docker
 
@@ -20,15 +20,15 @@ The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The contai
 
 ### Docker-Specific Environment Variables
 
-These variables are used by the container entrypoint and are also available in `env.example`.
+These variables are used by the container entrypoint and are also available in `.env.example`.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PUID` | `1000` | UID for the application user inside the container |
-| `PGID` | `1000` | GID for the application user inside the container |
-| `VAPI_DOCKER_BOOTSTRAP` | `false` | Set to `true` to create database collections on startup |
-| `VAPI_APIUSER_USERNAME` | | Username for a developer account created on startup |
-| `VAPI_APIUSER_EMAIL` | | Email for the developer account |
+| Variable                       | Default | Description                                                  |
+| ------------------------------ | ------- | ------------------------------------------------------------ |
+| `PUID`                         | `1000`  | UID for the application user inside the container            |
+| `PGID`                         | `1000`  | GID for the application user inside the container            |
+| `VAPI_DOCKER_BOOTSTRAP`        | `false` | Set to `true` to create database collections on startup      |
+| `VAPI_APIUSER_USERNAME`        |         | Username for a developer account created on startup          |
+| `VAPI_APIUSER_EMAIL`           |         | Email for the developer account                              |
 | `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer |
 
 Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues. Find your UID and GID with:
@@ -38,7 +38,7 @@ id -u  # UID
 id -g  # GID
 ```
 
-All application configuration variables from `env.example` are also supported and should be passed to the container via an env file or environment variables.
+All application configuration variables from `.env.example` are also supported and should be passed to the container via an env file or environment variables.
 
 ## Getting Started Developing Valentina Noir
 
@@ -53,7 +53,7 @@ We use [uv](https://docs.astral.sh/uv/) for dependency management. To start deve
 
 ## Running the development environment
 
-1. Configure the necessary environment variables in `.env.secret` (See `env.example` for all possible variables)
+1. Configure the necessary environment variables in `.env.secret` (See `.env.example` for all possible variables)
 2. Two encryption keys are required which can be generated using the following command: `python3 -c 'import secrets; print(secrets.token_hex(32))'`
 3. Optionally, start MongoDB and Redis from Docker: `docker compose -f compose-db.yml up -d`. The filestore for these containers will be stored in the `.dev` directory.
 4. Bootstrap the database:
@@ -67,15 +67,15 @@ A cli tool is included in the project to help interact with litestar. Run `uv ap
 
 We use [Duty](https://pawamoy.github.io/duty/) as a task runner.
 
--   `duty --list` - List all available tasks
--   `duty lint` - Run all linters
--   `duty test` - Run all tests
--   `duty clean` - Clean the project of all temporary files
--   `duty run` - Run the development server locally (requires MongoDB and Redis to be running)
--   `duty bootstrap` - Bootstrap the development database
--   `duty populate` - Populate the database with dummy data. This will create developers, companies, users, campaigns, and characters.
--   `duty dev-clean` - Clean the development environment
--   `duty dev-setup` - Set up the development environment in `.dev` including storage for logs, the development database, and Redis instance all of which are mounted as volumes.
+- `duty --list` - List all available tasks
+- `duty lint` - Run all linters
+- `duty test` - Run all tests
+- `duty clean` - Clean the project of all temporary files
+- `duty run` - Run the development server locally (requires MongoDB and Redis to be running)
+- `duty bootstrap` - Bootstrap the development database
+- `duty populate` - Populate the database with dummy data. This will create developers, companies, users, campaigns, and characters.
+- `duty dev-clean` - Clean the development environment
+- `duty dev-setup` - Set up the development environment in `.dev` including storage for logs, the development database, and Redis instance all of which are mounted as volumes.
 
 ## Running Tests
 
@@ -89,10 +89,10 @@ This will run all tests in the project in parallel using [pytest-xdist](https://
 
 During development, it is often useful to run tests in serial mode and with more verbose output. You can do this by running pytest directly and appending these flags to the command:
 
--   `-n 0` - Run tests in serial mode
--   `-v` - Verbose output. Append more `-v`s for more verbose output.
--   `-s` - Show test output as it runs.
--   `-x` - Stop running tests on the first failure.
+- `-n 0` - Run tests in serial mode
+- `-v` - Verbose output. Append more `-v`s for more verbose output.
+- `-s` - Show test output as it runs.
+- `-x` - Stop running tests on the first failure.
 
 Run `pytest --help` for more information and options.
 
@@ -100,11 +100,11 @@ Run `pytest --help` for more information and options.
 
 When developing for valentina, please follow these guidelines:
 
--   Write full docstrings
--   All code should use type hints
--   Write unit tests for all new functions
--   Write integration tests for all new features
--   Follow the existing code style
+- Write full docstrings
+- All code should use type hints
+- Write unit tests for all new functions
+- Write integration tests for all new features
+- Follow the existing code style
 
 ## Commit Process
 

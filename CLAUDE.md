@@ -62,7 +62,7 @@ duty dev-setup                # Initialize development environment
 
 - `pyproject.toml` - All project configuration
 - `duties.py` - Task automation
-- `env.example` - Required environment variables
+- `.env.example` - Required environment variables
 
 ## Testing
 
