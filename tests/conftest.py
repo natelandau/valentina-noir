@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
+import asyncpg
+import asyncpg.exceptions
 import pytest
 from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
+from tortoise import Tortoise
 
 from vapi.cli.bootstrap import bootstrap_async
 from vapi.config import settings
@@ -29,6 +33,7 @@ from vapi.db.models import (
     User,
 )
 from vapi.lib.database import init_database
+from vapi.lib.postgres_database import tortoise_config
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
@@ -36,12 +41,14 @@ if TYPE_CHECKING:
     from beanie import PydanticObjectId
     from httpx import AsyncClient
     from pytest_databases.docker.mongodb import MongoDBService
+    from pytest_databases.docker.postgres import PostgresService
     from pytest_databases.docker.redis import RedisService
 
 
 pytest_plugins = (
     "pytest_databases.docker.redis",
     "pytest_databases.docker.mongodb",
+    "pytest_databases.docker.postgres",
     "tests.fixtures",
     "tests.fixture_models",
     "tests.mocks",
@@ -195,6 +202,43 @@ async def init_test_database(
     await client.close()
 
 
+@pytest.fixture(autouse=True, scope="session")
+async def init_test_postgres(
+    postgres_service: PostgresService,
+    worker_id: str,
+) -> AsyncGenerator[None]:
+    """Initialize TortoiseORM against the test PostgreSQL container."""
+    db_name = f"vapi_pytest_{worker_id}" if worker_id != "master" else "vapi_pytest"
+
+    # Update settings to point at the test container
+    settings.postgres.host = postgres_service.host
+    settings.postgres.port = postgres_service.port
+    settings.postgres.user = postgres_service.user
+    settings.postgres.password = postgres_service.password
+    settings.postgres.database = db_name
+
+    # Use asyncpg directly to create the test DB, avoiding Tortoise admin connection
+    admin_conn = await asyncpg.connect(
+        host=postgres_service.host,
+        port=postgres_service.port,
+        user=postgres_service.user,
+        password=postgres_service.password,
+        database="postgres",
+    )
+    with contextlib.suppress(asyncpg.exceptions.DuplicateDatabaseError):
+        await admin_conn.execute(f"CREATE DATABASE {db_name}")
+    await admin_conn.close()
+
+    # Now connect to the actual test database
+    config = tortoise_config()
+    await Tortoise.init(config=config)
+    await Tortoise.generate_schemas(safe=True)
+
+    yield
+
+    await Tortoise.close_connections()
+
+
 @pytest.fixture(name="redis", autouse=True)
 async def fx_redis(redis_service: RedisService) -> AsyncGenerator[Redis]:
     """Redis instance for testing."""
@@ -211,10 +255,13 @@ async def fx_client(redis: Redis, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
 
     from vapi.asgi import create_app
     from vapi.config.base import RedisSettings
+    from vapi.lib.database import setup_database
     from vapi.server.core import ApplicationCore
+    from vapi.server.tortoise_plugin import _shutdown, _startup
 
     app = create_app()
-    app.on_startup = [handler for handler in app.on_startup if handler.__name__ != "setup_database"]
+    app.on_startup = [h for h in app.on_startup if h not in {setup_database, _startup}]
+    app.on_shutdown = [h for h in app.on_shutdown if h is not _shutdown]
 
     cache_config = app.response_cache_config
     assert cache_config is not None

@@ -29,7 +29,7 @@ def tortoise_config() -> dict[str, Any]:
         },
         "apps": {
             "models": {
-                "models": [],
+                "models": ["vapi.db.sql_models"],
                 "default_connection": "default",
             },
         },

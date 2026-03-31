@@ -33,7 +33,7 @@ class TortoisePlugin(InitPluginProtocol):
 async def _startup() -> None:
     """Initialize TortoiseORM and create any missing tables."""
     await Tortoise.init(config=tortoise_config())
-    await Tortoise.generate_schemas()
+    await Tortoise.generate_schemas(safe=True)
     logger.info("PostgreSQL database initialized", extra={"component": "database"})
 
 

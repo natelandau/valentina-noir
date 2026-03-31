@@ -129,7 +129,12 @@
 
     addopts = "--color=yes --doctest-modules --strict-config --strict-markers -n auto --dist loadfile"
     cache_dir = ".cache/pytest"
-    filterwarnings = ['error', 'ignore:.*Pydantic.*:UserWarning', 'ignore::DeprecationWarning:']
+    filterwarnings = [
+        'error',
+        'ignore:.*Pydantic.*:UserWarning',
+        'ignore::DeprecationWarning:',
+        'ignore:Module .* has no models:RuntimeWarning',
+    ]
     markers = [
         "clean_db: deletes all non-constant data from the database before the test",
         "serial",
@@ -156,13 +161,13 @@
     VAPI_LOG__TIME_IN_CONSOLE          = "false"
     VAPI_NAME                          = "vapi-pytest"
     VAPI_OAUTH__DISCORD_CALLBACK_URL   = "https://localhost:8000/api/v1/oauth/discord/callback"
+    VAPI_OAUTH__DISCORD_CLIENT_ID      = "MOCK_CLIENT_ID"
+    VAPI_OAUTH__DISCORD_CLIENT_SECRET  = "MOCK_CLIENT_SECRET"
     VAPI_POSTGRES__DATABASE            = "vapi-pytest"
     VAPI_POSTGRES__HOST                = "localhost"
     VAPI_POSTGRES__PASSWORD            = "valentina"
     VAPI_POSTGRES__PORT                = "5432"
     VAPI_POSTGRES__USER                = "valentina"
-    VAPI_OAUTH__DISCORD_CLIENT_ID      = "MOCK_CLIENT_ID"
-    VAPI_OAUTH__DISCORD_CLIENT_SECRET  = "MOCK_CLIENT_SECRET"
     VAPI_RATE_LIMIT__ENCRYPTION_KEY    = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
     VAPI_SAQ__ADMIN_PASSWORD           = "test_password"
     VAPI_SAQ__ADMIN_USERNAME           = "test_admin"
