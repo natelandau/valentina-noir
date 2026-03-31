@@ -9,11 +9,17 @@ services:
     environment:
       - VAPI_MONGO__URI=mongodb://mongodb:27017/
       - VAPI_REDIS__URL=redis://:redispassword@redis:6379/0
+      - VAPI_POSTGRES__HOST=postgres
+      - VAPI_POSTGRES__PORT=5432
+      - VAPI_POSTGRES__USER=valentina
+      - VAPI_POSTGRES__PASSWORD=valentina
+      - VAPI_POSTGRES__DATABASE=valentina-noir
     volumes:
       - .dev:/app/.dev
     depends_on:
       - redis
       - mongodb
+      - postgres
     ports:
       - 8000:8000
     develop:
@@ -46,4 +52,16 @@ services:
       - 27017:27017
     volumes:
       - .dev/mongodb:/data/db
+    attach: false # suppress logs to console
+
+  postgres:
+    image: postgres:18
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: valentina
+      POSTGRES_PASSWORD: valentina
+      POSTGRES_DB: valentina-noir
+    volumes:
+      - .dev/postgres:/var/lib/postgresql/data
     attach: false # suppress logs to console
