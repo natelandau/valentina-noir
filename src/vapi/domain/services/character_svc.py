@@ -82,7 +82,6 @@ class CharacterService:
         Args:
             character: The character to validate.
 
-
         Raises:
             ValidationError: If tribe_id/auspice_id is missing or not found.
         """
@@ -145,9 +144,6 @@ class CharacterService:
         Args:
             character: The character to update.
 
-        Returns:
-            The updated list of specialties.
-
         Raises:
             ValidationError: If concept_id is set but concept not found.
         """
@@ -181,10 +177,12 @@ class CharacterService:
         Args:
             character: The character to prepare.
         """
-        await self.validate_unique_name(character)
         self.update_date_killed(character)
-        await self.validate_class_attributes(character)
-        await self.apply_concept_specialties(character)
+        await asyncio.gather(
+            self.validate_unique_name(character),
+            self.validate_class_attributes(character),
+            self.apply_concept_specialties(character),
+        )
 
     async def character_create_trait_to_character_traits(
         self, character: Character, trait_create_data: list[CharacterTraitCreate]
@@ -202,6 +200,8 @@ class CharacterService:
         all_traits = await Trait.find(In(Trait.id, trait_ids)).to_list()
         trait_lookup: dict[PydanticObjectId, Trait] = {t.id: t for t in all_traits}
 
+        character_trait_service = CharacterTraitService()
+
         for trait in trait_create_data:
             trait_obj = trait_lookup.get(trait.trait_id)
             if trait_obj is None:
@@ -213,5 +213,4 @@ class CharacterService:
                 value=trait.value,
             ).insert()
 
-            character_trait_service = CharacterTraitService()
             await character_trait_service.after_save(character_trait)

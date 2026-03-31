@@ -7,7 +7,25 @@ import re
 import string
 import unicodedata
 
-__all__ = ("convert_int_to_emoji", "slugify")
+__all__ = ("convert_int_to_emoji", "get_discord_avatar_url", "random_string", "slugify")
+
+_EMOJI_MAP: tuple[tuple[str, str], ...] = (
+    (":zero:", "0️⃣"),
+    (":one:", "1️⃣"),
+    (":two:", "2️⃣"),
+    (":three:", "3️⃣"),
+    (":four:", "4️⃣"),
+    (":five:", "5️⃣"),
+    (":six:", "6️⃣"),
+    (":seven:", "7️⃣"),
+    (":eight:", "8️⃣"),
+    (":nine:", "9️⃣"),
+    (":keycap_ten:", "🔟"),
+)
+
+_DISCORD_IMAGE_BASE_URL = "https://cdn.discordapp.com/"
+_DISCORD_AVATAR_URL = _DISCORD_IMAGE_BASE_URL + "avatars/{user_id}/{avatar_hash}.{format}"
+_DISCORD_DEFAULT_AVATAR_URL = _DISCORD_IMAGE_BASE_URL + "embed/avatars/{modulo5}.png"
 
 
 def slugify(value: str, *, separator: str | None = None, allow_unicode: bool = False) -> str:
@@ -49,24 +67,8 @@ def convert_int_to_emoji(*, num: int, as_shortcode: bool = False) -> str:
     if not (0 <= num <= 10):  # noqa: PLR2004
         return f"`{num}`" if as_shortcode else str(num)
 
-    emoji_map = {
-        0: (":zero:", "0️⃣"),
-        1: (":one:", "1️⃣"),
-        2: (":two:", "2️⃣"),
-        3: (":three:", "3️⃣"),
-        4: (":four:", "4️⃣"),
-        5: (":five:", "5️⃣"),
-        6: (":six:", "6️⃣"),
-        7: (":seven:", "7️⃣"),
-        8: (":eight:", "8️⃣"),
-        9: (":nine:", "9️⃣"),
-        10: (":keycap_ten:", "🔟"),
-    }
-
-    shortcode, unicode_emoji = emoji_map[num]
-    if as_shortcode:
-        return shortcode if num == 10 else f"{shortcode}"  # noqa: PLR2004
-    return unicode_emoji
+    shortcode, unicode_emoji = _EMOJI_MAP[num]
+    return shortcode if as_shortcode else unicode_emoji
 
 
 def random_string(length: int) -> str:
@@ -99,48 +101,12 @@ def get_discord_avatar_url(
     Returns:
         str | None: The URL of the Discord avatar.
     """
-    discord_image_format: str = "png"
-    discord_animated_image_format: str = "gif"
-    discord_image_base_url: str = "https://cdn.discordapp.com/"
-    discord_user_avatar_base_url: str = (
-        discord_image_base_url + "avatars/{user_id}/{avatar_hash}.{format}"
-    )
-    discord_default_user_avatar_base_url: str = (
-        discord_image_base_url + "embed/avatars/{modulo5}.png"
-    )
-
-    def _is_avatar_animated(avatar_hash: str) -> bool:
-        """A boolean representing if Discord avatar of user is animated. Meaning user has GIF avatar.
-
-        Args:
-            avatar_hash (str): The hash of the Discord avatar.
-
-        Returns:
-            bool: True if the Discord avatar is animated, False otherwise.
-        """
-        try:
-            return avatar_hash.startswith("a_")
-        except AttributeError:
-            return False
-
-    def _default_avatar_url(discriminator: str) -> str:
-        """Return the default Discord avatar URL as when user doesn't has any Discord avatar set.
-
-        Args:
-            discriminator (str): The discriminator of the Discord user.
-
-        Returns:
-            str: The default avatar URL.
-        """
-        return discord_default_user_avatar_base_url.format(modulo5=int(discriminator) % 5)
-
     if not avatar_hash:
         if not discriminator:
             return None
-        return _default_avatar_url(discriminator)
-    image_format = (
-        discord_animated_image_format if _is_avatar_animated(avatar_hash) else discord_image_format
-    )
-    return discord_user_avatar_base_url.format(
+        return _DISCORD_DEFAULT_AVATAR_URL.format(modulo5=int(discriminator) % 5)
+
+    image_format = "gif" if avatar_hash.startswith("a_") else "png"
+    return _DISCORD_AVATAR_URL.format(
         user_id=discord_user_id, avatar_hash=avatar_hash, format=image_format
     )

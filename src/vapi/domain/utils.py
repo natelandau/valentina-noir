@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar
+import asyncio
+from typing import TYPE_CHECKING, Any
 
 from beanie import Document
 from litestar.dto import DTOData  # noqa: TC002
@@ -13,8 +14,6 @@ from vapi.lib.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
-
-T = TypeVar("T", bound=Document)
 
 
 async def resolve_trait_id_from_mixed_source(trait_id: PydanticObjectId) -> PydanticObjectId:
@@ -51,6 +50,7 @@ async def validate_trait_ids_from_mixed_sources(
 
     This function accepts a mixed list of trait IDs and character trait IDs,
     validates each one, and returns a list of the corresponding trait IDs.
+    All IDs are resolved concurrently.
 
     Args:
         trait_ids: The list of trait IDs or character trait IDs to validate.
@@ -61,10 +61,10 @@ async def validate_trait_ids_from_mixed_sources(
     Raises:
         ValidationError: If any of the trait IDs are invalid.
     """
-    valid_trait_ids = []
-    for trait_id in trait_ids:
+
+    async def _resolve(trait_id: PydanticObjectId) -> PydanticObjectId:
         try:
-            valid_trait_id = await resolve_trait_id_from_mixed_source(trait_id)
+            return await resolve_trait_id_from_mixed_source(trait_id)
         except ValueError as e:
             raise ValidationError(
                 detail="Trait not found",
@@ -73,13 +73,11 @@ async def validate_trait_ids_from_mixed_sources(
                 ],
             ) from e
 
-        valid_trait_ids.append(valid_trait_id)
-
-    return valid_trait_ids
+    return list(await asyncio.gather(*[_resolve(tid) for tid in trait_ids]))
 
 
 def patch_document_from_dict[T: Document](document: T, data: dict[str, Any]) -> T:
-    """Patch a Beanie document from a dictionary.
+    """Patch a Beanie document from a dictionary, recursing into nested dicts.
 
     Args:
         document: The document to update.
@@ -89,27 +87,18 @@ def patch_document_from_dict[T: Document](document: T, data: dict[str, Any]) -> 
         The updated document.
     """
 
-    def _patch_internal_dict(original: T, data: dict[str, Any]) -> None:
-        computed = original.model_computed_fields
-        for key, value in data.items():
+    def _apply(target: Any, patch: dict[str, Any]) -> None:
+        computed = target.model_computed_fields
+        for key, value in patch.items():
             if key in computed:
                 continue
-            if key in original.model_dump():
+            if key in target.model_dump():
                 if isinstance(value, dict):
-                    _patch_internal_dict(getattr(original, key), value)
+                    _apply(getattr(target, key), value)
                 else:
-                    setattr(original, key, value)
+                    setattr(target, key, value)
 
-    computed = document.model_computed_fields
-    for key, value in data.items():
-        if key in computed:
-            continue
-        if key in document.model_dump():
-            if isinstance(value, dict):
-                _patch_internal_dict(getattr(document, key), value)
-            else:
-                setattr(document, key, value)
-
+    _apply(document, data)
     return document
 
 
@@ -127,13 +116,11 @@ async def patch_dto_data_internal_objects[T: Document](
     Returns:
         A tuple containing the updated document and the data.
     """
-    # Identify internal nested objects
     internal_object_keys = []
     for key, value in data._data_as_builtins.items():  # noqa: SLF001
         if isinstance(value, dict):
             internal_object_keys.append(key)
 
-            # Now we need to update the original object with the new values
             for sub_key, sub_value in value.items():
                 internal_object = getattr(original, key)
                 setattr(internal_object, sub_key, sub_value)
@@ -144,7 +131,6 @@ async def patch_dto_data_internal_objects[T: Document](
             original.hunter_attributes.creed = value.creed
             internal_object_keys.append(key)
 
-    # Remove the internal object keys from the data
     for key in internal_object_keys:
         del data._data_as_builtins[key]  # noqa: SLF001
 

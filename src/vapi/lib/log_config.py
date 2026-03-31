@@ -167,22 +167,13 @@ class LitestarJsonFormatter(JsonFormatter):
         self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
     ) -> None:
         """Add fields to the log record, parsing structured key=value pairs."""
-        # Call parent to get base fields
         super().add_fields(log_record, record, message_dict)
 
-        # Parse any structured key=value pairs from the message
-        message = record.getMessage()
-
-        # Sanitize binary content before parsing
-        message = _sanitize_binary_body(message)
-
+        message = _sanitize_binary_body(record.getMessage())
         extracted = self.parse_structured_message(message)
 
         if extracted:
-            # Add extracted fields directly to the root of the log record
             log_record.update(extracted)
-
-            # Clean the message by removing extracted key=value pairs
             log_record["message"] = self.clean_message(message)
         else:
             log_record["message"] = message
@@ -196,21 +187,8 @@ class LitestarJsonFormatter(JsonFormatter):
         - key="..."  (quoted strings)
         - key=value  (unquoted values)
         """
-        # Pattern to match key=value pairs where value can be:
-        # - A dict: {...} (with nested braces support)
-        # - A list: [...] (with nested brackets support)
-        # - A quoted string: "..."
-        # - An unquoted value: up to the next comma, space, or end
         pattern = r'(\w+)=((?:\{(?:[^{}]|\{[^{}]*\})*\})|(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\])|(?:"[^"]*")|(?:\'[^\']*\')|(?:[^,\s]+))'
-
-        matches = re.findall(pattern, message)
-
-        extracted: dict[str, Any] = {}
-        for key, value in matches:
-            parsed_value = self.parse_value(value)
-            extracted[key] = parsed_value
-
-        return extracted
+        return {key: self.parse_value(value) for key, value in re.findall(pattern, message)}
 
     def _handle_numbers(self, value: str) -> int | float | None:
         """Handle numbers."""
@@ -225,15 +203,15 @@ class LitestarJsonFormatter(JsonFormatter):
         return None
 
     def _handle_arrays(self, value: str) -> list | None:
-        """Handle arrays."""
+        """Handle JSON objects and arrays, including Python-repr syntax."""
         if (value.startswith("{") and value.endswith("}")) or (
             value.startswith("[") and value.endswith("]")
         ):
             try:
-                # Try with double quotes first
                 return json.loads(value)
             except json.JSONDecodeError:
                 try:
+                    # Fall back to Python-repr → JSON conversion
                     json_value = value.replace("'", '"')
                     json_value = json_value.replace("None", "null")
                     json_value = json_value.replace("True", "true")
@@ -260,40 +238,35 @@ class LitestarJsonFormatter(JsonFormatter):
         """
         value = value.strip()
 
-        # Handle None/null
         if value in ("None", "null", "NULL"):
             return None
-        # Handle booleans
         if value in ("True", "true", "TRUE"):
             return True
         if value in ("False", "false", "FALSE"):
             return False
 
-        # Handle numbers
-        if number := self._handle_numbers(value):
+        number = self._handle_numbers(value)
+        if number is not None:
             return number
 
-        # Handle JSON objects/arrays
-        if array := self._handle_arrays(value):
+        array = self._handle_arrays(value)
+        if array is not None:
             return array
 
-        # Handle quoted strings (remove quotes)
-        if quoted_string := self._handle_quoted_strings(value):
+        quoted_string = self._handle_quoted_strings(value)
+        if quoted_string is not None:
             return quoted_string
 
-        # Return as string
         return value
 
     def clean_message(self, message: str) -> str:
         """Remove extracted key=value pairs from message, leaving non-extracted text intact."""
-        # Remove all key=value patterns
         pattern = r'\s*\w+=((?:\{(?:[^{}]|\{[^{}]*\})*\})|(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\])|(?:"[^"]*")|(?:\'[^\']*\')|(?:[^,\s]+))'
         cleaned = re.sub(pattern, "", message)
 
-        # Clean up extra commas and spaces
         cleaned = re.sub(r",\s*,", ",", cleaned)
-        cleaned = re.sub(r",\s*$", "", cleaned)  # Remove trailing comma
-        cleaned = re.sub(r"^\s*,", "", cleaned)  # Remove leading comma
+        cleaned = re.sub(r",\s*$", "", cleaned)
+        cleaned = re.sub(r"^\s*,", "", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned)
         cleaned = cleaned.strip(", ").rstrip(":")
 

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import asyncio
+from typing import TYPE_CHECKING, Any
 
 from vapi.constants import BlueprintTraitOrderBy
 from vapi.db.models import CharSheetSection, Trait, TraitCategory, TraitSubcategory
 
 if TYPE_CHECKING:
-    from beanie import PydanticObjectId
+    from beanie import Document, PydanticObjectId
 
     from vapi.constants import CharacterClass, GameVersion
 
@@ -35,20 +36,14 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of sections and the list of sections.
         """
-        filters = [
-            CharSheetSection.is_archived == False,
-        ]
-        if game_version:
-            filters.append(CharSheetSection.game_versions == game_version)
-        if character_class:
-            filters.append(CharSheetSection.character_classes == character_class)
-
-        count = await CharSheetSection.find(*filters).count()
-        sections = (
-            await CharSheetSection.find(*filters).sort("order").skip(offset).limit(limit).to_list()
+        filters = self._common_filters(
+            CharSheetSection,
+            game_version=game_version,
+            character_class=character_class,
         )
-
-        return count, sections
+        return await self._paginated_query(
+            CharSheetSection, filters, sort_key="order", limit=limit, offset=offset
+        )
 
     async def list_sheet_categories(
         self,
@@ -71,21 +66,17 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of categories and the list of categories.
         """
-        filters = [
-            TraitCategory.is_archived == False,
-        ]
-        if game_version:
-            filters.append(TraitCategory.game_versions == game_version)
+        filters = self._common_filters(
+            TraitCategory,
+            game_version=game_version,
+            character_class=character_class,
+        )
         if section_id:
             filters.append(TraitCategory.parent_sheet_section_id == section_id)
-        if character_class:
-            filters.append(TraitCategory.character_classes == character_class)
 
-        count = await TraitCategory.find(*filters).count()
-        categories = (
-            await TraitCategory.find(*filters).sort("order").skip(offset).limit(limit).to_list()
+        return await self._paginated_query(
+            TraitCategory, filters, sort_key="order", limit=limit, offset=offset
         )
-        return count, categories
 
     async def list_sheet_category_subcategories(
         self,
@@ -108,23 +99,19 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of subcategories and the list of subcategories.
         """
-        filters = [
-            TraitSubcategory.is_archived == False,
-        ]
-        if game_version:
-            filters.append(TraitSubcategory.game_versions == game_version)
+        filters = self._common_filters(
+            TraitSubcategory,
+            game_version=game_version,
+            character_class=character_class,
+        )
         if category_id:
             filters.append(TraitSubcategory.parent_category_id == category_id)
-        if character_class:
-            filters.append(TraitSubcategory.character_classes == character_class)
 
-        count = await TraitSubcategory.find(*filters).count()
-        subcategories = (
-            await TraitSubcategory.find(*filters).sort("name").skip(offset).limit(limit).to_list()
+        return await self._paginated_query(
+            TraitSubcategory, filters, sort_key="name", limit=limit, offset=offset
         )
-        return count, subcategories
 
-    async def list_all_traits(  # noqa: C901, PLR0912, PLR0913
+    async def list_all_traits(  # noqa: PLR0913
         self,
         *,
         game_version: GameVersion | None = None,
@@ -153,14 +140,12 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of traits and the list of traits.
         """
-        filters = [
-            Trait.is_archived == False,
-            Trait.custom_for_character_id == None,
-        ]
-        if game_version:
-            filters.append(Trait.game_versions == game_version)
-        if character_class:
-            filters.append(Trait.character_classes == character_class)
+        filters = self._common_filters(
+            Trait,
+            game_version=game_version,
+            character_class=character_class,
+            extra=[Trait.custom_for_character_id == None],
+        )
         if parent_category_id:
             filters.append(Trait.parent_category_id == parent_category_id)
         if subcategory_id:
@@ -170,60 +155,103 @@ class CharacterBlueprintService:
         if is_rollable is not None:
             filters.append(Trait.is_rollable == is_rollable)
 
-        count = await Trait.find(*filters).count()
-
         if order_by == BlueprintTraitOrderBy.NAME:
-            traits = await Trait.find(*filters).skip(offset).limit(limit).sort("name").to_list()
-        elif order_by == BlueprintTraitOrderBy.SHEET:
-            # Build match conditions for aggregation pipeline
-            match_conditions: dict = {"is_archived": False, "custom_for_character_id": None}
-            if game_version:
-                match_conditions["game_versions"] = game_version.value
-            if character_class:
-                match_conditions["character_classes"] = character_class.value
-            if parent_category_id:
-                match_conditions["parent_category_id"] = parent_category_id
-            if subcategory_id:
-                match_conditions["trait_subcategory_id"] = subcategory_id
-            if exclude_subcategory_traits:
-                match_conditions["trait_subcategory_id"] = None
-            if is_rollable is not None:
-                match_conditions["is_rollable"] = is_rollable
+            return await self._paginated_query(
+                Trait, filters, sort_key="name", limit=limit, offset=offset
+            )
 
-            # Aggregation pipeline to sort by CharSheetSection.order, TraitCategory.order, Trait.name
-            pipeline = [
-                {"$match": match_conditions},
-                {
-                    "$lookup": {
-                        "from": "CharSheetSection",
-                        "localField": "sheet_section_id",
-                        "foreignField": "_id",
-                        "as": "_section",
-                    }
-                },
-                {"$unwind": {"path": "$_section", "preserveNullAndEmptyArrays": True}},
-                {
-                    "$lookup": {
-                        "from": "TraitCategory",
-                        "localField": "parent_category_id",
-                        "foreignField": "_id",
-                        "as": "_category",
-                    }
-                },
-                {"$unwind": {"path": "$_category", "preserveNullAndEmptyArrays": True}},
-                {
-                    "$sort": {
-                        "_section.order": 1,
-                        "_category.order": 1,
-                        "name": 1,
-                    }
-                },
-                {"$skip": offset},
-                {"$limit": limit},
-                {"$project": {"_section": 0, "_category": 0}},
-            ]
+        # SHEET ordering requires an aggregation pipeline to join and sort by
+        # CharSheetSection.order, TraitCategory.order, then Trait.name
+        count = await Trait.find(*filters).count()
+        match_conditions = Trait.find(*filters).get_filter_query()
 
-            results = await Trait.aggregate(pipeline).to_list()
-            traits = [Trait.model_validate(doc) for doc in results]
+        pipeline: list[dict[str, Any]] = [
+            {"$match": match_conditions},
+            {
+                "$lookup": {
+                    "from": "CharSheetSection",
+                    "localField": "sheet_section_id",
+                    "foreignField": "_id",
+                    "as": "_section",
+                }
+            },
+            {"$unwind": {"path": "$_section", "preserveNullAndEmptyArrays": True}},
+            {
+                "$lookup": {
+                    "from": "TraitCategory",
+                    "localField": "parent_category_id",
+                    "foreignField": "_id",
+                    "as": "_category",
+                }
+            },
+            {"$unwind": {"path": "$_category", "preserveNullAndEmptyArrays": True}},
+            {
+                "$sort": {
+                    "_section.order": 1,
+                    "_category.order": 1,
+                    "name": 1,
+                }
+            },
+            {"$skip": offset},
+            {"$limit": limit},
+            {"$project": {"_section": 0, "_category": 0}},
+        ]
 
+        results = await Trait.aggregate(pipeline).to_list()
+        traits = [Trait.model_validate(doc) for doc in results]
         return count, traits
+
+    @staticmethod
+    def _common_filters(
+        model: type[Document],
+        *,
+        game_version: GameVersion | None = None,
+        character_class: CharacterClass | None = None,
+        extra: list[Any] | None = None,
+    ) -> list[Any]:
+        """Build the common filter list shared by all list methods.
+
+        Args:
+            model: The Beanie document model to filter.
+            game_version: Filter by game version.
+            character_class: Filter by character class.
+            extra: Additional base filters to include.
+
+        Returns:
+            list: The filter expressions for use with ``model.find()``.
+        """
+        filters: list[Any] = [model.is_archived == False]
+        if extra:
+            filters.extend(extra)
+        if game_version:
+            filters.append(model.game_versions == game_version)
+        if character_class:
+            filters.append(model.character_classes == character_class)
+        return filters
+
+    @staticmethod
+    async def _paginated_query(
+        model: type[Document],
+        filters: list[Any],
+        *,
+        sort_key: str,
+        limit: int,
+        offset: int,
+    ) -> tuple[int, list[Any]]:
+        """Run a count and paginated fetch concurrently.
+
+        Args:
+            model: The Beanie document model to query.
+            filters: Filter expressions for ``model.find()``.
+            sort_key: Field name to sort by.
+            limit: Maximum number of results.
+            offset: Number of results to skip.
+
+        Returns:
+            A tuple of (total_count, page_of_documents).
+        """
+        count, items = await asyncio.gather(
+            model.find(*filters).count(),
+            model.find(*filters).sort(sort_key).skip(offset).limit(limit).to_list(),
+        )
+        return count, items

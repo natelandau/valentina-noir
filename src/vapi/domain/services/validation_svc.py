@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from beanie import Document
+
 from vapi.db.models import (
     Campaign,
     Character,
@@ -19,10 +21,46 @@ from vapi.db.models import (
     WerewolfAuspice,
     WerewolfTribe,
 )
+from vapi.db.models.base import BaseDocument
 from vapi.lib.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
+
+
+async def _get_or_raise[T: Document](
+    model: type[T],
+    doc_id: PydanticObjectId,
+    label: str,
+    *,
+    fetch_links: bool = False,
+) -> T:
+    """Look up a document by ID and raise ValidationError if not found.
+
+    Automatically filters by is_archived == False for BaseDocument subclasses.
+
+    Args:
+        model: The Beanie Document class to query.
+        doc_id: The document ID to look up.
+        label: Human-readable label for error messages (e.g. "Campaign").
+        fetch_links: Whether to fetch linked documents.
+
+    Returns:
+        The found document.
+
+    Raises:
+        ValidationError: If no matching document exists.
+    """
+    filters: list = [model.id == doc_id]
+
+    if issubclass(model, BaseDocument):
+        filters.append(model.is_archived == False)
+
+    result = await model.find_one(*filters, fetch_links=fetch_links)
+    if not result:
+        raise ValidationError(detail=f"{label} {doc_id} not found")
+
+    return result
 
 
 class GetModelByIdValidationService:
@@ -30,95 +68,41 @@ class GetModelByIdValidationService:
 
     async def get_campaign_by_id(self, campaign_id: PydanticObjectId) -> Campaign:
         """Get a campaign by ID."""
-        campaign = await Campaign.find_one(
-            Campaign.id == campaign_id,
-            Campaign.is_archived == False,
-        )
-        if not campaign:
-            raise ValidationError(detail=f"Campaign {campaign_id} not found")
-        return campaign
+        return await _get_or_raise(Campaign, campaign_id, "Campaign")
 
     async def get_character_by_id(self, character_id: PydanticObjectId) -> Character:
         """Get a character by ID."""
-        character = await Character.find_one(
-            Character.id == character_id,
-            Character.is_archived == False,
-        )
-        if not character:
-            raise ValidationError(detail=f"Character {character_id} not found")
-        return character
+        return await _get_or_raise(Character, character_id, "Character")
 
     async def get_concept_by_id(self, concept_id: PydanticObjectId) -> CharacterConcept:
         """Get a concept by ID."""
-        concept = await CharacterConcept.find_one(
-            CharacterConcept.id == concept_id,
-            CharacterConcept.is_archived == False,
-        )
-        if not concept:
-            raise ValidationError(detail=f"Concept {concept_id} not found")
-        return concept
+        return await _get_or_raise(CharacterConcept, concept_id, "Concept")
 
     async def get_vampire_clan_by_id(self, vampire_clan_id: PydanticObjectId) -> VampireClan:
         """Get a vampire clan by ID."""
-        vampire_clan = await VampireClan.find_one(
-            VampireClan.id == vampire_clan_id,
-            VampireClan.is_archived == False,
-        )
-        if not vampire_clan:
-            raise ValidationError(detail=f"Vampire clan {vampire_clan_id} not found")
-        return vampire_clan
+        return await _get_or_raise(VampireClan, vampire_clan_id, "Vampire clan")
 
     async def get_werewolf_auspice_by_id(
         self, werewolf_auspice_id: PydanticObjectId
     ) -> WerewolfAuspice:
         """Get a werewolf auspice by ID."""
-        werewolf_auspice = await WerewolfAuspice.find_one(
-            WerewolfAuspice.id == werewolf_auspice_id,
-            WerewolfAuspice.is_archived == False,
-        )
-        if not werewolf_auspice:
-            raise ValidationError(detail=f"Werewolf auspice {werewolf_auspice_id} not found")
-        return werewolf_auspice
+        return await _get_or_raise(WerewolfAuspice, werewolf_auspice_id, "Werewolf auspice")
 
     async def get_werewolf_tribe_by_id(self, werewolf_tribe_id: PydanticObjectId) -> WerewolfTribe:
         """Get a werewolf tribe by ID."""
-        werewolf_tribe = await WerewolfTribe.find_one(
-            WerewolfTribe.id == werewolf_tribe_id,
-            WerewolfTribe.is_archived == False,
-        )
-        if not werewolf_tribe:
-            raise ValidationError(detail=f"Werewolf tribe {werewolf_tribe_id} not found")
-        return werewolf_tribe
+        return await _get_or_raise(WerewolfTribe, werewolf_tribe_id, "Werewolf tribe")
 
     async def get_developer_by_id(self, developer_id: PydanticObjectId) -> Developer:
         """Get a developer by ID."""
-        developer = await Developer.find_one(
-            Developer.id == developer_id,
-            Developer.is_archived == False,
-        )
-        if not developer:
-            raise ValidationError(detail=f"Developer {developer_id} not found")
-        return developer
+        return await _get_or_raise(Developer, developer_id, "Developer")
 
     async def get_quickroll_by_id(self, quickroll_id: PydanticObjectId) -> QuickRoll:
         """Get a quick roll by ID."""
-        quickroll = await QuickRoll.find_one(
-            QuickRoll.id == quickroll_id,
-            QuickRoll.is_archived == False,
-        )
-        if not quickroll:
-            raise ValidationError(detail=f"Quick roll {quickroll_id} not found")
-        return quickroll
+        return await _get_or_raise(QuickRoll, quickroll_id, "Quick roll")
 
     async def get_user_by_id(self, user_id: PydanticObjectId) -> User:
         """Get a user by ID."""
-        user = await User.find_one(
-            User.id == user_id,
-            User.is_archived == False,
-        )
-        if not user:
-            raise ValidationError(detail=f"User {user_id} not found")
-        return user
+        return await _get_or_raise(User, user_id, "User")
 
     async def get_character_trait_by_id(
         self, character_trait_id: PydanticObjectId, *, fetch_links: bool = True
@@ -135,40 +119,18 @@ class GetModelByIdValidationService:
         Raises:
             ValidationError: If the character trait is not found.
         """
-        character_trait = await CharacterTrait.find_one(
-            CharacterTrait.id == character_trait_id,
-            fetch_links=fetch_links,
+        return await _get_or_raise(
+            CharacterTrait, character_trait_id, "Character trait", fetch_links=fetch_links
         )
-        if not character_trait:
-            raise ValidationError(detail=f"Character trait {character_trait_id} not found")
-        return character_trait
 
     async def get_trait_by_id(self, trait_id: PydanticObjectId) -> Trait:
         """Get a trait by ID."""
-        trait = await Trait.find_one(
-            Trait.id == trait_id,
-            Trait.is_archived == False,
-        )
-        if not trait:
-            raise ValidationError(detail=f"Trait {trait_id} not found")
-        return trait
+        return await _get_or_raise(Trait, trait_id, "Trait")
 
     async def get_trait_category_by_id(self, trait_category_id: PydanticObjectId) -> TraitCategory:
         """Get a trait category by ID."""
-        trait_category = await TraitCategory.find_one(
-            TraitCategory.id == trait_category_id,
-            TraitCategory.is_archived == False,
-        )
-        if not trait_category:
-            raise ValidationError(detail=f"Trait category {trait_category_id} not found")
-        return trait_category
+        return await _get_or_raise(TraitCategory, trait_category_id, "Trait category")
 
     async def get_sheet_section_by_id(self, sheet_section_id: PydanticObjectId) -> CharSheetSection:
         """Get a sheet section by ID."""
-        sheet_section = await CharSheetSection.find_one(
-            CharSheetSection.id == sheet_section_id,
-            CharSheetSection.is_archived == False,
-        )
-        if not sheet_section:
-            raise ValidationError(detail=f"Sheet section {sheet_section_id} not found")
-        return sheet_section
+        return await _get_or_raise(CharSheetSection, sheet_section_id, "Sheet section")

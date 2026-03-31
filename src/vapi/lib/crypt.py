@@ -70,25 +70,23 @@ async def verify_password(plain_password: str | bytes, hashed_password: str) -> 
 
 
 class CryptService:
-    """Crypt service."""
+    """Thin async wrapper around the module-level CryptContext.
 
-    __slots__ = ("_crypt_context",)
-
-    _crypt_context: CryptContext
-
-    def __init__(self) -> None:
-        self._crypt_context = CryptContext(schemes=["argon2"], deprecated="auto")
-
-        # The reason for not instantiating loop here is, because this class initialized as a class variable mostly,
-        # so the instantiation will happen before the eventloop runs.
+    Instantiated as a class variable on models (before the event loop starts),
+    so the constructor must not reference the running loop.
+    """
 
     async def hash(self, secret: str) -> str:
-        """Hash."""
-        return self._crypt_context.hash(secret)
+        """Hash a secret using argon2, offloaded to a thread pool."""
+        return await asyncio.get_running_loop().run_in_executor(
+            None, password_crypt_context.hash, secret
+        )
 
     async def verify(self, secret: str, hash_: str) -> bool:
-        """Verify."""
-        return self._crypt_context.verify(secret, hash_)
+        """Verify a secret against an argon2 hash, offloaded to a thread pool."""
+        return await asyncio.get_running_loop().run_in_executor(
+            None, password_crypt_context.verify, secret, hash_
+        )
 
 
 def hmac_sha256_hex(data: str | bytes) -> str:

@@ -262,63 +262,6 @@ class TestCanDeveloperAccessCompany:
 class TestHelperMethods:
     """Test helper methods."""
 
-    async def test__is_company_in_developer_companies_true(
-        self,
-        company_factory: Callable[[], Company],
-        developer_factory: Callable[[], Developer],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test the _is_company_in_developer_companies method."""
-        # Given objects
-        developer = await developer_factory()
-        company = await company_factory()
-        developer.companies.append(
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.OWNER,
-            )
-        )
-        await developer.save()
-
-        # When the method is called
-        service = CompanyService()
-        result = service._is_company_in_developer_companies(
-            developer=developer, company_id=company.id
-        )
-
-        # Then the result should be True
-        assert result is True
-
-    async def test__is_company_in_developer_companies_false(
-        self,
-        company_factory: Callable[[], Company],
-        developer_factory: Callable[[], Developer],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test the _is_company_in_developer_companies method."""
-        # Given objects
-        developer = await developer_factory()
-        company = await company_factory()
-        developer.companies.append(
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.OWNER,
-            )
-        )
-        await developer.save()
-        company2 = await company_factory()
-
-        # When the method is called
-        service = CompanyService()
-        result = service._is_company_in_developer_companies(
-            developer=developer, company_id=company2.id
-        )
-
-        # Then the result should be True
-        assert result is False
-
     async def test__get_company_perms_from_developer_true(
         self,
         company_factory: Callable[[], Company],
@@ -380,20 +323,18 @@ class TestHelperMethods:
         # Then the result should be None
         assert result is None
 
-    async def test__get_all_company_owners(
+    async def test__count_company_owners(
         self,
         developers_and_companies: DevelopersAndCompanies,
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the _get_company_owners method."""
+        """Verify _count_company_owners returns the correct count."""
         # When the method is called
         service = CompanyService()
-        result = await service._get_all_company_owners(
-            company_id=developers_and_companies.company.id
-        )
+        result = await service._count_company_owners(company_id=developers_and_companies.company.id)
 
-        # Then the result should be the correct owners
-        assert result == [developers_and_companies.developer_owner]
+        # Then the result should be 1 owner
+        assert result == 1
 
 
 class TestControlCompanyPermissions:

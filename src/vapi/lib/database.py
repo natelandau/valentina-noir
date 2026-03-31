@@ -71,13 +71,10 @@ async def init_database(
 
     Returns:
         AsyncMongoClient: The initialized database client.
-    """  # Create Motor client
+    """
     if not client:
-        client = AsyncMongoClient(
-            f"{settings.mongo.uri}", tz_aware=True, serverSelectionTimeoutMS=1800
-        )
+        client = AsyncMongoClient(settings.mongo.uri, tz_aware=True, serverSelectionTimeoutMS=1800)
 
-    # Initialize beanie with the Sample document class and a database
     await init_beanie(
         database=database if database is not None else client[settings.mongo.database_name],
         document_models=init_beanie_models,

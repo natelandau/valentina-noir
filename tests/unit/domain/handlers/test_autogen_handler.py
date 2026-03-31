@@ -272,9 +272,7 @@ class TestGenerateAttributeValues:
 
         assert len(character_attribute_traits) == 9
 
-        expected_sum = sum(ATTRIBUTE_DOT_DISTRIBUTION) + getattr(
-            ATTRIBUTE_DOT_BONUS, experience_level.name
-        )
+        expected_sum = sum(ATTRIBUTE_DOT_DISTRIBUTION) + ATTRIBUTE_DOT_BONUS[experience_level]
         sum_of_character_traits = sum([trait.value for trait in character_attribute_traits])
 
         assert sum_of_character_traits == expected_sum
@@ -390,8 +388,8 @@ class TestGenerateAbilityValues:
 
         sum_of_character_traits = sum([trait.value for trait in character_ability_traits])
 
-        expected_sum = sum(ABILITY_FOCUS_DOT_DISTRIBUTION[skill_focus]) + getattr(
-            ABILITY_DOT_BONUS, experience_level.name
+        expected_sum = (
+            sum(ABILITY_FOCUS_DOT_DISTRIBUTION[skill_focus]) + ABILITY_DOT_BONUS[experience_level]
         )
         assert sum_of_character_traits == expected_sum
 
@@ -899,8 +897,9 @@ class TestGenerateAdvantageValues:
             fetch_links=True,
         ).to_list()
 
-        assert sum([trait.value for trait in character_traits]) == getattr(
-            ADVANTAGE_STARTING_DOTS, experience_level.name
+        assert (
+            sum([trait.value for trait in character_traits])
+            == ADVANTAGE_STARTING_DOTS[experience_level]
         )
 
 
@@ -948,6 +947,6 @@ class TestGenerateFlawValues:
             In(CharacterTrait.trait.id, [trait.id for trait in flaws]),
             fetch_links=True,
         ).to_list()
-        assert sum([trait.value for trait in character_traits]) == getattr(
-            FLAW_STARTING_DOTS, experience_level.name
+        assert (
+            sum([trait.value for trait in character_traits]) == FLAW_STARTING_DOTS[experience_level]
         )

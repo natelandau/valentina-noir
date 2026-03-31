@@ -72,10 +72,6 @@ class APITags:
     CHARACTERS_NOTES = TagMetadata(
         name="Characters - Notes", description="Character notes and story information"
     )
-    CHARACTERS_SPECIAL_TRAITS = TagMetadata(
-        name="Characters - Special Traits",
-        description="Merits, flaws, and special character attributes",
-    )
     CHARACTERS_TRAITS = TagMetadata(
         name="Characters - Traits",
         description="Character traits including attributes, abilities, and disciplines",

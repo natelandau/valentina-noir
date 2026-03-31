@@ -53,32 +53,20 @@ def sanitize_filename(filename: str) -> str:
     Returns:
         Sanitized filename safe for S3 metadata and HTTP headers.
     """
-    # Strip path components to prevent directory traversal
-    filename = Path(filename).name
-
-    # Separate stem and extension so the extension stays intact
-    path = Path(filename)
+    path = Path(Path(filename).name)
     stem = path.stem
     ext = path.suffix.lstrip(".").lower()
 
-    # Transliterate Unicode to closest ASCII equivalents (é→e, ñ→n, etc.)
+    # Transliterate Unicode → ASCII (é→e, ñ→n, etc.)
     stem = unicodedata.normalize("NFKD", stem).encode("ascii", errors="ignore").decode("ascii")
-
     stem = stem.lower()
-
-    # Replace spaces and underscores with hyphens
     stem = re.sub(r"[\s_]+", "-", stem)
-
-    # Strip everything except alphanumeric and hyphens
     stem = re.sub(r"[^a-z0-9-]", "", stem)
-
-    # Collapse consecutive hyphens and strip leading/trailing hyphens
     stem = re.sub(r"-{2,}", "-", stem).strip("-")
 
     if not stem:
         stem = "upload"
 
-    # Truncate stem to keep total length under 200 characters
     max_stem = 200 - len(ext) - 1 if ext else 200
     stem = stem[:max_stem].rstrip("-")
 
@@ -153,21 +141,27 @@ def determine_parent_type(
         return AssetParentType.UNKNOWN
 
 
+async def _get_asset_parent(asset: S3Asset) -> BaseDocument | None:
+    """Look up the parent document for an asset, or None if not applicable."""
+    if asset.parent_type == AssetParentType.UNKNOWN:
+        return None
+
+    model_class = PARENT_MODEL_MAP.get(asset.parent_type)
+    if model_class is None:  # pragma: no cover
+        return None
+
+    parent = await model_class.get(asset.parent_id)
+    return parent if parent and hasattr(parent, "asset_ids") else None
+
+
 async def add_asset_to_parent(asset: S3Asset) -> None:
     """Add an asset to a parent document's list of assets.
 
     Args:
         asset: The asset to add.
     """
-    if asset.parent_type == AssetParentType.UNKNOWN:
-        return
-
-    model_class = PARENT_MODEL_MAP.get(asset.parent_type)
-    if model_class is None:  # pragma: no cover
-        return
-
-    parent = await model_class.get(asset.parent_id)
-    if parent and hasattr(parent, "asset_ids") and asset.id not in parent.asset_ids:
+    parent = await _get_asset_parent(asset)
+    if parent and asset.id not in parent.asset_ids:
         parent.asset_ids.append(asset.id)
         await parent.save()
 
@@ -178,14 +172,7 @@ async def remove_asset_from_parent(asset: S3Asset) -> None:
     Args:
         asset: The asset to remove.
     """
-    if asset.parent_type == AssetParentType.UNKNOWN:
-        return
-
-    model_class = PARENT_MODEL_MAP.get(asset.parent_type)
-    if model_class is None:  # pragma: no cover
-        return
-
-    parent = await model_class.get(asset.parent_id)
-    if parent and hasattr(parent, "asset_ids"):
+    parent = await _get_asset_parent(asset)
+    if parent:
         parent.asset_ids = [x for x in parent.asset_ids if x != asset.id]
         await parent.save()

@@ -155,31 +155,31 @@ class User(BaseDocument):
 
         return campaign_experience
 
-    async def update_campaign_experience(
-        self, campaign_id: PydanticObjectId, updates: dict
+    def _save_campaign_experience(
+        self, experience: CampaignExperience, updates: dict
     ) -> CampaignExperience:
-        """Update campaign experience for a campaign.
+        """Apply updates to a campaign experience and mark it for save.
+
+        Mutates the experience in-place and reassigns it in the list to trigger
+        Beanie's change detection.
 
         Args:
-            campaign_id: The ID of the campaign.
+            experience: The already-fetched campaign experience to update.
             updates: Dictionary of fields to update.
 
         Returns:
             The updated campaign experience.
         """
-        campaign_experience = await self.get_or_create_campaign_experience(campaign_id)
-
         for key, value in updates.items():
-            setattr(campaign_experience, key, value)
+            setattr(experience, key, value)
 
-        # Reassign to trigger change detection
+        # Reassign to trigger Beanie change detection
         for i, exp in enumerate(self.campaign_experience):
-            if exp.campaign_id == campaign_id:
-                self.campaign_experience[i] = campaign_experience
+            if exp.campaign_id == experience.campaign_id:
+                self.campaign_experience[i] = experience
                 break
 
-        await self.save()
-        return campaign_experience
+        return experience
 
     async def has_xp(self, campaign_id: PydanticObjectId, amount: int) -> bool:
         """Check if the user has the required amount of XP.
@@ -201,13 +201,13 @@ class User(BaseDocument):
             campaign_id: The ID of the campaign.
             amount: The amount of XP to spend.
         """
-        campaign_experience = await self.get_or_create_campaign_experience(campaign_id)
-        if campaign_experience.xp_current < amount:
-            raise NotEnoughXPError(current_xp=campaign_experience.xp_current, required_xp=amount)
+        experience = await self.get_or_create_campaign_experience(campaign_id)
+        if experience.xp_current < amount:
+            raise NotEnoughXPError(current_xp=experience.xp_current, required_xp=amount)
 
-        return await self.update_campaign_experience(
-            campaign_id, {"xp_current": campaign_experience.xp_current - amount}
-        )
+        self._save_campaign_experience(experience, {"xp_current": experience.xp_current - amount})
+        await self.save()
+        return experience
 
     async def add_xp(
         self,
@@ -226,18 +226,17 @@ class User(BaseDocument):
         Returns:
             The updated campaign experience.
         """
-        campaign_experience = await self.get_or_create_campaign_experience(campaign_id)
+        experience = await self.get_or_create_campaign_experience(campaign_id)
         if update_total:
             self.lifetime_xp += amount
-        return await self.update_campaign_experience(
-            campaign_id,
-            {
-                "xp_current": campaign_experience.xp_current + amount,
-                "xp_total": campaign_experience.xp_total + amount
-                if update_total
-                else campaign_experience.xp_total,
-            },
-        )
+
+        updates: dict = {"xp_current": experience.xp_current + amount}
+        if update_total:
+            updates["xp_total"] = experience.xp_total + amount
+
+        self._save_campaign_experience(experience, updates)
+        await self.save()
+        return experience
 
     async def add_cp(self, campaign_id: PydanticObjectId, amount: int) -> CampaignExperience:
         """Add CP to a campaign.
@@ -246,16 +245,19 @@ class User(BaseDocument):
             campaign_id: The ID of the campaign.
             amount: The amount of CP to add.
         """
-        campaign_experience = await self.get_or_create_campaign_experience(campaign_id)
+        experience = await self.get_or_create_campaign_experience(campaign_id)
         self.lifetime_cool_points += amount
-        return await self.update_campaign_experience(
-            campaign_id,
+        xp_gain = amount * COOL_POINT_VALUE
+        self._save_campaign_experience(
+            experience,
             {
-                "cool_points": campaign_experience.cool_points + amount,
-                "xp_current": campaign_experience.xp_current + (amount * COOL_POINT_VALUE),
-                "xp_total": campaign_experience.xp_total + (amount * COOL_POINT_VALUE),
+                "cool_points": experience.cool_points + amount,
+                "xp_current": experience.xp_current + xp_gain,
+                "xp_total": experience.xp_total + xp_gain,
             },
         )
+        await self.save()
+        return experience
 
     class Settings:
         """Settings for the User model."""

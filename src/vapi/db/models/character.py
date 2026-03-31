@@ -45,18 +45,16 @@ class CharacterTrait(Document):
     async def sync_to_character(self) -> None:
         """Add the character trait id to the character."""
         character = await Character.get(self.character_id)
-        if character:
-            if self.id not in character.character_trait_ids:
-                character.character_trait_ids.append(self.id)
+        if character and self.id not in character.character_trait_ids:
+            character.character_trait_ids.append(self.id)
             await character.save()
 
     @before_event(Delete)
     async def remove_from_character(self) -> None:
         """Remove the character trait id from the character."""
         character = await Character.get(self.character_id)
-        if character:
-            if self.id in character.character_trait_ids:
-                character.character_trait_ids.remove(self.id)
+        if character and self.id in character.character_trait_ids:
+            character.character_trait_ids.remove(self.id)
             await character.save()
 
     class Settings:

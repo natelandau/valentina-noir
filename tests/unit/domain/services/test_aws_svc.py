@@ -136,105 +136,42 @@ class TestGetCacheControl:
     """Test the _get_cache_control method."""
 
     @pytest.mark.parametrize(
-        "mime_type",
-        [
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "image/svg+xml",
-        ],
+        "asset_type",
+        [AssetType.IMAGE, AssetType.AUDIO, AssetType.VIDEO],
     )
-    def test_get_cache_control_images(self, mime_type: str) -> None:
-        """Verify image MIME types return 1 year cache with immutable."""
+    def test_get_cache_control_long_lived(self, asset_type: AssetType) -> None:
+        """Verify image, audio, and video assets return 1 year cache."""
         # Given: An AWS S3 service
         service = AWSS3Service()
 
-        # When: Getting cache control for an image
-        result = service._get_cache_control(mime_type)
+        # When: Getting cache control for a long-lived asset type
+        result = service._get_cache_control(asset_type)
 
         # Then: Return aggressive 1 year caching
         assert result == AWS_ONE_YEAR_CACHE_HEADER
 
-    @pytest.mark.parametrize(
-        "mime_type",
-        [
-            "audio/mpeg",
-            "audio/wav",
-            "audio/ogg",
-            "audio/mp3",
-        ],
-    )
-    def test_get_cache_control_audio(self, mime_type: str) -> None:
-        """Verify audio MIME types return 1 year cache with immutable."""
-        # Given: An AWS S3 service
-        service = AWSS3Service()
-
-        # When: Getting cache control for audio
-        result = service._get_cache_control(mime_type)
-
-        # Then: Return aggressive 1 year caching
-        assert result == AWS_ONE_YEAR_CACHE_HEADER
-
-    @pytest.mark.parametrize(
-        "mime_type",
-        [
-            "video/mp4",
-            "video/webm",
-            "video/quicktime",
-            "video/avi",
-        ],
-    )
-    def test_get_cache_control_video(self, mime_type: str) -> None:
-        """Verify video MIME types return 1 year cache with immutable."""
-        # Given: An AWS S3 service
-        service = AWSS3Service()
-
-        # When: Getting cache control for video
-        result = service._get_cache_control(mime_type)
-
-        # Then: Return aggressive 1 year caching
-        assert result == AWS_ONE_YEAR_CACHE_HEADER
-
-    @pytest.mark.parametrize(
-        "mime_type",
-        [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ],
-    )
-    def test_get_cache_control_documents(self, mime_type: str) -> None:
-        """Verify document MIME types return 1 day cache."""
+    def test_get_cache_control_documents(self) -> None:
+        """Verify document assets return 1 day cache."""
         # Given: An AWS S3 service
         service = AWSS3Service()
 
         # When: Getting cache control for a document
-        result = service._get_cache_control(mime_type)
+        result = service._get_cache_control(AssetType.DOCUMENT)
 
         # Then: Return 1 day caching
         assert result == AWS_ONE_DAY_CACHE_HEADER
 
     @pytest.mark.parametrize(
-        "mime_type",
-        [
-            "application/octet-stream",
-            "application/json",
-            "application/xml",
-            "text/plain",
-            "text/html",
-            "application/zip",
-            "application/vnd.ms-excel",  # Doesn't match document patterns
-        ],
+        "asset_type",
+        [AssetType.TEXT, AssetType.ARCHIVE, AssetType.OTHER],
     )
-    def test_get_cache_control_default(self, mime_type: str) -> None:
-        """Verify unrecognized MIME types return default 1 hour cache."""
+    def test_get_cache_control_default(self, asset_type: AssetType) -> None:
+        """Verify other asset types return default 1 hour cache."""
         # Given: An AWS S3 service
         service = AWSS3Service()
 
-        # When: Getting cache control for an unknown type
-        result = service._get_cache_control(mime_type)
+        # When: Getting cache control for an unrecognized type
+        result = service._get_cache_control(asset_type)
 
         # Then: Return default 1 hour caching
         assert result == AWS_ONE_HOUR_CACHE_HEADER
@@ -541,10 +478,9 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset)
+        await service.delete_asset(asset)
 
-        # Then: Asset is archived and removed from character
-        assert result is True
+        # Then: Asset is deleted
         assert await S3Asset.get(asset.id) is None
 
     async def test_delete_asset_character(
@@ -581,10 +517,9 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset)
+        await service.delete_asset(asset)
 
-        # Then: Asset is archived and removed from character
-        assert result is True
+        # Then: Asset is deleted
         assert await S3Asset.get(asset.id) is None
         await character.sync()
         assert asset.id not in character.asset_ids
@@ -622,10 +557,9 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset)
+        await service.delete_asset(asset)
 
-        # Then: Asset is archived and removed from user
-        assert result is True
+        # Then: Asset is deleted and removed from user
         assert await S3Asset.get(asset.id) is None
         await user.sync()
         assert asset.id not in user.asset_ids
@@ -664,10 +598,9 @@ class TestDeleteAsset:
 
         # When: Deleting the asset
         service = AWSS3Service()
-        result = await service.delete_asset(asset)
+        await service.delete_asset(asset)
 
-        # Then: Asset is archived and removed from campaign
-        assert result is True
+        # Then: Asset is deleted and removed from campaign
         assert await S3Asset.get(asset.id) is None
         await campaign.sync()
         assert asset.id not in campaign.asset_ids

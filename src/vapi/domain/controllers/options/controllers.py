@@ -37,9 +37,7 @@ from vapi.domain.handlers.character_autogeneration.constants import (
     AbilityFocus,
     AutoGenExperienceLevel,
 )
-from vapi.domain.handlers.character_autogeneration.utils import (
-    get_character_class_percentile_lookup_table,
-)
+from vapi.domain.handlers.character_autogeneration.utils import CLASS_PERCENTILE_TABLE
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -116,7 +114,7 @@ class OptionsController(Controller):
                     for x, (
                         lower_bound,
                         upper_bound,
-                    ) in get_character_class_percentile_lookup_table().items()
+                    ) in CLASS_PERCENTILE_TABLE.items()
                 ],
             },
             "users": {

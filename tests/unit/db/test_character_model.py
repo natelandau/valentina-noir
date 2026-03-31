@@ -74,28 +74,28 @@ class TestModelHooks:
     async def test_update_concept_name_on_save(
         self,
         character_factory: Callable[..., Character],
-        character_concept_factory: Callable[..., CharacterConcept],
     ) -> None:
         """Verify concept_name is synced from the linked CharacterConcept on save."""
         # Given a character concept
-        concept = await character_concept_factory(name="Scholar")
+        concept = await CharacterConcept.find_one()
+        assert concept is not None
 
         # Given a character with that concept_id but no concept_name
         character = await character_factory(concept_id=concept.id)
 
         # Then the concept_name is populated from the concept
-        assert character.concept_name == "Scholar"
+        assert character.concept_name == concept.name
 
     async def test_update_concept_name_when_concept_changes(
         self,
         character_factory: Callable[..., Character],
-        character_concept_factory: Callable[..., CharacterConcept],
     ) -> None:
         """Verify concept_name updates when the linked concept's name changes."""
         # Given a character linked to a concept
-        concept = await character_concept_factory(name="Scholar")
+        concept = await CharacterConcept.find_one()
+        assert concept is not None
         character = await character_factory(concept_id=concept.id)
-        assert character.concept_name == "Scholar"
+        assert character.concept_name == concept.name
 
         # When the concept's name changes and the character is saved
         concept.name = "Warrior"

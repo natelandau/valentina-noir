@@ -54,8 +54,8 @@ class MissingConfigurationError(ApplicationError):
 class HTTPError(ApplicationError):
     """HTTP error based on RFC 9457 Problem Details.
 
-    This implementation follows RFC 7807 (Problem Details for HTTP APIs) and provides
-    a standardized way to represent HTTP errors with detailed problem information.
+    Subclasses set `_default_status_code` and optionally `_default_detail` as class
+    variables so they don't need to override __init__.
 
     Args:
         *args (Any): Positional arguments passed to the base ApplicationError.
@@ -73,6 +73,9 @@ class HTTPError(ApplicationError):
     """
 
     _PROBLEM_DETAILS_MEDIA_TYPE: ClassVar[str] = "application/problem+json"
+    _default_status_code: ClassVar[int | None] = None
+    _default_detail: ClassVar[str | None] = None
+
     type_: str | None
     status_code: int | None
     title: str | None
@@ -93,14 +96,13 @@ class HTTPError(ApplicationError):
         **extension: Any,
     ) -> None:
         self.type_ = type_
-        self.status_code = status_code
+        self.status_code = status_code if status_code is not None else self._default_status_code
         self.title = title
-        self.detail = detail or (args[0] if args else None)
+        self.detail = detail or (args[0] if args else None) or self._default_detail
         self.instance = instance
         self.headers = headers
         self.extension = extension
 
-        # Pass detail as the first argument to Exception if no positional args were provided
         if self.detail and not args:
             super().__init__(self.detail)
         else:
@@ -141,7 +143,7 @@ class HTTPError(ApplicationError):
         if request_id:
             problem_details["request_id"] = request_id
 
-        if self.__class__.__name__ == "NotAuthorizedError":
+        if isinstance(self, NotAuthorizedError):
             problem_details[AUTH_HEADER_KEY] = request.headers.get(AUTH_HEADER_KEY)
 
         if self.extension:
@@ -168,83 +170,27 @@ class HTTPError(ApplicationError):
 
 
 class ImproperlyConfiguredError(HTTPError):
-    """Raised when the application is improperly configured.
+    """Raised when the application is improperly configured."""
 
-    This error indicates that the application configuration is invalid or missing
-    required settings, preventing the application from functioning correctly.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_500_INTERNAL_SERVER_ERROR,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 class ClientError(HTTPError):
-    """Raised when a client-side error occurs.
+    """Raised when a client-side error occurs."""
 
-    This error represents issues caused by invalid client requests, such as
-    malformed data, missing required fields, or invalid request parameters.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_400_BAD_REQUEST,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_400_BAD_REQUEST
 
 
 class ValidationError(ClientError):
-    """Raised when client data validation fails.
+    """Raised when client data validation fails."""
 
-    This error occurs when the provided data does not meet the required validation
-    criteria, such as incorrect data types, missing required fields, or invalid values.
-    """
+    _default_detail: ClassVar[str] = "A validation error occurred."
 
     def __init__(
         self,
         *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_400_BAD_REQUEST,
-        title: str | None = None,
-        detail: str | None = "A validation error occurred.",
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
         invalid_parameters: list[dict[str, Any]] | None = None,
-        **extension: Any,
+        **kwargs: Any,
     ) -> None:
         invalid_parameters = invalid_parameters or [
             {
@@ -252,261 +198,67 @@ class ValidationError(ClientError):
                 "message": "One or more fields did not pass validation.",
             }
         ]
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            invalid_parameters=invalid_parameters,
-            **extension,
-        )
+        super().__init__(*args, invalid_parameters=invalid_parameters, **kwargs)
 
 
 class NoFieldsToUpdateError(ValidationError):
-    """Raised when no fields are provided for an update operation.
+    """Raised when no fields are provided for an update operation."""
 
-    This error occurs when an update request is made but no fields are provided
-    to be updated, making the request invalid.
-    """
+    _default_detail: ClassVar[str] = "No fields provided to update."
 
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_400_BAD_REQUEST,
-        title: str | None = None,
-        detail: str | None = "No fields provided to update.",
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         invalid_parameters = [
             {
                 "field": "body",
                 "message": "At least one field must be provided for update.",
             }
         ]
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            invalid_parameters=invalid_parameters,
-            **extension,
-        )
+        super().__init__(*args, invalid_parameters=invalid_parameters, **kwargs)
 
 
 class NotAuthorizedError(ClientError):
-    """Raised when the request lacks valid authentication credentials.
+    """Raised when the request lacks valid authentication credentials."""
 
-    This error occurs when the client has not provided valid authentication
-    credentials or the provided credentials are invalid for the requested resource.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_401_UNAUTHORIZED,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_401_UNAUTHORIZED
 
 
 class PermissionDeniedError(ClientError):
-    """Raised when the request is understood but not authorized.
+    """Raised when the request is understood but not authorized."""
 
-    This error occurs when the client has valid authentication but lacks the
-    necessary permissions to access the requested resource.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_403_FORBIDDEN,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_403_FORBIDDEN
 
 
 class NotFoundError(ClientError):
-    """Raised when the requested resource cannot be found. HTTP 404 by default.
+    """Raised when the requested resource cannot be found."""
 
-    This error occurs when the client requests a resource that does not exist
-    or is not accessible in the current context.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_404_NOT_FOUND,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_404_NOT_FOUND
 
 
 class TooManyRequestsError(ClientError):
-    """Raised when request rate limits have been exceeded.
+    """Raised when request rate limits have been exceeded."""
 
-    This error occurs when the client has exceeded the allowed number of requests
-    within a specified time period, triggering rate limiting.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_429_TOO_MANY_REQUESTS,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_429_TOO_MANY_REQUESTS
 
 
 class InternalServerError(HTTPError):
-    """Raised when the server encounters an unexpected internal error.
+    """Raised when the server encounters an unexpected internal error."""
 
-    This error occurs when the server encounters an unexpected condition that
-    prevents it from fulfilling the request, typically due to internal system issues.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_500_INTERNAL_SERVER_ERROR,
-        title: str | None = None,
-        detail: str
-        | None = "Something went wrong on our end. Please contact support if the issue persists.",
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_500_INTERNAL_SERVER_ERROR
+    _default_detail: ClassVar[str] = (
+        "Something went wrong on our end. Please contact support if the issue persists."
+    )
 
 
 class ConflictError(ClientError):
-    """Raised when a request results in a conflict with the current state.
+    """Raised when a request results in a conflict with the current state."""
 
-    This error occurs when the request cannot be completed due to a conflict
-    with the current state of the resource, such as concurrent modifications.
-    """
-
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_409_CONFLICT,
-        title: str | None = None,
-        detail: str | None = None,
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_status_code: ClassVar[int] = status_codes.HTTP_409_CONFLICT
 
 
 class NotEnoughXPError(ClientError):
     """Raised when the user does not have enough XP to spend."""
 
-    def __init__(
-        self,
-        *args: Any,
-        type_: str | None = None,
-        status_code: int | None = status_codes.HTTP_400_BAD_REQUEST,
-        title: str | None = None,
-        detail: str | None = "User does not have enough XP to complete the action.",
-        instance: str | None = None,
-        headers: dict[str, str] | None = None,
-        **extension: Any,
-    ) -> None:
-        super().__init__(
-            *args,
-            type_=type_,
-            status_code=status_code,
-            title=title,
-            detail=detail,
-            instance=instance,
-            headers=headers,
-            **extension,
-        )
+    _default_detail: ClassVar[str] = "User does not have enough XP to complete the action."
 
 
 class AWSS3Error(InternalServerError):
@@ -517,9 +269,6 @@ def http_error_to_http_response(
     request: Request[Any, Any, Any], error: HTTPError
 ) -> Response[dict[str, Any]]:
     """Convert HTTP error to HTTP response.
-
-    Transform an HTTPError instance into a properly formatted HTTP response
-    using the error's to_response method.
 
     Args:
         request (Request[Any, Any, Any]): The incoming request object.
@@ -535,9 +284,6 @@ def litestar_http_exc_to_http_response(
     request: Request[Any, Any, Any], exception: HTTPException
 ) -> Response[Any]:
     """Convert Litestar HTTP exception to HTTP response.
-
-    Transform a Litestar HTTPException into a standardized HTTP response using
-    the appropriate error class based on the exception type.
 
     Args:
         request (Request[Any, Any, Any]): The incoming request object.

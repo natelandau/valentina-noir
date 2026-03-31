@@ -867,13 +867,13 @@ class TestUserCharacterPlayerOrStorytellerGuard:
         with pytest.raises(PermissionDeniedError):
             await user_character_player_or_storyteller_guard(mock_connection, mocker.MagicMock())
 
-    async def test_raises_client_error_when_no_character_id(
+    async def test_raises_validation_error_when_no_character_id(
         self,
         base_company: Company,
         base_user: User,
         mocker: pytest.MockerFixture,
     ) -> None:
-        """Verify guard raises ClientError when character_id is not in path params."""
+        """Verify guard raises ValidationError when character_id is not in path params."""
         # Given a connection without character_id
         mock_connection = mocker.MagicMock()
         mock_connection.path_params.get.side_effect = lambda key: {
@@ -881,8 +881,8 @@ class TestUserCharacterPlayerOrStorytellerGuard:
             "user_id": str(base_user.id),
         }.get(key)
 
-        # When/Then we expect a ClientError
-        with pytest.raises(ClientError, match="Character ID is required"):
+        # When/Then we expect a ValidationError
+        with pytest.raises(ValidationError, match="Character ID is required"):
             await user_character_player_or_storyteller_guard(mock_connection, mocker.MagicMock())
 
     async def test_raises_not_found_when_character_not_exists(

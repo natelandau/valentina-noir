@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from beanie.operators import ElemMatch, In
@@ -16,26 +17,20 @@ from .validation_svc import GetModelByIdValidationService
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
+_PERMISSION_RANK: dict[CompanyPermission, int] = {
+    CompanyPermission.USER: 1,
+    CompanyPermission.ADMIN: 2,
+    CompanyPermission.OWNER: 3,
+}
+
+_ACCESS_DENIED_MSG = "You are not authorized to take this action on this company."
+
 
 class CompanyService:
     """Company service."""
 
-    def _is_company_in_developer_companies(
-        self, developer: Developer, company_id: PydanticObjectId
-    ) -> bool:
-        """Check if a company is in a developer's companies.
-
-        Args:
-            developer: The developer to check.
-            company_id: The ID of the company to check.
-
-        Returns:
-            True if the company is in the developer's companies, False otherwise.
-        """
-        return any(x.company_id == company_id for x in developer.companies)
-
-    async def _get_all_company_owners(self, company_id: PydanticObjectId) -> list[Developer]:
-        """Get the owners of a company."""
+    async def _count_company_owners(self, company_id: PydanticObjectId) -> int:
+        """Count the owners of a company."""
         return await Developer.find(
             Developer.is_global_admin == False,
             Developer.is_archived == False,
@@ -46,24 +41,25 @@ class CompanyService:
                     "permission": CompanyPermission.OWNER,
                 },
             ),
-        ).to_list()
+        ).count()
 
+    @staticmethod
     def _get_company_perms_from_developer(
-        self, developer: Developer, company_id: PydanticObjectId
+        developer: Developer, company_id: PydanticObjectId
     ) -> CompanyPermissions | None:
-        """Get a company from a developer's companies.
+        """Find a developer's permissions for a specific company.
 
         Args:
             developer: The developer to check.
             company_id: The ID of the company to check.
 
         Returns:
-            The company permissions if the company is in the developer's companies, None otherwise.
+            The company permissions if found, None otherwise.
         """
-        if self._is_company_in_developer_companies(developer=developer, company_id=company_id):
-            return next(filter(lambda x: x.company_id == company_id, developer.companies), None)
-
-        return None
+        return next(
+            (x for x in developer.companies if x.company_id == company_id),
+            None,
+        )
 
     def can_developer_access_company(
         self,
@@ -71,7 +67,9 @@ class CompanyService:
         company_id: PydanticObjectId,
         minimum_permission: CompanyPermission = CompanyPermission.USER,
     ) -> bool:
-        """Check if a developer can take an action on a company. Global admins are always allowed.
+        """Verify a developer has sufficient permission for a company action.
+
+        Global admins bypass all permission checks.
 
         Args:
             developer: The developer to check.
@@ -79,10 +77,10 @@ class CompanyService:
             minimum_permission: The minimum permission required to access the company.
 
         Returns:
-            True if the developer can take the action on the company, False otherwise.
+            True if the developer can take the action on the company.
 
         Raises:
-            PermissionDeniedError: If the developer does not have the minimum permission to access the company.
+            PermissionDeniedError: If the developer does not have the minimum permission.
         """
         if developer.is_global_admin:
             return True
@@ -91,32 +89,25 @@ class CompanyService:
             developer=developer, company_id=company_id
         )
         if not permissions or permissions.permission == CompanyPermission.REVOKE:
-            msg = "You are not authorized to take this action on this company."
-            raise PermissionDeniedError(detail=msg)
+            raise PermissionDeniedError(detail=_ACCESS_DENIED_MSG)
 
-        permission_map = {
-            CompanyPermission.USER: 1,
-            CompanyPermission.ADMIN: 2,
-            CompanyPermission.OWNER: 3,
-        }
-        if permission_map[permissions.permission] < permission_map[minimum_permission]:
-            msg = "You are not authorized to take this action on this company."
-            raise PermissionDeniedError(detail=msg)
+        if _PERMISSION_RANK[permissions.permission] < _PERMISSION_RANK[minimum_permission]:
+            raise PermissionDeniedError(detail=_ACCESS_DENIED_MSG)
 
         return True
 
     async def list_companies(
         self, requesting_developer: Developer, limit: int = 10, offset: int = 0
     ) -> tuple[int, list[Company]]:
-        """List all companies.
+        """List all companies visible to the requesting developer.
 
         Args:
             requesting_developer: The developer to list companies for.
-            limit: The limit of companies to return.
-            offset: The offset of the companies to return.
+            limit: The maximum number of companies to return.
+            offset: The number of companies to skip.
 
         Returns:
-            A tuple containing the count of companies and the list of companies.
+            A tuple of (total count, paginated companies).
         """
         filters = [Company.is_archived == False]
 
@@ -124,8 +115,11 @@ class CompanyService:
             company_ids = [x.company_id for x in requesting_developer.companies]
             filters.append(In(Company.id, company_ids))  # type: ignore [arg-type]
 
-        count = await Company.find(*filters).count()
-        companies = await Company.find(*filters).sort("name").skip(offset).limit(limit).to_list()
+        query = Company.find(*filters)
+        count, companies = await asyncio.gather(
+            query.count(),
+            query.sort("name").skip(offset).limit(limit).to_list(),
+        )
         return count, companies
 
     async def control_company_permissions(
@@ -149,13 +143,11 @@ class CompanyService:
             developer=target_developer, company_id=company.id
         )
 
-        # Be idempotent
         if existing_permissions and existing_permissions.permission == new_permission:
             return existing_permissions
 
-        # Every company must have at least one owner.
         if existing_permissions and existing_permissions.permission == CompanyPermission.OWNER:
-            num_owners = len(await self._get_all_company_owners(company_id=company.id))
+            num_owners = await self._count_company_owners(company_id=company.id)
             if num_owners < 2:  # noqa: PLR2004
                 raise ValidationError(detail="Every company must have at least one owner.")
 

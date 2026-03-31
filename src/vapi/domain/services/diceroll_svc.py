@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from beanie.operators import In
@@ -25,23 +26,24 @@ class DiceRollService:
 
     async def create_complete_dice_roll(self, dice_roll: DiceRoll) -> DiceRoll:
         """Roll the dice."""
+        validation_svc = GetModelByIdValidationService()
+
+        # Run independent validations concurrently
+        coros: list = []
         if dice_roll.campaign_id:
-            campaign = await GetModelByIdValidationService().get_campaign_by_id(
-                dice_roll.campaign_id
-            )
-            dice_roll.campaign_id = campaign.id
-
-        dice_roll.trait_ids = (
-            await validate_trait_ids_from_mixed_sources(dice_roll.trait_ids)
-            if dice_roll.trait_ids
-            else []
-        )
-
+            coros.append(validation_svc.get_campaign_by_id(dice_roll.campaign_id))
+        if dice_roll.trait_ids:
+            coros.append(validate_trait_ids_from_mixed_sources(dice_roll.trait_ids))
         if dice_roll.character_id:
-            character = await GetModelByIdValidationService().get_character_by_id(
-                dice_roll.character_id
-            )
-            dice_roll.character_id = character.id
+            coros.append(validation_svc.get_character_by_id(dice_roll.character_id))
+
+        results = await asyncio.gather(*coros) if coros else []
+
+        # Extract validated trait_ids from results (it's the only result we need)
+        dice_roll.trait_ids = next(
+            (r for r in results if isinstance(r, list)),
+            [],
+        )
 
         dice_roll.result = roll_dice(
             num_dice=dice_roll.num_dice,
@@ -64,8 +66,11 @@ class DiceRollService:
         data: dto.QuickRollDTO,
     ) -> DiceRoll:
         """Roll a quick roll."""
-        quickroll = await GetModelByIdValidationService().get_quickroll_by_id(data.quickroll_id)
-        character = await GetModelByIdValidationService().get_character_by_id(data.character_id)
+        validation_svc = GetModelByIdValidationService()
+        quickroll, character = await asyncio.gather(
+            validation_svc.get_quickroll_by_id(data.quickroll_id),
+            validation_svc.get_character_by_id(data.character_id),
+        )
 
         traits_to_roll = await CharacterTrait.find(
             CharacterTrait.character_id == character.id,

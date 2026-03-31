@@ -211,7 +211,6 @@ async def _purge_orphaned_character_traits() -> None:
     from vapi.db.models.character import CharacterTrait
 
     try:
-        # Collect all distinct character_ids referenced by CharacterTrait documents
         pipeline_result = await CharacterTrait.aggregate(
             [{"$group": {"_id": "$character_id"}}]
         ).to_list()
@@ -224,7 +223,6 @@ async def _purge_orphaned_character_traits() -> None:
             )
             return
 
-        # Find which of those character_ids still exist (project only _id to avoid fetching full docs)
         existing_docs = (
             await Character.find(In(Character.id, trait_character_ids))
             .aggregate([{"$project": {"_id": 1}}])
@@ -232,7 +230,6 @@ async def _purge_orphaned_character_traits() -> None:
         )
         existing_ids = {PydanticObjectId(doc["_id"]) for doc in existing_docs}
 
-        # Compute orphaned IDs
         orphaned_ids = [cid for cid in trait_character_ids if cid not in existing_ids]
 
         if orphaned_ids:

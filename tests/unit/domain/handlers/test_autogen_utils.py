@@ -10,12 +10,11 @@ from vapi.domain.handlers.character_autogeneration.constants import (
     MORTAL_CLASS_PERCENTILE,
     AutoGenExperienceLevel,
 )
-from vapi.domain.handlers.character_autogeneration.schemas import DotsPerExperienceLevel
 from vapi.domain.handlers.character_autogeneration.utils import (
+    CLASS_PERCENTILE_TABLE,
     adjust_trait_value_based_on_level,
     divide_total_randomly,
     get_character_class_from_percentile,
-    get_character_class_percentile_lookup_table,
     shuffle_and_adjust_trait_values,
 )
 
@@ -23,11 +22,11 @@ pytestmark = pytest.mark.anyio
 
 
 class TestGetCharacterClassPercentile:
-    """Test get_character_class_percentile_lookup_table function."""
+    """Test CLASS_PERCENTILE_TABLE."""
 
     def test_returns_correct_percentile_lookup_table(self, debug: Callable[[Any], None]) -> None:
         """Verify the percentile is correct."""
-        percentile = get_character_class_percentile_lookup_table()
+        percentile = CLASS_PERCENTILE_TABLE
         # debug(percentile)
         assert percentile[CharacterClass.MORTAL] == (0, MORTAL_CLASS_PERCENTILE)
         for lower_bound, upper_bound in percentile.values():
@@ -237,7 +236,12 @@ class TestShuffleAndAdjustTraitValues:
         # Given trait values and dot bonus
         trait_values = [1, 2, 3]
         original_sum = sum(trait_values)
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=3, ADVANCED=5, ELITE=7)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 3,
+            AutoGenExperienceLevel.ADVANCED: 5,
+            AutoGenExperienceLevel.ELITE: 7,
+        }
 
         # When shuffling and adjusting trait values
         result = shuffle_and_adjust_trait_values(trait_values, experience_level, dot_bonus)
@@ -252,7 +256,12 @@ class TestShuffleAndAdjustTraitValues:
         trait_values = [1, 2, 5, 3, 5]
         original_sum = sum(trait_values)
         original_fives_indices = [i for i, v in enumerate(trait_values) if v == 5]
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=3, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 3,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
         # Mock randint to select indices 0, 1, 3 (all below 5)
         mocker.patch(
             "vapi.domain.handlers.character_autogeneration.utils.random.randint",
@@ -279,7 +288,12 @@ class TestShuffleAndAdjustTraitValues:
         # Given trait values where some are at 5
         trait_values = [5, 5, 2, 3]
         original_sum = sum(trait_values)
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=2, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 2,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
         # Mock randint to potentially select indices with 5s, but function should skip them
         call_count = [0]
 
@@ -314,7 +328,12 @@ class TestShuffleAndAdjustTraitValues:
         """Verify result is shuffled."""
         # Given trait values
         trait_values = [1, 2, 3, 4]
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=0, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 0,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
         # Mock sample to return reversed list to verify shuffling occurs
         mock_sample = mocker.patch(
             "vapi.domain.handlers.character_autogeneration.utils.random.sample",
@@ -334,7 +353,12 @@ class TestShuffleAndAdjustTraitValues:
         """Verify function handles zero dot bonus correctly."""
         # Given trait values and zero dot bonus
         trait_values = [1, 2, 3]
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=0, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 0,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
 
         # When shuffling and adjusting trait values
         result = shuffle_and_adjust_trait_values(
@@ -349,7 +373,12 @@ class TestShuffleAndAdjustTraitValues:
         """Verify function handles all traits at 5 correctly with zero dot bonus."""
         # Given all trait values at 5 and zero dot bonus
         trait_values = [5, 5, 5]
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=0, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 0,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
 
         # When shuffling and adjusting trait values
         result = shuffle_and_adjust_trait_values(
@@ -364,7 +393,12 @@ class TestShuffleAndAdjustTraitValues:
         """Verify function handles empty trait values list with zero dot bonus."""
         # Given empty trait values and zero dot bonus
         trait_values: list[int] = []
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=0, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 0,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
 
         # When shuffling and adjusting trait values
         result = shuffle_and_adjust_trait_values(
@@ -380,7 +414,12 @@ class TestShuffleAndAdjustTraitValues:
         # Given trait values and dot bonus that adds multiple dots
         trait_values = [1, 2]
         original_sum = sum(trait_values)
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=3, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 3,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
         # Mock randint to select index 0 three times
         mocker.patch(
             "vapi.domain.handlers.character_autogeneration.utils.random.randint", return_value=0
@@ -400,7 +439,12 @@ class TestShuffleAndAdjustTraitValues:
         # Given trait values close to 5 and exactly enough dots to bring them all to 5
         trait_values = [4, 4, 4]
         original_sum = sum(trait_values)
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=3, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 3,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
         # Mock randint to select each index once (0, 1, 2)
         mocker.patch(
             "vapi.domain.handlers.character_autogeneration.utils.random.randint",
@@ -421,7 +465,12 @@ class TestShuffleAndAdjustTraitValues:
         """Verify function stops iterating when all traits are at max value."""
         # Given trait values at max value and dot bonus that adds dots
         trait_values = [3, 4, 4]
-        dot_bonus = DotsPerExperienceLevel(NEW=0, INTERMEDIATE=3, ADVANCED=0, ELITE=0)
+        dot_bonus = {
+            AutoGenExperienceLevel.NEW: 0,
+            AutoGenExperienceLevel.INTERMEDIATE: 3,
+            AutoGenExperienceLevel.ADVANCED: 0,
+            AutoGenExperienceLevel.ELITE: 0,
+        }
 
         # When shuffling and adjusting trait values
         result = shuffle_and_adjust_trait_values(

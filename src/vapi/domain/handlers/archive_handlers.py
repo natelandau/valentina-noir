@@ -3,6 +3,7 @@
 Used to handle the archiving of various models and their associated data.
 """
 
+import asyncio
 import logging
 
 from beanie import PydanticObjectId
@@ -47,69 +48,42 @@ class CampaignArchiveHandler:
     def __init__(self, campaign: Campaign) -> None:
         """Initialize the campaign archive handler."""
         self.campaign = campaign
-        self.num_s3_assets_archived = 0
-
-    async def _archive_campaign_books(self) -> list[CampaignBook]:
-        """Archive all campaign books associated with the campaign.
-
-        Returns:
-            list[CampaignBook]: The archived campaign books.
-        """
-        campaign_books = await CampaignBook.find(
-            CampaignBook.campaign_id == self.campaign.id
-        ).to_list()
-        for campaign_book in campaign_books:
-            await CampaignChapter.find(CampaignChapter.book_id == campaign_book.id).update_many(
-                Set({CampaignChapter.is_archived: True})
-            )
-
-            campaign_book.is_archived = True
-            await campaign_book.save()
-
-        self.num_s3_assets_archived += await archive_s3_assets(
-            AssetParentType.CAMPAIGN_BOOK, [campaign_book.id for campaign_book in campaign_books]
-        )
-        return campaign_books
-
-    async def _archive_campaign_chapters(
-        self, campaign_books: list[CampaignBook]
-    ) -> list[CampaignChapter]:
-        """Archive all campaign chapters associated with the campaign."""
-        updated_campaign_chapters = []
-        for campaign_book in campaign_books:
-            campaign_chapters = await CampaignChapter.find(
-                CampaignChapter.book_id == campaign_book.id
-            ).to_list()
-            for campaign_chapter in campaign_chapters:
-                campaign_chapter.is_archived = True
-                await campaign_chapter.save()
-                updated_campaign_chapters.append(campaign_chapter)
-
-        self.num_s3_assets_archived += await archive_s3_assets(
-            AssetParentType.CAMPAIGN_CHAPTER,
-            [campaign_chapter.id for campaign_chapter in updated_campaign_chapters],
-        )
-
-        return updated_campaign_chapters
 
     async def handle(self) -> None:
         """Handle the archiving of the campaign."""
-        campaign_books = await self._archive_campaign_books()
-        campaign_chapters = await self._archive_campaign_chapters(campaign_books)
+        campaign_books = await CampaignBook.find(
+            CampaignBook.campaign_id == self.campaign.id
+        ).to_list()
+        book_ids = [b.id for b in campaign_books]
 
-        self.num_s3_assets_archived += await archive_s3_assets(
-            AssetParentType.CAMPAIGN, [self.campaign.id]
+        campaign_chapters = await CampaignChapter.find(
+            In(CampaignChapter.book_id, book_ids)
+        ).to_list()
+        chapter_ids = [c.id for c in campaign_chapters]
+
+        await CampaignChapter.find(In(CampaignChapter.book_id, book_ids)).update_many(
+            Set({CampaignChapter.is_archived: True})
         )
+        await CampaignBook.find(CampaignBook.campaign_id == self.campaign.id).update_many(
+            Set({CampaignBook.is_archived: True})
+        )
+
+        s3_counts = await asyncio.gather(
+            archive_s3_assets(AssetParentType.CAMPAIGN_CHAPTER, chapter_ids),
+            archive_s3_assets(AssetParentType.CAMPAIGN_BOOK, book_ids),
+            archive_s3_assets(AssetParentType.CAMPAIGN, [self.campaign.id]),
+        )
+        num_s3_assets = sum(s3_counts)
+
         self.campaign.is_archived = True
         await self.campaign.save()
 
-        msg = "Archive campaign"
         logger.debug(
-            msg,
+            "Archive campaign",
             extra={
                 "component": "campaign_archive_handler",
                 "campaign_id": self.campaign.id,
-                "s3_assets_archived": self.num_s3_assets_archived,
+                "s3_assets_archived": num_s3_assets,
                 "campaign_books_archived": len(campaign_books),
                 "campaign_chapters_archived": len(campaign_chapters),
             },
@@ -205,17 +179,17 @@ class CompanyArchiveHandler:
             logger.debug(
                 msg,
                 extra={
-                    "component": "company_deletion_handler",
+                    "component": "company_archive_handler",
                     "company_id": self.company.id,
                     "num_archived": archived.modified_count,  # type: ignore [union-attr]
                 },
             )
 
     async def handle(self) -> None:
-        """Handle the deletion of a company."""
+        """Handle the archiving of a company."""
         msg = "Archive company and all associated data."
         logger.debug(
-            msg, extra={"component": "company_deletion_handler", "company_id": self.company.id}
+            msg, extra={"component": "company_archive_handler", "company_id": self.company.id}
         )
 
         for campaign in await Campaign.find(Campaign.company_id == self.company.id).to_list():
@@ -235,5 +209,5 @@ class CompanyArchiveHandler:
         msg = msg + " Completed"
         logger.debug(
             msg,
-            extra={"component": "company_deletion_handler", "company_id": self.company.id},
+            extra={"component": "company_archive_handler", "company_id": self.company.id},
         )

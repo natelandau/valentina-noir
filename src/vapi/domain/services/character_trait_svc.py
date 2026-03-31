@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from typing import TYPE_CHECKING, assert_never
 
@@ -418,7 +419,7 @@ class CharacterTraitService:
         if character_trait.trait.name not in TRAIT_NAMES_FOR_WILLPOWER:  # type: ignore [attr-defined]
             return
 
-        if character_trait.trait.name in ["Composure", "Resolve"]:  # type: ignore [attr-defined]
+        if character_trait.trait.name in ("Composure", "Resolve"):  # type: ignore [attr-defined]
             total_willpower_value = (
                 await CharacterTrait.find(
                     CharacterTrait.character_id == character_trait.character_id,
@@ -427,9 +428,10 @@ class CharacterTraitService:
                 ).sum(CharacterTrait.value)
                 or 0
             )
-
-        if character_trait.trait.name == "Courage":  # type: ignore [attr-defined]
+        elif character_trait.trait.name == "Courage":  # type: ignore [attr-defined]
             total_willpower_value = character_trait.value
+        else:
+            return
 
         character_willpower = await CharacterTrait.find_one(
             CharacterTrait.character_id == character_trait.character_id,
@@ -478,8 +480,10 @@ class CharacterTraitService:
         Args:
             character_trait: The trait that was saved.
         """
-        await self.update_character_willpower(character_trait)
-        await self.update_werewolf_total_renown(character_trait)
+        await asyncio.gather(
+            self.update_character_willpower(character_trait),
+            self.update_werewolf_total_renown(character_trait),
+        )
 
     async def add_constant_trait_to_character(
         self,
@@ -820,10 +824,9 @@ class CharacterTraitService:
                 detail=f"Trait named '{data.name}' already exists. Custom traits must have a unique name."
             )
 
-        parent_category = await GetModelByIdValidationService().get_trait_category_by_id(
-            data.parent_category_id
-        )
-        sheet_section = await GetModelByIdValidationService().get_sheet_section_by_id(
+        validation_svc = GetModelByIdValidationService()
+        parent_category = await validation_svc.get_trait_category_by_id(data.parent_category_id)
+        sheet_section = await validation_svc.get_sheet_section_by_id(
             parent_category.parent_sheet_section_id
         )
 
@@ -1071,13 +1074,13 @@ class CharacterTraitService:
             needs_link_filters = True
 
         # Only use fetch_links on count when filters reference linked fields
-        count = await CharacterTrait.find(*filters, fetch_links=needs_link_filters).count()
-        traits = (
-            await CharacterTrait.find(*filters, fetch_links=True)
+        count, traits = await asyncio.gather(
+            CharacterTrait.find(*filters, fetch_links=needs_link_filters).count(),
+            CharacterTrait.find(*filters, fetch_links=True)
             .sort(CharacterTrait.trait.parent_category_id)  # type: ignore [attr-defined]
             .skip(offset)
             .limit(limit)
-            .to_list()
+            .to_list(),
         )
         return count, traits
 
@@ -1109,10 +1112,12 @@ class CharacterTraitService:
         current_value = character_trait.value
         xp_current = campaign_experience.xp_current
         starting_points_current = character.starting_points
-        is_flaw = await self._is_flaw_trait(character_trait)
 
-        upgrade_costs = await self.calculate_all_upgrade_costs(character_trait)
-        downgrade_savings = await self.calculate_all_downgrade_savings(character_trait)
+        is_flaw, upgrade_costs, downgrade_savings = await asyncio.gather(
+            self._is_flaw_trait(character_trait),
+            self.calculate_all_upgrade_costs(character_trait),
+            self.calculate_all_downgrade_savings(character_trait),
+        )
 
         options: dict[str, TraitValueOptionDetail] = {}
 

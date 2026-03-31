@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from beanie import PydanticObjectId  # noqa: TC002
+from beanie import Document, PydanticObjectId
 from beanie.operators import Or
 from litestar.params import Parameter
 
@@ -31,34 +31,59 @@ from vapi.db.models import (
     WerewolfAuspice,
     WerewolfTribe,
 )
+from vapi.db.models.base import BaseDocument
 from vapi.lib.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from litestar import Request
 
 
+async def _find_or_404[T: Document](
+    model: type[T],
+    label: str,
+    *extra_filters: object,
+    doc_id: PydanticObjectId,
+    fetch_links: bool = False,
+) -> T:
+    """Look up a document by ID and raise NotFoundError if not found.
+
+    Automatically filters by is_archived == False for BaseDocument subclasses.
+
+    Args:
+        model: The Beanie Document class to query.
+        label: Human-readable label for error messages.
+        *extra_filters: Additional query filters beyond ID and is_archived.
+        doc_id: The document ID to look up.
+        fetch_links: Whether to fetch linked documents.
+
+    Returns:
+        The found document.
+
+    Raises:
+        NotFoundError: If no matching document exists.
+    """
+    filters: list = [model.id == doc_id]
+
+    if issubclass(model, BaseDocument):
+        filters.append(model.is_archived == False)
+
+    filters.extend(extra_filters)
+
+    result = await model.find_one(*filters, fetch_links=fetch_links)
+    if not result:
+        raise NotFoundError(detail=f"{label} not found")
+
+    return result
+
+
 async def provide_s3_asset_by_id(asset_id: PydanticObjectId) -> S3Asset:
     """Provide an S3 asset by ID."""
-    s3_asset = await S3Asset.find_one(
-        S3Asset.id == asset_id,
-        S3Asset.is_archived == False,
-    )
-    if not s3_asset:
-        raise NotFoundError(detail="S3 asset not found")
-    return s3_asset
+    return await _find_or_404(S3Asset, "S3 asset", doc_id=asset_id)
 
 
 async def provide_developer_from_request(request: Request) -> Developer:
     """Provide a Developer object from the request."""
-    developer = await Developer.find_one(
-        Developer.id == request.user.id,
-        Developer.is_archived == False,
-    )
-
-    if not developer:
-        raise NotFoundError(detail="User not found")
-
-    return developer
+    return await _find_or_404(Developer, "User", doc_id=request.user.id)
 
 
 async def provide_developer_by_id(
@@ -67,53 +92,35 @@ async def provide_developer_by_id(
     ],
 ) -> Developer:
     """Provide a Developer by ID."""
-    developer = await Developer.find_one(
-        Developer.id == developer_id,
-        Developer.is_archived == False,
-    )
-    if not developer:
-        raise NotFoundError(detail="User not found")
-    return developer
+    return await _find_or_404(Developer, "User", doc_id=developer_id)
 
 
 async def provide_campaign_by_id(campaign_id: PydanticObjectId, company: Company) -> Campaign:
     """Provide a campaign by ID."""
-    campaign = await Campaign.find_one(
-        Campaign.id == campaign_id,
-        Campaign.is_archived == False,
-        Campaign.company_id == company.id,
+    return await _find_or_404(
+        Campaign, "Campaign", Campaign.company_id == company.id, doc_id=campaign_id
     )
-    if not campaign:
-        raise NotFoundError(detail="Campaign not found")
-    return campaign
 
 
 async def provide_campaign_book_by_id(
     book_id: PydanticObjectId, campaign: Campaign
 ) -> CampaignBook:
     """Provide a campaign book by ID."""
-    campaign_book = await CampaignBook.find_one(
-        CampaignBook.id == book_id,
-        CampaignBook.is_archived == False,
-        CampaignBook.campaign_id == campaign.id,
+    return await _find_or_404(
+        CampaignBook, "Campaign book", CampaignBook.campaign_id == campaign.id, doc_id=book_id
     )
-    if not campaign_book:
-        raise NotFoundError(detail="Campaign book not found")
-    return campaign_book
 
 
 async def provide_campaign_chapter_by_id(
     chapter_id: PydanticObjectId, book: CampaignBook
 ) -> CampaignChapter:
     """Provide a campaign chapter by ID."""
-    campaign_chapter = await CampaignChapter.find_one(
-        CampaignChapter.id == chapter_id,
-        CampaignChapter.is_archived == False,
+    return await _find_or_404(
+        CampaignChapter,
+        "Campaign chapter",
         CampaignChapter.book_id == book.id,
+        doc_id=chapter_id,
     )
-    if not campaign_chapter:
-        raise NotFoundError(detail="Campaign chapter not found")
-    return campaign_chapter
 
 
 async def provide_company_by_id(
@@ -122,40 +129,23 @@ async def provide_company_by_id(
     ],
 ) -> Company:
     """Provide a company by ID."""
-    company = await Company.find_one(
-        Company.id == company_id,
-        Company.is_archived == False,
-    )
-    if not company:
-        raise NotFoundError(detail="Company 'not found")
-    return company
+    return await _find_or_404(Company, "Company", doc_id=company_id)
 
 
 async def provide_character_by_id_and_company(
     character_id: PydanticObjectId, company: Company
 ) -> Character:
     """Provide a character by ID."""
-    character = await Character.find_one(
-        Character.id == character_id,
-        Character.is_archived == False,
-        Character.company_id == company.id,
+    return await _find_or_404(
+        Character, "Character", Character.company_id == company.id, doc_id=character_id
     )
-    if not character:
-        raise NotFoundError(detail="Character not found")
-    return character
 
 
 async def provide_character_blueprint_section_by_id(
     section_id: PydanticObjectId,
 ) -> CharSheetSection:
     """Provide a character sheet section by ID."""
-    section = await CharSheetSection.find_one(
-        CharSheetSection.id == section_id,
-        CharSheetSection.is_archived == False,
-    )
-    if not section:
-        raise NotFoundError(detail="Character sheet section not found")
-    return section
+    return await _find_or_404(CharSheetSection, "Character sheet section", doc_id=section_id)
 
 
 async def provide_character_trait_by_id(
@@ -186,148 +176,80 @@ async def provide_character_concept_by_id(
     company: Company, concept_id: PydanticObjectId
 ) -> CharacterConcept:
     """Provide a character concept by ID."""
-    concept = await CharacterConcept.find_one(
-        CharacterConcept.id == concept_id,
-        CharacterConcept.is_archived == False,
+    return await _find_or_404(
+        CharacterConcept,
+        "Character concept",
         Or(CharacterConcept.company_id == company.id, CharacterConcept.company_id == None),
+        doc_id=concept_id,
     )
-    if not concept:
-        raise NotFoundError(detail="Character concept not found")
-    return concept
 
 
 async def provide_vampire_clan_by_id(vampire_clan_id: PydanticObjectId) -> VampireClan:
     """Provide a vampire clan by ID."""
-    vampire_clan = await VampireClan.find_one(
-        VampireClan.id == vampire_clan_id,
-        VampireClan.is_archived == False,
-    )
-    if not vampire_clan:
-        raise NotFoundError(detail="Vampire clan not found")
-    return vampire_clan
+    return await _find_or_404(VampireClan, "Vampire clan", doc_id=vampire_clan_id)
 
 
 async def provide_werewolf_tribe_by_id(werewolf_tribe_id: PydanticObjectId) -> WerewolfTribe:
     """Provide a werewolf tribe by ID."""
-    werewolf_tribe = await WerewolfTribe.find_one(
-        WerewolfTribe.id == werewolf_tribe_id,
-        WerewolfTribe.is_archived == False,
-    )
-    if not werewolf_tribe:
-        raise NotFoundError(detail="Werewolf tribe not found")
-    return werewolf_tribe
+    return await _find_or_404(WerewolfTribe, "Werewolf tribe", doc_id=werewolf_tribe_id)
 
 
-async def provide_werewolf_auspice_by_id(werewolf_auspice_id: PydanticObjectId) -> WerewolfAuspice:
+async def provide_werewolf_auspice_by_id(
+    werewolf_auspice_id: PydanticObjectId,
+) -> WerewolfAuspice:
     """Provide a werewolf auspice by ID."""
-    werewolf_auspice = await WerewolfAuspice.find_one(
-        WerewolfAuspice.id == werewolf_auspice_id,
-        WerewolfAuspice.is_archived == False,
-    )
-    if not werewolf_auspice:
-        raise NotFoundError(detail="Werewolf auspice not found")
-    return werewolf_auspice
+    return await _find_or_404(WerewolfAuspice, "Werewolf auspice", doc_id=werewolf_auspice_id)
 
 
 async def provide_dictionary_term_by_id(
     company: Company, dictionary_term_id: PydanticObjectId
 ) -> DictionaryTerm:
     """Provide a dictionary term by ID."""
-    dictionary_term = await DictionaryTerm.find_one(
-        DictionaryTerm.id == dictionary_term_id,
-        DictionaryTerm.is_archived == False,
+    return await _find_or_404(
+        DictionaryTerm,
+        "Dictionary term",
         Or(DictionaryTerm.company_id == company.id, DictionaryTerm.source_type != None),
+        doc_id=dictionary_term_id,
     )
-    if not dictionary_term:
-        raise NotFoundError(detail="Dictionary term not found")
-    return dictionary_term
 
 
-async def provide_inventory_item_by_id(inventory_item_id: PydanticObjectId) -> CharacterInventory:
+async def provide_inventory_item_by_id(
+    inventory_item_id: PydanticObjectId,
+) -> CharacterInventory:
     """Provide a inventory item by ID."""
-    inventory_item = await CharacterInventory.find_one(
-        CharacterInventory.id == inventory_item_id,
-        CharacterInventory.is_archived == False,
-    )
-    if not inventory_item:
-        raise NotFoundError(detail="Inventory item not found")
-    return inventory_item
+    return await _find_or_404(CharacterInventory, "Inventory item", doc_id=inventory_item_id)
 
 
 async def provide_note_by_id(note_id: PydanticObjectId) -> Note:
     """Provide a note by ID."""
-    note = await Note.find_one(
-        Note.id == note_id,
-        Note.is_archived == False,
-    )
-    if not note:
-        raise NotFoundError(detail="Note not found")
-    return note
+    return await _find_or_404(Note, "Note", doc_id=note_id)
 
 
 async def provide_quickroll_by_id(quickroll_id: PydanticObjectId) -> QuickRoll:
     """Provide a quick roll by ID."""
-    quickroll = await QuickRoll.find_one(
-        QuickRoll.id == quickroll_id,
-        QuickRoll.is_archived == False,
-    )
-    if not quickroll:
-        raise NotFoundError(detail="Quick roll not found")
-    return quickroll
+    return await _find_or_404(QuickRoll, "Quick roll", doc_id=quickroll_id)
 
 
 async def provide_trait_by_id(trait_id: PydanticObjectId) -> Trait:
     """Provide a trait by ID."""
-    trait = await Trait.find_one(
-        Trait.id == trait_id,
-        Trait.is_archived == False,
-    )
-    if not trait:
-        raise NotFoundError(detail="Trait not found")
-    return trait
+    return await _find_or_404(Trait, "Trait", doc_id=trait_id)
 
 
 async def provide_trait_category_by_id(category_id: PydanticObjectId) -> TraitCategory:
     """Provide a trait category by ID."""
-    category = await TraitCategory.find_one(
-        TraitCategory.id == category_id,
-        TraitCategory.is_archived == False,
-    )
-    if not category:
-        raise NotFoundError(detail="Trait category not found")
-    return category
+    return await _find_or_404(TraitCategory, "Trait category", doc_id=category_id)
 
 
 async def provide_trait_subcategory_by_id(subcategory_id: PydanticObjectId) -> TraitSubcategory:
     """Provide a trait subcategory by ID."""
-    subcategory = await TraitSubcategory.find_one(
-        TraitSubcategory.id == subcategory_id,
-        TraitSubcategory.is_archived == False,
-    )
-    if not subcategory:
-        raise NotFoundError(detail="Trait subcategory not found")
-    return subcategory
+    return await _find_or_404(TraitSubcategory, "Trait subcategory", doc_id=subcategory_id)
 
 
 async def provide_user_by_id_and_company(user_id: PydanticObjectId, company: Company) -> User:
     """Retrieve a user by ID."""
-    user = await User.find_one(
-        User.id == user_id,
-        User.is_archived == False,
-        User.company_id == company.id,
-    )
-    if not user:
-        raise NotFoundError(detail="User not found")
-
-    return user
+    return await _find_or_404(User, "User", User.company_id == company.id, doc_id=user_id)
 
 
 async def provide_user_by_id(user_id: PydanticObjectId) -> User:
     """Provide a user by ID."""
-    user = await User.find_one(
-        User.id == user_id,
-        User.is_archived == False,
-    )
-    if not user:
-        raise NotFoundError(detail="User not found")
-    return user
+    return await _find_or_404(User, "User", doc_id=user_id)

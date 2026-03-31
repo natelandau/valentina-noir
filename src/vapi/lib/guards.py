@@ -22,6 +22,7 @@ __all__ = (
     "developer_company_owner_guard",
     "developer_company_user_guard",
     "global_admin_guard",
+    "user_admin_guard",
     "user_character_player_or_storyteller_guard",
     "user_not_unapproved_guard",
     "user_storyteller_guard",
@@ -74,50 +75,6 @@ async def _is_valid_character(character_id: str) -> Character:
     return character
 
 
-async def _confirm_user_role_from_store(
-    *, connection: ASGIConnection, user_roles: list[UserRole]
-) -> bool:
-    """Confirm a user role from the store.
-
-    Args:
-        connection (ASGIConnection): The connection.
-        user_roles (list[UserRole]): The user roles.
-
-    Returns:
-        bool: True if the user role is in the store, False otherwise.
-    """
-    user_id = connection.path_params.get("user_id")
-    if not user_id:
-        raise ValidationError(
-            detail="User ID is required",
-            invalid_parameters=[
-                {"field": "user_id", "message": "User ID is required"},
-            ],
-        )
-
-    store = connection.app.stores.get(settings.stores.guard_session_key)
-    user_from_store = await store.get(f"users:{user_id}", renew_for=settings.stores.ttl)
-
-    if user_from_store:
-        data = decode_json(user_from_store)
-        user = User(**data)
-        user_role = UserRole(user.role)
-        if user_role in user_roles:
-            return True
-        raise PermissionDeniedError
-
-    user = await User.get(user_id)
-    await store.set(
-        f"users:{user_id}",
-        encode_json(user.model_dump(mode="json")),
-        expires_in=settings.stores.ttl,
-    )
-    if user.role not in user_roles:
-        raise PermissionDeniedError
-
-    return True
-
-
 async def user_json_from_cache(connection: ASGIConnection) -> User:
     """Get a user from the cache with fallback to the database."""
     user_id = connection.path_params.get("user_id")
@@ -144,55 +101,56 @@ async def user_json_from_cache(connection: ASGIConnection) -> User:
     return user
 
 
-async def developer_company_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """Guard for company users."""
+async def _check_developer_company_permission(
+    connection: ASGIConnection,
+    *,
+    allowed_permissions: set[CompanyPermission] | None = None,
+) -> None:
+    """Verify the developer has the required permission on the company.
+
+    Args:
+        connection: The ASGI connection.
+        allowed_permissions: The set of permissions that grant access. If None, any
+            company membership is sufficient.
+
+    Raises:
+        PermissionDeniedError: If the developer lacks the required permission.
+    """
     developer = connection.user
     if developer.is_global_admin:
         return
 
     company = await _is_valid_company(connection.path_params.get("company_id"))
 
-    for company_permission in developer.companies:
-        if company_permission.company_id == company.id:
-            return
+    if any(
+        cp.company_id == company.id
+        and (allowed_permissions is None or cp.permission in allowed_permissions)
+        for cp in developer.companies
+    ):
+        return
 
     raise PermissionDeniedError(detail="No rights to access this resource")
+
+
+async def developer_company_user_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
+    """Guard requiring any company membership."""
+    await _check_developer_company_permission(connection)
 
 
 async def developer_company_admin_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """Guard for company users."""
-    developer = connection.user
-    if developer.is_global_admin:
-        return
-
-    company = await _is_valid_company(connection.path_params.get("company_id"))
-
-    for company_permission in developer.companies:
-        if company_permission.company_id == company.id and company_permission.permission in [
-            CompanyPermission.ADMIN,
-            CompanyPermission.OWNER,
-        ]:
-            return
-
-    raise PermissionDeniedError(detail="No rights to access this resource")
+    """Guard requiring admin or owner permission on the company."""
+    await _check_developer_company_permission(
+        connection,
+        allowed_permissions={CompanyPermission.ADMIN, CompanyPermission.OWNER},
+    )
 
 
 async def developer_company_owner_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """Guard for company users."""
-    developer = connection.user
-    if developer.is_global_admin:
-        return
-
-    company = await _is_valid_company(connection.path_params.get("company_id"))
-
-    for company_permission in developer.companies:
-        if (
-            company_permission.company_id == company.id
-            and company_permission.permission == CompanyPermission.OWNER
-        ):
-            return
-
-    raise PermissionDeniedError(detail="No rights to access this resource")
+    """Guard requiring owner permission on the company."""
+    await _check_developer_company_permission(
+        connection,
+        allowed_permissions={CompanyPermission.OWNER},
+    )
 
 
 async def user_storyteller_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
@@ -200,7 +158,7 @@ async def user_storyteller_guard(connection: ASGIConnection, _: BaseRouteHandler
     company_id = connection.path_params.get("company_id")
     user = await user_json_from_cache(connection)
     if (
-        UserRole(user.role) not in [UserRole.STORYTELLER, UserRole.ADMIN]
+        user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
         or str(user.company_id) != company_id
     ):
         raise PermissionDeniedError
@@ -210,7 +168,7 @@ async def user_admin_guard(connection: ASGIConnection, _: BaseRouteHandler) -> N
     """Guard for campaign administrators."""
     user = await user_json_from_cache(connection)
     company_id = connection.path_params.get("company_id")
-    if UserRole(user.role) != UserRole.ADMIN or str(user.company_id) != company_id:
+    if user.role != UserRole.ADMIN or str(user.company_id) != company_id:
         raise PermissionDeniedError
 
 
@@ -222,7 +180,7 @@ async def user_not_unapproved_guard(connection: ASGIConnection, _: BaseRouteHand
 
     user = await user_json_from_cache(connection)
     company_id = connection.path_params.get("company_id")
-    if UserRole(user.role) == UserRole.UNAPPROVED or str(user.company_id) != company_id:
+    if user.role == UserRole.UNAPPROVED or str(user.company_id) != company_id:
         raise PermissionDeniedError
 
 
@@ -230,18 +188,11 @@ async def user_character_player_or_storyteller_guard(
     connection: ASGIConnection, _: BaseRouteHandler
 ) -> None:
     """Guard for campaign players or storytellers."""
-    character_id = connection.path_params.get("character_id")
-    if not character_id:
-        raise ClientError(detail="Character ID is required")
-
-    character = await Character.get(character_id)
-    if not character or character.is_archived:
-        raise NotFoundError(detail=f"Character '{character_id}' not found")
-
+    character = await _is_valid_character(connection.path_params.get("character_id"))
     user = await user_json_from_cache(connection)
 
     if (
-        UserRole(user.role) not in [UserRole.STORYTELLER, UserRole.ADMIN]
+        user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
         and character.user_player_id != user.id
     ):
         raise PermissionDeniedError
