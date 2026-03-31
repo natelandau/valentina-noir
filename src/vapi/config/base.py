@@ -119,6 +119,16 @@ class MongoDBSettings(BaseModel):
     database_name: str = Field(default="valentina-noir")
 
 
+class PostgresSettings(BaseModel):
+    """PostgreSQL database settings."""
+
+    host: str = Field(default="localhost")
+    port: int = Field(default=5432)
+    user: str = Field(default="valentina")
+    password: str = Field(default="valentina")
+    database: str = Field(default="valentina-noir")
+
+
 class StoresSettings(BaseModel):
     """Settings for redis stores."""
 
@@ -229,6 +239,7 @@ class Settings(BaseSettings):
     cors: CORSSettings = CORSSettings()
     allowed_hosts: AllowedHostsSettings = AllowedHostsSettings()
     mongo: MongoDBSettings = MongoDBSettings()
+    postgres: PostgresSettings = PostgresSettings()
     oauth: OAuthSettings = OAuthSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     redis: RedisSettings = RedisSettings()
