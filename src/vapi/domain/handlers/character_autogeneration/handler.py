@@ -3,11 +3,9 @@
 import asyncio
 import logging
 import random
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from beanie.operators import In, Or
-from faker import Faker
 from numpy import int32
 from numpy.random import default_rng
 
@@ -47,6 +45,7 @@ from .constants import (
     EXTRA_WEREWOLF_GIFT_MAP,
     FLAW_STARTING_DOTS,
     NUM_WEREWOLF_RITE_MAP,
+    WEREWOLF_RENOWN_BONUS,
     AbilityFocus,
     AutoGenExperienceLevel,
 )
@@ -61,21 +60,9 @@ from .utils import (
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
-fake = Faker()
-
 _rng = default_rng()
 
 logger = logging.getLogger("vapi")
-
-
-@dataclass
-class TraitCategoryDotDistribution:
-    """Trait Category dot distribution for RNG character generation."""
-
-    primary: int
-    secondary: int
-    tertiary: int
-    unknown: int = 0
 
 
 class CharacterAutogenerationHandler:
@@ -143,7 +130,6 @@ class CharacterAutogenerationHandler:
             character_type, experience_level, skill_focus, char_class, concept
         )
 
-        # Generate class-specific attributes
         match character.character_class:
             case CharacterClass.VAMPIRE:
                 character = await self._generate_vampire_attributes(character, vampire_clan)
@@ -155,7 +141,6 @@ class CharacterAutogenerationHandler:
             case CharacterClass.HUNTER:
                 character = await self._generate_hunter_attributes(character)
 
-        # Generate base traits
         await self._generate_attribute_values(character)
         await self._generate_ability_values(character)
         await self._generate_willpower_value(character)
@@ -342,9 +327,10 @@ class CharacterAutogenerationHandler:
         ).to_list()
         shuffled_abilities = random.sample(abilities, len(abilities))
 
+        abilities_by_name = {a.name: a for a in shuffled_abilities}
         for ability_name in self.concept.favored_ability_names:
-            trait = await Trait.find_one(Trait.name == ability_name)
-            if not trait or trait not in shuffled_abilities:
+            trait = abilities_by_name.get(ability_name)
+            if not trait:
                 continue
 
             shuffled_abilities.remove(trait)
@@ -404,12 +390,9 @@ class CharacterAutogenerationHandler:
             )
             await character.save()
 
-        disciplines_to_set = []
-        for trait_id in vampire_clan.discipline_ids:
-            trait = await Trait.get(trait_id)
-            if not trait:
-                continue
-            disciplines_to_set.append(trait)
+        disciplines_to_set = await Trait.find(
+            In(Trait.id, vampire_clan.discipline_ids),
+        ).to_list()
 
         disciplines_category = await TraitCategory.find_one(TraitCategory.name == "Disciplines")
         all_disciplines = await Trait.find(
@@ -489,8 +472,12 @@ class CharacterAutogenerationHandler:
         )
         await character.save()
 
-        # Allocate Rage
-        rage_trait = await Trait.find_one(Trait.name == "Rage")
+        rage_and_renown = await Trait.find(
+            In(Trait.name, ["Rage", "Honor", "Wisdom", "Glory"]),
+        ).to_list()
+        traits_by_name = {t.name: t for t in rage_and_renown}
+
+        rage_trait = traits_by_name.get("Rage")
         if rage_trait:
             character_trait = await CharacterTrait(
                 value=random.randint(1, 3),
@@ -499,11 +486,7 @@ class CharacterAutogenerationHandler:
             ).insert()
             await self.character_trait_service.after_save(character_trait)
 
-        # Allocate Renown traits
-        honor_trait = await Trait.find_one(Trait.name == "Honor")
-        wisdom_trait = await Trait.find_one(Trait.name == "Wisdom")
-        glory_trait = await Trait.find_one(Trait.name == "Glory")
-        renown_traits = [honor_trait, wisdom_trait, glory_trait]
+        renown_traits = [traits_by_name[n] for n in ("Honor", "Wisdom", "Glory")]
         tribe_renown_trait = next(
             x for x in renown_traits if x.name.lower() == werewolf_tribe.renown.name.lower()
         )
@@ -514,15 +497,8 @@ class CharacterAutogenerationHandler:
             not_tribe_renown_traits, len(not_tribe_renown_traits)
         )
 
-        value_modifiers = {
-            AutoGenExperienceLevel.NEW: 0,
-            AutoGenExperienceLevel.INTERMEDIATE: 1,
-            AutoGenExperienceLevel.ADVANCED: 2,
-            AutoGenExperienceLevel.ELITE: 3,
-        }
-
         character_trait = await CharacterTrait(
-            value=2 + value_modifiers[self.experience_level],
+            value=2 + WEREWOLF_RENOWN_BONUS[self.experience_level],
             character_id=character.id,
             trait=tribe_renown_trait,
         ).insert()
@@ -530,7 +506,7 @@ class CharacterAutogenerationHandler:
 
         for i, trait in enumerate(shuffled_not_tribe_renown_traits):
             character_trait = await CharacterTrait(
-                value=i + value_modifiers[self.experience_level],
+                value=i + WEREWOLF_RENOWN_BONUS[self.experience_level],
                 character_id=character.id,
                 trait=trait,
             ).insert()
@@ -660,16 +636,50 @@ class CharacterAutogenerationHandler:
 
         return character
 
-    async def _generate_merit_background_values(self, character: Character) -> None:
-        """Randomly generate merit and background values for the character.
-
-        Generate and assign random merit and background values for the given character based on their concept, class, and experience level.
+    async def _distribute_dots_across_traits(
+        self,
+        character: Character,
+        possible_traits: list[Trait],
+        num_dots: int,
+    ) -> None:
+        """Randomly distribute dots across traits and persist them.
 
         Args:
-            character (Character): The character for which to generate merit and background values.
+            character: The character to assign traits to.
+            possible_traits: Pool of traits to choose from.
+            num_dots: Total dots to distribute.
         """
-        backgrounds_category = await TraitCategory.find_one(TraitCategory.name == "Backgrounds")
-        merits_category = await TraitCategory.find_one(TraitCategory.name == "Merits")
+        traits_by_id: dict[PydanticObjectId, Trait] = {t.id: t for t in possible_traits}
+        dot_assignments: dict[PydanticObjectId, int] = {}
+
+        while num_dots > 0:
+            trait = random.choice(possible_traits)
+
+            if trait.id in dot_assignments:
+                if dot_assignments[trait.id] < trait.max_value:
+                    dot_assignments[trait.id] += 1
+                else:
+                    continue
+            else:
+                dot_assignments[trait.id] = 1
+
+            num_dots -= 1
+
+        for trait_id, value in dot_assignments.items():
+            character_trait = CharacterTrait(
+                value=value,
+                character_id=character.id,
+                trait=traits_by_id[trait_id],
+            )
+            await character_trait.insert()
+            await self.character_trait_service.after_save(character_trait)
+
+    async def _generate_merit_background_values(self, character: Character) -> None:
+        """Randomly generate merit and background values for the character."""
+        backgrounds_category, merits_category = await asyncio.gather(
+            TraitCategory.find_one(TraitCategory.name == "Backgrounds"),
+            TraitCategory.find_one(TraitCategory.name == "Merits"),
+        )
 
         possible_traits = await Trait.find(
             In(Trait.parent_category_id, [backgrounds_category.id, merits_category.id]),
@@ -678,40 +688,12 @@ class CharacterAutogenerationHandler:
             Trait.custom_for_character_id == None,
         ).to_list()
 
-        num_dots = getattr(ADVANTAGE_STARTING_DOTS, self.experience_level.name)
-        traits_to_set: dict[PydanticObjectId, int] = {}
-
-        while num_dots > 0:
-            trait = random.choice(possible_traits)
-
-            if trait.id in traits_to_set:
-                if traits_to_set[trait.id] < trait.max_value:
-                    traits_to_set[trait.id] += 1
-                else:
-                    continue
-            else:
-                traits_to_set[trait.id] = 1
-
-            num_dots -= 1
-
-        for trait_id, value in traits_to_set.items():
-            trait = await Trait.get(trait_id)
-            character_trait = CharacterTrait(
-                value=value,
-                character_id=character.id,
-                trait=trait,
-            )
-            await character_trait.insert()
-            await self.character_trait_service.after_save(character_trait)
+        await self._distribute_dots_across_traits(
+            character, possible_traits, ADVANTAGE_STARTING_DOTS[self.experience_level]
+        )
 
     async def _generate_flaw_values(self, character: Character) -> None:
-        """Randomly generate flaw values for the character.
-
-        Generate and assign random flaw values for the given character based on their concept, class, and experience level.
-
-        Args:
-            character (Character): The character for which to generate flaw values.
-        """
+        """Randomly generate flaw values for the character."""
         flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
 
         possible_flaws = await Trait.find(
@@ -721,28 +703,6 @@ class CharacterAutogenerationHandler:
             Trait.custom_for_character_id == None,
         ).to_list()
 
-        num_dots = getattr(FLAW_STARTING_DOTS, self.experience_level.name)
-        traits_to_set: dict[PydanticObjectId, int] = {}
-
-        while num_dots > 0:
-            trait = random.choice(possible_flaws)
-
-            if trait.id in traits_to_set:
-                if traits_to_set[trait.id] < trait.max_value:
-                    traits_to_set[trait.id] += 1
-                else:
-                    continue
-            else:
-                traits_to_set[trait.id] = 1
-
-            num_dots -= 1
-
-        for trait_id, value in traits_to_set.items():
-            trait = await Trait.get(trait_id)
-            character_trait = CharacterTrait(
-                value=value,
-                character_id=character.id,
-                trait=trait,
-            )
-            await character_trait.insert()
-            await self.character_trait_service.after_save(character_trait)
+        await self._distribute_dots_across_traits(
+            character, possible_flaws, FLAW_STARTING_DOTS[self.experience_level]
+        )

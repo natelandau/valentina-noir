@@ -16,8 +16,6 @@ from .constants import MORTAL_CLASS_PERCENTILE, AutoGenExperienceLevel
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
 
-    from .schemas import DotsPerExperienceLevel
-
 fake = Faker()
 
 
@@ -46,34 +44,22 @@ async def generate_unique_name(company_id: PydanticObjectId) -> tuple[str, str]:
 def shuffle_and_adjust_trait_values(
     trait_values: list[int],
     experience_level: AutoGenExperienceLevel,
-    dot_bonus: DotsPerExperienceLevel,
+    dot_bonus: dict[AutoGenExperienceLevel, int],
     max_value: int = 5,
 ) -> list[int]:
-    """Shuffle and adjust trait values.
-
-    Shuffle and adjust a list of trait values based on the experience level and dot bonus.
+    """Shuffle and adjust trait values based on experience level and dot bonus.
 
     Args:
-        trait_values (list[int]): The trait values to shuffle and adjust.
-        experience_level (AutoGenExperienceLevel): The experience level of the character.
-        dot_bonus (DotsPerExperienceLevel): The dot bonus for the character.
-        max_value (int): The maximum value to cap the trait values at. Defaults to 5.
+        trait_values: The trait values to shuffle and adjust.
+        experience_level: The experience level of the character.
+        dot_bonus: Bonus dots per experience level.
+        max_value: The maximum value to cap the trait values at. Defaults to 5.
 
     Returns:
         list[int]: The shuffled and adjusted trait values.
     """
     new_trait_values = trait_values.copy()
-    match experience_level:
-        case AutoGenExperienceLevel.NEW:
-            num_new_dots = dot_bonus.NEW
-        case AutoGenExperienceLevel.INTERMEDIATE:
-            num_new_dots = dot_bonus.INTERMEDIATE
-        case AutoGenExperienceLevel.ADVANCED:
-            num_new_dots = dot_bonus.ADVANCED
-        case AutoGenExperienceLevel.ELITE:
-            num_new_dots = dot_bonus.ELITE
-        case _:  # pragma: no cover
-            assert_never(experience_level)
+    num_new_dots = dot_bonus[experience_level]
 
     while num_new_dots > 0:
         index = random.randint(0, len(new_trait_values) - 1)
@@ -116,8 +102,8 @@ def adjust_trait_value_based_on_level(
     return max(min(value, max_value), min_value)
 
 
-def get_character_class_percentile_lookup_table() -> dict[CharacterClass, tuple[int, int]]:
-    """Get a character class percentile chance."""
+def _build_class_percentile_table() -> dict[CharacterClass, tuple[int, int]]:
+    """Build the character class percentile lookup table."""
     non_mortal_percentile = (100 - MORTAL_CLASS_PERCENTILE) / (len(CharacterClass) - 1)
     rounded_non_mortal_percentile = int(non_mortal_percentile)
 
@@ -136,17 +122,16 @@ def get_character_class_percentile_lookup_table() -> dict[CharacterClass, tuple[
     return class_percentile_lookup
 
 
+CLASS_PERCENTILE_TABLE: dict[CharacterClass, tuple[int, int]] = _build_class_percentile_table()
+
+
 def get_character_class_from_percentile() -> CharacterClass:
     """Get a character class from a percentile."""
     percentile = roll_percentile()
-    for char_class, (
-        lower_bound,
-        upper_bound,
-    ) in get_character_class_percentile_lookup_table().items():
+    for char_class, (lower_bound, upper_bound) in CLASS_PERCENTILE_TABLE.items():
         if lower_bound <= percentile <= upper_bound:
             return char_class
 
-    # If all else fails, return MORTAL
     return CharacterClass.MORTAL
 
 
