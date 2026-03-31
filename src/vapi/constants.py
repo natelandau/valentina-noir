@@ -1,6 +1,6 @@
 """Constants."""
 
-from enum import Enum, StrEnum
+from enum import IntEnum, StrEnum
 from pathlib import Path
 from typing import Final
 
@@ -71,7 +71,7 @@ class CompanyPermission(StrEnum):
     REVOKE = "REVOKE"
 
 
-class DiceSize(Enum):
+class DiceSize(IntEnum):
     """Dice size."""
 
     D4 = 4

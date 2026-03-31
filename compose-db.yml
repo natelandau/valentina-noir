@@ -27,5 +27,5 @@ services:
       POSTGRES_PASSWORD: valentina
       POSTGRES_DB: valentina-noir
     volumes:
-      - .dev/postgres:/var/lib/postgresql/data
+      - .dev/postgres:/var/lib/postgresql
     attach: false # suppress logs to console
