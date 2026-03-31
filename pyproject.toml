@@ -16,6 +16,8 @@
         "pydantic-settings>=2.13.1,<3.0.0",
         "pydantic[email]>=2.12.5,<3.0.0",
         "pymongo>=4.16.0,<5.0.0",
+        "tortoise-orm[asyncpg]>=0.25.0",
+        "uuid-utils>=0.10.0",
         "python-json-logger>=4.1.0",
         "rich>=14.3.3",
         "ruamel-yaml>=0.19.1",
@@ -45,7 +47,7 @@
         "prek>=0.3.8",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.1.0",
-        "pytest-databases[mongodb,redis]>=0.17.0",
+        "pytest-databases[mongodb,postgres,redis]>=0.17.0",
         "pytest-devtools>=1.0.0",
         "pytest-env>=1.6.0",
         "pytest-mock>=3.15.1",
@@ -154,6 +156,11 @@
     VAPI_LOG__TIME_IN_CONSOLE          = "false"
     VAPI_NAME                          = "vapi-pytest"
     VAPI_OAUTH__DISCORD_CALLBACK_URL   = "https://localhost:8000/api/v1/oauth/discord/callback"
+    VAPI_POSTGRES__DATABASE            = "vapi-pytest"
+    VAPI_POSTGRES__HOST                = "localhost"
+    VAPI_POSTGRES__PASSWORD            = "valentina"
+    VAPI_POSTGRES__PORT                = "5432"
+    VAPI_POSTGRES__USER                = "valentina"
     VAPI_OAUTH__DISCORD_CLIENT_ID      = "MOCK_CLIENT_ID"
     VAPI_OAUTH__DISCORD_CLIENT_SECRET  = "MOCK_CLIENT_SECRET"
     VAPI_RATE_LIMIT__ENCRYPTION_KEY    = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
