@@ -11,6 +11,8 @@ from tortoise.expressions import Q
 from tortoise.models import Model
 
 from vapi.db.sql_models.campaign import Campaign as PgCampaign
+from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
+from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
@@ -217,6 +219,38 @@ async def provide_user_by_id(user_id: UUID) -> PgUser:
         "User",
         doc_id=user_id,
         prefetch=["campaign_experiences"],
+    )
+
+
+async def provide_campaign_by_id(campaign_id: UUID, company: PgCompany) -> PgCampaign:
+    """Provide a Tortoise Campaign by ID, scoped to a company."""
+    return await _find_or_404(
+        PgCampaign,
+        "Campaign",
+        Q(company_id=company.id),
+        doc_id=campaign_id,
+    )
+
+
+async def provide_campaign_book_by_id(book_id: UUID, campaign: PgCampaign) -> PgCampaignBook:
+    """Provide a Tortoise CampaignBook by ID, scoped to a campaign."""
+    return await _find_or_404(
+        PgCampaignBook,
+        "Campaign book",
+        Q(campaign_id=campaign.id),
+        doc_id=book_id,
+    )
+
+
+async def provide_campaign_chapter_by_id(
+    chapter_id: UUID, book: PgCampaignBook
+) -> PgCampaignChapter:
+    """Provide a Tortoise CampaignChapter by ID, scoped to a book."""
+    return await _find_or_404(
+        PgCampaignChapter,
+        "Campaign chapter",
+        Q(book_id=book.id),
+        doc_id=chapter_id,
     )
 
 

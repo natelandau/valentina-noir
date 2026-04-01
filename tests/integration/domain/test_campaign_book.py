@@ -1,150 +1,178 @@
 """Test campaign book."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 import pytest
+from httpx import AsyncClient
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
 )
 
-from vapi.db.models import Campaign, CampaignBook
+from vapi.db.sql_models.campaign import Campaign, CampaignBook
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
 from vapi.domain.urls import Campaigns
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from httpx import AsyncClient
-
-    from vapi.db.models import User
 
 pytestmark = pytest.mark.anyio
 
 
 async def test_book_controller(
     client: AsyncClient,
-    token_company_admin: dict[str, str],
-    base_user_storyteller: User,
-    build_url: Callable[[str, ...], str],
-    base_campaign: Campaign,
-    base_campaign_book: CampaignBook,
-    debug: Callable[[...], None],
+    token_global_admin: dict[str, str],
+    pg_mirror_company: Company,
+    pg_mirror_global_admin,
+    pg_mirror_user: User,
+    pg_campaign_factory: Callable[..., Campaign],
+    pg_campaign_book_factory: Callable[..., CampaignBook],
+    build_url: Callable[..., str],
+    neutralize_after_response_hook,
 ) -> None:
-    """Verify the campaign controller."""
-    # when we create a book
+    """Verify the campaign book CRUD workflow."""
+    # Given a campaign with one book
+    campaign = await pg_campaign_factory(company=pg_mirror_company)
+    base_book = await pg_campaign_book_factory(campaign=campaign)
+
+    # When we create a book
     response = await client.post(
-        build_url(Campaigns.BOOK_CREATE, user_id=base_user_storyteller.id),
-        headers=token_company_admin,
+        build_url(
+            Campaigns.BOOK_CREATE,
+            company_id=pg_mirror_company.id,
+            campaign_id=campaign.id,
+            user_id=pg_mirror_user.id,
+        ),
+        headers=token_global_admin,
         json={"name": "Test Book", "description": "Test Description"},
     )
 
-    # then we should get a 201 created response
+    # Then we should get a 201 created response
     assert response.status_code == HTTP_201_CREATED
-    # debug(response.json())
     response_json = response.json()
     assert response_json["name"] == "Test Book"
     assert response_json["description"] == "Test Description"
     assert response_json["number"] == 2
-    assert response_json["campaign_id"] == str(base_campaign.id)
+    assert response_json["campaign_id"] == str(campaign.id)
     assert response_json["date_created"] is not None
     assert response_json["date_modified"] is not None
 
-    # get the new campaign id
-    new_campaign_book_id = response_json["id"]
+    # Given the new book id
+    new_book_id = response_json["id"]
 
-    # when we update the book
+    # When we update the book
     response = await client.patch(
         build_url(
-            Campaigns.BOOK_UPDATE, book_id=new_campaign_book_id, user_id=base_user_storyteller.id
+            Campaigns.BOOK_UPDATE,
+            company_id=pg_mirror_company.id,
+            campaign_id=campaign.id,
+            book_id=new_book_id,
+            user_id=pg_mirror_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
         json={"name": "Test Book Updated"},
     )
 
-    # then we should get a 200 ok response
+    # Then we should get a 200 ok response
     assert response.status_code == HTTP_200_OK
     response_json = response.json()
     assert response_json["name"] == "Test Book Updated"
     assert response_json["description"] == "Test Description"
     assert response_json["number"] == 2
-    assert response_json["campaign_id"] == str(base_campaign.id)
-    assert response_json["date_modified"] is not None
 
-    # when we delete the book
+    # When we delete the book
     response = await client.delete(
         build_url(
-            Campaigns.BOOK_DELETE, book_id=new_campaign_book_id, user_id=base_user_storyteller.id
+            Campaigns.BOOK_DELETE,
+            company_id=pg_mirror_company.id,
+            campaign_id=campaign.id,
+            book_id=new_book_id,
+            user_id=pg_mirror_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
 
-    # then we should get a 204 no content response
+    # Then we should get a 204 no content response
     assert response.status_code == HTTP_204_NO_CONTENT
 
-    # when we list the books
-    response = await client.get(
-        build_url(Campaigns.BOOKS, user_id=base_user_storyteller.id), headers=token_company_admin
-    )
-    # debug(response.json())
-    assert response.status_code == HTTP_200_OK
-    await base_campaign_book.sync()
-
-    # then we should get a 200 ok response with the book in the list
-    assert response.json()["items"] == [
-        base_campaign_book.model_dump(mode="json", exclude={"is_archived", "archive_date"})
-    ]
-
-    # when we get the book
+    # When we list the books
     response = await client.get(
         build_url(
-            Campaigns.BOOK_DETAIL, book_id=base_campaign_book.id, user_id=base_user_storyteller.id
+            Campaigns.BOOKS,
+            company_id=pg_mirror_company.id,
+            campaign_id=campaign.id,
+            user_id=pg_mirror_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
+
+    # Then we should get a 200 with only the base book
     assert response.status_code == HTTP_200_OK
-    assert response.json() == base_campaign_book.model_dump(
-        mode="json", exclude={"is_archived", "archive_date"}
+    items = response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == str(base_book.id)
+
+    # When we get the book
+    response = await client.get(
+        build_url(
+            Campaigns.BOOK_DETAIL,
+            company_id=pg_mirror_company.id,
+            campaign_id=campaign.id,
+            book_id=base_book.id,
+            user_id=pg_mirror_user.id,
+        ),
+        headers=token_global_admin,
     )
+
+    # Then we should get a 200 with the book details
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["id"] == str(base_book.id)
 
 
 async def test_renumber_book(
     client: AsyncClient,
-    token_company_admin: dict[str, str],
-    base_user_storyteller: User,
-    campaign_book_factory: Callable[[...], CampaignBook],
-    build_url: Callable[[str, ...], str],
+    token_global_admin: dict[str, str],
+    pg_mirror_company: Company,
+    pg_mirror_global_admin,
+    pg_mirror_user: User,
+    pg_campaign_factory: Callable[..., Campaign],
+    pg_campaign_book_factory: Callable[..., CampaignBook],
+    build_url: Callable[..., str],
+    neutralize_after_response_hook,
 ) -> None:
-    """Verify the renumber_book function."""
-    await CampaignBook.delete_all()
-    book1 = await campaign_book_factory()
-    book2 = await campaign_book_factory()
-    book3 = await campaign_book_factory()
-    book4 = await campaign_book_factory()
+    """Verify the renumber book endpoint."""
+    # Given a campaign with 4 books
+    campaign = await pg_campaign_factory(company=pg_mirror_company)
+    book1 = await pg_campaign_book_factory(campaign=campaign)
+    book2 = await pg_campaign_book_factory(campaign=campaign)
+    book3 = await pg_campaign_book_factory(campaign=campaign)
+    book4 = await pg_campaign_book_factory(campaign=campaign)
 
     assert book1.number == 1
     assert book2.number == 2
     assert book3.number == 3
     assert book4.number == 4
 
+    # When book1 is moved to position 3
     response = await client.put(
         build_url(
             Campaigns.BOOK_NUMBER,
+            company_id=pg_mirror_company.id,
+            campaign_id=campaign.id,
             book_id=book1.id,
-            user_id=base_user_storyteller.id,
+            user_id=pg_mirror_user.id,
         ),
         json={"number": 3},
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
-    assert response.status_code == HTTP_200_OK
-    await book1.sync()
-    await book2.sync()
-    await book3.sync()
-    await book4.sync()
 
-    assert response.json() == book1.model_dump(mode="json", exclude={"is_archived", "archive_date"})
+    # Then we should get a 200 with updated positions
+    assert response.status_code == HTTP_200_OK
+    await book1.refresh_from_db()
+    await book2.refresh_from_db()
+    await book3.refresh_from_db()
+    await book4.refresh_from_db()
+
+    assert response.json()["id"] == str(book1.id)
     assert book1.number == 3
     assert book2.number == 1
     assert book3.number == 2

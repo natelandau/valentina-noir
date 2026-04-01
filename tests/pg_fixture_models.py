@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.db.sql_models.company import Company
@@ -288,3 +288,81 @@ async def pg_campaign_experience_factory():
     for experience in created:
         with contextlib.suppress(Exception):
             await experience.delete()
+
+
+@pytest.fixture
+async def pg_campaign_book_factory():
+    """Return a factory that creates Tortoise CampaignBook instances.
+
+    CampaignBook is non-constant data, so the per-test cleanup handles deletion.
+    Auto-assigns number by counting active siblings + 1.
+    """
+    created: list[CampaignBook] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CampaignBook:
+        nonlocal _counter
+        _counter += 1
+        campaign_id = kwargs.get("campaign_id") or kwargs.get("campaign")
+        if campaign_id and hasattr(campaign_id, "id"):
+            campaign_id = campaign_id.id
+
+        if "number" not in kwargs and campaign_id:
+            count = await CampaignBook.filter(campaign_id=campaign_id, is_archived=False).count()
+            kwargs["number"] = count + 1
+        elif "number" not in kwargs:
+            kwargs["number"] = _counter
+
+        defaults: dict[str, Any] = {
+            "name": f"Test Book {_counter}",
+        }
+        defaults.update(kwargs)
+        book = await CampaignBook.create(**defaults)
+        book = await CampaignBook.get(id=str(book.id))
+        created.append(book)
+        return book
+
+    yield _factory
+
+    for book in created:
+        with contextlib.suppress(Exception):
+            await book.delete()
+
+
+@pytest.fixture
+async def pg_campaign_chapter_factory():
+    """Return a factory that creates Tortoise CampaignChapter instances.
+
+    CampaignChapter is non-constant data, so the per-test cleanup handles deletion.
+    Auto-assigns number by counting active siblings + 1.
+    """
+    created: list[CampaignChapter] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CampaignChapter:
+        nonlocal _counter
+        _counter += 1
+        book_id = kwargs.get("book_id") or kwargs.get("book")
+        if book_id and hasattr(book_id, "id"):
+            book_id = book_id.id
+
+        if "number" not in kwargs and book_id:
+            count = await CampaignChapter.filter(book_id=book_id, is_archived=False).count()
+            kwargs["number"] = count + 1
+        elif "number" not in kwargs:
+            kwargs["number"] = _counter
+
+        defaults: dict[str, Any] = {
+            "name": f"Test Chapter {_counter}",
+        }
+        defaults.update(kwargs)
+        chapter = await CampaignChapter.create(**defaults)
+        chapter = await CampaignChapter.get(id=str(chapter.id))
+        created.append(chapter)
+        return chapter
+
+    yield _factory
+
+    for chapter in created:
+        with contextlib.suppress(Exception):
+            await chapter.delete()

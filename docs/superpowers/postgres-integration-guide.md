@@ -99,16 +99,20 @@ Available factories:
 - `pg_developer_company_permission_factory` — creates `DeveloperCompanyPermission` rows, auto-cleaned
 - `pg_user_factory` — creates Tortoise `User` instances, auto-cleaned
 - `pg_campaign_factory` — creates Tortoise `Campaign` instances (for FK resolution in experience tests), auto-cleaned
+- `pg_campaign_book_factory` — creates Tortoise `CampaignBook` instances, auto-assigns number
+- `pg_campaign_chapter_factory` — creates Tortoise `CampaignChapter` instances, auto-assigns number
 - `pg_campaign_experience_factory` — creates Tortoise `CampaignExperience` instances, auto-cleaned
 
 Add new factories here as domains migrate. Non-constant data factories (companies, users, characters, etc.) don't need self-cleanup because `cleanup_pg_database` handles those tables.
 
-### Bridge Fixtures (Session 6)
+### Bridge Fixtures (Session 6+)
 
 - `pg_mirror_user` — creates Tortoise User mirroring Beanie `base_user`
 - `pg_mirror_user_storyteller` — storyteller role variant
 - `pg_mirror_user_admin` — admin role variant
 - `pg_mirror_campaign` — creates Tortoise Campaign mirroring Beanie `base_campaign`
+
+The `_patch_pg_bridge` fixture patches `CampaignController`, `CampaignBookController`, and `CampaignChapterController` in addition to the Session 5-6 controllers.
 
 ### Archive Handler Bridge (User Domain)
 
@@ -211,7 +215,8 @@ This is a temporary bridge pattern — it will be removed when the auth middlewa
 | 4 | Complete | Constants domain migration (dictionary) |
 | 5 | Complete | Company and Developer domain migration |
 | 6 | Complete | User domain migration |
-| 7-9 | Pending | Domain migrations (campaign, character, supporting) |
+| 7 | Complete | Campaign domain migration |
+| 8-9 | Pending | Domain migrations (character, supporting) |
 | 10 | Pending | Handlers, DI, middleware, CLI cleanup |
 | 11 | Pending | Remove MongoDB |
 | 12 | Pending | Post-migration cleanup |

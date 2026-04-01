@@ -1,22 +1,17 @@
 """Idempotency middleware tests."""
 
-from __future__ import annotations
-
 import uuid
-from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 import pytest
+from httpx import AsyncClient
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_409_CONFLICT
 
 from vapi.constants import IDEMPOTENCY_KEY_HEADER, IGNORE_RATE_LIMIT_HEADER_KEY
+from vapi.db.sql_models.company import Company as PgCompany
+from vapi.db.sql_models.developer import Developer as PgDeveloper
+from vapi.db.sql_models.user import User as PgUser
 from vapi.domain.urls import Campaigns
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from httpx import AsyncClient
-
-    from vapi.db.models import User
 
 pytestmark = pytest.mark.anyio
 
@@ -29,7 +24,10 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        base_user_storyteller: User,
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_admin: PgDeveloper,
+        pg_mirror_user_storyteller: PgUser,
+        neutralize_after_response_hook: None,
     ) -> None:
         """Verify POST requests with same idempotency key and body return cached response."""
         # Given an idempotency key and a fixed request body
@@ -40,23 +38,20 @@ class TestIdempotencyMiddleware:
             IGNORE_RATE_LIMIT_HEADER_KEY: "true",
         }
         request_body = {"name": "Test Campaign Idempotent", "description": "Test"}
+        url = build_url(
+            Campaigns.CREATE,
+            company_id=pg_mirror_company.id,
+            user_id=pg_mirror_user_storyteller.id,
+        )
 
         # When making a POST request
-        response1 = await client.post(
-            build_url(Campaigns.CREATE, user_id=base_user_storyteller.id),
-            headers=headers,
-            json=request_body,
-        )
+        response1 = await client.post(url, headers=headers, json=request_body)
 
         # Then it should succeed
         assert response1.status_code == HTTP_201_CREATED
 
         # When making another POST with same idempotency key and same body
-        response2 = await client.post(
-            build_url(Campaigns.CREATE, user_id=base_user_storyteller.id),
-            headers=headers,
-            json=request_body,
-        )
+        response2 = await client.post(url, headers=headers, json=request_body)
 
         # Then it should return the cached response
         assert response2.status_code == HTTP_201_CREATED
@@ -68,7 +63,10 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        base_user_storyteller: User,
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_admin: PgDeveloper,
+        pg_mirror_user_storyteller: PgUser,
+        neutralize_after_response_hook: None,
     ) -> None:
         """Verify POST requests with same idempotency key but different body raise ConflictError."""
         # Given an idempotency key
@@ -78,12 +76,15 @@ class TestIdempotencyMiddleware:
             IDEMPOTENCY_KEY_HEADER: idempotency_key,
             IGNORE_RATE_LIMIT_HEADER_KEY: "true",
         }
+        url = build_url(
+            Campaigns.CREATE,
+            company_id=pg_mirror_company.id,
+            user_id=pg_mirror_user_storyteller.id,
+        )
 
         # When making a POST request with a body
         response1 = await client.post(
-            build_url(Campaigns.CREATE, user_id=base_user_storyteller.id),
-            headers=headers,
-            json={"name": "Campaign One", "description": "First"},
+            url, headers=headers, json={"name": "Campaign One", "description": "First"}
         )
 
         # Then it should succeed
@@ -91,9 +92,7 @@ class TestIdempotencyMiddleware:
 
         # When making another POST with same idempotency key but DIFFERENT body
         response2 = await client.post(
-            build_url(Campaigns.CREATE, user_id=base_user_storyteller.id),
-            headers=headers,
-            json={"name": "Campaign Two", "description": "Second"},
+            url, headers=headers, json={"name": "Campaign Two", "description": "Second"}
         )
 
         # Then it should return a 409 Conflict error
@@ -105,7 +104,10 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        base_user_storyteller: User,
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_admin: PgDeveloper,
+        pg_mirror_user_storyteller: PgUser,
+        neutralize_after_response_hook: None,
     ) -> None:
         """Verify POST requests without idempotency header create new resources each time."""
         # Given headers without an idempotency key
@@ -113,10 +115,15 @@ class TestIdempotencyMiddleware:
             **token_company_admin,
             IGNORE_RATE_LIMIT_HEADER_KEY: "true",
         }
+        url = build_url(
+            Campaigns.CREATE,
+            company_id=pg_mirror_company.id,
+            user_id=pg_mirror_user_storyteller.id,
+        )
 
         # When making a POST request
         response1 = await client.post(
-            build_url(Campaigns.CREATE, user_id=base_user_storyteller.id),
+            url,
             headers=headers,
             json={"name": f"Test Campaign {uuid.uuid4()}", "description": "Test"},
         )
@@ -126,7 +133,7 @@ class TestIdempotencyMiddleware:
 
         # When making another POST without the idempotency header
         response2 = await client.post(
-            build_url(Campaigns.CREATE, user_id=base_user_storyteller.id),
+            url,
             headers=headers,
             json={"name": f"Test Campaign {uuid.uuid4()}", "description": "Test 2"},
         )
@@ -140,6 +147,10 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
+        neutralize_after_response_hook: None,
     ) -> None:
         """Verify GET requests ignore the idempotency header entirely."""
         # Given an idempotency key on a GET request
@@ -151,7 +162,14 @@ class TestIdempotencyMiddleware:
         }
 
         # When making a GET request
-        response = await client.get(build_url(Campaigns.LIST), headers=headers)
+        response = await client.get(
+            build_url(
+                Campaigns.LIST,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+            ),
+            headers=headers,
+        )
 
         # Then it should succeed (middleware skips GET requests)
         assert response.status_code == HTTP_200_OK

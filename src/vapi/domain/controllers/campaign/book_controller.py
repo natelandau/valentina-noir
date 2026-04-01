@@ -1,25 +1,28 @@
 """Campaign book controller."""
 
-from __future__ import annotations
-
+import asyncio
 from typing import Annotated
 
+import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.db.models import Campaign, CampaignBook
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.campaign import Campaign, CampaignBook
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard
 from vapi.openapi.tags import APITags
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import docs, dto
+from . import docs
+from .dto import (
+    BookChapterNumber,
+    CampaignBookCreate,
+    CampaignBookPatch,
+    CampaignBookResponse,
+)
 from .guards import user_can_manage_campaign
 
 
@@ -28,14 +31,13 @@ class CampaignBookController(Controller):
 
     tags = [APITags.CAMPAIGN_BOOKS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
-        "book": Provide(deps.provide_campaign_book_by_id),
-        "note": Provide(deps.provide_note_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "campaign": Provide(pg_deps.provide_campaign_by_id),
+        "book": Provide(pg_deps.provide_campaign_book_by_id),
+        "developer": Provide(pg_deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = dto.BookDTO
+    guards = [pg_developer_company_user_guard]
 
     @get(
         path=urls.Campaigns.BOOKS,
@@ -50,15 +52,19 @@ class CampaignBookController(Controller):
         campaign: Campaign,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[CampaignBook]:
+    ) -> OffsetPagination[CampaignBookResponse]:
         """List all books."""
-        query = {
-            "campaign_id": campaign.id,
-            "is_archived": False,
-        }
-        count = await CampaignBook.find(query).count()
-        books = await CampaignBook.find(query).skip(offset).limit(limit).sort("number").to_list()
-        return OffsetPagination[CampaignBook](items=books, limit=limit, offset=offset, total=count)
+        qs = CampaignBook.filter(campaign_id=campaign.id, is_archived=False)
+        count, books = await asyncio.gather(
+            qs.count(),
+            qs.order_by("number").offset(offset).limit(limit),
+        )
+        return OffsetPagination(
+            items=[CampaignBookResponse.from_model(b) for b in books],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.Campaigns.BOOK_DETAIL,
@@ -67,9 +73,9 @@ class CampaignBookController(Controller):
         description=docs.GET_BOOK_DESCRIPTION,
         cache=True,
     )
-    async def get_book(self, *, book: CampaignBook) -> CampaignBook:
+    async def get_book(self, *, book: CampaignBook) -> CampaignBookResponse:
         """Get a book by ID."""
-        return book
+        return CampaignBookResponse.from_model(book)
 
     @post(
         path=urls.Campaigns.BOOK_CREATE,
@@ -77,19 +83,21 @@ class CampaignBookController(Controller):
         operation_id="createCampaignBook",
         description=docs.CREATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        dto=dto.PostBookDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def create_book(self, *, campaign: Campaign, data: DTOData[CampaignBook]) -> CampaignBook:
+    async def create_book(
+        self, *, campaign: Campaign, data: CampaignBookCreate
+    ) -> CampaignBookResponse:
         """Create a book."""
         service = CampaignService()
         number = await service.get_next_book_number(campaign)
-
-        book_data = data.create_instance(campaign_id=campaign.id, number=number)
-        book = CampaignBook(**book_data.model_dump(exclude_unset=True))
-        await book.save()
-
-        return book
+        book = await CampaignBook.create(
+            name=data.name,
+            description=data.description,
+            campaign=campaign,
+            number=number,
+        )
+        return CampaignBookResponse.from_model(book)
 
     @patch(
         path=urls.Campaigns.BOOK_UPDATE,
@@ -97,18 +105,18 @@ class CampaignBookController(Controller):
         operation_id="updateCampaignBook",
         description=docs.UPDATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        dto=dto.PatchBookDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_book(self, book: CampaignBook, data: DTOData[CampaignBook]) -> CampaignBook:
+    async def update_book(
+        self, book: CampaignBook, data: CampaignBookPatch
+    ) -> CampaignBookResponse:
         """Update a book by ID."""
-        updated_book = data.update_instance(book)
-        try:
-            await updated_book.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
-        return updated_book
+        if not isinstance(data.name, msgspec.UnsetType):
+            book.name = data.name
+        if not isinstance(data.description, msgspec.UnsetType):
+            book.description = data.description
+        await book.save()
+        return CampaignBookResponse.from_model(book)
 
     @delete(
         path=urls.Campaigns.BOOK_DELETE,
@@ -132,10 +140,9 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def renumber_book(
-        self, book: CampaignBook, data: dto.BookChapterNumberDTO
-    ) -> CampaignBook:
+        self, book: CampaignBook, data: BookChapterNumber
+    ) -> CampaignBookResponse:
         """Renumber a book by ID."""
         service = CampaignService()
-        await service.renumber_books(book=book, new_number=data.number)
-
-        return book
+        book = await service.renumber_books(book=book, new_number=data.number)
+        return CampaignBookResponse.from_model(book)
