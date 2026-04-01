@@ -32,6 +32,7 @@ duty dev-setup                # Initialize development environment
 
 - **Never commit plans, designs, or implementation specs.** These are working documents only - do not stage or commit them to the repository.
 - **Work on branches, not worktrees.** All development is done on git branches in the main repo checkout unless the user gives explicit instructions to use worktrees.
+- **Never delete git tags.** Session checkpoint tags (e.g., `session-1-done`) and release tags must not be deleted, moved, or force-updated. This applies to all agents and subagents — no agent should run `git tag -d`, `git tag -f`, or any command that removes or overwrites an existing tag.
 
 ## Architecture
 

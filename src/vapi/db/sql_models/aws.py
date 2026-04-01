@@ -1,4 +1,4 @@
-"""S3 asset model — file/media storage references."""
+"""S3 asset model -file/media storage references."""
 
 from __future__ import annotations
 

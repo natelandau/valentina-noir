@@ -1,4 +1,4 @@
-"""Quick roll model — saved dice roll templates."""
+"""Quick roll model -saved dice roll templates."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Note model — attached to various parent entities."""
+"""Note model -attached to various parent entities."""
 
 from __future__ import annotations
 

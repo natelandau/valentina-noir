@@ -1,5 +1,5 @@
 # ============================================================
-# Stage 1: Builder — install dependencies and compile
+# Stage 1: Builder - install dependencies and compile
 # ============================================================
 FROM ghcr.io/astral-sh/uv:0.11.2-python3.13-trixie-slim AS builder
 
@@ -21,7 +21,7 @@ COPY src/ ./src/
 RUN uv sync --locked --no-dev --no-cache
 
 # ============================================================
-# Stage 2: Runtime — lean production image
+# Stage 2: Runtime - lean production image
 # ============================================================
 FROM python:3.13-slim-trixie
 

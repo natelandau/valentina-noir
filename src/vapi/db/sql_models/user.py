@@ -31,7 +31,7 @@ class User(BaseModel):
     lifetime_xp = fields.IntField(default=0)
     lifetime_cool_points = fields.IntField(default=0)
 
-    # OAuth profiles — opaque JSON blobs
+    # OAuth profiles -opaque JSON blobs
     google_profile: Any = fields.JSONField(null=True)
     github_profile: Any = fields.JSONField(null=True)
     discord_profile: Any = fields.JSONField(null=True)

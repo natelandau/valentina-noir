@@ -1,4 +1,4 @@
-"""Audit log model — API request tracking."""
+"""Audit log model -API request tracking."""
 
 from __future__ import annotations
 

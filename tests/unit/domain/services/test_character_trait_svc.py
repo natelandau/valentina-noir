@@ -3644,7 +3644,7 @@ class TestBulkAddConstantTraitsToCharacter:
         ).to_list()
 
         # Create items that will collectively exceed available XP
-        # Use value=1 with XP currency — each costs initial_cost
+        # Use value=1 with XP currency -each costs initial_cost
         items = [
             CharacterTraitAddConstant(trait_id=t.id, value=1, currency=TraitModifyCurrency.XP)
             for t in traits[:10]

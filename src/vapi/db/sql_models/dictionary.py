@@ -1,4 +1,4 @@
-"""Dictionary term model — game terminology."""
+"""Dictionary term model -game terminology."""
 
 from __future__ import annotations
 

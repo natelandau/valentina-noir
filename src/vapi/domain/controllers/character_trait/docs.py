@@ -58,7 +58,7 @@ Remove a trait from a character.
 BULK_ASSIGN_TRAITS_DESCRIPTION = """\
 Assign multiple traits to a character in a single request.
 
-Accepts a list of trait assignments, each with a `trait_id`, `value`, and `currency`. Each trait is processed independently with best-effort semantics — successful assignments are saved and failed ones are reported with error details.
+Accepts a list of trait assignments, each with a `trait_id`, `value`, and `currency`. Each trait is processed independently with best-effort semantics -successful assignments are saved and failed ones are reported with error details.
 
 The response contains `succeeded` and `failed` lists. Retry only the failed items.
 

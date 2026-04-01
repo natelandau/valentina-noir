@@ -12,7 +12,7 @@ from pymongo import AsyncMongoClient
 from redis.asyncio import Redis
 from tortoise import Tortoise
 
-from vapi.cli.bootstrap import bootstrap_async
+from vapi.cli.bootstrap import bootstrap_async, pg_bootstrap_async
 from vapi.config import settings
 from vapi.db.models import (
     AuditLog,
@@ -234,9 +234,78 @@ async def init_test_postgres(
     await Tortoise.init(config=config)
     await Tortoise.generate_schemas(safe=True)
 
+    # Bootstrap PostgreSQL with constants (mirrors MongoDB bootstrap above)
+    await pg_bootstrap_async()
+
     yield
 
     await Tortoise.close_connections()
+
+
+# Tables that hold non-constant data created by tests. Truncated after each test
+# to prevent data leaks. Constant tables (char_sheet_section, trait_category, etc.)
+# are seeded once at session scope and preserved.
+# Non-constant PG tables that tests may write to. Quoted to handle reserved words
+# like "user". Constant tables (char_sheet_section, trait_category, trait,
+# vampire_clan, werewolf_auspice, werewolf_tribe, character_concept,
+# dictionary_term, and their M2M junction tables) are seeded once at session scope
+# and excluded from cleanup.
+#
+# IMPORTANT: Only these tables are listed - not constant tables. We deliberately
+# avoid CASCADE because it would wipe constant tables that have nullable FK
+# relationships to these tables (e.g., character_concept.company_id). Instead,
+# we list only the tables that tests actually write to, and TRUNCATE them together
+# in a single statement (PostgreSQL handles FK ordering within a multi-table TRUNCATE).
+_PG_CLEANUP_TABLES = [
+    '"audit_log"',
+    '"chargen_session_characters"',
+    '"chargen_session"',
+    '"note"',
+    '"s3_asset"',
+    '"dice_roll"',
+    '"quick_roll"',
+    '"character_trait"',
+    '"character_inventory"',
+    '"specialty"',
+    '"vampire_attributes"',
+    '"werewolf_attributes"',
+    '"mage_attributes"',
+    '"hunter_attributes"',
+    '"character"',
+    '"campaign_chapter"',
+    '"campaign_book"',
+    '"campaign"',
+    '"campaign_experience"',
+    '"company_settings"',
+    '"developer_company_permission"',
+    '"developer"',
+    '"user"',
+    '"company"',
+]
+
+
+async def _cleanup_non_constant_pg_data() -> None:
+    """Delete all non-constant data from PostgreSQL tables.
+
+    Constant data (traits, sections, clans, etc.) is preserved. Uses DELETE (not
+    TRUNCATE) to avoid CASCADE side effects on constant tables that have nullable FK
+    relationships to these tables. Tables are ordered children-first so FK constraints
+    are satisfied.
+    """
+    conn = Tortoise.get_connection("default")
+    for table in _PG_CLEANUP_TABLES:
+        await conn.execute_query(f"DELETE FROM {table}")  # noqa: S608
+
+
+@pytest.fixture(autouse=True)
+async def cleanup_pg_database() -> AsyncGenerator[None]:
+    """Cleanup non-constant PostgreSQL data after each test.
+
+    Mirrors the MongoDB cleanup_database fixture pattern - truncates all non-constant
+    tables after each test to prevent data leaks between tests.
+    """
+    yield
+    await _cleanup_non_constant_pg_data()
 
 
 @pytest.fixture(name="redis", autouse=True)

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from tortoise import fields
+from tortoise.contrib.postgres.fields import ArrayField
 
 from vapi.constants import WerewolfRenown
 from vapi.db.sql_models.base import BaseModel
@@ -20,7 +21,9 @@ class VampireClan(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     bane_name = fields.CharField(max_length=50, null=True)
     bane_description = fields.TextField(null=True)
     variant_bane_name = fields.CharField(max_length=50, null=True)
@@ -48,7 +51,9 @@ class WerewolfAuspice(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     link = fields.TextField(null=True)
 
     # M2M
@@ -70,7 +75,9 @@ class WerewolfTribe(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     renown = fields.CharEnumField(WerewolfRenown)
     patron_spirit = fields.TextField(null=True)
     favor = fields.TextField(null=True)

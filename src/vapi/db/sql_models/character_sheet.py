@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from tortoise import fields
+from tortoise.contrib.postgres.fields import ArrayField
 
 from vapi.constants import HunterEdgeType, WerewolfRenown
 from vapi.db.sql_models.base import BaseModel
@@ -22,8 +23,12 @@ class CharSheetSection(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    character_classes: Any = fields.JSONField(default=list, validators=[validate_character_classes])
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    character_classes = ArrayField(
+        element_type="text", default=list, validators=[validate_character_classes]
+    )
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     show_when_empty = fields.BooleanField(default=False)
     order = fields.IntField(default=0)
 
@@ -43,8 +48,12 @@ class TraitCategory(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    character_classes: Any = fields.JSONField(default=list, validators=[validate_character_classes])
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    character_classes = ArrayField(
+        element_type="text", default=list, validators=[validate_character_classes]
+    )
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     show_when_empty = fields.BooleanField(default=False)
     order = fields.IntField(default=0)
     initial_cost = fields.IntField(default=0)
@@ -75,8 +84,12 @@ class TraitSubcategory(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    character_classes: Any = fields.JSONField(default=list, validators=[validate_character_classes])
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    character_classes = ArrayField(
+        element_type="text", default=list, validators=[validate_character_classes]
+    )
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     show_when_empty = fields.BooleanField(default=False)
     initial_cost = fields.IntField(default=0)
     upgrade_cost = fields.IntField(default=0)
@@ -120,8 +133,12 @@ class Trait(BaseModel):
 
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
-    character_classes: Any = fields.JSONField(default=list, validators=[validate_character_classes])
-    game_versions: Any = fields.JSONField(default=list, validators=[validate_game_versions])
+    character_classes = ArrayField(
+        element_type="text", default=list, validators=[validate_character_classes]
+    )
+    game_versions = ArrayField(
+        element_type="text", default=list, validators=[validate_game_versions]
+    )
     link = fields.TextField(null=True)
     show_when_zero = fields.BooleanField(default=False)
     max_value = fields.IntField(default=5)
