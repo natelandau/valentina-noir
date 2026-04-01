@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import msgspec
+from tortoise.exceptions import NoValuesFetched
 
 from vapi.constants import CompanyPermission
 
@@ -58,7 +59,7 @@ class CompanyResponse(msgspec.Struct):
         """
         try:
             settings = CompanySettingsResponse.from_model(m.settings)
-        except Exception:  # noqa: BLE001
+        except (AttributeError, NoValuesFetched):
             settings = None
 
         return cls(

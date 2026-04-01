@@ -1,37 +1,23 @@
-"""Test user."""
-
-from __future__ import annotations
+"""Test Discord OAuth utility."""
 
 import datetime
 
-import pytest
-
-from vapi.db.models.user import DiscordOauth, User
-
-pytestmark = pytest.mark.anyio
+from vapi.utils.discord import is_discord_oauth_expired
 
 
-async def test_user_not_expired(base_user: User) -> None:
-    """Test the user computed fields."""
-    base_user.discord_oauth = DiscordOauth()
-    expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1)
+class TestDiscordOauthExpired:
+    """Test is_discord_oauth_expired utility."""
 
-    base_user.discord_oauth.expires_at = expires_at.timestamp()
-    assert base_user.discord_oauth.expires_at is not None
-    assert base_user.is_discord_oauth_expired() is False
+    def test_not_expired(self) -> None:
+        """Verify non-expired OAuth returns False."""
+        expires_at = (datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1)).timestamp()
+        assert is_discord_oauth_expired({"expires_at": expires_at}) is False
 
+    def test_expired(self) -> None:
+        """Verify expired OAuth returns True."""
+        expires_at = (datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)).timestamp()
+        assert is_discord_oauth_expired({"expires_at": expires_at}) is True
 
-async def test_user_expired(base_user: User) -> None:
-    """Test the user computed fields."""
-    base_user.discord_oauth = DiscordOauth()
-    expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=-1)
-
-    base_user.discord_oauth.expires_at = expires_at.timestamp()
-    assert base_user.discord_oauth.expires_at is not None
-    assert base_user.is_discord_oauth_expired() is True
-
-
-async def test_user_expired_none(base_user: User) -> None:
-    """Test the user computed fields."""
-    base_user.discord_oauth = DiscordOauth()
-    assert base_user.is_discord_oauth_expired() is False
+    def test_none(self) -> None:
+        """Verify None OAuth returns False."""
+        assert is_discord_oauth_expired(None) is False

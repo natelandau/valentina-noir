@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from vapi.db.sql_models.validators import (
     validate_character_classes,
@@ -30,7 +31,7 @@ class TestValidateCharacterClasses:
         value = ["VAMPIRE", "INVALID_CLASS"]
 
         # When/Then validation raises ValueError
-        with pytest.raises(ValueError, match="Invalid character class: INVALID_CLASS"):
+        with pytest.raises(TortoiseValidationError, match="Invalid character class: INVALID_CLASS"):
             validate_character_classes(value)
 
     def test_empty_list_passes(self) -> None:
@@ -56,7 +57,7 @@ class TestValidateGameVersions:
         value = ["V4", "V99"]
 
         # When/Then validation raises ValueError
-        with pytest.raises(ValueError, match="Invalid game version: V99"):
+        with pytest.raises(TortoiseValidationError, match="Invalid game version: V99"):
             validate_game_versions(value)
 
     def test_empty_list_passes(self) -> None:
@@ -78,7 +79,7 @@ class TestCompanySettingsValidators:
     def test_validate_xp_cost_invalid(self, value: int) -> None:
         """Verify out-of-range xp cost values raise ValueError."""
         # When/Then validation raises ValueError referencing the field name
-        with pytest.raises(ValueError, match="character_autogen_xp_cost"):
+        with pytest.raises(TortoiseValidationError, match="character_autogen_xp_cost"):
             validate_company_settings_xp_cost(value)
 
     @pytest.mark.parametrize("value", [1, 5, 10])
@@ -92,5 +93,5 @@ class TestCompanySettingsValidators:
     def test_validate_num_choices_invalid(self, value: int) -> None:
         """Verify out-of-range num choices values raise ValueError."""
         # When/Then validation raises ValueError referencing the field name
-        with pytest.raises(ValueError, match="character_autogen_num_choices"):
+        with pytest.raises(TortoiseValidationError, match="character_autogen_num_choices"):
             validate_company_settings_num_choices(value)

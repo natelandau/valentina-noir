@@ -10,10 +10,11 @@ from uuid import UUID
 from tortoise.expressions import Q
 from tortoise.models import Model
 
-from vapi.db.models import Company
+from vapi.db.sql_models.campaign import Campaign as PgCampaign
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
+from vapi.db.sql_models.user import User as PgUser
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -181,7 +182,7 @@ async def provide_developer_by_id(developer_id: UUID) -> PgDeveloper:
 
 
 async def provide_dictionary_term_by_id(
-    company: Company, dictionary_term_id: UUID
+    company: PgCompany, dictionary_term_id: UUID
 ) -> DictionaryTerm:
     """Provide a dictionary term by ID, scoped to the requesting company.
 
@@ -193,3 +194,32 @@ async def provide_dictionary_term_by_id(
         Q(company_id=company.id) | Q(company_id__isnull=True),
         doc_id=dictionary_term_id,
     )
+
+
+async def provide_user_by_id_and_company(user_id: UUID, company: PgCompany) -> PgUser:
+    """Provide a Tortoise User by ID, scoped to a company.
+
+    Prefetches campaign_experiences for UserResponse.from_model().
+    """
+    return await _find_or_404(
+        PgUser,
+        "User",
+        Q(company_id=company.id),
+        doc_id=user_id,
+        prefetch=["campaign_experiences"],
+    )
+
+
+async def provide_user_by_id(user_id: UUID) -> PgUser:
+    """Provide a Tortoise User by ID with campaign experiences prefetched."""
+    return await _find_or_404(
+        PgUser,
+        "User",
+        doc_id=user_id,
+        prefetch=["campaign_experiences"],
+    )
+
+
+async def provide_campaign_by_id_for_experience(campaign_id: UUID) -> PgCampaign:
+    """Provide a Tortoise Campaign by ID for experience controller FK resolution."""
+    return await _find_or_404(PgCampaign, "Campaign", doc_id=campaign_id)

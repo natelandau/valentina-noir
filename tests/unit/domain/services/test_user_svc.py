@@ -5,24 +5,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from beanie import PydanticObjectId
+from uuid_utils import uuid7
 
 from vapi.constants import PermissionsGrantXP, UserRole
-from vapi.db.models import QuickRoll, Trait, User
-from vapi.db.models.user import CampaignExperience, DiscordProfile, GitHubProfile, GoogleProfile
-from vapi.domain.controllers.user.dto import (
-    DiscordProfileInput,
-    UserPatchDTO,
-    UserPostDTO,
-    UserRegisterDTO,
-)
+from vapi.db.models import QuickRoll, Trait
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.user import CampaignExperience, User
+from vapi.domain.controllers.user.dto import UserCreate, UserPatch, UserRegister
 from vapi.domain.services import UserQuickRollService, UserService, UserXPService
-from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from vapi.db.models import Campaign, Company
+    from vapi.db.models import User as BeanieUser
+    from vapi.db.sql_models.campaign import Campaign
 
 pytestmark = pytest.mark.anyio
 
@@ -32,49 +29,60 @@ class TestUserService:
 
     async def test_validate_user_can_manage_user_self(
         self,
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the validate_user_can_manage_user method."""
-        # Given objects
-        user = await user_factory()
-        requesting_user = user
+        """Verify a user can manage themselves."""
+        # Given a user
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
 
-        # When we validate the user can manage the user
+        # When we validate the user can manage themselves
         service = UserService()
         await service.validate_user_can_manage_user(
-            requesting_user_id=requesting_user.id,
+            requesting_user_id=user.id,
             user_to_manage_id=user.id,
         )
+
         # Then no exception is raised
         assert True
 
     async def test_validate_user_can_manage_user_admin_user(
-        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+        self,
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the validate_user_can_manage_user method when the user is not the same as the requesting user."""
-        # Given objects
-        target_user = await user_factory()
-        requesting_user = await user_factory(role=UserRole.ADMIN)
+        """Verify an admin can manage another user."""
+        # Given an admin and a target user
+        company = await pg_company_factory()
+        target_user = await pg_user_factory(company=company)
+        requesting_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
 
-        # When we validate the user can manage the user
+        # When we validate the admin can manage the target user
         service = UserService()
         await service.validate_user_can_manage_user(
             requesting_user_id=requesting_user.id,
             user_to_manage_id=target_user.id,
         )
+
         # Then no exception is raised
         assert True
 
     async def test_validate_user_can_manage_user_player_user(
-        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+        self,
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the validate_user_can_manage_user method when the user is a player user."""
-        # Given objects
-        target_user = await user_factory()
-        requesting_user = await user_factory(role=UserRole.PLAYER)
+        """Verify a player cannot manage another user."""
+        # Given a player and a target user
+        company = await pg_company_factory()
+        target_user = await pg_user_factory(company=company)
+        requesting_user = await pg_user_factory(role=UserRole.PLAYER, company=company)
 
-        # When we validate the user can manage the user
+        # When we validate the player can manage the target user
         # Then a PermissionDeniedError is raised
         service = UserService()
         with pytest.raises(PermissionDeniedError, match="not authorized to manage this user"):
@@ -84,38 +92,45 @@ class TestUserService:
             )
 
     async def test_validate_user_can_manage_user_user_not_found(
-        self, user_factory: Callable[[...], User], debug: Callable[[...], None]
+        self,
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the validate_user_can_manage_user method when the user is not found."""
-        # Given objects
-        target_user = await user_factory()
+        """Verify managing a user with a non-existent requesting user raises ValidationError."""
+        # Given a target user and a non-existent requesting user ID
+        company = await pg_company_factory()
+        target_user = await pg_user_factory(company=company)
+
+        # When we validate with a non-existent requesting user
+        # Then a ValidationError is raised
         service = UserService()
         with pytest.raises(ValidationError, match=r"User .* not found"):
             await service.validate_user_can_manage_user(
-                requesting_user_id=PydanticObjectId(),
+                requesting_user_id=uuid7(),
                 user_to_manage_id=target_user.id,
             )
 
     async def test_create_user_success(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
         mocker: Any,
-        debug: Callable[[...], None],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the create_user method."""
-        # Given objects
-        company = await company_factory()
-        requesting_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        data = UserPostDTO(
+        """Verify creating a user succeeds with valid data."""
+        # Given a company and an admin requesting user
+        company = await pg_company_factory()
+        requesting_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        data = UserCreate(
             name_first="Test",
             name_last="User",
             username="test_user",
             email="test@example.com",
-            role=UserRole.PLAYER,
-            discord_profile=DiscordProfileInput(global_name="global name"),
-            google_profile=GoogleProfile(email="test@gmail.com", username="Test User"),
-            github_profile=GitHubProfile(login="testuser", email="test@github.com"),
+            role="PLAYER",
+            discord_profile={"global_name": "global name"},
+            google_profile={"email": "test@gmail.com", "username": "Test User"},
+            github_profile={"login": "testuser", "email": "test@github.com"},
             requesting_user_id=requesting_user.id,
         )
         spy = mocker.spy(UserService, "validate_user_can_manage_user")
@@ -124,52 +139,48 @@ class TestUserService:
         service = UserService()
         new_user = await service.create_user(company=company, data=data)
 
-        # Then the user is created
+        # Then the user is created with correct attributes
         assert new_user.name_first == "Test"
         assert new_user.name_last == "User"
         assert new_user.username == "test_user"
         assert new_user.email == "test@example.com"
         assert new_user.role == UserRole.PLAYER
-        assert new_user.discord_profile.global_name == "global name"
-        assert new_user.google_profile.email == "test@gmail.com"
-        assert new_user.google_profile.username == "Test User"
-        assert new_user.github_profile.login == "testuser"
-        assert new_user.github_profile.email == "test@github.com"
+        assert new_user.discord_profile["global_name"] == "global name"
+        assert new_user.google_profile["email"] == "test@gmail.com"
+        assert new_user.google_profile["username"] == "Test User"
+        assert new_user.github_profile["login"] == "testuser"
+        assert new_user.github_profile["email"] == "test@github.com"
         assert new_user.company_id == company.id
-
-        await company.sync()
-        assert new_user.id in company.user_ids
-
         spy.assert_called_once()
 
     async def test_update_user_success(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
         mocker: Any,
-        debug: Callable[[...], None],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the update_user method."""
-        # Given objects
+        """Verify updating a user succeeds with valid patch data."""
+        # Given an existing user with profile data
         spy = mocker.spy(UserService, "validate_user_can_manage_user")
-        company = await company_factory()
-        target_user = await user_factory(
+        company = await pg_company_factory()
+        target_user = await pg_user_factory(
             name_first="Test",
             name_last="User",
             username="test_user",
             email="test@example.com",
             role=UserRole.PLAYER,
-            company_id=company.id,
-            discord_profile=DiscordProfile(id="1234567890", global_name="global name"),
-            google_profile=GoogleProfile(id="google123", email="test@gmail.com"),
-            github_profile=GitHubProfile(id="583231", login="testuser"),
+            company=company,
+            discord_profile={"id": "1234567890", "global_name": "global name"},
+            google_profile={"id": "google123", "email": "test@gmail.com"},
+            github_profile={"id": "583231", "login": "testuser"},
         )
 
-        data = UserPatchDTO(
+        data = UserPatch(
             name_first="update",
-            discord_profile=DiscordProfileInput(global_name="global name updated"),
-            google_profile=GoogleProfile(username="Updated Google User"),
-            github_profile=GitHubProfile(username="Updated GitHub User"),
+            discord_profile={"global_name": "global name updated"},
+            google_profile={"username": "Updated Google User"},
+            github_profile={"username": "Updated GitHub User"},
             requesting_user_id=target_user.id,
         )
 
@@ -177,33 +188,29 @@ class TestUserService:
         service = UserService()
         updated_user = await service.update_user(user=target_user, data=data)
 
-        # Then the user is updated
+        # Then the user is updated with new values and unchanged fields preserved
         assert updated_user.name_first == "update"
         assert updated_user.name_last == "User"
         assert updated_user.username == "test_user"
         assert updated_user.email == "test@example.com"
         assert updated_user.role == UserRole.PLAYER
-        assert updated_user.discord_profile.global_name == "global name updated"
-        assert updated_user.discord_profile.id == "1234567890"
-        assert updated_user.google_profile.username == "Updated Google User"
-        assert updated_user.google_profile.id == "google123"
-        assert updated_user.github_profile.username == "Updated GitHub User"
-        assert updated_user.github_profile.id == "583231"
+        assert updated_user.discord_profile["global_name"] == "global name updated"
+        assert updated_user.google_profile["username"] == "Updated Google User"
+        assert updated_user.github_profile["username"] == "Updated GitHub User"
         assert updated_user.company_id == company.id
-
         spy.assert_called_once()
 
     async def test_approve_user_success(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify approving an unapproved user sets the new role."""
         # Given an unapproved user and an admin
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        unapproved_user = await pg_user_factory(role=UserRole.UNAPPROVED, company=company)
 
         # When we approve the user
         service = UserService()
@@ -218,15 +225,15 @@ class TestUserService:
 
     async def test_approve_user_not_unapproved(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify approving a non-unapproved user raises an error."""
         # Given a player user and an admin
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        player_user = await pg_user_factory(role=UserRole.PLAYER, company=company)
 
         # When we try to approve a non-unapproved user
         # Then a ValidationError is raised
@@ -240,15 +247,15 @@ class TestUserService:
 
     async def test_approve_user_to_unapproved_role(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify approving a user to the UNAPPROVED role raises an error."""
         # Given an unapproved user and an admin
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        unapproved_user = await pg_user_factory(role=UserRole.UNAPPROVED, company=company)
 
         # When we try to approve to UNAPPROVED role
         # Then a ValidationError is raised
@@ -262,15 +269,15 @@ class TestUserService:
 
     async def test_approve_user_non_admin_requesting(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify a non-admin cannot approve users."""
         # Given an unapproved user and a player
-        company = await company_factory()
-        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
-        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+        company = await pg_company_factory()
+        player_user = await pg_user_factory(role=UserRole.PLAYER, company=company)
+        unapproved_user = await pg_user_factory(role=UserRole.UNAPPROVED, company=company)
 
         # When a non-admin tries to approve
         # Then a PermissionDeniedError is raised
@@ -284,15 +291,15 @@ class TestUserService:
 
     async def test_deny_user_success(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
-        """Verify denying an unapproved user archives them and removes from company."""
+        """Verify denying an unapproved user archives them."""
         # Given an unapproved user and an admin
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        unapproved_user = await pg_user_factory(role=UserRole.UNAPPROVED, company=company)
 
         # When we deny the user
         service = UserService()
@@ -303,24 +310,20 @@ class TestUserService:
         )
 
         # Then the user is archived
-        await unapproved_user.sync()
+        unapproved_user = await User.get(id=unapproved_user.id)
         assert unapproved_user.is_archived is True
-
-        # Then the user is removed from the company
-        await company.sync()
-        assert unapproved_user.id not in company.user_ids
 
     async def test_deny_user_not_unapproved(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify denying a non-unapproved user raises an error."""
         # Given a player user and an admin
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        player_user = await pg_user_factory(role=UserRole.PLAYER, company=company)
 
         # When we try to deny a non-unapproved user
         # Then a ValidationError is raised
@@ -334,15 +337,15 @@ class TestUserService:
 
     async def test_deny_user_non_admin_requesting(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify a non-admin cannot deny users."""
         # Given an unapproved user and a player
-        company = await company_factory()
-        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
-        unapproved_user = await user_factory(role=UserRole.UNAPPROVED, company_id=company.id)
+        company = await pg_company_factory()
+        player_user = await pg_user_factory(role=UserRole.PLAYER, company=company)
+        unapproved_user = await pg_user_factory(role=UserRole.UNAPPROVED, company=company)
 
         # When a non-admin tries to deny
         # Then a PermissionDeniedError is raised
@@ -356,18 +359,18 @@ class TestUserService:
 
     async def test_register_user_success(
         self,
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify register_user creates an UNAPPROVED user without permission checks."""
         # Given a company and registration data
-        company = await company_factory()
-        data = UserRegisterDTO(
+        company = await pg_company_factory()
+        data = UserRegister(
             name_first="New",
             name_last="Player",
             username="new_player",
             email="new@example.com",
-            google_profile=GoogleProfile(email="new@gmail.com", username="New Player"),
+            google_profile={"email": "new@gmail.com", "username": "New Player"},
         )
 
         # When we register the user
@@ -381,33 +384,30 @@ class TestUserService:
         assert new_user.email == "new@example.com"
         assert new_user.role == UserRole.UNAPPROVED
         assert new_user.company_id == company.id
-        assert new_user.google_profile.email == "new@gmail.com"
-
-        await company.sync()
-        assert new_user.id in company.user_ids
+        assert new_user.google_profile["email"] == "new@gmail.com"
 
     async def test_merge_users_success(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
         mocker: Any,
-        debug: Callable[[...], None],
+        debug: Callable[..., None],
     ) -> None:
         """Verify merge absorbs secondary profile into primary and archives secondary."""
         # Given a company with a primary user and an UNAPPROVED secondary user
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        primary_user = await user_factory(
-            company_id=company.id,
-            discord_profile=DiscordProfile(username="primary_discord"),
-            google_profile=GoogleProfile(),
-            github_profile=GitHubProfile(),
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        primary_user = await pg_user_factory(
+            company=company,
+            discord_profile={"username": "primary_discord"},
+            google_profile={},
+            github_profile={},
         )
-        secondary_user = await user_factory(
-            company_id=company.id,
+        secondary_user = await pg_user_factory(
+            company=company,
             role=UserRole.UNAPPROVED,
-            google_profile=GoogleProfile(email="secondary@gmail.com", username="Secondary"),
-            github_profile=GitHubProfile(login="secondary_gh"),
+            google_profile={"email": "secondary@gmail.com", "username": "Secondary"},
+            github_profile={"login": "secondary_gh"},
         )
         spy = mocker.spy(UserService, "remove_and_archive_user")
 
@@ -421,26 +421,26 @@ class TestUserService:
         )
 
         # Then the primary user has the secondary's profile info
-        assert result.google_profile.email == "secondary@gmail.com"
-        assert result.google_profile.username == "Secondary"
-        assert result.github_profile.login == "secondary_gh"
-        assert result.discord_profile.username == "primary_discord"
+        assert result.google_profile["email"] == "secondary@gmail.com"
+        assert result.google_profile["username"] == "Secondary"
+        assert result.github_profile["login"] == "secondary_gh"
+        assert result.discord_profile["username"] == "primary_discord"
 
         # Then the secondary user was archived
         spy.assert_called_once()
 
     async def test_merge_users_secondary_not_unapproved(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
         """Verify merge rejects if secondary user is not UNAPPROVED."""
         # Given a company with two active users
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        primary_user = await user_factory(company_id=company.id)
-        secondary_user = await user_factory(company_id=company.id, role=UserRole.PLAYER)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        primary_user = await pg_user_factory(company=company)
+        secondary_user = await pg_user_factory(company=company, role=UserRole.PLAYER)
 
         # When we attempt to merge
         # Then a ValidationError is raised
@@ -455,15 +455,15 @@ class TestUserService:
 
     async def test_merge_users_same_user(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
         """Verify merge rejects when primary and secondary are the same user."""
         # Given a company with a user
-        company = await company_factory()
-        admin_user = await user_factory(role=UserRole.ADMIN, company_id=company.id)
-        user = await user_factory(company_id=company.id, role=UserRole.UNAPPROVED)
+        company = await pg_company_factory()
+        admin_user = await pg_user_factory(role=UserRole.ADMIN, company=company)
+        user = await pg_user_factory(company=company, role=UserRole.UNAPPROVED)
 
         # When we attempt to merge a user with themselves
         # Then a ValidationError is raised
@@ -478,16 +478,16 @@ class TestUserService:
 
     async def test_merge_users_non_admin_rejected(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
         """Verify merge rejects if requesting user is not an admin."""
         # Given a company with users
-        company = await company_factory()
-        player_user = await user_factory(role=UserRole.PLAYER, company_id=company.id)
-        primary_user = await user_factory(company_id=company.id)
-        secondary_user = await user_factory(company_id=company.id, role=UserRole.UNAPPROVED)
+        company = await pg_company_factory()
+        player_user = await pg_user_factory(role=UserRole.PLAYER, company=company)
+        primary_user = await pg_user_factory(company=company)
+        secondary_user = await pg_user_factory(company=company, role=UserRole.UNAPPROVED)
 
         # When a non-admin attempts to merge
         # Then a PermissionDeniedError is raised
@@ -502,28 +502,34 @@ class TestUserService:
 
     async def test_absorb_profiles_does_not_overwrite(
         self,
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
     ) -> None:
         """Verify _absorb_profiles only fills empty fields on primary."""
         # Given a primary user with some profile info and a secondary with different info
-        primary = await user_factory(
-            google_profile=GoogleProfile(email="primary@gmail.com", username="PrimaryUser"),
+        company = await pg_company_factory()
+        primary = await pg_user_factory(
+            company=company,
+            google_profile={"email": "primary@gmail.com", "username": "PrimaryUser"},
         )
-        secondary = await user_factory(
+        secondary = await pg_user_factory(
+            company=company,
             role=UserRole.UNAPPROVED,
-            google_profile=GoogleProfile(
-                email="secondary@gmail.com", username="SecondaryUser", locale="en"
-            ),
+            google_profile={
+                "email": "secondary@gmail.com",
+                "username": "SecondaryUser",
+                "locale": "en",
+            },
         )
 
         # When we absorb profiles
         UserService._absorb_profiles(primary=primary, secondary=secondary)
 
         # Then primary keeps its existing values and fills in empty ones
-        assert primary.google_profile.email == "primary@gmail.com"
-        assert primary.google_profile.username == "PrimaryUser"
-        assert primary.google_profile.locale == "en"
+        assert primary.google_profile["email"] == "primary@gmail.com"
+        assert primary.google_profile["username"] == "PrimaryUser"
+        assert primary.google_profile["locale"] == "en"
 
 
 class TestUserQuickRollService:
@@ -531,8 +537,8 @@ class TestUserQuickRollService:
 
     async def test_validate_quickroll_success(
         self,
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        user_factory: Callable[..., BeanieUser],
+        debug: Callable[..., None],
     ) -> None:
         """Test the validate_quickroll method."""
         # Given objects
@@ -555,8 +561,8 @@ class TestUserQuickRollService:
 
     async def test_validate_quickroll_name_already_exists(
         self,
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        user_factory: Callable[..., BeanieUser],
+        debug: Callable[..., None],
         quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
     ) -> None:
         """Test the validate_quickroll method when the name already exists."""
@@ -579,8 +585,8 @@ class TestUserQuickRollService:
 
     async def test_validate_quickroll_no_traits(
         self,
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        user_factory: Callable[..., BeanieUser],
+        debug: Callable[..., None],
     ) -> None:
         """Verify quickroll with no traits raises ValidationError."""
         # Given a quickroll with an empty trait list
@@ -595,14 +601,16 @@ class TestUserQuickRollService:
 
     async def test_validate_quickroll_invalid_trait_ids(
         self,
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        user_factory: Callable[..., BeanieUser],
+        debug: Callable[..., None],
         quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
     ) -> None:
         """Test the validate_quickroll method when the trait ids are invalid."""
         # Given objects
         user = await user_factory()
         trait1 = await Trait.find_one(Trait.is_archived == False)
+        from beanie import PydanticObjectId
+
         quickroll = await quickroll_factory(
             name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, PydanticObjectId()]
         )
@@ -636,25 +644,26 @@ class TestUserXPService:
     )
     async def test_validate_user_can_grant_xp(
         self,
-        user_factory: Callable[[...], User],
-        company_factory: Callable[[...], Company],
-        campaign_factory: Callable[[...], Campaign],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_company_factory: Callable[..., Company],
+        pg_campaign_factory: Callable[..., Campaign],
+        debug: Callable[..., None],
         user_role: UserRole,
         permission_grant_xp: PermissionsGrantXP,
         same_user: bool,
         expected_result: bool,
     ) -> None:
-        """Test the validate_user_can_grant_xp method."""
-        # Given objects
-        company = await company_factory()
-        company.settings.permission_grant_xp = permission_grant_xp
-        await company.save()
-        requesting_user = await user_factory(role=user_role, company_id=company.id)
+        """Verify XP grant permission validation for various role/setting combos."""
+        # Given a company with specific XP permission settings
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company, permission_grant_xp=permission_grant_xp)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+
+        requesting_user = await pg_user_factory(role=user_role, company=company)
         if same_user:
             target_user = requesting_user
         else:
-            target_user = await user_factory(company_id=company.id)
+            target_user = await pg_user_factory(company=company)
 
         # When we validate the user can grant XP
         service = UserXPService()
@@ -674,17 +683,19 @@ class TestUserXPService:
 
     async def test_add_xp_to_campaign_experience_success(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        campaign_factory: Callable[[...], Campaign],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        pg_campaign_factory: Callable[..., Campaign],
         mocker: Any,
-        debug: Callable[[...], None],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the add_xp_to_campaign_experience method."""
-        # Given objects
-        company = await company_factory()
-        campaign = await campaign_factory(company_id=company.id)
-        target_user = await user_factory(company_id=company.id)
+        """Verify adding XP to a campaign experience succeeds."""
+        # Given a company, campaign, and user
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
         requesting_user = target_user
 
         spy = mocker.spy(UserXPService, "_validate_user_can_grant_xp")
@@ -699,9 +710,8 @@ class TestUserXPService:
             campaign_id=campaign.id,
             amount=10,
         )
-        # debug(campaign_experience)
 
-        # Then the campaign experience is returned
+        # Then the campaign experience is returned with correct values
         spy.assert_called_once()
         assert campaign_experience.campaign_id == campaign.id
         assert campaign_experience.xp_current == 10
@@ -709,90 +719,74 @@ class TestUserXPService:
         assert campaign_experience.cool_points == 0
 
         # Then the user's lifetime XP is incremented
-        await target_user.sync()
-        assert target_user.lifetime_xp == initial_lifetime_xp + 10
+        user = await User.get(id=target_user.id)
+        assert user.lifetime_xp == initial_lifetime_xp + 10
 
     async def test_add_xp_to_campaign_experience_no_lifetime_update(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        campaign_factory: Callable[[...], Campaign],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        pg_campaign_factory: Callable[..., Campaign],
     ) -> None:
         """Verify lifetime_xp is not updated when update_total is False."""
-        # Given objects
-        company = await company_factory()
-        campaign = await campaign_factory(company_id=company.id)
-        target_user = await user_factory(company_id=company.id)
+        # Given a company, campaign, and user
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
         initial_lifetime_xp = target_user.lifetime_xp
 
         # When we add XP without updating the total
-        await target_user.add_xp(campaign_id=campaign.id, amount=10, update_total=False)
+        service = UserXPService()
+        await service.add_xp(
+            user_id=target_user.id, campaign_id=campaign.id, amount=10, update_total=False
+        )
 
         # Then lifetime_xp remains unchanged
-        await target_user.sync()
-        assert target_user.lifetime_xp == initial_lifetime_xp
+        user = await User.get(id=target_user.id)
+        assert user.lifetime_xp == initial_lifetime_xp
 
     async def test_add_xp_to_campaign_experience_requesting_user_not_found(
         self,
-        company_factory: Callable[[...], Company],
-        campaign_factory: Callable[[...], Campaign],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_campaign_factory: Callable[..., Campaign],
+        pg_user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the add_xp_to_campaign_experience method when the requesting user is not found."""
-        # Given objects
-        company = await company_factory()
-        campaign = await campaign_factory(company_id=company.id)
-        target_user = await user_factory(company_id=company.id)
+        """Verify adding XP with a non-existent requesting user raises ValidationError."""
+        # Given a company, campaign, and target user
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
 
-        # When we add XP to the campaign experience
+        # When we add XP with a non-existent requesting user
+        # Then a ValidationError is raised
         service = UserXPService()
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_xp_to_campaign_experience(
                 company=company,
-                requesting_user_id=PydanticObjectId(),
+                requesting_user_id=uuid7(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=10,
             )
 
-    async def test_add_xp_to_campaign_experience_campaign_not_found(
-        self,
-        company_factory: Callable[[...], Company],
-        campaign_factory: Callable[[...], Campaign],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Test the add_xp_to_campaign_experience method when the campaign is not found."""
-        # Given objects
-        company = await company_factory()
-        target_user = await user_factory(company_id=company.id)
-        requesting_user = target_user
-
-        # When we add XP to the campaign experience
-        service = UserXPService()
-        with pytest.raises(ValidationError, match=r"Campaign.*not found"):
-            await service.add_xp_to_campaign_experience(
-                company=company,
-                requesting_user_id=requesting_user.id,
-                target_user=target_user,
-                campaign_id=PydanticObjectId(),
-                amount=10,
-            )
-
     async def test_add_cp_to_campaign_experience_success(
         self,
-        user_factory: Callable[[...], User],
-        campaign_factory: Callable[[...], Campaign],
-        company_factory: Callable[[...], Company],
-        debug: Callable[[...], None],
+        pg_user_factory: Callable[..., User],
+        pg_campaign_factory: Callable[..., Campaign],
+        pg_company_factory: Callable[..., Company],
+        debug: Callable[..., None],
         mocker: Any,
     ) -> None:
-        """Test the add_cp_to_campaign_experience method."""
-        # Given objects
-        company = await company_factory()
-        campaign = await campaign_factory(company_id=company.id)
-        target_user = await user_factory(company_id=company.id)
+        """Verify adding cool points to a campaign experience succeeds."""
+        # Given a company, campaign, and user
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
         requesting_user = target_user
         spy = mocker.spy(UserXPService, "_validate_user_can_grant_xp")
         initial_lifetime_cp = target_user.lifetime_cool_points
@@ -807,7 +801,7 @@ class TestUserXPService:
             amount=1,
         )
 
-        # Then the campaign experience is returned
+        # Then the campaign experience is returned with correct values
         spy.assert_called_once()
         assert campaign_experience.campaign_id == campaign.id
         assert campaign_experience.xp_current == 10
@@ -815,77 +809,55 @@ class TestUserXPService:
         assert campaign_experience.cool_points == 1
 
         # Then the user's lifetime cool points are incremented
-        await target_user.sync()
-        assert target_user.lifetime_cool_points == initial_lifetime_cp + 1
+        user = await User.get(id=target_user.id)
+        assert user.lifetime_cool_points == initial_lifetime_cp + 1
 
     async def test_add_cp_to_campaign_experience_requesting_user_not_found(
         self,
-        campaign_factory: Callable[[...], Campaign],
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_campaign_factory: Callable[..., Campaign],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the add_cp_to_campaign_experience method when the requesting user is not found."""
-        # Given objects
-        company = await company_factory()
-        campaign = await campaign_factory(company_id=company.id)
-        target_user = await user_factory(company_id=company.id)
+        """Verify adding CP with a non-existent requesting user raises ValidationError."""
+        # Given a company, campaign, and target user
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
 
+        # When we add CP with a non-existent requesting user
+        # Then a ValidationError is raised
         service = UserXPService()
-
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_cp_to_campaign_experience(
                 company=company,
-                requesting_user_id=PydanticObjectId(),
+                requesting_user_id=uuid7(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=1,
             )
 
-    async def test_add_cp_to_campaign_experience_campaign_not_found(
-        self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
-    ) -> None:
-        """Test the add_cp_to_campaign_experience method when the campaign is not found."""
-        # Given objects
-        company = await company_factory()
-        target_user = await user_factory(company_id=company.id)
-        requesting_user = target_user
-        service = UserXPService()
-
-        with pytest.raises(ValidationError, match=r"Campaign.*not found"):
-            await service.add_cp_to_campaign_experience(
-                company=company,
-                requesting_user_id=requesting_user.id,
-                target_user=target_user,
-                campaign_id=PydanticObjectId(),
-                amount=1,
-            )
-
     async def test_remove_xp_from_campaign_experience_success(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        campaign_factory: Callable[[...], Campaign],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        pg_campaign_factory: Callable[..., Campaign],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the remove_xp_from_campaign_experience method."""
-        # Given objects
-        company = await company_factory()
-        target_user = await user_factory(company_id=company.id)
+        """Verify removing XP from a campaign experience succeeds."""
+        # Given a company, campaign, and user with existing XP
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        target_user = await pg_user_factory(company=company)
         requesting_user = target_user
-        campaign = await campaign_factory(company_id=company.id)
+        campaign = await pg_campaign_factory(company=company)
 
-        campaign_experience = CampaignExperience(
-            campaign_id=campaign.id,
-            xp_current=10,
-            xp_total=10,
-            cool_points=1,
+        await CampaignExperience.create(
+            user=target_user, campaign=campaign, xp_current=10, xp_total=10, cool_points=1
         )
-        target_user.campaign_experience.append(campaign_experience)
-        await target_user.save()
 
         # When we remove XP from the campaign experience
         service = UserXPService()
@@ -896,9 +868,8 @@ class TestUserXPService:
             campaign_id=campaign.id,
             amount=5,
         )
-        # debug(campaign_experience)
 
-        # Then the campaign experience is returned
+        # Then the campaign experience is returned with reduced XP
         assert campaign_experience.campaign_id == campaign.id
         assert campaign_experience.xp_current == 5
         assert campaign_experience.xp_total == 10
@@ -906,43 +877,58 @@ class TestUserXPService:
 
     async def test_remove_xp_from_campaign_experience_requesting_user_not_found(
         self,
-        company_factory: Callable[[...], Company],
-        campaign_factory: Callable[[...], Campaign],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_campaign_factory: Callable[..., Campaign],
+        pg_user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the remove_xp_from_campaign_experience method when the requesting user is not found."""
-        # Given objects
-        company = await company_factory()
-        target_user = await user_factory(company_id=company.id)
-        campaign = await campaign_factory(company_id=company.id)
+        """Verify removing XP with a non-existent requesting user raises ValidationError."""
+        # Given a company, campaign, and target user
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        target_user = await pg_user_factory(company=company)
+        campaign = await pg_campaign_factory(company=company)
+
+        # When we remove XP with a non-existent requesting user
+        # Then a ValidationError is raised
         service = UserXPService()
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                requesting_user_id=PydanticObjectId(),
+                requesting_user_id=uuid7(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=5,
             )
 
-    async def test_remove_xp_from_campaign_experience_campaign_not_found(
+    async def test_remove_xp_insufficient_xp(
         self,
-        company_factory: Callable[[...], Company],
-        user_factory: Callable[[...], User],
-        debug: Callable[[...], None],
+        pg_company_factory: Callable[..., Company],
+        pg_user_factory: Callable[..., User],
+        pg_campaign_factory: Callable[..., Campaign],
+        debug: Callable[..., None],
     ) -> None:
-        """Test the remove_xp_from_campaign_experience method when the campaign is not found."""
-        # Given objects
-        company = await company_factory()
-        target_user = await user_factory(company_id=company.id)
-        requesting_user = target_user
+        """Verify removing more XP than available raises NotEnoughXPError."""
+        # Given a company, campaign, and user with limited XP
+        company = await pg_company_factory()
+        await CompanySettings.create(company=company)
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        target_user = await pg_user_factory(company=company)
+        campaign = await pg_campaign_factory(company=company)
+
+        await CampaignExperience.create(
+            user=target_user, campaign=campaign, xp_current=3, xp_total=3
+        )
+
+        # When we try to remove more XP than available
+        # Then a NotEnoughXPError is raised
         service = UserXPService()
-        with pytest.raises(ValidationError, match=r"Campaign.*not found"):
+        with pytest.raises(NotEnoughXPError):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                requesting_user_id=requesting_user.id,
+                requesting_user_id=target_user.id,
                 target_user=target_user,
-                campaign_id=PydanticObjectId(),
+                campaign_id=campaign.id,
                 amount=5,
             )

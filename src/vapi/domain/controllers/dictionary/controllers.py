@@ -9,13 +9,13 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 from tortoise.exceptions import ValidationError as TortoiseValidationError
 
-from vapi.db.models import Company
+from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.dictionary import DictionaryTerm
-from vapi.domain import deps, hooks, pg_deps, urls
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DictionaryService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -27,10 +27,10 @@ class DictionaryTermController(Controller):
 
     tags = [APITags.DICTIONARY_TERMS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
         "dictionary_term": Provide(pg_deps.provide_dictionary_term_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [pg_developer_company_user_guard]
 
     @get(
         path=urls.Dictionaries.LIST,

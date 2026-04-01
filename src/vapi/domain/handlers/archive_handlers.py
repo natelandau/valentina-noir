@@ -5,6 +5,7 @@ Used to handle the archiving of various models and their associated data.
 
 import asyncio
 import logging
+from typing import Any
 
 from beanie import PydanticObjectId
 from beanie.operators import In, Set
@@ -158,6 +159,26 @@ class UserArchiveHandler:
                 "num_s3_assets_archived": num_s3_assets_archived,
             },
         )
+
+
+async def archive_user_cascade(user_id: PydanticObjectId | Any) -> None:
+    """Archive data owned by a user without touching the User record itself.
+
+    Bridge function for the Beanie-to-Tortoise migration period: the User record
+    is archived by the Tortoise service, then this function cascades archival
+    to QuickRoll, S3Asset, and Character (all still in MongoDB).
+
+    Args:
+        user_id: The user's ID (UUID from Tortoise or ObjectId from Beanie).
+    """
+    await QuickRoll.find(QuickRoll.user_id == user_id).update_many(
+        Set({QuickRoll.is_archived: True})
+    )
+
+    await archive_s3_assets(AssetParentType.USER, [user_id])
+
+    for character in await Character.find(Character.user_player_id == user_id).to_list():
+        await CharacterArchiveHandler(character=character).handle()
 
 
 class CompanyArchiveHandler:

@@ -82,7 +82,9 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         if settings.saq.enabled:
             app_config.plugins.append(plugins.saq)
 
-        app_config.type_encoders = {PydanticObjectId: str}
+        from uuid_utils import UUID as UUID_UTILS_UUID
+
+        app_config.type_encoders = {PydanticObjectId: str, UUID_UTILS_UUID: str}
         app_config.type_decoders = [
             (
                 DecodePydanticObjectId.is_pydantic_object_id,

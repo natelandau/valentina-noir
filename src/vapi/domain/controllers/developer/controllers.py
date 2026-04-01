@@ -80,6 +80,6 @@ class DeveloperController(Controller):
         # Re-fetch with prefetched relations so the response DTO has full data
         developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
-        )  # type: ignore[assignment]
+        )
 
         return DeveloperResponse.from_model(developer)

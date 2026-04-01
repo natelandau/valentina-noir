@@ -1,19 +1,19 @@
 """Experience controller."""
 
-from __future__ import annotations
-
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
 
-from vapi.db.models import Campaign, Company, User  # noqa: TC001
-from vapi.db.models.user import CampaignExperience  # noqa: TC001
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.services import UserXPService
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard, pg_user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 
-from . import docs, dto
+from . import docs
+from .dto import CampaignExperienceResponse, ExperienceAddRemove
 
 
 class ExperienceController(Controller):
@@ -21,12 +21,11 @@ class ExperienceController(Controller):
 
     tags = [APITags.EXPERIENCE.name, APITags.USERS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "campaign": Provide(pg_deps.provide_campaign_by_id_for_experience),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = dto.ReturnCampaignExperienceDTO
+    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
 
     @get(
         path=urls.Users.EXPERIENCE_CAMPAIGN,
@@ -35,9 +34,13 @@ class ExperienceController(Controller):
         description=docs.GET_CAMPAIGN_EXPERIENCE_DESCRIPTION,
         cache=True,
     )
-    async def get_campaign_experience(self, user: User, campaign: Campaign) -> CampaignExperience:
+    async def get_campaign_experience(
+        self, user: User, campaign: Campaign
+    ) -> CampaignExperienceResponse:
         """Get campaign experience by user ID and campaign ID."""
-        return await user.get_or_create_campaign_experience(campaign.id)
+        service = UserXPService()
+        experience = await service.get_or_create_campaign_experience(user.id, campaign.id)
+        return CampaignExperienceResponse.from_model(experience)
 
     @post(
         path=urls.Users.XP_ADD,
@@ -47,17 +50,18 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def add_xp_to_campaign_experience(
-        self, company: Company, user: User, data: dto.ExperienceAddRemove
-    ) -> CampaignExperience:
+        self, company: Company, user: User, data: ExperienceAddRemove
+    ) -> CampaignExperienceResponse:
         """Add XP to campaign experience by user ID and campaign ID."""
         service = UserXPService()
-        return await service.add_xp_to_campaign_experience(
+        experience = await service.add_xp_to_campaign_experience(
             company=company,
             requesting_user_id=data.requesting_user_id,
             target_user=user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
+        return CampaignExperienceResponse.from_model(experience)
 
     @post(
         path=urls.Users.XP_REMOVE,
@@ -67,17 +71,18 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def remove_xp_from_campaign_experience(
-        self, company: Company, user: User, data: dto.ExperienceAddRemove
-    ) -> CampaignExperience:
+        self, company: Company, user: User, data: ExperienceAddRemove
+    ) -> CampaignExperienceResponse:
         """Remove XP from campaign experience by user ID and campaign ID."""
         service = UserXPService()
-        return await service.remove_xp_from_campaign_experience(
+        experience = await service.remove_xp_from_campaign_experience(
             company=company,
             requesting_user_id=data.requesting_user_id,
             target_user=user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
+        return CampaignExperienceResponse.from_model(experience)
 
     @post(
         path=urls.Users.CP_ADD,
@@ -87,14 +92,15 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def add_cp_to_campaign_experience(
-        self, company: Company, user: User, data: dto.ExperienceAddRemove
-    ) -> CampaignExperience:
+        self, company: Company, user: User, data: ExperienceAddRemove
+    ) -> CampaignExperienceResponse:
         """Add CP to campaign experience by user ID and campaign ID."""
         service = UserXPService()
-        return await service.add_cp_to_campaign_experience(
+        experience = await service.add_cp_to_campaign_experience(
             company=company,
             requesting_user_id=data.requesting_user_id,
             target_user=user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
+        return CampaignExperienceResponse.from_model(experience)

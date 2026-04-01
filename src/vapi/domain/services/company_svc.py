@@ -151,13 +151,11 @@ class CompanyService:
         # Revoke
         if new_permission == CompanyPermission.REVOKE and existing:
             await existing.delete()
-            revoked = DeveloperCompanyPermission(
+            return DeveloperCompanyPermission(
                 developer=target_developer,
                 company=company,
                 permission=CompanyPermission.REVOKE,
             )
-            revoked.company = company
-            return revoked
 
         # Update
         if existing:

@@ -14,11 +14,13 @@ from typing import Any
 
 import pytest
 
+from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.dictionary import DictionaryTerm
+from vapi.db.sql_models.user import CampaignExperience, User
 
 pytestmark = pytest.mark.anyio
 
@@ -205,3 +207,84 @@ async def pg_dictionary_term_factory():
 
     for term in created:
         await term.delete()
+
+
+@pytest.fixture
+async def pg_user_factory():
+    """Return a factory that creates Tortoise User instances.
+
+    User is non-constant data, so the per-test cleanup handles deletion.
+    """
+    created: list[User] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> User:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "username": f"test-user-{_counter}",
+            "email": f"user{_counter}@example.com",
+            "role": "PLAYER",
+        }
+        defaults.update(kwargs)
+        user = await User.create(**defaults)
+        user = await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
+        created.append(user)
+        return user
+
+    yield _factory
+
+    for user in created:
+        with contextlib.suppress(Exception):
+            await user.delete()
+
+
+@pytest.fixture
+async def pg_campaign_factory():
+    """Return a factory that creates Tortoise Campaign instances.
+
+    Campaign is non-constant data, so the per-test cleanup handles deletion.
+    """
+    created: list[Campaign] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Campaign:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "name": f"Test Campaign {_counter}",
+        }
+        defaults.update(kwargs)
+        campaign = await Campaign.create(**defaults)
+        # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
+        # avoiding type-mismatch issues when comparing with campaign.id
+        campaign = await Campaign.get(id=str(campaign.id))
+        created.append(campaign)
+        return campaign
+
+    yield _factory
+
+    for campaign in created:
+        with contextlib.suppress(Exception):
+            await campaign.delete()
+
+
+@pytest.fixture
+async def pg_campaign_experience_factory():
+    """Return a factory that creates Tortoise CampaignExperience instances.
+
+    CampaignExperience is non-constant data, so the per-test cleanup handles deletion.
+    Caller must supply user and campaign (or user_id and campaign_id).
+    """
+    created: list[CampaignExperience] = []
+
+    async def _factory(**kwargs: Any) -> CampaignExperience:
+        experience = await CampaignExperience.create(**kwargs)
+        created.append(experience)
+        return experience
+
+    yield _factory
+
+    for experience in created:
+        with contextlib.suppress(Exception):
+            await experience.delete()

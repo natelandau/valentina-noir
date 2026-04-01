@@ -1,24 +1,25 @@
 """User API."""
 
-from __future__ import annotations
-
+import asyncio
 from typing import Annotated
+from uuid import UUID
 
-from beanie import PydanticObjectId  # noqa: TC002
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
 from vapi.constants import UserRole
-from vapi.db.models import Company, User
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import docs, dto
+from . import docs
+from .dto import UserApprove, UserCreate, UserDeny, UserMerge, UserPatch, UserRegister, UserResponse
 
 
 class UserController(Controller):
@@ -26,13 +27,11 @@ class UserController(Controller):
 
     tags = [APITags.USERS.name]
     dependencies = {
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "company": Provide(deps.provide_company_by_id),
-        "developer": Provide(deps.provide_developer_from_request),
-        "note": Provide(deps.provide_note_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "developer": Provide(pg_deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard]
-    return_dto = dto.ReturnUserDTO
+    guards = [pg_developer_company_user_guard]
 
     @get(
         path=urls.Users.LIST,
@@ -48,20 +47,25 @@ class UserController(Controller):
         offset: Annotated[int, Parameter(ge=0)] = 0,
         user_role: UserRole | None = None,
         email: str | None = None,
-    ) -> OffsetPagination[User]:
+    ) -> OffsetPagination[UserResponse]:
         """Retrieve users."""
-        query = {
-            "company_id": company.id,
-            "is_archived": False,
-        }
+        qs = User.filter(company_id=company.id, is_archived=False)
         if user_role:
-            query["role"] = user_role.name
+            qs = qs.filter(role=user_role)
         if email:
-            query["email"] = email
+            qs = qs.filter(email=email)
 
-        count = await User.find(query).count()
-        users = await User.find(query).skip(offset).limit(limit).to_list()
-        return OffsetPagination(items=users, limit=limit, offset=offset, total=count)
+        count, users = await asyncio.gather(
+            qs.count(),
+            qs.offset(offset).limit(limit).prefetch_related("campaign_experiences"),
+        )
+
+        return OffsetPagination(
+            items=[UserResponse.from_model(u) for u in users],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.Users.DETAIL,
@@ -70,47 +74,47 @@ class UserController(Controller):
         description=docs.GET_USER_DESCRIPTION,
         cache=True,
     )
-    async def get_user(self, user: User) -> User:
+    async def get_user(self, user: User) -> UserResponse:
         """Get a user by ID."""
-        return user
+        return UserResponse.from_model(user)
 
     @post(
         path=urls.Users.CREATE,
         summary="Create user",
         operation_id="createUser",
         description=docs.CREATE_USER_DESCRIPTION,
-        guards=[developer_company_user_guard],
+        guards=[pg_developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def create_user(self, data: dto.UserPostDTO, company: Company) -> User:
+    async def create_user(self, data: UserCreate, company: Company) -> UserResponse:
         """Create a new user."""
         service = UserService()
-        return await service.create_user(company=company, data=data)
+        user = await service.create_user(company=company, data=data)
+        return UserResponse.from_model(user)
 
     @patch(
         path=urls.Users.UPDATE,
         summary="Update user",
         operation_id="updateUser",
         description=docs.UPDATE_USER_DESCRIPTION,
-        guards=[developer_company_user_guard],
+        guards=[pg_developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_user(self, user: User, data: dto.UserPatchDTO) -> User:
+    async def update_user(self, user: User, data: UserPatch) -> UserResponse:
         """Update a user by ID."""
         service = UserService()
-        return await service.update_user(user=user, data=data)
+        user = await service.update_user(user=user, data=data)
+        return UserResponse.from_model(user)
 
     @delete(
         path=urls.Users.DELETE,
         summary="Delete user",
         operation_id="deleteUser",
         description=docs.DELETE_USER_DESCRIPTION,
-        guards=[developer_company_user_guard],
+        guards=[pg_developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_user(
-        self, user: User, company: Company, requesting_user_id: PydanticObjectId
-    ) -> None:
+    async def delete_user(self, user: User, company: Company, requesting_user_id: UUID) -> None:
         """Delete a user by ID."""
         service = UserService()
         await service.validate_user_can_manage_user(
@@ -129,22 +133,26 @@ class UserController(Controller):
     async def list_unapproved_users(
         self,
         company: Company,
-        requesting_user_id: PydanticObjectId,
+        requesting_user_id: UUID,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[User]:
+    ) -> OffsetPagination[UserResponse]:
         """Retrieve unapproved users within a company."""
         service = UserService()
         await service.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
-        query = {
-            "company_id": company.id,
-            "is_archived": False,
-            "role": UserRole.UNAPPROVED.value,
-        }
-        count = await User.find(query).count()
-        users = await User.find(query).skip(offset).limit(limit).to_list()
-        return OffsetPagination(items=users, limit=limit, offset=offset, total=count)
+        qs = User.filter(company_id=company.id, is_archived=False, role=UserRole.UNAPPROVED)
+        count, users = await asyncio.gather(
+            qs.count(),
+            qs.offset(offset).limit(limit).prefetch_related("campaign_experiences"),
+        )
+
+        return OffsetPagination(
+            items=[UserResponse.from_model(u) for u in users],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @post(
         path=urls.Users.APPROVE,
@@ -153,14 +161,15 @@ class UserController(Controller):
         description=docs.APPROVE_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def approve_user(self, user: User, data: dto.UserApproveDTO) -> User:
+    async def approve_user(self, user: User, data: UserApprove) -> UserResponse:
         """Approve an unapproved user and assign a role."""
         service = UserService()
-        return await service.approve_user(
+        user = await service.approve_user(
             user=user,
-            role=data.role,
+            role=UserRole(data.role),
             requesting_user_id=data.requesting_user_id,
         )
+        return UserResponse.from_model(user)
 
     @post(
         path=urls.Users.DENY,
@@ -168,9 +177,8 @@ class UserController(Controller):
         operation_id="denyUser",
         description=docs.DENY_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        return_dto=None,
     )
-    async def deny_user(self, user: User, company: Company, data: dto.UserDenyDTO) -> None:
+    async def deny_user(self, user: User, company: Company, data: UserDeny) -> None:
         """Deny an unapproved user."""
         service = UserService()
         await service.deny_user(
@@ -186,10 +194,11 @@ class UserController(Controller):
         description=docs.REGISTER_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def register_user(self, data: dto.UserRegisterDTO, company: Company) -> User:
+    async def register_user(self, data: UserRegister, company: Company) -> UserResponse:
         """Register a new user with the UNAPPROVED role."""
         service = UserService()
-        return await service.register_user(company=company, data=data)
+        user = await service.register_user(company=company, data=data)
+        return UserResponse.from_model(user)
 
     @post(
         path=urls.Users.MERGE,
@@ -198,12 +207,13 @@ class UserController(Controller):
         description=docs.MERGE_USERS_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def merge_users(self, data: dto.UserMergeDTO, company: Company) -> User:
+    async def merge_users(self, data: UserMerge, company: Company) -> UserResponse:
         """Merge an UNAPPROVED user into an existing primary user."""
         service = UserService()
-        return await service.merge_users(
+        user = await service.merge_users(
             primary_user_id=data.primary_user_id,
             secondary_user_id=data.secondary_user_id,
             company=company,
             requesting_user_id=data.requesting_user_id,
         )
+        return UserResponse.from_model(user)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from beanie import Document
 
@@ -16,15 +16,17 @@ from vapi.db.models import (
     QuickRoll,
     Trait,
     TraitCategory,
-    User,
     VampireClan,
     WerewolfAuspice,
     WerewolfTribe,
 )
 from vapi.db.models.base import BaseDocument
+from vapi.db.sql_models.user import User as PgUser
 from vapi.lib.exceptions import ValidationError
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from beanie import PydanticObjectId
 
 
@@ -57,6 +59,28 @@ async def _get_or_raise[T: Document](
         filters.append(model.is_archived == False)
 
     result = await model.find_one(*filters, fetch_links=fetch_links)
+    if not result:
+        raise ValidationError(detail=f"{label} {doc_id} not found")
+
+    return result
+
+
+async def _pg_get_or_raise(
+    model: Any,
+    doc_id: UUID,
+    label: str,
+) -> Any:
+    """Look up a Tortoise record by ID and raise ValidationError if not found.
+
+    Args:
+        model: The Tortoise Model class to query.
+        doc_id: The record UUID to look up.
+        label: Human-readable label for error messages.
+
+    Raises:
+        ValidationError: If no matching record exists.
+    """
+    result = await model.filter(id=doc_id, is_archived=False).first()
     if not result:
         raise ValidationError(detail=f"{label} {doc_id} not found")
 
@@ -100,9 +124,30 @@ class GetModelByIdValidationService:
         """Get a quick roll by ID."""
         return await _get_or_raise(QuickRoll, quickroll_id, "Quick roll")
 
-    async def get_user_by_id(self, user_id: PydanticObjectId) -> User:
-        """Get a user by ID."""
-        return await _get_or_raise(User, user_id, "User")
+    async def get_user_by_id(self, user_id: UUID | Any) -> Any:
+        """Get a user by ID, routing to Tortoise or Beanie based on ID format.
+
+        During the migration period, unmigrated domains (e.g., character_trait) may pass
+        a PydanticObjectId. UUID-format IDs go to Tortoise; ObjectId-format IDs fall
+        back to Beanie. This bridge is removed when all callers are migrated.
+        """
+        import uuid as _uuid_mod
+
+        # UUID-format IDs go to Tortoise (the migrated User table)
+        if isinstance(user_id, _uuid_mod.UUID):
+            return await _pg_get_or_raise(PgUser, user_id, "User")
+
+        # Try parsing as UUID — if it works, use Tortoise
+        try:
+            uuid_id = _uuid_mod.UUID(str(user_id))
+            return await _pg_get_or_raise(PgUser, uuid_id, "User")
+        except ValueError:
+            pass
+
+        # ObjectId-format IDs fall back to Beanie for unmigrated callers
+        from vapi.db.models import User as BeanieUser
+
+        return await _get_or_raise(BeanieUser, user_id, "User")
 
     async def get_character_trait_by_id(
         self, character_trait_id: PydanticObjectId, *, fetch_links: bool = True
