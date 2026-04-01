@@ -51,6 +51,7 @@ pytest_plugins = (
     "pytest_databases.docker.postgres",
     "tests.fixtures",
     "tests.fixture_models",
+    "tests.pg_fixture_models",
     "tests.mocks",
 )
 # Set anyio as the default async backend for all tests

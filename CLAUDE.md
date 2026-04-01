@@ -58,6 +58,7 @@ duty dev-setup                # Initialize development environment
 - Dependency injection via Litestar's DI system
 - Async-first (all code uses async/await)
 - Use Beanie's native query operators instead of raw MongoDB dicts. Beanie supports Python comparison operators on nested Pydantic BaseModel fields (e.g., `Trait.gift_attributes.tribe_id == tribe_id` not `{"gift_attributes.tribe_id": tribe_id}`).
+- **Do not use `from __future__ import annotations`** in controller files, dependency provider files, or any file where types appear in Litestar handler signatures. Litestar resolves type hints at runtime — the future import breaks this and forces `# noqa: TC002` suppressions.
 
 ## Critical Files
 
@@ -72,6 +73,7 @@ duty dev-setup                # Initialize development environment
 - Custom markers: `@pytest.mark.serial`
 - The full test suite is slow. During development on a branch with multiple commits, run individual test files (e.g., `uv run pytest tests/unit/domain/services/test_character_trait_svc.py -v -n 0`) and commit with `--no-verify` to skip pre-commit hooks. Run the full test suite once at the end of the session before finalizing.
 - **Never use `pytest.skip()` or `pytest.mark.skip`.** All seed data is expected to be present. If a query for seed data returns nothing, the test should fail - not skip. Only assert in the `# Then` section, not to guard seed data existence.
+- **Always use factories to create database objects in tests.** Never call `Model.create()` or `Model.save()` directly in test bodies. Use the factory fixtures in `tests/fixture_models.py` (Beanie) or `tests/pg_fixture_models.py` (Tortoise). Factories that create constant data (traits, concepts, or any other data created when bootstrapping the database.) must clean up after themselves since the per-test cleanup only deletes non-constant tables.
 
 ## Documentation
 

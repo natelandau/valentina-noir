@@ -4,23 +4,38 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 from litestar.status_codes import (
     HTTP_200_OK,
 )
 
 from vapi.constants import CharacterClass, GameVersion
-from vapi.db.models import (
-    CharacterConcept,
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
     TraitCategory,
     TraitSubcategory,
-    VampireClan,
-    WerewolfAuspice,
-    WerewolfTribe,
+)
+from vapi.domain.controllers.character_blueprint.dto import (
+    CharacterConceptResponse,
+    CharSheetSectionResponse,
+    TraitCategoryResponse,
+    TraitResponse,
+    TraitSubcategoryResponse,
+    VampireClanResponse,
+    WerewolfAuspiceResponse,
+    WerewolfTribeResponse,
 )
 from vapi.domain.urls import CharacterBlueprints
+
+
+def _sort_id_lists(items: list[dict], key: str) -> list[dict]:
+    """Return items with a specific list-of-ids field sorted for stable comparison."""
+    return [{**item, key: sorted(item.get(key, []))} for item in items]
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -41,11 +56,11 @@ class TestSheetSection:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list sheet sections endpoint is working."""
-        sheet_sections = await CharSheetSection.find(
-            CharSheetSection.is_archived == False,
-            CharSheetSection.game_versions == GameVersion.V4,
-            CharSheetSection.character_classes == CharacterClass.VAMPIRE,
-        ).to_list()
+        sheet_sections = await CharSheetSection.filter(
+            is_archived=False,
+            game_versions__contains=[GameVersion.V4.value],
+            character_classes__contains=[CharacterClass.VAMPIRE.value],
+        ).order_by("order")
         # debug(sheet_section)
 
         response = await client.get(
@@ -61,8 +76,8 @@ class TestSheetSection:
 
         assert len(response.json()["items"]) == len(sheet_sections)
         assert response.json()["items"] == [
-            sheet_section.model_dump(mode="json", exclude={"is_archived", "archive_date"})
-            for sheet_section in sheet_sections
+            msgspec.json.decode(msgspec.json.encode(CharSheetSectionResponse.from_model(s)))
+            for s in sheet_sections
         ]
 
     async def test_get_sheet_section(
@@ -73,9 +88,7 @@ class TestSheetSection:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet section endpoint is working."""
-        sheet_section = await CharSheetSection.find_one(
-            CharSheetSection.is_archived == False,
-        )
+        sheet_section = await CharSheetSection.filter(is_archived=False).first()
         # debug(f"{base_url}/{sheet_section.id}")
 
         response = await client.get(
@@ -88,8 +101,8 @@ class TestSheetSection:
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
 
-        assert response.json() == sheet_section.model_dump(
-            mode="json", exclude={"is_archived", "archive_date"}
+        assert response.json() == msgspec.json.decode(
+            msgspec.json.encode(CharSheetSectionResponse.from_model(sheet_section))
         )
 
 
@@ -104,13 +117,15 @@ class TestSheetCategory:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet category endpoint is working."""
-        sheet_section = await CharSheetSection.find_one(
-            CharSheetSection.is_archived == False,
-        )
+        sheet_section = await CharSheetSection.filter(is_archived=False).first()
 
-        trait_category = await TraitCategory.find_one(
-            TraitCategory.is_archived == False,
-            TraitCategory.parent_sheet_section_id == sheet_section.id,
+        trait_category = (
+            await TraitCategory.filter(
+                is_archived=False,
+                sheet_section_id=sheet_section.id,
+            )
+            .prefetch_related("sheet_section")
+            .first()
         )
         # debug(trait_category)
 
@@ -124,8 +139,8 @@ class TestSheetCategory:
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
 
-        assert response.json() == trait_category.model_dump(
-            mode="json", exclude={"is_archived", "archive_date"}
+        assert response.json() == msgspec.json.decode(
+            msgspec.json.encode(TraitCategoryResponse.from_model(trait_category))
         )
 
     async def test_list_sheet_categories(
@@ -136,21 +151,24 @@ class TestSheetCategory:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list sheet categories endpoint is working."""
-        sheet_section = await CharSheetSection.find_one(
-            CharSheetSection.is_archived == False,
-        )
+        sheet_section = await CharSheetSection.filter(is_archived=False).first()
 
-        trait_categories = await TraitCategory.find(
-            TraitCategory.is_archived == False,
-            TraitCategory.parent_sheet_section_id == sheet_section.id,
-            TraitCategory.game_versions == GameVersion.V4,
-            TraitCategory.character_classes == CharacterClass.VAMPIRE,
-        ).to_list()
-        # Create a trait category that has a different parent sheet section
-        # This will not be returned in the list
-        different_sheet_section = await TraitCategory.find_one(
-            TraitCategory.is_archived == False,
-            TraitCategory.parent_sheet_section_id != sheet_section.id,
+        trait_categories = (
+            await TraitCategory.filter(
+                is_archived=False,
+                sheet_section_id=sheet_section.id,
+                game_versions__contains=[GameVersion.V4.value],
+                character_classes__contains=[CharacterClass.VAMPIRE.value],
+            )
+            .order_by("order")
+            .prefetch_related("sheet_section")
+        )
+        # Verify a category with a different parent sheet section is not returned
+        different_category = (
+            await TraitCategory.filter(is_archived=False)
+            .exclude(sheet_section_id=sheet_section.id)
+            .prefetch_related("sheet_section")
+            .first()
         )
 
         response = await client.get(
@@ -167,13 +185,13 @@ class TestSheetCategory:
 
         assert len(response.json()["items"]) == len(trait_categories)
         assert response.json()["items"] == [
-            trait_category.model_dump(mode="json", exclude={"is_archived", "archive_date"})
-            for trait_category in trait_categories
+            msgspec.json.decode(msgspec.json.encode(TraitCategoryResponse.from_model(tc)))
+            for tc in trait_categories
         ]
-        assert (
-            different_sheet_section.model_dump(mode="json", exclude={"is_archived", "archive_date"})
-            not in response.json()["items"]
+        different_expected = msgspec.json.decode(
+            msgspec.json.encode(TraitCategoryResponse.from_model(different_category))
         )
+        assert different_expected not in response.json()["items"]
 
 
 class TestSheetSubcategory:
@@ -188,19 +206,16 @@ class TestSheetSubcategory:
     ) -> None:
         """Verify the list category subcategories endpoint is working."""
         # Given a category with subcategories
-        subcategory = await TraitSubcategory.find_one(
-            TraitSubcategory.is_archived == False,
-            TraitSubcategory.parent_category_id != None,
+        subcategory = (
+            await TraitSubcategory.filter(is_archived=False).exclude(category_id=None).first()
         )
-        category = await TraitCategory.find_one(
-            TraitCategory.id == subcategory.parent_category_id,
-        )
+        category = await TraitCategory.filter(id=subcategory.category_id).first()
         game_version = category.game_versions[0]
 
-        expected_count = await TraitSubcategory.find(
-            TraitSubcategory.is_archived == False,
-            TraitSubcategory.game_versions == game_version,
-            TraitSubcategory.parent_category_id == category.id,
+        expected_count = await TraitSubcategory.filter(
+            is_archived=False,
+            game_versions__contains=[game_version],
+            category_id=category.id,
         ).count()
 
         # When requesting subcategories via the API
@@ -208,7 +223,7 @@ class TestSheetSubcategory:
             build_url(CharacterBlueprints.SUBCATEGORIES),
             headers=token_company_admin,
             params={
-                "game_version": game_version.name,
+                "game_version": GameVersion(game_version).name,
                 "category_id": str(category.id),
             },
         )
@@ -230,9 +245,11 @@ class TestSheetSubcategory:
     ) -> None:
         """Verify the get category subcategory endpoint is working."""
         # Given a subcategory
-        subcategory = await TraitSubcategory.find_one(
-            TraitSubcategory.is_archived == False,
-            TraitSubcategory.parent_category_id != None,
+        subcategory = (
+            await TraitSubcategory.filter(is_archived=False)
+            .exclude(category_id=None)
+            .prefetch_related("category", "sheet_section")
+            .first()
         )
 
         # When requesting the subcategory via the API
@@ -247,8 +264,8 @@ class TestSheetSubcategory:
         # Then the response contains the expected subcategory
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
-        assert response.json() == subcategory.model_dump(
-            mode="json", exclude={"is_archived", "archive_date"}
+        assert response.json() == msgspec.json.decode(
+            msgspec.json.encode(TraitSubcategoryResponse.from_model(subcategory))
         )
 
 
@@ -263,7 +280,13 @@ class TestSheetTrait:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet trait endpoint is working."""
-        trait = await Trait.find_one(Trait.is_archived == False)
+        trait = (
+            await Trait.filter(is_archived=False)
+            .prefetch_related(
+                "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"
+            )
+            .first()
+        )
         # debug(trait)
 
         response = await client.get(
@@ -276,8 +299,8 @@ class TestSheetTrait:
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
 
-        assert response.json() == trait.model_dump(
-            mode="json", exclude={"is_archived", "archive_date"}
+        assert response.json() == msgspec.json.decode(
+            msgspec.json.encode(TraitResponse.from_model(trait))
         )
 
     async def test_list_all_traits(
@@ -300,9 +323,14 @@ class TestSheetTrait:
         assert response.json()["offset"] == 0
         assert len(response.json()["items"]) == 10
         first_alphabetical_trait = (
-            await Trait.find(Trait.is_archived == False).sort("name").limit(1).to_list()
+            await Trait.filter(is_archived=False)
+            .order_by("name")
+            .prefetch_related(
+                "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"
+            )
+            .first()
         )
-        assert response.json()["items"][0]["name"] == first_alphabetical_trait[0].name
+        assert response.json()["items"][0]["name"] == first_alphabetical_trait.name
 
 
 class TestClassesConceptsAndSpecificOptions:
@@ -325,18 +353,11 @@ class TestClassesConceptsAndSpecificOptions:
 
         # Then verify the concepts were listed successfully
         assert response.status_code == HTTP_200_OK
-        concepts = (
-            await CharacterConcept.find(CharacterConcept.is_archived == False)
-            .sort("name")
-            .to_list()
-        )
+        concepts = await CharacterConcept.filter(is_archived=False).order_by("name")
         assert response.json()["total"] == len(concepts)
         assert response.json()["items"] == [
-            concept.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date", "company_id"},
-            )
-            for concept in concepts[:10]
+            msgspec.json.decode(msgspec.json.encode(CharacterConceptResponse.from_model(c)))
+            for c in concepts[:10]
         ]
 
     async def test_get_concept(
@@ -347,16 +368,15 @@ class TestClassesConceptsAndSpecificOptions:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get concept endpoint is working."""
-        concept = await CharacterConcept.find_one(CharacterConcept.is_archived == False)
+        concept = await CharacterConcept.filter(is_archived=False).first()
         response = await client.get(
             build_url(CharacterBlueprints.CONCEPT_DETAIL, concept_id=concept.id),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
-        assert response.json() == concept.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date", "company_id"},
+        assert response.json() == msgspec.json.decode(
+            msgspec.json.encode(CharacterConceptResponse.from_model(concept))
         )
 
     async def test_list_vampire_clans(
@@ -372,19 +392,21 @@ class TestClassesConceptsAndSpecificOptions:
             headers=token_company_admin,
         )
         vampire_clans = (
-            await VampireClan.find(VampireClan.is_archived == False).sort("name").to_list()
+            await VampireClan.filter(is_archived=False)
+            .order_by("name")
+            .prefetch_related("disciplines")
         )
 
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
         assert response.json()["total"] == len(vampire_clans)
-        assert response.json()["items"] == [
-            vampire_clan.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            )
-            for vampire_clan in vampire_clans[:10]
-        ]
+        assert _sort_id_lists(response.json()["items"], "discipline_ids") == _sort_id_lists(
+            [
+                msgspec.json.decode(msgspec.json.encode(VampireClanResponse.from_model(vc)))
+                for vc in vampire_clans[:10]
+            ],
+            "discipline_ids",
+        )
 
     async def test_get_vampire_clan(
         self,
@@ -394,17 +416,22 @@ class TestClassesConceptsAndSpecificOptions:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get vampire clan endpoint is working."""
-        vampire_clan = await VampireClan.find_one(VampireClan.is_archived == False)
+        vampire_clan = (
+            await VampireClan.filter(is_archived=False).prefetch_related("disciplines").first()
+        )
         response = await client.get(
             build_url(CharacterBlueprints.VAMPIRE_CLAN_DETAIL, vampire_clan_id=vampire_clan.id),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
-        assert response.json() == vampire_clan.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
+        data = response.json()
+        expected = msgspec.json.decode(
+            msgspec.json.encode(VampireClanResponse.from_model(vampire_clan))
         )
+        data["discipline_ids"] = sorted(data["discipline_ids"])
+        expected["discipline_ids"] = sorted(expected["discipline_ids"])
+        assert data == expected
 
     async def test_list_werewolf_tribes(
         self,
@@ -419,19 +446,19 @@ class TestClassesConceptsAndSpecificOptions:
             headers=token_company_admin,
         )
         werewolf_tribes = (
-            await WerewolfTribe.find(WerewolfTribe.is_archived == False).sort("name").to_list()
+            await WerewolfTribe.filter(is_archived=False).order_by("name").prefetch_related("gifts")
         )
 
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
         assert response.json()["total"] == len(werewolf_tribes)
-        assert response.json()["items"] == [
-            werewolf_tribe.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            )
-            for werewolf_tribe in werewolf_tribes[:10]
-        ]
+        assert _sort_id_lists(response.json()["items"], "gift_trait_ids") == _sort_id_lists(
+            [
+                msgspec.json.decode(msgspec.json.encode(WerewolfTribeResponse.from_model(wt)))
+                for wt in werewolf_tribes[:10]
+            ],
+            "gift_trait_ids",
+        )
 
     async def test_get_werewolf_tribe(
         self,
@@ -441,7 +468,9 @@ class TestClassesConceptsAndSpecificOptions:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get werewolf tribe endpoint is working."""
-        werewolf_tribe = await WerewolfTribe.find_one(WerewolfTribe.is_archived == False)
+        werewolf_tribe = (
+            await WerewolfTribe.filter(is_archived=False).prefetch_related("gifts").first()
+        )
         response = await client.get(
             build_url(
                 CharacterBlueprints.WEREWOLF_TRIBE_DETAIL, werewolf_tribe_id=werewolf_tribe.id
@@ -450,10 +479,13 @@ class TestClassesConceptsAndSpecificOptions:
         )
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
-        assert response.json() == werewolf_tribe.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
+        data = response.json()
+        expected = msgspec.json.decode(
+            msgspec.json.encode(WerewolfTribeResponse.from_model(werewolf_tribe))
         )
+        data["gift_trait_ids"] = sorted(data["gift_trait_ids"])
+        expected["gift_trait_ids"] = sorted(expected["gift_trait_ids"])
+        assert data == expected
 
     async def test_list_werewolf_auspices(
         self,
@@ -468,19 +500,21 @@ class TestClassesConceptsAndSpecificOptions:
             headers=token_company_admin,
         )
         werewolf_auspices = (
-            await WerewolfAuspice.find(WerewolfAuspice.is_archived == False).sort("name").to_list()
+            await WerewolfAuspice.filter(is_archived=False)
+            .order_by("name")
+            .prefetch_related("gifts")
         )
 
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
         assert response.json()["total"] == len(werewolf_auspices)
-        assert response.json()["items"] == [
-            werewolf_auspice.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            )
-            for werewolf_auspice in werewolf_auspices[:10]
-        ]
+        assert _sort_id_lists(response.json()["items"], "gift_trait_ids") == _sort_id_lists(
+            [
+                msgspec.json.decode(msgspec.json.encode(WerewolfAuspiceResponse.from_model(wa)))
+                for wa in werewolf_auspices[:10]
+            ],
+            "gift_trait_ids",
+        )
 
     async def test_get_werewolf_auspice(
         self,
@@ -490,7 +524,9 @@ class TestClassesConceptsAndSpecificOptions:
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get werewolf auspice endpoint is working."""
-        werewolf_auspice = await WerewolfAuspice.find_one(WerewolfAuspice.is_archived == False)
+        werewolf_auspice = (
+            await WerewolfAuspice.filter(is_archived=False).prefetch_related("gifts").first()
+        )
         response = await client.get(
             build_url(
                 CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL, werewolf_auspice_id=werewolf_auspice.id
@@ -499,7 +535,10 @@ class TestClassesConceptsAndSpecificOptions:
         )
         assert response.status_code == HTTP_200_OK
         # debug(response.json())
-        assert response.json() == werewolf_auspice.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
+        data = response.json()
+        expected = msgspec.json.decode(
+            msgspec.json.encode(WerewolfAuspiceResponse.from_model(werewolf_auspice))
         )
+        data["gift_trait_ids"] = sorted(data["gift_trait_ids"])
+        expected["gift_trait_ids"] = sorted(expected["gift_trait_ids"])
+        assert data == expected

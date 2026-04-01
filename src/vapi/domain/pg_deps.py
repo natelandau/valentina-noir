@@ -4,9 +4,7 @@ Parallel to deps.py (Beanie-based) during the migration. Once all domains
 are migrated (Session 11), delete deps.py and rename this file to deps.py.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from uuid import UUID
 
 from tortoise.expressions import Q
 from tortoise.models import Model
@@ -20,11 +18,6 @@ from vapi.db.sql_models.character_sheet import (
     TraitSubcategory,
 )
 from vapi.lib.exceptions import NotFoundError
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from vapi.db.models import Company
 
 
 async def _find_or_404[M: Model](
@@ -98,12 +91,14 @@ async def provide_trait_by_id(trait_id: UUID) -> Trait:
     )
 
 
-async def provide_character_concept_by_id(company: Company, concept_id: UUID) -> CharacterConcept:
-    """Provide a character concept by ID (company-scoped or system-wide)."""
+async def provide_character_concept_by_id(concept_id: UUID) -> CharacterConcept:
+    """Provide a character concept by ID.
+
+    Company-scoped filtering will be added when the Company model migrates to PostgreSQL.
+    """
     return await _find_or_404(
         CharacterConcept,
         "Character concept",
-        Q(company_id=company.id) | Q(company_id=None),
         doc_id=concept_id,
     )
 

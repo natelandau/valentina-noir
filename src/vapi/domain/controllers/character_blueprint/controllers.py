@@ -1,11 +1,8 @@
 """Character blueprint controllers."""
 
-from __future__ import annotations
-
 from typing import Annotated
+from uuid import UUID
 
-from beanie import PydanticObjectId  # noqa: TC002
-from beanie.operators import Or
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get
@@ -16,24 +13,35 @@ from vapi.constants import (
     CharacterClass,
     GameVersion,
 )
-from vapi.db.models import (
-    CharacterConcept,
-    CharSheetSection,
-    Company,
-    Trait,
-    TraitCategory,
-    TraitSubcategory,
+from vapi.db.sql_models.character_classes import (
     VampireClan,
     WerewolfAuspice,
     WerewolfTribe,
 )
-from vapi.domain import deps, urls
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import (
+    CharSheetSection,
+    Trait,
+    TraitCategory,
+    TraitSubcategory,
+)
+from vapi.domain import deps, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterBlueprintService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import docs, dto
+from . import docs
+from .dto import (
+    CharacterConceptResponse,
+    CharSheetSectionResponse,
+    TraitCategoryResponse,
+    TraitResponse,
+    TraitSubcategoryResponse,
+    VampireClanResponse,
+    WerewolfAuspiceResponse,
+    WerewolfTribeResponse,
+)
 
 
 class CharacterBlueprintSectionController(Controller):
@@ -52,7 +60,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintSections",
         description=docs.LIST_SECTIONS_DESCRIPTION,
         cache=True,
-        return_dto=dto.CharacterSheetDTO,
     )
     async def list_character_blueprint_sections(
         self,
@@ -69,7 +76,7 @@ class CharacterBlueprintSectionController(Controller):
                 title="Character Class",
             ),
         ] = None,
-    ) -> OffsetPagination[CharSheetSection]:
+    ) -> OffsetPagination[CharSheetSectionResponse]:
         """List all character blueprint sections."""
         service = CharacterBlueprintService()
         count, sections = await service.list_sheet_sections(
@@ -78,7 +85,12 @@ class CharacterBlueprintSectionController(Controller):
             limit=limit,
             offset=offset,
         )
-        return OffsetPagination(items=sections, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[CharSheetSectionResponse.from_model(s) for s in sections],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.SECTION_DETAIL,
@@ -86,16 +98,15 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintSection",
         description=docs.GET_SECTION_DESCRIPTION,
         cache=True,
-        return_dto=dto.CharacterSheetDTO,
         dependencies={
-            "section": Provide(deps.provide_character_blueprint_section_by_id),
+            "section": Provide(pg_deps.provide_character_blueprint_section_by_id),
         },
     )
     async def get_character_blueprint_section(
         self, *, section: CharSheetSection
-    ) -> CharSheetSection:
+    ) -> CharSheetSectionResponse:
         """Get a character blueprint section by ID."""
-        return section
+        return CharSheetSectionResponse.from_model(section)
 
     ## CATEGORIES #######################################################
     @get(
@@ -104,7 +115,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintCategories",
         description=docs.LIST_CATEGORIES_DESCRIPTION,
         cache=True,
-        return_dto=dto.TraitCategoryDTO,
     )
     async def list_character_blueprint_categories(
         self,
@@ -116,7 +126,7 @@ class CharacterBlueprintSectionController(Controller):
             Parameter(description="Filter categories by game version.", title="Game Version"),
         ] = None,
         section_id: Annotated[
-            PydanticObjectId | None,
+            UUID | None,
             Parameter(
                 description="Filter categories by parent sheet section.",
                 title="Section ID",
@@ -129,7 +139,7 @@ class CharacterBlueprintSectionController(Controller):
                 title="Character Class",
             ),
         ] = None,
-    ) -> OffsetPagination[TraitCategory]:
+    ) -> OffsetPagination[TraitCategoryResponse]:
         """List all character blueprint categories."""
         service = CharacterBlueprintService()
         count, categories = await service.list_sheet_categories(
@@ -139,7 +149,12 @@ class CharacterBlueprintSectionController(Controller):
             limit=limit,
             offset=offset,
         )
-        return OffsetPagination(items=categories, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[TraitCategoryResponse.from_model(c) for c in categories],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.CATEGORY_DETAIL,
@@ -147,14 +162,15 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintCategory",
         description=docs.GET_CATEGORY_DESCRIPTION,
         cache=True,
-        return_dto=dto.TraitCategoryDTO,
         dependencies={
-            "category": Provide(deps.provide_trait_category_by_id),
+            "category": Provide(pg_deps.provide_trait_category_by_id),
         },
     )
-    async def get_character_blueprint_category(self, *, category: TraitCategory) -> TraitCategory:
+    async def get_character_blueprint_category(
+        self, *, category: TraitCategory
+    ) -> TraitCategoryResponse:
         """Get a character sheet category by ID."""
-        return category
+        return TraitCategoryResponse.from_model(category)
 
     ## SUBCATEGORIES #######################################################
     @get(
@@ -163,7 +179,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintSubcategories",
         description=docs.LIST_SUBCATEGORIES_DESCRIPTION,
         cache=True,
-        return_dto=dto.TraitSubcategoryDTO,
     )
     async def list_character_blueprint_subcategories(
         self,
@@ -175,7 +190,7 @@ class CharacterBlueprintSectionController(Controller):
             Parameter(description="Filter subcategories by game version.", title="Game Version"),
         ] = None,
         category_id: Annotated[
-            PydanticObjectId | None,
+            UUID | None,
             Parameter(
                 description="Filter subcategories by parent category.",
                 title="Category ID",
@@ -188,7 +203,7 @@ class CharacterBlueprintSectionController(Controller):
                 title="Character Class",
             ),
         ] = None,
-    ) -> OffsetPagination[TraitSubcategory]:
+    ) -> OffsetPagination[TraitSubcategoryResponse]:
         """List all character blueprint subcategories."""
         service = CharacterBlueprintService()
         count, subcategories = await service.list_sheet_category_subcategories(
@@ -198,7 +213,12 @@ class CharacterBlueprintSectionController(Controller):
             limit=limit,
             offset=offset,
         )
-        return OffsetPagination(items=subcategories, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[TraitSubcategoryResponse.from_model(s) for s in subcategories],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.SUBCATEGORY_DETAIL,
@@ -206,16 +226,15 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintSubcategory",
         description=docs.GET_SUBCATEGORY_DESCRIPTION,
         cache=True,
-        return_dto=dto.TraitSubcategoryDTO,
         dependencies={
-            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
+            "subcategory": Provide(pg_deps.provide_trait_subcategory_by_id),
         },
     )
     async def get_character_blueprint_subcategory(
         self, *, subcategory: TraitSubcategory
-    ) -> TraitSubcategory:
+    ) -> TraitSubcategoryResponse:
         """Get a character blueprint subcategory by ID."""
-        return subcategory
+        return TraitSubcategoryResponse.from_model(subcategory)
 
     ## ALL TRAITS #######################################################
     @get(
@@ -224,7 +243,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listAllCharacterBlueprintTraits",
         description=docs.LIST_ALL_TRAITS_DESCRIPTION,
         cache=True,
-        return_dto=dto.TraitDTO,
     )
     async def list_all_traits(  # noqa: PLR0913
         self,
@@ -240,11 +258,11 @@ class CharacterBlueprintSectionController(Controller):
             Parameter(description="Filter traits by character class.", title="Character Class"),
         ] = None,
         parent_category_id: Annotated[
-            PydanticObjectId | None,
+            UUID | None,
             Parameter(description="Filter traits by category.", title="Category ID"),
         ] = None,
         subcategory_id: Annotated[
-            PydanticObjectId | None,
+            UUID | None,
             Parameter(description="Filter traits by subcategory.", title="Subcategory ID"),
         ] = None,
         exclude_subcategory_traits: Annotated[
@@ -258,7 +276,7 @@ class CharacterBlueprintSectionController(Controller):
             BlueprintTraitOrderBy,
             Parameter(description="Sort traits by this field.", title="Sort"),
         ] = BlueprintTraitOrderBy.NAME,
-    ) -> OffsetPagination[Trait]:
+    ) -> OffsetPagination[TraitResponse]:
         """List all constant character traits."""
         service = CharacterBlueprintService()
         count, traits = await service.list_all_traits(
@@ -272,7 +290,12 @@ class CharacterBlueprintSectionController(Controller):
             limit=limit,
             offset=offset,
         )
-        return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[TraitResponse.from_model(t) for t in traits],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.TRAIT_DETAIL,
@@ -280,14 +303,13 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintTrait",
         description=docs.GET_TRAIT_DESCRIPTION,
         cache=True,
-        return_dto=dto.TraitDTO,
         dependencies={
-            "trait": Provide(deps.provide_trait_by_id),
+            "trait": Provide(pg_deps.provide_trait_by_id),
         },
     )
-    async def get_trait(self, *, trait: Trait) -> Trait:
+    async def get_trait(self, *, trait: Trait) -> TraitResponse:
         """Get a character sheet trait by ID."""
-        return trait
+        return TraitResponse.from_model(trait)
 
     ## Classes, Concepts, and class specific options ############################################
 
@@ -297,26 +319,22 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintConcepts",
         description=docs.LIST_CONCEPTS_DESCRIPTION,
         cache=True,
-        return_dto=dto.ConceptDTO,
     )
     async def list_character_blueprint_concepts(
         self,
         *,
-        company: Company,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[CharacterConcept]:
+    ) -> OffsetPagination[CharacterConceptResponse]:
         """List all concepts."""
-        filters = [
-            CharacterConcept.is_archived == False,
-            Or(CharacterConcept.company_id == company.id, CharacterConcept.company_id == None),
-        ]
-
-        count = await CharacterConcept.find(*filters).count()  # type: ignore [call-overload]
-        concepts = (
-            await CharacterConcept.find(*filters).skip(offset).limit(limit).sort("name").to_list()  # type: ignore [call-overload]
+        service = CharacterBlueprintService()
+        count, concepts = await service.list_concepts(limit=limit, offset=offset)
+        return OffsetPagination(
+            items=[CharacterConceptResponse.from_model(c) for c in concepts],
+            limit=limit,
+            offset=offset,
+            total=count,
         )
-        return OffsetPagination(items=concepts, limit=limit, offset=offset, total=count)
 
     @get(
         path=urls.CharacterBlueprints.CONCEPT_DETAIL,
@@ -324,16 +342,15 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintConcept",
         description=docs.GET_CONCEPT_DESCRIPTION,
         cache=True,
-        return_dto=dto.ConceptDTO,
         dependencies={
-            "concept": Provide(deps.provide_character_concept_by_id),
+            "concept": Provide(pg_deps.provide_character_concept_by_id),
         },
     )
     async def get_character_blueprint_concept(
         self, *, concept: CharacterConcept
-    ) -> CharacterConcept:
+    ) -> CharacterConceptResponse:
         """Get a character concept by ID."""
-        return concept
+        return CharacterConceptResponse.from_model(concept)
 
     @get(
         path=urls.CharacterBlueprints.VAMPIRE_CLANS,
@@ -341,7 +358,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintVampireClans",
         description=docs.LIST_VAMPIRE_CLANS_DESCRIPTION,
         cache=True,
-        return_dto=dto.VampireClanDTO,
     )
     async def list_character_blueprint_vampire_clans(
         self,
@@ -354,19 +370,18 @@ class CharacterBlueprintSectionController(Controller):
                 description="Show vampire clans for this game version.", title="Game Version"
             ),
         ] = None,
-    ) -> OffsetPagination[VampireClan]:
+    ) -> OffsetPagination[VampireClanResponse]:
         """List all vampire clans."""
-        filters = [
-            VampireClan.is_archived == False,
-        ]
-        if game_version:
-            filters.append(VampireClan.game_versions == game_version)
-
-        count = await VampireClan.find(*filters).count()
-        vampire_clans = (
-            await VampireClan.find(*filters).skip(offset).limit(limit).sort("name").to_list()
+        service = CharacterBlueprintService()
+        count, clans = await service.list_vampire_clans(
+            game_version=game_version, limit=limit, offset=offset
         )
-        return OffsetPagination(items=vampire_clans, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[VampireClanResponse.from_model(c) for c in clans],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.VAMPIRE_CLAN_DETAIL,
@@ -374,16 +389,15 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintVampireClan",
         description=docs.GET_VAMPIRE_CLAN_DESCRIPTION,
         cache=True,
-        return_dto=dto.VampireClanDTO,
         dependencies={
-            "vampire_clan": Provide(deps.provide_vampire_clan_by_id),
+            "vampire_clan": Provide(pg_deps.provide_vampire_clan_by_id),
         },
     )
     async def get_character_blueprint_vampire_clan(
         self, *, vampire_clan: VampireClan
-    ) -> VampireClan:
+    ) -> VampireClanResponse:
         """Get a vampire clan by ID."""
-        return vampire_clan
+        return VampireClanResponse.from_model(vampire_clan)
 
     @get(
         path=urls.CharacterBlueprints.WEREWOLF_TRIBES,
@@ -391,7 +405,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintWerewolfTribes",
         description=docs.LIST_WEREWOLF_TRIBES_DESCRIPTION,
         cache=True,
-        return_dto=dto.WerewolfTribeDTO,
     )
     async def list_character_blueprint_werewolf_tribes(
         self,
@@ -404,19 +417,18 @@ class CharacterBlueprintSectionController(Controller):
                 description="Show werewolf tribes for this game version.", title="Game Version"
             ),
         ] = None,
-    ) -> OffsetPagination[WerewolfTribe]:
+    ) -> OffsetPagination[WerewolfTribeResponse]:
         """List all werewolf tribes."""
-        filters = [
-            WerewolfTribe.is_archived == False,
-        ]
-        if game_version:
-            filters.append(WerewolfTribe.game_versions == game_version)
-
-        count = await WerewolfTribe.find(*filters).count()
-        werewolf_tribes = (
-            await WerewolfTribe.find(*filters).skip(offset).limit(limit).sort("name").to_list()
+        service = CharacterBlueprintService()
+        count, tribes = await service.list_werewolf_tribes(
+            game_version=game_version, limit=limit, offset=offset
         )
-        return OffsetPagination(items=werewolf_tribes, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[WerewolfTribeResponse.from_model(t) for t in tribes],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.WEREWOLF_TRIBE_DETAIL,
@@ -424,16 +436,15 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintWerewolfTribe",
         description=docs.GET_WEREWOLF_TRIBE_DESCRIPTION,
         cache=True,
-        return_dto=dto.WerewolfTribeDTO,
         dependencies={
-            "werewolf_tribe": Provide(deps.provide_werewolf_tribe_by_id),
+            "werewolf_tribe": Provide(pg_deps.provide_werewolf_tribe_by_id),
         },
     )
     async def get_character_blueprint_werewolf_tribe(
         self, *, werewolf_tribe: WerewolfTribe
-    ) -> WerewolfTribe:
+    ) -> WerewolfTribeResponse:
         """Get a werewolf tribe by ID."""
-        return werewolf_tribe
+        return WerewolfTribeResponse.from_model(werewolf_tribe)
 
     @get(
         path=urls.CharacterBlueprints.WEREWOLF_AUSPICES,
@@ -441,7 +452,6 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="listCharacterBlueprintWerewolfAuspices",
         description=docs.LIST_WEREWOLF_AUSPICES_DESCRIPTION,
         cache=True,
-        return_dto=dto.WerewolfAuspiceDTO,
     )
     async def list_character_blueprint_werewolf_auspices(
         self,
@@ -454,19 +464,18 @@ class CharacterBlueprintSectionController(Controller):
                 description="Show werewolf auspices for this game version.", title="Game Version"
             ),
         ] = None,
-    ) -> OffsetPagination[WerewolfAuspice]:
+    ) -> OffsetPagination[WerewolfAuspiceResponse]:
         """List all werewolf auspices."""
-        filters = [
-            WerewolfAuspice.is_archived == False,
-        ]
-        if game_version:
-            filters.append(WerewolfAuspice.game_versions == game_version)
-
-        count = await WerewolfAuspice.find(*filters).count()
-        werewolf_auspices = (
-            await WerewolfAuspice.find(*filters).skip(offset).limit(limit).sort("name").to_list()
+        service = CharacterBlueprintService()
+        count, auspices = await service.list_werewolf_auspices(
+            game_version=game_version, limit=limit, offset=offset
         )
-        return OffsetPagination(items=werewolf_auspices, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[WerewolfAuspiceResponse.from_model(a) for a in auspices],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL,
@@ -474,13 +483,12 @@ class CharacterBlueprintSectionController(Controller):
         operation_id="getCharacterBlueprintWerewolfAuspice",
         description=docs.GET_WEREWOLF_AUSPICE_DESCRIPTION,
         cache=True,
-        return_dto=dto.WerewolfAuspiceDTO,
         dependencies={
-            "werewolf_auspice": Provide(deps.provide_werewolf_auspice_by_id),
+            "werewolf_auspice": Provide(pg_deps.provide_werewolf_auspice_by_id),
         },
     )
     async def get_character_blueprint_werewolf_auspice(
         self, *, werewolf_auspice: WerewolfAuspice
-    ) -> WerewolfAuspice:
+    ) -> WerewolfAuspiceResponse:
         """Get a werewolf auspice by ID."""
-        return werewolf_auspice
+        return WerewolfAuspiceResponse.from_model(werewolf_auspice)
