@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated
 
 from beanie import Document, PydanticObjectId
-from beanie.operators import Or
 from litestar.params import Parameter
 
 from vapi.db.models import (
@@ -13,23 +12,16 @@ from vapi.db.models import (
     CampaignBook,
     CampaignChapter,
     Character,
-    CharacterConcept,
     CharacterInventory,
     CharacterTrait,
-    CharSheetSection,
     Company,
     Developer,
-    DictionaryTerm,
     Note,
     QuickRoll,
     S3Asset,
     Trait,
     TraitCategory,
-    TraitSubcategory,
     User,
-    VampireClan,
-    WerewolfAuspice,
-    WerewolfTribe,
 )
 from vapi.db.models.base import BaseDocument
 from vapi.lib.exceptions import NotFoundError
@@ -141,13 +133,6 @@ async def provide_character_by_id_and_company(
     )
 
 
-async def provide_character_blueprint_section_by_id(
-    section_id: PydanticObjectId,
-) -> CharSheetSection:
-    """Provide a character sheet section by ID."""
-    return await _find_or_404(CharSheetSection, "Character sheet section", doc_id=section_id)
-
-
 async def provide_character_trait_by_id(
     character_trait_id: PydanticObjectId, character_id: PydanticObjectId
 ) -> CharacterTrait:
@@ -172,47 +157,6 @@ async def provide_character_trait_by_id(
     return character_trait
 
 
-async def provide_character_concept_by_id(
-    company: Company, concept_id: PydanticObjectId
-) -> CharacterConcept:
-    """Provide a character concept by ID."""
-    return await _find_or_404(
-        CharacterConcept,
-        "Character concept",
-        Or(CharacterConcept.company_id == company.id, CharacterConcept.company_id == None),
-        doc_id=concept_id,
-    )
-
-
-async def provide_vampire_clan_by_id(vampire_clan_id: PydanticObjectId) -> VampireClan:
-    """Provide a vampire clan by ID."""
-    return await _find_or_404(VampireClan, "Vampire clan", doc_id=vampire_clan_id)
-
-
-async def provide_werewolf_tribe_by_id(werewolf_tribe_id: PydanticObjectId) -> WerewolfTribe:
-    """Provide a werewolf tribe by ID."""
-    return await _find_or_404(WerewolfTribe, "Werewolf tribe", doc_id=werewolf_tribe_id)
-
-
-async def provide_werewolf_auspice_by_id(
-    werewolf_auspice_id: PydanticObjectId,
-) -> WerewolfAuspice:
-    """Provide a werewolf auspice by ID."""
-    return await _find_or_404(WerewolfAuspice, "Werewolf auspice", doc_id=werewolf_auspice_id)
-
-
-async def provide_dictionary_term_by_id(
-    company: Company, dictionary_term_id: PydanticObjectId
-) -> DictionaryTerm:
-    """Provide a dictionary term by ID."""
-    return await _find_or_404(
-        DictionaryTerm,
-        "Dictionary term",
-        Or(DictionaryTerm.company_id == company.id, DictionaryTerm.source_type != None),
-        doc_id=dictionary_term_id,
-    )
-
-
 async def provide_inventory_item_by_id(
     inventory_item_id: PydanticObjectId,
 ) -> CharacterInventory:
@@ -230,19 +174,9 @@ async def provide_quickroll_by_id(quickroll_id: PydanticObjectId) -> QuickRoll:
     return await _find_or_404(QuickRoll, "Quick roll", doc_id=quickroll_id)
 
 
-async def provide_trait_by_id(trait_id: PydanticObjectId) -> Trait:
-    """Provide a trait by ID."""
-    return await _find_or_404(Trait, "Trait", doc_id=trait_id)
-
-
 async def provide_trait_category_by_id(category_id: PydanticObjectId) -> TraitCategory:
     """Provide a trait category by ID."""
     return await _find_or_404(TraitCategory, "Trait category", doc_id=category_id)
-
-
-async def provide_trait_subcategory_by_id(subcategory_id: PydanticObjectId) -> TraitSubcategory:
-    """Provide a trait subcategory by ID."""
-    return await _find_or_404(TraitSubcategory, "Trait subcategory", doc_id=subcategory_id)
 
 
 async def provide_user_by_id_and_company(user_id: PydanticObjectId, company: Company) -> User:

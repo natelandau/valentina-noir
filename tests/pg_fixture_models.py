@@ -9,14 +9,47 @@ themselves because the cleanup_pg_database fixture only deletes non-constant tab
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import pytest
 
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.dictionary import DictionaryTerm
 
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+async def pg_company_factory():
+    """Return a factory that creates Tortoise Company instances with cleanup.
+
+    Company is non-constant data, so the per-test cleanup handles deletion.
+    The factory still tracks instances for explicit cleanup in case it is used
+    in tests that do not rely on the automatic cleanup fixture.
+    """
+    created: list[Company] = []
+
+    async def _factory(**kwargs: Any) -> Company:
+        defaults: dict[str, Any] = {
+            "name": "Test Company",
+            "email": "test@example.com",
+        }
+        defaults.update(kwargs)
+        company = await Company.create(**defaults)
+        # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
+        # avoiding type-mismatch issues when comparing with term.company_id
+        company = await Company.get(id=str(company.id))
+        created.append(company)
+        return company
+
+    yield _factory
+
+    for company in created:
+        with contextlib.suppress(Exception):
+            await company.delete()
 
 
 @pytest.fixture
@@ -85,3 +118,38 @@ async def pg_character_concept_factory():
 
     for concept in created:
         await concept.delete()
+
+
+@pytest.fixture
+async def pg_dictionary_term_factory():
+    """Return a factory that creates Tortoise DictionaryTerm instances with cleanup.
+
+    Dictionary terms include bootstrap-seeded data, so the factory tracks
+    created instances and deletes them when the test completes.
+    """
+    created: list[DictionaryTerm] = []
+
+    async def _factory(**kwargs: Any) -> DictionaryTerm:
+        defaults: dict[str, Any] = {
+            "term": "Test Term",
+            "definition": "Test definition",
+            "link": "https://example.com/test",
+            "synonyms": ["test synonym", "test synonym 2"],
+            "company_id": None,
+            "source_type": None,
+            "source_id": None,
+            "is_archived": False,
+        }
+        defaults.update(kwargs)
+        # Tortoise's UUIDField cannot accept uuid_utils.UUID directly; convert via str
+        for uuid_field in ("company_id", "source_id"):
+            if defaults.get(uuid_field) is not None:
+                defaults[uuid_field] = str(defaults[uuid_field])
+        term = await DictionaryTerm.create(**defaults)
+        created.append(term)
+        return term
+
+    yield _factory
+
+    for term in created:
+        await term.delete()

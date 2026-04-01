@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from tortoise import fields
+from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.exceptions import ValidationError
 
 from vapi.constants import DictionarySourceType
@@ -24,7 +25,7 @@ class DictionaryTerm(BaseModel):
     term = fields.CharField(max_length=50)
     definition = fields.TextField(null=True)
     link = fields.TextField(null=True)
-    synonyms: Any = fields.JSONField(default=list)
+    synonyms = ArrayField(element_type="text", default=list)
     source_type = fields.CharEnumField(DictionarySourceType, null=True)
     source_id = fields.UUIDField(null=True)
 

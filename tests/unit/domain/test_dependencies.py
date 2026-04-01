@@ -7,29 +7,22 @@ from typing import TYPE_CHECKING
 import pytest
 from beanie import PydanticObjectId
 
-from vapi.constants import DictionarySourceType, InventoryItemType
+from vapi.constants import InventoryItemType
 from vapi.db.models import (
     Campaign,
     CampaignBook,
     CampaignChapter,
     Character,
-    CharacterConcept,
     CharacterInventory,
     CharacterTrait,
-    CharSheetSection,
     Company,
     Developer,
-    DictionaryTerm,
     Note,
     QuickRoll,
     S3Asset,
     Trait,
     TraitCategory,
-    TraitSubcategory,
     User,
-    VampireClan,
-    WerewolfAuspice,
-    WerewolfTribe,
 )
 from vapi.domain import deps
 from vapi.lib.exceptions import NotFoundError
@@ -381,223 +374,6 @@ class TestProvideCharacterTraitById:
             await deps.provide_character_trait_by_id(non_existent_id, base_character.id)
 
 
-class TestProvideCharacterBlueprintSectionById:
-    """Test provide_character_blueprint_section_by_id dependency."""
-
-    async def test_returns_section_when_found(self) -> None:
-        """Verify returning a character sheet section when found by ID."""
-        # Given a character sheet section exists (from bootstrap)
-        section = await CharSheetSection.find_one(CharSheetSection.is_archived == False)
-        assert section is not None
-
-        # When we provide the section by ID
-        result = await deps.provide_character_blueprint_section_by_id(section.id)
-
-        # Then the section is returned
-        assert result.id == section.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when section does not exist."""
-        # Given a non-existent section ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Character sheet section not found"):
-            await deps.provide_character_blueprint_section_by_id(non_existent_id)
-
-
-class TestProvideCharacterConceptById:
-    """Test provide_character_concept_by_id dependency."""
-
-    async def test_returns_concept_when_found_for_company(
-        self, base_company: Company, character_concept_factory: Callable[..., CharacterConcept]
-    ) -> None:
-        """Verify returning a company-specific character concept when found."""
-        # Given a company-specific character concept exists
-        concept = await character_concept_factory(company_id=base_company.id)
-
-        # When we provide the concept by ID
-        result = await deps.provide_character_concept_by_id(base_company, concept.id)
-
-        # Then the concept is returned
-        assert result.id == concept.id
-
-    async def test_returns_concept_when_global(
-        self, base_company: Company, character_concept_factory: Callable[..., CharacterConcept]
-    ) -> None:
-        """Verify returning a global character concept (company_id is None)."""
-        # Given a global character concept exists
-        concept = await character_concept_factory(company_id=None)
-
-        # When we provide the concept by ID with any company
-        result = await deps.provide_character_concept_by_id(base_company, concept.id)
-
-        # Then the concept is returned
-        assert result.id == concept.id
-
-    async def test_raises_not_found_when_missing(self, base_company: Company) -> None:
-        """Verify raising NotFoundError when concept does not exist."""
-        # Given a non-existent concept ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Character concept not found"):
-            await deps.provide_character_concept_by_id(base_company, non_existent_id)
-
-    async def test_raises_not_found_when_wrong_company(
-        self,
-        company_factory: Callable[..., Company],
-        character_concept_factory: Callable[..., CharacterConcept],
-    ) -> None:
-        """Verify raising NotFoundError when concept belongs to different company."""
-        # Given a concept belongs to a specific company
-        company_a = await company_factory()
-        company_b = await company_factory()
-        concept = await character_concept_factory(company_id=company_a.id)
-
-        # When/Then we expect a NotFoundError when using different company
-        with pytest.raises(NotFoundError, match="Character concept not found"):
-            await deps.provide_character_concept_by_id(company_b, concept.id)
-
-
-class TestProvideVampireClanById:
-    """Test provide_vampire_clan_by_id dependency."""
-
-    async def test_returns_vampire_clan_when_found(self) -> None:
-        """Verify returning a vampire clan when found by ID."""
-        # Given a vampire clan exists (from bootstrap)
-        clan = await VampireClan.find_one(VampireClan.is_archived == False)
-        assert clan is not None
-
-        # When we provide the clan by ID
-        result = await deps.provide_vampire_clan_by_id(clan.id)
-
-        # Then the clan is returned
-        assert result.id == clan.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when vampire clan does not exist."""
-        # Given a non-existent clan ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Vampire clan not found"):
-            await deps.provide_vampire_clan_by_id(non_existent_id)
-
-
-class TestProvideWerewolfTribeById:
-    """Test provide_werewolf_tribe_by_id dependency."""
-
-    async def test_returns_werewolf_tribe_when_found(self) -> None:
-        """Verify returning a werewolf tribe when found by ID."""
-        # Given a werewolf tribe exists (from bootstrap)
-        tribe = await WerewolfTribe.find_one(WerewolfTribe.is_archived == False)
-        assert tribe is not None
-
-        # When we provide the tribe by ID
-        result = await deps.provide_werewolf_tribe_by_id(tribe.id)
-
-        # Then the tribe is returned
-        assert result.id == tribe.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when werewolf tribe does not exist."""
-        # Given a non-existent tribe ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Werewolf tribe not found"):
-            await deps.provide_werewolf_tribe_by_id(non_existent_id)
-
-
-class TestProvideWerewolfAuspiceById:
-    """Test provide_werewolf_auspice_by_id dependency."""
-
-    async def test_returns_werewolf_auspice_when_found(self) -> None:
-        """Verify returning a werewolf auspice when found by ID."""
-        # Given a werewolf auspice exists (from bootstrap)
-        auspice = await WerewolfAuspice.find_one(WerewolfAuspice.is_archived == False)
-        assert auspice is not None
-
-        # When we provide the auspice by ID
-        result = await deps.provide_werewolf_auspice_by_id(auspice.id)
-
-        # Then the auspice is returned
-        assert result.id == auspice.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when werewolf auspice does not exist."""
-        # Given a non-existent auspice ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Werewolf auspice not found"):
-            await deps.provide_werewolf_auspice_by_id(non_existent_id)
-
-
-class TestProvideDictionaryTermById:
-    """Test provide_dictionary_term_by_id dependency."""
-
-    async def test_returns_dictionary_term_when_found_for_company(
-        self, base_company: Company, dictionary_term_factory: Callable[..., DictionaryTerm]
-    ) -> None:
-        """Verify returning a company-specific dictionary term when found."""
-        # Given a company-specific dictionary term exists
-        term = await dictionary_term_factory(company_id=base_company.id)
-
-        # When we provide the term by ID
-        result = await deps.provide_dictionary_term_by_id(base_company, term.id)
-
-        # Then the term is returned
-        assert result.id == term.id
-
-    async def test_returns_dictionary_term_when_global(
-        self, base_company: Company, dictionary_term_factory: Callable[..., DictionaryTerm]
-    ) -> None:
-        """Verify returning a global dictionary term."""
-        # Given a global dictionary term exists
-        term = await dictionary_term_factory(
-            source_type=DictionarySourceType.TRAIT, source_id=PydanticObjectId()
-        )
-        term.company_id = None
-        await term.save()
-
-        # When we provide the term by ID with any company
-        result = await deps.provide_dictionary_term_by_id(base_company, term.id)
-
-        # Then the term is returned
-        assert result.id == term.id
-
-    async def test_raises_not_found_when_missing(self, base_company: Company) -> None:
-        """Verify raising NotFoundError when dictionary term does not exist."""
-        # Given a non-existent term ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Dictionary term not found"):
-            await deps.provide_dictionary_term_by_id(base_company, non_existent_id)
-
-    async def test_raises_not_found_when_wrong_company_and_not_global(
-        self,
-        company_factory: Callable[..., Company],
-        dictionary_term_factory: Callable[..., DictionaryTerm],
-    ) -> None:
-        """Verify raising NotFoundError when term belongs to different company and not global."""
-        # Given a term belongs to a specific company
-        company_a = await company_factory()
-        company_b = await company_factory()
-        term = await dictionary_term_factory(
-            term="Company A Term",
-            definition="Definition",
-            company_id=company_a.id,
-            is_global=False,
-        )
-
-        # When/Then we expect a NotFoundError when using different company
-        with pytest.raises(NotFoundError, match="Dictionary term not found"):
-            await deps.provide_dictionary_term_by_id(company_b, term.id)
-
-
 class TestProvideInventoryItemById:
     """Test provide_inventory_item_by_id dependency."""
 
@@ -734,41 +510,6 @@ class TestProvideQuickrollById:
             await deps.provide_quickroll_by_id(quickroll.id)
 
 
-class TestProvideTraitById:
-    """Test provide_trait_by_id dependency."""
-
-    async def test_returns_trait_when_found(self, trait_factory: Callable[..., Trait]) -> None:
-        """Verify returning a trait when found by ID."""
-        # Given a trait exists
-        trait = await trait_factory()
-
-        # When we provide the trait by ID
-        result = await deps.provide_trait_by_id(trait.id)
-
-        # Then the trait is returned
-        assert result.id == trait.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when trait does not exist."""
-        # Given a non-existent trait ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Trait not found"):
-            await deps.provide_trait_by_id(non_existent_id)
-
-    async def test_raises_not_found_when_archived(
-        self, trait_factory: Callable[..., Trait]
-    ) -> None:
-        """Verify raising NotFoundError when trait is archived."""
-        # Given an archived trait exists
-        trait = await trait_factory(is_archived=True)
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Trait not found"):
-            await deps.provide_trait_by_id(trait.id)
-
-
 class TestProvideTraitCategoryById:
     """Test provide_trait_category_by_id dependency."""
 
@@ -792,31 +533,6 @@ class TestProvideTraitCategoryById:
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Trait category not found"):
             await deps.provide_trait_category_by_id(non_existent_id)
-
-
-class TestProvideTraitSubcategoryById:
-    """Test provide_trait_subcategory_by_id dependency."""
-
-    async def test_returns_trait_subcategory_when_found(self) -> None:
-        """Verify returning a trait subcategory when found by ID."""
-        # Given a trait subcategory exists (from bootstrap)
-        subcategory = await TraitSubcategory.find_one(TraitSubcategory.is_archived == False)
-        assert subcategory is not None
-
-        # When we provide the subcategory by ID
-        result = await deps.provide_trait_subcategory_by_id(subcategory.id)
-
-        # Then the subcategory is returned
-        assert result.id == subcategory.id
-
-    async def test_raises_not_found_when_missing(self) -> None:
-        """Verify raising NotFoundError when trait subcategory does not exist."""
-        # Given a non-existent subcategory ID
-        non_existent_id = PydanticObjectId()
-
-        # When/Then we expect a NotFoundError
-        with pytest.raises(NotFoundError, match="Trait subcategory not found"):
-            await deps.provide_trait_subcategory_by_id(non_existent_id)
 
 
 class TestProvideUserByIdAndCompany:

@@ -21,6 +21,9 @@ from vapi.lib.exceptions import NotFoundError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.dictionary import DictionaryTerm
+
 pytestmark = pytest.mark.anyio
 
 
@@ -217,3 +220,49 @@ class TestProvideWerewolfAuspiceById:
         """Verify raising NotFoundError when werewolf auspice does not exist."""
         with pytest.raises(NotFoundError, match="Werewolf auspice not found"):
             await pg_deps.provide_werewolf_auspice_by_id(uuid7())
+
+
+class TestProvideDictionaryTermById:
+    """Test provide_dictionary_term_by_id dependency."""
+
+    async def test_returns_company_owned_term(
+        self,
+        pg_company_factory: Callable[..., Company],
+        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify returning a company-owned dictionary term."""
+        company = await pg_company_factory()
+        term = await pg_dictionary_term_factory(company_id=company.id)
+        result = await pg_deps.provide_dictionary_term_by_id(company, term.id)
+        assert str(result.id) == str(term.id)
+
+    async def test_returns_global_term(
+        self,
+        pg_company_factory: Callable[..., Company],
+        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify returning a global dictionary term (company_id is None)."""
+        company = await pg_company_factory()
+        term = await pg_dictionary_term_factory(company_id=None)
+        result = await pg_deps.provide_dictionary_term_by_id(company, term.id)
+        assert str(result.id) == str(term.id)
+
+    async def test_raises_not_found_when_missing(
+        self, pg_company_factory: Callable[..., Company]
+    ) -> None:
+        """Verify raising NotFoundError when term does not exist."""
+        company = await pg_company_factory()
+        with pytest.raises(NotFoundError, match="Dictionary term not found"):
+            await pg_deps.provide_dictionary_term_by_id(company, uuid7())
+
+    async def test_raises_not_found_when_different_company(
+        self,
+        pg_company_factory: Callable[..., Company],
+        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify raising NotFoundError when term belongs to a different company."""
+        company_a = await pg_company_factory()
+        company_b = await pg_company_factory(name="Other Company", email="other@example.com")
+        term = await pg_dictionary_term_factory(company_id=company_a.id)
+        with pytest.raises(NotFoundError, match="Dictionary term not found"):
+            await pg_deps.provide_dictionary_term_by_id(company_b, term.id)

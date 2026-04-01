@@ -9,6 +9,7 @@ from uuid import UUID
 from tortoise.expressions import Q
 from tortoise.models import Model
 
+from vapi.db.models import Company
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import (
@@ -17,6 +18,7 @@ from vapi.db.sql_models.character_sheet import (
     TraitCategory,
     TraitSubcategory,
 )
+from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.lib.exceptions import NotFoundError
 
 
@@ -132,4 +134,19 @@ async def provide_werewolf_auspice_by_id(
         "Werewolf auspice",
         doc_id=werewolf_auspice_id,
         prefetch=["gifts"],
+    )
+
+
+async def provide_dictionary_term_by_id(
+    company: Company, dictionary_term_id: UUID
+) -> DictionaryTerm:
+    """Provide a dictionary term by ID, scoped to the requesting company.
+
+    Returns terms owned by the company or global terms (company_id is NULL).
+    """
+    return await _find_or_404(
+        DictionaryTerm,
+        "Dictionary term",
+        Q(company_id=company.id) | Q(company_id__isnull=True),
+        doc_id=dictionary_term_id,
     )
