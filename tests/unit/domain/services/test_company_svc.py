@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
 from vapi.constants import CompanyPermission
-from vapi.db.models.developer import CompanyPermissions
-from vapi.domain.services import CompanyService, GetModelByIdValidationService
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.domain.services import CompanyService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from pytest_mock import MockerFixture
-
-    from vapi.db.models import Company, Developer
+    from vapi.db.sql_models.company import Company
 
 
 pytestmark = pytest.mark.anyio
@@ -37,44 +35,39 @@ class DevelopersAndCompanies:
 
 @pytest.fixture
 async def developers_and_companies(
-    base_company: Company,
-    developer_factory: Callable[[], Developer],
-    company_factory: Callable[[], Company],
+    pg_company_factory: Callable[..., Company],
+    pg_developer_factory: Callable[..., Developer],
+    pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
 ) -> DevelopersAndCompanies:
-    """Create a developer and a company and delete the base companies."""
-    # Delete the base company to control the database state
-    await base_company.delete()
-
-    other_company = await company_factory()
-    company = await company_factory()
-    archived_company = await company_factory(is_archived=True)
-    global_admin = await developer_factory(is_global_admin=True)
-    developer_owner = await developer_factory(
-        is_global_admin=False,
-        companies=[
-            CompanyPermissions(
-                company_id=company.id, name=company.name, permission=CompanyPermission.OWNER
-            )
-        ],
-    )
-    developer_admin = await developer_factory(
-        is_global_admin=False,
-        companies=[
-            CompanyPermissions(
-                company_id=company.id, name=company.name, permission=CompanyPermission.ADMIN
-            )
-        ],
-    )
-    developer_user = await developer_factory(
-        is_global_admin=False,
-        companies=[
-            CompanyPermissions(
-                company_id=company.id, name=company.name, permission=CompanyPermission.USER
-            )
-        ],
+    """Create developers with varying permissions and two companies for permission tests."""
+    other_company = await pg_company_factory(name="Other Company", email="other@example.com")
+    company = await pg_company_factory(name="Main Company", email="main@example.com")
+    await pg_company_factory(
+        name="Archived Company", email="archived@example.com", is_archived=True
     )
 
-    yield DevelopersAndCompanies(
+    global_admin = await pg_developer_factory(is_global_admin=True)
+    developer_owner = await pg_developer_factory(is_global_admin=False)
+    developer_admin = await pg_developer_factory(is_global_admin=False)
+    developer_user = await pg_developer_factory(is_global_admin=False)
+
+    await pg_developer_company_permission_factory(
+        developer=developer_owner,
+        company=company,
+        permission=CompanyPermission.OWNER,
+    )
+    await pg_developer_company_permission_factory(
+        developer=developer_admin,
+        company=company,
+        permission=CompanyPermission.ADMIN,
+    )
+    await pg_developer_company_permission_factory(
+        developer=developer_user,
+        company=company,
+        permission=CompanyPermission.USER,
+    )
+
+    return DevelopersAndCompanies(
         global_admin=global_admin,
         developer_owner=developer_owner,
         developer_admin=developer_admin,
@@ -83,15 +76,6 @@ async def developers_and_companies(
         other_company=other_company,
     )
 
-    # cleanup
-    await global_admin.delete()
-    await developer_owner.delete()
-    await developer_admin.delete()
-    await developer_user.delete()
-    await company.delete()
-    await other_company.delete()
-    await archived_company.delete()
-
 
 class TestListCompanies:
     """Test the list_companies method."""
@@ -99,7 +83,7 @@ class TestListCompanies:
     async def test_list_companies_global_admin(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the list_companies method for a global admin."""
+        """Verify global admin sees all non-archived companies."""
         # Given objects
         global_admin = developers_and_companies.global_admin
         company = developers_and_companies.company
@@ -116,7 +100,7 @@ class TestListCompanies:
     async def test_list_companies_developer(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the list_companies method for a developer with owner permission."""
+        """Verify a regular developer only sees companies they have permission for."""
         # Given objects
         developer_user = developers_and_companies.developer_user
         company = developers_and_companies.company
@@ -127,7 +111,7 @@ class TestListCompanies:
 
         # Then the result should be the correct count and companies
         assert count == 1
-        assert companies == [company]
+        assert {x.id for x in companies} == {company.id}
 
 
 class TestCanDeveloperAccessCompany:
@@ -136,14 +120,14 @@ class TestCanDeveloperAccessCompany:
     async def test_can_developer_access_company_global_admin(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the can_developer_access_company method for a global admin."""
+        """Verify global admin bypasses permission checks for any company."""
         # Given objects
         global_admin = developers_and_companies.global_admin
         other_company = developers_and_companies.other_company
 
         # When the method is called
         service = CompanyService()
-        result = service.can_developer_access_company(
+        result = await service.can_developer_access_company(
             developer=global_admin, company_id=other_company.id
         )
 
@@ -153,14 +137,14 @@ class TestCanDeveloperAccessCompany:
     async def test_can_developer_access_company_developer(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the can_developer_access_company method for a developer with user permission."""
+        """Verify a developer with user permission can access their company."""
         # Given objects
         developer_user = developers_and_companies.developer_user
         company = developers_and_companies.company
 
         # When the method is called
         service = CompanyService()
-        result = service.can_developer_access_company(
+        result = await service.can_developer_access_company(
             developer=developer_user, company_id=company.id
         )
 
@@ -168,31 +152,31 @@ class TestCanDeveloperAccessCompany:
         assert result is True
 
     async def test_can_developer_access_company_developer_revoked(
-        self, developers_and_companies: DevelopersAndCompanies
+        self,
+        developers_and_companies: DevelopersAndCompanies,
+        pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
     ) -> None:
-        """Test the can_developer_access_company method for a developer with revoked permission."""
-        # Given objects
-        developer_user = developers_and_companies.developer_user
-        company = developers_and_companies.company
-
-        developer_user.companies = [
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.REVOKE,
-            )
-        ]
-        await developer_user.save()
+        """Verify a developer with revoked permission is denied access."""
+        # Given a developer whose permission is revoked
+        developer_owner = developers_and_companies.developer_owner
+        other_company = developers_and_companies.other_company
+        await pg_developer_company_permission_factory(
+            developer=developer_owner,
+            company=other_company,
+            permission=CompanyPermission.REVOKE,
+        )
 
         # When the method is called
         service = CompanyService()
         with pytest.raises(PermissionDeniedError):
-            service.can_developer_access_company(developer=developer_user, company_id=company.id)
+            await service.can_developer_access_company(
+                developer=developer_owner, company_id=other_company.id
+            )
 
     async def test_can_developer_access_company_no_permission(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the can_developer_access_company method for a developer with no permission."""
+        """Verify a developer with no permission is denied access."""
         # Given objects
         developer_user = developers_and_companies.developer_user
         other_company = developers_and_companies.other_company
@@ -200,7 +184,7 @@ class TestCanDeveloperAccessCompany:
         # When the method is called
         service = CompanyService()
         with pytest.raises(PermissionDeniedError):
-            service.can_developer_access_company(
+            await service.can_developer_access_company(
                 developer=developer_user, company_id=other_company.id
             )
 
@@ -228,8 +212,8 @@ class TestCanDeveloperAccessCompany:
         developer_permission: CompanyPermission,
         expected_result: bool,
     ) -> None:
-        """Test the can_developer_access_company method for a developer with admin permission."""
-        # Given objects
+        """Verify the correct result when checking minimum permission levels."""
+        # Given the correct developer for the test case
         user = (
             developers_and_companies.developer_user
             if developer_permission == CompanyPermission.USER
@@ -245,13 +229,13 @@ class TestCanDeveloperAccessCompany:
 
         if not expected_result:
             with pytest.raises(PermissionDeniedError):
-                service.can_developer_access_company(
+                await service.can_developer_access_company(
                     developer=user,
                     company_id=developers_and_companies.company.id,
                     minimum_permission=minimum_permission,
                 )
         else:
-            result = service.can_developer_access_company(
+            result = await service.can_developer_access_company(
                 developer=user,
                 company_id=developers_and_companies.company.id,
                 minimum_permission=minimum_permission,
@@ -262,62 +246,46 @@ class TestCanDeveloperAccessCompany:
 class TestHelperMethods:
     """Test helper methods."""
 
-    async def test__get_company_perms_from_developer_true(
+    async def test__get_developer_permission_found(
         self,
-        company_factory: Callable[[], Company],
-        developer_factory: Callable[[], Developer],
-        debug: Callable[[Any], None],
+        pg_company_factory: Callable[..., Company],
+        pg_developer_factory: Callable[..., Developer],
+        pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
     ) -> None:
-        """Test the _get_company_perms_from_developer method."""
-        # Given objects
-        developer = await developer_factory()
-        company = await company_factory()
-        developer.companies.append(
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.OWNER,
-            )
-        )
-        await developer.save()
-
-        # When the method is called
-        service = CompanyService()
-        result = service._get_company_perms_from_developer(
-            developer=developer, company_id=company.id
-        )
-
-        # Then the result should be the company permissions
-        assert result == CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
+        """Verify _get_developer_permission returns a row when one exists."""
+        # Given a developer with permission for a company
+        developer = await pg_developer_factory()
+        company = await pg_company_factory()
+        await pg_developer_company_permission_factory(
+            developer=developer,
+            company=company,
             permission=CompanyPermission.OWNER,
         )
 
-    async def test__get_company_perms_from_developer_false(
-        self,
-        company_factory: Callable[[], Company],
-        developer_factory: Callable[[], Developer],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Test the _get_company_perms_from_developer method."""
-        # Given objects
-        developer = await developer_factory()
-        company = await company_factory()
-        developer.companies.append(
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.OWNER,
-            )
+        # When the method is called
+        service = CompanyService()
+        result = await service._get_developer_permission(
+            developer_id=developer.id, company_id=company.id
         )
-        await developer.save()
-        company2 = await company_factory()
+
+        # Then the result should be the permission row
+        assert result is not None
+        assert result.permission == CompanyPermission.OWNER
+
+    async def test__get_developer_permission_not_found(
+        self,
+        pg_company_factory: Callable[..., Company],
+        pg_developer_factory: Callable[..., Developer],
+    ) -> None:
+        """Verify _get_developer_permission returns None when no row exists."""
+        # Given a developer with no permission for the company
+        developer = await pg_developer_factory()
+        company = await pg_company_factory()
 
         # When the method is called
         service = CompanyService()
-        result = service._get_company_perms_from_developer(
-            developer=developer, company_id=company2.id
+        result = await service._get_developer_permission(
+            developer_id=developer.id, company_id=company.id
         )
 
         # Then the result should be None
@@ -326,9 +294,8 @@ class TestHelperMethods:
     async def test__count_company_owners(
         self,
         developers_and_companies: DevelopersAndCompanies,
-        debug: Callable[[Any], None],
     ) -> None:
-        """Verify _count_company_owners returns the correct count."""
+        """Verify _count_company_owners returns the correct count of non-admin owners."""
         # When the method is called
         service = CompanyService()
         result = await service._count_company_owners(company_id=developers_and_companies.company.id)
@@ -341,19 +308,13 @@ class TestControlCompanyPermissions:
     """Test the control_company_permissions method."""
 
     async def test_control_company_permissions_update_success(
-        self, developers_and_companies: DevelopersAndCompanies, mocker: MockerFixture
+        self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the control_company_permissions method for a success case."""
+        """Verify an owner can update an existing developer's permission."""
         # Given objects
         developer_owner = developers_and_companies.developer_owner
         developer_user = developers_and_companies.developer_user
         company = developers_and_companies.company
-
-        # Create spies
-        spy_can_developer_access_company = mocker.spy(
-            CompanyService, "can_developer_access_company"
-        )
-        spy_get_model_by_id = mocker.spy(GetModelByIdValidationService, "get_developer_by_id")
 
         # When the method is called
         service = CompanyService()
@@ -364,35 +325,26 @@ class TestControlCompanyPermissions:
             new_permission=CompanyPermission.ADMIN,
         )
 
-        # Then the result should be the correct company permissions
-        assert result == CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
-            permission=CompanyPermission.ADMIN,
-        )
+        # Then the result should have the updated permission
+        assert result.permission == CompanyPermission.ADMIN
+        assert result.company_id == company.id
 
-        await developer_user.sync()
-        assert developer_user.companies == [
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.ADMIN,
-            )
-        ]
-
-        # Then the spies should have been called once
-        spy_can_developer_access_company.assert_called_once()
-        spy_get_model_by_id.assert_called_once()
+        # And the permission row in the DB should be updated
+        updated = await DeveloperCompanyPermission.filter(
+            developer_id=developer_user.id, company_id=company.id
+        ).first()
+        assert updated is not None
+        assert updated.permission == CompanyPermission.ADMIN
 
     async def test_control_company_permissions_new_success(
         self,
         developers_and_companies: DevelopersAndCompanies,
-        developer_factory: Callable[[], Developer],
+        pg_developer_factory: Callable[..., Developer],
     ) -> None:
-        """Test the control_company_permissions method for a new success case."""
-        # Given objects
+        """Verify an owner can grant permission to a developer with no existing row."""
+        # Given a developer with no permissions
         developer_owner = developers_and_companies.developer_owner
-        developer_user = await developer_factory(companies=[], is_archived=False)
+        new_developer = await pg_developer_factory(is_archived=False)
         company = developers_and_companies.company
 
         # When the method is called
@@ -400,30 +352,25 @@ class TestControlCompanyPermissions:
         result = await service.control_company_permissions(
             company=company,
             requesting_developer=developer_owner,
-            target_developer_id=developer_user.id,
+            target_developer_id=new_developer.id,
             new_permission=CompanyPermission.OWNER,
         )
 
-        # Then the result should be the correct company permissions
-        assert result == CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
-            permission=CompanyPermission.OWNER,
-        )
+        # Then the result should have the new permission
+        assert result.permission == CompanyPermission.OWNER
+        assert result.company_id == company.id
 
-        await developer_user.sync()
-        assert developer_user.companies == [
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.OWNER,
-            )
-        ]
+        # And a permission row should exist in the DB
+        created = await DeveloperCompanyPermission.filter(
+            developer_id=new_developer.id, company_id=company.id
+        ).first()
+        assert created is not None
+        assert created.permission == CompanyPermission.OWNER
 
     async def test_control_company_permissions_revoke_success(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the control_company_permissions method for a revoke success case."""
+        """Verify an owner can revoke a developer's permission."""
         # Given objects
         developer_owner = developers_and_companies.developer_owner
         developer_user = developers_and_companies.developer_user
@@ -438,35 +385,36 @@ class TestControlCompanyPermissions:
             new_permission=CompanyPermission.REVOKE,
         )
 
-        # Then the result should be None
-        assert result == CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
-            permission=CompanyPermission.REVOKE,
-        )
+        # Then the result should be a synthetic revoked permission
+        assert result.permission == CompanyPermission.REVOKE
+        assert result.company_id == company.id
 
-        await developer_user.sync()
-        assert developer_user.companies == []
+        # And no permission row should exist in the DB
+        remaining = await DeveloperCompanyPermission.filter(
+            developer_id=developer_user.id, company_id=company.id
+        ).first()
+        assert remaining is None
 
     async def test_control_company_permissions_revoke_owner_success(
-        self, developers_and_companies: DevelopersAndCompanies
+        self,
+        developers_and_companies: DevelopersAndCompanies,
+        pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
     ) -> None:
-        """Test the control_company_permissions method for a revoke owner success case."""
-        # Given objects
+        """Verify revoking one owner succeeds when another owner still exists."""
+        # Given two owners of the same company
         developer_owner = developers_and_companies.developer_owner
         developer_user = developers_and_companies.developer_user
         company = developers_and_companies.company
 
-        developer_user.companies = [
-            CompanyPermissions(
-                company_id=company.id,
-                name=company.name,
-                permission=CompanyPermission.OWNER,
-            )
-        ]
-        await developer_user.save()
+        # Promote developer_user to owner (now two owners exist)
+        perm = await DeveloperCompanyPermission.filter(
+            developer_id=developer_user.id, company_id=company.id
+        ).first()
+        assert perm is not None
+        perm.permission = CompanyPermission.OWNER
+        await perm.save()
 
-        # When the method is called
+        # When revoking the second owner
         service = CompanyService()
         result = await service.control_company_permissions(
             company=company,
@@ -475,24 +423,24 @@ class TestControlCompanyPermissions:
             new_permission=CompanyPermission.REVOKE,
         )
 
-        # Then the result should be None
-        assert result == CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
-            permission=CompanyPermission.REVOKE,
-        )
-        await developer_user.sync()
-        assert developer_user.companies == []
+        # Then the result should be a synthetic revoked permission
+        assert result.permission == CompanyPermission.REVOKE
+
+        # And no permission row should remain for that developer
+        remaining = await DeveloperCompanyPermission.filter(
+            developer_id=developer_user.id, company_id=company.id
+        ).first()
+        assert remaining is None
 
     async def test_control_company_permissions_revoke_owner_failure(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the control_company_permissions method for a revoke owner failure case."""
+        """Verify revoking the sole owner raises a ValidationError."""
         # Given objects
         developer_owner = developers_and_companies.developer_owner
         company = developers_and_companies.company
 
-        # When the method is called
+        # When the method is called to revoke the sole owner
         service = CompanyService()
         with pytest.raises(ValidationError):
             await service.control_company_permissions(
@@ -505,13 +453,13 @@ class TestControlCompanyPermissions:
     async def test_control_company_permissions_idempotent(
         self, developers_and_companies: DevelopersAndCompanies
     ) -> None:
-        """Test the control_company_permissions method for an idempotent case."""
+        """Verify setting the same permission twice returns the existing row unchanged."""
         # Given objects
         developer_owner = developers_and_companies.developer_owner
         developer_admin = developers_and_companies.developer_admin
         company = developers_and_companies.company
 
-        # When the method is called
+        # When the method is called with the existing permission
         service = CompanyService()
         result = await service.control_company_permissions(
             company=company,
@@ -520,9 +468,6 @@ class TestControlCompanyPermissions:
             new_permission=CompanyPermission.ADMIN,
         )
 
-        # Then the result should be the correct company permissions
-        assert result == CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
-            permission=CompanyPermission.ADMIN,
-        )
+        # Then the result should still have the same permission
+        assert result.permission == CompanyPermission.ADMIN
+        assert result.company_id == company.id
