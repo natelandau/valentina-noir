@@ -1,23 +1,20 @@
 """Developer controllers."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
+import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import get, patch, post
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.db.models import Developer  # noqa: TC001
-from vapi.domain import deps, hooks, urls
-from vapi.domain.utils import patch_dto_data_internal_objects
+from vapi.db.sql_models.developer import Developer
+from vapi.domain import hooks, pg_deps, urls
+from vapi.domain.services import DeveloperService
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import docs, dto
+from . import docs
+from .dto import DeveloperPatch, DeveloperResponse
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -28,9 +25,8 @@ class DeveloperController(Controller):
 
     tags = [APITags.DEVELOPERS.name]
     dependencies = {
-        "developer": Provide(deps.provide_developer_from_request),
+        "developer": Provide(pg_deps.provide_developer_from_request),
     }
-    return_dto = dto.ReturnDTO
 
     @get(
         path=urls.Developers.ME,
@@ -39,9 +35,9 @@ class DeveloperController(Controller):
         description=docs.GET_ME_DESCRIPTION,
         cache=True,
     )
-    async def me(self, *, developer: Developer) -> Developer:
+    async def me(self, *, developer: Developer) -> DeveloperResponse:
         """Get the current developer."""
-        return developer
+        return DeveloperResponse.from_model(developer)
 
     @post(
         path=urls.Developers.NEW_KEY,
@@ -50,16 +46,16 @@ class DeveloperController(Controller):
         description=docs.REGENERATE_API_KEY_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
-        """Generate a new API key for an Developer."""
-        new_api_key = await developer.generate_api_key()
+    async def new_api_key(self, *, developer: Developer, request: "Request") -> dict[str, str]:
+        """Generate a new API key for a developer."""
+        new_key = await DeveloperService().generate_api_key(developer)
 
         await delete_authentication_cache_for_api_key(request)
         return {
             "id": str(developer.id),
             "username": developer.username,
             "email": developer.email,
-            "api_key": new_api_key,
+            "api_key": new_key,
             "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
 
@@ -68,18 +64,22 @@ class DeveloperController(Controller):
         summary="Update current developer",
         operation_id="updateDeveloperMe",
         description=docs.UPDATE_ME_DESCRIPTION,
-        dto=dto.PatchDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def update_developer(
-        self, *, developer: Developer, data: DTOData[Developer]
-    ) -> Developer:
+        self, *, developer: Developer, data: DeveloperPatch
+    ) -> DeveloperResponse:
         """Update the current developer."""
-        developer, data = await patch_dto_data_internal_objects(original=developer, data=data)
-        updated_developer = data.update_instance(developer)
-        try:
-            await updated_developer.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
+        if not isinstance(data.username, msgspec.UnsetType):
+            developer.username = data.username
+        if not isinstance(data.email, msgspec.UnsetType):
+            developer.email = data.email
 
-        return updated_developer
+        await developer.save()
+
+        # Re-fetch with prefetched relations so the response DTO has full data
+        developer = (
+            await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+        )  # type: ignore[assignment]
+
+        return DeveloperResponse.from_model(developer)
