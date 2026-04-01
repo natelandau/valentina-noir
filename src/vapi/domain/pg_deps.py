@@ -4,6 +4,7 @@ Parallel to deps.py (Beanie-based) during the migration. Once all domains
 are migrated (Session 11), delete deps.py and rename this file to deps.py.
 """
 
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from tortoise.expressions import Q
@@ -11,6 +12,11 @@ from tortoise.models import Model
 
 from vapi.db.models import Company
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.company import Company as PgCompany
+from vapi.db.sql_models.developer import Developer as PgDeveloper
+
+if TYPE_CHECKING:
+    from litestar import Request
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
@@ -134,6 +140,43 @@ async def provide_werewolf_auspice_by_id(
         "Werewolf auspice",
         doc_id=werewolf_auspice_id,
         prefetch=["gifts"],
+    )
+
+
+async def provide_pg_company_by_id(company_id: UUID) -> PgCompany:
+    """Provide a Tortoise Company by ID with settings prefetched."""
+    return await _find_or_404(
+        PgCompany,
+        "Company",
+        doc_id=company_id,
+        prefetch=["settings"],
+    )
+
+
+async def provide_developer_from_request(request: "Request") -> PgDeveloper:
+    """Provide the current developer from the request, queried via Tortoise.
+
+    Read developer ID from request.user.id (set by Beanie auth middleware)
+    and look up the Tortoise Developer with permissions prefetched.
+    """
+    developer_id = request.user.id
+    result = (
+        await PgDeveloper.filter(id=developer_id, is_archived=False)
+        .prefetch_related("permissions__company")
+        .first()
+    )
+    if not result:
+        raise NotFoundError(detail="Developer not found")
+    return result
+
+
+async def provide_developer_by_id(developer_id: UUID) -> PgDeveloper:
+    """Provide a Tortoise Developer by ID with permissions prefetched."""
+    return await _find_or_404(
+        PgDeveloper,
+        "Developer",
+        doc_id=developer_id,
+        prefetch=["permissions__company"],
     )
 
 

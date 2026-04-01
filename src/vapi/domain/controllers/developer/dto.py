@@ -1,30 +1,50 @@
-"""Developer schemas."""
+"""Developer DTOs."""
 
-from litestar.plugins.pydantic import PydanticDTO
+from datetime import datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
 
-from vapi.db.models import Developer
-from vapi.lib.dto import dto_config
+import msgspec
 
+from vapi.domain.controllers.company.dto import CompanyPermissionResponse
 
-class PatchDTO(PydanticDTO[Developer]):
-    """Update Developer DTO."""
-
-    config = dto_config(
-        partial=True,
-        exclude={
-            "id",
-            "api_key_fingerprint",
-            "date_created",
-            "date_modified",
-            "hashed_api_key",
-            "key_generated",
-            "companies",
-            "is_global_admin",
-        },
-    )
+if TYPE_CHECKING:
+    from vapi.db.sql_models.developer import Developer
 
 
-class ReturnDTO(PydanticDTO[Developer]):
-    """Developer DTO."""
+class DeveloperResponse(msgspec.Struct):
+    """Response body for a developer."""
 
-    config = dto_config(exclude={"api_key_fingerprint", "hashed_api_key", "is_global_admin"})
+    id: UUID
+    date_created: datetime
+    date_modified: datetime
+    username: str
+    email: str
+    key_generated: datetime | None
+    companies: list[CompanyPermissionResponse]
+
+    @classmethod
+    def from_model(cls, m: "Developer") -> "DeveloperResponse":
+        """Convert a Tortoise Developer to a response Struct.
+
+        Requires the permissions and their related company relations to be prefetched.
+        """
+        return cls(
+            id=m.id,
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+            username=m.username,
+            email=m.email,
+            key_generated=m.key_generated,
+            companies=[CompanyPermissionResponse.from_model(p) for p in m.permissions],
+        )
+
+
+class DeveloperPatch(msgspec.Struct):
+    """Request body for partially updating a developer.
+
+    All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
+    """
+
+    username: str | msgspec.UnsetType = msgspec.UNSET
+    email: str | msgspec.UnsetType = msgspec.UNSET
