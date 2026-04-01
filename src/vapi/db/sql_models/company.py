@@ -12,6 +12,10 @@ from vapi.constants import (
     PermissionsGrantXP,
 )
 from vapi.db.sql_models.base import BaseModel
+from vapi.db.sql_models.validators import (
+    validate_company_settings_num_choices,
+    validate_company_settings_xp_cost,
+)
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.aws import S3Asset
@@ -59,8 +63,12 @@ class CompanySettings(BaseModel):
     company: fields.OneToOneRelation[Company] = fields.OneToOneField(
         "models.Company", related_name="settings", on_delete=fields.OnDelete.CASCADE
     )
-    character_autogen_xp_cost = fields.IntField(default=10)
-    character_autogen_num_choices = fields.IntField(default=3)
+    character_autogen_xp_cost = fields.IntField(
+        default=10, validators=[validate_company_settings_xp_cost]
+    )
+    character_autogen_num_choices = fields.IntField(
+        default=3, validators=[validate_company_settings_num_choices]
+    )
     permission_manage_campaign = fields.CharEnumField(
         PermissionManageCampaign, default=PermissionManageCampaign.UNRESTRICTED
     )

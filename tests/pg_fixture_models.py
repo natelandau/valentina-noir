@@ -17,6 +17,7 @@ import pytest
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.dictionary import DictionaryTerm
 
 pytestmark = pytest.mark.anyio
@@ -118,6 +119,57 @@ async def pg_character_concept_factory():
 
     for concept in created:
         await concept.delete()
+
+
+@pytest.fixture
+async def pg_developer_factory():
+    """Return a factory that creates Tortoise Developer instances with cleanup.
+
+    Developer is non-constant data, so the per-test cleanup handles deletion.
+    The factory still tracks instances for explicit cleanup in case it is used
+    in tests that do not rely on the automatic cleanup fixture.
+    """
+    created: list[Developer] = []
+
+    async def _factory(**kwargs: Any) -> Developer:
+        defaults: dict[str, Any] = {
+            "username": f"test-dev-{len(created)}",
+            "email": f"dev{len(created)}@example.com",
+            "is_global_admin": False,
+        }
+        defaults.update(kwargs)
+        developer = await Developer.create(**defaults)
+        # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
+        # avoiding type-mismatch issues when comparing with developer.id
+        developer = await Developer.get(id=str(developer.id))
+        created.append(developer)
+        return developer
+
+    yield _factory
+
+    for developer in created:
+        with contextlib.suppress(Exception):
+            await developer.delete()
+
+
+@pytest.fixture
+async def pg_developer_company_permission_factory():
+    """Return a factory that creates Tortoise DeveloperCompanyPermission instances with cleanup.
+
+    Permissions are non-constant data. Caller must supply developer, company, and permission.
+    """
+    created: list[DeveloperCompanyPermission] = []
+
+    async def _factory(**kwargs: Any) -> DeveloperCompanyPermission:
+        permission = await DeveloperCompanyPermission.create(**kwargs)
+        created.append(permission)
+        return permission
+
+    yield _factory
+
+    for permission in created:
+        with contextlib.suppress(Exception):
+            await permission.delete()
 
 
 @pytest.fixture
