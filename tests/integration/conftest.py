@@ -300,6 +300,11 @@ def _patch_pg_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
     from vapi.domain.controllers.notes.chapter_notes import CampaignChapterNoteController
     from vapi.domain.controllers.notes.character_notes import CharacterNoteController
     from vapi.domain.controllers.notes.user_notes import UserNoteController
+    from vapi.domain.controllers.s3_assets.book_assets import BookAssetsController
+    from vapi.domain.controllers.s3_assets.campaign_assets import CampaignAssetsController
+    from vapi.domain.controllers.s3_assets.chapter_assets import ChapterAssetsController
+    from vapi.domain.controllers.s3_assets.character_assets import CharacterAssetsController
+    from vapi.domain.controllers.s3_assets.user_assets import UserAssetsController
     from vapi.domain.controllers.statistics.controllers import StatisticsController
     from vapi.domain.controllers.user.experience_controller import ExperienceController
     from vapi.domain.controllers.user.user_controller import UserController
@@ -331,6 +336,11 @@ def _patch_pg_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
         UserNoteController,
         DiceRollController,
         StatisticsController,
+        BookAssetsController,
+        CampaignAssetsController,
+        ChapterAssetsController,
+        CharacterAssetsController,
+        UserAssetsController,
     ):
         for provide in controller_cls.dependencies.values():
             if (

@@ -9,8 +9,12 @@ from litestar.handlers import delete, get, post
 from litestar.params import Body, Parameter
 
 from vapi.constants import AssetType
-from vapi.db.models import CampaignChapter, Company, S3Asset, User
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.campaign import CampaignChapter
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain import hooks, pg_deps, urls
+from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
@@ -21,14 +25,15 @@ from .base import BaseAssetsController
 class ChapterAssetsController(BaseAssetsController):
     """Chapter assets controller."""
 
+    parent_fk_field = "chapter_id"
     tags = [APITags.CAMPAIGN_CHAPTER_ASSETS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
-        "book": Provide(deps.provide_campaign_book_by_id),
-        "chapter": Provide(deps.provide_campaign_chapter_by_id),
-        "asset": Provide(deps.provide_s3_asset_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "campaign": Provide(pg_deps.provide_campaign_by_id),
+        "book": Provide(pg_deps.provide_campaign_book_by_id),
+        "chapter": Provide(pg_deps.provide_campaign_chapter_by_id),
+        "asset": Provide(pg_deps.provide_s3_asset_by_id),
     }
 
     @get(
@@ -46,7 +51,7 @@ class ChapterAssetsController(BaseAssetsController):
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
-    ) -> OffsetPagination[S3Asset]:
+    ) -> OffsetPagination[dto.S3AssetResponse]:
         """List all chapter assets."""
         return await self._list_assets(
             parent_id=chapter.id,
@@ -62,9 +67,11 @@ class ChapterAssetsController(BaseAssetsController):
         description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
-    async def get_chapter_asset(self, chapter: CampaignChapter, asset: S3Asset) -> S3Asset:
+    async def get_chapter_asset(
+        self, chapter: CampaignChapter, asset: S3Asset
+    ) -> dto.S3AssetResponse:
         """Get a chapter asset."""
-        return await self._get_asset(asset, parent=chapter)
+        return await self._get_asset(asset, parent_id=chapter.id)
 
     @post(
         path=urls.Campaigns.CHAPTER_ASSET_UPLOAD,
@@ -79,10 +86,10 @@ class ChapterAssetsController(BaseAssetsController):
         chapter: CampaignChapter,
         user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
-    ) -> S3Asset:
+    ) -> dto.S3AssetResponse:
         """Upload a chapter asset."""
         return await self._create_asset(
-            parent=chapter,
+            parent_id=chapter.id,
             company_id=company.id,
             upload_user_id=user.id,
             data=data,

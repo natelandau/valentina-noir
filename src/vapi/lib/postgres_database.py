@@ -7,6 +7,17 @@ from typing import Any
 from vapi.config import settings
 
 
+async def init_tortoise() -> None:
+    """Initialize TortoiseORM for use outside the Litestar application lifecycle.
+
+    Use this when Tortoise needs to be initialized standalone, such as in
+    background tasks or CLI commands that run without a running Litestar app.
+    """
+    from tortoise import Tortoise
+
+    await Tortoise.init(config=tortoise_config())
+
+
 def tortoise_config() -> dict[str, Any]:
     """Build the TortoiseORM configuration dict from application settings.
 

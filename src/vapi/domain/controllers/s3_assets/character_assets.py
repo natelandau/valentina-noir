@@ -9,10 +9,14 @@ from litestar.handlers import delete, get, post
 from litestar.params import Body, Parameter
 
 from vapi.constants import AssetType
-from vapi.db.models import Character, Company, S3Asset, User
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.character import Character
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain import hooks, pg_deps, urls
+from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.guards import user_character_player_or_storyteller_guard
+from vapi.lib.pg_guards import pg_user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -22,12 +26,13 @@ from .base import BaseAssetsController
 class CharacterAssetsController(BaseAssetsController):
     """Character assets controller."""
 
+    parent_fk_field = "character_id"
     tags = [APITags.CHARACTERS_ASSETS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "character": Provide(deps.provide_character_by_id_and_company),
-        "asset": Provide(deps.provide_s3_asset_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "character": Provide(pg_deps.provide_character_by_id_and_company),
+        "asset": Provide(pg_deps.provide_s3_asset_by_id),
     }
 
     @get(
@@ -45,7 +50,7 @@ class CharacterAssetsController(BaseAssetsController):
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
-    ) -> OffsetPagination[S3Asset]:
+    ) -> OffsetPagination[dto.S3AssetResponse]:
         """List all character assets."""
         return await self._list_assets(
             parent_id=character.id,
@@ -61,9 +66,11 @@ class CharacterAssetsController(BaseAssetsController):
         description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
-    async def get_character_asset(self, character: Character, asset: S3Asset) -> S3Asset:
+    async def get_character_asset(
+        self, character: Character, asset: S3Asset
+    ) -> dto.S3AssetResponse:
         """Get a character asset."""
-        return await self._get_asset(asset, parent=character)
+        return await self._get_asset(asset, parent_id=character.id)
 
     @post(
         path=urls.Characters.ASSET_UPLOAD,
@@ -71,7 +78,7 @@ class CharacterAssetsController(BaseAssetsController):
         operation_id="uploadCharacterAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[user_character_player_or_storyteller_guard],
+        guards=[pg_user_character_player_or_storyteller_guard],
     )
     async def handle_file_upload(
         self,
@@ -79,10 +86,10 @@ class CharacterAssetsController(BaseAssetsController):
         character: Character,
         user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
-    ) -> S3Asset:
+    ) -> dto.S3AssetResponse:
         """Upload a character asset."""
         return await self._create_asset(
-            parent=character,
+            parent_id=character.id,
             company_id=company.id,
             upload_user_id=user.id,
             data=data,

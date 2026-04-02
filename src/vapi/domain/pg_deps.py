@@ -10,6 +10,7 @@ from uuid import UUID
 from tortoise.expressions import Q
 from tortoise.models import Model
 
+from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign as PgCampaign
 from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
 from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
@@ -335,3 +336,8 @@ async def provide_diceroll_by_id(diceroll_id: str) -> DiceRoll:
         doc_id=diceroll_id,
         prefetch=["roll_result", "traits"],
     )
+
+
+async def provide_s3_asset_by_id(asset_id: str) -> S3Asset:
+    """Provide an S3Asset by ID."""
+    return await _find_or_404(S3Asset, "Asset", doc_id=asset_id)
