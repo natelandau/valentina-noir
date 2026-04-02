@@ -5,11 +5,9 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import msgspec
-from litestar.plugins.pydantic import PydanticDTO
 from tortoise.exceptions import NoValuesFetched
 
-from vapi.db.models import QuickRoll
-from vapi.lib.dto import dto_config
+from vapi.db.sql_models.quickroll import QuickRoll
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.user import CampaignExperience, User
@@ -172,23 +170,46 @@ class ExperienceAddRemove(msgspec.Struct):
 
 
 # ---------------------------------------------------------------------------
-# QuickRoll DTOs (still Beanie/Pydantic — migrates in Session 9)
+# QuickRoll Structs (Tortoise)
 # ---------------------------------------------------------------------------
 
 
-class PostQuickRollDTO(PydanticDTO[QuickRoll]):
-    """Quick roll create DTO."""
+class QuickRollCreate(msgspec.Struct):
+    """Request body for creating a quick roll."""
 
-    config = dto_config(exclude={"id", "date_created", "date_modified", "user_id"})
-
-
-class PatchQuickRollDTO(PydanticDTO[QuickRoll]):
-    """Quick roll update DTO."""
-
-    config = dto_config(partial=True, exclude={"id", "date_created", "date_modified", "user_id"})
+    name: str
+    description: str = ""
+    trait_ids: list[UUID] = []
 
 
-class ReturnQuickRollDTO(PydanticDTO[QuickRoll]):
-    """Quick roll DTO."""
+class QuickRollPatch(msgspec.Struct):
+    """Request body for updating a quick roll."""
 
-    config = dto_config()
+    name: str | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType = msgspec.UNSET
+    trait_ids: list[UUID] | msgspec.UnsetType = msgspec.UNSET
+
+
+class QuickRollResponse(msgspec.Struct):
+    """Response body for a quick roll."""
+
+    id: UUID
+    date_created: datetime
+    date_modified: datetime
+    name: str
+    description: str
+    user_id: UUID
+    trait_ids: list[UUID]
+
+    @classmethod
+    def from_model(cls, m: QuickRoll) -> "QuickRollResponse":
+        """Convert a Tortoise QuickRoll to a response Struct."""
+        return cls(
+            id=m.id,
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+            name=m.name,
+            description=m.description or "",
+            user_id=m.user_id,  # type: ignore[attr-defined]
+            trait_ids=[t.id for t in m.traits],
+        )

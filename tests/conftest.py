@@ -263,6 +263,7 @@ _PG_CLEANUP_TABLES = [
     '"chargen_session"',
     '"note"',
     '"s3_asset"',
+    '"dice_roll_result"',
     '"dice_roll"',
     '"quick_roll"',
     '"character_trait"',

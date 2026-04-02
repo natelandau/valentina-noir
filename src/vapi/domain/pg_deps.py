@@ -19,6 +19,7 @@ from vapi.db.sql_models.character import CharacterTrait as PgCharacterTrait
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
+from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User as PgUser
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
 
@@ -306,4 +307,14 @@ async def provide_character_trait_by_id(
         Q(character_id=character.id),
         doc_id=character_trait_id,
         prefetch=CHARACTER_TRAIT_PREFETCH,
+    )
+
+
+async def provide_quickroll_by_id(quickroll_id: UUID) -> QuickRoll:
+    """Provide a QuickRoll by ID, prefetching traits for M2M."""
+    return await _find_or_404(
+        QuickRoll,
+        "Quick roll",
+        doc_id=quickroll_id,
+        prefetch=["traits"],
     )

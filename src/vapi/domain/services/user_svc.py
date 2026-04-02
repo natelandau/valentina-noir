@@ -10,7 +10,7 @@ import msgspec
 from tortoise.expressions import F
 
 from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
-from vapi.db.models import QuickRoll
+from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.utils import validate_trait_ids_from_mixed_sources
 from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
@@ -482,26 +482,23 @@ class UserXPService:
 
 
 class UserQuickRollService:
-    """Quick roll service.
+    """Quick roll service."""
 
-    Stays on Beanie — QuickRoll migrates in a later session.
-    """
-
-    async def validate_quickroll(self, quickroll: QuickRoll) -> QuickRoll:
-        """Validate a quick roll's trait IDs and name uniqueness.
+    async def validate_quickroll_traits(self, trait_ids: list[UUID]) -> list[Trait]:
+        """Validate trait IDs and return the Trait objects for M2M assignment.
 
         Args:
-            quickroll: The quick roll to validate.
+            trait_ids: The list of trait UUIDs to validate.
 
         Returns:
-            The validated quick roll with resolved trait IDs.
+            The list of validated Trait objects.
 
         Raises:
-            ValidationError: If no traits remain after validation or name is duplicate.
+            ValidationError: If no traits remain after validation or any ID is invalid.
         """
-        quickroll.trait_ids = await validate_trait_ids_from_mixed_sources(quickroll.trait_ids)
+        validated_ids = await validate_trait_ids_from_mixed_sources(trait_ids)
 
-        if not quickroll.trait_ids:
+        if not validated_ids:
             raise ValidationError(
                 detail="Quick roll must have at least one trait",
                 invalid_parameters=[
@@ -512,20 +509,4 @@ class UserQuickRollService:
                 ],
             )
 
-        existing_quickrolls = await QuickRoll.find(
-            QuickRoll.user_id == quickroll.user_id,
-            QuickRoll.is_archived == False,
-            QuickRoll.id != quickroll.id,
-            QuickRoll.name == quickroll.name,
-        ).count()
-        if existing_quickrolls > 0:
-            raise ValidationError(
-                detail="Quick roll name already exists",
-                invalid_parameters=[
-                    {
-                        "field": "name",
-                        "message": f"Quick roll name {quickroll.name} already exists",
-                    },
-                ],
-            )
-        return quickroll
+        return await Trait.filter(id__in=validated_ids)

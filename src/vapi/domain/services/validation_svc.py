@@ -32,6 +32,7 @@ from vapi.db.sql_models.character_classes import (
     WerewolfTribe as PgWerewolfTribe,
 )
 from vapi.db.sql_models.character_concept import CharacterConcept as PgCharacterConcept
+from vapi.db.sql_models.quickroll import QuickRoll as PgQuickRoll
 from vapi.db.sql_models.user import User as PgUser
 from vapi.lib.exceptions import ValidationError
 
@@ -166,6 +167,10 @@ class GetModelByIdValidationService:
     async def get_quickroll_by_id(self, quickroll_id: PydanticObjectId) -> QuickRoll:
         """Get a quick roll by ID."""
         return await _get_or_raise(QuickRoll, quickroll_id, "Quick roll")
+
+    async def get_quickroll_by_uuid(self, quickroll_id: UUID) -> Any:
+        """Get a quick roll by UUID via Tortoise."""
+        return await _pg_get_or_raise(PgQuickRoll, quickroll_id, "Quick roll")
 
     async def get_user_by_id(self, user_id: UUID | Any) -> Any:
         """Get a user by ID, routing to Tortoise or Beanie based on ID format.

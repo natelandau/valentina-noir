@@ -14,7 +14,10 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+from uuid_utils import uuid7
 
+from vapi.constants import AssetType, DiceSize, RollResultType
+from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
     Character,
@@ -28,7 +31,10 @@ from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
 from vapi.db.sql_models.dictionary import DictionaryTerm
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.utils.time import time_now
 
@@ -593,3 +599,186 @@ async def pg_chargen_session_factory(
     for session in created:
         with contextlib.suppress(Exception):
             await session.delete()
+
+
+@pytest.fixture
+async def pg_quickroll_factory(pg_user_factory: Any) -> Any:
+    """Return a factory that creates Tortoise QuickRoll instances.
+
+    Auto-creates a User if not provided. Accepts an optional list of Trait
+    objects to attach via the M2M `traits` relation.
+    """
+    created: list[QuickRoll] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> QuickRoll:
+        nonlocal _counter
+        _counter += 1
+
+        traits: list[Trait] = kwargs.pop("traits", [])
+
+        if "user" not in kwargs and "user_id" not in kwargs:
+            kwargs["user"] = await pg_user_factory()
+
+        defaults: dict[str, Any] = {
+            "name": f"Test QuickRoll {_counter}",
+            "description": None,
+        }
+        defaults.update(kwargs)
+        quickroll = await QuickRoll.create(**defaults)
+
+        if traits:
+            await quickroll.traits.add(*traits)
+
+        created.append(quickroll)
+        return quickroll
+
+    yield _factory
+
+    for quickroll in created:
+        with contextlib.suppress(Exception):
+            await quickroll.delete()
+
+
+@pytest.fixture
+async def pg_note_factory() -> Any:
+    """Return a factory that creates Tortoise Note instances.
+
+    Caller must supply `company`. All other FK kwargs (campaign, book, chapter,
+    character, user) are optional and default to None.
+    """
+    created: list[Note] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Note:
+        nonlocal _counter
+        _counter += 1
+
+        defaults: dict[str, Any] = {
+            "title": f"Test Note {_counter}",
+            "content": "Test note content.",
+            "user": None,
+            "campaign": None,
+            "book": None,
+            "chapter": None,
+            "character": None,
+        }
+        defaults.update(kwargs)
+        note = await Note.create(**defaults)
+        created.append(note)
+        return note
+
+    yield _factory
+
+    for note in created:
+        with contextlib.suppress(Exception):
+            await note.delete()
+
+
+@pytest.fixture
+async def pg_diceroll_factory(pg_company_factory: Any, pg_user_factory: Any) -> Any:
+    """Return a factory that creates Tortoise DiceRoll + DiceRollResult instances.
+
+    Auto-creates company and user if not provided. Accepts an optional list of
+    Trait objects to attach via the M2M `traits` relation. Always creates a
+    linked DiceRollResult so callers have a fully-populated roll object.
+    """
+    created: list[DiceRoll] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> DiceRoll:
+        nonlocal _counter
+        _counter += 1
+
+        traits: list[Trait] = kwargs.pop("traits", [])
+
+        # Result fields are consumed separately; they don't belong on DiceRoll itself
+        total_result: int | None = kwargs.pop("total_result", None)
+        total_result_type: RollResultType = kwargs.pop("total_result_type", RollResultType.SUCCESS)
+        total_result_humanized: str = kwargs.pop("total_result_humanized", "Success")
+        total_dice_roll: list[int] = kwargs.pop("total_dice_roll", [5])
+        player_roll: list[int] = kwargs.pop("player_roll", [5])
+        desperation_roll: list[int] = kwargs.pop("desperation_roll", [])
+
+        if "company" not in kwargs and "company_id" not in kwargs:
+            kwargs["company"] = await pg_company_factory()
+        if "user" not in kwargs and "user_id" not in kwargs:
+            kwargs["user"] = await pg_user_factory()
+
+        defaults: dict[str, Any] = {
+            "difficulty": None,
+            "dice_size": DiceSize.D10,
+            "num_dice": 1,
+            "num_desperation_dice": 0,
+            "campaign": None,
+            "character": None,
+        }
+        defaults.update(kwargs)
+        dice_roll = await DiceRoll.create(**defaults)
+
+        await DiceRollResult.create(
+            dice_roll=dice_roll,
+            total_result=total_result,
+            total_result_type=total_result_type,
+            total_result_humanized=total_result_humanized,
+            total_dice_roll=total_dice_roll,
+            player_roll=player_roll,
+            desperation_roll=desperation_roll,
+        )
+
+        if traits:
+            await dice_roll.traits.add(*traits)
+
+        created.append(dice_roll)
+        return dice_roll
+
+    yield _factory
+
+    for dice_roll in created:
+        with contextlib.suppress(Exception):
+            await dice_roll.delete()
+
+
+@pytest.fixture
+async def pg_s3asset_factory(pg_company_factory: Any, pg_user_factory: Any) -> Any:
+    """Return a factory that creates Tortoise S3Asset instances.
+
+    Auto-creates company and uploaded_by user if not provided. Generates dummy
+    S3 coordinates (key, bucket, public URL) from uuid7 so each asset is unique.
+    """
+    created: list[S3Asset] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> S3Asset:
+        nonlocal _counter
+        _counter += 1
+
+        if "company" not in kwargs and "company_id" not in kwargs:
+            kwargs["company"] = await pg_company_factory()
+        if "uploaded_by" not in kwargs and "uploaded_by_id" not in kwargs:
+            kwargs["uploaded_by"] = await pg_user_factory()
+
+        uid = str(uuid7())
+        defaults: dict[str, Any] = {
+            "asset_type": AssetType.IMAGE,
+            "mime_type": "image/png",
+            "original_filename": f"test-asset-{_counter}.png",
+            "s3_key": f"test/{uid}.png",
+            "s3_bucket": "test-bucket",
+            "public_url": f"https://test-bucket.s3.amazonaws.com/test/{uid}.png",
+            "character": None,
+            "campaign": None,
+            "book": None,
+            "chapter": None,
+            "user_parent": None,
+        }
+        defaults.update(kwargs)
+        asset = await S3Asset.create(**defaults)
+        created.append(asset)
+        return asset
+
+    yield _factory
+
+    for asset in created:
+        with contextlib.suppress(Exception):
+            await asset.delete()

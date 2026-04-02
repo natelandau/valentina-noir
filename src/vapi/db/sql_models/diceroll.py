@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from tortoise import fields
+from tortoise.contrib.postgres.fields import ArrayField
 
-from vapi.constants import DiceSize
+from vapi.constants import DiceSize, RollResultType
 from vapi.db.sql_models.base import BaseModel
 
 if TYPE_CHECKING:
@@ -24,7 +25,6 @@ class DiceRoll(BaseModel):
     dice_size = fields.IntEnumField(DiceSize)
     num_dice = fields.IntField()
     num_desperation_dice = fields.IntField(default=0)
-    result: Any = fields.JSONField(null=True)
     comment = fields.TextField(null=True)
 
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
@@ -46,6 +46,9 @@ class DiceRoll(BaseModel):
         null=True,
     )
 
+    # Reverse relation
+    roll_result: fields.ReverseRelation[DiceRollResult]
+
     # M2M
     traits: fields.ManyToManyRelation[Trait] = fields.ManyToManyField(
         "models.Trait", related_name="dice_rolls", through="dice_roll_traits"
@@ -55,3 +58,22 @@ class DiceRoll(BaseModel):
         """Tortoise ORM meta options."""
 
         table = "dice_roll"
+
+
+class DiceRollResult(BaseModel):
+    """Result data for a dice roll."""
+
+    dice_roll: fields.OneToOneRelation[DiceRoll] = fields.OneToOneField(
+        "models.DiceRoll", related_name="roll_result", on_delete=fields.OnDelete.CASCADE
+    )
+    total_result = fields.IntField(null=True)
+    total_result_type = fields.CharEnumField(RollResultType, db_index=True)
+    total_result_humanized = fields.CharField(max_length=255)
+    total_dice_roll = ArrayField(element_type="int")
+    player_roll = ArrayField(element_type="int")
+    desperation_roll = ArrayField(element_type="int")
+
+    class Meta:
+        """Tortoise ORM meta options."""
+
+        table = "dice_roll_result"

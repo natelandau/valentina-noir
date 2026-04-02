@@ -1,23 +1,20 @@
 """Quick roll controller."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
+import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.db.models import QuickRoll, User
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.db.sql_models.user import User
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard, pg_user_not_unapproved_guard
 from vapi.openapi.tags import APITags
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import docs, dto
 
@@ -27,12 +24,11 @@ class QuickRollController(Controller):
 
     tags = [APITags.USERS_QUICKROLLS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "quickroll": Provide(deps.provide_quickroll_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "quickroll": Provide(pg_deps.provide_quickroll_by_id),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = dto.ReturnQuickRollDTO
+    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
 
     @get(
         path=urls.Users.QUICKROLLS,
@@ -40,20 +36,23 @@ class QuickRollController(Controller):
         operation_id="listUserQuickrolls",
         description=docs.LIST_QUICKROLLS_DESCRIPTION,
         cache=True,
-        return_dto=dto.ReturnQuickRollDTO,
     )
     async def list_user_quickrolls(
         self,
         user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[QuickRoll]:
+    ) -> OffsetPagination[dto.QuickRollResponse]:
         """List all user quick rolls."""
-        query = {"user_id": user.id, "is_archived": False}
-        count = await QuickRoll.find(query).count()
-        quickrolls = await QuickRoll.find(query).sort("name").skip(offset).limit(limit).to_list()
-
-        return OffsetPagination(items=quickrolls, limit=limit, offset=offset, total=count)
+        qs = QuickRoll.filter(user=user, is_archived=False).order_by("name")
+        count = await qs.count()
+        quickrolls = await qs.offset(offset).limit(limit).prefetch_related("traits")
+        return OffsetPagination(
+            items=[dto.QuickRollResponse.from_model(qr) for qr in quickrolls],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.Users.QUICKROLL_DETAIL,
@@ -61,59 +60,59 @@ class QuickRollController(Controller):
         operation_id="getUserQuickroll",
         description=docs.GET_QUICKROLL_DESCRIPTION,
         cache=True,
-        return_dto=dto.ReturnQuickRollDTO,
     )
-    async def get_user_quickroll(self, *, quickroll: QuickRoll) -> QuickRoll:
+    async def get_user_quickroll(self, *, quickroll: QuickRoll) -> dto.QuickRollResponse:
         """Get a user quick roll by ID."""
-        return quickroll
+        return dto.QuickRollResponse.from_model(quickroll)
 
     @post(
         path=urls.Users.QUICKROLL_CREATE,
         summary="Create quick roll",
         operation_id="createUserQuickroll",
         description=docs.CREATE_QUICKROLL_DESCRIPTION,
-        dto=dto.PostQuickRollDTO,
-        return_dto=dto.ReturnQuickRollDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def create_user_quickroll(self, *, user: User, data: DTOData[QuickRoll]) -> QuickRoll:
+    async def create_user_quickroll(
+        self, *, user: User, data: dto.QuickRollCreate
+    ) -> dto.QuickRollResponse:
         """Create a user quick roll."""
-        try:
-            quickroll_data = data.create_instance(user_id=user.id)
-            quickroll = QuickRoll(**quickroll_data.model_dump(exclude_unset=True))
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
         service = UserQuickRollService()
-        validated_quickroll = await service.validate_quickroll(quickroll)
-        await validated_quickroll.save()
+        traits = await service.validate_quickroll_traits(data.trait_ids)
 
-        return validated_quickroll
+        quickroll = await QuickRoll.create(
+            user=user,
+            name=data.name,
+            description=data.description,
+        )
+        await quickroll.traits.add(*traits)
+        await quickroll.fetch_related("traits")
+        return dto.QuickRollResponse.from_model(quickroll)
 
     @patch(
         path=urls.Users.QUICKROLL_UPDATE,
         summary="Update quick roll",
         operation_id="updateUserQuickroll",
         description=docs.UPDATE_QUICKROLL_DESCRIPTION,
-        dto=dto.PatchQuickRollDTO,
-        return_dto=dto.ReturnQuickRollDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
-        self, *, quickroll: QuickRoll, data: DTOData[QuickRoll]
-    ) -> QuickRoll:
+        self, *, quickroll: QuickRoll, data: dto.QuickRollPatch
+    ) -> dto.QuickRollResponse:
         """Update a user quick roll by ID."""
-        updated_quickroll = data.update_instance(quickroll)
+        if not isinstance(data.name, msgspec.UnsetType):
+            quickroll.name = data.name
+        if not isinstance(data.description, msgspec.UnsetType):
+            quickroll.description = data.description
+        await quickroll.save()
 
-        service = UserQuickRollService()
-        validated_quickroll = await service.validate_quickroll(updated_quickroll)
+        if not isinstance(data.trait_ids, msgspec.UnsetType):
+            service = UserQuickRollService()
+            traits = await service.validate_quickroll_traits(data.trait_ids)
+            await quickroll.traits.clear()
+            await quickroll.traits.add(*traits)
 
-        try:
-            await validated_quickroll.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
-        return validated_quickroll
+        await quickroll.fetch_related("traits")
+        return dto.QuickRollResponse.from_model(quickroll)
 
     @delete(
         path=urls.Users.QUICKROLL_DELETE,
