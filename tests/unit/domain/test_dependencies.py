@@ -30,6 +30,7 @@ from vapi.lib.exceptions import NotFoundError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from vapi.db.sql_models.notes import Note as PgNote
     from vapi.db.sql_models.quickroll import QuickRoll as PgQuickRoll
 
 pytestmark = pytest.mark.anyio
@@ -473,6 +474,56 @@ class TestProvideNoteById:
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Note not found"):
             await deps.provide_note_by_id(note.id)
+
+
+class TestProvidePgNoteById:
+    """Test pg_deps.provide_note_by_id Tortoise dependency."""
+
+    async def test_returns_note_when_found(
+        self,
+        pg_note_factory: Callable[..., PgNote],
+        pg_company_factory: Callable,
+    ) -> None:
+        """Verify returning a Tortoise note when found by ID."""
+        # Given a Tortoise note exists
+        company = await pg_company_factory()
+        note = await pg_note_factory(
+            title="Test Note",
+            content="Test content for the note",
+            company=company,
+        )
+
+        # When we provide the note by ID
+        result = await pg_deps.provide_note_by_id(note.id)
+
+        # Then the note is returned
+        assert str(result.id) == str(note.id)
+
+    async def test_raises_not_found_when_missing(self) -> None:
+        """Verify raising NotFoundError when Tortoise note does not exist."""
+        from uuid import uuid4
+
+        with pytest.raises(NotFoundError, match="Note not found"):
+            await pg_deps.provide_note_by_id(uuid4())
+
+    async def test_raises_not_found_when_archived(
+        self,
+        pg_note_factory: Callable[..., PgNote],
+        pg_company_factory: Callable,
+    ) -> None:
+        """Verify raising NotFoundError when Tortoise note is archived."""
+        # Given an archived Tortoise note
+        company = await pg_company_factory()
+        note = await pg_note_factory(
+            title="Archived Note",
+            content="Archived content",
+            company=company,
+            is_archived=True,
+        )
+
+        # When/Then we expect a NotFoundError
+        with pytest.raises(NotFoundError, match="Note not found"):
+            await pg_deps.provide_note_by_id(note.id)
 
 
 class TestProvideQuickrollById:

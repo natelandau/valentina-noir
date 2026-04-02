@@ -1,17 +1,16 @@
 """Campaign chapter notes controller."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.db.models import CampaignChapter, Company, Note  # noqa: TC001
-from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination  # noqa: TC001
+from vapi.db.sql_models.campaign import CampaignChapter
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.notes import Note
+from vapi.domain import hooks, pg_deps, urls
+from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -19,16 +18,16 @@ from .base import BaseNoteController
 
 
 class CampaignChapterNoteController(BaseNoteController):
-    """Campaign notes controller."""
+    """Campaign chapter notes controller."""
 
     tags = [APITags.CAMPAIGN_CHAPTER_NOTES.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
-        "book": Provide(deps.provide_campaign_book_by_id),
-        "chapter": Provide(deps.provide_campaign_chapter_by_id),
-        "note": Provide(deps.provide_note_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "campaign": Provide(pg_deps.provide_campaign_by_id),
+        "book": Provide(pg_deps.provide_campaign_book_by_id),
+        "chapter": Provide(pg_deps.provide_campaign_chapter_by_id),
+        "note": Provide(pg_deps.provide_note_by_id),
     }
 
     @property
@@ -49,7 +48,7 @@ class CampaignChapterNoteController(BaseNoteController):
         chapter: CampaignChapter,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[Note]:
+    ) -> OffsetPagination[dto.NoteResponse]:
         """List all chapter notes."""
         return await self._list_notes(chapter.id, limit, offset)
 
@@ -60,7 +59,7 @@ class CampaignChapterNoteController(BaseNoteController):
         description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
-    async def get_chapter_note(self, *, note: Note) -> Note:
+    async def get_chapter_note(self, *, note: Note) -> dto.NoteResponse:
         """Get a chapter note by ID."""
         return await self._get_note(note)
 
@@ -69,12 +68,11 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Create chapter note",
         operation_id="createChapterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        dto=dto.NotePostDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def create_chapter_note(
-        self, *, company: Company, chapter: CampaignChapter, data: DTOData[Note]
-    ) -> Note:
+        self, *, company: Company, chapter: CampaignChapter, data: dto.NoteCreate
+    ) -> dto.NoteResponse:
         """Create a chapter note."""
         return await self._create_note(company_id=company.id, parent_id=chapter.id, data=data)
 
@@ -83,10 +81,9 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Update chapter note",
         operation_id="updateChapterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        dto=dto.NotePatchDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_chapter_note(self, note: Note, data: DTOData[Note]) -> Note:
+    async def update_chapter_note(self, note: Note, data: dto.NotePatch) -> dto.NoteResponse:
         """Update a chapter note by ID."""
         return await self._update_note(note, data)
 

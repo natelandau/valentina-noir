@@ -19,6 +19,7 @@ from vapi.db.sql_models.character import CharacterTrait as PgCharacterTrait
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
+from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User as PgUser
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
@@ -308,6 +309,11 @@ async def provide_character_trait_by_id(
         doc_id=character_trait_id,
         prefetch=CHARACTER_TRAIT_PREFETCH,
     )
+
+
+async def provide_note_by_id(note_id: UUID) -> Note:
+    """Provide a Note by ID."""
+    return await _find_or_404(Note, "Note", doc_id=note_id)
 
 
 async def provide_quickroll_by_id(quickroll_id: UUID) -> QuickRoll:

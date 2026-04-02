@@ -1,17 +1,16 @@
 """Campaign book notes controller."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.db.models import CampaignBook, Company, Note  # noqa: TC001
-from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination  # noqa: TC001
+from vapi.db.sql_models.campaign import CampaignBook
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.notes import Note
+from vapi.domain import hooks, pg_deps, urls
+from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -19,15 +18,15 @@ from .base import BaseNoteController
 
 
 class CampaignBookNoteController(BaseNoteController):
-    """Campaign notes controller."""
+    """Campaign book notes controller."""
 
     tags = [APITags.CAMPAIGN_BOOK_NOTES.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
-        "book": Provide(deps.provide_campaign_book_by_id),
-        "note": Provide(deps.provide_note_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "campaign": Provide(pg_deps.provide_campaign_by_id),
+        "book": Provide(pg_deps.provide_campaign_book_by_id),
+        "note": Provide(pg_deps.provide_note_by_id),
     }
 
     @property
@@ -48,8 +47,8 @@ class CampaignBookNoteController(BaseNoteController):
         book: CampaignBook,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[Note]:
-        """List all campaign notes."""
+    ) -> OffsetPagination[dto.NoteResponse]:
+        """List all book notes."""
         return await self._list_notes(book.id, limit, offset)
 
     @get(
@@ -59,7 +58,7 @@ class CampaignBookNoteController(BaseNoteController):
         description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
-    async def get_book_note(self, *, note: Note) -> Note:
+    async def get_book_note(self, *, note: Note) -> dto.NoteResponse:
         """Get a book note by ID."""
         return await self._get_note(note)
 
@@ -68,13 +67,12 @@ class CampaignBookNoteController(BaseNoteController):
         summary="Create book note",
         operation_id="createBookNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        dto=dto.NotePostDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def create_book_note(
-        self, *, company: Company, book: CampaignBook, data: DTOData[Note]
-    ) -> Note:
-        """Create a campaign note."""
+        self, *, company: Company, book: CampaignBook, data: dto.NoteCreate
+    ) -> dto.NoteResponse:
+        """Create a book note."""
         return await self._create_note(company_id=company.id, parent_id=book.id, data=data)
 
     @patch(
@@ -82,11 +80,10 @@ class CampaignBookNoteController(BaseNoteController):
         summary="Update book note",
         operation_id="updateBookNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        dto=dto.NotePatchDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_book_note(self, note: Note, data: DTOData[Note]) -> Note:
-        """Update a campaign note by ID."""
+    async def update_book_note(self, note: Note, data: dto.NotePatch) -> dto.NoteResponse:
+        """Update a book note by ID."""
         return await self._update_note(note, data)
 
     @delete(
@@ -97,5 +94,5 @@ class CampaignBookNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def delete_book_note(self, *, note: Note) -> None:
-        """Delete a campaign note by ID."""
+        """Delete a book note by ID."""
         await self._delete_note(note)

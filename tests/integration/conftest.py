@@ -21,6 +21,8 @@ import pytest
 
 from vapi.constants import CompanyPermission
 from vapi.db.sql_models.campaign import Campaign as PgCampaign
+from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
+from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.company import CompanySettings as PgCompanySettings
 from vapi.db.sql_models.developer import Developer as PgDeveloper
@@ -199,6 +201,30 @@ async def pg_mirror_campaign(base_campaign: Any, pg_mirror_company: PgCompany) -
     )
 
 
+@pytest.fixture
+async def pg_mirror_campaign_book(
+    pg_mirror_campaign: PgCampaign,
+) -> PgCampaignBook:
+    """Create a Tortoise CampaignBook mirroring a Beanie campaign book."""
+    return await PgCampaignBook.create(
+        name="Mirror Book",
+        number=1,
+        campaign=pg_mirror_campaign,
+    )
+
+
+@pytest.fixture
+async def pg_mirror_campaign_chapter(
+    pg_mirror_campaign_book: PgCampaignBook,
+) -> PgCampaignChapter:
+    """Create a Tortoise CampaignChapter mirroring a Beanie campaign chapter."""
+    return await PgCampaignChapter.create(
+        name="Mirror Chapter",
+        number=1,
+        book=pg_mirror_campaign_book,
+    )
+
+
 async def _bridged_provide_developer_from_request(request: Any) -> PgDeveloper:
     """Bridge replacement for provide_developer_from_request using Beanie-to-Tortoise map."""
     beanie_id = str(request.user.id)
@@ -268,6 +294,11 @@ def _patch_pg_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
     from vapi.domain.controllers.character_trait.controllers import CharacterTraitController
     from vapi.domain.controllers.company.controllers import CompanyController
     from vapi.domain.controllers.developer.controllers import DeveloperController
+    from vapi.domain.controllers.notes.book_notes import CampaignBookNoteController
+    from vapi.domain.controllers.notes.campaign_notes import CampaignNoteController
+    from vapi.domain.controllers.notes.chapter_notes import CampaignChapterNoteController
+    from vapi.domain.controllers.notes.character_notes import CharacterNoteController
+    from vapi.domain.controllers.notes.user_notes import UserNoteController
     from vapi.domain.controllers.user.experience_controller import ExperienceController
     from vapi.domain.controllers.user.user_controller import UserController
 
@@ -291,6 +322,11 @@ def _patch_pg_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
         CharacterInventoryController,
         CharacterTraitController,
         CharacterGenerationController,
+        CampaignBookNoteController,
+        CampaignNoteController,
+        CampaignChapterNoteController,
+        CharacterNoteController,
+        UserNoteController,
     ):
         for provide in controller_cls.dependencies.values():
             if (

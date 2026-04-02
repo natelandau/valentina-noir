@@ -1,17 +1,16 @@
 """Character notes controller."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.db.models import Character, Company, Note  # noqa: TC001
-from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination  # noqa: TC001
+from vapi.db.sql_models.character import Character
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.notes import Note
+from vapi.domain import hooks, pg_deps, urls
+from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -23,10 +22,10 @@ class CharacterNoteController(BaseNoteController):
 
     tags = [APITags.CHARACTERS_NOTES.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "character": Provide(deps.provide_character_by_id_and_company),
-        "note": Provide(deps.provide_note_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "character": Provide(pg_deps.provide_character_by_id_and_company),
+        "note": Provide(pg_deps.provide_note_by_id),
     }
 
     @property
@@ -46,7 +45,7 @@ class CharacterNoteController(BaseNoteController):
         character: Character,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[Note]:
+    ) -> OffsetPagination[dto.NoteResponse]:
         """List all character notes."""
         return await self._list_notes(character.id, limit, offset)
 
@@ -57,7 +56,7 @@ class CharacterNoteController(BaseNoteController):
         description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
-    async def get_note(self, note: Note) -> Note:
+    async def get_note(self, note: Note) -> dto.NoteResponse:
         """Get a note by ID."""
         return await self._get_note(note)
 
@@ -66,12 +65,11 @@ class CharacterNoteController(BaseNoteController):
         summary="Create character note",
         operation_id="createCharacterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        dto=dto.NotePostDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def create_note(
-        self, *, company: Company, character: Character, data: DTOData[Note]
-    ) -> Note:
+        self, *, company: Company, character: Character, data: dto.NoteCreate
+    ) -> dto.NoteResponse:
         """Create a new note."""
         return await self._create_note(company_id=company.id, parent_id=character.id, data=data)
 
@@ -80,10 +78,9 @@ class CharacterNoteController(BaseNoteController):
         summary="Update character note",
         operation_id="updateCharacterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        dto=dto.NotePatchDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_note(self, note: Note, data: DTOData[Note]) -> Note:
+    async def update_note(self, note: Note, data: dto.NotePatch) -> dto.NoteResponse:
         """Update a note by ID."""
         return await self._update_note(note, data)
 
