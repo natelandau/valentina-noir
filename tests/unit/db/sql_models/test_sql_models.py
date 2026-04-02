@@ -34,6 +34,7 @@ EXPECTED_TABLES = [
     "developer",
     "developer_company_permission",
     "dice_roll",
+    "dice_roll_result",
     "dice_roll_traits",
     "dictionary_term",
     "hunter_attributes",
