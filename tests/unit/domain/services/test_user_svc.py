@@ -656,7 +656,9 @@ class TestUserXPService:
         """Verify XP grant permission validation for various role/setting combos."""
         # Given a company with specific XP permission settings
         company = await pg_company_factory()
-        await CompanySettings.create(company=company, permission_grant_xp=permission_grant_xp)
+        await CompanySettings.filter(company=company).update(
+            permission_grant_xp=permission_grant_xp
+        )
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
 
         requesting_user = await pg_user_factory(role=user_role, company=company)
@@ -692,7 +694,6 @@ class TestUserXPService:
         """Verify adding XP to a campaign experience succeeds."""
         # Given a company, campaign, and user
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         campaign = await pg_campaign_factory(company=company)
         target_user = await pg_user_factory(company=company)
@@ -755,7 +756,6 @@ class TestUserXPService:
         """Verify adding XP with a non-existent requesting user raises ValidationError."""
         # Given a company, campaign, and target user
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         campaign = await pg_campaign_factory(company=company)
         target_user = await pg_user_factory(company=company)
@@ -783,7 +783,6 @@ class TestUserXPService:
         """Verify adding cool points to a campaign experience succeeds."""
         # Given a company, campaign, and user
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         campaign = await pg_campaign_factory(company=company)
         target_user = await pg_user_factory(company=company)
@@ -822,7 +821,6 @@ class TestUserXPService:
         """Verify adding CP with a non-existent requesting user raises ValidationError."""
         # Given a company, campaign, and target user
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         campaign = await pg_campaign_factory(company=company)
         target_user = await pg_user_factory(company=company)
@@ -849,7 +847,6 @@ class TestUserXPService:
         """Verify removing XP from a campaign experience succeeds."""
         # Given a company, campaign, and user with existing XP
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         target_user = await pg_user_factory(company=company)
         requesting_user = target_user
@@ -885,7 +882,6 @@ class TestUserXPService:
         """Verify removing XP with a non-existent requesting user raises ValidationError."""
         # Given a company, campaign, and target user
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         target_user = await pg_user_factory(company=company)
         campaign = await pg_campaign_factory(company=company)
@@ -912,7 +908,6 @@ class TestUserXPService:
         """Verify removing more XP than available raises NotEnoughXPError."""
         # Given a company, campaign, and user with limited XP
         company = await pg_company_factory()
-        await CompanySettings.create(company=company)
         company = await Company.filter(id=company.id).prefetch_related("settings").first()
         target_user = await pg_user_factory(company=company)
         campaign = await pg_campaign_factory(company=company)

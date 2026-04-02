@@ -254,7 +254,7 @@ class CharacterAutogenerationHandler:
                     trait=t,
                 )
                 await character_trait.insert()
-                await self.character_trait_service.after_save(character_trait)
+                await self.character_trait_service.after_save(character_trait, character)
 
     async def _generate_willpower_value(self, character: Character) -> None:
         """Randomly generate willpower value for the character.
@@ -274,7 +274,7 @@ class CharacterAutogenerationHandler:
             trait=willpower_trait,
         )
         await character_trait.insert()
-        await self.character_trait_service.after_save(character_trait)
+        await self.character_trait_service.after_save(character_trait, character)
 
     async def _generate_humanity_value(self, character: Character) -> None:
         """Randomly generate humanity value for the character.
@@ -294,7 +294,7 @@ class CharacterAutogenerationHandler:
             trait=humanity_trait,
         )
         await character_trait.insert()
-        await self.character_trait_service.after_save(character_trait)
+        await self.character_trait_service.after_save(character_trait, character)
 
     async def _generate_ability_values(self, character: Character) -> None:
         """Randomly generate ability values for the character.
@@ -355,7 +355,7 @@ class CharacterAutogenerationHandler:
                 trait=ability,
             )
             await character_trait.insert()
-            await self.character_trait_service.after_save(character_trait)
+            await self.character_trait_service.after_save(character_trait, character)
 
     async def _generate_vampire_attributes(
         self, character: Character, vampire_clan: VampireClan | None = None
@@ -429,7 +429,7 @@ class CharacterAutogenerationHandler:
                 trait=discipline,
             )
             await character_trait.insert()
-            await self.character_trait_service.after_save(character_trait)
+            await self.character_trait_service.after_save(character_trait, character)
 
         await character.sync()
         return character
@@ -484,7 +484,7 @@ class CharacterAutogenerationHandler:
                 character_id=character.id,
                 trait=rage_trait,
             ).insert()
-            await self.character_trait_service.after_save(character_trait)
+            await self.character_trait_service.after_save(character_trait, character)
 
         renown_traits = [traits_by_name[n] for n in ("Honor", "Wisdom", "Glory")]
         tribe_renown_trait = next(
@@ -502,7 +502,7 @@ class CharacterAutogenerationHandler:
             character_id=character.id,
             trait=tribe_renown_trait,
         ).insert()
-        await self.character_trait_service.after_save(character_trait)
+        await self.character_trait_service.after_save(character_trait, character)
 
         for i, trait in enumerate(shuffled_not_tribe_renown_traits):
             character_trait = await CharacterTrait(
@@ -510,7 +510,7 @@ class CharacterAutogenerationHandler:
                 character_id=character.id,
                 trait=trait,
             ).insert()
-            await self.character_trait_service.after_save(character_trait)
+            await self.character_trait_service.after_save(character_trait, character)
 
         await character.sync()
         return character
@@ -551,7 +551,7 @@ class CharacterAutogenerationHandler:
                 trait=perk,
             )
             await character_trait.insert()
-            await self.character_trait_service.after_save(character_trait)
+            await self.character_trait_service.after_save(character_trait, character)
 
         creed = random.choice(list(HunterCreed))
         character.hunter_attributes = HunterAttributes(creed=creed.value.title())
@@ -672,7 +672,7 @@ class CharacterAutogenerationHandler:
                 trait=traits_by_id[trait_id],
             )
             await character_trait.insert()
-            await self.character_trait_service.after_save(character_trait)
+            await self.character_trait_service.after_save(character_trait, character)
 
     async def _generate_merit_background_values(self, character: Character) -> None:
         """Randomly generate merit and background values for the character."""

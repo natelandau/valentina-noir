@@ -1,13 +1,11 @@
 """Test character trait controllers."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
-from unittest.mock import ANY
+from collections.abc import Callable
+from typing import Any
+from uuid import uuid4
 
 import pytest
-from beanie import PydanticObjectId
-from beanie.operators import NotIn
+from httpx import AsyncClient
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -18,19 +16,15 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import TraitModifyCurrency, UserRole
-from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
-from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
+from vapi.db.sql_models.character import Character, CharacterTrait
+from vapi.db.sql_models.character_sheet import Trait, TraitCategory
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain.services import CharacterTraitService
+from vapi.domain.services.user_svc import UserXPService
 from vapi.domain.urls import Characters
-from vapi.lib.dto import COMMON_EXCLUDES
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from httpx import AsyncClient
-
-    from vapi.db.models import User
-
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("neutralize_after_response_hook")]
 
 
 class TestFetchingCharacterTraits:
@@ -39,115 +33,121 @@ class TestFetchingCharacterTraits:
     async def test_list_character_trait_with_traits_by_parent_category_id(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        pg_trait_factory: Callable[..., Trait],
+        token_global_admin: dict[str, str],
     ) -> None:
-        """Test character trait controller."""
-        character = await character_factory()
-        trait_categories = await TraitCategory.find(TraitCategory.is_archived == False).to_list()
-        trait1 = await trait_factory(parent_category_id=trait_categories[0].id)
-        trait2 = await trait_factory(parent_category_id=trait_categories[1].id)
+        """Verify listing character traits filtered by parent category ID."""
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait_categories = await TraitCategory.filter(is_archived=False)
+        trait1 = await pg_trait_factory(category=trait_categories[0])
+        trait2 = await pg_trait_factory(category=trait_categories[1])
 
-        character_trait1 = await character_trait_factory(character_id=character.id, trait=trait1)
-        await character_trait_factory(character_id=character.id, trait=trait2)
+        character_trait1 = await pg_character_trait_factory(character=character, trait=trait1)
+        await pg_character_trait_factory(character=character, trait=trait2)
 
         response = await client.get(
-            build_url(Characters.TRAITS, character_id=character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAITS,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             params={"parent_category_id": str(trait_categories[0].id)},
         )
-        # debug(response.json())
         assert response.status_code == HTTP_200_OK
         assert response.json()["total"] == 1
         assert response.json()["limit"] == 10
         assert response.json()["offset"] == 0
-        assert response.json()["items"] == [character_trait1.model_dump(mode="json")]
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["id"] == str(character_trait1.id)
+        assert items[0]["value"] == character_trait1.value
 
     async def test_get_character_trait(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
-        """Test character trait controller."""
-        character_trait = await character_trait_factory(character_id=base_character.id)
+        """Verify getting a single character trait by ID."""
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(character=character, trait=trait)
+
         response = await client.get(
-            build_url(Characters.TRAIT_DETAIL, character_trait_id=character_trait.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_DETAIL,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=token_global_admin,
         )
         assert response.status_code == HTTP_200_OK
-        assert response.json() == character_trait.model_dump(mode="json")
+        assert response.json()["id"] == str(character_trait.id)
+        assert response.json()["character_id"] == str(character.id)
+        assert response.json()["value"] == character_trait.value
+        assert "trait" in response.json()
+        assert response.json()["trait"]["id"] == str(trait.id)
 
     async def test_get_character_trait_not_found(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
     ) -> None:
-        """Test character trait controller."""
+        """Verify getting a non-existent character trait returns 404."""
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
         response = await client.get(
-            build_url(Characters.TRAIT_DETAIL, character_trait_id=PydanticObjectId()),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_DETAIL,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+                character_trait_id=uuid4(),
+            ),
+            headers=token_global_admin,
         )
         assert response.status_code == HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Character trait not found"
-
-        async def test_add_constant_trait_to_character(
-            client: AsyncClient,
-            build_url: Callable[[str, ...], str],
-            base_character: Character,
-            token_company_admin: dict[str, str],
-            debug: Callable[[...], None],
-        ) -> None:
-            """Test adding a constant trait to a character."""
-            trait = await Trait.find_one(Trait.is_archived == False)
-            response = await client.post(
-                build_url(Characters.TRAIT_ASSIGN),
-                headers=token_company_admin,
-                json={"trait_id": str(trait.id), "value": 1},
-            )
-            assert response.status_code == HTTP_201_CREATED
-            assert response.json() == {
-                "character_id": str(base_character.id),
-                "id": response.json()["id"],
-                "trait": trait.model_dump(mode="json"),
-                "value": 1,
-            }
-            character_trait_id = response.json()["id"]
-
-            response = await client.get(
-                build_url(Characters.TRAIT_DETAIL, character_trait_id=character_trait_id),
-                headers=token_company_admin,
-            )
-            assert response.status_code == HTTP_200_OK
-            assert response.json() == {
-                "character_id": str(base_character.id),
-                "id": character_trait_id,
-                "trait": trait.model_dump(mode="json"),
-                "value": 1,
-            }
-
-            response = await client.get(build_url(Characters.TRAITS), headers=token_company_admin)
-            assert response.status_code == HTTP_200_OK
-            assert response.json()["items"] == [
-                {
-                    "character_id": str(base_character.id),
-                    "id": character_trait_id,
-                    "trait": trait.model_dump(mode="json"),
-                    "value": 1,
-                }
-            ]
-            assert response.json()["total"] == 1
-            assert response.json()["limit"] == 10
-            assert response.json()["offset"] == 0
 
 
 class TestAddConstantTraitToCharacter:
@@ -156,27 +156,40 @@ class TestAddConstantTraitToCharacter:
     async def test_add_constant_trait_to_character(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
         mocker: Any,
-        debug: Callable[[...], None],
+        token_global_admin: dict[str, str],
     ) -> None:
-        """Test character trait controller."""
-        character_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == base_character.id,
-        ).to_list()
-        trait = await Trait.find_one(
-            Trait.is_archived == False,
-            NotIn(Trait.id, [ct.trait.ref.id for ct in character_traits]),
+        """Verify adding a constant trait to a character."""
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
         )
-        trait_spy = mocker.spy(GetModelByIdValidationService, "get_trait_by_id")
+
+        # Find a trait not already on the character
+        existing_cts = await CharacterTrait.filter(character_id=character.id)
+        existing_trait_ids = [ct.trait_id for ct in existing_cts]
+        trait = await Trait.filter(is_archived=False).exclude(id__in=existing_trait_ids).first()
+
         character_trait_spy = mocker.spy(CharacterTraitService, "after_save")
 
         # When adding the trait to a character
         response = await client.post(
-            build_url(Characters.TRAIT_ASSIGN),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_ASSIGN,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             json={
                 "trait_id": str(trait.id),
                 "value": 1,
@@ -187,31 +200,50 @@ class TestAddConstantTraitToCharacter:
         # Then the response is correct and the trait is added
         assert response.status_code == HTTP_201_CREATED
         character_trait_id = response.json()["id"]
-        character_trait = await CharacterTrait.get(character_trait_id, fetch_links=True)
-        assert response.json() == character_trait.model_dump(mode="json")
-        assert character_trait.value == 1
-        assert character_trait.trait.id == trait.id
-        assert character_trait.character_id == base_character.id
-        assert character_trait.trait.max_value == trait.max_value
-        assert not character_trait.trait.custom_for_character_id
+        assert response.json()["value"] == 1
+        assert response.json()["character_id"] == str(character.id)
+        assert response.json()["trait"]["id"] == str(trait.id)
+        assert response.json()["trait"]["max_value"] == trait.max_value
 
-        trait_spy.assert_called_once_with(ANY, trait.id)
-        character_trait_spy.assert_called_once_with(ANY, character_trait)
+        # Verify persisted in DB
+        ct = (
+            await CharacterTrait.filter(id=character_trait_id)
+            .prefetch_related(
+                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+            )
+            .first()
+        )
+        assert ct is not None
+        assert ct.value == 1
+        assert ct.trait_id == trait.id
+        assert ct.character_id == character.id
+        assert not ct.trait.custom_for_character_id
+
+        character_trait_spy.assert_called_once()
 
 
 class TestCustomTraits:
     """Test custom traits."""
 
-    @pytest.mark.clean_db
     async def test_create_custom(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
-        debug: Callable[[...], None],
     ) -> None:
         """Verify that creating a custom trait works."""
-        trait_category = await TraitCategory.find_one(TraitCategory.is_archived == False)
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait_category = await TraitCategory.filter(is_archived=False).first()
         custom_trait_data = {
             "name": "Test Trait",
             "description": "Test Description",
@@ -224,21 +256,33 @@ class TestCustomTraits:
         }
 
         response = await client.post(
-            build_url(Characters.TRAIT_CREATE),
+            build_url(
+                Characters.TRAIT_CREATE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+            ),
             headers=token_global_admin,
             json=custom_trait_data,
         )
         assert response.status_code == HTTP_201_CREATED
 
         created_custom_trait_id = response.json()["id"]
-        created_custom_trait = await CharacterTrait.get(created_custom_trait_id, fetch_links=True)
-        assert response.json() == created_custom_trait.model_dump(mode="json")
-        assert created_custom_trait.value == 0
-        assert created_custom_trait.trait.initial_cost == 10
-        assert created_custom_trait.trait.upgrade_cost == 10
-        assert created_custom_trait.trait.parent_category_id == trait_category.id
-        assert created_custom_trait.trait.name == "Test Trait"
-        assert created_custom_trait.trait.description == "Test Description"
+        ct = (
+            await CharacterTrait.filter(id=created_custom_trait_id)
+            .prefetch_related(
+                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+            )
+            .first()
+        )
+        assert ct is not None
+        assert ct.value == 0
+        assert ct.trait.initial_cost == 10
+        assert ct.trait.upgrade_cost == 10
+        assert ct.trait.category_id == trait_category.id
+        assert ct.trait.name == "Test Trait"
+        assert ct.trait.description == "Test Description"
 
 
 class TestDeleteCharacterTrait:
@@ -247,91 +291,135 @@ class TestDeleteCharacterTrait:
     async def test_delete_character_trait(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify that deleting a character trait works."""
-        character_trait = await character_trait_factory()
-        trait = await Trait.get(character_trait.trait.id)
-        character = await Character.get(base_character.id)
-        assert character_trait.id in character.character_trait_ids
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(character=character, trait=trait)
+        trait_id = character_trait.trait_id
 
         response = await client.delete(
-            build_url(Characters.TRAIT_DELETE, character_trait_id=character_trait.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_DELETE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=token_global_admin,
         )
         assert response.status_code == HTTP_204_NO_CONTENT
-        await character.sync()
-        assert character_trait.id not in character.character_trait_ids
-        assert not await CharacterTrait.find_one(CharacterTrait.id == character_trait.id)
-        assert await Trait.get(trait.id) == trait
+        assert not await CharacterTrait.filter(id=character_trait.id).exists()
+        # Non-custom trait should still exist
+        assert await Trait.filter(id=trait_id).exists()
 
     async def test_delete_character_trait_custom(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
-        debug: Callable[[...], None],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        pg_trait_factory: Callable[..., Trait],
+        token_global_admin: dict[str, str],
     ) -> None:
-        """Verify that deleting a custom character trait works."""
-        character_trait = await character_trait_factory(is_custom=True)
-        trait = await Trait.get(character_trait.trait.id)
-        character = await Character.get(base_character.id)
-        assert character_trait.id in character.character_trait_ids
+        """Verify that deleting a custom character trait also deletes the trait."""
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        custom_trait = await pg_trait_factory(
+            is_custom=True,
+            custom_for_character_id=character.id,
+        )
+        character_trait = await pg_character_trait_factory(character=character, trait=custom_trait)
+        custom_trait_id = custom_trait.id
 
         response = await client.delete(
-            build_url(Characters.TRAIT_DELETE, character_trait_id=character_trait.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_DELETE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=token_global_admin,
         )
         assert response.status_code == HTTP_204_NO_CONTENT
-        await character.sync()
-        assert character_trait.id not in character.character_trait_ids
-        assert not await CharacterTrait.find_one(CharacterTrait.id == character_trait.id)
-        assert not await Trait.find_one(Trait.id == trait.id)
+        assert not await CharacterTrait.filter(id=character_trait.id).exists()
+        # Custom trait should also be deleted
+        assert not await Trait.filter(id=custom_trait_id).exists()
 
     async def test_delete_character_trait_with_xp_refund(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify that deleting a trait with currency=XP refunds XP to the user."""
         # Given a character with a trait at max value and user with XP
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-        trait = await Trait.find_one(Trait.is_archived == False, Trait.min_value > 0)
-        character_trait = await character_trait_factory(
-            value=trait.max_value, trait=trait, character_id=character.id
+        character_player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
+        )
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_player_user,
+            user_creator=character_player_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False, min_value__gt=0).first()
+        character_trait = await pg_character_trait_factory(
+            value=trait.max_value, trait=trait, character=character
         )
         initial_xp = 100
-        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=initial_xp)
+        user_svc = UserXPService()
+        await user_svc.add_xp(character_player_user.id, character.campaign_id, initial_xp)
 
         # When deleting the trait with XP currency
         response = await client.delete(
             build_url(
                 Characters.TRAIT_DELETE,
+                company_id=pg_mirror_company.id,
+                user_id=character_player_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=character_player_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             params={"currency": "XP"},
         )
 
         # Then the trait is deleted and XP is refunded
         assert response.status_code == HTTP_204_NO_CONTENT
-        assert not await CharacterTrait.find_one(CharacterTrait.id == character_trait.id)
-        await character_player_user.sync()
-        campaign_experience = await character_player_user.get_or_create_campaign_experience(
-            character.campaign_id
+        assert not await CharacterTrait.filter(id=character_trait.id).exists()
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            character_player_user.id, character.campaign_id
         )
         assert campaign_experience.xp_current > initial_xp
         assert campaign_experience.xp_total == initial_xp
@@ -347,34 +435,55 @@ class TestModifyTraitValue:
         self,
         user_role: UserRole,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify increasing a trait value with NO_COST currency."""
-        # Given a user and character trait
-        user = await user_factory(role=user_role)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(value=0, trait=trait)
+        # Given a user whose role determines the permission check, and a character
+        # owned by a different user so that PLAYER fails the ownership guard
+        user = await pg_user_factory(role=user_role.value, company=pg_mirror_company)
+        character_owner = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
+        )
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_owner,
+            user_creator=character_owner,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=0, trait=trait, character=character
+        )
 
         # When increasing the trait value with NO_COST
         response = await client.put(
             build_url(
-                Characters.TRAIT_VALUE, character_trait_id=character_trait.id, user_id=user.id
+                Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": 1, "currency": "NO_COST"},
         )
 
-        # Then players should be forbidden, storytellers/admins should succeed
+        # Then players should be forbidden (they don't own the character),
+        # storytellers/admins should succeed
         if user_role == UserRole.PLAYER:
             assert response.status_code == HTTP_403_FORBIDDEN
         else:
             assert response.status_code == HTTP_200_OK
-            await character_trait.sync()
-            assert character_trait.value == 1
+            updated_ct = await CharacterTrait.get(id=character_trait.id)
+            assert updated_ct.value == 1
 
     @pytest.mark.parametrize(
         "user_role", [(UserRole.STORYTELLER), (UserRole.ADMIN), (UserRole.PLAYER)]
@@ -383,73 +492,106 @@ class TestModifyTraitValue:
         self,
         user_role: UserRole,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify decreasing a trait value with NO_COST currency."""
-        # Given a user and character trait at max value
-        user = await user_factory(role=user_role)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(value=trait.max_value, trait=trait)
+        # Given a user whose role determines the permission check, and a character
+        # owned by a different user so that PLAYER fails the ownership guard
+        user = await pg_user_factory(role=user_role.value, company=pg_mirror_company)
+        character_owner = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
+        )
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_owner,
+            user_creator=character_owner,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=trait.max_value, trait=trait, character=character
+        )
 
         # When decreasing the trait value with NO_COST
         response = await client.put(
             build_url(
-                Characters.TRAIT_VALUE, character_trait_id=character_trait.id, user_id=user.id
+                Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": trait.max_value - 1, "currency": "NO_COST"},
         )
 
-        # Then players should be forbidden, storytellers/admins should succeed
+        # Then players should be forbidden (they don't own the character),
+        # storytellers/admins should succeed
         if user_role == UserRole.PLAYER:
             assert response.status_code == HTTP_403_FORBIDDEN
         else:
             assert response.status_code == HTTP_200_OK
-            await character_trait.sync()
-            assert character_trait.value == trait.max_value - 1
+            updated_ct = await CharacterTrait.get(id=character_trait.id)
+            assert updated_ct.value == trait.max_value - 1
 
     async def test_increase_trait_value_with_xp(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify purchasing a trait value increase with XP."""
         # Given a character with XP
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=0, trait=trait, character_id=character.id
+        character_player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
         )
-        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_player_user,
+            user_creator=character_player_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=0, trait=trait, character=character
+        )
+        user_svc = UserXPService()
+        await user_svc.add_xp(character_player_user.id, character.campaign_id, 100)
 
         # When purchasing a trait value with XP
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=character_player_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=character_player_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": 1, "currency": "XP"},
         )
 
         # Then the response should succeed and XP should be deducted
         assert response.status_code == HTTP_200_OK
-        await character_trait.sync()
-        assert character_trait.value == 1
-        await character_player_user.sync()
-        campaign_experience = await character_player_user.get_or_create_campaign_experience(
-            character.campaign_id
+        updated_ct = await CharacterTrait.get(id=character_trait.id)
+        assert updated_ct.value == 1
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            character_player_user.id, character.campaign_id
         )
         assert campaign_experience.xp_current == 100 - trait.initial_cost
         assert campaign_experience.xp_total == 100
@@ -457,69 +599,99 @@ class TestModifyTraitValue:
     async def test_increase_trait_value_with_xp_as_storyteller(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify a storyteller can purchase trait values with XP for any character."""
         # Given a storyteller and a character owned by another player
-        storyteller_user = await user_factory(role=UserRole.STORYTELLER, name="Storyteller User")
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=0, trait=trait, character_id=character.id
+        storyteller_user = await pg_user_factory(
+            role=UserRole.STORYTELLER.value, company=pg_mirror_company, username="Storyteller User"
         )
-        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
+        character_player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
+        )
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_player_user,
+            user_creator=character_player_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=0, trait=trait, character=character
+        )
+        user_svc = UserXPService()
+        await user_svc.add_xp(character_player_user.id, character.campaign_id, 100)
 
         # When the storyteller purchases a trait value with XP
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=storyteller_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=storyteller_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": 1, "currency": "XP"},
         )
 
         # Then the response should succeed
         assert response.status_code == HTTP_200_OK
-        await character_trait.sync()
-        assert character_trait.value == 1
+        updated_ct = await CharacterTrait.get(id=character_trait.id)
+        assert updated_ct.value == 1
 
     async def test_increase_trait_value_fail_as_non_owner_player(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify a player cannot modify traits on a character they don't own."""
         # Given a player trying to modify another player's character
-        player_user = await user_factory(role=UserRole.PLAYER, name="Player User")
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=0, trait=trait, character_id=character.id
+        player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company, username="Player User"
         )
-        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
+        character_player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
+        )
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_player_user,
+            user_creator=character_player_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=0, trait=trait, character=character
+        )
+        user_svc = UserXPService()
+        await user_svc.add_xp(character_player_user.id, character.campaign_id, 100)
 
         # When the non-owner player tries to modify the trait
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=player_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=player_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": 1, "currency": "XP"},
         )
 
@@ -529,41 +701,53 @@ class TestModifyTraitValue:
     async def test_decrease_trait_value_with_xp_refund(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify refunding a trait value decrease with XP."""
         # Given a character with a trait at max value
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(user_player_id=character_player_user.id)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=trait.max_value, trait=trait, character_id=character.id
+        character_player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
         )
-        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_player_user,
+            user_creator=character_player_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=trait.max_value, trait=trait, character=character
+        )
+        user_svc = UserXPService()
+        await user_svc.add_xp(character_player_user.id, character.campaign_id, 100)
 
         # When refunding a trait value
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=character_player_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=character_player_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": trait.max_value - 1, "currency": "XP"},
         )
 
         # Then the response should succeed and XP should be refunded
         assert response.status_code == HTTP_200_OK
-        await character_trait.sync()
-        assert character_trait.value == trait.max_value - 1
-        await character_player_user.sync()
-        campaign_experience = await character_player_user.get_or_create_campaign_experience(
-            character.campaign_id
+        updated_ct = await CharacterTrait.get(id=character_trait.id)
+        assert updated_ct.value == trait.max_value - 1
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            character_player_user.id, character.campaign_id
         )
         assert campaign_experience.xp_current == 100 + (trait.initial_cost * trait.max_value)
         assert campaign_experience.xp_total == 100
@@ -571,74 +755,96 @@ class TestModifyTraitValue:
     async def test_increase_trait_value_with_starting_points(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_user: User,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify purchasing a trait value increase with starting points."""
         # Given a character with starting points
-        character = await character_factory(starting_points=100)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=0, trait=trait, character_id=character.id
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+            starting_points=100,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=0, trait=trait, character=character
         )
 
         # When purchasing a trait value with starting points
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=base_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": 1, "currency": "STARTING_POINTS"},
         )
 
         # Then the response should succeed and starting points should be deducted
         assert response.status_code == HTTP_200_OK
-        await character_trait.sync()
-        assert character_trait.value == 1
-        await character.sync()
-        assert character.starting_points == 100 - trait.initial_cost
+        updated_ct = await CharacterTrait.get(id=character_trait.id)
+        assert updated_ct.value == 1
+        updated_character = await Character.get(id=character.id)
+        assert updated_character.starting_points == 100 - trait.initial_cost
 
     async def test_decrease_trait_value_with_starting_points_refund(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_user: User,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify refunding a trait value decrease with starting points."""
         # Given a character with a trait at max value
-        character = await character_factory(starting_points=100)
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=trait.max_value, trait=trait, character_id=character.id
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+            starting_points=100,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=trait.max_value, trait=trait, character=character
         )
 
         # When refunding a trait value with starting points
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=base_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
             json={"target_value": trait.max_value - 1, "currency": "STARTING_POINTS"},
         )
 
         # Then the response should succeed and starting points should be refunded
         assert response.status_code == HTTP_200_OK
-        await character_trait.sync()
-        assert character_trait.value == trait.max_value - 1
-        await character.sync()
-        assert character.starting_points == 125
+        updated_ct = await CharacterTrait.get(id=character_trait.id)
+        assert updated_ct.value == trait.max_value - 1
+        updated_character = await Character.get(id=character.id)
+        assert updated_character.starting_points == 125
 
 
 class TestGetValueOptions:
@@ -647,40 +853,52 @@ class TestGetValueOptions:
     async def test_get_value_options(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_campaign: Any,
+        pg_user_factory: Callable[..., User],
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify getting value options returns correct structure."""
         # Given a character with XP and starting points
-        character_player_user = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(
-            user_player_id=character_player_user.id, starting_points=50
+        character_player_user = await pg_user_factory(
+            role=UserRole.PLAYER.value, company=pg_mirror_company
         )
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=2, trait=trait, character_id=character.id
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=character_player_user,
+            user_creator=character_player_user,
+            campaign=pg_mirror_campaign,
+            starting_points=50,
         )
-        await character_player_user.add_xp(campaign_id=character.campaign_id, amount=100)
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=2, trait=trait, character=character
+        )
+        user_svc = UserXPService()
+        await user_svc.add_xp(character_player_user.id, character.campaign_id, 100)
 
         # When getting value options
         response = await client.get(
             build_url(
                 Characters.TRAIT_VALUE_OPTIONS,
+                company_id=pg_mirror_company.id,
+                user_id=character_player_user.id,
+                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
-                user_id=character_player_user.id,
             ),
-            headers=token_company_admin,
+            headers=token_global_admin,
         )
 
         # Then the response should contain the correct structure
         assert response.status_code == HTTP_200_OK
         result = response.json()
         assert result["current_value"] == 2
-        assert result["trait"] == trait.model_dump(mode="json", exclude=COMMON_EXCLUDES)
+        assert result["trait"]["id"] == str(trait.id)
         assert result["xp_current"] == 100
         assert result["starting_points_current"] == 50
         assert "options" in result
@@ -705,30 +923,41 @@ class TestBulkAssignTraitsToCharacter:
     async def test_bulk_assign_mixed_outcomes(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify bulk assign returns succeeded and failed lists with mixed outcomes."""
         # Given a character with one existing trait
-        character = base_character
-        existing_ct = await character_trait_factory(character_id=character.id)
-        await existing_ct.fetch_all_links()
-        existing_trait = existing_ct.trait
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        existing_ct = await pg_character_trait_factory(character=character)
+        existing_trait_id = existing_ct.trait_id
 
         # And two unused traits
-        unused_traits = await Trait.find(
-            Trait.is_archived == False,
-            NotIn(Trait.id, [existing_trait.id]),
-        ).to_list()
+        unused_traits = await Trait.filter(is_archived=False).exclude(id=existing_trait_id).limit(2)
         valid_trait_1 = unused_traits[0]
         valid_trait_2 = unused_traits[1]
 
         # When bulk assigning: 2 valid + 1 duplicate
         response = await client.post(
-            build_url(Characters.TRAIT_BULK_ASSIGN, character_id=character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_BULK_ASSIGN,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             json=[
                 {
                     "trait_id": str(valid_trait_1.id),
@@ -736,7 +965,7 @@ class TestBulkAssignTraitsToCharacter:
                     "currency": TraitModifyCurrency.NO_COST.value,
                 },
                 {
-                    "trait_id": str(existing_trait.id),
+                    "trait_id": str(existing_trait_id),
                     "value": 1,
                     "currency": TraitModifyCurrency.NO_COST.value,
                 },
@@ -753,25 +982,40 @@ class TestBulkAssignTraitsToCharacter:
         body = response.json()
         assert len(body["succeeded"]) == 2
         assert len(body["failed"]) == 1
-        assert body["failed"][0]["trait_id"] == str(existing_trait.id)
+        assert body["failed"][0]["trait_id"] == str(existing_trait_id)
 
         # And succeeded traits are persisted in the database
         for item in body["succeeded"]:
-            ct = await CharacterTrait.get(item["character_trait"]["id"], fetch_links=True)
+            ct = (
+                await CharacterTrait.filter(id=item["character_trait"]["id"])
+                .prefetch_related(
+                    "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+                )
+                .first()
+            )
             assert ct is not None
             assert ct.value == 1
 
     async def test_exceeds_max_batch_size(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, ...], str],
-        base_character: Character,
-        token_company_admin: dict[str, str],
+        build_url: Callable[..., str],
+        pg_mirror_company: Company,
+        pg_mirror_global_admin: Any,
+        pg_mirror_user: User,
+        pg_mirror_campaign: Any,
+        pg_character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
     ) -> None:
         """Verify request with more than 200 items returns 400."""
         # Given a batch of 201 items (using a fake trait_id repeated)
-        character = base_character
-        fake_id = str(PydanticObjectId())
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            user_creator=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        fake_id = str(uuid4())
         items = [
             {"trait_id": fake_id, "value": 1, "currency": TraitModifyCurrency.NO_COST.value}
             for _ in range(201)
@@ -779,8 +1023,14 @@ class TestBulkAssignTraitsToCharacter:
 
         # When sending the oversized batch
         response = await client.post(
-            build_url(Characters.TRAIT_BULK_ASSIGN, character_id=character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.TRAIT_BULK_ASSIGN,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             json=items,
         )
 

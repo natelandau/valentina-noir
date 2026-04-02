@@ -25,7 +25,7 @@ from vapi.db.sql_models.character import (
 )
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
-from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.user import CampaignExperience, User
@@ -53,6 +53,8 @@ async def pg_company_factory():
         # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
         # avoiding type-mismatch issues when comparing with term.company_id
         company = await Company.get(id=str(company.id))
+        # Auto-create CompanySettings so services that query settings don't fail
+        await CompanySettings.get_or_create(company=company)
         created.append(company)
         return company
 
@@ -377,11 +379,10 @@ async def pg_campaign_chapter_factory():
 
 
 @pytest.fixture
-async def pg_character_factory(pg_user_factory, pg_campaign_factory):
+async def pg_character_factory(pg_company_factory, pg_user_factory, pg_campaign_factory):
     """Return a factory that creates Tortoise Character instances.
 
-    Auto-creates user and campaign if not provided. Requires a company kwarg
-    (or company_id) because characters are always company-scoped.
+    Auto-creates company, user, and campaign if not provided.
     """
     created: list[Character] = []
     _counter = 0
@@ -389,6 +390,10 @@ async def pg_character_factory(pg_user_factory, pg_campaign_factory):
     async def _factory(**kwargs: Any) -> Character:
         nonlocal _counter
         _counter += 1
+
+        # Auto-create a company when none is provided
+        if "company" not in kwargs and "company_id" not in kwargs:
+            kwargs["company"] = await pg_company_factory()
 
         if "user_creator" not in kwargs and "user_creator_id" not in kwargs:
             user = await pg_user_factory(company=kwargs.get("company"))
@@ -483,11 +488,19 @@ async def pg_specialty_factory():
 
 
 @pytest.fixture
-async def pg_character_trait_factory():
+async def pg_character_trait_factory(pg_character_factory):
     """Return a factory that creates Tortoise CharacterTrait instances."""
     created: list[CharacterTrait] = []
 
     async def _factory(**kwargs: Any) -> CharacterTrait:
+        # Auto-create a character when none is provided
+        if "character" not in kwargs and "character_id" not in kwargs:
+            kwargs["character"] = await pg_character_factory()
+
+        # Auto-pick a trait when none is provided
+        if "trait" not in kwargs and "trait_id" not in kwargs:
+            kwargs["trait"] = await Trait.filter(is_archived=False).first()
+
         defaults: dict[str, Any] = {
             "value": 1,
         }

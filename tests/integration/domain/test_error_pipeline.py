@@ -17,7 +17,7 @@ from litestar.status_codes import (
     HTTP_409_CONFLICT,
 )
 
-from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
+from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.domain.urls import Characters as CharacterURL
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
     from vapi.db.sql_models.campaign import Campaign as PgCampaign
+    from vapi.db.sql_models.character import Character, CharacterTrait
     from vapi.db.sql_models.company import Company as PgCompany
     from vapi.db.sql_models.developer import Developer as PgDeveloper
     from vapi.db.sql_models.user import User as PgUser
@@ -126,23 +127,37 @@ class TestErrorPipeline:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        base_character: Character,
-        character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
-        character_factory: Callable[[dict[str, Any]], Character],
-        token_company_admin: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_global_admin: PgDeveloper,
+        pg_mirror_user: PgUser,
+        pg_mirror_campaign: PgCampaign,
+        pg_character_factory: Callable[..., Character],
+        pg_character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ConflictError returns proper HTTP 409 response."""
-        # Given a character and trait
-        character = await character_factory(character_class="MORTAL")
-        trait = await Trait.find_one(Trait.is_archived == False)
-        await character_trait_factory(character_id=character.id, trait=trait)
-        trait_category = await TraitCategory.find_one(TraitCategory.is_archived == False)
+        # Given a character with a trait already assigned
+        character = await pg_character_factory(
+            company=pg_mirror_company,
+            user_player=pg_mirror_user,
+            campaign=pg_mirror_campaign,
+        )
+        trait = await Trait.filter(is_archived=False).first()
+        await pg_character_trait_factory(character=character, trait=trait)
+        trait_category = await TraitCategory.filter(is_archived=False).first()
 
-        # When we try to add the same trait again
+        # When we try to create a custom trait with the same name
         response = await client.post(
-            build_url(CharacterURL.TRAIT_CREATE, character_id=character.id),
-            headers=token_company_admin,
+            build_url(
+                CharacterURL.TRAIT_CREATE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                campaign_id=pg_mirror_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             json={
                 "name": trait.name,
                 "description": "Test Description",

@@ -1,25 +1,33 @@
 """Character trait controllers."""
 
-from __future__ import annotations
-
 from typing import Annotated
+from uuid import UUID
 
-from beanie import PydanticObjectId  # noqa: TC002
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, post, put
 from litestar.params import Parameter
 
 from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
-from vapi.db.models import Character, CharacterTrait, Company, User  # noqa: TC001
-from vapi.domain import deps, hooks, urls
+from vapi.db.sql_models.character import Character, CharacterTrait
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterTraitService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard, pg_user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 
-from . import docs, dto
+from . import docs
+from .dto import (
+    BulkAssignTraitResponse,
+    CharacterTraitAddConstant,
+    CharacterTraitCreateCustom,
+    CharacterTraitResponse,
+    TraitModifyRequest,
+    TraitValueOptionsResponse,
+)
 
 
 class CharacterTraitController(Controller):
@@ -27,12 +35,13 @@ class CharacterTraitController(Controller):
 
     tags = [APITags.CHARACTERS_TRAITS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id),
-        "character": Provide(deps.provide_character_by_id_and_company),
-        "character_trait": Provide(deps.provide_character_trait_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "character": Provide(pg_deps.provide_character_by_id_and_company),
+        "character_trait": Provide(pg_deps.provide_character_trait_by_id),
+        "developer": Provide(pg_deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
 
     @get(
         path=urls.Characters.TRAITS,
@@ -47,21 +56,26 @@ class CharacterTraitController(Controller):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         parent_category_id: Annotated[
-            PydanticObjectId, Parameter(description="Show traits in this parent category.")
+            UUID, Parameter(description="Show traits in this parent category.")
         ]
         | None = None,
         is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
-    ) -> OffsetPagination[CharacterTrait]:
+    ) -> OffsetPagination[CharacterTraitResponse]:
         """List all character traits."""
         service = CharacterTraitService()
         count, traits = await service.list_character_traits(
             character=character,
             limit=limit,
             offset=offset,
-            parent_category_id=parent_category_id,
+            category_id=parent_category_id,
             is_rollable=is_rollable,
         )
-        return OffsetPagination(items=traits, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[CharacterTraitResponse.from_model(t) for t in traits],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.Characters.TRAIT_DETAIL,
@@ -70,9 +84,9 @@ class CharacterTraitController(Controller):
         description=docs.GET_CHARACTER_TRAIT_DESCRIPTION,
         cache=True,
     )
-    async def get_character_trait(self, character_trait: CharacterTrait) -> CharacterTrait:
+    async def get_character_trait(self, character_trait: CharacterTrait) -> CharacterTraitResponse:
         """Get a character trait by Character Trait ID or Trait ID."""
-        return character_trait
+        return CharacterTraitResponse.from_model(character_trait)
 
     @post(
         path=urls.Characters.TRAIT_ASSIGN,
@@ -86,11 +100,11 @@ class CharacterTraitController(Controller):
         company: Company,
         user: User,
         character: Character,
-        data: dto.CharacterTraitAddConstant,
-    ) -> CharacterTrait:
+        data: CharacterTraitAddConstant,
+    ) -> CharacterTraitResponse:
         """Add a trait to a character."""
         service = CharacterTraitService()
-        return await service.add_constant_trait_to_character(
+        ct = await service.add_constant_trait_to_character(
             company=company,
             user=user,
             character=character,
@@ -98,6 +112,7 @@ class CharacterTraitController(Controller):
             value=data.value,
             currency=data.currency,
         )
+        return CharacterTraitResponse.from_model(ct)
 
     @post(
         path=urls.Characters.TRAIT_BULK_ASSIGN,
@@ -112,8 +127,8 @@ class CharacterTraitController(Controller):
         company: Company,
         user: User,
         character: Character,
-        data: list[dto.CharacterTraitAddConstant],
-    ) -> dto.BulkAssignTraitResponse:
+        data: list[CharacterTraitAddConstant],
+    ) -> BulkAssignTraitResponse:
         """Assign multiple traits to a character in a single request."""
         if len(data) > MAX_BULK_TRAIT_ASSIGN:
             msg = f"Batch size must not exceed {MAX_BULK_TRAIT_ASSIGN} items"
@@ -139,16 +154,17 @@ class CharacterTraitController(Controller):
         company: Company,
         user: User,
         character: Character,
-        data: dto.CharacterTraitCreateCustomDTO,
-    ) -> CharacterTrait:
+        data: CharacterTraitCreateCustom,
+    ) -> CharacterTraitResponse:
         """Create a custom trait."""
         service = CharacterTraitService()
-        return await service.create_custom_trait(
+        ct = await service.create_custom_trait(
             company=company,
             user=user,
             character=character,
             data=data,
         )
+        return CharacterTraitResponse.from_model(ct)
 
     @get(
         path=urls.Characters.TRAIT_VALUE_OPTIONS,
@@ -161,7 +177,7 @@ class CharacterTraitController(Controller):
         self,
         character: Character,
         character_trait: CharacterTrait,
-    ) -> dto.TraitValueOptionsResponse:
+    ) -> TraitValueOptionsResponse:
         """Get all possible target values with costs and affordability."""
         service = CharacterTraitService()
         return await service.get_value_options(
@@ -183,11 +199,11 @@ class CharacterTraitController(Controller):
         user: User,
         character: Character,
         character_trait: CharacterTrait,
-        data: dto.TraitModifyRequest,
-    ) -> CharacterTrait:
+        data: TraitModifyRequest,
+    ) -> CharacterTraitResponse:
         """Modify a character trait to a target value."""
         service = CharacterTraitService()
-        return await service.modify_trait_value(
+        ct = await service.modify_trait_value(
             company=company,
             user=user,
             character=character,
@@ -195,6 +211,7 @@ class CharacterTraitController(Controller):
             target_value=data.target_value,
             currency=data.currency,
         )
+        return CharacterTraitResponse.from_model(ct)
 
     @delete(
         path=urls.Characters.TRAIT_DELETE,

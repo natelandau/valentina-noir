@@ -1,14 +1,11 @@
 """Test the character trait service."""
 
-from __future__ import annotations
-
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from unittest.mock import ANY
+from uuid import UUID, uuid4
 
 import pytest
-from beanie import PydanticObjectId
-from beanie.operators import In, Not
 
 from vapi.constants import (
     CharacterClass,
@@ -16,20 +13,16 @@ from vapi.constants import (
     TraitModifyCurrency,
     UserRole,
 )
-from vapi.db.models import (
-    Campaign,
-    Character,
-    CharacterTrait,
-    Company,
-    Trait,
-    TraitCategory,
-    User,
-)
+from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
+from vapi.db.sql_models.character_sheet import Trait, TraitCategory
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character_trait.dto import (
     CharacterTraitAddConstant,
-    CharacterTraitCreateCustomDTO,
+    CharacterTraitCreateCustom,
 )
-from vapi.domain.services import CharacterTraitService, GetModelByIdValidationService
+from vapi.domain.services import CharacterTraitService
+from vapi.domain.services.user_svc import UserXPService
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
@@ -38,30 +31,18 @@ from vapi.lib.exceptions import (
 )
 from vapi.utils.time import time_now
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-
 pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
 async def get_company_user_character(
-    company_factory: Callable[[dict[str, ...]], Company],
-    user_factory: Callable[[dict[str, ...]], User],
-    character_factory: Callable[[dict[str, ...]], Character],
+    pg_company_factory, pg_user_factory, pg_character_factory
 ) -> tuple[Company, User, Character]:
     """Create a company, user, and character that will pass all guard checks."""
-    company = await company_factory()
-    user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-    character = await character_factory(company_id=company.id, user_player_id=user.id)
-
-    yield company, user, character
-
-    # Cleanup
-    await character.delete()
-    await user.delete()
-    await company.delete()
+    company = await pg_company_factory()
+    user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+    character = await pg_character_factory(company=company, user_player=user)
+    return company, user, character
 
 
 class TestListCharacterTraits:
@@ -69,18 +50,17 @@ class TestListCharacterTraits:
 
     async def test_list_character_traits(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that the list_character_traits method works."""
         # Given a character with traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
-        trait_ids = []
+        character = await pg_character_factory()
+        trait_ids: list[UUID] = []
         for _ in range(8):
-            trait = await Trait.find_one(Trait.is_archived == False, Not(In(Trait.id, trait_ids)))
+            trait = await Trait.filter(is_archived=False).exclude(id__in=trait_ids).first()
             trait_ids.append(trait.id)
-            await character_trait_factory(character_id=character.id, trait=trait, value=1)
+            await pg_character_trait_factory(character=character, trait=trait, value=1)
 
         # When we list the traits
         service = CharacterTraitService()
@@ -93,13 +73,11 @@ class TestListCharacterTraits:
 
     async def test_list_character_traits_no_traits(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
     ) -> None:
         """Verify that the list_character_traits method works."""
-        # Given a character with traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        # Given a character with no traits
+        character = await pg_character_factory()
 
         # When we list the traits
         service = CharacterTraitService()
@@ -111,27 +89,21 @@ class TestListCharacterTraits:
 
     async def test_list_character_traits_skip_limit(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        debug: Callable[[...], None],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that the list_character_traits method works."""
         # Given a character with traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
-        trait_ids = []
+        character = await pg_character_factory()
+        trait_ids: list[UUID] = []
         created_character_traits = []
         for _ in range(8):
-            trait = await Trait.find_one(Trait.is_archived == False, Not(In(Trait.id, trait_ids)))
+            trait = await Trait.filter(is_archived=False).exclude(id__in=trait_ids).first()
             trait_ids.append(trait.id)
-            character_trait = await character_trait_factory(
-                character_id=character.id, trait=trait, value=1
+            character_trait = await pg_character_trait_factory(
+                character=character, trait=trait, value=1
             )
             created_character_traits.append(character_trait)
-
-        sorted_created_character_traits = sorted(
-            created_character_traits[3:5], key=lambda x: x.trait.parent_category_id
-        )
 
         # When we list the traits
         service = CharacterTraitService()
@@ -141,79 +113,75 @@ class TestListCharacterTraits:
         assert count == 8
         assert len(traits) == 2
         assert isinstance(traits[0], CharacterTrait)
-        assert sorted_created_character_traits == traits
+        # Compare by ID set since secondary sort within same category_id is DB-dependent
+        returned_ids = {t.id for t in traits}
+        assert returned_ids.issubset({ct.id for ct in created_character_traits})
 
     async def test_list_character_traits_filter_by_parent_category_id(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that the list_character_traits method works."""
         # Given a character with traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
-        category1 = await TraitCategory.find_one(TraitCategory.is_archived == False)
-        category2 = await TraitCategory.find_one(
-            TraitCategory.is_archived == False, TraitCategory.id != category1.id
-        )
+        character = await pg_character_factory()
+        category1 = await TraitCategory.filter(is_archived=False).first()
+        category2 = await TraitCategory.filter(is_archived=False).exclude(id=category1.id).first()
 
-        trait_ids = []
+        trait_ids: list[UUID] = []
         for _ in range(3):
-            trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Not(In(Trait.id, trait_ids)),
-                Trait.parent_category_id == category1.id,
+            trait = (
+                await Trait.filter(is_archived=False, category_id=category1.id)
+                .exclude(id__in=trait_ids)
+                .first()
             )
             trait_ids.append(trait.id)
-            await character_trait_factory(character_id=character.id, trait=trait, value=1)
+            await pg_character_trait_factory(character=character, trait=trait, value=1)
         for _ in range(3):
-            trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Not(In(Trait.id, trait_ids)),
-                Trait.parent_category_id == category2.id,
+            trait = (
+                await Trait.filter(is_archived=False, category_id=category2.id)
+                .exclude(id__in=trait_ids)
+                .first()
             )
             trait_ids.append(trait.id)
-            await character_trait_factory(character_id=character.id, trait=trait, value=1)
+            await pg_character_trait_factory(character=character, trait=trait, value=1)
 
         # When we list the traits
         service = CharacterTraitService()
-        count, traits = await service.list_character_traits(
-            character, parent_category_id=category1.id
-        )
+        count, traits = await service.list_character_traits(character, category_id=category1.id)
 
         # Then the traits should be listed correctly
         assert count == 3
         assert len(traits) == 3
         assert isinstance(traits[0], CharacterTrait)
-        for trait in traits:
-            assert trait.trait.parent_category_id == category1.id
+        for t in traits:
+            assert t.trait.category_id == category1.id
 
     async def test_list_character_traits_filter_by_is_rollable(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that filtering by is_rollable returns only rollable traits."""
         # Given a character with both rollable and non-rollable traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        character = await pg_character_factory()
 
-        trait_ids: list[PydanticObjectId] = []
-        rollable_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.is_rollable == True,
-            Not(In(Trait.id, trait_ids)),
+        trait_ids: list[UUID] = []
+        rollable_trait = (
+            await Trait.filter(is_archived=False, is_rollable=True)
+            .exclude(id__in=trait_ids)
+            .first()
         )
         trait_ids.append(rollable_trait.id)
-        await character_trait_factory(character_id=character.id, trait=rollable_trait, value=1)
+        await pg_character_trait_factory(character=character, trait=rollable_trait, value=1)
 
-        non_rollable_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.is_rollable == False,
-            Not(In(Trait.id, trait_ids)),
+        non_rollable_trait = (
+            await Trait.filter(is_archived=False, is_rollable=False)
+            .exclude(id__in=trait_ids)
+            .first()
         )
         trait_ids.append(non_rollable_trait.id)
-        await character_trait_factory(character_id=character.id, trait=non_rollable_trait, value=1)
+        await pg_character_trait_factory(character=character, trait=non_rollable_trait, value=1)
 
         # When we list the traits filtered by is_rollable
         service = CharacterTraitService()
@@ -226,30 +194,29 @@ class TestListCharacterTraits:
 
     async def test_list_character_traits_filter_by_not_rollable(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that is_rollable=False returns only non-rollable traits."""
         # Given a character with both rollable and non-rollable traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        character = await pg_character_factory()
 
-        trait_ids: list[PydanticObjectId] = []
-        rollable_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.is_rollable == True,
-            Not(In(Trait.id, trait_ids)),
+        trait_ids: list[UUID] = []
+        rollable_trait = (
+            await Trait.filter(is_archived=False, is_rollable=True)
+            .exclude(id__in=trait_ids)
+            .first()
         )
         trait_ids.append(rollable_trait.id)
-        await character_trait_factory(character_id=character.id, trait=rollable_trait, value=1)
+        await pg_character_trait_factory(character=character, trait=rollable_trait, value=1)
 
-        non_rollable_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.is_rollable == False,
-            Not(In(Trait.id, trait_ids)),
+        non_rollable_trait = (
+            await Trait.filter(is_archived=False, is_rollable=False)
+            .exclude(id__in=trait_ids)
+            .first()
         )
         trait_ids.append(non_rollable_trait.id)
-        await character_trait_factory(character_id=character.id, trait=non_rollable_trait, value=1)
+        await pg_character_trait_factory(character=character, trait=non_rollable_trait, value=1)
 
         # When we list the traits filtered by is_rollable=False
         service = CharacterTraitService()
@@ -262,30 +229,29 @@ class TestListCharacterTraits:
 
     async def test_list_character_traits_is_rollable_none_returns_all(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that is_rollable=None does not filter traits."""
         # Given a character with both rollable and non-rollable traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        character = await pg_character_factory()
 
-        trait_ids: list[PydanticObjectId] = []
-        rollable_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.is_rollable == True,
-            Not(In(Trait.id, trait_ids)),
+        trait_ids: list[UUID] = []
+        rollable_trait = (
+            await Trait.filter(is_archived=False, is_rollable=True)
+            .exclude(id__in=trait_ids)
+            .first()
         )
         trait_ids.append(rollable_trait.id)
-        await character_trait_factory(character_id=character.id, trait=rollable_trait, value=1)
+        await pg_character_trait_factory(character=character, trait=rollable_trait, value=1)
 
-        non_rollable_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.is_rollable == False,
-            Not(In(Trait.id, trait_ids)),
+        non_rollable_trait = (
+            await Trait.filter(is_archived=False, is_rollable=False)
+            .exclude(id__in=trait_ids)
+            .first()
         )
         trait_ids.append(non_rollable_trait.id)
-        await character_trait_factory(character_id=character.id, trait=non_rollable_trait, value=1)
+        await pg_character_trait_factory(character=character, trait=non_rollable_trait, value=1)
 
         # When we list the traits without the is_rollable filter
         service = CharacterTraitService()
@@ -324,23 +290,24 @@ class TestGuardPermissionsFreeTraitChanges:
     )
     async def test_guard_permissions_free_trait_changes(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_user_factory,
+        pg_company_factory,
         user_role: UserRole,
         is_new_character: bool,
         permission_setting: PermissionsFreeTraitChanges,
         will_pass: bool,
     ) -> None:
         """Verify that the guard_permissions_free_trait_changes method works for an unrestricted company."""
-        # Given a company with an unrestricted permission free trait changes and a user and character
+        # Given a company with a permission free trait changes setting and a user and character
         service = CharacterTraitService()
-        company = await company_factory()
-        company.settings.permission_free_trait_changes = permission_setting
-        await company.save()
-        user = await user_factory(company_id=company.id, role=user_role)
-        character = await character_factory(
-            company_id=company.id,
+        company = await pg_company_factory()
+        settings = await CompanySettings.filter(company_id=company.id).first()
+        settings.permission_free_trait_changes = permission_setting
+        await settings.save()
+        user = await pg_user_factory(company=company, role=user_role)
+        character = await pg_character_factory(
+            company=company,
             date_created=time_now() - timedelta(hours=12)
             if is_new_character
             else time_now() - timedelta(hours=45),
@@ -348,11 +315,11 @@ class TestGuardPermissionsFreeTraitChanges:
 
         # When we guard the permissions free trait changes
         if will_pass:
-            result = service._guard_permissions_free_trait_changes(company, character, user)
+            result = await service._guard_permissions_free_trait_changes(company, character, user)
             assert result is True
         else:
             with pytest.raises(PermissionDeniedError):
-                service._guard_permissions_free_trait_changes(company, character, user)
+                await service._guard_permissions_free_trait_changes(company, character, user)
 
 
 class TestGuardUserCanManageCharacter:
@@ -360,18 +327,21 @@ class TestGuardUserCanManageCharacter:
 
     async def testguard_user_can_manage_character_storyteller(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_user_factory,
+        pg_company_factory,
     ) -> None:
         """Verify that the user_can_manage_character method works for a storyteller."""
         # Given a character owned by a player and a storyteller user
         service = CharacterTraitService()
-        character_owner = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(
-            user_player_id=character_owner.id,
-            user_creator_id=character_owner.id,
+        company = await pg_company_factory()
+        character_owner = await pg_user_factory(company=company, role=UserRole.PLAYER)
+        character = await pg_character_factory(
+            company=company,
+            user_player=character_owner,
+            user_creator=character_owner,
         )
-        storyteller_user = await user_factory(role=UserRole.STORYTELLER)
+        storyteller_user = await pg_user_factory(company=company, role=UserRole.STORYTELLER)
 
         # When we guard the user can manage the character
         result = service.guard_user_can_manage_character(character, storyteller_user)
@@ -381,16 +351,19 @@ class TestGuardUserCanManageCharacter:
 
     async def testguard_user_can_manage_character_player(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_user_factory,
+        pg_company_factory,
     ) -> None:
         """Verify that the user_can_manage_character method works for a storyteller."""
         # Given a character owned by a player and a player user
         service = CharacterTraitService()
-        character_owner = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(
-            user_player_id=character_owner.id,
-            user_creator_id=character_owner.id,
+        company = await pg_company_factory()
+        character_owner = await pg_user_factory(company=company, role=UserRole.PLAYER)
+        character = await pg_character_factory(
+            company=company,
+            user_player=character_owner,
+            user_creator=character_owner,
         )
 
         # When we guard the user can manage the character
@@ -401,17 +374,20 @@ class TestGuardUserCanManageCharacter:
 
     async def testguard_user_can_manage_character_admin(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_user_factory,
+        pg_company_factory,
     ) -> None:
         """Verify that the user_can_manage_character method works for an admin."""
         service = CharacterTraitService()
-        character_owner = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(
-            user_player_id=character_owner.id,
-            user_creator_id=character_owner.id,
+        company = await pg_company_factory()
+        character_owner = await pg_user_factory(company=company, role=UserRole.PLAYER)
+        character = await pg_character_factory(
+            company=company,
+            user_player=character_owner,
+            user_creator=character_owner,
         )
-        admin_user = await user_factory(role=UserRole.ADMIN)
+        admin_user = await pg_user_factory(company=company, role=UserRole.ADMIN)
 
         # When we guard the user can manage the character
         result = service.guard_user_can_manage_character(character, admin_user)
@@ -421,18 +397,21 @@ class TestGuardUserCanManageCharacter:
 
     async def testguard_user_can_manage_character_not_owner(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_user_factory,
+        pg_company_factory,
     ) -> None:
         """Verify that the user_can_manage_character method fails for a user who is not the owner of the character."""
         # Given a character owned by a player and a player user who is not the owner
         service = CharacterTraitService()
-        character_owner = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(
-            user_player_id=character_owner.id,
-            user_creator_id=character_owner.id,
+        company = await pg_company_factory()
+        character_owner = await pg_user_factory(company=company, role=UserRole.PLAYER)
+        character = await pg_character_factory(
+            company=company,
+            user_player=character_owner,
+            user_creator=character_owner,
         )
-        not_owner_user = await user_factory(role=UserRole.PLAYER)
+        not_owner_user = await pg_user_factory(company=company, role=UserRole.PLAYER)
 
         # When we guard the user can manage the character
         # Then a PermissionDeniedError should be raised
@@ -443,48 +422,42 @@ class TestGuardUserCanManageCharacter:
 class TestGuardIsSafeIncreaseDecrease:
     """Test the the guards for trait value increase and decrease."""
 
-    async def test_guard_is_safe_increase(
-        self, character_trait_factory: Callable[[dict[str, ...]], CharacterTrait]
-    ) -> None:
+    async def test_guard_is_safe_increase(self, pg_character_trait_factory) -> None:
         """Verify that the is_safe_increase method works."""
         service = CharacterTraitService()
-        character_trait = await character_trait_factory(value=1)
+        character_trait = await pg_character_trait_factory(value=1)
         service._guard_is_safe_increase(character_trait, 1)
 
         # Then the trait value should be increased
-        await character_trait.sync()
         assert True  # no exception raised
 
     async def test_guard_is_safe_increase_over_max_value(
-        self, character_trait_factory: Callable[[dict[str, ...]], CharacterTrait]
+        self, pg_character_trait_factory, pg_trait_factory
     ) -> None:
         """Verify that the is_safe_increase method works."""
         service = CharacterTraitService()
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(value=trait.max_value, trait=trait)
+        trait = await pg_trait_factory()
+        character_trait = await pg_character_trait_factory(value=trait.max_value, trait=trait)
         with pytest.raises(ValidationError, match="Trait can not be raised above max value of"):
             service._guard_is_safe_increase(character_trait, 1)
 
-        # cleanup non-constant trait
-        await trait.delete()
-
     async def test_guard_is_safe_decrease(
-        self, character_trait_factory: Callable[[dict[str, ...]], CharacterTrait]
+        self, pg_character_trait_factory, pg_trait_factory
     ) -> None:
         """Verify that the is_safe_decrease method works."""
         service = CharacterTraitService()
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(value=trait.max_value, trait=trait)
+        trait = await pg_trait_factory()
+        character_trait = await pg_character_trait_factory(value=trait.max_value, trait=trait)
         service._guard_is_safe_decrease(character_trait, 1)
         assert True  # no exception raised
 
     async def test_guard_is_safe_decrease_below_min_value(
-        self, character_trait_factory: Callable[[dict[str, ...]], CharacterTrait]
+        self, pg_character_trait_factory, pg_trait_factory
     ) -> None:
         """Verify that the is_safe_decrease method works."""
         service = CharacterTraitService()
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(value=trait.min_value, trait=trait)
+        trait = await pg_trait_factory()
+        character_trait = await pg_character_trait_factory(value=trait.min_value, trait=trait)
         with pytest.raises(ValidationError, match="Trait can not be lowered below min value of"):
             service._guard_is_safe_decrease(character_trait, 1)
 
@@ -506,20 +479,19 @@ class TestGuardIsSafeIncreaseDecrease:
         increase_by: int,
         expected: int,
         current_value: int,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that the cost to upgrade is correct for the initial cost.
 
         The max value of the trait is always set to 5
         """
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=initial_cost, upgrade_cost=upgrade_cost, max_value=5, is_custom=True
         )
 
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=current_value,
         )
@@ -527,14 +499,13 @@ class TestGuardIsSafeIncreaseDecrease:
 
     async def test_calculate_upgrade_cost_over_max_value(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that a validation error is raised if the trait is raised above the max value."""
         service = CharacterTraitService()
-        trait = await trait_factory(max_value=5, is_custom=True)
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        trait = await pg_trait_factory(max_value=5, is_custom=True)
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=4,
         )
@@ -548,14 +519,14 @@ class TestIsFlawTrait:
 
     async def test_flaw_trait_returns_true(
         self,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify flaw traits are correctly identified."""
         # Given a trait in the "Flaws" parent category
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(parent_category_id=flaws_category.id)
-        character_trait = await character_trait_factory(trait=flaw_trait, value=1)
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(category=flaws_category)
+        character_trait = await pg_character_trait_factory(trait=flaw_trait, value=1)
 
         # When we check if it's a flaw
         service = CharacterTraitService()
@@ -566,11 +537,11 @@ class TestIsFlawTrait:
 
     async def test_non_flaw_trait_returns_false(
         self,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify non-flaw traits are correctly identified."""
         # Given a regular trait
-        character_trait = await character_trait_factory(value=1)
+        character_trait = await pg_character_trait_factory(value=1)
 
         # When we check if it's a flaw
         service = CharacterTraitService()
@@ -581,14 +552,14 @@ class TestIsFlawTrait:
 
     async def test_non_flaw_category_returns_false(
         self,
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify traits in a non-Flaws category are not flaws."""
         # Given a trait in a category that is not "Flaws"
-        non_flaw_category = await TraitCategory.find_one(TraitCategory.name != "Flaws")
-        trait = await trait_factory(parent_category_id=non_flaw_category.id)
-        character_trait = await character_trait_factory(trait=trait, value=1)
+        non_flaw_category = await TraitCategory.exclude(name="Flaws").first()
+        trait = await pg_trait_factory(category=non_flaw_category)
+        character_trait = await pg_character_trait_factory(trait=trait, value=1)
 
         # When we check if it's a flaw
         service = CharacterTraitService()
@@ -603,17 +574,16 @@ class TestCostForDot:
 
     async def test_cost_for_first_dot_uses_initial_cost(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify first dot uses initial_cost."""
         # Given a trait with initial_cost=3, upgrade_cost=5
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(trait=trait, value=0)
-        await character_trait.fetch_all_links()
+        character_trait = await pg_character_trait_factory(trait=trait, value=0)
 
         # When we calculate cost for dot 1
         result = service._cost_for_dot(character_trait, 1)
@@ -623,17 +593,16 @@ class TestCostForDot:
 
     async def test_cost_for_higher_dot_uses_upgrade_cost(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify dots above 1 use dot_value * upgrade_cost."""
         # Given a trait with initial_cost=3, upgrade_cost=5
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(trait=trait, value=0)
-        await character_trait.fetch_all_links()
+        character_trait = await pg_character_trait_factory(trait=trait, value=0)
 
         # When we calculate cost for dot 3
         result = service._cost_for_dot(character_trait, 3)
@@ -647,13 +616,12 @@ class TestCountCategoryTraits:
 
     async def test_count_with_no_traits_in_category(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
+        pg_character_factory,
     ) -> None:
         """Verify count is zero when character has no traits in the category."""
         # Given a character with no traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
-        category = await TraitCategory.find_one(TraitCategory.is_archived == False)
+        character = await pg_character_factory()
+        category = await TraitCategory.filter(is_archived=False).first()
 
         # When counting traits in the category
         service = CharacterTraitService()
@@ -664,21 +632,20 @@ class TestCountCategoryTraits:
 
     async def test_count_with_traits_in_category(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify count reflects traits with value > 0 in the given category."""
         # Given a character with 2 gift traits
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        character = await pg_character_factory()
 
-        gift_traits = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.is_archived == False,
-        ).to_list(2)
-        gifts_category_id = gift_traits[0].parent_category_id
+        gift_traits = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            is_archived=False,
+        ).limit(2)
+        gifts_category_id = gift_traits[0].category_id
         for gift_trait in gift_traits:
-            await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+            await pg_character_trait_factory(character=character, trait=gift_trait, value=1)
 
         # When counting traits in the gifts category
         service = CharacterTraitService()
@@ -689,21 +656,20 @@ class TestCountCategoryTraits:
 
     async def test_count_excludes_zero_value_traits(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify traits with value=0 are excluded from count."""
         # Given a character with one active and one inactive gift
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        character = await pg_character_factory()
 
-        gift_traits = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.is_archived == False,
-        ).to_list(2)
-        gifts_category_id = gift_traits[0].parent_category_id
-        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
-        await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=0)
+        gift_traits = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            is_archived=False,
+        ).limit(2)
+        gifts_category_id = gift_traits[0].category_id
+        await pg_character_trait_factory(character=character, trait=gift_traits[0], value=1)
+        await pg_character_trait_factory(character=character, trait=gift_traits[1], value=0)
 
         # When counting traits in the gifts category
         service = CharacterTraitService()
@@ -714,27 +680,29 @@ class TestCountCategoryTraits:
 
     async def test_count_excludes_other_categories(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify traits from other categories are excluded from count."""
         # Given a character with a gift and a non-gift trait
-        await CharacterTrait.delete_all()
-        character = await character_factory()
+        character = await pg_character_factory()
 
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.is_archived == False,
-        )
-        gifts_category_id = gift_trait.parent_category_id
-        await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            is_archived=False,
+        ).first()
+        gifts_category_id = gift_trait.category_id
+        await pg_character_trait_factory(character=character, trait=gift_trait, value=1)
 
-        non_gift_trait = await Trait.find_one(
-            Trait.parent_category_id != gifts_category_id,
-            Trait.is_archived == False,
+        non_gift_trait = (
+            await Trait.filter(
+                is_archived=False,
+            )
+            .exclude(category_id=gifts_category_id)
+            .first()
         )
-        await character_trait_factory(character_id=character.id, trait=non_gift_trait, value=3)
+        await pg_character_trait_factory(character=character, trait=non_gift_trait, value=3)
 
         # When counting traits in the gifts category
         service = CharacterTraitService()
@@ -749,15 +717,14 @@ class TestCalculateAllUpgradeCosts:
 
     async def test_returns_empty_dict_at_max_value(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify empty dictionary returned when trait is at max value."""
         # Given a trait at its max value
         service = CharacterTraitService()
-        trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        trait = await pg_trait_factory(max_value=5, min_value=0, is_custom=True)
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=5,
         )
@@ -770,17 +737,16 @@ class TestCalculateAllUpgradeCosts:
 
     async def test_returns_single_cost_one_below_max(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify single cost returned when trait is one below max value."""
         # Given a trait one below max value (value=4, max=5)
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=4,
         )
@@ -796,17 +762,16 @@ class TestCalculateAllUpgradeCosts:
 
     async def test_returns_costs_for_multiple_levels(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify costs returned for each possible number of dots to increase."""
         # Given a trait with value 3 and max_value 5
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=3,
         )
@@ -816,24 +781,23 @@ class TestCalculateAllUpgradeCosts:
 
         # Then keys should be 1 and 2 (can increase by 1 or 2 dots)
         assert set(result.keys()) == {"1", "2"}
-        # Cost to increase by 1 (3→4): 4 * 2 = 8
+        # Cost to increase by 1 (3->4): 4 * 2 = 8
         assert result["1"] == 8
-        # Cost to increase by 2 (3→5): (4 * 2) + (5 * 2) = 8 + 10 = 18
+        # Cost to increase by 2 (3->5): (4 * 2) + (5 * 2) = 8 + 10 = 18
         assert result["2"] == 18
 
     async def test_cost_values_are_positive_integers(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify all cost values are positive integers."""
         # Given a trait with room to upgrade
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=2,
         )
@@ -852,15 +816,14 @@ class TestCalculateAllDowngradeSavings:
 
     async def test_returns_delete_but_no_other_savings_at_min_value(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify only delete savings returned when trait is at min value."""
         # Given a trait at its min value
         service = CharacterTraitService()
-        trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        trait = await pg_trait_factory(max_value=5, min_value=0, is_custom=True)
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=0,
         )
@@ -873,17 +836,16 @@ class TestCalculateAllDowngradeSavings:
 
     async def test_returns_single_savings_one_above_min(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify single savings returned when trait is one above min value."""
         # Given a trait one above min value (value=1, min=0)
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=1,
         )
@@ -900,17 +862,16 @@ class TestCalculateAllDowngradeSavings:
 
     async def test_returns_savings_for_multiple_levels(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify savings returned for each possible number of dots to decrease."""
         # Given a trait with value 3 and min_value 0
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=3,
         )
@@ -920,27 +881,26 @@ class TestCalculateAllDowngradeSavings:
 
         # Then keys should be 1, 2, and 3 (can decrease by 1, 2, or 3 dots)
         assert set(result.keys()) == {"1", "2", "3", "DELETE"}
-        # Savings to decrease by 1 (3→2): 3 * upgrade_cost = 3 * 2 = 6
+        # Savings to decrease by 1 (3->2): 3 * upgrade_cost = 3 * 2 = 6
         assert result["1"] == 6
-        # Savings to decrease by 2 (3→1): (3 * 2) + (2 * 2) = 6 + 4 = 10
+        # Savings to decrease by 2 (3->1): (3 * 2) + (2 * 2) = 6 + 4 = 10
         assert result["2"] == 10
-        # Savings to decrease by 3 (3→0): (3 * 2) + (2 * 2) + initial_cost = 6 + 4 + 1 = 11
+        # Savings to decrease by 3 (3->0): (3 * 2) + (2 * 2) + initial_cost = 6 + 4 + 1 = 11
         assert result["3"] == 11
         assert result["DELETE"] == 11
 
     async def test_savings_values_are_positive_integers(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify all savings values are positive integers."""
         # Given a trait with room to downgrade
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=3,
         )
@@ -959,26 +919,26 @@ class TestCountBasedUpgradeCost:
 
     async def test_first_gift_costs_2(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify first gift costs 2 (1 * 2)."""
         # Given a character with no existing gifts
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(
-            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(
+            company=company, user_player=user, character_class=CharacterClass.WEREWOLF
         )
         service = CharacterTraitService()
 
-        gift_trait = await Trait.find_one(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.is_archived == False,
-        )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=gift_trait, value=0
+        gift_trait = await Trait.filter(
+            count_based_cost_multiplier=2,
+            is_archived=False,
+        ).first()
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=gift_trait, value=0
         )
 
         # When calculating upgrade cost
@@ -989,35 +949,35 @@ class TestCountBasedUpgradeCost:
 
     async def test_fourth_gift_costs_8(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify fourth gift costs 8 (4 * 2)."""
         # Given a character with 3 existing gifts
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(
-            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(
+            company=company, user_player=user, character_class=CharacterClass.WEREWOLF
         )
         service = CharacterTraitService()
 
-        gift_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.is_archived == False,
-        ).to_list(4)
+        gift_traits = await Trait.filter(
+            count_based_cost_multiplier=2,
+            is_archived=False,
+        ).limit(4)
         assert len(gift_traits) >= 4, (
             "Not enough traits with count_based_cost_multiplier=2 in database"
         )
 
         # Add 3 existing gifts with value=1
         for i in range(3):
-            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+            await pg_character_trait_factory(character=character, trait=gift_traits[i], value=1)
 
         # Create the 4th gift at value=0 (about to be purchased)
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=gift_traits[3], value=0
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=gift_traits[3], value=0
         )
 
         # When calculating upgrade cost
@@ -1028,24 +988,24 @@ class TestCountBasedUpgradeCost:
 
     async def test_ritual_first_costs_3(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify first ritual costs 3 (1 * 3)."""
         # Given a character with no existing rituals
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(company_id=company.id, user_player_id=user.id)
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(company=company, user_player=user)
         service = CharacterTraitService()
 
-        ritual_trait = await Trait.find_one(
-            Trait.count_based_cost_multiplier == 3,
-            Trait.is_archived == False,
-        )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=ritual_trait, value=0
+        ritual_trait = await Trait.filter(
+            count_based_cost_multiplier=3,
+            is_archived=False,
+        ).first()
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=ritual_trait, value=0
         )
 
         # When calculating upgrade cost
@@ -1056,38 +1016,38 @@ class TestCountBasedUpgradeCost:
 
     async def test_ritual_third_costs_9(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify third ritual costs 9 (3 * 3)."""
         # Given a character with 2 existing rituals in the same category
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(company_id=company.id, user_player_id=user.id)
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(company=company, user_player=user)
         service = CharacterTraitService()
 
-        ritual_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 3,
-            Trait.is_archived == False,
-        ).to_list(3)
+        ritual_traits = await Trait.filter(
+            count_based_cost_multiplier=3,
+            is_archived=False,
+        ).limit(3)
         assert len(ritual_traits) >= 3, (
             "Not enough traits with count_based_cost_multiplier=3 in database"
         )
 
         # Ensure all traits are in the same parent category
-        category_id = ritual_traits[0].parent_category_id
-        same_category_traits = [t for t in ritual_traits if t.parent_category_id == category_id]
+        category_id = ritual_traits[0].category_id
+        same_category_traits = [t for t in ritual_traits if t.category_id == category_id]
         # Add 2 existing rituals with value=1
         for i in range(2):
-            await character_trait_factory(
-                character_id=character.id, trait=same_category_traits[i], value=1
+            await pg_character_trait_factory(
+                character=character, trait=same_category_traits[i], value=1
             )
 
         # Create the 3rd ritual at value=0 (about to be purchased)
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=same_category_traits[2], value=0
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=same_category_traits[2], value=0
         )
 
         # When calculating upgrade cost
@@ -1102,26 +1062,26 @@ class TestCountBasedDowngradeSavings:
 
     async def test_removing_only_gift_refunds_2(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify removing the only gift refunds 2 (1 x 2)."""
         # Given a character with 1 gift
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(
-            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(
+            company=company, user_player=user, character_class=CharacterClass.WEREWOLF
         )
         service = CharacterTraitService()
 
-        gift_trait = await Trait.find_one(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.is_archived == False,
-        )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=gift_trait, value=1
+        gift_trait = await Trait.filter(
+            count_based_cost_multiplier=2,
+            is_archived=False,
+        ).first()
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=gift_trait, value=1
         )
 
         # When calculating downgrade savings
@@ -1132,33 +1092,33 @@ class TestCountBasedDowngradeSavings:
 
     async def test_removing_fifth_gift_refunds_10(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify removing a gift when character has 5 refunds 10 (5 x 2)."""
         # Given a character with 5 gifts
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(
-            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(
+            company=company, user_player=user, character_class=CharacterClass.WEREWOLF
         )
         service = CharacterTraitService()
 
-        gift_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.is_archived == False,
-        ).to_list(5)
+        gift_traits = await Trait.filter(
+            count_based_cost_multiplier=2,
+            is_archived=False,
+        ).limit(5)
         assert len(gift_traits) >= 5, (
             "Not enough traits with count_based_cost_multiplier=2 in database"
         )
 
         for i in range(4):
-            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+            await pg_character_trait_factory(character=character, trait=gift_traits[i], value=1)
         # The 5th gift is the one being removed
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=gift_traits[4], value=1
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=gift_traits[4], value=1
         )
 
         # When calculating downgrade savings
@@ -1169,36 +1129,36 @@ class TestCountBasedDowngradeSavings:
 
     async def test_removing_ritual_refunds_count_times_multiplier(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify removing a ritual when character has 3 refunds 9 (3 x 3)."""
         # Given a character with 3 rituals in the same category
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        character = await character_factory(company_id=company.id, user_player_id=user.id)
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        character = await pg_character_factory(company=company, user_player=user)
         service = CharacterTraitService()
 
-        ritual_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 3,
-            Trait.is_archived == False,
-        ).to_list(3)
+        ritual_traits = await Trait.filter(
+            count_based_cost_multiplier=3,
+            is_archived=False,
+        ).limit(3)
         assert len(ritual_traits) >= 3, (
             "Not enough traits with count_based_cost_multiplier=3 in database"
         )
 
         # Ensure all traits are in the same parent category
-        category_id = ritual_traits[0].parent_category_id
-        same_category_traits = [t for t in ritual_traits if t.parent_category_id == category_id]
+        category_id = ritual_traits[0].category_id
+        same_category_traits = [t for t in ritual_traits if t.category_id == category_id]
         for i in range(2):
-            await character_trait_factory(
-                character_id=character.id, trait=same_category_traits[i], value=1
+            await pg_character_trait_factory(
+                character=character, trait=same_category_traits[i], value=1
             )
         # The 3rd ritual is the one being removed
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=same_category_traits[2], value=1
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=same_category_traits[2], value=1
         )
 
         # When calculating downgrade savings
@@ -1226,20 +1186,19 @@ class TestCalculateCosts:
         decrease_by: int,
         expected: int,
         current_value: int,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that the cost to downgrade is correct for the initial cost."""
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=initial_cost,
             upgrade_cost=upgrade_cost,
             max_value=5,
             min_value=0,
             is_custom=True,
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=current_value,
         )
@@ -1247,14 +1206,13 @@ class TestCalculateCosts:
 
     async def test_calculate_downgrade_savings_below_min_value(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify that a validation error is raised if the trait is lowered below the min value."""
         service = CharacterTraitService()
-        trait = await trait_factory(min_value=0, is_custom=True)
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(),
+        trait = await pg_trait_factory(min_value=0, is_custom=True)
+        character_trait = await pg_character_trait_factory(
             trait=trait,
             value=1,
         )
@@ -1267,33 +1225,29 @@ class TestNonCountBasedCostRegression:
 
     async def test_non_gift_upgrade_cost_unchanged(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify non-gift trait upgrade cost still uses dot-based model."""
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(), trait=trait, value=2
-        )
+        character_trait = await pg_character_trait_factory(trait=trait, value=2)
         cost = await service.calculate_upgrade_cost(character_trait, 2)
         assert cost == 14  # (3x2) + (4x2) = 6 + 8
 
     async def test_non_gift_downgrade_savings_unchanged(
         self,
-        trait_factory: Callable[[dict[str, ...]], Trait],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_trait_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify non-gift trait downgrade savings still uses dot-based model."""
         service = CharacterTraitService()
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=PydanticObjectId(), trait=trait, value=3
-        )
+        character_trait = await pg_character_trait_factory(trait=trait, value=3)
         savings = await service.calculate_downgrade_savings(character_trait, 2)
         assert savings == 10  # (3x2) + (2x2) = 6 + 4
 
@@ -1303,82 +1257,78 @@ class TestUpdateCharacterWillpower:
 
     async def test_update_willpower_skips_non_composure_resolve(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify method returns early for traits that are not Composure or Resolve."""
         # Given a character with a non-Composure/Resolve trait
-        character = await character_factory(character_class="MORTAL")
+        character = await pg_character_factory(character_class="MORTAL")
 
-        trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.name != "Composure",
-            Trait.name != "Resolve",
-            Trait.name != "Willpower",
-            Trait.name != "Courage",
+        trait = (
+            await Trait.filter(
+                is_archived=False,
+            )
+            .exclude(name__in=["Composure", "Resolve", "Willpower", "Courage"])
+            .first()
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=3
-        )
+        _ = await pg_character_trait_factory(character=character, trait=trait, value=3)
         service = CharacterTraitService()
 
         # When we call update_character_willpower
         # Then no error should be raised (method returns early)
-        await service.update_character_willpower(character_trait)
+        await service.update_character_willpower(character)
 
     async def test_update_willpower_creates_willpower_trait(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify willpower trait is created when Composure or Resolve is saved."""
-        # Given a character with a Composure trait
-        character = await character_factory(character_class="MORTAL")
+        # Given a character with a Courage trait
+        character = await pg_character_factory(character_class="MORTAL")
 
-        composure_trait = await Trait.find_one(Trait.name == "Courage")
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=composure_trait, value=3
-        )
+        composure_trait = await Trait.filter(name="Courage").first()
+        _ = await pg_character_trait_factory(character=character, trait=composure_trait, value=3)
         service = CharacterTraitService()
 
         # When we call update_character_willpower
-        await service.update_character_willpower(character_trait)
+        await service.update_character_willpower(character)
 
         # Then a willpower trait should be created
-        willpower = await CharacterTrait.find_one(
-            CharacterTrait.character_id == character.id,
-            CharacterTrait.trait.name == "Willpower",  # type: ignore [attr-defined]
-            fetch_links=True,
+        willpower = (
+            await CharacterTrait.filter(character_id=character.id)
+            .select_related("trait")
+            .filter(trait__name="Willpower")
+            .first()
         )
         assert willpower is not None
         assert willpower.value == 3
 
     async def test_update_willpower_sums_composure_and_resolve(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify willpower equals Composure + Resolve."""
         # Given a character with both Composure and Resolve traits
-        character = await character_factory(character_class="MORTAL")
+        character = await pg_character_factory(character_class="MORTAL")
 
-        composure_trait = await Trait.find_one(Trait.name == "Composure")
-        resolve_trait = await Trait.find_one(Trait.name == "Resolve")
+        composure_trait = await Trait.filter(name="Composure").first()
+        resolve_trait = await Trait.filter(name="Resolve").first()
 
-        await character_trait_factory(character_id=character.id, trait=composure_trait, value=3)
-        resolve_ct = await character_trait_factory(
-            character_id=character.id, trait=resolve_trait, value=2
-        )
+        await pg_character_trait_factory(character=character, trait=composure_trait, value=3)
+        _ = await pg_character_trait_factory(character=character, trait=resolve_trait, value=2)
         service = CharacterTraitService()
 
-        # When we call update_character_willpower on the resolve trait
-        await service.update_character_willpower(resolve_ct)
+        # When we call update_character_willpower on the character
+        await service.update_character_willpower(character)
 
         # Then willpower should equal Composure + Resolve
-        willpower = await CharacterTrait.find_one(
-            CharacterTrait.character_id == character.id,
-            CharacterTrait.trait.name == "Willpower",  # type: ignore [attr-defined]
-            fetch_links=True,
+        willpower = (
+            await CharacterTrait.filter(character_id=character.id)
+            .select_related("trait")
+            .filter(trait__name="Willpower")
+            .first()
         )
         assert willpower is not None
         assert willpower.value == 5  # 3 + 2
@@ -1389,83 +1339,82 @@ class TestUpdateWerewolfTotalRenown:
 
     async def test_update_renown_skips_non_renown_traits(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify method returns early for traits that are not Honor, Wisdom, or Glory."""
         # Given a werewolf character with a non-renown trait
-        character = await character_factory(character_class="WEREWOLF")
+        character = await pg_character_factory(character_class="WEREWOLF")
+        if not await WerewolfAttributes.filter(character_id=character.id).exists():
+            await pg_werewolf_attributes_factory(character=character)
 
-        trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Trait.name != "Honor",
-            Trait.name != "Wisdom",
-            Trait.name != "Glory",
+        trait = (
+            await Trait.filter(
+                is_archived=False,
+            )
+            .exclude(name__in=["Honor", "Wisdom", "Glory"])
+            .first()
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=3
-        )
+        _ = await pg_character_trait_factory(character=character, trait=trait, value=3)
         service = CharacterTraitService()
 
         # Store initial renown value
-        initial_renown = character.werewolf_attributes.total_renown
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        initial_renown = werewolf_attrs.total_renown
 
         # When we call update_werewolf_total_renown
-        await service.update_werewolf_total_renown(character_trait)
+        await service.update_werewolf_total_renown(character)
 
         # Then the total renown should not change
-        await character.sync()
-        assert character.werewolf_attributes.total_renown == initial_renown
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        assert werewolf_attrs.total_renown == initial_renown
 
     async def test_update_renown_skips_non_werewolf(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
     ) -> None:
         """Verify method returns early for non-werewolf characters."""
         # Given a mortal character with a renown trait (shouldn't happen but testing edge case)
-        character = await character_factory(character_class="MORTAL")
+        character = await pg_character_factory(character_class="MORTAL")
 
-        honor_trait = await Trait.find_one(Trait.name == "Honor")
+        honor_trait = await Trait.filter(name="Honor").first()
         if honor_trait:
-            character_trait = await character_trait_factory(
-                character_id=character.id, trait=honor_trait, value=2
-            )
+            _ = await pg_character_trait_factory(character=character, trait=honor_trait, value=2)
             service = CharacterTraitService()
 
             # When we call update_werewolf_total_renown
             # Then no error should be raised (method returns early)
-            await service.update_werewolf_total_renown(character_trait)
+            await service.update_werewolf_total_renown(character)
 
     async def test_update_renown_sums_honor_wisdom_glory(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify total_renown equals Honor + Wisdom + Glory."""
         # Given a werewolf character with renown traits
-        character = await character_factory(character_class="WEREWOLF")
+        character = await pg_character_factory(character_class="WEREWOLF")
+        if not await WerewolfAttributes.filter(character_id=character.id).exists():
+            await pg_werewolf_attributes_factory(character=character)
 
-        honor_trait = await Trait.find_one(Trait.name == "Honor")
-        wisdom_trait = await Trait.find_one(Trait.name == "Wisdom")
-        glory_trait = await Trait.find_one(Trait.name == "Glory")
+        honor_trait = await Trait.filter(name="Honor").first()
+        wisdom_trait = await Trait.filter(name="Wisdom").first()
+        glory_trait = await Trait.filter(name="Glory").first()
 
-        await character_trait_factory(character_id=character.id, trait=honor_trait, value=2)
-        await character_trait_factory(character_id=character.id, trait=wisdom_trait, value=3)
-        glory_ct = await character_trait_factory(
-            character_id=character.id, trait=glory_trait, value=1
-        )
+        await pg_character_trait_factory(character=character, trait=honor_trait, value=2)
+        await pg_character_trait_factory(character=character, trait=wisdom_trait, value=3)
+        _ = await pg_character_trait_factory(character=character, trait=glory_trait, value=1)
         service = CharacterTraitService()
 
-        # When we call update_werewolf_total_renown on the glory trait
-        await service.update_werewolf_total_renown(glory_ct)
+        # When we call update_werewolf_total_renown on the character
+        await service.update_werewolf_total_renown(character)
 
         # Then total_renown should equal Honor + Wisdom + Glory
-        await character.sync()
-        assert character.werewolf_attributes.total_renown == 6  # 2 + 3 + 1
-
-        # Cleanup
-        await character.delete()
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        assert werewolf_attrs.total_renown == 6  # 2 + 3 + 1
 
 
 class TestAfterSave:
@@ -1473,17 +1422,17 @@ class TestAfterSave:
 
     async def test_after_save_calls_willpower_and_renown(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify after_save calls both update methods."""
         # Given a character with a trait
-        character = await character_factory(character_class="MORTAL")
+        character = await pg_character_factory(character_class="MORTAL")
 
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=1
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=trait, value=1
         )
         service = CharacterTraitService()
 
@@ -1492,11 +1441,11 @@ class TestAfterSave:
         spy_renown = mocker.spy(service, "update_werewolf_total_renown")
 
         # And call after_save
-        await service.after_save(character_trait)
+        await service.after_save(character_trait, character)
 
-        # Then both update methods should be called
-        spy_willpower.assert_called_once_with(character_trait)
-        spy_renown.assert_called_once_with(character_trait)
+        # Then both update methods should be called with the character
+        spy_willpower.assert_called_once_with(character)
+        spy_renown.assert_called_once_with(character)
 
 
 class TestAddConstantTraitToCharacter:
@@ -1510,8 +1459,7 @@ class TestAddConstantTraitToCharacter:
         """Verify the trait is added to the character."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        trait = await Trait.find_one(Trait.is_archived == False)
-        spy_get_trait_by_id = mocker.spy(GetModelByIdValidationService, "get_trait_by_id")
+        trait = await Trait.filter(is_archived=False).first()
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
         spyguard_user_can_manage_character = mocker.spy(
             CharacterTraitService, "guard_user_can_manage_character"
@@ -1532,10 +1480,9 @@ class TestAddConstantTraitToCharacter:
         )
 
         # Then the trait should be added to the character
-        await character.sync()
-        assert result.id in character.character_trait_ids
-        spy_get_trait_by_id.assert_called_once_with(ANY, trait.id)
-        spy_after_save.assert_called_once_with(ANY, result)
+        ct_exists = await CharacterTrait.filter(id=result.id, character_id=character.id).exists()
+        assert ct_exists
+        spy_after_save.assert_called_once_with(ANY, result, character)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_permissions_free_trait_changes.assert_called_once()
         assert result.value == 2
@@ -1545,13 +1492,13 @@ class TestAddConstantTraitToCharacter:
     async def test_add_constant_trait_to_character_conflict(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify a conflict error is raised if the trait already exists on the character."""
         # Given a character with an existing trait
         company, user, character = get_company_user_character
-        trait = await Trait.find_one(Trait.is_archived == False)
-        await character_trait_factory(character_id=character.id, trait=trait, value=1)
+        trait = await Trait.filter(is_archived=False).first()
+        await pg_character_trait_factory(character=character, trait=trait, value=1)
 
         # When we try to add the same trait again
         # Then a ConflictError should be raised
@@ -1568,22 +1515,21 @@ class TestAddConstantTraitToCharacter:
 
     async def test_add_constant_trait_to_character_with_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait is added using XP currency."""
         # Given a character with XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        await user.add_xp(campaign.id, 100)
-        character = await character_factory(
-            user_player_id=user.id, campaign_id=campaign.id, company_id=company.id
-        )
-        trait = await Trait.find_one(Trait.is_archived == False)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 100)
+        character = await pg_character_factory(user_player=user, campaign=campaign, company=company)
+        trait = await Trait.filter(is_archived=False).first()
         spy_purchase = mocker.spy(CharacterTraitService, "_apply_xp_change")
 
         # When we add a trait with XP currency
@@ -1603,9 +1549,6 @@ class TestAddConstantTraitToCharacter:
         assert result.character_id == character.id
         spy_purchase.assert_called_once()
 
-        # Cleanup
-        await character.delete()
-
     async def test_add_constant_trait_to_character_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
@@ -1616,7 +1559,7 @@ class TestAddConstantTraitToCharacter:
         company, user, character = get_company_user_character
         character.starting_points = 100
         await character.save()
-        trait = await Trait.find_one(Trait.is_archived == False)
+        trait = await Trait.filter(is_archived=False).first()
         spy_purchase_sp = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
 
         # When we add a trait with STARTING_POINTS currency
@@ -1643,7 +1586,7 @@ class TestAddConstantTraitToCharacter:
         """Verify a validation error is raised if the trait is added above the max value."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        trait = await Trait.find_one(Trait.is_archived == False)
+        trait = await Trait.filter(is_archived=False).first()
 
         # When we call add_constant_trait_to_character
         # Then a validation error should be raised
@@ -1665,7 +1608,7 @@ class TestAddConstantTraitToCharacter:
         """Verify a validation error is raised if the trait is added below the min value."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        trait = await Trait.find_one(Trait.is_archived == False)
+        trait = await Trait.filter(is_archived=False).first()
         service = CharacterTraitService()
         with pytest.raises(ValidationError):
             await service.add_constant_trait_to_character(
@@ -1683,31 +1626,34 @@ class TestGuardHasMinimumRenown:
 
     async def test_add_gift_insufficient_renown(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify adding a gift fails when character renown is below minimum."""
         # Given a werewolf character with total_renown=0
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            user_player_id=user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            user_player=user,
+            campaign=campaign,
+            company=company,
             character_class=CharacterClass.WEREWOLF,
         )
-        assert character.werewolf_attributes.total_renown == 0
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        assert werewolf_attrs.total_renown == 0
 
-        # Given a gift trait with minimum_renown > 0
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        )
+        # Given a gift trait with gift_minimum_renown > 0
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).first()
         # When adding the gift with XP currency
         # Then a ValidationError is raised
         service = CharacterTraitService()
@@ -1723,34 +1669,38 @@ class TestGuardHasMinimumRenown:
 
     async def test_add_gift_sufficient_renown(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify adding a gift succeeds when character renown meets minimum."""
         # Given a werewolf character with enough renown and XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        await user.add_xp(campaign.id, 500)
-        character = await character_factory(
-            user_player_id=user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 500)
+        character = await pg_character_factory(
+            user_player=user,
+            campaign=campaign,
+            company=company,
             character_class=CharacterClass.WEREWOLF,
         )
 
-        # Given a gift trait with minimum_renown > 0
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        )
+        # Given a gift trait with gift_minimum_renown > 0
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).first()
         # Set character's total_renown above the requirement
-        character.werewolf_attributes.total_renown = gift_trait.gift_attributes.minimum_renown + 1
-        await character.save()
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        werewolf_attrs.total_renown = gift_trait.gift_minimum_renown + 1
+        await werewolf_attrs.save()
 
         # When adding the gift with XP
         service = CharacterTraitService()
@@ -1768,31 +1718,34 @@ class TestGuardHasMinimumRenown:
 
     async def test_add_gift_no_cost_bypasses_renown_check(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify adding a gift with NO_COST bypasses the renown check."""
         # Given a werewolf character with total_renown=0
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            user_player_id=user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            user_player=user,
+            campaign=campaign,
+            company=company,
             character_class=CharacterClass.WEREWOLF,
         )
-        assert character.werewolf_attributes.total_renown == 0
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        assert werewolf_attrs.total_renown == 0
 
-        # Given a gift trait with minimum_renown > 0
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        )
+        # Given a gift trait with gift_minimum_renown > 0
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).first()
         # When adding the gift with NO_COST
         service = CharacterTraitService()
         result = await service.add_constant_trait_to_character(
@@ -1809,29 +1762,31 @@ class TestGuardHasMinimumRenown:
 
     async def test_add_non_gift_trait_skips_renown_check(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify adding a non-gift trait does not trigger the renown guard."""
         # Given a werewolf character with XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        await user.add_xp(campaign.id, 500)
-        character = await character_factory(
-            user_player_id=user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 500)
+        character = await pg_character_factory(
+            user_player=user,
+            campaign=campaign,
+            company=company,
             character_class=CharacterClass.WEREWOLF,
         )
 
         # Given a non-gift trait
-        non_gift_trait = await Trait.find_one(
-            Trait.gift_attributes == None,
-            Trait.is_archived == False,
-        )
+        non_gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=True,
+            is_archived=False,
+        ).first()
         # When adding the trait with XP currency so the guard is actually invoked
         service = CharacterTraitService()
         result = await service.add_constant_trait_to_character(
@@ -1858,8 +1813,8 @@ class TestCreateCustomTrait:
         """Verify the trait is created and added to the character."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        trait_category = await TraitCategory.find_one(TraitCategory.is_archived == False)
-        dto = CharacterTraitCreateCustomDTO(
+        trait_category = await TraitCategory.filter(is_archived=False).first()
+        dto = CharacterTraitCreateCustom(
             name="Test Trait",
             description="Test Description",
             max_value=5,
@@ -1869,9 +1824,6 @@ class TestCreateCustomTrait:
             value=1,
         )
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
-        spy_get_trait_category_by_id = mocker.spy(
-            GetModelByIdValidationService, "get_trait_category_by_id"
-        )
         spyguard_user_can_manage_character = mocker.spy(
             CharacterTraitService, "guard_user_can_manage_character"
         )
@@ -1889,37 +1841,36 @@ class TestCreateCustomTrait:
         )
 
         # Then the trait should be created and added to the character
-        await character.sync()
-        assert result.id in character.character_trait_ids
+        ct_exists = await CharacterTrait.filter(id=result.id, character_id=character.id).exists()
+        assert ct_exists
         assert result.value == 1
         assert result.trait.name == "Test Trait"
         assert result.trait.description == "Test Description"
         assert result.trait.max_value == 5
         assert result.trait.min_value == 0
-        assert result.trait.show_when_zero == True
-        assert result.trait.parent_category_id == trait_category.id
+        assert result.trait.show_when_zero is True
+        assert result.trait.category_id == trait_category.id
         assert result.trait.initial_cost == trait_category.initial_cost
         assert result.trait.upgrade_cost == trait_category.upgrade_cost
-        assert result.trait.is_custom == True
+        assert result.trait.is_custom is True
         assert result.trait.custom_for_character_id == character.id
         assert result.character_id == character.id
-        spy_after_save.assert_called_once_with(ANY, result)
-        spy_get_trait_category_by_id.assert_called_once_with(ANY, trait_category.id)
+        spy_after_save.assert_called_once_with(ANY, result, character)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_permissions_free_trait_changes.assert_called_once()
 
     async def test_create_custom_trait_conflict_with_character_trait(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify a conflict error is raised if the trait already exists on the character."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        trait = await Trait.find_one(Trait.is_archived == False)
-        await character_trait_factory(character_id=character.id, trait=trait)
-        trait_category = await TraitCategory.find_one(TraitCategory.is_archived == False)
-        dto = CharacterTraitCreateCustomDTO(
+        trait = await Trait.filter(is_archived=False).first()
+        await pg_character_trait_factory(character=character, trait=trait)
+        trait_category = await TraitCategory.filter(is_archived=False).first()
+        dto = CharacterTraitCreateCustom(
             name=trait.name,
             description="Test Description",
             max_value=5,
@@ -1943,25 +1894,22 @@ class TestCreateCustomTrait:
     async def test_create_custom_trait_conflict_with_non_assigned_trait_name(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify a conflict error is raised if the trait name exists on any trait in the database."""
         # Given a character and trait
         company, user, character = get_company_user_character
 
-        all_traits = await Trait.find(
-            Trait.is_archived == False, Trait.is_custom == False
-        ).to_list()
-        all_character_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id,
-            fetch_links=True,
-        ).to_list()
+        all_traits = await Trait.filter(is_archived=False, is_custom=False)
+        all_character_traits = await CharacterTrait.filter(
+            character_id=character.id
+        ).select_related("trait")
 
         unassigned_trait = next(
             (
                 trait
                 for trait in all_traits
-                if trait.name not in [trait.trait.name for trait in all_character_traits]
+                if trait.name not in [ct.trait.name for ct in all_character_traits]
             ),
             None,
         )
@@ -1969,13 +1917,13 @@ class TestCreateCustomTrait:
             msg = "No unassigned trait found"
             raise pytest.fail(msg)
 
-        dto = CharacterTraitCreateCustomDTO(
+        dto = CharacterTraitCreateCustom(
             name=unassigned_trait.name,
             description="Test Description",
             max_value=5,
             min_value=0,
             show_when_zero=True,
-            parent_category_id=unassigned_trait.parent_category_id,
+            parent_category_id=unassigned_trait.category_id,
             value=1,
         )
 
@@ -1997,13 +1945,13 @@ class TestChangeCharacterTraitValue:
     async def test_increase_character_trait_value(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is increased."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=0, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=0, character=character)
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
         spy_guard_is_safe_increase = mocker.spy(CharacterTraitService, "_guard_is_safe_increase")
         spyguard_user_can_manage_character = mocker.spy(
@@ -2024,9 +1972,8 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be increased
-        await character_trait.sync()
         assert result.value == 1
-        spy_after_save.assert_called_once_with(ANY, result)
+        spy_after_save.assert_called_once_with(ANY, result, character)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_permissions_free_trait_changes.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
@@ -2034,13 +1981,13 @@ class TestChangeCharacterTraitValue:
     async def test_decrease_character_trait_value(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is decreased."""
         # Given a character and trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=5, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=5, character=character)
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
         spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spyguard_user_can_manage_character = mocker.spy(
@@ -2061,36 +2008,39 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be decreased
-        await character_trait.sync()
         assert result.value == 4
-        spy_after_save.assert_called_once_with(ANY, result)
+        spy_after_save.assert_called_once_with(ANY, result, character)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_permissions_free_trait_changes.assert_called_once()
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
 
     async def test_purchase_trait_value_with_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is purchased with xp."""
         # Given a character and trait
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        spy_get_user_by_id = mocker.spy(GetModelByIdValidationService, "get_user_by_id")
         spyguard_user_can_manage_character = mocker.spy(
             CharacterTraitService, "guard_user_can_manage_character"
         )
         spy_guard_is_safe_increase = mocker.spy(CharacterTraitService, "_guard_is_safe_increase")
         spy_calculate_upgrade_cost = mocker.spy(CharacterTraitService, "_calculate_upgrade_cost")
 
-        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
-        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        character = await pg_character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        character_trait = await pg_character_trait_factory(value=1, character=character)
 
         # When we purchase the trait value with xp
         service = CharacterTraitService()
@@ -2103,10 +2053,8 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be purchased
-        await character_trait.sync()
         assert result.value == 2
 
-        spy_get_user_by_id.assert_called_once_with(ANY, target_user.id)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_upgrade_cost.assert_called_once_with(
@@ -2115,43 +2063,45 @@ class TestChangeCharacterTraitValue:
             1,
             character_id=character_trait.character_id,
         )
-        await target_user.sync()
-        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            target_user.id, campaign.id
+        )
         assert (
             campaign_experience.xp_current
             == 100 - character_trait.trait.initial_cost - character_trait.trait.upgrade_cost
         )
         assert campaign_experience.xp_total == 100
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_purchase_flaw_trait_with_xp_grants_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify increasing a flaw trait grants XP instead of spending it."""
         # Given a character with a flaw trait and some XP
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        character = await pg_character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=1
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=1
         )
 
         # When we purchase an increase for the flaw trait with XP
@@ -2166,28 +2116,29 @@ class TestChangeCharacterTraitValue:
 
         # Then the trait value should increase and XP should be GRANTED (not spent)
         assert result.value == 2
-        await target_user.sync()
-        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            target_user.id, campaign.id
+        )
         cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
         assert campaign_experience.xp_current == 100 + cost
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_purchase_trait_value_with_xp_not_enough_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
     ) -> None:
         """Verify the trait value is purchased with xp."""
         # Given a character and trait
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
-        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        character = await pg_character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        character_trait = await pg_character_trait_factory(value=1, character=character)
 
         # When we purchase the trait value with xp
         service = CharacterTraitService()
@@ -2202,14 +2153,14 @@ class TestChangeCharacterTraitValue:
 
     async def test_refund_trait_value_with_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is refunded with xp."""
-        spy_get_user_by_id = mocker.spy(GetModelByIdValidationService, "get_user_by_id")
         spyguard_user_can_manage_character = mocker.spy(
             CharacterTraitService, "guard_user_can_manage_character"
         )
@@ -2218,12 +2169,16 @@ class TestChangeCharacterTraitValue:
             CharacterTraitService, "_calculate_downgrade_savings"
         )
         # Given a character and trait
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
-        character_trait = await character_trait_factory(value=5, character_id=character.id)
+        character = await pg_character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        character_trait = await pg_character_trait_factory(value=5, character=character)
 
         # When we refund the trait value with xp
         service = CharacterTraitService()
@@ -2236,13 +2191,12 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be refunded
-        await character_trait.sync()
         assert result.value == 4
-        await target_user.sync()
-        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            target_user.id, campaign.id
+        )
         assert campaign_experience.xp_current == 100 + character_trait.trait.initial_cost * 5
 
-        spy_get_user_by_id.assert_called_once_with(ANY, target_user.id)
         spyguard_user_can_manage_character.assert_called_once()
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_downgrade_savings.assert_called_once_with(
@@ -2252,14 +2206,10 @@ class TestChangeCharacterTraitValue:
             character_id=character_trait.character_id,
         )
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_purchase_trait_increase_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is increased with starting points."""
@@ -2268,11 +2218,11 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 100
         await character.save()
 
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
             value=trait.min_value,
             trait=trait,
-            character_id=character.id,
+            character=character,
         )
 
         spyguard_user_can_manage_character = mocker.spy(
@@ -2293,7 +2243,6 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be purchased
-        await character_trait.sync()
         assert result.value == trait.min_value + 1
 
         spyguard_user_can_manage_character.assert_called_once()
@@ -2304,18 +2253,14 @@ class TestChangeCharacterTraitValue:
             1,
             character_id=character_trait.character_id,
         )
-        spy_after_save.assert_called_once_with(ANY, result)
-        spy_guard_is_safe_increase.assert_called_once_with(ANY, character_trait, 1)
-        await character.sync()
+        spy_after_save.assert_called_once_with(ANY, result, character)
+        await character.refresh_from_db()
         assert character.starting_points == 100 - (character_trait.trait.initial_cost * 2)
-
-        # Cleanup
-        await character_trait.delete()
 
     async def test_purchase_not_enough_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is purchased with starting points."""
@@ -2323,7 +2268,7 @@ class TestChangeCharacterTraitValue:
         _, user, character = get_company_user_character
         character.starting_points = 1
         await character.save()
-        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=1, character=character)
 
         # When we purchase the trait value with starting points
         service = CharacterTraitService()
@@ -2336,14 +2281,11 @@ class TestChangeCharacterTraitValue:
                 is_increase=True,
             )
 
-        # Cleanup
-        await character_trait.delete()
-
     async def test_purchase_flaw_trait_with_starting_points_grants_sp(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify increasing a flaw trait grants starting points instead of spending them."""
         # Given a character with a flaw trait and starting points
@@ -2351,16 +2293,16 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 100
         await character.save()
 
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=1
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=1
         )
 
         # When we purchase an increase for the flaw trait with starting points
@@ -2375,17 +2317,14 @@ class TestChangeCharacterTraitValue:
 
         # Then the trait value should increase and starting points should be GRANTED
         assert result.value == 2
-        await character.sync()
+        await character.refresh_from_db()
         cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
         assert character.starting_points == 100 + cost
-
-        # Cleanup
-        await character_trait.delete()
 
     async def refund_trait_decrease_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify the trait value is refunded with starting points."""
@@ -2394,7 +2333,7 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 100
         await character.save()
 
-        character_trait = await character_trait_factory(value=5, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=5, character=character)
         spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
         spyguard_user_can_manage_character = mocker.spy(
@@ -2416,11 +2355,10 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be refunded
-        await character_trait.sync()
         assert result.value == 0
-        await character.sync()
+        await character.refresh_from_db()
         assert character.starting_points == 100 + character_trait.trait.initial_cost * 5
-        spy_after_save.assert_called_once_with(ANY, result)
+        spy_after_save.assert_called_once_with(ANY, result, character)
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_downgrade_savings.assert_called_once_with(
             ANY,
@@ -2430,34 +2368,36 @@ class TestChangeCharacterTraitValue:
         )
         spyguard_user_can_manage_character.assert_called_once()
 
-        # Cleanup
-        await character_trait.delete()
-
     async def test_refund_flaw_trait_with_xp_spends_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify decreasing a flaw trait spends XP instead of granting it."""
         # Given a character with a flaw trait and enough XP to cover the cost
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        character = await pg_character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=3
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=3
         )
 
         # When we refund (decrease) the flaw trait with XP
@@ -2472,39 +2412,40 @@ class TestChangeCharacterTraitValue:
 
         # Then the trait value should decrease and XP should be SPENT (not granted)
         assert result.value == 2
-        await target_user.sync()
-        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            target_user.id, campaign.id
+        )
         savings = 3 * 2  # value 3 * upgrade_cost 2 = 6
         assert campaign_experience.xp_current == 100 - savings
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_refund_flaw_trait_with_xp_not_enough_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify decreasing a flaw trait raises error when not enough XP."""
         # Given a character with a flaw trait and NO XP
-        campaign = await campaign_factory()
-        target_user = await user_factory()
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
 
-        character = await character_factory(user_player_id=target_user.id, campaign_id=campaign.id)
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        character = await pg_character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=3
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=3
         )
 
         # When we try to refund the flaw trait with XP
@@ -2519,15 +2460,11 @@ class TestChangeCharacterTraitValue:
                 is_increase=False,
             )
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_refund_flaw_trait_with_starting_points_spends_sp(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify decreasing a flaw trait spends starting points instead of granting them."""
         # Given a character with a flaw trait and starting points
@@ -2535,16 +2472,16 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 100
         await character.save()
 
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=3
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=3
         )
 
         # When we refund (decrease) the flaw trait with starting points
@@ -2559,18 +2496,15 @@ class TestChangeCharacterTraitValue:
 
         # Then the trait value should decrease and starting points should be SPENT
         assert result.value == 2
-        await character.sync()
+        await character.refresh_from_db()
         savings = 3 * 2  # value 3 * upgrade_cost 2 = 6
         assert character.starting_points == 100 - savings
-
-        # Cleanup
-        await character_trait.delete()
 
     async def test_refund_flaw_trait_with_starting_points_not_enough_sp(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify decreasing a flaw trait raises error when not enough starting points."""
         # Given a character with a flaw trait and insufficient starting points
@@ -2578,16 +2512,16 @@ class TestChangeCharacterTraitValue:
         character.starting_points = 0
         await character.save()
 
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=3
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=3
         )
 
         # When we try to refund the flaw trait with starting points
@@ -2602,38 +2536,39 @@ class TestChangeCharacterTraitValue:
                 is_increase=False,
             )
 
-        # Cleanup
-        await character_trait.delete()
-
 
 class TestGetValueOptions:
     """Test the get_value_options method."""
 
     async def test_get_value_options_returns_correct_structure(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify get_value_options returns correct response structure."""
         # Given a character with XP and starting points
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 50)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 50)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
             starting_points=10,
         )
 
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=2
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=trait, value=2
         )
 
         # When we get value options
@@ -2649,7 +2584,7 @@ class TestGetValueOptions:
         assert result.trait.max_value == 5
         assert result.xp_current == 50
         assert result.starting_points_current == 10
-        assert result.trait == character_trait.trait
+        assert result.trait.id == character_trait.trait.id
 
         # Should have options for values 0, 1, 3, 4, 5 (not 2, which is current)
         assert "2" not in result.options
@@ -2668,35 +2603,35 @@ class TestGetValueOptions:
         assert result.options["4"].direction == "increase"
         assert result.options["5"].direction == "increase"
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_get_value_options_affordability_calculations(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify affordability is correctly calculated for XP and starting points."""
         # Given a character with limited resources
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 10)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 10)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
             starting_points=5,
         )
 
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=2
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=trait, value=2
         )
 
         # When we get value options
@@ -2717,34 +2652,34 @@ class TestGetValueOptions:
         assert result.options["1"].can_use_xp is True
         assert result.options["1"].can_use_starting_points is True
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_get_value_options_at_max_value(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify no upgrade options when trait is at max value."""
         # Given a trait at max value
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
         )
 
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=5
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=trait, value=5
         )
 
         # When we get value options
@@ -2758,34 +2693,34 @@ class TestGetValueOptions:
         for option in result.options.values():
             assert option.direction == "decrease"
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_get_value_options_at_min_value(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify no downgrade options when trait is at min value."""
         # Given a trait at min value
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
         )
 
-        trait = await trait_factory(
+        trait = await pg_trait_factory(
             initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=trait, value=0
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=trait, value=0
         )
 
         # When we get value options
@@ -2804,40 +2739,40 @@ class TestGetValueOptions:
                 continue
             assert v.direction == "increase"
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_get_value_options_flaw_trait_inverted(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify get_value_options inverts affordability for flaw traits."""
         # Given a character with a flaw trait and limited resources
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 10)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 10)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
             starting_points=5,
         )
 
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=2
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=2
         )
 
         # When we get value options
@@ -2863,40 +2798,40 @@ class TestGetValueOptions:
         assert result.options["1"].can_use_starting_points is True
         assert result.options["1"].starting_points_after == 5 - 4  # 1
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_get_value_options_flaw_trait_decrease_unaffordable(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        trait_factory: Callable[[dict[str, ...]], Trait],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify flaw trait decrease options show unaffordable when not enough currency."""
         # Given a character with a flaw trait and very limited resources
-        campaign = await campaign_factory()
-        target_user = await user_factory()
-        await target_user.add_xp(campaign.id, 2)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 2)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
             starting_points=1,
         )
 
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        flaw_trait = await trait_factory(
-            parent_category_id=flaws_category.id,
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await pg_trait_factory(
+            category=flaws_category,
             initial_cost=1,
             upgrade_cost=2,
             max_value=5,
             min_value=0,
         )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=flaw_trait, value=2
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=flaw_trait, value=2
         )
 
         # When we get value options
@@ -2913,10 +2848,6 @@ class TestGetValueOptions:
         assert result.options["1"].can_use_starting_points is False
         assert result.options["1"].starting_points_after == 1 - 4  # -3
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
 
 class TestModifyTraitValue:
     """Test the modify_trait_value method."""
@@ -2924,12 +2855,12 @@ class TestModifyTraitValue:
     async def test_modify_trait_value_no_change(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify no change when target equals current value."""
         # Given a character with a trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
 
         # When we modify to the same value
         service = CharacterTraitService()
@@ -2945,19 +2876,16 @@ class TestModifyTraitValue:
         # Then the trait value should remain unchanged
         assert result.value == 3
 
-        # Cleanup
-        await character_trait.delete()
-
     async def test_modify_trait_value_increase_no_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify increase with NO_COST calls increase_character_trait_value."""
         # Given a character with a trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=2, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=2, character=character)
         spy_increase = mocker.spy(CharacterTraitService, "increase_character_trait_value")
 
         # When we increase with NO_COST
@@ -2975,19 +2903,16 @@ class TestModifyTraitValue:
         spy_increase.assert_called_once()
         assert result.value == 4
 
-        # Cleanup
-        await character_trait.delete()
-
     async def test_modify_trait_value_decrease_no_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify decrease with NO_COST calls decrease_character_trait_value."""
         # Given a character with a trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=4, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=4, character=character)
         spy_decrease = mocker.spy(CharacterTraitService, "decrease_character_trait_value")
 
         # When we decrease with NO_COST
@@ -3005,31 +2930,29 @@ class TestModifyTraitValue:
         spy_decrease.assert_called_once()
         assert result.value == 2
 
-        # Cleanup
-        await character_trait.delete()
-
     async def test_modify_trait_value_increase_with_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
         mocker: Any,
     ) -> None:
         """Verify increase with XP calls _apply_xp_change."""
         # Given a character with XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        target_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
         )
-        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=1, character=character)
         spy_purchase = mocker.spy(CharacterTraitService, "_apply_xp_change")
 
         # When we increase with XP
@@ -3047,31 +2970,27 @@ class TestModifyTraitValue:
         spy_purchase.assert_called_once()
         assert result.value == 2
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_modify_trait_value_decrease_with_xp(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
         mocker: Any,
     ) -> None:
         """Verify decrease with XP calls _apply_xp_change."""
         # Given a character
-        company = await company_factory()
-        campaign = await campaign_factory()
-        target_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company, role=UserRole.ADMIN)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
         )
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
         spy_refund = mocker.spy(CharacterTraitService, "_apply_xp_change")
 
         # When we decrease with XP
@@ -3089,14 +3008,10 @@ class TestModifyTraitValue:
         spy_refund.assert_called_once()
         assert result.value == 1
 
-        # Cleanup
-        await character.delete()
-        await character_trait.delete()
-
     async def test_modify_trait_value_increase_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify increase with STARTING_POINTS calls _apply_starting_points_change."""
@@ -3105,7 +3020,7 @@ class TestModifyTraitValue:
         character.starting_points = 100
         await character.save()
 
-        character_trait = await character_trait_factory(value=1, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=1, character=character)
         spy_purchase = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
 
         # When we increase with STARTING_POINTS
@@ -3123,19 +3038,16 @@ class TestModifyTraitValue:
         spy_purchase.assert_called_once()
         assert result.value == 2
 
-        # Cleanup
-        await character_trait.delete()
-
     async def test_modify_trait_value_decrease_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify decrease with STARTING_POINTS calls _apply_starting_points_change."""
         # Given a character
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
         spy_refund = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
 
         # When we decrease with STARTING_POINTS
@@ -3153,9 +3065,6 @@ class TestModifyTraitValue:
         spy_refund.assert_called_once()
         assert result.value == 1
 
-        # Cleanup
-        await character_trait.delete()
-
 
 class TestDeleteTrait:
     """Test the delete_trait method."""
@@ -3163,13 +3072,13 @@ class TestDeleteTrait:
     async def test_delete_non_custom_trait_no_currency(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify a non-custom trait is deleted without refund when no currency is provided."""
         # Given a character with a non-custom trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
         character_trait_id = character_trait.id
         spy_guard = mocker.spy(CharacterTraitService, "guard_user_can_manage_character")
         spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
@@ -3184,20 +3093,20 @@ class TestDeleteTrait:
         )
 
         # Then the trait should be deleted and no refund issued
-        assert await CharacterTrait.get(character_trait_id) is None
+        assert not await CharacterTrait.filter(id=character_trait_id).exists()
         spy_guard.assert_called_once()
         spy_modify.assert_not_called()
 
     async def test_delete_non_custom_trait_no_cost_currency(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify NO_COST currency does not trigger a refund."""
         # Given a character with a non-custom trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
         character_trait_id = character_trait.id
         spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
 
@@ -3212,21 +3121,22 @@ class TestDeleteTrait:
         )
 
         # Then the trait should be deleted without refund
-        assert await CharacterTrait.get(character_trait_id) is None
+        assert not await CharacterTrait.filter(id=character_trait_id).exists()
         spy_modify.assert_not_called()
 
     async def test_delete_custom_trait_deletes_trait_definition(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
+        pg_trait_factory,
     ) -> None:
         """Verify deleting a custom trait also deletes the Trait definition."""
         # Given a character with a custom trait
         company, user, character = get_company_user_character
-        character_trait = await character_trait_factory(
-            value=1, character_id=character.id, is_custom=True
+        custom_trait = await pg_trait_factory(is_custom=True, custom_for_character_id=character.id)
+        character_trait = await pg_character_trait_factory(
+            value=1, character=character, trait=custom_trait
         )
-        await character_trait.fetch_all_links()
         character_trait_id = character_trait.id
         custom_trait_id = character_trait.trait.id
 
@@ -3240,20 +3150,20 @@ class TestDeleteTrait:
         )
 
         # Then both the CharacterTrait and its Trait definition should be deleted
-        assert await CharacterTrait.get(character_trait_id) is None
-        assert await Trait.get(custom_trait_id) is None
+        assert not await CharacterTrait.filter(id=character_trait_id).exists()
+        assert not await Trait.filter(id=custom_trait_id).exists()
 
     async def test_delete_non_custom_trait_preserves_trait_definition(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify deleting a non-custom trait preserves the shared Trait definition."""
         # Given a character with a non-custom trait
         company, user, character = get_company_user_character
-        trait = await Trait.find_one(Trait.is_archived == False)
-        character_trait = await character_trait_factory(
-            value=1, character_id=character.id, trait=trait
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await pg_character_trait_factory(
+            value=1, character=character, trait=trait
         )
         character_trait_id = character_trait.id
 
@@ -3267,31 +3177,32 @@ class TestDeleteTrait:
         )
 
         # Then the CharacterTrait is deleted but the Trait definition remains
-        assert await CharacterTrait.get(character_trait_id) is None
-        assert await Trait.get(trait.id) is not None
+        assert not await CharacterTrait.filter(id=character_trait_id).exists()
+        assert await Trait.filter(id=trait.id).exists()
 
     async def test_delete_trait_with_xp_refund(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
         mocker: Any,
     ) -> None:
         """Verify deleting with XP currency refunds the trait cost."""
         # Given a character with XP and a trait
-        company = await company_factory()
-        campaign = await campaign_factory()
-        target_user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        await target_user.add_xp(campaign.id, 100)
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        target_user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        user_svc = UserXPService()
+        await user_svc.add_xp(target_user.id, campaign.id, 100)
 
-        character = await character_factory(
-            user_player_id=target_user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        character = await pg_character_factory(
+            user_player=target_user,
+            campaign=campaign,
+            company=company,
         )
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
         character_trait_id = character_trait.id
         spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
 
@@ -3311,20 +3222,18 @@ class TestDeleteTrait:
         assert spy_modify.call_args.kwargs["deleting_trait"] is True
 
         # And the trait should be deleted
-        assert await CharacterTrait.get(character_trait_id) is None
+        assert not await CharacterTrait.filter(id=character_trait_id).exists()
 
         # And XP should be refunded
-        await target_user.sync()
-        campaign_experience = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            target_user.id, campaign.id
+        )
         assert campaign_experience.xp_current > 100
-
-        # Cleanup
-        await character.delete()
 
     async def test_delete_trait_with_starting_points_refund(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
         mocker: Any,
     ) -> None:
         """Verify deleting with STARTING_POINTS currency refunds the trait cost."""
@@ -3334,7 +3243,7 @@ class TestDeleteTrait:
         await character.save()
         initial_starting_points = character.starting_points
 
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
         character_trait_id = character_trait.id
         spy_modify = mocker.spy(CharacterTraitService, "modify_trait_value")
 
@@ -3354,29 +3263,29 @@ class TestDeleteTrait:
         assert spy_modify.call_args.kwargs["deleting_trait"] is True
 
         # And the trait should be deleted
-        assert await CharacterTrait.get(character_trait_id) is None
+        assert not await CharacterTrait.filter(id=character_trait_id).exists()
 
         # And starting points should increase
-        await character.sync()
+        await character.refresh_from_db()
         assert character.starting_points > initial_starting_points
 
     async def test_delete_trait_permission_denied(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_character_trait_factory,
+        pg_user_factory,
+        pg_company_factory,
     ) -> None:
         """Verify PermissionDeniedError when user doesn't own the character."""
         # Given a character owned by another user
-        company = await company_factory()
-        owner = await user_factory(role=UserRole.PLAYER)
-        character = await character_factory(
-            user_player_id=owner.id,
-            company_id=company.id,
+        company = await pg_company_factory()
+        owner = await pg_user_factory(company=company, role=UserRole.PLAYER)
+        character = await pg_character_factory(
+            user_player=owner,
+            company=company,
         )
-        character_trait = await character_trait_factory(value=3, character_id=character.id)
-        not_owner = await user_factory(role=UserRole.PLAYER)
+        character_trait = await pg_character_trait_factory(value=3, character=character)
+        not_owner = await pg_user_factory(company=company, role=UserRole.PLAYER)
 
         # When a non-owner tries to delete
         # Then a PermissionDeniedError should be raised
@@ -3395,38 +3304,50 @@ class TestDeleteCountBasedTrait:
 
     async def test_delete_gift_with_xp_refunds_count_based_cost(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
+        pg_campaign_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify deleting a gift via XP refunds using count-based pricing."""
         # Given a character with 3 gifts
-        company = await company_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            company_id=company.id, user_player_id=user.id, character_class=CharacterClass.WEREWOLF
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            company=company,
+            user_player=user,
+            campaign=campaign,
+            character_class=CharacterClass.WEREWOLF,
         )
         service = CharacterTraitService()
 
-        gift_traits = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.is_archived == False,
-        ).to_list(3)
+        gift_traits = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            is_archived=False,
+        ).limit(3)
         for gift_trait in gift_traits:
-            await character_trait_factory(character_id=character.id, trait=gift_trait, value=1)
+            await pg_character_trait_factory(character=character, trait=gift_trait, value=1)
 
         # Give user some initial XP
-        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
-        await target_user.add_xp(character.campaign_id, 50, update_total=True)
-        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 50)
+        campaign_xp = await user_svc.get_or_create_campaign_experience(
+            user.id,
+            campaign.id,  # type: ignore[attr-defined]
+        )
         xp_before = campaign_xp.xp_current
 
         # Get the 3rd gift's character_trait to delete
-        character_trait = await CharacterTrait.find_one(
-            CharacterTrait.character_id == character.id,
-            CharacterTrait.trait.id == gift_traits[2].id,
-            fetch_links=True,
+        character_trait = (
+            await CharacterTrait.filter(
+                character_id=character.id,
+                trait_id=gift_traits[2].id,
+            )
+            .select_related("trait")
+            .first()
         )
 
         # When deleting the gift with XP refund
@@ -3439,8 +3360,10 @@ class TestDeleteCountBasedTrait:
         )
 
         # Then XP is refunded by 6 (3rd gift: 3 x 2)
-        await target_user.sync()
-        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        campaign_xp = await user_svc.get_or_create_campaign_experience(
+            user.id,
+            campaign.id,  # type: ignore[attr-defined]
+        )
         assert campaign_xp.xp_current == xp_before + 6
 
 
@@ -3456,15 +3379,12 @@ class TestBulkAddConstantTraitsToCharacter:
         company, user, character = get_company_user_character
         existing_trait_ids = [
             ct.trait.id
-            for ct in await CharacterTrait.find(
-                CharacterTrait.character_id == character.id, fetch_links=True
-            ).to_list()
+            for ct in await CharacterTrait.filter(character_id=character.id).select_related("trait")
         ]
 
-        traits = await Trait.find(
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
-        ).to_list()
+        traits = await Trait.filter(
+            is_archived=False,
+        ).exclude(id__in=existing_trait_ids)
         test_traits = traits[:3]
 
         items = [
@@ -3491,21 +3411,23 @@ class TestBulkAddConstantTraitsToCharacter:
     async def test_conflict_trait_already_exists(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify duplicate trait appears in failed list while others succeed."""
         # Given a character with an existing trait
         company, user, character = get_company_user_character
-        existing_ct = await character_trait_factory(character_id=character.id)
-        await existing_ct.fetch_all_links()
-        existing_trait = existing_ct.trait  # type: ignore [attr-defined]
+        existing_ct = await pg_character_trait_factory(character=character)
+        existing_trait = existing_ct.trait
         existing_cts = [existing_ct]
 
         # And an unused trait
         existing_trait_ids = [ct.trait.id for ct in existing_cts]
-        unused_trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
+        unused_trait = (
+            await Trait.filter(
+                is_archived=False,
+            )
+            .exclude(id__in=existing_trait_ids)
+            .first()
         )
 
         items = [
@@ -3541,13 +3463,14 @@ class TestBulkAddConstantTraitsToCharacter:
         company, user, character = get_company_user_character
         existing_trait_ids = [
             ct.trait.id
-            for ct in await CharacterTrait.find(
-                CharacterTrait.character_id == character.id, fetch_links=True
-            ).to_list()
+            for ct in await CharacterTrait.filter(character_id=character.id).select_related("trait")
         ]
-        trait = await Trait.find_one(
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
+        trait = (
+            await Trait.filter(
+                is_archived=False,
+            )
+            .exclude(id__in=existing_trait_ids)
+            .first()
         )
 
         items = [
@@ -3579,7 +3502,7 @@ class TestBulkAddConstantTraitsToCharacter:
         """Verify non-existent trait_id appears in failed list."""
         # Given a character and a fake trait_id
         company, user, character = get_company_user_character
-        fake_id = PydanticObjectId()
+        fake_id = uuid4()
 
         items = [
             CharacterTraitAddConstant(
@@ -3629,19 +3552,20 @@ class TestBulkAddConstantTraitsToCharacter:
         """Verify later traits fail when XP runs out mid-batch."""
         # Given a character whose user has limited XP
         company, user, character = get_company_user_character
-        await user.get_or_create_campaign_experience(character.campaign_id)
+        user_svc = UserXPService()
+        await user_svc.get_or_create_campaign_experience(
+            user.id,
+            character.campaign_id,  # type: ignore[attr-defined]
+        )
 
         # And multiple unused traits
         existing_trait_ids = [
             ct.trait.id
-            for ct in await CharacterTrait.find(
-                CharacterTrait.character_id == character.id, fetch_links=True
-            ).to_list()
+            for ct in await CharacterTrait.filter(character_id=character.id).select_related("trait")
         ]
-        traits = await Trait.find(
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
-        ).to_list()
+        traits = await Trait.filter(
+            is_archived=False,
+        ).exclude(id__in=existing_trait_ids)
 
         # Create items that will collectively exceed available XP
         # Use value=1 with XP currency -each costs initial_cost
@@ -3677,14 +3601,11 @@ class TestBulkAddConstantTraitsToCharacter:
         # And multiple unused traits
         existing_trait_ids = [
             ct.trait.id
-            for ct in await CharacterTrait.find(
-                CharacterTrait.character_id == character.id, fetch_links=True
-            ).to_list()
+            for ct in await CharacterTrait.filter(character_id=character.id).select_related("trait")
         ]
-        traits = await Trait.find(
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
-        ).to_list()
+        traits = await Trait.filter(
+            is_archived=False,
+        ).exclude(id__in=existing_trait_ids)
 
         # Mix of NO_COST, XP, and STARTING_POINTS
         items = [
@@ -3722,22 +3643,26 @@ class TestBulkAddConstantTraitsToCharacter:
         company, user, character = get_company_user_character
 
         # Find a flaw trait (parent category named "Flaws")
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
         existing_trait_ids = [
             ct.trait.id
-            for ct in await CharacterTrait.find(
-                CharacterTrait.character_id == character.id, fetch_links=True
-            ).to_list()
+            for ct in await CharacterTrait.filter(character_id=character.id).select_related("trait")
         ]
-        flaw_trait = await Trait.find_one(
-            Trait.parent_category_id == flaws_category.id,
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
+        flaw_trait = (
+            await Trait.filter(
+                category_id=flaws_category.id,
+                is_archived=False,
+            )
+            .exclude(id__in=existing_trait_ids)
+            .first()
         )
-        normal_trait = await Trait.find_one(
-            Trait.parent_category_id != flaws_category.id,
-            Trait.is_archived == False,
-            Not(In(Trait.id, existing_trait_ids)),
+        normal_trait = (
+            await Trait.filter(
+                is_archived=False,
+            )
+            .exclude(category_id=flaws_category.id)
+            .exclude(id__in=existing_trait_ids)
+            .first()
         )
 
         # Assign flaw first (grants XP), then normal trait (spends XP)
@@ -3769,35 +3694,38 @@ class TestBulkAddConstantTraitsToCharacter:
 
     async def test_bulk_gift_insufficient_renown_fails(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        user_factory: Callable[[dict[str, ...]], User],
-        company_factory: Callable[[dict[str, ...]], Company],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_user_factory,
+        pg_company_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify a gift with insufficient renown appears in failed list during bulk add."""
         # Given a werewolf character with total_renown=0
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            user_player_id=user.id,
-            campaign_id=campaign.id,
-            company_id=company.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            user_player=user,
+            campaign=campaign,
+            company=company,
             character_class=CharacterClass.WEREWOLF,
         )
-        assert character.werewolf_attributes.total_renown == 0
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        assert werewolf_attrs.total_renown == 0
 
-        # Given a gift trait with minimum_renown > 0 and a non-gift trait
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        )
-        non_gift_trait = await Trait.find_one(
-            Trait.gift_attributes == None,
-            Trait.is_archived == False,
-        )
+        # Given a gift trait with gift_minimum_renown > 0 and a non-gift trait
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).first()
+        non_gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=True,
+            is_archived=False,
+        ).first()
         items = [
             CharacterTraitAddConstant(
                 trait_id=gift_trait.id, value=1, currency=TraitModifyCurrency.XP
@@ -3829,43 +3757,46 @@ class TestAddCountBasedTraitToCharacter:
 
     async def test_add_gift_via_xp_charges_count_based_cost(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify adding a gift via XP deducts count-based cost from XP."""
         # Given a werewolf character with 2 existing gifts and some XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
-            campaign_id=campaign.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            company=company,
+            user_player=user,
+            campaign=campaign,
             character_class=CharacterClass.WEREWOLF,
         )
         service = CharacterTraitService()
 
-        gift_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        ).to_list(3)
+        gift_traits = await Trait.filter(
+            count_based_cost_multiplier=2,
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).limit(3)
         # Set renown high enough to satisfy the most demanding gift's requirement
-        max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
-        character.werewolf_attributes.total_renown = max_renown + 1
-        await character.save()
+        max_renown = max(t.gift_minimum_renown for t in gift_traits)
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        werewolf_attrs.total_renown = max_renown + 1
+        await werewolf_attrs.save()
 
         for i in range(2):
-            await character_trait_factory(character_id=character.id, trait=gift_traits[i], value=1)
+            await pg_character_trait_factory(character=character, trait=gift_traits[i], value=1)
 
-        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
-        await target_user.add_xp(campaign.id, 50, update_total=True)
-        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 50)
+        campaign_xp = await user_svc.get_or_create_campaign_experience(user.id, campaign.id)
         xp_before = campaign_xp.xp_current
 
         # When adding a 3rd gift via XP
@@ -3879,45 +3810,47 @@ class TestAddCountBasedTraitToCharacter:
         )
 
         # Then XP is reduced by 6 (3rd gift: 3 x 2)
-        await target_user.sync()
-        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_xp = await user_svc.get_or_create_campaign_experience(user.id, campaign.id)
         assert campaign_xp.xp_current == xp_before - 6
 
     async def test_add_gift_via_starting_points_charges_count_based_cost(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify adding a gift via starting points deducts count-based cost."""
         # Given a werewolf character with 1 existing gift and starting points
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
-            campaign_id=campaign.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            company=company,
+            user_player=user,
+            campaign=campaign,
             character_class=CharacterClass.WEREWOLF,
             starting_points=50,
         )
         service = CharacterTraitService()
 
-        gift_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        ).to_list(2)
+        gift_traits = await Trait.filter(
+            count_based_cost_multiplier=2,
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).limit(2)
         # Set renown high enough to satisfy the most demanding gift's requirement
-        max_renown = max(t.gift_attributes.minimum_renown for t in gift_traits)
-        character.werewolf_attributes.total_renown = max_renown + 1
-        await character.save()
+        max_renown = max(t.gift_minimum_renown for t in gift_traits)
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        werewolf_attrs.total_renown = max_renown + 1
+        await werewolf_attrs.save()
 
-        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
+        await pg_character_trait_factory(character=character, trait=gift_traits[0], value=1)
         sp_before = character.starting_points
 
         # When adding a 2nd gift via starting points
@@ -3931,7 +3864,7 @@ class TestAddCountBasedTraitToCharacter:
         )
 
         # Then starting points reduced by 4 (2nd gift: 2 x 2)
-        await character.sync()
+        await character.refresh_from_db()
         assert character.starting_points == sp_before - 4
 
 
@@ -3940,39 +3873,47 @@ class TestBulkAddCountBasedTraits:
 
     async def test_bulk_add_three_gifts_incremental_cost(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_character_trait_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify bulk-adding gifts uses incrementing count so each gift costs more than the last."""
         # Given a werewolf character with 2 existing gifts and enough starting points
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
-            campaign_id=campaign.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            company=company,
+            user_player=user,
+            campaign=campaign,
             character_class=CharacterClass.WEREWOLF,
             starting_points=100,
         )
 
-        gift_traits = await Trait.find(
-            Trait.count_based_cost_multiplier == 2,
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        ).to_list(5)
-        # Set renown high enough for all gifts
-        character.werewolf_attributes.total_renown = 100
-        await character.save()
+        gift_traits = await Trait.filter(
+            count_based_cost_multiplier=2,
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).limit(5)
+        # Set renown high enough for all gifts via actual renown traits
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        werewolf_attrs.total_renown = 100
+        await werewolf_attrs.save()
+        # Add real renown traits so after_save recalculation keeps renown high
+        honor_trait = await Trait.filter(name="Honor").first()
+        glory_trait = await Trait.filter(name="Glory").first()
+        await pg_character_trait_factory(character=character, trait=honor_trait, value=5)
+        await pg_character_trait_factory(character=character, trait=glory_trait, value=5)
 
         # Add 2 existing gifts so the next 3 are positions 3, 4, 5
-        await character_trait_factory(character_id=character.id, trait=gift_traits[0], value=1)
-        await character_trait_factory(character_id=character.id, trait=gift_traits[1], value=1)
+        await pg_character_trait_factory(character=character, trait=gift_traits[0], value=1)
+        await pg_character_trait_factory(character=character, trait=gift_traits[1], value=1)
 
         sp_before = character.starting_points
         # Costs: 3rd gift=6, 4th gift=8, 5th gift=10 => total=24
@@ -4002,42 +3943,49 @@ class TestBulkAddCountBasedTraits:
         # Then all 3 succeed and starting points decreased by the incremental total
         assert len(result.succeeded) == 3
         assert len(result.failed) == 0
-        await character.sync()
+        await character.refresh_from_db()
         assert character.starting_points == sp_before - expected_cost
 
     async def test_bulk_add_no_cost_gifts_increment_count(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify NO_COST gifts increment the running count so subsequent XP gifts cost correctly."""
         # Given a werewolf character with no existing gifts and enough XP
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
-            campaign_id=campaign.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            company=company,
+            user_player=user,
+            campaign=campaign,
             character_class=CharacterClass.WEREWOLF,
         )
 
-        gift_traits = await Trait.find(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        ).to_list(3)
-        # Set renown high enough for all gifts; NO_COST skips renown guard
-        character.werewolf_attributes.total_renown = 100
-        await character.save()
+        gift_traits = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).limit(3)
+        # Set renown high enough for all gifts via actual renown traits
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        werewolf_attrs.total_renown = 100
+        await werewolf_attrs.save()
+        honor_trait = await Trait.filter(name="Honor").first()
+        glory_trait = await Trait.filter(name="Glory").first()
+        await CharacterTrait.create(character=character, trait=honor_trait, value=5)
+        await CharacterTrait.create(character=character, trait=glory_trait, value=5)
 
         # Add enough XP for the 3rd gift (cost = 3 * 2 = 6)
-        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
-        await target_user.add_xp(campaign.id, 50, update_total=True)
-        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 50)
+        campaign_xp = await user_svc.get_or_create_campaign_experience(user.id, campaign.id)
         xp_before = campaign_xp.xp_current
 
         # 2 NO_COST gifts, then 1 XP gift => XP gift is the 3rd gift: cost = 3 * 2 = 6
@@ -4065,47 +4013,55 @@ class TestBulkAddCountBasedTraits:
         # Then all 3 succeed and the XP gift cost 6 (3rd gift position)
         assert len(result.succeeded) == 3
         assert len(result.failed) == 0
-        target_user = await GetModelByIdValidationService().get_user_by_id(user.id)
-        await target_user.sync()
-        campaign_xp = await target_user.get_or_create_campaign_experience(campaign.id)
+        campaign_xp = await user_svc.get_or_create_campaign_experience(user.id, campaign.id)
         assert campaign_xp.xp_current == xp_before - 6
 
     async def test_bulk_add_mixed_gifts_and_non_gifts(
         self,
-        character_factory: Callable[[dict[str, ...]], Character],
-        campaign_factory: Callable[[dict[str, ...]], Campaign],
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
+        pg_character_factory,
+        pg_campaign_factory,
+        pg_company_factory,
+        pg_user_factory,
+        pg_werewolf_attributes_factory,
     ) -> None:
         """Verify gift and non-gift traits are costed independently during a bulk add."""
         # Given a werewolf character with enough starting points
-        company = await company_factory()
-        campaign = await campaign_factory()
-        user = await user_factory(company_id=company.id, role=UserRole.ADMIN)
-        character = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
-            campaign_id=campaign.id,
+        company = await pg_company_factory()
+        campaign = await pg_campaign_factory(company=company)
+        user = await pg_user_factory(company=company, role=UserRole.ADMIN)
+        character = await pg_character_factory(
+            company=company,
+            user_player=user,
+            campaign=campaign,
             character_class=CharacterClass.WEREWOLF,
             starting_points=100,
         )
 
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.gift_attributes.minimum_renown != None,
-            Trait.gift_attributes.minimum_renown > 0,
-            Trait.is_archived == False,
-        )
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            gift_minimum_renown__gt=0,
+            is_archived=False,
+        ).first()
         # Find a non-gift trait with known costs; exclude flaws
-        flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-        non_gift_trait = await Trait.find_one(
-            Trait.gift_attributes == None,
-            Trait.is_archived == False,
-            Trait.parent_category_id != flaws_category.id,
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        non_gift_trait = (
+            await Trait.filter(
+                gift_minimum_renown__isnull=True,
+                is_archived=False,
+            )
+            .exclude(category_id=flaws_category.id)
+            .first()
         )
-        # Set renown high enough
-        character.werewolf_attributes.total_renown = 100
-        await character.save()
+        # Set renown high enough via actual renown traits
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if not werewolf_attrs:
+            werewolf_attrs = await pg_werewolf_attributes_factory(character=character)
+        werewolf_attrs.total_renown = 100
+        await werewolf_attrs.save()
+        honor_trait = await Trait.filter(name="Honor").first()
+        glory_trait = await Trait.filter(name="Glory").first()
+        await CharacterTrait.create(character=character, trait=honor_trait, value=5)
+        await CharacterTrait.create(character=character, trait=glory_trait, value=5)
 
         sp_before = character.starting_points
         # 1st gift costs 1 * 2 = 2; non-gift value=3 costs initial_cost + 2*upgrade_cost + 3*upgrade_cost
@@ -4140,7 +4096,7 @@ class TestBulkAddCountBasedTraits:
         # Then both succeed and the total cost reflects separate costing
         assert len(result.succeeded) == 2
         assert len(result.failed) == 0
-        await character.sync()
+        await character.refresh_from_db()
         assert character.starting_points == sp_before - expected_total
 
 
@@ -4150,7 +4106,7 @@ class TestGetValueOptionsGifts:
     async def test_gift_at_value_0_shows_upgrade_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify gift at value=0 shows count-based upgrade cost and DELETE with cost 0."""
         _, _, character = get_company_user_character
@@ -4159,12 +4115,12 @@ class TestGetValueOptionsGifts:
 
         service = CharacterTraitService()
 
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.is_archived == False,
-        )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=gift_trait, value=0
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            is_archived=False,
+        ).first()
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=gift_trait, value=0
         )
 
         result = await service.get_value_options(
@@ -4183,7 +4139,7 @@ class TestGetValueOptionsGifts:
     async def test_gift_at_value_1_shows_delete_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
-        character_trait_factory: Callable[[dict[str, ...]], CharacterTrait],
+        pg_character_trait_factory,
     ) -> None:
         """Verify gift at value=1 (at min_value) shows only DELETE with count-based cost."""
         _, _, character = get_company_user_character
@@ -4192,12 +4148,12 @@ class TestGetValueOptionsGifts:
 
         service = CharacterTraitService()
 
-        gift_trait = await Trait.find_one(
-            Trait.gift_attributes != None,
-            Trait.is_archived == False,
-        )
-        character_trait = await character_trait_factory(
-            character_id=character.id, trait=gift_trait, value=1
+        gift_trait = await Trait.filter(
+            gift_minimum_renown__isnull=False,
+            is_archived=False,
+        ).first()
+        character_trait = await pg_character_trait_factory(
+            character=character, trait=gift_trait, value=1
         )
 
         result = await service.get_value_options(

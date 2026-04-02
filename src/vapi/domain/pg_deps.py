@@ -15,6 +15,7 @@ from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
 from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
 from vapi.db.sql_models.character import Character as PgCharacter
 from vapi.db.sql_models.character import CharacterInventory as PgCharacterInventory
+from vapi.db.sql_models.character import CharacterTrait as PgCharacterTrait
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
@@ -287,4 +288,22 @@ async def provide_inventory_item_by_id(
         "Inventory item",
         Q(character_id=character.id),
         doc_id=inventory_item_id,
+    )
+
+
+async def provide_character_trait_by_id(
+    character_trait_id: UUID, character: PgCharacter
+) -> PgCharacterTrait:
+    """Provide a Tortoise CharacterTrait by ID, scoped to a character.
+
+    Prefetches relations needed for CharacterTraitResponse.from_model().
+    """
+    from vapi.domain.controllers.character_trait.dto import CHARACTER_TRAIT_PREFETCH
+
+    return await _find_or_404(
+        PgCharacterTrait,
+        "Character trait",
+        Q(character_id=character.id),
+        doc_id=character_trait_id,
+        prefetch=CHARACTER_TRAIT_PREFETCH,
     )

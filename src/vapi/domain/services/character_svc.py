@@ -232,8 +232,8 @@ class CharacterService:
     ) -> None:
         """Create CharacterTrait rows for a newly created character.
 
-        The after_save derived-trait sync (willpower, total_renown) is deferred to
-        Session 8.5 when CharacterTraitService migrates.
+        After bulk creation, syncs derived traits (willpower, total_renown) so
+        the character's computed stats reflect the newly added traits.
 
         Args:
             character: The character to create traits for.
@@ -262,6 +262,12 @@ class CharacterService:
 
         if rows:
             await CharacterTrait.bulk_create(rows)
+
+            # Sync derived traits (willpower, total renown) now that all rows exist
+            from vapi.domain.services.character_trait_svc import CharacterTraitService
+
+            trait_svc = CharacterTraitService()
+            await trait_svc.after_save(rows[0], character)
 
     async def archive_character(self, character: Character) -> None:
         """Soft-delete a character.

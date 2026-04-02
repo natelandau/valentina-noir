@@ -125,12 +125,12 @@ class CharacterTraitResponse(msgspec.Struct):
         )
 
 
-CHARACTER_TRAIT_PREFETCH = (
+CHARACTER_TRAIT_PREFETCH = [
     "trait",
     "trait__category",
     "trait__subcategory",
     "trait__sheet_section",
-)
+]
 
 
 class TraitValueOptionDetail(msgspec.Struct):
