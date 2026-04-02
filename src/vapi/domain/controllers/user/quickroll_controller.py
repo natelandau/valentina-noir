@@ -85,7 +85,8 @@ class QuickRollController(Controller):
             description=data.description,
         )
         await quickroll.traits.add(*traits)
-        await quickroll.fetch_related("traits")
+        # Re-fetch to populate M2M relation after add
+        quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
         return dto.QuickRollResponse.from_model(quickroll)
 
     @patch(
@@ -111,7 +112,8 @@ class QuickRollController(Controller):
             await quickroll.traits.clear()
             await quickroll.traits.add(*traits)
 
-        await quickroll.fetch_related("traits")
+        # Re-fetch to populate M2M relation after potential changes
+        quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
         return dto.QuickRollResponse.from_model(quickroll)
 
     @delete(
