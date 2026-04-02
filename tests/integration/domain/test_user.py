@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pytest
-from beanie import PydanticObjectId
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -16,7 +15,8 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import UserRole
-from vapi.db.models import QuickRoll, Trait, User
+from vapi.db.sql_models.character_sheet import Trait as PgTrait
+from vapi.db.sql_models.quickroll import QuickRoll as PgQuickRoll
 from vapi.db.sql_models.user import User as PgUser
 from vapi.domain.urls import Users as UsersURL
 
@@ -509,12 +509,20 @@ class TestQuickRollController:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        debug: Callable[[Any], None],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
     ) -> None:
-        """Verify we can list quick rolls."""
-        response = await client.get(build_url(UsersURL.QUICKROLLS), headers=token_company_admin)
+        """Verify listing quick rolls returns empty when none exist."""
+        response = await client.get(
+            build_url(
+                UsersURL.QUICKROLLS,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+            ),
+            headers=token_company_user,
+        )
         assert response.status_code == HTTP_200_OK
         assert response.json()["items"] == []
 
@@ -522,63 +530,87 @@ class TestQuickRollController:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        debug: Callable[[Any], None],
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
     ) -> None:
-        """Verify we can list quick rolls."""
-        quickroll1 = await quickroll_factory(name="B Quick Roll 1", user_id=base_user.id)
-        quickroll2 = await quickroll_factory(name="A Quick Roll 2", user_id=base_user.id)
-        await quickroll_factory(name="Quick Roll 3", user_id=base_user.id, is_archived=True)
-        await quickroll_factory(name="Quick Roll 4", user_id=PydanticObjectId())
+        """Verify listing quick rolls returns sorted, non-archived results."""
+        # Given two active quick rolls and one archived
+        traits = await PgTrait.filter(is_archived=False).limit(2)
+        qr1 = await pg_quickroll_factory(name="B Quick Roll", user=pg_mirror_user, traits=traits)
+        qr2 = await pg_quickroll_factory(name="A Quick Roll", user=pg_mirror_user, traits=traits)
+        await pg_quickroll_factory(name="Archived Roll", user=pg_mirror_user, is_archived=True)
 
-        response = await client.get(build_url(UsersURL.QUICKROLLS), headers=token_company_admin)
+        # When we list quick rolls
+        response = await client.get(
+            build_url(
+                UsersURL.QUICKROLLS,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+            ),
+            headers=token_company_user,
+        )
+
+        # Then only active quick rolls are returned, sorted by name
         assert response.status_code == HTTP_200_OK
-        assert response.json()["items"] == [
-            quickroll2.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            ),
-            quickroll1.model_dump(
-                mode="json",
-                exclude={"is_archived", "archive_date"},
-            ),
-        ]
+        items = response.json()["items"]
+        assert len(items) == 2
+        assert items[0]["name"] == "A Quick Roll"
+        assert items[1]["name"] == "B Quick Roll"
+        assert items[0]["id"] == str(qr2.id)
+        assert items[1]["id"] == str(qr1.id)
 
     async def test_get_user_quickroll(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        debug: Callable[[Any], None],
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
     ) -> None:
-        """Verify we can get a quick roll."""
-        quickroll = await quickroll_factory(name="Quick Roll 1", user_id=base_user.id)
+        """Verify getting a quick roll by ID returns correct data."""
+        traits = await PgTrait.filter(is_archived=False).limit(1)
+        quickroll = await pg_quickroll_factory(
+            name="Quick Roll 1", user=pg_mirror_user, traits=traits
+        )
+
         response = await client.get(
-            build_url(UsersURL.QUICKROLL_DETAIL, quickroll_id=quickroll.id),
-            headers=token_company_admin,
+            build_url(
+                UsersURL.QUICKROLL_DETAIL,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                quickroll_id=quickroll.id,
+            ),
+            headers=token_company_user,
         )
         assert response.status_code == HTTP_200_OK
-        assert response.json() == quickroll.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
-        )
+        data = response.json()
+        assert data["id"] == str(quickroll.id)
+        assert data["name"] == "Quick Roll 1"
+        assert data["trait_ids"] == [str(t.id) for t in traits]
 
     async def test_get_user_quickroll_not_found(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        debug: Callable[[Any], None],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
     ) -> None:
-        """Verify we get a 404 when getting a quick roll that doesn't exist."""
+        """Verify getting a non-existent quick roll returns 404."""
         response = await client.get(
-            build_url(UsersURL.QUICKROLL_DETAIL, quickroll_id=PydanticObjectId()),
-            headers=token_company_admin,
+            build_url(
+                UsersURL.QUICKROLL_DETAIL,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                quickroll_id=uuid4(),
+            ),
+            headers=token_company_user,
         )
         assert response.status_code == HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Quick roll not found"
@@ -587,86 +619,97 @@ class TestQuickRollController:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        debug: Callable[[Any], None],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
     ) -> None:
-        """Verify we can create a quick roll."""
-        trait = await Trait.find_one(Trait.is_archived == False)
+        """Verify creating a quick roll returns the new resource."""
+        trait = await PgTrait.filter(is_archived=False).first()
         response = await client.post(
-            build_url(UsersURL.QUICKROLL_CREATE),
-            headers=token_company_admin,
+            build_url(
+                UsersURL.QUICKROLL_CREATE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+            ),
+            headers=token_company_user,
             json={"name": "Quick Roll 1", "trait_ids": [str(trait.id)]},
         )
         assert response.status_code == HTTP_201_CREATED
+        data = response.json()
 
-        quickroll = await QuickRoll.get(response.json()["id"])
+        assert data["name"] == "Quick Roll 1"
+        assert data["user_id"] == str(pg_mirror_user.id)
+        assert data["trait_ids"] == [str(trait.id)]
 
-        assert response.json() == quickroll.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
-        )
-
+        # Verify persisted in database
+        quickroll = await PgQuickRoll.get(id=data["id"]).prefetch_related("traits")
         assert quickroll.name == "Quick Roll 1"
-        assert quickroll.user_id == base_user.id
-        assert quickroll.trait_ids == [trait.id]
+        assert [t.id for t in quickroll.traits] == [trait.id]
 
     async def test_patch_user_quickroll(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
-        debug: Callable[[Any], None],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
     ) -> None:
-        """Verify we can patch a quick roll."""
-        trait1 = await Trait.find_one(Trait.is_archived == False)
-        trait2 = await Trait.find_one(Trait.is_archived == False, Trait.name != trait1.name)
-        quickroll = await quickroll_factory(
-            name="Quick Roll 1", user_id=base_user.id, trait_ids=[trait1.id, trait2.id]
+        """Verify patching a quick roll updates only sent fields."""
+        traits = await PgTrait.filter(is_archived=False).limit(2)
+        quickroll = await pg_quickroll_factory(
+            name="Quick Roll 1", user=pg_mirror_user, traits=traits
         )
 
-        # When we patch the quick roll
+        # When we patch the name only
         response = await client.patch(
-            build_url(UsersURL.QUICKROLL_UPDATE, quickroll_id=quickroll.id),
-            headers=token_company_admin,
-            json={"name": "Updated Quick Roll 2"},
+            build_url(
+                UsersURL.QUICKROLL_UPDATE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                quickroll_id=quickroll.id,
+            ),
+            headers=token_company_user,
+            json={"name": "Updated Quick Roll"},
         )
 
-        # Then we get the updated quick roll
+        # Then the name is updated, traits remain
         assert response.status_code == HTTP_200_OK
-        await quickroll.sync()
-        assert response.json() == quickroll.model_dump(
-            mode="json",
-            exclude={"is_archived", "archive_date"},
-        )
-        assert quickroll.name == "Updated Quick Roll 2"
+        data = response.json()
+        assert data["name"] == "Updated Quick Roll"
+        assert len(data["trait_ids"]) == 2
 
     async def test_delete_user_quickroll(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
-        debug: Callable[[Any], None],
+        token_company_user: dict[str, str],
+        pg_mirror_company: PgCompany,
+        pg_mirror_company_user: PgDeveloper,
+        pg_mirror_user: PgUser,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
     ) -> None:
-        """Verify we can delete a quick roll."""
-        quickroll = await quickroll_factory(name="Quick Roll 1", user_id=base_user.id)
+        """Verify deleting a quick roll archives it."""
+        quickroll = await pg_quickroll_factory(name="Quick Roll 1", user=pg_mirror_user)
 
-        # When we delete the quick roll
         response = await client.delete(
-            build_url(UsersURL.QUICKROLL_DELETE, quickroll_id=quickroll.id),
-            headers=token_company_admin,
+            build_url(
+                UsersURL.QUICKROLL_DELETE,
+                company_id=pg_mirror_company.id,
+                user_id=pg_mirror_user.id,
+                quickroll_id=quickroll.id,
+            ),
+            headers=token_company_user,
         )
 
-        # Then we get the deleted quick roll
         assert response.status_code == HTTP_204_NO_CONTENT
-        # Then the quick roll should be archived
-        await quickroll.sync()
-        assert quickroll.is_archived
-        assert quickroll.archive_date is not None
+
+        # Verify the quick roll is archived
+        archived = await PgQuickRoll.get(id=quickroll.id)
+        assert archived.is_archived
+        assert archived.archive_date is not None
 
 
 class TestUnapprovedUserController:

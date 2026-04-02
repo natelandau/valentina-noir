@@ -24,11 +24,13 @@ from vapi.db.models import (
     TraitCategory,
     User,
 )
-from vapi.domain import deps
+from vapi.domain import deps, pg_deps
 from vapi.lib.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from vapi.db.sql_models.quickroll import QuickRoll as PgQuickRoll
 
 pytestmark = pytest.mark.anyio
 
@@ -508,6 +510,51 @@ class TestProvideQuickrollById:
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Quick roll not found"):
             await deps.provide_quickroll_by_id(quickroll.id)
+
+
+class TestProvidePgQuickrollById:
+    """Test pg_deps.provide_quickroll_by_id Tortoise dependency."""
+
+    async def test_returns_quickroll_when_found(
+        self,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        pg_company_factory: Callable,
+        pg_user_factory: Callable,
+    ) -> None:
+        """Verify returning a Tortoise quick roll when found by ID."""
+        # Given a Tortoise quick roll exists
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        quickroll = await pg_quickroll_factory(user=user)
+
+        # When we provide the quick roll by ID
+        result = await pg_deps.provide_quickroll_by_id(quickroll.id)
+
+        # Then the quick roll is returned with traits prefetched
+        assert str(result.id) == str(quickroll.id)
+
+    async def test_raises_not_found_when_missing(self) -> None:
+        """Verify raising NotFoundError when Tortoise quick roll does not exist."""
+        from uuid import uuid4
+
+        with pytest.raises(NotFoundError, match="Quick roll not found"):
+            await pg_deps.provide_quickroll_by_id(uuid4())
+
+    async def test_raises_not_found_when_archived(
+        self,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        pg_company_factory: Callable,
+        pg_user_factory: Callable,
+    ) -> None:
+        """Verify raising NotFoundError when Tortoise quick roll is archived."""
+        # Given an archived Tortoise quick roll
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        quickroll = await pg_quickroll_factory(user=user, is_archived=True)
+
+        # When/Then we expect a NotFoundError
+        with pytest.raises(NotFoundError, match="Quick roll not found"):
+            await pg_deps.provide_quickroll_by_id(quickroll.id)
 
 
 class TestProvideTraitCategoryById:

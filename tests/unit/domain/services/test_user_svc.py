@@ -8,7 +8,7 @@ import pytest
 from uuid_utils import uuid7
 
 from vapi.constants import PermissionsGrantXP, UserRole
-from vapi.db.models import QuickRoll, Trait
+from vapi.db.sql_models.character_sheet import Trait as PgTrait
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.controllers.user.dto import UserCreate, UserPatch, UserRegister
@@ -18,7 +18,6 @@ from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, Validat
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from vapi.db.models import User as BeanieUser
     from vapi.db.sql_models.campaign import Campaign
 
 pytestmark = pytest.mark.anyio
@@ -535,91 +534,39 @@ class TestUserService:
 class TestUserQuickRollService:
     """Test the quick roll service."""
 
-    async def test_validate_quickroll_success(
-        self,
-        user_factory: Callable[..., BeanieUser],
-        debug: Callable[..., None],
-    ) -> None:
-        """Test the validate_quickroll method."""
-        # Given objects
-        user = await user_factory()
-        trait1 = await Trait.find_one(Trait.is_archived == False)
-        trait2 = await Trait.find_one(Trait.is_archived == False, Trait.id != trait1.id)
-        quickroll = QuickRoll(
-            name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, trait2.id]
-        )
+    async def test_validate_quickroll_traits_success(self) -> None:
+        """Verify validate_quickroll_traits returns Trait objects for valid IDs."""
+        # Given two valid Tortoise traits
+        traits = await PgTrait.filter(is_archived=False).limit(2)
+        trait_ids = [t.id for t in traits]
 
-        # When we validate the quick roll
+        # When we validate the trait IDs
         service = UserQuickRollService()
-        validated_quickroll = await service.validate_quickroll(quickroll)
+        result = await service.validate_quickroll_traits(trait_ids)
 
-        # Then the quick roll is validated and returned
-        assert validated_quickroll.id == quickroll.id
-        assert validated_quickroll.name == quickroll.name
-        assert validated_quickroll.user_id == quickroll.user_id
-        assert validated_quickroll.trait_ids == [trait1.id, trait2.id]
+        # Then the validated Trait objects are returned
+        assert len(result) == 2
+        assert {t.id for t in result} == set(trait_ids)
 
-    async def test_validate_quickroll_name_already_exists(
-        self,
-        user_factory: Callable[..., BeanieUser],
-        debug: Callable[..., None],
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
-    ) -> None:
-        """Test the validate_quickroll method when the name already exists."""
-        # Given objects
-        user = await user_factory()
-        trait1 = await Trait.find_one(Trait.is_archived == False)
-        trait2 = await Trait.find_one(Trait.is_archived == False, Trait.id != trait1.id)
-        await quickroll_factory(
-            name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, trait2.id]
-        )
-        quickroll2 = await quickroll_factory(
-            name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, trait2.id]
-        )
-
-        # When we validate the quick roll
-        # Then a ValidationError is raised
+    async def test_validate_quickroll_traits_no_traits(self) -> None:
+        """Verify validate_quickroll_traits raises ValidationError for empty list."""
+        # Given an empty trait list
         service = UserQuickRollService()
-        with pytest.raises(ValidationError, match="Quick roll name already exists"):
-            await service.validate_quickroll(quickroll2)
 
-    async def test_validate_quickroll_no_traits(
-        self,
-        user_factory: Callable[..., BeanieUser],
-        debug: Callable[..., None],
-    ) -> None:
-        """Verify quickroll with no traits raises ValidationError."""
-        # Given a quickroll with an empty trait list
-        user = await user_factory()
-        quickroll = QuickRoll(name="Empty Roll", user_id=user.id, trait_ids=[])
-
-        # When we validate the quick roll
-        # Then a ValidationError is raised
-        service = UserQuickRollService()
+        # When/Then a ValidationError is raised
         with pytest.raises(ValidationError, match="Quick roll must have at least one trait"):
-            await service.validate_quickroll(quickroll)
+            await service.validate_quickroll_traits([])
 
-    async def test_validate_quickroll_invalid_trait_ids(
-        self,
-        user_factory: Callable[..., BeanieUser],
-        debug: Callable[..., None],
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
-    ) -> None:
-        """Test the validate_quickroll method when the trait ids are invalid."""
-        # Given objects
-        user = await user_factory()
-        trait1 = await Trait.find_one(Trait.is_archived == False)
-        from beanie import PydanticObjectId
+    async def test_validate_quickroll_traits_invalid_ids(self) -> None:
+        """Verify validate_quickroll_traits raises ValidationError for invalid IDs."""
+        # Given one valid trait and one non-existent UUID
+        trait = await PgTrait.filter(is_archived=False).first()
+        from uuid import uuid4
 
-        quickroll = await quickroll_factory(
-            name="Quick Roll 1", user_id=user.id, trait_ids=[trait1.id, PydanticObjectId()]
-        )
-
-        # When we validate the quick roll
-        # Then a ValidationError is raised
+        # When/Then a ValidationError is raised for the invalid ID
         service = UserQuickRollService()
         with pytest.raises(ValidationError, match="Trait not found"):
-            await service.validate_quickroll(quickroll)
+            await service.validate_quickroll_traits([trait.id, uuid4()])
 
 
 class TestUserXPService:

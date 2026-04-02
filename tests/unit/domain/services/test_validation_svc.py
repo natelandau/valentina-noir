@@ -20,6 +20,7 @@ from vapi.db.models import (
     WerewolfAuspice,
     WerewolfTribe,
 )
+from vapi.db.sql_models.quickroll import QuickRoll as PgQuickRoll
 from vapi.domain.services import GetModelByIdValidationService
 from vapi.lib.exceptions import ValidationError
 
@@ -236,6 +237,50 @@ class TestValidationService:
         service = GetModelByIdValidationService()
         with pytest.raises(ValidationError, match=r"Quick roll.*not found"):
             await service.get_quickroll_by_id(quickroll.id)
+
+    async def test_get_quickroll_by_uuid(
+        self,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        pg_company_factory: Callable,
+        pg_user_factory: Callable,
+    ) -> None:
+        """Verify get_quickroll_by_uuid returns a Tortoise QuickRoll."""
+        # Given a Tortoise quick roll exists
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        quickroll = await pg_quickroll_factory(user=user)
+
+        # When we get the quick roll by UUID
+        service = GetModelByIdValidationService()
+        result = await service.get_quickroll_by_uuid(quickroll.id)
+
+        # Then the quick roll is returned
+        assert str(result.id) == str(quickroll.id)
+
+    async def test_get_quickroll_by_uuid_not_found(self) -> None:
+        """Verify get_quickroll_by_uuid raises ValidationError for missing record."""
+        from uuid import uuid4
+
+        service = GetModelByIdValidationService()
+        with pytest.raises(ValidationError, match=r"Quick roll.*not found"):
+            await service.get_quickroll_by_uuid(uuid4())
+
+    async def test_get_quickroll_by_uuid_archived(
+        self,
+        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        pg_company_factory: Callable,
+        pg_user_factory: Callable,
+    ) -> None:
+        """Verify get_quickroll_by_uuid raises ValidationError for archived record."""
+        # Given an archived Tortoise quick roll
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        quickroll = await pg_quickroll_factory(user=user, is_archived=True)
+
+        # When/Then a ValidationError is raised
+        service = GetModelByIdValidationService()
+        with pytest.raises(ValidationError, match=r"Quick roll.*not found"):
+            await service.get_quickroll_by_uuid(quickroll.id)
 
     async def test_get_user_by_id(self, user_factory: Callable[[dict[str, ...]], User]) -> None:
         """Test the get_user_by_id method."""
