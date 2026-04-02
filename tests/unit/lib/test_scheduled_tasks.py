@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from beanie import PydanticObjectId
 
 from vapi.db.models import AuditLog, Character, S3Asset, Trait
 from vapi.db.models.character import CharacterTrait
+from vapi.db.sql_models.character import Character as PgCharacter
+from vapi.db.sql_models.character import CharacterTrait as PgCharacterTrait
 from vapi.domain.services import AWSS3Service
 from vapi.lib.scheduled_tasks import purge_db_expired_items
 from vapi.utils.time import time_now
@@ -233,54 +235,39 @@ class TestPurgeTemporaryCharacters:
 
     async def test_purge_old_temporary_characters(
         self,
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
+        pg_character_factory: Callable[..., Any],
         mocker: MockerFixture,
     ) -> None:
         """Verify temporary non-chargen characters modified more than 24 hours ago are deleted."""
         # Given: Mock init_database since DB is already initialized by test fixtures
         mocker.patch("vapi.lib.database.init_database", return_value=None)
 
-        # Given a company and user
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-
         # Given a temporary non-chargen character modified more than 24 hours ago
-        old_temp = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
+        old_temp = await pg_character_factory(
             is_temporary=True,
             is_chargen=False,
         )
-        collection = Character.get_pymongo_collection()
         old_date = time_now() - timedelta(hours=48)
-        await collection.update_one({"_id": old_temp.id}, {"$set": {"date_modified": old_date}})
+        await PgCharacter.filter(id=old_temp.id).update(date_modified=old_date)
 
         # When we run the task
         mock_ctx: dict[str, ...] = {}
         await purge_db_expired_items(mock_ctx)
 
         # Then the old temporary character is deleted
-        assert await Character.get(old_temp.id) is None
+        assert await PgCharacter.filter(id=old_temp.id).first() is None
 
     async def test_keep_recent_temporary_characters(
         self,
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
+        pg_character_factory: Callable[..., Any],
         mocker: MockerFixture,
     ) -> None:
         """Verify temporary characters modified within the last 24 hours are not deleted."""
         # Given
         mocker.patch("vapi.lib.database.init_database", return_value=None)
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
 
         # Given a temporary non-chargen character modified recently
-        recent_temp = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
+        recent_temp = await pg_character_factory(
             is_temporary=True,
             is_chargen=False,
         )
@@ -290,56 +277,43 @@ class TestPurgeTemporaryCharacters:
         await purge_db_expired_items(mock_ctx)
 
         # Then the recent temporary character is NOT deleted
-        assert await Character.get(recent_temp.id) is not None
+        assert await PgCharacter.filter(id=recent_temp.id).first() is not None
 
     async def test_keep_chargen_temporary_characters(
         self,
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
+        pg_character_factory: Callable[..., Any],
         mocker: MockerFixture,
     ) -> None:
         """Verify temporary characters with is_chargen=True are not deleted."""
         # Given
         mocker.patch("vapi.lib.database.init_database", return_value=None)
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
 
         # Given a temporary chargen character modified more than 24 hours ago
-        chargen_char = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
+        chargen_char = await pg_character_factory(
             is_temporary=True,
             is_chargen=True,
         )
-        collection = Character.get_pymongo_collection()
         old_date = time_now() - timedelta(hours=48)
-        await collection.update_one({"_id": chargen_char.id}, {"$set": {"date_modified": old_date}})
+        await PgCharacter.filter(id=chargen_char.id).update(date_modified=old_date)
 
         # When we run the task
         mock_ctx: dict[str, ...] = {}
         await purge_db_expired_items(mock_ctx)
 
         # Then the chargen character is NOT deleted (chargen session cleanup handles these)
-        assert await Character.get(chargen_char.id) is not None
+        assert await PgCharacter.filter(id=chargen_char.id).first() is not None
 
     async def test_keep_non_temporary_characters(
         self,
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
+        pg_character_factory: Callable[..., Any],
         mocker: MockerFixture,
     ) -> None:
         """Verify non-temporary characters are never deleted by the temporary purge."""
         # Given
         mocker.patch("vapi.lib.database.init_database", return_value=None)
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
 
         # Given a regular character
-        regular_char = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
+        regular_char = await pg_character_factory(
             is_temporary=False,
             is_chargen=False,
         )
@@ -349,50 +323,39 @@ class TestPurgeTemporaryCharacters:
         await purge_db_expired_items(mock_ctx)
 
         # Then the regular character is NOT deleted
-        assert await Character.get(regular_char.id) is not None
+        assert await PgCharacter.filter(id=regular_char.id).first() is not None
 
     async def test_purge_temporary_character_cleans_up_traits(
         self,
-        company_factory: Callable[[dict[str, ...]], Company],
-        user_factory: Callable[[dict[str, ...]], User],
-        character_factory: Callable[[dict[str, ...]], Character],
+        pg_character_factory: Callable[..., Any],
+        pg_character_trait_factory: Callable[..., Any],
         mocker: MockerFixture,
     ) -> None:
         """Verify CharacterTraits are cleaned up when a temporary character is purged."""
         # Given
         mocker.patch("vapi.lib.database.init_database", return_value=None)
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
 
-        # Given a temporary character
-        temp_char = await character_factory(
-            company_id=company.id,
-            user_player_id=user.id,
+        # Given a temporary character with a trait
+        temp_char = await pg_character_factory(
             is_temporary=True,
             is_chargen=False,
         )
-
-        # Given a CharacterTrait inserted directly (not via fixture factory to avoid teardown conflicts)
-        existing_trait = await Trait.find_one(Trait.is_archived == False)
-        trait_doc = CharacterTrait(
-            character_id=temp_char.id,
-            trait=existing_trait,
+        trait_record = await pg_character_trait_factory(
+            character=temp_char,
             value=3,
         )
-        await trait_doc.insert()
 
         # Given the character is older than 24 hours
-        collection = Character.get_pymongo_collection()
         old_date = time_now() - timedelta(hours=48)
-        await collection.update_one({"_id": temp_char.id}, {"$set": {"date_modified": old_date}})
+        await PgCharacter.filter(id=temp_char.id).update(date_modified=old_date)
 
         # When we run the task
         mock_ctx: dict[str, ...] = {}
         await purge_db_expired_items(mock_ctx)
 
         # Then both the character and its trait are deleted
-        assert await Character.get(temp_char.id) is None
-        assert await CharacterTrait.get(trait_doc.id) is None
+        assert await PgCharacter.filter(id=temp_char.id).first() is None
+        assert await PgCharacterTrait.filter(id=trait_record.id).first() is None
 
 
 class TestPurgeOrphanedCharacterTraits:

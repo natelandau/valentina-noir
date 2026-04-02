@@ -26,6 +26,7 @@ __all__ = (
     "pg_developer_company_user_guard",
     "pg_user_character_player_or_storyteller_guard",
     "pg_user_not_unapproved_guard",
+    "pg_user_storyteller_guard",
 )
 
 
@@ -109,6 +110,30 @@ async def pg_user_not_unapproved_guard(connection: "ASGIConnection", _: "BaseRou
 
     if user.role == UserRole.UNAPPROVED:
         raise PermissionDeniedError(detail="User has not been approved yet")
+
+
+async def pg_user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
+    """Guard that requires STORYTELLER or ADMIN role (Tortoise).
+
+    Extracts user_id from the URL path, queries the Tortoise User table,
+    and raises PermissionDeniedError if the user does not have STORYTELLER
+    or ADMIN role.
+    """
+    user_id_str = connection.path_params.get("user_id")
+    if not user_id_str:
+        raise PermissionDeniedError(detail="User ID is required")
+
+    try:
+        user_uuid = UUID(user_id_str)
+    except ValueError as e:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
+
+    user = await User.filter(id=user_uuid, is_archived=False).first()
+    if not user:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found")
+
+    if user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
+        raise PermissionDeniedError(detail="User must be a storyteller or admin")
 
 
 async def pg_user_character_player_or_storyteller_guard(

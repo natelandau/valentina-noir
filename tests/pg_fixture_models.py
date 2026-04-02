@@ -10,6 +10,7 @@ themselves because the cleanup_pg_database fixture only deletes non-constant tab
 from __future__ import annotations
 
 import contextlib
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -29,6 +30,7 @@ from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.user import CampaignExperience, User
+from vapi.utils.time import time_now
 
 pytestmark = pytest.mark.anyio
 
@@ -555,3 +557,39 @@ async def pg_werewolf_attributes_factory():
     for attrs in created:
         with contextlib.suppress(Exception):
             await attrs.delete()
+
+
+@pytest.fixture
+async def pg_chargen_session_factory(
+    pg_user_factory: Any,
+    pg_company_factory: Any,
+    pg_campaign_factory: Any,
+) -> Any:
+    """Return a factory that creates Tortoise ChargenSession instances for testing."""
+    from vapi.db.sql_models.chargen_session import ChargenSession
+
+    created: list[ChargenSession] = []
+
+    async def _factory(**kwargs: Any) -> ChargenSession:
+        if "user" not in kwargs:
+            kwargs["user"] = await pg_user_factory()
+        if "company" not in kwargs:
+            kwargs["company"] = await pg_company_factory()
+        if "campaign" not in kwargs:
+            kwargs["campaign"] = await pg_campaign_factory()
+
+        defaults: dict[str, Any] = {
+            "expires_at": time_now() + timedelta(hours=24),
+            "requires_selection": False,
+        }
+        defaults.update(kwargs)
+
+        session = await ChargenSession.create(**defaults)
+        created.append(session)
+        return session
+
+    yield _factory
+
+    for session in created:
+        with contextlib.suppress(Exception):
+            await session.delete()

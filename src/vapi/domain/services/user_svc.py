@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -301,9 +302,11 @@ class UserXPService:
         Returns:
             The existing or newly created CampaignExperience.
         """
+        # Normalize to stdlib UUID so Tortoise's get_or_create handles both
+        # uuid_utils.UUID and stdlib UUID transparently
         experience, _ = await CampaignExperience.get_or_create(
-            user_id=user_id,
-            campaign_id=campaign_id,
+            user_id=uuid.UUID(str(user_id)),
+            campaign_id=uuid.UUID(str(campaign_id)),
         )
         return experience
 

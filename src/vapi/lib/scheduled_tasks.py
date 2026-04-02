@@ -131,20 +131,21 @@ async def _purge_s3_assets() -> None:
 
 async def _purge_chargen_sessions() -> None:
     """Purge expired chargen sessions and their linked characters."""
-    from vapi.db.models import ChargenSession
+    from vapi.db.sql_models.chargen_session import ChargenSession
 
     try:
-        expired_sessions = await ChargenSession.find(
-            ChargenSession.expires_at < time_now(), fetch_links=True
-        ).to_list()
+        expired_sessions = await ChargenSession.filter(expires_at__lt=time_now()).prefetch_related(
+            "characters"
+        )
+
         for session in expired_sessions:
             for character in session.characters:
                 try:
-                    await character.delete()  # type: ignore [attr-defined]
+                    await character.delete()
                 except Exception:
                     logger.exception(
                         "Failed to delete character %s from session %s.",
-                        getattr(character, "id", "unknown"),
+                        character.id,
                         session.id,
                         extra=_LOG_EXTRA,
                     )
@@ -163,18 +164,16 @@ async def _purge_chargen_sessions() -> None:
 
 async def _purge_temporary_characters() -> None:
     """Purge temporary non-chargen characters not modified in the last 24 hours."""
-    from beanie.odm.operators.find.comparison import LT
-
-    from vapi.db.models import Character
+    from vapi.db.sql_models.character import Character
 
     cutoff_date = time_now() - timedelta(hours=24)
 
     try:
-        characters = await Character.find(
-            Character.is_chargen == False,
-            Character.is_temporary == True,
-            LT(Character.date_modified, cutoff_date),
-        ).to_list()
+        characters = await Character.filter(
+            is_chargen=False,
+            is_temporary=True,
+            date_modified__lt=cutoff_date,
+        )
         purged = 0
         for character in characters:
             try:

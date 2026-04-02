@@ -22,6 +22,16 @@ from vapi.db.models import (
 )
 from vapi.db.models.base import BaseDocument
 from vapi.db.sql_models.character import Character as PgCharacter
+from vapi.db.sql_models.character_classes import (
+    VampireClan as PgVampireClan,
+)
+from vapi.db.sql_models.character_classes import (
+    WerewolfAuspice as PgWerewolfAuspice,
+)
+from vapi.db.sql_models.character_classes import (
+    WerewolfTribe as PgWerewolfTribe,
+)
+from vapi.db.sql_models.character_concept import CharacterConcept as PgCharacterConcept
 from vapi.db.sql_models.user import User as PgUser
 from vapi.lib.exceptions import ValidationError
 
@@ -132,6 +142,22 @@ class GetModelByIdValidationService:
     async def get_werewolf_tribe_by_id(self, werewolf_tribe_id: PydanticObjectId) -> WerewolfTribe:
         """Get a werewolf tribe by ID."""
         return await _get_or_raise(WerewolfTribe, werewolf_tribe_id, "Werewolf tribe")
+
+    async def get_concept_by_uuid(self, concept_id: UUID) -> Any:
+        """Get a concept by UUID via Tortoise."""
+        return await _pg_get_or_raise(PgCharacterConcept, concept_id, "Concept")
+
+    async def get_vampire_clan_by_uuid(self, vampire_clan_id: UUID) -> Any:
+        """Get a vampire clan by UUID via Tortoise."""
+        return await _pg_get_or_raise(PgVampireClan, vampire_clan_id, "Vampire clan")
+
+    async def get_werewolf_auspice_by_uuid(self, werewolf_auspice_id: UUID) -> Any:
+        """Get a werewolf auspice by UUID via Tortoise."""
+        return await _pg_get_or_raise(PgWerewolfAuspice, werewolf_auspice_id, "Werewolf auspice")
+
+    async def get_werewolf_tribe_by_uuid(self, werewolf_tribe_id: UUID) -> Any:
+        """Get a werewolf tribe by UUID via Tortoise."""
+        return await _pg_get_or_raise(PgWerewolfTribe, werewolf_tribe_id, "Werewolf tribe")
 
     async def get_developer_by_id(self, developer_id: PydanticObjectId) -> Developer:
         """Get a developer by ID."""
