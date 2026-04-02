@@ -21,6 +21,7 @@ from vapi.db.models import (
     WerewolfTribe,
 )
 from vapi.db.models.base import BaseDocument
+from vapi.db.sql_models.campaign import Campaign as PgCampaign
 from vapi.db.sql_models.character import Character as PgCharacter
 from vapi.db.sql_models.character_classes import (
     VampireClan as PgVampireClan,
@@ -102,8 +103,23 @@ async def _pg_get_or_raise(
 class GetModelByIdValidationService:
     """Get model by ID validation service."""
 
-    async def get_campaign_by_id(self, campaign_id: PydanticObjectId) -> Campaign:
-        """Get a campaign by ID."""
+    async def get_campaign_by_id(self, campaign_id: PydanticObjectId | Any) -> Any:
+        """Get a campaign by ID, routing to Tortoise or Beanie based on ID format.
+
+        During the migration period, UUID-format IDs go to Tortoise; ObjectId-format
+        IDs fall back to Beanie. This bridge is removed when all callers are migrated.
+        """
+        import uuid as _uuid_mod
+
+        if isinstance(campaign_id, _uuid_mod.UUID):
+            return await _pg_get_or_raise(PgCampaign, campaign_id, "Campaign")
+
+        try:
+            uuid_id = _uuid_mod.UUID(str(campaign_id))
+            return await _pg_get_or_raise(PgCampaign, uuid_id, "Campaign")
+        except ValueError:
+            pass
+
         return await _get_or_raise(Campaign, campaign_id, "Campaign")
 
     async def get_character_by_id(self, character_id: PydanticObjectId | Any) -> Any:

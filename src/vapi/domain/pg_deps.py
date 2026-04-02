@@ -19,6 +19,7 @@ from vapi.db.sql_models.character import CharacterTrait as PgCharacterTrait
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
+from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User as PgUser
@@ -323,4 +324,14 @@ async def provide_quickroll_by_id(quickroll_id: UUID) -> QuickRoll:
         "Quick roll",
         doc_id=quickroll_id,
         prefetch=["traits"],
+    )
+
+
+async def provide_diceroll_by_id(diceroll_id: str) -> DiceRoll:
+    """Provide a DiceRoll by ID, prefetching result and traits."""
+    return await _find_or_404(
+        DiceRoll,
+        "Dice roll",
+        doc_id=diceroll_id,
+        prefetch=["roll_result", "traits"],
     )

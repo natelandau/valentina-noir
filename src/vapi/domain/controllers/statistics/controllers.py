@@ -1,15 +1,16 @@
 """Statistics controllers."""
 
-from __future__ import annotations
-
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get
 
 from vapi.constants import DiceSize
-from vapi.db.models import Campaign, Character, Company, DiceRoll, User
-from vapi.domain import deps, urls
-from vapi.lib.guards import developer_company_user_guard
+from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.character import Character
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
+from vapi.domain import pg_deps, urls
+from vapi.lib.pg_guards import pg_developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto, lib
@@ -20,12 +21,12 @@ class StatisticsController(Controller):
 
     tags = [APITags.STATISTICS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "character": Provide(deps.provide_character_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "user": Provide(pg_deps.provide_user_by_id_and_company),
+        "character": Provide(pg_deps.provide_character_by_id_and_company),
+        "campaign": Provide(pg_deps.provide_campaign_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [pg_developer_company_user_guard]
 
     @get(
         path=urls.Companies.STATISTICS,
@@ -37,12 +38,10 @@ class StatisticsController(Controller):
         self, company: Company, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get company roll statistics."""
-        filters = [
-            DiceRoll.company_id == company.id,
-            DiceRoll.is_archived == False,
-            DiceRoll.dice_size == DiceSize.D10,
-        ]
-        return await lib.calculate_roll_statistics(filters, num_top_traits=num_top_traits)
+        return await lib.calculate_roll_statistics(
+            {"company_id": company.id, "is_archived": False, "dice_size": DiceSize.D10},
+            num_top_traits=num_top_traits,
+        )
 
     @get(
         path=urls.Users.STATISTICS,
@@ -52,12 +51,10 @@ class StatisticsController(Controller):
     )
     async def get_user_statistics(self, user: User, num_top_traits: int = 5) -> dto.RollStatistics:
         """Get user roll statistics."""
-        filters = [
-            DiceRoll.user_id == user.id,
-            DiceRoll.is_archived == False,
-            DiceRoll.dice_size == DiceSize.D10,
-        ]
-        return await lib.calculate_roll_statistics(filters, num_top_traits=num_top_traits)
+        return await lib.calculate_roll_statistics(
+            {"user_id": user.id, "is_archived": False, "dice_size": DiceSize.D10},
+            num_top_traits=num_top_traits,
+        )
 
     @get(
         path=urls.Characters.STATISTICS,
@@ -69,12 +66,10 @@ class StatisticsController(Controller):
         self, character: Character, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get character roll statistics."""
-        filters = [
-            DiceRoll.character_id == character.id,
-            DiceRoll.is_archived == False,
-            DiceRoll.dice_size == DiceSize.D10,
-        ]
-        return await lib.calculate_roll_statistics(filters, num_top_traits=num_top_traits)
+        return await lib.calculate_roll_statistics(
+            {"character_id": character.id, "is_archived": False, "dice_size": DiceSize.D10},
+            num_top_traits=num_top_traits,
+        )
 
     @get(
         path=urls.Campaigns.STATISTICS,
@@ -86,9 +81,7 @@ class StatisticsController(Controller):
         self, campaign: Campaign, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get campaign roll statistics."""
-        filters = [
-            DiceRoll.campaign_id == campaign.id,
-            DiceRoll.is_archived == False,
-            DiceRoll.dice_size == DiceSize.D10,
-        ]
-        return await lib.calculate_roll_statistics(filters, num_top_traits=num_top_traits)
+        return await lib.calculate_roll_statistics(
+            {"campaign_id": campaign.id, "is_archived": False, "dice_size": DiceSize.D10},
+            num_top_traits=num_top_traits,
+        )

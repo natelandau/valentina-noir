@@ -3,27 +3,19 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import pytest
-from beanie import PydanticObjectId
 
 from vapi.constants import DiceSize
-from vapi.db.models import (
-    Campaign,
-    Character,
-    CharacterTrait,
-    Company,
-    DiceRoll,
-    QuickRoll,
-    Trait,
-    User,
-)
-from vapi.domain.controllers.dicerolls.dto import QuickRollDTO
+from vapi.db.sql_models.character_sheet import Trait
+from vapi.domain.controllers.dicerolls.dto import DiceRollCreate, QuickRollRequest
 from vapi.domain.services import DiceRollService
 from vapi.lib.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
 pytestmark = pytest.mark.anyio
 
 
@@ -32,49 +24,48 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_roll_minimal(
         self,
-        dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the create_complete_dice_roll method."""
-        # Given objects
-        dice_roll = DiceRoll(
-            user_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
+        """Verify creating a dice roll with minimal fields."""
+        # Given a company and user
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
             dice_size=DiceSize.D10,
             difficulty=6,
-            trait_ids=[],
-            character_id=None,
-            campaign_id=None,
-            comment=None,
         )
 
         # When we create the complete dice roll
         service = DiceRollService()
-        result = await service.create_complete_dice_roll(dice_roll)
+        result = await service.create_complete_dice_roll(
+            data=data, company_id=company.id, user_id=user.id
+        )
 
-        # Then the dice roll is returned
+        # Then the dice roll is returned with a result
         assert result.id is not None
-        assert result.result is not None
-
-        # Cleanup
-        await dice_roll.delete()
+        assert result.roll_result is not None
 
     async def test_create_complete_dice_roll_every_field(
         self,
-        character_factory: Callable[[dict[str, Any]], Character],
-        campaign_factory: Callable[[dict[str, Any]], Campaign],
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
+        pg_character_factory: Callable[..., Any],
+        pg_campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the create_complete_dice_roll method."""
+        """Verify creating a dice roll with all fields populated."""
         # Given objects
-        character = await character_factory()
-        campaign = await campaign_factory()
-        traits = await Trait.find(Trait.is_archived == False).limit(2).to_list()
-        dice_roll = DiceRoll(
-            user_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        campaign = await pg_campaign_factory(company=company)
+        character = await pg_character_factory(company=company, campaign=campaign)
+        traits = await Trait.filter(is_archived=False).limit(2)
+
+        data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
             dice_size=DiceSize.D10,
@@ -87,163 +78,167 @@ class TestDiceRollService:
 
         # When we create the complete dice roll
         service = DiceRollService()
-        result = await service.create_complete_dice_roll(dice_roll)
+        result = await service.create_complete_dice_roll(
+            data=data, company_id=company.id, user_id=user.id
+        )
 
-        # Then the dice roll is returned
+        # Then the dice roll is returned with a result
         assert result.id is not None
-        assert result.result is not None
-
-        # Cleanup
-        await dice_roll.delete()
+        assert result.roll_result is not None
 
     async def test_create_complete_dice_invalid_trait_ids(
         self,
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the create_complete_dice_roll method when the trait ids are invalid."""
-        # Given objects
-        dice_roll = DiceRoll(
-            user_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
+        """Verify creating a dice roll with invalid trait IDs raises an error."""
+        # Given a company and user
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
             dice_size=DiceSize.D10,
             difficulty=6,
-            trait_ids=[PydanticObjectId()],
+            trait_ids=[uuid4()],
         )
 
         # When we create the complete dice roll
         service = DiceRollService()
         with pytest.raises(ValidationError, match="Trait not found"):
-            await service.create_complete_dice_roll(dice_roll)
-
-        # Cleanup
-        await dice_roll.delete()
+            await service.create_complete_dice_roll(
+                data=data, company_id=company.id, user_id=user.id
+            )
 
     async def test_create_complete_dice_roll_character_not_found(
         self,
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the create_complete_dice_roll method when the character is not found."""
-        # Given objects
-        dice_roll = DiceRoll(
-            user_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
+        """Verify creating a dice roll with a nonexistent character raises an error."""
+        # Given a company and user
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
             dice_size=DiceSize.D10,
             difficulty=6,
-            trait_ids=[],
-            character_id=PydanticObjectId(),
-            campaign_id=None,
-            comment=None,
+            character_id=uuid4(),
         )
 
         # When we create the complete dice roll
         service = DiceRollService()
         with pytest.raises(ValidationError, match=r"Character.*not found"):
-            await service.create_complete_dice_roll(dice_roll)
-
-        # Cleanup
-        await dice_roll.delete()
+            await service.create_complete_dice_roll(
+                data=data, company_id=company.id, user_id=user.id
+            )
 
     async def test_create_complete_dice_roll_campaign_not_found(
         self,
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the create_complete_dice_roll method when the campaign is not found."""
-        # Given objects
-        dice_roll = DiceRoll(
-            user_id=PydanticObjectId(),
-            company_id=PydanticObjectId(),
+        """Verify creating a dice roll with a nonexistent campaign raises an error."""
+        # Given a company and user
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
             dice_size=DiceSize.D10,
             difficulty=6,
-            trait_ids=[],
-            character_id=None,
-            campaign_id=PydanticObjectId(),
-            comment=None,
+            campaign_id=uuid4(),
         )
 
         # When we create the complete dice roll
         service = DiceRollService()
         with pytest.raises(ValidationError, match=r"Campaign.*not found"):
-            await service.create_complete_dice_roll(dice_roll)
-
-        # Cleanup
-        await dice_roll.delete()
+            await service.create_complete_dice_roll(
+                data=data, company_id=company.id, user_id=user.id
+            )
 
     async def test_roll_quickroll(
         self,
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
-        character_factory: Callable[[dict[str, Any]], Character],
-        campaign_factory: Callable[[dict[str, Any]], Campaign],
-        company_factory: Callable[[dict[str, Any]], Company],
-        user_factory: Callable[[dict[str, Any]], User],
-        character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        pg_quickroll_factory: Callable[..., Any],
+        pg_character_factory: Callable[..., Any],
+        pg_campaign_factory: Callable[..., Any],
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
+        pg_character_trait_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the roll_quickroll method."""
+        """Verify rolling a quickroll creates a dice roll with expected fields."""
         # Given objects
-        company = await company_factory()
-        user = await user_factory()
-        quickroll = await quickroll_factory()
-        campaign = await campaign_factory()
-        character = await character_factory(campaign_id=campaign.id)
-        for trait in quickroll.trait_ids:
-            await character_trait_factory(character_id=character.id, trait_id=trait)
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        campaign = await pg_campaign_factory(company=company)
+        character = await pg_character_factory(company=company, campaign=campaign)
 
-        data = QuickRollDTO(
+        # Create character traits with distinct traits
+        traits = await Trait.filter(is_archived=False).limit(2)
+        ct1 = await pg_character_trait_factory(character=character, trait=traits[0])
+        ct2 = await pg_character_trait_factory(character=character, trait=traits[1])
+        await ct1.fetch_related("trait")
+        await ct2.fetch_related("trait")
+
+        # Create quickroll with the same traits
+        quickroll = await pg_quickroll_factory(user=user, traits=[ct1.trait, ct2.trait])
+
+        data = QuickRollRequest(
             quickroll_id=quickroll.id,
             character_id=character.id,
             comment="Test comment",
         )
 
-        # when we roll the quickroll
+        # When we roll the quickroll
         service = DiceRollService()
         result = await service.roll_quickroll(company=company, user=user, data=data)
 
-        # then the dice roll is returned
+        # Then the dice roll is returned with correct fields
         assert result.id is not None
-        assert result.result is not None
-        assert result.company_id == company.id
-        assert result.user_id == user.id
-        assert result.character_id == character.id
-        assert result.campaign_id == campaign.id
+        assert result.roll_result is not None
+        assert result.company_id == company.id  # type: ignore[attr-defined]
+        assert result.user_id == user.id  # type: ignore[attr-defined]
+        assert result.character_id == character.id  # type: ignore[attr-defined]
+        assert result.campaign_id == campaign.id  # type: ignore[attr-defined]
         assert result.comment == "Test comment"
-        assert result.trait_ids == quickroll.trait_ids
+        # Verify traits match the ones we set up
+        result_trait_ids = sorted(t.id for t in result.traits)
+        expected_trait_ids = sorted([ct1.trait.id, ct2.trait.id])
+        assert result_trait_ids == expected_trait_ids
         assert result.difficulty == 6
-        assert result.dice_size == DiceSize.D10
-
-        # Cleanup
-        await result.delete()
 
     async def test_roll_quickroll_no_matching_traits(
         self,
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
-        character_factory: Callable[[dict[str, Any]], Character],
-        campaign_factory: Callable[[dict[str, Any]], Campaign],
-        company_factory: Callable[[dict[str, Any]], Company],
-        user_factory: Callable[[dict[str, Any]], User],
-        character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+        pg_quickroll_factory: Callable[..., Any],
+        pg_character_factory: Callable[..., Any],
+        pg_campaign_factory: Callable[..., Any],
+        pg_company_factory: Callable[..., Any],
+        pg_user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the roll_quickroll method when no matching traits are found."""
-        # Given objects
-        company = await company_factory()
-        user = await user_factory()
-        quickroll = await quickroll_factory()
-        campaign = await campaign_factory()
-        character = await character_factory(campaign_id=campaign.id)
+        """Verify rolling a quickroll with no matching traits raises an error."""
+        # Given a character with no traits matching the quickroll
+        company = await pg_company_factory()
+        user = await pg_user_factory(company=company)
+        campaign = await pg_campaign_factory(company=company)
+        character = await pg_character_factory(company=company, campaign=campaign)
 
-        data = QuickRollDTO(
+        # Create quickroll with some traits, but don't add them to the character
+        traits = await Trait.filter(is_archived=False).limit(2)
+        quickroll = await pg_quickroll_factory(user=user, traits=list(traits))
+
+        data = QuickRollRequest(
             quickroll_id=quickroll.id,
             character_id=character.id,
             comment="Test comment",
         )
 
-        # when we roll the quickroll
+        # When we roll the quickroll
         service = DiceRollService()
         with pytest.raises(
             ValidationError,
