@@ -260,6 +260,8 @@ def _patch_pg_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
     from vapi.domain.controllers.campaign.book_controller import CampaignBookController
     from vapi.domain.controllers.campaign.campaign_controller import CampaignController
     from vapi.domain.controllers.campaign.chapter_controller import CampaignChapterController
+    from vapi.domain.controllers.character.controllers import CharacterController
+    from vapi.domain.controllers.character_inventory.controllers import CharacterInventoryController
     from vapi.domain.controllers.company.controllers import CompanyController
     from vapi.domain.controllers.developer.controllers import DeveloperController
     from vapi.domain.controllers.user.experience_controller import ExperienceController
@@ -281,6 +283,8 @@ def _patch_pg_bridge(monkeypatch: pytest.MonkeyPatch) -> None:
         CampaignController,
         CampaignBookController,
         CampaignChapterController,
+        CharacterController,
+        CharacterInventoryController,
     ):
         for provide in controller_cls.dependencies.values():
             if (

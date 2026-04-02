@@ -13,10 +13,13 @@ from tortoise.models import Model
 from vapi.db.sql_models.campaign import Campaign as PgCampaign
 from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
 from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
+from vapi.db.sql_models.character import Character as PgCharacter
+from vapi.db.sql_models.character import CharacterInventory as PgCharacterInventory
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.company import Company as PgCompany
 from vapi.db.sql_models.developer import Developer as PgDeveloper
 from vapi.db.sql_models.user import User as PgUser
+from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -257,3 +260,31 @@ async def provide_campaign_chapter_by_id(
 async def provide_campaign_by_id_for_experience(campaign_id: UUID) -> PgCampaign:
     """Provide a Tortoise Campaign by ID for experience controller FK resolution."""
     return await _find_or_404(PgCampaign, "Campaign", doc_id=campaign_id)
+
+
+async def provide_character_by_id_and_company(
+    character_id: UUID, company: PgCompany
+) -> PgCharacter:
+    """Provide a Tortoise Character by ID, scoped to a company.
+
+    Prefetches relations needed for CharacterResponse.from_model().
+    """
+    return await _find_or_404(
+        PgCharacter,
+        "Character",
+        Q(company_id=company.id),
+        doc_id=character_id,
+        prefetch=CHARACTER_RESPONSE_PREFETCH,
+    )
+
+
+async def provide_inventory_item_by_id(
+    inventory_item_id: UUID, character: PgCharacter
+) -> PgCharacterInventory:
+    """Provide a Tortoise CharacterInventory by ID, scoped to a character."""
+    return await _find_or_404(
+        PgCharacterInventory,
+        "Inventory item",
+        Q(character_id=character.id),
+        doc_id=inventory_item_id,
+    )

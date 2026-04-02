@@ -7,11 +7,11 @@ Note: connection.user is still a Beanie Developer (set by auth middleware).
 These guards only read .id and .is_global_admin from it.
 """
 
+import asyncio
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from vapi.constants import CompanyPermission, UserRole
-from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
@@ -24,25 +24,9 @@ __all__ = (
     "pg_developer_company_admin_guard",
     "pg_developer_company_owner_guard",
     "pg_developer_company_user_guard",
+    "pg_user_character_player_or_storyteller_guard",
     "pg_user_not_unapproved_guard",
 )
-
-
-async def _pg_is_valid_company(company_id: str) -> Company:
-    """Check if a company is valid via Tortoise."""
-    if not company_id:
-        raise ValidationError(
-            detail="Company ID is required",
-            invalid_parameters=[{"field": "company_id", "message": "Company ID is required"}],
-        )
-    try:
-        company_uuid = UUID(company_id)
-    except ValueError as e:
-        raise NotFoundError(detail=f"Company '{company_id}' not found") from e
-    company = await Company.filter(id=company_uuid, is_archived=False).first()
-    if not company:
-        raise NotFoundError(detail=f"Company '{company_id}' not found")
-    return company
 
 
 async def _pg_check_developer_company_permission(
@@ -125,3 +109,55 @@ async def pg_user_not_unapproved_guard(connection: "ASGIConnection", _: "BaseRou
 
     if user.role == UserRole.UNAPPROVED:
         raise PermissionDeniedError(detail="User has not been approved yet")
+
+
+async def pg_user_character_player_or_storyteller_guard(
+    connection: "ASGIConnection", _: "BaseRouteHandler"
+) -> None:
+    """Guard requiring character player or storyteller/admin role (Tortoise).
+
+    Extracts character_id from the URL path, queries the Tortoise Character table,
+    and raises PermissionDeniedError unless the requesting user is the character's
+    player or has STORYTELLER/ADMIN role.
+    """
+    from vapi.db.sql_models.character import Character
+
+    character_id_str = connection.path_params.get("character_id")
+    if not character_id_str:
+        raise ValidationError(
+            detail="Character ID is required",
+            invalid_parameters=[
+                {"field": "character_id", "message": "Character ID is required"},
+            ],
+        )
+
+    try:
+        character_uuid = UUID(character_id_str)
+    except ValueError as e:
+        raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
+
+    user_id_str = connection.path_params.get("user_id")
+    if not user_id_str:
+        raise PermissionDeniedError(detail="User ID is required")
+
+    try:
+        user_uuid = UUID(user_id_str)
+    except ValueError as e:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
+
+    # Fetch character and user in parallel since they are independent lookups
+    character, user = await asyncio.gather(
+        Character.filter(id=character_uuid, is_archived=False).first(),
+        User.filter(id=user_uuid, is_archived=False).first(),
+    )
+
+    if not character:
+        raise NotFoundError(detail=f"Character '{character_id_str}' not found")
+    if not user:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found")
+
+    if (
+        user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
+        and character.user_player_id != user.id  # type: ignore[attr-defined]
+    ):
+        raise PermissionDeniedError(detail="No rights to access this resource")

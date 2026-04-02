@@ -19,7 +19,6 @@ from vapi.db.models import (
     User,
 )
 from vapi.domain import deps, hooks, urls
-from vapi.domain.controllers.character.dto import CharacterResponseDTO
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.lib.exceptions import ValidationError
@@ -47,7 +46,6 @@ class CharacterGenerationController(Controller):
         "character": Provide(deps.provide_character_by_id_and_company),
     }
     guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = CharacterResponseDTO
 
     @post(
         path=urls.Characters.AUTOGENERATE,

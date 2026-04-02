@@ -21,6 +21,7 @@ from vapi.db.models import (
     WerewolfTribe,
 )
 from vapi.db.models.base import BaseDocument
+from vapi.db.sql_models.character import Character as PgCharacter
 from vapi.db.sql_models.user import User as PgUser
 from vapi.lib.exceptions import ValidationError
 
@@ -94,8 +95,24 @@ class GetModelByIdValidationService:
         """Get a campaign by ID."""
         return await _get_or_raise(Campaign, campaign_id, "Campaign")
 
-    async def get_character_by_id(self, character_id: PydanticObjectId) -> Character:
-        """Get a character by ID."""
+    async def get_character_by_id(self, character_id: PydanticObjectId | Any) -> Any:
+        """Get a character by ID, routing to Tortoise or Beanie based on ID format.
+
+        During the migration period, unmigrated domains (e.g., character_trait) may pass
+        a PydanticObjectId. UUID-format IDs go to Tortoise; ObjectId-format IDs fall
+        back to Beanie. This bridge is removed when all callers are migrated.
+        """
+        import uuid as _uuid_mod
+
+        if isinstance(character_id, _uuid_mod.UUID):
+            return await _pg_get_or_raise(PgCharacter, character_id, "Character")
+
+        try:
+            uuid_id = _uuid_mod.UUID(str(character_id))
+            return await _pg_get_or_raise(PgCharacter, uuid_id, "Character")
+        except ValueError:
+            pass
+
         return await _get_or_raise(Character, character_id, "Character")
 
     async def get_concept_by_id(self, concept_id: PydanticObjectId) -> CharacterConcept:

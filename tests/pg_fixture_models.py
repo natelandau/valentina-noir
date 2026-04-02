@@ -15,6 +15,14 @@ from typing import Any
 import pytest
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterInventory,
+    CharacterTrait,
+    Specialty,
+    VampireAttributes,
+    WerewolfAttributes,
+)
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.db.sql_models.company import Company
@@ -366,3 +374,171 @@ async def pg_campaign_chapter_factory():
     for chapter in created:
         with contextlib.suppress(Exception):
             await chapter.delete()
+
+
+@pytest.fixture
+async def pg_character_factory(pg_user_factory, pg_campaign_factory):
+    """Return a factory that creates Tortoise Character instances.
+
+    Auto-creates user and campaign if not provided. Requires a company kwarg
+    (or company_id) because characters are always company-scoped.
+    """
+    created: list[Character] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Character:
+        nonlocal _counter
+        _counter += 1
+
+        if "user_creator" not in kwargs and "user_creator_id" not in kwargs:
+            user = await pg_user_factory(company=kwargs.get("company"))
+            kwargs["user_creator"] = user
+        if "user_player" not in kwargs and "user_player_id" not in kwargs:
+            kwargs["user_player"] = kwargs.get("user_creator") or await pg_user_factory(
+                company=kwargs.get("company")
+            )
+        if "campaign" not in kwargs and "campaign_id" not in kwargs:
+            kwargs["campaign"] = await pg_campaign_factory(company=kwargs.get("company"))
+
+        defaults: dict[str, Any] = {
+            "name_first": f"TestFirst{_counter}",
+            "name_last": f"TestLast{_counter}",
+            "character_class": "MORTAL",
+            "type": "PLAYER",
+            "game_version": "V5",
+        }
+        defaults.update(kwargs)
+        character = await Character.create(**defaults)
+        character = (
+            await Character.filter(id=character.id)
+            .prefetch_related(
+                "concept",
+                "vampire_attributes__clan",
+                "werewolf_attributes__tribe",
+                "werewolf_attributes__auspice",
+                "mage_attributes",
+                "hunter_attributes",
+                "specialties",
+            )
+            .first()
+        )
+        created.append(character)
+        return character
+
+    yield _factory
+
+    for character in created:
+        with contextlib.suppress(Exception):
+            await character.delete()
+
+
+@pytest.fixture
+async def pg_character_inventory_factory():
+    """Return a factory that creates Tortoise CharacterInventory instances."""
+    created: list[CharacterInventory] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CharacterInventory:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "name": f"Test Item {_counter}",
+            "type": "WEAPON",
+        }
+        defaults.update(kwargs)
+        item = await CharacterInventory.create(**defaults)
+        created.append(item)
+        return item
+
+    yield _factory
+
+    for item in created:
+        with contextlib.suppress(Exception):
+            await item.delete()
+
+
+@pytest.fixture
+async def pg_specialty_factory():
+    """Return a factory that creates Tortoise Specialty instances."""
+    created: list[Specialty] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Specialty:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "name": f"Test Specialty {_counter}",
+            "type": "SKILL",
+        }
+        defaults.update(kwargs)
+        specialty = await Specialty.create(**defaults)
+        created.append(specialty)
+        return specialty
+
+    yield _factory
+
+    for specialty in created:
+        with contextlib.suppress(Exception):
+            await specialty.delete()
+
+
+@pytest.fixture
+async def pg_character_trait_factory():
+    """Return a factory that creates Tortoise CharacterTrait instances."""
+    created: list[CharacterTrait] = []
+
+    async def _factory(**kwargs: Any) -> CharacterTrait:
+        defaults: dict[str, Any] = {
+            "value": 1,
+        }
+        defaults.update(kwargs)
+        ct = await CharacterTrait.create(**defaults)
+        ct = (
+            await CharacterTrait.filter(id=ct.id)
+            .prefetch_related(
+                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+            )
+            .first()
+        )
+        created.append(ct)
+        return ct
+
+    yield _factory
+
+    for ct in created:
+        with contextlib.suppress(Exception):
+            await ct.delete()
+
+
+@pytest.fixture
+async def pg_vampire_attributes_factory():
+    """Return a factory that creates Tortoise VampireAttributes instances."""
+    created: list[VampireAttributes] = []
+
+    async def _factory(**kwargs: Any) -> VampireAttributes:
+        attrs = await VampireAttributes.create(**kwargs)
+        created.append(attrs)
+        return attrs
+
+    yield _factory
+
+    for attrs in created:
+        with contextlib.suppress(Exception):
+            await attrs.delete()
+
+
+@pytest.fixture
+async def pg_werewolf_attributes_factory():
+    """Return a factory that creates Tortoise WerewolfAttributes instances."""
+    created: list[WerewolfAttributes] = []
+
+    async def _factory(**kwargs: Any) -> WerewolfAttributes:
+        attrs = await WerewolfAttributes.create(**kwargs)
+        created.append(attrs)
+        return attrs
+
+    yield _factory
+
+    for attrs in created:
+        with contextlib.suppress(Exception):
+            await attrs.delete()
