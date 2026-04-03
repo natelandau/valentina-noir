@@ -24,6 +24,7 @@ __all__ = (
     "pg_developer_company_admin_guard",
     "pg_developer_company_owner_guard",
     "pg_developer_company_user_guard",
+    "pg_global_admin_guard",
     "pg_user_character_player_or_storyteller_guard",
     "pg_user_not_unapproved_guard",
     "pg_user_storyteller_guard",
@@ -87,6 +88,12 @@ async def pg_developer_company_owner_guard(
         connection,
         allowed_permissions={CompanyPermission.OWNER},
     )
+
+
+async def pg_global_admin_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
+    """Verify the authenticated developer is a global admin."""
+    if not connection.user.is_global_admin:
+        raise PermissionDeniedError(detail="No rights to access this resource")
 
 
 async def pg_user_not_unapproved_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
