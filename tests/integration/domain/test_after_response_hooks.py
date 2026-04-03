@@ -35,10 +35,6 @@ class TestAfterResponseHooks:
     """Test the after response hooks."""
 
     @pytest.mark.clean_db
-    @pytest.mark.xfail(
-        reason="After-response hooks query Beanie Company with Tortoise UUID during migration",
-        strict=True,
-    )
     async def test_post_data_update_hook(
         self,
         client: AsyncClient,
