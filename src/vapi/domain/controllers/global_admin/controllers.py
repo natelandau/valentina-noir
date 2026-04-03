@@ -1,41 +1,37 @@
 """Global admin controllers."""
 
-from __future__ import annotations
+from datetime import datetime
+from typing import Annotated
 
-from datetime import datetime  # noqa: TC003
-from typing import TYPE_CHECKING, Annotated
-
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
+from litestar.dto import DTOData
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 from pydantic import ValidationError as PydanticValidationError
 
 from vapi.db.models import Developer
-from vapi.db.models.developer import CompanyPermissions  # noqa: TC001
-from vapi.domain import deps, hooks, urls
+from vapi.db.models.developer import CompanyPermissions
+from vapi.domain import hooks, pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.utils import patch_dto_data_internal_objects
-from vapi.lib.guards import global_admin_guard
+from vapi.lib.pg_guards import pg_global_admin_guard
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import docs, dto
 
-if TYPE_CHECKING:
-    from litestar import Request
-
 
 class GlobalAdminController(Controller):
     """Global admin controller."""
 
     tags = [APITags.GLOBAL_ADMIN.name]
-    guards = [global_admin_guard]
+    guards = [pg_global_admin_guard]
     dependencies = {
-        "developer": Provide(deps.provide_developer_by_id),
-        "company": Provide(deps.provide_company_by_id),
+        "developer": Provide(pg_deps.provide_developer_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
     }
     return_dto = dto.DeveloperReturnDTO
 

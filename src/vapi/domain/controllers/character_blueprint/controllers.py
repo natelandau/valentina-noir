@@ -25,10 +25,10 @@ from vapi.db.sql_models.character_sheet import (
     TraitCategory,
     TraitSubcategory,
 )
-from vapi.domain import deps, pg_deps, urls
+from vapi.domain import pg_deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterBlueprintService
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -49,9 +49,9 @@ class CharacterBlueprintSectionController(Controller):
 
     tags = [APITags.CHARACTERS_BLUEPRINTS.name]
     dependencies = {
-        "company": Provide(deps.provide_company_by_id),
+        "company": Provide(pg_deps.provide_pg_company_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [pg_developer_company_user_guard]
 
     ## SHEET SECTIONS #######################################################
     @get(

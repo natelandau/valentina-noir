@@ -1,7 +1,5 @@
 """Options controllers."""
 
-from __future__ import annotations
-
 import logging
 import re
 
@@ -32,13 +30,13 @@ from vapi.constants import (
     UserRole,
     WerewolfRenown,
 )
-from vapi.domain import deps, urls
+from vapi.domain import pg_deps, urls
 from vapi.domain.handlers.character_autogeneration.constants import (
     AbilityFocus,
     AutoGenExperienceLevel,
 )
 from vapi.domain.handlers.character_autogeneration.utils import CLASS_PERCENTILE_TABLE
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.pg_guards import pg_developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -58,8 +56,8 @@ class OptionsController(Controller):
     """Options controller."""
 
     tags = [APITags.OPTIONS.name]
-    dependencies = {"company": Provide(deps.provide_company_by_id)}
-    guards = [developer_company_user_guard]
+    dependencies = {"company": Provide(pg_deps.provide_pg_company_by_id)}
+    guards = [pg_developer_company_user_guard]
 
     @get(
         path=urls.Options.LIST,
