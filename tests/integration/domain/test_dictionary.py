@@ -8,7 +8,7 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
 )
 
-from vapi.db.sql_models.company import Company as PgCompany
+from vapi.db.sql_models.company import Company
 from vapi.domain.urls import Dictionaries
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.sql_models.developer import Developer as PgDeveloper
+    from vapi.db.sql_models.developer import Developer
     from vapi.db.sql_models.dictionary import DictionaryTerm
 
 pytestmark = pytest.mark.anyio
@@ -30,13 +30,13 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
     ) -> None:
         """Verify creating a term without definition or link returns 400."""
         # When we create a term with no definition or link
         response = await client.post(
-            build_url(Dictionaries.CREATE, company_id=pg_mirror_company.id),
+            build_url(Dictionaries.CREATE, company_id=mirror_company.id),
             headers=token_company_user,
             json={"term": "something"},
         )
@@ -49,20 +49,20 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
-        pg_dictionary_term_factory: "Callable[..., DictionaryTerm]",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify listing dictionary terms returns company and global terms."""
         # Given two global terms
-        term1 = await pg_dictionary_term_factory(
+        term1 = await dictionary_term_factory(
             term="Foo", definition="Foo is a bar.", company_id=None
         )
-        await pg_dictionary_term_factory(term="Bar", definition="Bar is a baz.", company_id=None)
+        await dictionary_term_factory(term="Bar", definition="Bar is a baz.", company_id=None)
 
         # When we list dictionary terms with a high limit to include all
         response = await client.get(
-            build_url(Dictionaries.LIST, company_id=pg_mirror_company.id),
+            build_url(Dictionaries.LIST, company_id=mirror_company.id),
             headers=token_company_user,
             params={"limit": 100, "term": "foo"},
         )
@@ -79,13 +79,13 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
-        pg_dictionary_term_factory: "Callable[..., DictionaryTerm]",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify getting a single dictionary term by ID."""
         # Given a global term
-        term = await pg_dictionary_term_factory(
+        term = await dictionary_term_factory(
             term="Foo", definition="Foo is a bar.", company_id=None
         )
 
@@ -93,7 +93,7 @@ class TestDictionaryController:
         response = await client.get(
             build_url(
                 Dictionaries.DETAIL,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -109,13 +109,13 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
     ) -> None:
         """Verify creating a dictionary term returns 201 with correct data."""
         # When we create a term
         response = await client.post(
-            build_url(Dictionaries.CREATE, company_id=pg_mirror_company.id),
+            build_url(Dictionaries.CREATE, company_id=mirror_company.id),
             headers=token_company_user,
             json={"term": "Foo", "definition": "  Foo is a bar.  ", "link": "https://example.com"},
         )
@@ -133,17 +133,17 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
-        pg_dictionary_term_factory: "Callable[..., DictionaryTerm]",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
         mocker: Any,
     ) -> None:
         """Verify updating a dictionary term."""
         from vapi.domain.services import DictionaryService
 
         # Given a company-owned term (editable by the company)
-        term = await pg_dictionary_term_factory(
-            term="Foo", definition="Foo is a bar.", company_id=str(pg_mirror_company.id)
+        term = await dictionary_term_factory(
+            term="Foo", definition="Foo is a bar.", company_id=str(mirror_company.id)
         )
         spy = mocker.spy(DictionaryService, "verify_term_is_editable")
 
@@ -151,7 +151,7 @@ class TestDictionaryController:
         response = await client.patch(
             build_url(
                 Dictionaries.UPDATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -169,21 +169,21 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
-        pg_dictionary_term_factory: "Callable[..., DictionaryTerm]",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify updating a term to have no definition or link returns 400."""
         # Given a company-owned term with a definition but no link
-        term = await pg_dictionary_term_factory(
-            term="Foo", definition="Foo is a bar.", company_id=str(pg_mirror_company.id), link=None
+        term = await dictionary_term_factory(
+            term="Foo", definition="Foo is a bar.", company_id=str(mirror_company.id), link=None
         )
 
         # When we clear the definition
         response = await client.patch(
             build_url(
                 Dictionaries.UPDATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -197,9 +197,9 @@ class TestDictionaryController:
         self,
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
-        pg_dictionary_term_factory: "Callable[..., DictionaryTerm]",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
         token_company_user: dict[str, str],
         mocker: Any,
     ) -> None:
@@ -207,8 +207,8 @@ class TestDictionaryController:
         from vapi.domain.services import DictionaryService
 
         # Given a company-owned term (editable by the company)
-        term = await pg_dictionary_term_factory(
-            term="Foo", definition="Foo is a bar.", company_id=str(pg_mirror_company.id)
+        term = await dictionary_term_factory(
+            term="Foo", definition="Foo is a bar.", company_id=str(mirror_company.id)
         )
         spy = mocker.spy(DictionaryService, "verify_term_is_editable")
 
@@ -216,7 +216,7 @@ class TestDictionaryController:
         response = await client.delete(
             build_url(
                 Dictionaries.DELETE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -234,15 +234,15 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: "PgDeveloper",
-        pg_dictionary_term_factory: "Callable[..., DictionaryTerm]",
-        pg_company_factory: "Callable[..., Any]",
+        mirror_company: Company,
+        mirror_company_user: "Developer",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify accessing a term from a different company returns 404."""
         # Given a term owned by a different company
-        other_company = await pg_company_factory()
-        term = await pg_dictionary_term_factory(
+        other_company = await company_factory()
+        term = await dictionary_term_factory(
             term="Secret", definition="Not yours.", company_id=other_company.id
         )
 
@@ -250,7 +250,7 @@ class TestDictionaryController:
         response = await client.get(
             build_url(
                 Dictionaries.DETAIL,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,

@@ -23,13 +23,13 @@ class TestCampaignService:
 
     async def test_get_next_book_number_first_book(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
     ) -> None:
         """Verify get_next_book_number returns 1 for a campaign with no books."""
         # Given a campaign with no books
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
 
         # When the next book number is requested
         service = CampaignService()
@@ -40,17 +40,17 @@ class TestCampaignService:
 
     async def test_get_next_book_number(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify get_next_book_number returns count + 1."""
         # Given a campaign with 3 books
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        await pg_campaign_book_factory(campaign=campaign)
-        await pg_campaign_book_factory(campaign=campaign)
-        await pg_campaign_book_factory(campaign=campaign)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        await campaign_book_factory(campaign=campaign)
+        await campaign_book_factory(campaign=campaign)
+        await campaign_book_factory(campaign=campaign)
 
         # When the next book number is requested
         service = CampaignService()
@@ -61,15 +61,15 @@ class TestCampaignService:
 
     async def test_get_next_chapter_number_first_chapter(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify get_next_chapter_number returns 1 for a book with no chapters."""
         # Given a book with no chapters
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
 
         # When the next chapter number is requested
         service = CampaignService()
@@ -80,18 +80,18 @@ class TestCampaignService:
 
     async def test_get_next_chapter_number(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify get_next_chapter_number returns count + 1."""
         # Given a book with 2 chapters
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        await pg_campaign_chapter_factory(book=book)
-        await pg_campaign_chapter_factory(book=book)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        await campaign_chapter_factory(book=book)
+        await campaign_chapter_factory(book=book)
 
         # When the next chapter number is requested
         service = CampaignService()
@@ -102,18 +102,18 @@ class TestCampaignService:
 
     async def test_renumber_books(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify renumber_books shifts siblings correctly in both directions."""
         # Given a campaign with 4 books
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        booka = await pg_campaign_book_factory(name="Book A", campaign=campaign)
-        bookb = await pg_campaign_book_factory(name="Book B", campaign=campaign)
-        bookc = await pg_campaign_book_factory(name="Book C", campaign=campaign)
-        bookd = await pg_campaign_book_factory(name="Book D", campaign=campaign)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        booka = await campaign_book_factory(name="Book A", campaign=campaign)
+        bookb = await campaign_book_factory(name="Book B", campaign=campaign)
+        bookc = await campaign_book_factory(name="Book C", campaign=campaign)
+        bookd = await campaign_book_factory(name="Book D", campaign=campaign)
 
         # When bookd is renumbered to 2
         service = CampaignService()
@@ -144,15 +144,15 @@ class TestCampaignService:
 
     async def test_renumber_books_out_of_range(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify renumber_books raises ValidationError when number exceeds count."""
         # Given a campaign with 1 book
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(name="Book A", campaign=campaign)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign)
 
         # When the book is renumbered to 2
         # Then a ValidationError should be raised
@@ -162,15 +162,15 @@ class TestCampaignService:
 
     async def test_renumber_books_less_than_one(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify renumber_books raises ValidationError when number is less than 1."""
         # Given a campaign with 1 book
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(name="Book A", campaign=campaign)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign)
 
         # When the book is renumbered to 0
         # Then a ValidationError should be raised
@@ -180,20 +180,20 @@ class TestCampaignService:
 
     async def test_renumber_chapters(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify renumber_chapters shifts siblings correctly in both directions."""
         # Given a book with 4 chapters
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        chaptera = await pg_campaign_chapter_factory(name="Chapter A", book=book)
-        chapterb = await pg_campaign_chapter_factory(name="Chapter B", book=book)
-        chapterc = await pg_campaign_chapter_factory(name="Chapter C", book=book)
-        chapterd = await pg_campaign_chapter_factory(name="Chapter D", book=book)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chaptera = await campaign_chapter_factory(name="Chapter A", book=book)
+        chapterb = await campaign_chapter_factory(name="Chapter B", book=book)
+        chapterc = await campaign_chapter_factory(name="Chapter C", book=book)
+        chapterd = await campaign_chapter_factory(name="Chapter D", book=book)
 
         # When chapterd is renumbered to 2
         service = CampaignService()
@@ -223,17 +223,17 @@ class TestCampaignService:
 
     async def test_renumber_chapters_out_of_range(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify renumber_chapters raises ValidationError when number exceeds count."""
         # Given a book with 1 chapter
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        chapter = await pg_campaign_chapter_factory(name="Chapter A", book=book)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
         # When the chapter is renumbered to 2
         # Then a ValidationError should be raised
@@ -243,17 +243,17 @@ class TestCampaignService:
 
     async def test_renumber_chapters_less_than_one(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify renumber_chapters raises ValidationError when number is less than 1."""
         # Given a book with 1 chapter
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        chapter = await pg_campaign_chapter_factory(name="Chapter A", book=book)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
         # When the chapter is renumbered to 0
         # Then a ValidationError should be raised
@@ -263,15 +263,15 @@ class TestCampaignService:
 
     async def test_delete_book_and_renumber_one_book(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify delete_book_and_renumber soft-deletes a single book."""
         # Given a campaign with 1 book
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(name="Book A", campaign=campaign)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign)
 
         # When the book is deleted
         service = CampaignService()
@@ -284,18 +284,18 @@ class TestCampaignService:
 
     async def test_delete_book_and_renumber_multiple_books(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
         """Verify delete_book_and_renumber shifts higher-numbered books down."""
         # Given a campaign with 4 books
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        booka = await pg_campaign_book_factory(name="Book A", campaign=campaign, number=1)
-        bookb = await pg_campaign_book_factory(name="Book B", campaign=campaign, number=2)
-        bookc = await pg_campaign_book_factory(name="Book C", campaign=campaign, number=3)
-        bookd = await pg_campaign_book_factory(name="Book D", campaign=campaign, number=4)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        booka = await campaign_book_factory(name="Book A", campaign=campaign, number=1)
+        bookb = await campaign_book_factory(name="Book B", campaign=campaign, number=2)
+        bookc = await campaign_book_factory(name="Book C", campaign=campaign, number=3)
+        bookd = await campaign_book_factory(name="Book D", campaign=campaign, number=4)
 
         # When bookb is deleted
         service = CampaignService()
@@ -313,17 +313,17 @@ class TestCampaignService:
 
     async def test_delete_chapter_and_renumber_one_chapter(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify delete_chapter_and_renumber soft-deletes a single chapter."""
         # Given a book with 1 chapter
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        chapter = await pg_campaign_chapter_factory(name="Chapter A", book=book)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
         # When the chapter is deleted
         service = CampaignService()
@@ -336,20 +336,20 @@ class TestCampaignService:
 
     async def test_delete_chapter_and_renumber_multiple_chapters(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify delete_chapter_and_renumber shifts higher-numbered chapters down."""
         # Given a book with 4 chapters
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        chaptera = await pg_campaign_chapter_factory(name="Chapter A", book=book, number=1)
-        chapterb = await pg_campaign_chapter_factory(name="Chapter B", book=book, number=2)
-        chapterc = await pg_campaign_chapter_factory(name="Chapter C", book=book, number=3)
-        chapterd = await pg_campaign_chapter_factory(name="Chapter D", book=book, number=4)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chaptera = await campaign_chapter_factory(name="Chapter A", book=book, number=1)
+        chapterb = await campaign_chapter_factory(name="Chapter B", book=book, number=2)
+        chapterc = await campaign_chapter_factory(name="Chapter C", book=book, number=3)
+        chapterd = await campaign_chapter_factory(name="Chapter D", book=book, number=4)
 
         # When chapterb is deleted
         service = CampaignService()
@@ -367,19 +367,19 @@ class TestCampaignService:
 
     async def test_archive_campaign(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
-        pg_campaign_book_factory: Callable[..., CampaignBook],
-        pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
         """Verify archive_campaign soft-archives campaign, books, and chapters."""
         # Given a campaign with books and chapters
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book1 = await pg_campaign_book_factory(campaign=campaign)
-        book2 = await pg_campaign_book_factory(campaign=campaign)
-        chapter1 = await pg_campaign_chapter_factory(book=book1)
-        chapter2 = await pg_campaign_chapter_factory(book=book1)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book1 = await campaign_book_factory(campaign=campaign)
+        book2 = await campaign_book_factory(campaign=campaign)
+        chapter1 = await campaign_chapter_factory(book=book1)
+        chapter2 = await campaign_chapter_factory(book=book1)
 
         # When the campaign is archived
         service = CampaignService()

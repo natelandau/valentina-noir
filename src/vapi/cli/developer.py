@@ -1,16 +1,15 @@
 """Admin CLI."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 
 import click
-from pydantic import ValidationError
 from rich.console import Console
+from tortoise import Tortoise
 
-from vapi.db.models import Developer
-from vapi.lib.database import setup_database
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.domain.services.developer_svc import DeveloperService
+from vapi.lib.database import init_tortoise
 
 console = Console()
 
@@ -49,53 +48,54 @@ def developer(
     """Create an Developer."""
 
     async def create_developer_async() -> None:
-        await setup_database()
+        await init_tortoise()
+        try:
+            existing_developer = await Developer.filter(
+                email=email, username=username, is_archived=False
+            ).first()
+            if existing_developer:
+                logger.info(
+                    "Developer already exists",
+                    extra={
+                        "email": email,
+                        "username": username,
+                        "database_id": str(existing_developer.id),
+                        "is_global_admin": existing_developer.is_global_admin,
+                        "component": "cli",
+                        "command": "developer create",
+                    },
+                )
+                raise click.Abort
 
-        existing_developer = await Developer.find_one(
-            Developer.email == email, Developer.username == username, Developer.is_archived == False
-        )
-        if existing_developer:
+            try:
+                new_developer = await Developer.create(
+                    email=email,
+                    username=username,
+                    is_global_admin=global_admin,
+                )
+            except Exception as e:
+                logger.exception(
+                    "Error creating Developer",
+                    extra={"error": e, "component": "cli", "command": "developer create"},
+                )
+                raise click.Abort from e
+
+            api_key = await DeveloperService().generate_api_key(new_developer)
+
             logger.info(
-                "Developer already exists",
+                "Developer created. Save the API key as it will not be displayed again.",
                 extra={
-                    "email": email,
-                    "username": username,
-                    "database_id": str(existing_developer.id),
-                    "is_global_admin": existing_developer.is_global_admin,
+                    "database_id": str(new_developer.id),
+                    "email": new_developer.email,
+                    "username": new_developer.username,
+                    "api_key": api_key,
+                    "is_global_admin": new_developer.is_global_admin,
                     "component": "cli",
                     "command": "developer create",
                 },
             )
-            raise click.Abort
-
-        try:
-            developer = Developer(
-                email=email,
-                username=username,
-                is_global_admin=global_admin,
-            )
-        except ValidationError as e:
-            logger.exception(
-                "Error creating Developer",
-                extra={"error": e, "component": "cli", "command": "developer create"},
-            )
-            raise click.Abort from e
-
-        await developer.save()
-        api_key = await developer.generate_api_key()
-
-        logger.info(
-            "Developer created. Save the API key as it will not be displayed again.",
-            extra={
-                "database_id": str(developer.id),
-                "email": developer.email,
-                "username": developer.username,
-                "api_key": api_key,
-                "is_global_admin": developer.is_global_admin,
-                "component": "cli",
-                "command": "developer create",
-            },
-        )
+        finally:
+            await Tortoise.close_connections()
 
     asyncio.run(create_developer_async())
 
@@ -105,19 +105,24 @@ def list_developers() -> None:
     """List all Developers."""
 
     async def list_developers_async() -> None:
-        await setup_database()
-
-        developers = await Developer.find_all().to_list()
-        console.rule("Developers")
-        for developer in developers:
-            console.print(f"[underline]id:          {developer.id}")
-            console.print(f"Username:    {developer.username}")
-            console.print(f"Email:       {developer.email}")
-            console.print(f"Is archived: {developer.is_archived}")
-            console.print(f"Is admin:    {developer.is_global_admin}")
-            console.print(f"Slug:        {developer.slug}")
-            console.print(f"Company permissions: {developer.companies}")
-            console.print()
+        await init_tortoise()
+        try:
+            developers = await Developer.all()
+            console.rule("Developers")
+            for dev in developers:
+                permissions = await DeveloperCompanyPermission.filter(
+                    developer_id=dev.id
+                ).prefetch_related("company")
+                company_perms = [f"{perm.company.name}:{perm.permission}" for perm in permissions]
+                console.print(f"[underline]id:          {dev.id}")
+                console.print(f"Username:    {dev.username}")
+                console.print(f"Email:       {dev.email}")
+                console.print(f"Is archived: {dev.is_archived}")
+                console.print(f"Is admin:    {dev.is_global_admin}")
+                console.print(f"Company permissions: {company_perms}")
+                console.print()
+        finally:
+            await Tortoise.close_connections()
 
     asyncio.run(list_developers_async())
 
@@ -128,24 +133,20 @@ def delete_developer(database_id: str) -> None:
     """Delete an Developer."""
 
     async def delete_developer_async() -> None:
-        await setup_database()
-
+        await init_tortoise()
         try:
-            developer = await Developer.get(database_id)
-        except ValueError as e:
-            click.echo(f"Developer with ID '{database_id}' not found")
-            raise click.Abort from e
-        if not developer:
-            click.echo(f"Developer with ID '{database_id}' not found")
-            raise click.Abort
+            dev = await Developer.filter(id=database_id).first()
+            if not dev:
+                click.echo(f"Developer with ID '{database_id}' not found")
+                raise click.Abort
 
-        await developer.delete()
+            await dev.delete()
 
-        console.rule("Developer deleted")
-        console.print(f"ID: {developer.id}")
-        console.print(f"Username: {developer.username}")
-        console.print(f"Email: {developer.email}")
-        console.print(f"API key: [green bold]{developer.api_key}[/green bold]")
-        console.print(f"Permissions: {developer.permissions.name}")
+            console.rule("Developer deleted")
+            console.print(f"ID: {dev.id}")
+            console.print(f"Username: {dev.username}")
+            console.print(f"Email: {dev.email}")
+        finally:
+            await Tortoise.close_connections()
 
     asyncio.run(delete_developer_async())

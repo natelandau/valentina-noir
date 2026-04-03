@@ -11,7 +11,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import AWSS3Service
 from vapi.lib.exceptions import NotFoundError
-from vapi.lib.pg_guards import pg_developer_company_user_guard, pg_user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 
 from . import dto
 
@@ -19,7 +19,7 @@ from . import dto
 class BaseAssetsController(Controller, ABC):
     """Base assets controller."""
 
-    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @property
     @abstractmethod

@@ -15,9 +15,9 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import UserRole
-from vapi.db.sql_models.character_sheet import Trait as PgTrait
-from vapi.db.sql_models.quickroll import QuickRoll as PgQuickRoll
-from vapi.db.sql_models.user import User as PgUser
+from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.db.sql_models.user import User
 from vapi.domain.urls import Users as UsersURL
 
 if TYPE_CHECKING:
@@ -25,10 +25,10 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.sql_models.campaign import Campaign as PgCampaign
-    from vapi.db.sql_models.company import Company as PgCompany
-    from vapi.db.sql_models.developer import Developer as PgDeveloper
-    from vapi.db.sql_models.user import CampaignExperience as PgCampaignExperience
+    from vapi.db.sql_models.campaign import Campaign
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import CampaignExperience
 
 pytestmark = pytest.mark.anyio
 
@@ -40,23 +40,23 @@ class TestExperienceController:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_campaign: PgCampaign,
-        pg_user_factory: Callable[..., PgUser],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_campaign: Campaign,
+        user_factory: Callable[..., User],
         token_company_user: dict[str, str],
     ) -> None:
         """Verify getting experience for a user with none returns a new default record."""
         # Given a user with no campaign experience
-        user = await pg_user_factory(company=pg_mirror_company)
+        user = await user_factory(company=mirror_company)
 
         # When we get the experience for this user/campaign
         response = await client.get(
             build_url(
                 UsersURL.EXPERIENCE_CAMPAIGN,
                 user_id=user.id,
-                company_id=pg_mirror_company.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_company_user,
         )
@@ -67,26 +67,26 @@ class TestExperienceController:
         assert data["xp_current"] == 0
         assert data["xp_total"] == 0
         assert data["cool_points"] == 0
-        assert data["campaign_id"] == str(pg_mirror_campaign.id)
+        assert data["campaign_id"] == str(mirror_campaign.id)
         assert data["user_id"] == str(user.id)
 
     async def test_get_experience_with_experience(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_campaign: PgCampaign,
-        pg_user_factory: Callable[..., PgUser],
-        pg_campaign_experience_factory: Callable[..., PgCampaignExperience],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_campaign: Campaign,
+        user_factory: Callable[..., User],
+        campaign_experience_factory: Callable[..., CampaignExperience],
         token_company_user: dict[str, str],
     ) -> None:
         """Verify getting experience returns existing data."""
         # Given a user with campaign experience
-        user = await pg_user_factory(company=pg_mirror_company)
-        experience = await pg_campaign_experience_factory(
+        user = await user_factory(company=mirror_company)
+        experience = await campaign_experience_factory(
             user=user,
-            campaign=pg_mirror_campaign,
+            campaign=mirror_campaign,
             xp_current=100,
             xp_total=200,
             cool_points=100,
@@ -97,8 +97,8 @@ class TestExperienceController:
             build_url(
                 UsersURL.EXPERIENCE_CAMPAIGN,
                 user_id=user.id,
-                company_id=pg_mirror_company.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_company_user,
         )
@@ -115,26 +115,26 @@ class TestExperienceController:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_campaign: PgCampaign,
-        pg_mirror_user: PgUser,
-        pg_user_factory: Callable[..., PgUser],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_campaign: Campaign,
+        mirror_user: User,
+        user_factory: Callable[..., User],
         token_company_user: dict[str, str],
     ) -> None:
         """Verify adding XP updates campaign experience correctly."""
         # Given a user
-        user = await pg_user_factory(company=pg_mirror_company)
+        user = await user_factory(company=mirror_company)
         initial_lifetime_xp = user.lifetime_xp
 
         # When we add XP
         response = await client.post(
-            build_url(UsersURL.XP_ADD, user_id=user.id, company_id=pg_mirror_company.id),
+            build_url(UsersURL.XP_ADD, user_id=user.id, company_id=mirror_company.id),
             headers=token_company_user,
             json={
                 "amount": 100,
-                "requesting_user_id": str(pg_mirror_user.id),
-                "campaign_id": str(pg_mirror_campaign.id),
+                "requesting_user_id": str(mirror_user.id),
+                "campaign_id": str(mirror_campaign.id),
             },
         )
 
@@ -146,33 +146,33 @@ class TestExperienceController:
         assert data["cool_points"] == 0
 
         # Then the user's lifetime XP is updated in the database
-        user = await PgUser.get(id=user.id)
+        user = await User.get(id=user.id)
         assert user.lifetime_xp == initial_lifetime_xp + 100
 
     async def test_add_cp_to_experience(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_campaign: PgCampaign,
-        pg_mirror_user: PgUser,
-        pg_user_factory: Callable[..., PgUser],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_campaign: Campaign,
+        mirror_user: User,
+        user_factory: Callable[..., User],
         token_company_user: dict[str, str],
     ) -> None:
         """Verify adding cool points updates campaign experience correctly."""
         # Given a user
-        user = await pg_user_factory(company=pg_mirror_company)
+        user = await user_factory(company=mirror_company)
         initial_lifetime_cp = user.lifetime_cool_points
 
         # When we add CP
         response = await client.post(
-            build_url(UsersURL.CP_ADD, user_id=user.id, company_id=pg_mirror_company.id),
+            build_url(UsersURL.CP_ADD, user_id=user.id, company_id=mirror_company.id),
             headers=token_company_user,
             json={
                 "amount": 1,
-                "requesting_user_id": str(pg_mirror_user.id),
-                "campaign_id": str(pg_mirror_campaign.id),
+                "requesting_user_id": str(mirror_user.id),
+                "campaign_id": str(mirror_campaign.id),
             },
         )
 
@@ -184,27 +184,27 @@ class TestExperienceController:
         assert data["cool_points"] == 1
 
         # Then the user's lifetime cool points are updated in the database
-        user = await PgUser.get(id=user.id)
+        user = await User.get(id=user.id)
         assert user.lifetime_cool_points == initial_lifetime_cp + 1
 
     async def test_remove_xp_from_experience(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_campaign: PgCampaign,
-        pg_mirror_user: PgUser,
-        pg_user_factory: Callable[..., PgUser],
-        pg_campaign_experience_factory: Callable[..., PgCampaignExperience],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_campaign: Campaign,
+        mirror_user: User,
+        user_factory: Callable[..., User],
+        campaign_experience_factory: Callable[..., CampaignExperience],
         token_company_user: dict[str, str],
     ) -> None:
         """Verify removing XP updates campaign experience correctly."""
         # Given a user with existing experience
-        user = await pg_user_factory(company=pg_mirror_company)
-        await pg_campaign_experience_factory(
+        user = await user_factory(company=mirror_company)
+        await campaign_experience_factory(
             user=user,
-            campaign=pg_mirror_campaign,
+            campaign=mirror_campaign,
             xp_current=10,
             xp_total=10,
             cool_points=1,
@@ -212,12 +212,12 @@ class TestExperienceController:
 
         # When we remove XP
         response = await client.post(
-            build_url(UsersURL.XP_REMOVE, user_id=user.id, company_id=pg_mirror_company.id),
+            build_url(UsersURL.XP_REMOVE, user_id=user.id, company_id=mirror_company.id),
             headers=token_company_user,
             json={
                 "amount": 6,
-                "requesting_user_id": str(pg_mirror_user.id),
-                "campaign_id": str(pg_mirror_campaign.id),
+                "requesting_user_id": str(mirror_user.id),
+                "campaign_id": str(mirror_campaign.id),
             },
         )
 
@@ -240,13 +240,13 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_company_factory: Callable[..., PgCompany],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            company_factory: Callable[..., Company],
         ) -> None:
             """Verify listing users returns empty when none exist."""
             # Given a company with no users
-            company = await pg_company_factory(name="empty-co", email="empty@test.com")
+            company = await company_factory(name="empty-co", email="empty@test.com")
 
             # When we list users
             response = await client.get(
@@ -262,18 +262,18 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify listing users returns paginated results."""
             # Given users in the company
-            user1 = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
-            user2 = await pg_user_factory(company=pg_mirror_company, role="PLAYER")
+            user1 = await user_factory(company=mirror_company, role="ADMIN")
+            user2 = await user_factory(company=mirror_company, role="PLAYER")
 
             # When we list users
             response = await client.get(
-                build_url(UsersURL.LIST, company_id=pg_mirror_company.id),
+                build_url(UsersURL.LIST, company_id=mirror_company.id),
                 headers=token_global_admin,
             )
 
@@ -290,18 +290,18 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify listing users filtered by role returns only matching users."""
             # Given users with different roles
-            admin_user = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
-            await pg_user_factory(company=pg_mirror_company, role="PLAYER")
+            admin_user = await user_factory(company=mirror_company, role="ADMIN")
+            await user_factory(company=mirror_company, role="PLAYER")
 
             # When we list users filtered by ADMIN role
             response = await client.get(
-                build_url(UsersURL.LIST, company_id=pg_mirror_company.id),
+                build_url(UsersURL.LIST, company_id=mirror_company.id),
                 headers=token_global_admin,
                 params={"user_role": UserRole.ADMIN.value},
             )
@@ -320,13 +320,13 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
+            mirror_company: Company,
+            mirror_global_admin: Developer,
         ) -> None:
             """Verify getting a non-existent user returns 404."""
             # When we get a user that does not exist
             response = await client.get(
-                build_url(UsersURL.DETAIL, user_id=uuid4(), company_id=pg_mirror_company.id),
+                build_url(UsersURL.DETAIL, user_id=uuid4(), company_id=mirror_company.id),
                 headers=token_global_admin,
             )
 
@@ -338,17 +338,17 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify getting a user returns correct data."""
             # Given a user
-            user = await pg_user_factory(company=pg_mirror_company)
+            user = await user_factory(company=mirror_company)
 
             # When we get the user
             response = await client.get(
-                build_url(UsersURL.DETAIL, user_id=user.id, company_id=pg_mirror_company.id),
+                build_url(UsersURL.DETAIL, user_id=user.id, company_id=mirror_company.id),
                 headers=token_global_admin,
             )
 
@@ -358,22 +358,22 @@ class TestUserController:
             assert data["id"] == str(user.id)
             assert data["username"] == user.username
             assert data["email"] == user.email
-            assert data["company_id"] == str(pg_mirror_company.id)
+            assert data["company_id"] == str(mirror_company.id)
 
         async def test_get_user_no_results_company_federation(
             self,
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
-            pg_company_factory: Callable[..., PgCompany],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
+            company_factory: Callable[..., Company],
         ) -> None:
             """Verify getting a user from wrong company returns 404."""
             # Given a user in one company
-            user = await pg_user_factory(company=pg_mirror_company)
-            company2 = await pg_company_factory(name="other-co", email="other@test.com")
+            user = await user_factory(company=mirror_company)
+            company2 = await company_factory(name="other-co", email="other@test.com")
 
             # When we try to get the user from a different company
             response = await client.get(
@@ -392,14 +392,14 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
         ) -> None:
             """Verify creating a user returns the new user."""
             # When we create a user
             response = await client.post(
-                build_url(UsersURL.CREATE, company_id=pg_mirror_company.id),
+                build_url(UsersURL.CREATE, company_id=mirror_company.id),
                 headers=token_global_admin,
                 json={
                     "name_first": "Test",
@@ -408,7 +408,7 @@ class TestUserController:
                     "email": "test@test.com",
                     "role": "ADMIN",
                     "discord_profile": {"username": "discord_username"},
-                    "requesting_user_id": str(pg_mirror_user_admin.id),
+                    "requesting_user_id": str(mirror_user_admin.id),
                 },
             )
 
@@ -418,10 +418,10 @@ class TestUserController:
             assert data["username"] == "test_user"
             assert data["email"] == "test@test.com"
             assert data["role"] == "ADMIN"
-            assert data["company_id"] == str(pg_mirror_company.id)
+            assert data["company_id"] == str(mirror_company.id)
 
             # Then the user exists in the database
-            new_user = await PgUser.get(id=data["id"])
+            new_user = await User.get(id=data["id"])
             assert new_user is not None
             assert new_user.username == "test_user"
 
@@ -433,17 +433,17 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify updating a user returns the updated data."""
             # Given a user
-            user = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
+            user = await user_factory(company=mirror_company, role="ADMIN")
 
             # When we update the user
             response = await client.patch(
-                build_url(UsersURL.UPDATE, user_id=user.id, company_id=pg_mirror_company.id),
+                build_url(UsersURL.UPDATE, user_id=user.id, company_id=mirror_company.id),
                 headers=token_global_admin,
                 json={
                     "name_first": "Test",
@@ -467,7 +467,7 @@ class TestUserController:
             assert data["discord_profile"]["username"] == "discord_username"
 
             # Then the database is updated
-            user = await PgUser.get(id=user.id)
+            user = await User.get(id=user.id)
             assert user.username == "test_user_updated"
 
     class TestDeleteUser:
@@ -478,17 +478,17 @@ class TestUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify deleting a user archives them."""
             # Given a user
-            user = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
+            user = await user_factory(company=mirror_company, role="ADMIN")
 
             # When we delete the user
             response = await client.delete(
-                build_url(UsersURL.DELETE, user_id=user.id, company_id=pg_mirror_company.id),
+                build_url(UsersURL.DELETE, user_id=user.id, company_id=mirror_company.id),
                 headers=token_global_admin,
                 params={"requesting_user_id": str(user.id)},
             )
@@ -497,7 +497,7 @@ class TestUserController:
             assert response.status_code == HTTP_204_NO_CONTENT
 
             # Then the user is archived in the database
-            user = await PgUser.get(id=user.id)
+            user = await User.get(id=user.id)
             assert user.is_archived is True
             assert user.archive_date is not None
 
@@ -510,16 +510,16 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
     ) -> None:
         """Verify listing quick rolls returns empty when none exist."""
         response = await client.get(
             build_url(
                 UsersURL.QUICKROLLS,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_company_user,
         )
@@ -531,24 +531,24 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
+        quickroll_factory: Callable[..., QuickRoll],
     ) -> None:
         """Verify listing quick rolls returns sorted, non-archived results."""
         # Given two active quick rolls and one archived
-        traits = await PgTrait.filter(is_archived=False).limit(2)
-        qr1 = await pg_quickroll_factory(name="B Quick Roll", user=pg_mirror_user, traits=traits)
-        qr2 = await pg_quickroll_factory(name="A Quick Roll", user=pg_mirror_user, traits=traits)
-        await pg_quickroll_factory(name="Archived Roll", user=pg_mirror_user, is_archived=True)
+        traits = await Trait.filter(is_archived=False).limit(2)
+        qr1 = await quickroll_factory(name="B Quick Roll", user=mirror_user, traits=traits)
+        qr2 = await quickroll_factory(name="A Quick Roll", user=mirror_user, traits=traits)
+        await quickroll_factory(name="Archived Roll", user=mirror_user, is_archived=True)
 
         # When we list quick rolls
         response = await client.get(
             build_url(
                 UsersURL.QUICKROLLS,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_company_user,
         )
@@ -567,22 +567,20 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
+        quickroll_factory: Callable[..., QuickRoll],
     ) -> None:
         """Verify getting a quick roll by ID returns correct data."""
-        traits = await PgTrait.filter(is_archived=False).limit(1)
-        quickroll = await pg_quickroll_factory(
-            name="Quick Roll 1", user=pg_mirror_user, traits=traits
-        )
+        traits = await Trait.filter(is_archived=False).limit(1)
+        quickroll = await quickroll_factory(name="Quick Roll 1", user=mirror_user, traits=traits)
 
         response = await client.get(
             build_url(
                 UsersURL.QUICKROLL_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
                 quickroll_id=quickroll.id,
             ),
             headers=token_company_user,
@@ -598,16 +596,16 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
     ) -> None:
         """Verify getting a non-existent quick roll returns 404."""
         response = await client.get(
             build_url(
                 UsersURL.QUICKROLL_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
                 quickroll_id=uuid4(),
             ),
             headers=token_company_user,
@@ -620,17 +618,17 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
     ) -> None:
         """Verify creating a quick roll returns the new resource."""
-        trait = await PgTrait.filter(is_archived=False).first()
+        trait = await Trait.filter(is_archived=False).first()
         response = await client.post(
             build_url(
                 UsersURL.QUICKROLL_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_company_user,
             json={"name": "Quick Roll 1", "trait_ids": [str(trait.id)]},
@@ -639,11 +637,11 @@ class TestQuickRollController:
         data = response.json()
 
         assert data["name"] == "Quick Roll 1"
-        assert data["user_id"] == str(pg_mirror_user.id)
+        assert data["user_id"] == str(mirror_user.id)
         assert data["trait_ids"] == [str(trait.id)]
 
         # Verify persisted in database
-        quickroll = await PgQuickRoll.get(id=data["id"]).prefetch_related("traits")
+        quickroll = await QuickRoll.get(id=data["id"]).prefetch_related("traits")
         assert quickroll.name == "Quick Roll 1"
         assert [t.id for t in quickroll.traits] == [trait.id]
 
@@ -652,23 +650,21 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
+        quickroll_factory: Callable[..., QuickRoll],
     ) -> None:
         """Verify patching a quick roll updates only sent fields."""
-        traits = await PgTrait.filter(is_archived=False).limit(2)
-        quickroll = await pg_quickroll_factory(
-            name="Quick Roll 1", user=pg_mirror_user, traits=traits
-        )
+        traits = await Trait.filter(is_archived=False).limit(2)
+        quickroll = await quickroll_factory(name="Quick Roll 1", user=mirror_user, traits=traits)
 
         # When we patch the name only
         response = await client.patch(
             build_url(
                 UsersURL.QUICKROLL_UPDATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
                 quickroll_id=quickroll.id,
             ),
             headers=token_company_user,
@@ -686,19 +682,19 @@ class TestQuickRollController:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_quickroll_factory: Callable[..., PgQuickRoll],
+        mirror_company: Company,
+        mirror_company_user: Developer,
+        mirror_user: User,
+        quickroll_factory: Callable[..., QuickRoll],
     ) -> None:
         """Verify deleting a quick roll archives it."""
-        quickroll = await pg_quickroll_factory(name="Quick Roll 1", user=pg_mirror_user)
+        quickroll = await quickroll_factory(name="Quick Roll 1", user=mirror_user)
 
         response = await client.delete(
             build_url(
                 UsersURL.QUICKROLL_DELETE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
                 quickroll_id=quickroll.id,
             ),
             headers=token_company_user,
@@ -707,7 +703,7 @@ class TestQuickRollController:
         assert response.status_code == HTTP_204_NO_CONTENT
 
         # Verify the quick roll is archived
-        archived = await PgQuickRoll.get(id=quickroll.id)
+        archived = await QuickRoll.get(id=quickroll.id)
         assert archived.is_archived
         assert archived.archive_date is not None
 
@@ -723,16 +719,16 @@ class TestUnapprovedUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
         ) -> None:
             """Verify listing unapproved users returns empty when none exist."""
             # When we list unapproved users
             response = await client.get(
-                build_url(UsersURL.UNAPPROVED_LIST, company_id=pg_mirror_company.id),
+                build_url(UsersURL.UNAPPROVED_LIST, company_id=mirror_company.id),
                 headers=token_global_admin,
-                params={"requesting_user_id": str(pg_mirror_user_admin.id)},
+                params={"requesting_user_id": str(mirror_user_admin.id)},
             )
 
             # Then we get an empty paginated response
@@ -744,21 +740,21 @@ class TestUnapprovedUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify listing unapproved users returns only unapproved, non-archived users."""
             # Given unapproved and approved users
-            unapproved_user = await pg_user_factory(company=pg_mirror_company, role="UNAPPROVED")
-            await pg_user_factory(company=pg_mirror_company, role="PLAYER")
+            unapproved_user = await user_factory(company=mirror_company, role="UNAPPROVED")
+            await user_factory(company=mirror_company, role="PLAYER")
 
             # When we list unapproved users
             response = await client.get(
-                build_url(UsersURL.UNAPPROVED_LIST, company_id=pg_mirror_company.id),
+                build_url(UsersURL.UNAPPROVED_LIST, company_id=mirror_company.id),
                 headers=token_global_admin,
-                params={"requesting_user_id": str(pg_mirror_user_admin.id)},
+                params={"requesting_user_id": str(mirror_user_admin.id)},
             )
 
             # Then we get only the unapproved, non-archived user
@@ -776,26 +772,26 @@ class TestUnapprovedUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify approving an unapproved user sets the new role."""
             # Given an unapproved user
-            unapproved_user = await pg_user_factory(company=pg_mirror_company, role="UNAPPROVED")
+            unapproved_user = await user_factory(company=mirror_company, role="UNAPPROVED")
 
             # When we approve the user
             response = await client.post(
                 build_url(
                     UsersURL.APPROVE,
                     user_id=unapproved_user.id,
-                    company_id=pg_mirror_company.id,
+                    company_id=mirror_company.id,
                 ),
                 headers=token_global_admin,
                 json={
                     "role": UserRole.PLAYER.value,
-                    "requesting_user_id": str(pg_mirror_user_admin.id),
+                    "requesting_user_id": str(mirror_user_admin.id),
                 },
             )
 
@@ -804,7 +800,7 @@ class TestUnapprovedUserController:
             assert response.json()["role"] == UserRole.PLAYER.value
 
             # Then the database is updated
-            updated_user = await PgUser.get(id=unapproved_user.id)
+            updated_user = await User.get(id=unapproved_user.id)
             assert updated_user.role == UserRole.PLAYER
 
         async def test_approve_user_not_unapproved(
@@ -812,26 +808,26 @@ class TestUnapprovedUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify approving a non-unapproved user returns 400."""
             # Given a player user
-            player_user = await pg_user_factory(company=pg_mirror_company, role="PLAYER")
+            player_user = await user_factory(company=mirror_company, role="PLAYER")
 
             # When we try to approve a non-unapproved user
             response = await client.post(
                 build_url(
                     UsersURL.APPROVE,
                     user_id=player_user.id,
-                    company_id=pg_mirror_company.id,
+                    company_id=mirror_company.id,
                 ),
                 headers=token_global_admin,
                 json={
                     "role": UserRole.STORYTELLER.value,
-                    "requesting_user_id": str(pg_mirror_user_admin.id),
+                    "requesting_user_id": str(mirror_user_admin.id),
                 },
             )
 
@@ -846,25 +842,25 @@ class TestUnapprovedUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify denying an unapproved user archives them."""
             # Given an unapproved user
-            unapproved_user = await pg_user_factory(company=pg_mirror_company, role="UNAPPROVED")
+            unapproved_user = await user_factory(company=mirror_company, role="UNAPPROVED")
 
             # When we deny the user
             response = await client.post(
                 build_url(
                     UsersURL.DENY,
                     user_id=unapproved_user.id,
-                    company_id=pg_mirror_company.id,
+                    company_id=mirror_company.id,
                 ),
                 headers=token_global_admin,
                 json={
-                    "requesting_user_id": str(pg_mirror_user_admin.id),
+                    "requesting_user_id": str(mirror_user_admin.id),
                 },
             )
 
@@ -872,7 +868,7 @@ class TestUnapprovedUserController:
             assert response.status_code == HTTP_201_CREATED
 
             # Then the user is archived
-            updated_user = await PgUser.get(id=unapproved_user.id)
+            updated_user = await User.get(id=unapproved_user.id)
             assert updated_user.is_archived is True
 
         async def test_deny_user_not_unapproved(
@@ -880,25 +876,25 @@ class TestUnapprovedUserController:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_mirror_user_admin: PgUser,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            mirror_user_admin: User,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify denying a non-unapproved user returns 400."""
             # Given a player user
-            player_user = await pg_user_factory(company=pg_mirror_company, role="PLAYER")
+            player_user = await user_factory(company=mirror_company, role="PLAYER")
 
             # When we try to deny a non-unapproved user
             response = await client.post(
                 build_url(
                     UsersURL.DENY,
                     user_id=player_user.id,
-                    company_id=pg_mirror_company.id,
+                    company_id=mirror_company.id,
                 ),
                 headers=token_global_admin,
                 json={
-                    "requesting_user_id": str(pg_mirror_user_admin.id),
+                    "requesting_user_id": str(mirror_user_admin.id),
                 },
             )
 
@@ -917,13 +913,13 @@ class TestUserRegistration:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
+            mirror_company: Company,
+            mirror_global_admin: Developer,
         ) -> None:
             """Verify registering a user creates an UNAPPROVED user."""
             # When we register a user
             response = await client.post(
-                build_url(UsersURL.REGISTER, company_id=pg_mirror_company.id),
+                build_url(UsersURL.REGISTER, company_id=mirror_company.id),
                 headers=token_global_admin,
                 json={
                     "username": "sso_user",
@@ -944,7 +940,7 @@ class TestUserRegistration:
             assert result["google_profile"]["email"] == "sso@gmail.com"
 
             # Then the user exists in the database
-            new_user = await PgUser.get(id=result["id"])
+            new_user = await User.get(id=result["id"])
             assert new_user is not None
             assert new_user.role == UserRole.UNAPPROVED
 
@@ -953,13 +949,13 @@ class TestUserRegistration:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
+            mirror_company: Company,
+            mirror_global_admin: Developer,
         ) -> None:
             """Verify registration fails without required fields."""
             # When we register without required fields
             response = await client.post(
-                build_url(UsersURL.REGISTER, company_id=pg_mirror_company.id),
+                build_url(UsersURL.REGISTER, company_id=mirror_company.id),
                 headers=token_global_admin,
                 json={"name_first": "Test"},
             )
@@ -975,28 +971,28 @@ class TestUserRegistration:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify merging absorbs profile and deletes secondary."""
             # Given a primary user and an UNAPPROVED secondary user
-            admin_user = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
-            primary_user = await pg_user_factory(
-                company=pg_mirror_company,
+            admin_user = await user_factory(company=mirror_company, role="ADMIN")
+            primary_user = await user_factory(
+                company=mirror_company,
                 google_profile=None,
                 github_profile=None,
                 discord_profile=None,
             )
-            secondary_user = await pg_user_factory(
-                company=pg_mirror_company,
+            secondary_user = await user_factory(
+                company=mirror_company,
                 role="UNAPPROVED",
                 google_profile={"email": "secondary@gmail.com", "username": "Secondary"},
             )
 
             # When we merge the users
             response = await client.post(
-                build_url(UsersURL.MERGE, company_id=pg_mirror_company.id),
+                build_url(UsersURL.MERGE, company_id=mirror_company.id),
                 headers=token_global_admin,
                 json={
                     "primary_user_id": str(primary_user.id),
@@ -1012,7 +1008,7 @@ class TestUserRegistration:
             assert result["google_profile"]["email"] == "secondary@gmail.com"
 
             # Then the secondary user is archived
-            archived_user = await PgUser.get(id=secondary_user.id)
+            archived_user = await User.get(id=secondary_user.id)
             assert archived_user.is_archived is True
 
         async def test_merge_users_secondary_not_unapproved(
@@ -1020,19 +1016,19 @@ class TestUserRegistration:
             client: AsyncClient,
             build_url: Callable[[str, Any], str],
             token_global_admin: dict[str, str],
-            pg_mirror_company: PgCompany,
-            pg_mirror_global_admin: PgDeveloper,
-            pg_user_factory: Callable[..., PgUser],
+            mirror_company: Company,
+            mirror_global_admin: Developer,
+            user_factory: Callable[..., User],
         ) -> None:
             """Verify merge rejects when secondary is not UNAPPROVED."""
             # Given two active users
-            admin_user = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
-            primary_user = await pg_user_factory(company=pg_mirror_company)
-            secondary_user = await pg_user_factory(company=pg_mirror_company, role="PLAYER")
+            admin_user = await user_factory(company=mirror_company, role="ADMIN")
+            primary_user = await user_factory(company=mirror_company)
+            secondary_user = await user_factory(company=mirror_company, role="PLAYER")
 
             # When we attempt to merge
             response = await client.post(
-                build_url(UsersURL.MERGE, company_id=pg_mirror_company.id),
+                build_url(UsersURL.MERGE, company_id=mirror_company.id),
                 headers=token_global_admin,
                 json={
                     "primary_user_id": str(primary_user.id),
@@ -1053,20 +1049,18 @@ class TestListUsersEmailFilter:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_user_factory: Callable[..., PgUser],
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        user_factory: Callable[..., User],
     ) -> None:
         """Verify filtering users by email returns matching results."""
         # Given users with different emails
-        await pg_user_factory(
-            company=pg_mirror_company, email="alice@example.com", username="alice"
-        )
-        await pg_user_factory(company=pg_mirror_company, email="bob@example.com", username="bob")
+        await user_factory(company=mirror_company, email="alice@example.com", username="alice")
+        await user_factory(company=mirror_company, email="bob@example.com", username="bob")
 
         # When we filter by email
         response = await client.get(
-            build_url(UsersURL.LIST, company_id=pg_mirror_company.id),
+            build_url(UsersURL.LIST, company_id=mirror_company.id),
             headers=token_global_admin,
             params={"email": "alice@example.com"},
         )
@@ -1082,13 +1076,13 @@ class TestListUsersEmailFilter:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
     ) -> None:
         """Verify email filter returns empty when no match."""
         # When we filter by a nonexistent email
         response = await client.get(
-            build_url(UsersURL.LIST, company_id=pg_mirror_company.id),
+            build_url(UsersURL.LIST, company_id=mirror_company.id),
             headers=token_global_admin,
             params={"email": "nonexistent@example.com"},
         )

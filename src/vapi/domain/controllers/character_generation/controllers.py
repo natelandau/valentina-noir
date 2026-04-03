@@ -18,20 +18,20 @@ from vapi.db.sql_models import (
 )
 from vapi.domain import hooks, urls
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
-from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
-from vapi.domain.pg_deps import (
+from vapi.domain.deps import (
     provide_campaign_by_id,
     provide_character_by_id_and_company,
-    provide_pg_company_by_id,
+    provide_company_by_id,
     provide_user_by_id_and_company,
 )
+from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.domain.services.user_svc import UserXPService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.pg_guards import (
-    pg_developer_company_user_guard,
-    pg_user_not_unapproved_guard,
-    pg_user_storyteller_guard,
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_not_unapproved_guard,
+    user_storyteller_guard,
 )
 from vapi.openapi.tags import APITags
 from vapi.utils.time import time_now
@@ -58,19 +58,19 @@ class CharacterGenerationController(Controller):
 
     tags = [APITags.CHARACTERS_AUTOGEN.name]
     dependencies = {
-        "company": Provide(provide_pg_company_by_id),
+        "company": Provide(provide_company_by_id),
         "user": Provide(provide_user_by_id_and_company),
         "campaign": Provide(provide_campaign_by_id),
         "character": Provide(provide_character_by_id_and_company),
     }
-    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @post(
         path=urls.Characters.AUTOGENERATE,
         summary="Autogenerate character",
         operation_id="autogenerateCharacter",
         description=AUTOGEN_DOCUMENTATION,
-        guards=[pg_user_storyteller_guard],
+        guards=[user_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def autogenerate_character_all_random(
@@ -83,22 +83,20 @@ class CharacterGenerationController(Controller):
         """Create a new character."""
         validation_service = GetModelByIdValidationService()
         concept = (
-            await validation_service.get_concept_by_uuid(data.concept_id)
-            if data.concept_id
-            else None
+            await validation_service.get_concept_by_id(data.concept_id) if data.concept_id else None
         )
         vampire_clan = (
-            await validation_service.get_vampire_clan_by_uuid(data.vampire_clan_id)
+            await validation_service.get_vampire_clan_by_id(data.vampire_clan_id)
             if data.vampire_clan_id
             else None
         )
         werewolf_tribe = (
-            await validation_service.get_werewolf_tribe_by_uuid(data.werewolf_tribe_id)
+            await validation_service.get_werewolf_tribe_by_id(data.werewolf_tribe_id)
             if data.werewolf_tribe_id
             else None
         )
         werewolf_auspice = (
-            await validation_service.get_werewolf_auspice_by_uuid(data.werewolf_auspice_id)
+            await validation_service.get_werewolf_auspice_by_id(data.werewolf_auspice_id)
             if data.werewolf_auspice_id
             else None
         )

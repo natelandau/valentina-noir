@@ -168,15 +168,15 @@ class TestUploadAsset:
 
     async def test_upload_asset_character(
         self,
-        pg_character_factory: Callable,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
     ) -> None:
         """Verify upload_asset creates S3Asset with character FK."""
         # Given: A character and user
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        character = await character_factory(company=company)
 
         # When: Uploading an asset
         service = AWSS3Service()
@@ -201,14 +201,14 @@ class TestUploadAsset:
 
     async def test_upload_asset_user(
         self,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
     ) -> None:
         """Verify upload_asset creates S3Asset with user_parent FK."""
         # Given: A user (as both parent and uploader)
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        uploader = await pg_user_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        uploader = await user_factory(company=company)
 
         # When: Uploading an asset
         service = AWSS3Service()
@@ -231,15 +231,15 @@ class TestUploadAsset:
 
     async def test_upload_asset_campaign(
         self,
-        pg_campaign_factory: Callable,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        campaign_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
     ) -> None:
         """Verify upload_asset creates S3Asset with campaign FK."""
         # Given: A campaign and user
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company)
 
         # When: Uploading an asset
         service = AWSS3Service()
@@ -261,17 +261,17 @@ class TestUploadAsset:
 
     async def test_upload_asset_campaign_book(
         self,
-        pg_campaign_book_factory: Callable,
-        pg_campaign_factory: Callable,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        campaign_book_factory: Callable,
+        campaign_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
     ) -> None:
         """Verify upload_asset creates S3Asset with book FK."""
         # Given: A campaign book and user
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        user = await user_factory(company=company)
 
         # When: Uploading an asset
         service = AWSS3Service()
@@ -293,19 +293,19 @@ class TestUploadAsset:
 
     async def test_upload_asset_campaign_chapter(
         self,
-        pg_campaign_chapter_factory: Callable,
-        pg_campaign_book_factory: Callable,
-        pg_campaign_factory: Callable,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        campaign_chapter_factory: Callable,
+        campaign_book_factory: Callable,
+        campaign_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
     ) -> None:
         """Verify upload_asset creates S3Asset with chapter FK."""
         # Given: A campaign chapter and user
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        book = await pg_campaign_book_factory(campaign=campaign)
-        chapter = await pg_campaign_chapter_factory(book=book)
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(book=book)
+        user = await user_factory(company=company)
 
         # When: Uploading an asset
         service = AWSS3Service()
@@ -340,17 +340,17 @@ class TestUploadAsset:
     )
     async def test_upload_asset_determines_asset_type(
         self,
-        pg_character_factory: Callable,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
         mime_type: str,
         expected_type: AssetType,
     ) -> None:
         """Verify upload_asset sets correct AssetType based on MIME type."""
         # Given: A character and user
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
+        user = await user_factory(company=company)
 
         # When: Uploading an asset with the given MIME type
         service = AWSS3Service()
@@ -369,15 +369,15 @@ class TestUploadAsset:
 
     async def test_upload_asset_sanitizes_filename(
         self,
-        pg_character_factory: Callable,
-        pg_user_factory: Callable,
-        pg_company_factory: Callable,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
     ) -> None:
         """Verify upload_asset sanitizes dangerous characters in filename."""
         # Given: A character, user, and dangerous filename
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
+        user = await user_factory(company=company)
         dangerous_filename = '../path/to/file"name;test.jpg'
 
         # When: Uploading an asset with a dangerous filename
@@ -440,16 +440,16 @@ class TestDeleteAsset:
 
     async def test_delete_asset(
         self,
-        pg_s3asset_factory: Callable,
-        pg_company_factory: Callable,
-        pg_user_factory: Callable,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
         mocker: MockerFixture,
     ) -> None:
         """Verify delete_asset removes asset from S3 and deletes the DB record."""
         # Given: An S3 asset
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        asset = await pg_s3asset_factory(company=company, uploaded_by=user)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(company=company, uploaded_by=user)
 
         # Patch the S3 deletion
         mocker.patch.object(AWSS3Service, "_delete_object_from_s3")
@@ -463,16 +463,16 @@ class TestDeleteAsset:
 
     async def test_delete_asset_raises_on_s3_error(
         self,
-        pg_s3asset_factory: Callable,
-        pg_company_factory: Callable,
-        pg_user_factory: Callable,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
         mocker: MockerFixture,
     ) -> None:
         """Verify delete_asset raises AWSS3Error when S3 deletion fails."""
         # Given: An S3 asset
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        asset = await pg_s3asset_factory(company=company, uploaded_by=user)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(company=company, uploaded_by=user)
 
         # Patch the S3 deletion to raise an error
         mocker.patch.object(

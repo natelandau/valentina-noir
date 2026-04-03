@@ -8,7 +8,7 @@ from litestar.controller import Controller
 
 from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.pg_guards import pg_developer_company_user_guard, pg_user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 
 from . import dto
 
@@ -16,7 +16,7 @@ from . import dto
 class BaseNoteController(Controller, ABC):
     """Abstract base controller for note CRUD operations."""
 
-    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @property
     @abstractmethod

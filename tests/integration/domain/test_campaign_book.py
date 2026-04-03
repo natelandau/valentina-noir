@@ -21,25 +21,25 @@ pytestmark = pytest.mark.anyio
 async def test_book_controller(
     client: AsyncClient,
     token_global_admin: dict[str, str],
-    pg_mirror_company: Company,
-    pg_mirror_global_admin,
-    pg_mirror_user: User,
-    pg_campaign_factory: Callable[..., Campaign],
-    pg_campaign_book_factory: Callable[..., CampaignBook],
+    mirror_company: Company,
+    mirror_global_admin,
+    mirror_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
     build_url: Callable[..., str],
 ) -> None:
     """Verify the campaign book CRUD workflow."""
     # Given a campaign with one book
-    campaign = await pg_campaign_factory(company=pg_mirror_company)
-    base_book = await pg_campaign_book_factory(campaign=campaign)
+    campaign = await campaign_factory(company=mirror_company)
+    base_book = await campaign_book_factory(campaign=campaign)
 
     # When we create a book
     response = await client.post(
         build_url(
             Campaigns.BOOK_CREATE,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
         json={"name": "Test Book", "description": "Test Description"},
@@ -62,10 +62,10 @@ async def test_book_controller(
     response = await client.patch(
         build_url(
             Campaigns.BOOK_UPDATE,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=new_book_id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
         json={"name": "Test Book Updated"},
@@ -82,10 +82,10 @@ async def test_book_controller(
     response = await client.delete(
         build_url(
             Campaigns.BOOK_DELETE,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=new_book_id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
     )
@@ -97,9 +97,9 @@ async def test_book_controller(
     response = await client.get(
         build_url(
             Campaigns.BOOKS,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
     )
@@ -114,10 +114,10 @@ async def test_book_controller(
     response = await client.get(
         build_url(
             Campaigns.BOOK_DETAIL,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=base_book.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
     )
@@ -130,20 +130,20 @@ async def test_book_controller(
 async def test_renumber_book(
     client: AsyncClient,
     token_global_admin: dict[str, str],
-    pg_mirror_company: Company,
-    pg_mirror_global_admin,
-    pg_mirror_user: User,
-    pg_campaign_factory: Callable[..., Campaign],
-    pg_campaign_book_factory: Callable[..., CampaignBook],
+    mirror_company: Company,
+    mirror_global_admin,
+    mirror_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
     build_url: Callable[..., str],
 ) -> None:
     """Verify the renumber book endpoint."""
     # Given a campaign with 4 books
-    campaign = await pg_campaign_factory(company=pg_mirror_company)
-    book1 = await pg_campaign_book_factory(campaign=campaign)
-    book2 = await pg_campaign_book_factory(campaign=campaign)
-    book3 = await pg_campaign_book_factory(campaign=campaign)
-    book4 = await pg_campaign_book_factory(campaign=campaign)
+    campaign = await campaign_factory(company=mirror_company)
+    book1 = await campaign_book_factory(campaign=campaign)
+    book2 = await campaign_book_factory(campaign=campaign)
+    book3 = await campaign_book_factory(campaign=campaign)
+    book4 = await campaign_book_factory(campaign=campaign)
 
     assert book1.number == 1
     assert book2.number == 2
@@ -154,10 +154,10 @@ async def test_renumber_book(
     response = await client.put(
         build_url(
             Campaigns.BOOK_NUMBER,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book1.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         json={"number": 3},
         headers=token_global_admin,

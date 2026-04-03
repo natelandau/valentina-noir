@@ -15,7 +15,7 @@ from vapi.db.sql_models.character_sheet import (
     TraitCategory,
     TraitSubcategory,
 )
-from vapi.domain import pg_deps
+from vapi.domain import deps
 from vapi.lib.exceptions import NotFoundError
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ class TestProvideCharacterBlueprintSectionById:
         section = await CharSheetSection.filter(is_archived=False).first()
 
         # When we provide the section by ID
-        result = await pg_deps.provide_character_blueprint_section_by_id(section.id)
+        result = await deps.provide_character_blueprint_section_by_id(section.id)
 
         # Then the section is returned
         assert result.id == section.id
@@ -45,7 +45,7 @@ class TestProvideCharacterBlueprintSectionById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when section does not exist."""
         with pytest.raises(NotFoundError, match="Character sheet section not found"):
-            await pg_deps.provide_character_blueprint_section_by_id(uuid7())
+            await deps.provide_character_blueprint_section_by_id(uuid7())
 
 
 class TestProvideTraitCategoryById:
@@ -57,7 +57,7 @@ class TestProvideTraitCategoryById:
         category = await TraitCategory.filter(is_archived=False).first()
 
         # When we provide the category by ID
-        result = await pg_deps.provide_trait_category_by_id(category.id)
+        result = await deps.provide_trait_category_by_id(category.id)
 
         # Then the category is returned with sheet_section prefetched
         assert result.id == category.id
@@ -67,7 +67,7 @@ class TestProvideTraitCategoryById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when category does not exist."""
         with pytest.raises(NotFoundError, match="Trait category not found"):
-            await pg_deps.provide_trait_category_by_id(uuid7())
+            await deps.provide_trait_category_by_id(uuid7())
 
 
 class TestProvideTraitSubcategoryById:
@@ -79,7 +79,7 @@ class TestProvideTraitSubcategoryById:
         subcategory = await TraitSubcategory.filter(is_archived=False).first()
 
         # When we provide the subcategory by ID
-        result = await pg_deps.provide_trait_subcategory_by_id(subcategory.id)
+        result = await deps.provide_trait_subcategory_by_id(subcategory.id)
 
         # Then the subcategory is returned with relations prefetched
         assert result.id == subcategory.id
@@ -88,7 +88,7 @@ class TestProvideTraitSubcategoryById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when subcategory does not exist."""
         with pytest.raises(NotFoundError, match="Trait subcategory not found"):
-            await pg_deps.provide_trait_subcategory_by_id(uuid7())
+            await deps.provide_trait_subcategory_by_id(uuid7())
 
 
 class TestProvideTraitById:
@@ -100,7 +100,7 @@ class TestProvideTraitById:
         trait = await Trait.filter(is_archived=False).first()
 
         # When we provide the trait by ID
-        result = await pg_deps.provide_trait_by_id(trait.id)
+        result = await deps.provide_trait_by_id(trait.id)
 
         # Then the trait is returned with category and sheet_section prefetched
         assert result.id == trait.id
@@ -110,18 +110,18 @@ class TestProvideTraitById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when trait does not exist."""
         with pytest.raises(NotFoundError, match="Trait not found"):
-            await pg_deps.provide_trait_by_id(uuid7())
+            await deps.provide_trait_by_id(uuid7())
 
     async def test_raises_not_found_when_archived(
-        self, pg_trait_factory: Callable[..., Trait]
+        self, trait_factory: Callable[..., Trait]
     ) -> None:
         """Verify raising NotFoundError when trait is archived."""
         # Given an archived trait exists
-        trait = await pg_trait_factory(is_archived=True)
+        trait = await trait_factory(is_archived=True)
 
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Trait not found"):
-            await pg_deps.provide_trait_by_id(trait.id)
+            await deps.provide_trait_by_id(trait.id)
 
 
 class TestProvideCharacterConceptById:
@@ -133,7 +133,7 @@ class TestProvideCharacterConceptById:
         concept = await CharacterConcept.filter(is_archived=False).first()
 
         # When we provide the concept by ID
-        result = await pg_deps.provide_character_concept_by_id(concept.id)
+        result = await deps.provide_character_concept_by_id(concept.id)
 
         # Then the concept is returned
         assert result.id == concept.id
@@ -142,18 +142,18 @@ class TestProvideCharacterConceptById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when concept does not exist."""
         with pytest.raises(NotFoundError, match="Character concept not found"):
-            await pg_deps.provide_character_concept_by_id(uuid7())
+            await deps.provide_character_concept_by_id(uuid7())
 
     async def test_raises_not_found_when_archived(
-        self, pg_character_concept_factory: Callable[..., CharacterConcept]
+        self, character_concept_factory: Callable[..., CharacterConcept]
     ) -> None:
         """Verify raising NotFoundError when concept is archived."""
         # Given an archived concept exists
-        concept = await pg_character_concept_factory(is_archived=True)
+        concept = await character_concept_factory(is_archived=True)
 
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Character concept not found"):
-            await pg_deps.provide_character_concept_by_id(concept.id)
+            await deps.provide_character_concept_by_id(concept.id)
 
 
 class TestProvideVampireClanById:
@@ -165,7 +165,7 @@ class TestProvideVampireClanById:
         clan = await VampireClan.filter(is_archived=False).first()
 
         # When we provide the clan by ID
-        result = await pg_deps.provide_vampire_clan_by_id(clan.id)
+        result = await deps.provide_vampire_clan_by_id(clan.id)
 
         # Then the clan is returned with disciplines prefetched
         assert result.id == clan.id
@@ -175,7 +175,7 @@ class TestProvideVampireClanById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when vampire clan does not exist."""
         with pytest.raises(NotFoundError, match="Vampire clan not found"):
-            await pg_deps.provide_vampire_clan_by_id(uuid7())
+            await deps.provide_vampire_clan_by_id(uuid7())
 
 
 class TestProvideWerewolfTribeById:
@@ -187,7 +187,7 @@ class TestProvideWerewolfTribeById:
         tribe = await WerewolfTribe.filter(is_archived=False).first()
 
         # When we provide the tribe by ID
-        result = await pg_deps.provide_werewolf_tribe_by_id(tribe.id)
+        result = await deps.provide_werewolf_tribe_by_id(tribe.id)
 
         # Then the tribe is returned with gifts prefetched
         assert result.id == tribe.id
@@ -197,7 +197,7 @@ class TestProvideWerewolfTribeById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when werewolf tribe does not exist."""
         with pytest.raises(NotFoundError, match="Werewolf tribe not found"):
-            await pg_deps.provide_werewolf_tribe_by_id(uuid7())
+            await deps.provide_werewolf_tribe_by_id(uuid7())
 
 
 class TestProvideWerewolfAuspiceById:
@@ -209,7 +209,7 @@ class TestProvideWerewolfAuspiceById:
         auspice = await WerewolfAuspice.filter(is_archived=False).first()
 
         # When we provide the auspice by ID
-        result = await pg_deps.provide_werewolf_auspice_by_id(auspice.id)
+        result = await deps.provide_werewolf_auspice_by_id(auspice.id)
 
         # Then the auspice is returned with gifts prefetched
         assert result.id == auspice.id
@@ -219,7 +219,7 @@ class TestProvideWerewolfAuspiceById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when werewolf auspice does not exist."""
         with pytest.raises(NotFoundError, match="Werewolf auspice not found"):
-            await pg_deps.provide_werewolf_auspice_by_id(uuid7())
+            await deps.provide_werewolf_auspice_by_id(uuid7())
 
 
 class TestProvideDictionaryTermById:
@@ -227,42 +227,42 @@ class TestProvideDictionaryTermById:
 
     async def test_returns_company_owned_term(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify returning a company-owned dictionary term."""
-        company = await pg_company_factory()
-        term = await pg_dictionary_term_factory(company_id=company.id)
-        result = await pg_deps.provide_dictionary_term_by_id(company, term.id)
+        company = await company_factory()
+        term = await dictionary_term_factory(company_id=company.id)
+        result = await deps.provide_dictionary_term_by_id(company, term.id)
         assert str(result.id) == str(term.id)
 
     async def test_returns_global_term(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify returning a global dictionary term (company_id is None)."""
-        company = await pg_company_factory()
-        term = await pg_dictionary_term_factory(company_id=None)
-        result = await pg_deps.provide_dictionary_term_by_id(company, term.id)
+        company = await company_factory()
+        term = await dictionary_term_factory(company_id=None)
+        result = await deps.provide_dictionary_term_by_id(company, term.id)
         assert str(result.id) == str(term.id)
 
     async def test_raises_not_found_when_missing(
-        self, pg_company_factory: Callable[..., Company]
+        self, company_factory: Callable[..., Company]
     ) -> None:
         """Verify raising NotFoundError when term does not exist."""
-        company = await pg_company_factory()
+        company = await company_factory()
         with pytest.raises(NotFoundError, match="Dictionary term not found"):
-            await pg_deps.provide_dictionary_term_by_id(company, uuid7())
+            await deps.provide_dictionary_term_by_id(company, uuid7())
 
     async def test_raises_not_found_when_different_company(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify raising NotFoundError when term belongs to a different company."""
-        company_a = await pg_company_factory()
-        company_b = await pg_company_factory(name="Other Company", email="other@example.com")
-        term = await pg_dictionary_term_factory(company_id=company_a.id)
+        company_a = await company_factory()
+        company_b = await company_factory(name="Other Company", email="other@example.com")
+        term = await dictionary_term_factory(company_id=company_a.id)
         with pytest.raises(NotFoundError, match="Dictionary term not found"):
-            await pg_deps.provide_dictionary_term_by_id(company_b, term.id)
+            await deps.provide_dictionary_term_by_id(company_b, term.id)

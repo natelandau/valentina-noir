@@ -14,10 +14,8 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import CompanyPermission
-from vapi.db.sql_models.company import Company as PgCompany
-from vapi.db.sql_models.company import CompanySettings as PgCompanySettings
-from vapi.db.sql_models.developer import Developer as PgDeveloper
-from vapi.db.sql_models.developer import DeveloperCompanyPermission
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.domain.urls import Companies
 
 if TYPE_CHECKING:
@@ -37,11 +35,11 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify listing companies returns paginated results."""
-        # Given a company the developer has access to (created by pg_mirror fixtures)
+        # Given a company the developer has access to (created by mirror fixtures)
 
         # When we list companies
         response = await client.get(build_url(Companies.LIST), headers=token_company_user)
@@ -55,27 +53,27 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify getting a single company returns correct data."""
         # When we get the company
         response = await client.get(
-            build_url(Companies.DETAIL, company_id=pg_mirror_company.id),
+            build_url(Companies.DETAIL, company_id=mirror_company.id),
             headers=token_company_user,
         )
 
         # Then the response contains the company detail
         assert response.status_code == HTTP_200_OK
-        assert response.json()["id"] == str(pg_mirror_company.id)
+        assert response.json()["id"] == str(mirror_company.id)
 
     async def test_create_company(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify creating a company returns company and admin user."""
         # Given a new company to create
@@ -92,21 +90,21 @@ class TestCompanyCRUD:
         assert data["company"]["name"] == "Test Company"
         assert data["company"]["description"] == "Test Description"
         assert data["company"]["email"] == "test@test.com"
-        assert data["admin_user"]["username"] == pg_mirror_company_user.username
-        assert data["admin_user"]["email"] == pg_mirror_company_user.email
+        assert data["admin_user"]["username"] == mirror_company_user.username
+        assert data["admin_user"]["email"] == mirror_company_user.email
         assert data["admin_user"]["role"] == "ADMIN"
         assert data["admin_user"]["company_id"] == data["company"]["id"]
 
         # Then the company is created in the database
         company_id = data["company"]["id"]
-        company = await PgCompany.get(id=company_id)
+        company = await Company.get(id=company_id)
         assert company.name == "Test Company"
         assert company.description == "Test Description"
         assert company.email == "test@test.com"
 
         # And the developer is granted OWNER permission for the new company
         perm = await DeveloperCompanyPermission.filter(
-            developer_id=pg_mirror_company_user.id,
+            developer_id=mirror_company_user.id,
             company_id=company_id,
         ).first()
         assert perm is not None
@@ -117,15 +115,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify patching a company updates its name."""
         # Given a new company the developer has ADMIN access to
-        new_company = await PgCompany.create(name="original", email="original@test.com")
-        await PgCompanySettings.create(company=new_company)
+        new_company = await Company.create(name="original", email="original@test.com")
+        await CompanySettings.create(company=new_company)
         await DeveloperCompanyPermission.create(
-            developer=pg_mirror_company_user,
+            developer=mirror_company_user,
             company=new_company,
             permission=CompanyPermission.ADMIN,
         )
@@ -151,15 +149,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify patch fails when developer only has USER permission."""
         # Given a company where developer only has USER permission
-        new_company = await PgCompany.create(name="original", email="original@test.com")
-        await PgCompanySettings.create(company=new_company)
+        new_company = await Company.create(name="original", email="original@test.com")
+        await CompanySettings.create(company=new_company)
         await DeveloperCompanyPermission.create(
-            developer=pg_mirror_company_user,
+            developer=mirror_company_user,
             company=new_company,
             permission=CompanyPermission.USER,
         )
@@ -179,15 +177,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify deleting a company soft-deletes it."""
         # Given a company the developer owns
-        company = await PgCompany.create(name="to-delete", email="delete@test.com")
-        await PgCompanySettings.create(company=company)
+        company = await Company.create(name="to-delete", email="delete@test.com")
+        await CompanySettings.create(company=company)
         await DeveloperCompanyPermission.create(
-            developer=pg_mirror_company_user,
+            developer=mirror_company_user,
             company=company,
             permission=CompanyPermission.OWNER,
         )
@@ -210,15 +208,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify delete fails when developer only has ADMIN permission."""
         # Given a company where developer only has ADMIN permission
-        new_company = await PgCompany.create(name="original", email="original@test.com")
-        await PgCompanySettings.create(company=new_company)
+        new_company = await Company.create(name="original", email="original@test.com")
+        await CompanySettings.create(company=new_company)
         await DeveloperCompanyPermission.create(
-            developer=pg_mirror_company_user,
+            developer=mirror_company_user,
             company=new_company,
             permission=CompanyPermission.ADMIN,
         )
@@ -241,17 +239,17 @@ class TestCompanyPermissions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_owner: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_owner: PgDeveloper,
-        pg_developer_factory: Callable,
+        mirror_company: Company,
+        mirror_company_owner: Developer,
+        developer_factory: Callable,
     ) -> None:
         """Verify granting developer access to a company."""
         # Given a new developer with no company access
-        new_developer = await pg_developer_factory(username="new-dev", email="new@test.com")
+        new_developer = await developer_factory(username="new-dev", email="new@test.com")
 
         # When we grant the developer USER permission
         response = await client.post(
-            build_url(Companies.DEVELOPER_ACCESS, company_id=pg_mirror_company.id),
+            build_url(Companies.DEVELOPER_ACCESS, company_id=mirror_company.id),
             headers=token_company_owner,
             json={
                 "developer_id": str(new_developer.id),
@@ -261,14 +259,14 @@ class TestCompanyPermissions:
 
         # Then the response shows the permission
         assert response.status_code == HTTP_201_CREATED
-        assert response.json()["company_id"] == str(pg_mirror_company.id)
-        assert response.json()["name"] == pg_mirror_company.name
+        assert response.json()["company_id"] == str(mirror_company.id)
+        assert response.json()["name"] == mirror_company.name
         assert response.json()["permission"] == CompanyPermission.USER.value
 
         # And the permission exists in the database
         perm = await DeveloperCompanyPermission.filter(
             developer_id=new_developer.id,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
         ).first()
         assert perm is not None
         assert perm.permission == CompanyPermission.USER
@@ -278,16 +276,16 @@ class TestCompanyPermissions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify granting permissions fails for non-owner."""
         # When we try to control permissions as a USER
         response = await client.post(
-            build_url(Companies.DEVELOPER_ACCESS, company_id=pg_mirror_company.id),
+            build_url(Companies.DEVELOPER_ACCESS, company_id=mirror_company.id),
             headers=token_company_user,
             json={
-                "developer_id": str(pg_mirror_company_user.id),
+                "developer_id": str(mirror_company_user.id),
                 "permission": CompanyPermission.USER.name,
             },
         )
@@ -304,15 +302,15 @@ class TestCompanyValidation:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_user: PgDeveloper,
+        mirror_company: Company,
+        mirror_company_user: Developer,
     ) -> None:
         """Verify invalid company settings are rejected."""
         # Given a company the developer owns
-        company = await PgCompany.create(name="validation-test", email="valid@test.com")
-        await PgCompanySettings.create(company=company)
+        company = await Company.create(name="validation-test", email="valid@test.com")
+        await CompanySettings.create(company=company)
         await DeveloperCompanyPermission.create(
-            developer=pg_mirror_company_user,
+            developer=mirror_company_user,
             company=company,
             permission=CompanyPermission.OWNER,
         )

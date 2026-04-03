@@ -129,7 +129,7 @@ class UserService:
             ValidationError: If the secondary user is not UNAPPROVED or users are the same.
             PermissionDeniedError: If the requesting user is not an admin.
         """
-        from vapi.domain import pg_deps
+        from vapi.domain import deps
 
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
@@ -137,8 +137,8 @@ class UserService:
             raise ValidationError(detail="Cannot merge a user with themselves")
 
         primary_user, secondary_user = await asyncio.gather(
-            pg_deps.provide_user_by_id_and_company(user_id=primary_user_id, company=company),
-            pg_deps.provide_user_by_id_and_company(user_id=secondary_user_id, company=company),
+            deps.provide_user_by_id_and_company(user_id=primary_user_id, company=company),
+            deps.provide_user_by_id_and_company(user_id=secondary_user_id, company=company),
         )
 
         if secondary_user.role != UserRole.UNAPPROVED:
@@ -213,11 +213,11 @@ class UserService:
         return user
 
     async def remove_and_archive_user(self, *, user: User, company: Company) -> None:  # noqa: ARG002
-        """Archive a user and cascade archival to related Beanie data.
+        """Archive a user and cascade archival to related data.
 
         Args:
             user: The user to archive.
-            company: The company the user belongs to (unused — FK handles relationship).
+            company: The company the user belongs to (unused - FK handles relationship).
         """
         from vapi.domain.handlers.archive_handlers import archive_user_cascade
 
@@ -284,8 +284,7 @@ class UserService:
 class UserXPService:
     """XP and cool point management service.
 
-    Handles all CampaignExperience CRUD and XP/CP math that previously lived
-    as methods on the Beanie User model.
+    Handles all CampaignExperience CRUD and XP/CP math.
     """
 
     async def get_or_create_campaign_experience(

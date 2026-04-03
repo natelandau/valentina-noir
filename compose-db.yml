@@ -10,14 +10,6 @@ services:
       - .dev/redis:/data
     attach: false # suppress logs to console
 
-  mongodb:
-    image: mongo:latest
-    ports:
-      - 27017:27017
-    volumes:
-      - .dev/mongodb:/data/db
-    attach: false # suppress logs to console
-
   postgres:
     image: postgres:18
     ports:

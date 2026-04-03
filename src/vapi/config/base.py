@@ -112,13 +112,6 @@ class RedisSettings(BaseModel):
         )
 
 
-class MongoDBSettings(BaseModel):
-    """MongoDB settings."""
-
-    uri: str = Field(default="mongodb://localhost:27017")
-    database_name: str = Field(default="valentina-noir")
-
-
 class PostgresSettings(BaseModel):
     """PostgreSQL database settings."""
 
@@ -238,7 +231,6 @@ class Settings(BaseSettings):
     log: LoggingSettings = LoggingSettings()
     cors: CORSSettings = CORSSettings()
     allowed_hosts: AllowedHostsSettings = AllowedHostsSettings()
-    mongo: MongoDBSettings = MongoDBSettings()
     postgres: PostgresSettings = PostgresSettings()
     oauth: OAuthSettings = OAuthSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()

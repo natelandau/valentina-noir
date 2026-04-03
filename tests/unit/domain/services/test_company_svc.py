@@ -35,33 +35,31 @@ class DevelopersAndCompanies:
 
 @pytest.fixture
 async def developers_and_companies(
-    pg_company_factory: Callable[..., Company],
-    pg_developer_factory: Callable[..., Developer],
-    pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
+    company_factory: Callable[..., Company],
+    developer_factory: Callable[..., Developer],
+    developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
 ) -> DevelopersAndCompanies:
     """Create developers with varying permissions and two companies for permission tests."""
-    other_company = await pg_company_factory(name="Other Company", email="other@example.com")
-    company = await pg_company_factory(name="Main Company", email="main@example.com")
-    await pg_company_factory(
-        name="Archived Company", email="archived@example.com", is_archived=True
-    )
+    other_company = await company_factory(name="Other Company", email="other@example.com")
+    company = await company_factory(name="Main Company", email="main@example.com")
+    await company_factory(name="Archived Company", email="archived@example.com", is_archived=True)
 
-    global_admin = await pg_developer_factory(is_global_admin=True)
-    developer_owner = await pg_developer_factory(is_global_admin=False)
-    developer_admin = await pg_developer_factory(is_global_admin=False)
-    developer_user = await pg_developer_factory(is_global_admin=False)
+    global_admin = await developer_factory(is_global_admin=True)
+    developer_owner = await developer_factory(is_global_admin=False)
+    developer_admin = await developer_factory(is_global_admin=False)
+    developer_user = await developer_factory(is_global_admin=False)
 
-    await pg_developer_company_permission_factory(
+    await developer_company_permission_factory(
         developer=developer_owner,
         company=company,
         permission=CompanyPermission.OWNER,
     )
-    await pg_developer_company_permission_factory(
+    await developer_company_permission_factory(
         developer=developer_admin,
         company=company,
         permission=CompanyPermission.ADMIN,
     )
-    await pg_developer_company_permission_factory(
+    await developer_company_permission_factory(
         developer=developer_user,
         company=company,
         permission=CompanyPermission.USER,
@@ -154,13 +152,13 @@ class TestCanDeveloperAccessCompany:
     async def test_can_developer_access_company_developer_revoked(
         self,
         developers_and_companies: DevelopersAndCompanies,
-        pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
+        developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
     ) -> None:
         """Verify a developer with revoked permission is denied access."""
         # Given a developer whose permission is revoked
         developer_owner = developers_and_companies.developer_owner
         other_company = developers_and_companies.other_company
-        await pg_developer_company_permission_factory(
+        await developer_company_permission_factory(
             developer=developer_owner,
             company=other_company,
             permission=CompanyPermission.REVOKE,
@@ -248,15 +246,15 @@ class TestHelperMethods:
 
     async def test__get_developer_permission_found(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_developer_factory: Callable[..., Developer],
-        pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
+        company_factory: Callable[..., Company],
+        developer_factory: Callable[..., Developer],
+        developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
     ) -> None:
         """Verify _get_developer_permission returns a row when one exists."""
         # Given a developer with permission for a company
-        developer = await pg_developer_factory()
-        company = await pg_company_factory()
-        await pg_developer_company_permission_factory(
+        developer = await developer_factory()
+        company = await company_factory()
+        await developer_company_permission_factory(
             developer=developer,
             company=company,
             permission=CompanyPermission.OWNER,
@@ -274,13 +272,13 @@ class TestHelperMethods:
 
     async def test__get_developer_permission_not_found(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_developer_factory: Callable[..., Developer],
+        company_factory: Callable[..., Company],
+        developer_factory: Callable[..., Developer],
     ) -> None:
         """Verify _get_developer_permission returns None when no row exists."""
         # Given a developer with no permission for the company
-        developer = await pg_developer_factory()
-        company = await pg_company_factory()
+        developer = await developer_factory()
+        company = await company_factory()
 
         # When the method is called
         service = CompanyService()
@@ -339,12 +337,12 @@ class TestControlCompanyPermissions:
     async def test_control_company_permissions_new_success(
         self,
         developers_and_companies: DevelopersAndCompanies,
-        pg_developer_factory: Callable[..., Developer],
+        developer_factory: Callable[..., Developer],
     ) -> None:
         """Verify an owner can grant permission to a developer with no existing row."""
         # Given a developer with no permissions
         developer_owner = developers_and_companies.developer_owner
-        new_developer = await pg_developer_factory(is_archived=False)
+        new_developer = await developer_factory(is_archived=False)
         company = developers_and_companies.company
 
         # When the method is called
@@ -398,7 +396,7 @@ class TestControlCompanyPermissions:
     async def test_control_company_permissions_revoke_owner_success(
         self,
         developers_and_companies: DevelopersAndCompanies,
-        pg_developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
+        developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
     ) -> None:
         """Verify revoking one owner succeeds when another owner still exists."""
         # Given two owners of the same company

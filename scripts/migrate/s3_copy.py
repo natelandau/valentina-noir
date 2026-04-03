@@ -6,9 +6,9 @@ from pathlib import Path
 import boto3
 from beanie import PydanticObjectId
 from botocore.config import Config as BotoConfig
+from vapi.db.models import S3Asset
 
 from vapi.config import settings
-from vapi.db.models import S3Asset
 
 from .config import get_old_settings
 

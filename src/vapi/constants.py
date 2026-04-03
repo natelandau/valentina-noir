@@ -217,18 +217,3 @@ class AssetType(StrEnum):
     DOCUMENT = "document"
     ARCHIVE = "archive"
     OTHER = "other"
-
-
-class AssetParentType(StrEnum):
-    """S3 asset parent type.
-
-    The values are the lowercase class name of the parent database model.
-    """
-
-    CHARACTER = "character"
-    CAMPAIGN = "campaign"
-    CAMPAIGN_BOOK = "campaignbook"
-    CAMPAIGN_CHAPTER = "campaignchapter"
-    USER = "user"
-    COMPANY = "company"
-    UNKNOWN = "unknown"

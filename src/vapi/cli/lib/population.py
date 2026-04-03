@@ -7,18 +7,14 @@ import click
 from rich.console import Console
 
 from vapi.cli.constants import API_KEYS_FILE, DEV_FOLDER
-from vapi.cli.lib import factories
 from vapi.cli.schemas import APIKeyUser
 from vapi.constants import CharacterType, CompanyPermission, UserRole
-from vapi.db.models import (
-    Campaign,
-    Character,
-    Company,
-    Developer,
-    User,
-)
-from vapi.db.models.developer import CompanyPermissions
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.user import User
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
+from vapi.domain.services.developer_svc import DeveloperService
 
 logger = logging.getLogger("vapi")
 
@@ -28,6 +24,7 @@ class PopulationService:
 
     def __init__(self) -> None:
         self.console = Console()
+        self._developer_service = DeveloperService()
 
     async def populate(
         self,
@@ -58,14 +55,12 @@ class PopulationService:
 
     async def _create_developers(self) -> list[Developer]:
         """Create developer accounts for testing."""
-        global_admin = factories.DeveloperFactory.build(
-            model_version=1, is_global_admin=True, is_archived=False
+        global_admin = await Developer.create(
+            is_global_admin=True, username="dev-admin", email="admin@test.dev"
         )
-        await global_admin.save()
-        non_global_admin = factories.DeveloperFactory.build(
-            model_version=1, is_global_admin=False, is_archived=False
+        non_global_admin = await Developer.create(
+            is_global_admin=False, username="dev-user", email="user@test.dev"
         )
-        await non_global_admin.save()
 
         logger.info(
             "Created 2 Developers",
@@ -89,16 +84,17 @@ class PopulationService:
 
         companies: list[Company] = []
         for i in range(num_companies):
-            company = factories.CompanyFactory.build(model_version=1)
-            await company.save()
+            company = await Company.create(
+                name=f"Company {i + 1}", email=f"company{i + 1}@test.dev"
+            )
+            await CompanySettings.create(company=company)
             companies.append(company)
             if i != 0:
-                non_global_admin_developer.companies.append(
-                    CompanyPermissions(
-                        company_id=company.id, name=company.name, permission=CompanyPermission.ADMIN
-                    )
+                await DeveloperCompanyPermission.create(
+                    developer=non_global_admin_developer,
+                    company=company,
+                    permission=CompanyPermission.ADMIN,
                 )
-                await non_global_admin_developer.save()
         logger.info(
             "Created companies",
             extra={
@@ -114,19 +110,19 @@ class PopulationService:
         users: list[User] = []
         for company in companies:
             for i in range(num_users):
-                if i == 0:
-                    user = factories.UserFactory.build(company_id=company.id, role=UserRole.ADMIN)
-                else:
-                    user = factories.UserFactory.build(
-                        company_id=company.id,
-                        role=random.choice([UserRole.PLAYER, UserRole.STORYTELLER]),
-                    )
-
-                await user.save()
+                role = (
+                    UserRole.ADMIN
+                    if i == 0
+                    else random.choice([UserRole.PLAYER, UserRole.STORYTELLER])
+                )
+                user = await User.create(
+                    company=company,
+                    role=role,
+                    username=f"user-{i}-{company.id}",
+                    email=f"user{i}@{company.id}.dev",
+                )
                 users.append(user)
-                company.user_ids.append(user.id)
 
-            await company.save()
         logger.info(
             "Created users",
             extra={
@@ -143,22 +139,19 @@ class PopulationService:
         """Create campaigns with books and chapters for each company."""
         campaigns: list[Campaign] = []
         for company in companies:
-            for _ in range(num_campaigns):
-                campaign = factories.CampaignFactory.build(company_id=company.id)
-                await campaign.save()
+            for c in range(num_campaigns):
+                campaign = await Campaign.create(company=company, name=f"Campaign {c + 1}")
                 campaigns.append(campaign)
 
                 for i in range(2):
-                    campaign_book = factories.CampaignBookFactory.build(
-                        campaign_id=campaign.id, number=i + 1
+                    campaign_book = await CampaignBook.create(
+                        campaign=campaign, number=i + 1, name=f"Book {i + 1}"
                     )
-                    await campaign_book.save()
 
                     for j in range(2):
-                        campaign_chapter = factories.CampaignChapterFactory.build(
-                            book_id=campaign_book.id, number=j + 1
+                        await CampaignChapter.create(
+                            book=campaign_book, number=j + 1, name=f"Chapter {j + 1}"
                         )
-                        await campaign_chapter.save()
 
         logger.info(
             "Created campaigns",
@@ -172,12 +165,12 @@ class PopulationService:
 
     async def _create_characters(
         self, campaigns: list[Campaign], users: list[User], num_characters: int
-    ) -> list[Character]:
+    ) -> list:
         """Create characters for each campaign."""
-        characters: list[Character] = []
+        characters: list = []
 
         for campaign in campaigns:
-            company = await Company.get(campaign.company_id)
+            company = await Company.filter(id=campaign.company_id).first()
             for _ in range(num_characters):
                 user = random.choice(users)
                 chargen = CharacterAutogenerationHandler(
@@ -204,13 +197,13 @@ class PopulationService:
         """Generate API keys for all developer accounts."""
         return [
             APIKeyUser(
-                api_key=await user.generate_api_key(),
-                developer_id=user.id,
-                developer_name=user.username,
-                developer_email=user.email,
-                developer_is_global_admin=user.is_global_admin,
+                api_key=await self._developer_service.generate_api_key(developer),
+                developer_id=developer.id,
+                developer_name=developer.username,
+                developer_email=developer.email,
+                developer_is_global_admin=developer.is_global_admin,
             )
-            for user in developers
+            for developer in developers
         ]
 
     def write_api_keys_to_file(self, api_key_users: list[APIKeyUser]) -> None:

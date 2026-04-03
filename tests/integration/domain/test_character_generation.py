@@ -57,19 +57,19 @@ class TestAutogenerateCharacter:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify autogenerate character must be storyteller."""
         response = await client.post(
             build_url(
                 CharacterURL.AUTOGENERATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={"character_type": CharacterType.PLAYER.name},
@@ -81,10 +81,10 @@ class TestAutogenerateCharacter:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user_storyteller: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user_storyteller: User,
+        mirror_campaign: Campaign,
         debug: Callable[[Any], None],
         mocker: Any,
     ) -> None:
@@ -93,18 +93,18 @@ class TestAutogenerateCharacter:
         clan = await VampireClan.filter(is_archived=False, game_versions__contains=["V5"]).first()
         tribe = await WerewolfTribe.filter(is_archived=False).first()
         auspice = await WerewolfAuspice.filter(is_archived=False).first()
-        spy1 = mocker.spy(GetModelByIdValidationService, "get_concept_by_uuid")
-        spy2 = mocker.spy(GetModelByIdValidationService, "get_vampire_clan_by_uuid")
-        spy3 = mocker.spy(GetModelByIdValidationService, "get_werewolf_tribe_by_uuid")
-        spy4 = mocker.spy(GetModelByIdValidationService, "get_werewolf_auspice_by_uuid")
+        spy1 = mocker.spy(GetModelByIdValidationService, "get_concept_by_id")
+        spy2 = mocker.spy(GetModelByIdValidationService, "get_vampire_clan_by_id")
+        spy3 = mocker.spy(GetModelByIdValidationService, "get_werewolf_tribe_by_id")
+        spy4 = mocker.spy(GetModelByIdValidationService, "get_werewolf_auspice_by_id")
 
         # When creating a character with all random data
         response = await client.post(
             build_url(
                 CharacterURL.AUTOGENERATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user_storyteller.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user_storyteller.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -131,10 +131,10 @@ class TestAutogenerateCharacter:
         character_id = response.json()["id"]
         character = await Character.filter(id=character_id).first()
         assert character is not None
-        assert str(character.company_id) == str(pg_mirror_company.id)
-        assert str(character.user_creator_id) == str(pg_mirror_user_storyteller.id)
-        assert str(character.user_player_id) == str(pg_mirror_user_storyteller.id)
-        assert str(character.campaign_id) == str(pg_mirror_campaign.id)
+        assert str(character.company_id) == str(mirror_company.id)
+        assert str(character.user_creator_id) == str(mirror_user_storyteller.id)
+        assert str(character.user_player_id) == str(mirror_user_storyteller.id)
+        assert str(character.campaign_id) == str(mirror_campaign.id)
         assert character.type == CharacterType.PLAYER
         assert character.character_class == CharacterClass.MORTAL
         assert str(character.concept_id) == str(concept.id)
@@ -155,28 +155,28 @@ class TestCharacterChargen:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
         character_autogen_num_choices: int,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify start chargen endpoint."""
         # Given a company and user with the correct settings
-        await CompanySettings.filter(company=pg_mirror_company).update(
+        await CompanySettings.filter(company=mirror_company).update(
             character_autogen_num_choices=character_autogen_num_choices
         )
 
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
 
         # When we start chargen
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -196,14 +196,14 @@ class TestCharacterChargen:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify start chargen endpoint with no XP."""
         # Given a company with character_autogen_num_choices set to 1 and xp cost of 100
-        await CompanySettings.filter(company=pg_mirror_company).update(
+        await CompanySettings.filter(company=mirror_company).update(
             character_autogen_num_choices=1,
             character_autogen_xp_cost=100,
         )
@@ -212,9 +212,9 @@ class TestCharacterChargen:
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -229,23 +229,21 @@ class TestCharacterChargen:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify finalize chargen endpoint."""
         # Given a chargen session with 3 characters
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=3
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=3)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -258,9 +256,9 @@ class TestCharacterChargen:
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={"session_id": chargen_session_id, "selected_character_id": selected_character_id},
@@ -286,23 +284,21 @@ class TestCharacterChargen:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify finalize chargen endpoint with invalid session id."""
         # Given a chargen session with 3 characters
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=3
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=3)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -314,9 +310,9 @@ class TestCharacterChargen:
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -334,23 +330,21 @@ class TestCharacterChargen:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify finalize chargen endpoint with invalid selected character id."""
         # Given a chargen session with 3 characters
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=3
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=3)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -362,9 +356,9 @@ class TestCharacterChargen:
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -386,23 +380,21 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify listing active chargen sessions returns sessions with characters."""
         # Given a chargen session exists
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=2
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=2)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -413,9 +405,9 @@ class TestChargenSessions:
         response = await client.get(
             build_url(
                 CharacterURL.CHARGEN_SESSIONS,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -434,23 +426,21 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify expired sessions are excluded from the list."""
         # Given an expired chargen session
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=1
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=1)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -466,9 +456,9 @@ class TestChargenSessions:
         response = await client.get(
             build_url(
                 CharacterURL.CHARGEN_SESSIONS,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -484,35 +474,33 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
-        pg_user_factory: Any,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        user_factory: Any,
     ) -> None:
         """Verify sessions from other users are not visible."""
         # Given a chargen session for base_user
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=1
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=1)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
         assert start_response.status_code == HTTP_201_CREATED
 
         # Create a fake session for a different user
-        other_user = await pg_user_factory(company=pg_mirror_company)
+        other_user = await user_factory(company=mirror_company)
         fake_session = await ChargenSession.create(
             user=other_user,
-            company=pg_mirror_company,
-            campaign=pg_mirror_campaign,
+            company=mirror_company,
+            campaign=mirror_campaign,
             expires_at=time_now() + timedelta(hours=24),
             requires_selection=False,
         )
@@ -521,9 +509,9 @@ class TestChargenSessions:
         response = await client.get(
             build_url(
                 CharacterURL.CHARGEN_SESSIONS,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -534,30 +522,28 @@ class TestChargenSessions:
         session_ids = [s["id"] for s in sessions]
         assert str(fake_session.id) not in session_ids
         for s in sessions:
-            assert s["user_id"] == str(pg_mirror_user.id)
+            assert s["user_id"] == str(mirror_user.id)
 
     async def test_get_chargen_session_by_id(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify retrieving a session by ID returns the session with characters."""
         # Given a chargen session
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=2
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=2)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -568,9 +554,9 @@ class TestChargenSessions:
         response = await client.get(
             build_url(
                 CharacterURL.CHARGEN_SESSION_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 session_id=session_id,
             ),
             headers=token_global_admin,
@@ -587,19 +573,19 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify getting a non-existent session returns an error."""
         # When getting a session with a random ID
         response = await client.get(
             build_url(
                 CharacterURL.CHARGEN_SESSION_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 session_id=str(uuid4()),
             ),
             headers=token_global_admin,
@@ -613,23 +599,21 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify getting an expired session returns an error."""
         # Given an expired session
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=1
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=1)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -645,9 +629,9 @@ class TestChargenSessions:
         response = await client.get(
             build_url(
                 CharacterURL.CHARGEN_SESSION_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 session_id=session_id,
             ),
             headers=token_global_admin,
@@ -661,25 +645,23 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify starting chargen creates a ChargenSession in the database."""
         # Given
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=1
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=1)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
 
         # When starting chargen
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -689,32 +671,30 @@ class TestChargenSessions:
         session_id = response.json()["id"]
         session = await ChargenSession.filter(id=session_id).first()
         assert session is not None
-        assert str(session.user_id) == str(pg_mirror_user.id)
-        assert str(session.company_id) == str(pg_mirror_company.id)
-        assert str(session.campaign_id) == str(pg_mirror_campaign.id)
+        assert str(session.user_id) == str(mirror_user.id)
+        assert str(session.company_id) == str(mirror_company.id)
+        assert str(session.campaign_id) == str(mirror_campaign.id)
 
     async def test_finalize_chargen_deletes_session_document(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify finalizing chargen deletes the ChargenSession document."""
         # Given a chargen session with 3 characters
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=3
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=3)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -727,9 +707,9 @@ class TestChargenSessions:
         response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={"session_id": session_id, "selected_character_id": selected_character_id},
@@ -745,25 +725,23 @@ class TestChargenSessions:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin: Any,
-        pg_mirror_user: User,
-        pg_mirror_campaign: Campaign,
+        mirror_company: Company,
+        mirror_global_admin: Any,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify the scheduled task deletes expired sessions and their characters."""
         from vapi.lib.scheduled_tasks import purge_db_expired_items
 
         # Given an expired chargen session with characters
-        await CompanySettings.filter(company=pg_mirror_company).update(
-            character_autogen_num_choices=2
-        )
-        await UserXPService().add_xp(pg_mirror_user.id, pg_mirror_campaign.id, 100)
+        await CompanySettings.filter(company=mirror_company).update(character_autogen_num_choices=2)
+        await UserXPService().add_xp(mirror_user.id, mirror_campaign.id, 100)
         start_response = await client.post(
             build_url(
                 CharacterURL.CHARGEN_START,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )

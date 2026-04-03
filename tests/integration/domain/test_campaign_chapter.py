@@ -21,28 +21,28 @@ pytestmark = pytest.mark.anyio
 async def test_chapter_controller(
     client: AsyncClient,
     token_global_admin: dict[str, str],
-    pg_mirror_company: Company,
-    pg_mirror_global_admin,
-    pg_mirror_user: User,
-    pg_campaign_factory: Callable[..., Campaign],
-    pg_campaign_book_factory: Callable[..., CampaignBook],
-    pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+    mirror_company: Company,
+    mirror_global_admin,
+    mirror_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
     build_url: Callable[..., str],
 ) -> None:
     """Verify the campaign chapter CRUD workflow."""
     # Given a campaign with a book and one chapter
-    campaign = await pg_campaign_factory(company=pg_mirror_company)
-    book = await pg_campaign_book_factory(campaign=campaign)
-    base_chapter = await pg_campaign_chapter_factory(book=book)
+    campaign = await campaign_factory(company=mirror_company)
+    book = await campaign_book_factory(campaign=campaign)
+    base_chapter = await campaign_chapter_factory(book=book)
 
     # When we create a chapter
     response = await client.post(
         build_url(
             Campaigns.CHAPTER_CREATE,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
         json={"name": "Test Chapter", "description": "Test Description"},
@@ -65,11 +65,11 @@ async def test_chapter_controller(
     response = await client.patch(
         build_url(
             Campaigns.CHAPTER_UPDATE,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=new_chapter_id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
         json={"name": "Test Chapter Updated"},
@@ -86,11 +86,11 @@ async def test_chapter_controller(
     response = await client.delete(
         build_url(
             Campaigns.CHAPTER_DELETE,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=new_chapter_id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
     )
@@ -102,10 +102,10 @@ async def test_chapter_controller(
     response = await client.get(
         build_url(
             Campaigns.CHAPTERS,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
     )
@@ -120,11 +120,11 @@ async def test_chapter_controller(
     response = await client.get(
         build_url(
             Campaigns.CHAPTER_DETAIL,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=base_chapter.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         headers=token_global_admin,
     )
@@ -137,22 +137,22 @@ async def test_chapter_controller(
 async def test_renumber_chapter(
     client: AsyncClient,
     token_global_admin: dict[str, str],
-    pg_mirror_company: Company,
-    pg_mirror_global_admin,
-    pg_mirror_user: User,
-    pg_campaign_factory: Callable[..., Campaign],
-    pg_campaign_book_factory: Callable[..., CampaignBook],
-    pg_campaign_chapter_factory: Callable[..., CampaignChapter],
+    mirror_company: Company,
+    mirror_global_admin,
+    mirror_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
     build_url: Callable[..., str],
 ) -> None:
     """Verify the renumber chapter endpoint."""
     # Given a book with 4 chapters
-    campaign = await pg_campaign_factory(company=pg_mirror_company)
-    book = await pg_campaign_book_factory(campaign=campaign)
-    chapter1 = await pg_campaign_chapter_factory(book=book)
-    chapter2 = await pg_campaign_chapter_factory(book=book)
-    chapter3 = await pg_campaign_chapter_factory(book=book)
-    chapter4 = await pg_campaign_chapter_factory(book=book)
+    campaign = await campaign_factory(company=mirror_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter1 = await campaign_chapter_factory(book=book)
+    chapter2 = await campaign_chapter_factory(book=book)
+    chapter3 = await campaign_chapter_factory(book=book)
+    chapter4 = await campaign_chapter_factory(book=book)
 
     assert chapter1.number == 1
     assert chapter2.number == 2
@@ -163,11 +163,11 @@ async def test_renumber_chapter(
     response = await client.put(
         build_url(
             Campaigns.CHAPTER_NUMBER,
-            company_id=pg_mirror_company.id,
+            company_id=mirror_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=chapter1.id,
-            user_id=pg_mirror_user.id,
+            user_id=mirror_user.id,
         ),
         json={"number": 3},
         headers=token_global_admin,

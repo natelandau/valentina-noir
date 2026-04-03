@@ -12,10 +12,10 @@ from litestar.params import Parameter
 from vapi.constants import UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
-from vapi.lib.pg_guards import pg_developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -27,11 +27,11 @@ class UserController(Controller):
 
     tags = [APITags.USERS.name]
     dependencies = {
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "developer": Provide(pg_deps.provide_developer_from_request),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "company": Provide(deps.provide_company_by_id),
+        "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [pg_developer_company_user_guard]
+    guards = [developer_company_user_guard]
 
     @get(
         path=urls.Users.LIST,
@@ -83,7 +83,7 @@ class UserController(Controller):
         summary="Create user",
         operation_id="createUser",
         description=docs.CREATE_USER_DESCRIPTION,
-        guards=[pg_developer_company_user_guard],
+        guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def create_user(self, data: UserCreate, company: Company) -> UserResponse:
@@ -97,7 +97,7 @@ class UserController(Controller):
         summary="Update user",
         operation_id="updateUser",
         description=docs.UPDATE_USER_DESCRIPTION,
-        guards=[pg_developer_company_user_guard],
+        guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def update_user(self, user: User, data: UserPatch) -> UserResponse:
@@ -111,7 +111,7 @@ class UserController(Controller):
         summary="Delete user",
         operation_id="deleteUser",
         description=docs.DELETE_USER_DESCRIPTION,
-        guards=[pg_developer_company_user_guard],
+        guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def delete_user(self, user: User, company: Company, requesting_user_id: UUID) -> None:

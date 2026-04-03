@@ -13,7 +13,8 @@ from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 
 from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY
-from vapi.db.models import AuditLog, Company, User
+from vapi.db.sql_models.audit_log import AuditLog
+from vapi.db.sql_models.company import Company
 from vapi.domain.urls import Users as UsersURL
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.utils.time import time_now
@@ -24,9 +25,8 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
     from redis.asyncio import Redis
 
-    from vapi.db.models import Developer
-    from vapi.db.sql_models.company import Company as PgCompany
-    from vapi.db.sql_models.user import User as PgUser
+    from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
 
@@ -39,21 +39,19 @@ class TestAfterResponseHooks:
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
-        base_user: User,
-        base_company: Company,
         token_company_owner: dict[str, str],
-        base_developer_company_owner: Developer,
         redis: Redis,
-        pg_mirror_company: PgCompany,
-        pg_mirror_company_owner: ...,
-        pg_mirror_user: PgUser,
-        pg_user_factory: Callable[..., PgUser],
+        mirror_company: Company,
+        mirror_company_owner: Developer,
+        mirror_user: User,
+        user_factory: Callable[..., User],
         debug: Callable[[...], None],
     ) -> None:
         """Verify audit log and delete api key cache hook."""
-        await AuditLog.delete_all()
-        base_company.resources_modified_at = time_now() - timedelta(days=10)
-        await base_company.save()
+        await AuditLog.all().delete()
+        # Reset the Tortoise company timestamp so the hook update is detectable
+        mirror_company.resources_modified_at = time_now() - timedelta(days=10)
+        await mirror_company.save()
 
         ### BUILD A RESPONSE CACHE ENTRY ###
         # Given a user and an API key
@@ -62,7 +60,7 @@ class TestAfterResponseHooks:
 
         # When: making a cacheable GET request
         response = await client.get(
-            build_url(UsersURL.LIST, company_id=pg_mirror_company.id),
+            build_url(UsersURL.LIST, company_id=mirror_company.id),
             headers=token_company_owner,
         )
         assert response.status_code == HTTP_200_OK
@@ -78,9 +76,9 @@ class TestAfterResponseHooks:
         ## CREATE A NEW USER AND CREATE AN AUDIT LOG AND CLEAR THE CACHE ##
         # When we create a user
 
-        requesting_user = await pg_user_factory(company=pg_mirror_company, role="ADMIN")
+        requesting_user = await user_factory(company=mirror_company, role="ADMIN")
         response = await client.post(
-            build_url(UsersURL.CREATE, company_id=pg_mirror_company.id),
+            build_url(UsersURL.CREATE, company_id=mirror_company.id),
             headers=token_company_owner,
             json={
                 "name_first": "Test",
@@ -99,9 +97,9 @@ class TestAfterResponseHooks:
         cached_keys = [key async for key in redis.scan_iter(match=f"{cache_prefix}:*")]
         assert len(cached_keys) == 0, f"Expected no cache entries with prefix {cache_prefix}"
 
-        # And an audit log should be created
-        audit = await AuditLog.find_one()
-        assert audit.developer_id == base_developer_company_owner.id
+        # And an audit log should be created in Tortoise
+        audit = await AuditLog.first()
+        assert audit.developer_id == mirror_company_owner.id
         assert audit.summary == "Create user"
         assert (
             audit.handler
@@ -110,7 +108,7 @@ class TestAfterResponseHooks:
         assert audit.handler_name == "create_user"
         assert audit.operation_id == "createUser"
         assert audit.method == "POST"
-        assert audit.url == f"http://testserver/api/v1/companies/{pg_mirror_company.id}/users"
+        assert audit.url == f"http://testserver/api/v1/companies/{mirror_company.id}/users"
         assert audit.request_json == {
             "name_first": "Test",
             "name_last": "User",
@@ -120,8 +118,8 @@ class TestAfterResponseHooks:
             "discord_profile": {"username": "discord_username"},
             "requesting_user_id": str(requesting_user.id),
         }
-        assert audit.path_params == {"company_id": str(pg_mirror_company.id)}
+        assert audit.path_params == {"company_id": str(mirror_company.id)}
 
-        # Then: the company data last updated should be updated
-        company = await Company.get(base_company.id)
-        assert company.resources_modified_at > time_now() - timedelta(days=1)
+        # Then: the Tortoise company resources_modified_at should be updated
+        updated_company = await Company.get(id=mirror_company.id)
+        assert updated_company.resources_modified_at > time_now() - timedelta(days=1)

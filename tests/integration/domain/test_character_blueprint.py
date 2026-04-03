@@ -42,6 +42,9 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.developer import Developer
+
 pytestmark = pytest.mark.anyio
 
 
@@ -53,6 +56,8 @@ class TestSheetSection:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list sheet sections endpoint is working."""
@@ -61,10 +66,9 @@ class TestSheetSection:
             game_versions__contains=[GameVersion.V4.value],
             character_classes__contains=[CharacterClass.VAMPIRE.value],
         ).order_by("order")
-        # debug(sheet_section)
 
         response = await client.get(
-            build_url(CharacterBlueprints.SECTIONS),
+            build_url(CharacterBlueprints.SECTIONS, company_id=mirror_company.id),
             headers=token_company_admin,
             params={
                 "game_version": GameVersion.V4.name,
@@ -72,7 +76,6 @@ class TestSheetSection:
             },
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
 
         assert len(response.json()["items"]) == len(sheet_sections)
         assert response.json()["items"] == [
@@ -85,21 +88,22 @@ class TestSheetSection:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet section endpoint is working."""
         sheet_section = await CharSheetSection.filter(is_archived=False).first()
-        # debug(f"{base_url}/{sheet_section.id}")
 
         response = await client.get(
             build_url(
                 CharacterBlueprints.SECTION_DETAIL,
+                company_id=mirror_company.id,
                 section_id=sheet_section.id,
             ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
 
         assert response.json() == msgspec.json.decode(
             msgspec.json.encode(CharSheetSectionResponse.from_model(sheet_section))
@@ -114,6 +118,8 @@ class TestSheetCategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet category endpoint is working."""
@@ -127,17 +133,16 @@ class TestSheetCategory:
             .prefetch_related("sheet_section")
             .first()
         )
-        # debug(trait_category)
 
         response = await client.get(
             build_url(
                 CharacterBlueprints.CATEGORY_DETAIL,
+                company_id=mirror_company.id,
                 category_id=trait_category.id,
             ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
 
         assert response.json() == msgspec.json.decode(
             msgspec.json.encode(TraitCategoryResponse.from_model(trait_category))
@@ -148,6 +153,8 @@ class TestSheetCategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list sheet categories endpoint is working."""
@@ -172,7 +179,7 @@ class TestSheetCategory:
         )
 
         response = await client.get(
-            build_url(CharacterBlueprints.CATEGORIES),
+            build_url(CharacterBlueprints.CATEGORIES, company_id=mirror_company.id),
             headers=token_company_admin,
             params={
                 "game_version": GameVersion.V4.name,
@@ -181,7 +188,6 @@ class TestSheetCategory:
             },
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
 
         assert len(response.json()["items"]) == len(trait_categories)
         assert response.json()["items"] == [
@@ -202,6 +208,8 @@ class TestSheetSubcategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list category subcategories endpoint is working."""
@@ -220,7 +228,7 @@ class TestSheetSubcategory:
 
         # When requesting subcategories via the API
         response = await client.get(
-            build_url(CharacterBlueprints.SUBCATEGORIES),
+            build_url(CharacterBlueprints.SUBCATEGORIES, company_id=mirror_company.id),
             headers=token_company_admin,
             params={
                 "game_version": GameVersion(game_version).name,
@@ -230,7 +238,6 @@ class TestSheetSubcategory:
 
         # Then the response contains the expected subcategories
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         assert response.json()["total"] == expected_count
         assert len(response.json()["items"]) == min(10, expected_count)
         for item in response.json()["items"]:
@@ -241,6 +248,8 @@ class TestSheetSubcategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get category subcategory endpoint is working."""
@@ -256,6 +265,7 @@ class TestSheetSubcategory:
         response = await client.get(
             build_url(
                 CharacterBlueprints.SUBCATEGORY_DETAIL,
+                company_id=mirror_company.id,
                 subcategory_id=subcategory.id,
             ),
             headers=token_company_admin,
@@ -263,7 +273,6 @@ class TestSheetSubcategory:
 
         # Then the response contains the expected subcategory
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         assert response.json() == msgspec.json.decode(
             msgspec.json.encode(TraitSubcategoryResponse.from_model(subcategory))
         )
@@ -277,6 +286,8 @@ class TestSheetTrait:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet trait endpoint is working."""
@@ -287,17 +298,16 @@ class TestSheetTrait:
             )
             .first()
         )
-        # debug(trait)
 
         response = await client.get(
             build_url(
                 CharacterBlueprints.TRAIT_DETAIL,
+                company_id=mirror_company.id,
                 trait_id=trait.id,
             ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
 
         assert response.json() == msgspec.json.decode(
             msgspec.json.encode(TraitResponse.from_model(trait))
@@ -308,15 +318,16 @@ class TestSheetTrait:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list all character sheet traits endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.TRAITS),
+            build_url(CharacterBlueprints.TRAITS, company_id=mirror_company.id),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
 
         assert response.json()["total"] > 250
         assert response.json()["limit"] == 10
@@ -341,15 +352,16 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list concepts endpoint is working."""
         # When we list concepts
         response = await client.get(
-            build_url(CharacterBlueprints.CONCEPTS),
+            build_url(CharacterBlueprints.CONCEPTS, company_id=mirror_company.id),
             headers=token_company_admin,
         )
-        # debug(response.json())
 
         # Then verify the concepts were listed successfully
         assert response.status_code == HTTP_200_OK
@@ -365,16 +377,21 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get concept endpoint is working."""
         concept = await CharacterConcept.filter(is_archived=False).first()
         response = await client.get(
-            build_url(CharacterBlueprints.CONCEPT_DETAIL, concept_id=concept.id),
+            build_url(
+                CharacterBlueprints.CONCEPT_DETAIL,
+                company_id=mirror_company.id,
+                concept_id=concept.id,
+            ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         assert response.json() == msgspec.json.decode(
             msgspec.json.encode(CharacterConceptResponse.from_model(concept))
         )
@@ -384,11 +401,13 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list vampire clans endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.VAMPIRE_CLANS),
+            build_url(CharacterBlueprints.VAMPIRE_CLANS, company_id=mirror_company.id),
             headers=token_company_admin,
         )
         vampire_clans = (
@@ -398,7 +417,6 @@ class TestClassesConceptsAndSpecificOptions:
         )
 
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         assert response.json()["total"] == len(vampire_clans)
         assert _sort_id_lists(response.json()["items"], "discipline_ids") == _sort_id_lists(
             [
@@ -413,6 +431,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get vampire clan endpoint is working."""
@@ -420,11 +440,14 @@ class TestClassesConceptsAndSpecificOptions:
             await VampireClan.filter(is_archived=False).prefetch_related("disciplines").first()
         )
         response = await client.get(
-            build_url(CharacterBlueprints.VAMPIRE_CLAN_DETAIL, vampire_clan_id=vampire_clan.id),
+            build_url(
+                CharacterBlueprints.VAMPIRE_CLAN_DETAIL,
+                company_id=mirror_company.id,
+                vampire_clan_id=vampire_clan.id,
+            ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         data = response.json()
         expected = msgspec.json.decode(
             msgspec.json.encode(VampireClanResponse.from_model(vampire_clan))
@@ -438,11 +461,13 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list werewolf tribes endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.WEREWOLF_TRIBES),
+            build_url(CharacterBlueprints.WEREWOLF_TRIBES, company_id=mirror_company.id),
             headers=token_company_admin,
         )
         werewolf_tribes = (
@@ -450,7 +475,6 @@ class TestClassesConceptsAndSpecificOptions:
         )
 
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         assert response.json()["total"] == len(werewolf_tribes)
         assert _sort_id_lists(response.json()["items"], "gift_trait_ids") == _sort_id_lists(
             [
@@ -465,6 +489,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get werewolf tribe endpoint is working."""
@@ -473,12 +499,13 @@ class TestClassesConceptsAndSpecificOptions:
         )
         response = await client.get(
             build_url(
-                CharacterBlueprints.WEREWOLF_TRIBE_DETAIL, werewolf_tribe_id=werewolf_tribe.id
+                CharacterBlueprints.WEREWOLF_TRIBE_DETAIL,
+                company_id=mirror_company.id,
+                werewolf_tribe_id=werewolf_tribe.id,
             ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         data = response.json()
         expected = msgspec.json.decode(
             msgspec.json.encode(WerewolfTribeResponse.from_model(werewolf_tribe))
@@ -492,11 +519,13 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list werewolf auspices endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.WEREWOLF_AUSPICES),
+            build_url(CharacterBlueprints.WEREWOLF_AUSPICES, company_id=mirror_company.id),
             headers=token_company_admin,
         )
         werewolf_auspices = (
@@ -506,7 +535,6 @@ class TestClassesConceptsAndSpecificOptions:
         )
 
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         assert response.json()["total"] == len(werewolf_auspices)
         assert _sort_id_lists(response.json()["items"], "gift_trait_ids") == _sort_id_lists(
             [
@@ -521,6 +549,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
+        mirror_company: Company,
+        mirror_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get werewolf auspice endpoint is working."""
@@ -529,12 +559,13 @@ class TestClassesConceptsAndSpecificOptions:
         )
         response = await client.get(
             build_url(
-                CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL, werewolf_auspice_id=werewolf_auspice.id
+                CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL,
+                company_id=mirror_company.id,
+                werewolf_auspice_id=werewolf_auspice.id,
             ),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
-        # debug(response.json())
         data = response.json()
         expected = msgspec.json.decode(
             msgspec.json.encode(WerewolfAuspiceResponse.from_model(werewolf_auspice))

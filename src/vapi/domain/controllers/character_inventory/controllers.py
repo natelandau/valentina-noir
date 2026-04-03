@@ -10,12 +10,12 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
 from vapi.db.sql_models.character import Character, CharacterInventory
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.pg_guards import (
-    pg_developer_company_user_guard,
-    pg_user_character_player_or_storyteller_guard,
-    pg_user_not_unapproved_guard,
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_character_player_or_storyteller_guard,
+    user_not_unapproved_guard,
 )
 from vapi.openapi.tags import APITags
 
@@ -28,13 +28,13 @@ class CharacterInventoryController(Controller):
 
     tags = [APITags.CHARACTERS_INVENTORY.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "character": Provide(pg_deps.provide_character_by_id_and_company),
-        "inventory_item": Provide(pg_deps.provide_inventory_item_by_id),
-        "developer": Provide(pg_deps.provide_developer_from_request),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "character": Provide(deps.provide_character_by_id_and_company),
+        "inventory_item": Provide(deps.provide_inventory_item_by_id),
+        "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @get(
         path=urls.Characters.INVENTORY,
@@ -81,7 +81,7 @@ class CharacterInventoryController(Controller):
         operation_id="createCharacterInventoryItem",
         description=docs.CREATE_INVENTORY_ITEM_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[pg_user_character_player_or_storyteller_guard],
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
         self, *, character: Character, data: InventoryItemCreate
@@ -101,7 +101,7 @@ class CharacterInventoryController(Controller):
         operation_id="updateCharacterInventoryItem",
         description=docs.UPDATE_INVENTORY_ITEM_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[pg_user_character_player_or_storyteller_guard],
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def update_inventory_item(
         self,
@@ -123,7 +123,7 @@ class CharacterInventoryController(Controller):
         operation_id="deleteCharacterInventoryItem",
         description=docs.DELETE_INVENTORY_ITEM_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[pg_user_character_player_or_storyteller_guard],
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_inventory_item(self, *, inventory_item: CharacterInventory) -> None:
         """Delete an inventory item."""

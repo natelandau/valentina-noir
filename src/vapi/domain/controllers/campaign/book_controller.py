@@ -10,10 +10,10 @@ from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.pg_guards import pg_developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -31,13 +31,13 @@ class CampaignBookController(Controller):
 
     tags = [APITags.CAMPAIGN_BOOKS.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "campaign": Provide(pg_deps.provide_campaign_by_id),
-        "book": Provide(pg_deps.provide_campaign_book_by_id),
-        "developer": Provide(pg_deps.provide_developer_from_request),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "campaign": Provide(deps.provide_campaign_by_id),
+        "book": Provide(deps.provide_campaign_book_by_id),
+        "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [pg_developer_company_user_guard]
+    guards = [developer_company_user_guard]
 
     @get(
         path=urls.Campaigns.BOOKS,

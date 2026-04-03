@@ -18,10 +18,10 @@ pytestmark = pytest.mark.anyio
 class TestGenerateApiKey:
     """Tests for DeveloperService.generate_api_key."""
 
-    async def test_generate_api_key(self, pg_developer_factory: Callable[..., Developer]) -> None:
+    async def test_generate_api_key(self, developer_factory: Callable[..., Developer]) -> None:
         """Verify generate_api_key returns a 32-char key and persists hash fields."""
         # Given a developer with no key material
-        developer = await pg_developer_factory()
+        developer = await developer_factory()
 
         # When generating an API key
         service = DeveloperService()
@@ -42,11 +42,11 @@ class TestVerifyApiKey:
     """Tests for DeveloperService.verify_api_key."""
 
     async def test_verify_api_key_success(
-        self, pg_developer_factory: Callable[..., Developer]
+        self, developer_factory: Callable[..., Developer]
     ) -> None:
         """Verify that the correct plaintext key passes verification."""
         # Given a developer with a generated key
-        developer = await pg_developer_factory()
+        developer = await developer_factory()
         service = DeveloperService()
         key = await service.generate_api_key(developer)
 
@@ -57,11 +57,11 @@ class TestVerifyApiKey:
         assert result is True
 
     async def test_verify_api_key_failure(
-        self, pg_developer_factory: Callable[..., Developer]
+        self, developer_factory: Callable[..., Developer]
     ) -> None:
         """Verify that a wrong key fails verification."""
         # Given a developer with a generated key
-        developer = await pg_developer_factory()
+        developer = await developer_factory()
         service = DeveloperService()
         await service.generate_api_key(developer)
 
@@ -71,12 +71,10 @@ class TestVerifyApiKey:
         # Then verification fails
         assert result is False
 
-    async def test_verify_api_key_no_key(
-        self, pg_developer_factory: Callable[..., Developer]
-    ) -> None:
+    async def test_verify_api_key_no_key(self, developer_factory: Callable[..., Developer]) -> None:
         """Verify that a developer with no stored key always returns False."""
         # Given a developer with no API key set
-        developer = await pg_developer_factory()
+        developer = await developer_factory()
 
         # When verifying any key
         result = await DeveloperService().verify_api_key(developer, "somekey")

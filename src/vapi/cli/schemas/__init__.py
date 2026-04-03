@@ -1,8 +1,7 @@
 """Schemas for the CLI."""
 
 from dataclasses import dataclass
-
-from beanie import PydanticObjectId
+from uuid import UUID
 
 __all__ = ("APIKeyUser",)
 
@@ -12,7 +11,7 @@ class APIKeyUser:
     """API key return."""
 
     api_key: str
-    developer_id: PydanticObjectId
+    developer_id: UUID
     developer_name: str
     developer_email: str
     developer_is_global_admin: bool

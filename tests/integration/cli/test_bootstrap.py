@@ -5,21 +5,14 @@ from __future__ import annotations
 import json
 
 import pytest
-from beanie.operators import In
 from click.testing import CliRunner
 
 from vapi.cli.bootstrap import bootstrap, bootstrap_async
 from vapi.cli.lib.comparison import JSONWithCommentsDecoder
 from vapi.constants import PROJECT_ROOT_PATH, WerewolfRenown
-from vapi.db.models import (
-    CharacterConcept,
-    CharSheetSection,
-    Trait,
-    TraitCategory,
-    VampireClan,
-    WerewolfAuspice,
-    WerewolfTribe,
-)
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 
 pytestmark = pytest.mark.anyio
 
@@ -85,7 +78,7 @@ class TestBootstrapAsync:
         expected_names = {concept["name"] for concept in concepts_fixture}
 
         # When: Querying character concepts from database
-        concepts = await CharacterConcept.find().to_list()
+        concepts = await CharacterConcept.all()
         db_names = {c.name for c in concepts}
 
         # Then: All fixture concepts should exist in database
@@ -99,9 +92,7 @@ class TestBootstrapAsync:
         # Given: Specific concepts from fixture
         for fixture_concept in concepts_fixture[:3]:  # Test first 3 concepts
             # When: Querying the concept from database
-            db_concept = await CharacterConcept.find_one(
-                CharacterConcept.name == fixture_concept["name"]
-            )
+            db_concept = await CharacterConcept.filter(name=fixture_concept["name"]).first()
 
             # Then: Fields should match
             assert db_concept is not None
@@ -117,7 +108,7 @@ class TestBootstrapAsync:
         expected_names = {clan["name"] for clan in vampire_clans_fixture}
 
         # When: Querying vampire clans from database
-        clans = await VampireClan.find().to_list()
+        clans = await VampireClan.all()
         db_names = {c.name for c in clans}
 
         # Then: All fixture clans should exist in database
@@ -131,7 +122,7 @@ class TestBootstrapAsync:
         # Given: Specific clans from fixture
         for fixture_clan in vampire_clans_fixture:
             # When: Querying the clan from database
-            db_clan = await VampireClan.find_one(VampireClan.name == fixture_clan["name"])
+            db_clan = await VampireClan.filter(name=fixture_clan["name"]).first()
 
             # Then: Fields should match
             assert db_clan is not None, f"Clan {fixture_clan['name']} not found"
@@ -148,13 +139,14 @@ class TestBootstrapAsync:
 
         for fixture_clan in clans_with_disciplines:
             # When: Querying the clan from database
-            db_clan = await VampireClan.find_one(VampireClan.name == fixture_clan["name"])
+            db_clan = await VampireClan.filter(name=fixture_clan["name"]).first()
             assert db_clan is not None
 
             # Then: Number of linked disciplines should match
             expected_discipline_count = len(fixture_clan["disciplines_to_link"])
-            assert len(db_clan.discipline_ids) == expected_discipline_count, (
-                f"Clan {fixture_clan['name']} has {len(db_clan.discipline_ids)} disciplines, "
+            disciplines = await db_clan.disciplines.all()
+            assert len(disciplines) == expected_discipline_count, (
+                f"Clan {fixture_clan['name']} has {len(disciplines)} disciplines, "
                 f"expected {expected_discipline_count}"
             )
 
@@ -166,7 +158,7 @@ class TestBootstrapAsync:
         expected_names = {auspice["name"] for auspice in werewolf_auspices_fixture}
 
         # When: Querying werewolf auspices from database
-        auspices = await WerewolfAuspice.find().to_list()
+        auspices = await WerewolfAuspice.all()
         db_names = {a.name for a in auspices}
 
         # Then: All fixture auspices should exist in database
@@ -180,9 +172,7 @@ class TestBootstrapAsync:
         # Given: All auspices from fixture
         for fixture_auspice in werewolf_auspices_fixture:
             # When: Querying the auspice from database
-            db_auspice = await WerewolfAuspice.find_one(
-                WerewolfAuspice.name == fixture_auspice["name"]
-            )
+            db_auspice = await WerewolfAuspice.filter(name=fixture_auspice["name"]).first()
 
             # Then: Fields should match
             assert db_auspice is not None
@@ -198,7 +188,7 @@ class TestBootstrapAsync:
         expected_names = {tribe["name"] for tribe in werewolf_tribes_fixture}
 
         # When: Querying werewolf tribes from database
-        tribes = await WerewolfTribe.find().to_list()
+        tribes = await WerewolfTribe.all()
         db_names = {t.name for t in tribes}
 
         # Then: All fixture tribes should exist in database
@@ -207,12 +197,12 @@ class TestBootstrapAsync:
 
     async def test_bootstrap_creates_all_werewolf_rites(self) -> None:
         """Verify bootstrap creates all werewolf rites as traits from fixture."""
-        # Given: Rites are now stored as Trait documents under the "Rites" category
-        rites_category = await TraitCategory.find_one(TraitCategory.name == "Rites")
+        # Given: Rites are stored as Trait records under the "Rites" category
+        rites_category = await TraitCategory.filter(name="Rites").first()
         assert rites_category is not None
 
         # When: Querying rite traits from database
-        rite_count = await Trait.find(Trait.parent_category_id == rites_category.id).count()
+        rite_count = await Trait.filter(category=rites_category).count()
 
         # Then: Expected rite count should match (38 rites from fixture data)
         assert rite_count == 38
@@ -224,7 +214,7 @@ class TestBootstrapAsync:
         # Given: All tribes from fixture
         for fixture_tribe in werewolf_tribes_fixture:
             # When: Querying the tribe from database
-            db_tribe = await WerewolfTribe.find_one(WerewolfTribe.name == fixture_tribe["name"])
+            db_tribe = await WerewolfTribe.filter(name=fixture_tribe["name"]).first()
 
             # Then: Fields should match
             assert db_tribe is not None, f"Tribe {fixture_tribe['name']} not found"
@@ -238,31 +228,43 @@ class TestBootstrapAsync:
 
     async def test_bootstrap_creates_all_werewolf_gifts(self) -> None:
         """Verify bootstrap creates all werewolf gifts as traits from fixture."""
-        # Given: Gifts are now stored as Trait documents with gift_attributes set
-        # When: Querying gift traits from database
-        gift_count = await Trait.find(Trait.gift_attributes != None).count()
+        # Given: Gifts are stored as Trait records with gift_* fields set
+        # When: Querying gift traits from database (traits linked to auspices or tribes via gifts)
+        gift_count = await Trait.filter(gift_renown__isnull=False).count()
 
         # Then: Expected gift count should match (152 gifts from fixture data)
         assert gift_count == 152
 
     async def test_gift_traits_linked_to_tribes_and_auspices(self) -> None:
-        """Verify bootstrap populates gift_trait_ids on tribes and auspices."""
+        """Verify bootstrap populates gift traits on tribes and auspices."""
         # Given: Bootstrapped tribes and auspices
-        tribes = await WerewolfTribe.find().to_list()
-        auspices = await WerewolfAuspice.find().to_list()
+        tribes = await WerewolfTribe.all()
+        auspices = await WerewolfAuspice.all()
 
-        # Then: At least one tribe and one auspice have gift_trait_ids populated
-        tribes_with_gifts = [t for t in tribes if t.gift_trait_ids]
-        auspices_with_gifts = [a for a in auspices if a.gift_trait_ids]
+        # Then: At least one tribe and one auspice have gifts populated
+        tribes_with_gifts = []
+        for t in tribes:
+            gifts = await t.gifts.all()
+            if gifts:
+                tribes_with_gifts.append(t)
+
+        auspices_with_gifts = []
+        for a in auspices:
+            gifts = await a.gifts.all()
+            if gifts:
+                auspices_with_gifts.append(a)
+
         assert len(tribes_with_gifts) > 0
         assert len(auspices_with_gifts) > 0
 
-        # Then: The IDs reference actual Trait documents with gift_attributes
+        # Then: The gifts reference actual Trait records with gift_renown
         sample_tribe = tribes_with_gifts[0]
-        trait = await Trait.get(sample_tribe.gift_trait_ids[0])
+        gifts = await sample_tribe.gifts.all()
+        trait = gifts[0]
         assert trait is not None
-        assert trait.gift_attributes is not None
-        assert trait.gift_attributes.tribe_id == sample_tribe.id
+        assert trait.gift_renown is not None
+        fetched_tribe = await trait.gift_tribe
+        assert fetched_tribe.id == sample_tribe.id
 
     async def test_bootstrap_creates_char_sheet_sections(self, traits_fixture: list[dict]) -> None:
         """Verify bootstrap creates all character sheet sections from fixture."""
@@ -270,7 +272,7 @@ class TestBootstrapAsync:
         expected_names = {section["name"] for section in traits_fixture}
 
         # When: Querying sections from database
-        sections = await CharSheetSection.find().to_list()
+        sections = await CharSheetSection.all()
         db_names = {s.name for s in sections}
 
         # Then: All fixture sections should exist in database
@@ -285,12 +287,12 @@ class TestBootstrapAsync:
         )
 
         # When: Querying trait categories linked to bootstrapped sections
-        sections = await CharSheetSection.find().to_list()
+        sections = await CharSheetSection.all()
         section_ids = [s.id for s in sections]
-        categories = await TraitCategory.find(
-            In(TraitCategory.parent_sheet_section_id, section_ids),
-            TraitCategory.is_archived == False,
-        ).to_list()
+        categories = await TraitCategory.filter(
+            sheet_section_id__in=section_ids,
+            is_archived=False,
+        ).all()
 
         # Then: Count should match
         assert len(categories) == expected_category_count
@@ -313,7 +315,7 @@ class TestBootstrapAsync:
         total_trait_count = expected_trait_count + expected_subcategory_trait_count
 
         # When: Querying traits from database (excluding custom traits)
-        traits = await Trait.find(Trait.is_custom == False, Trait.is_archived == False).to_list()
+        traits = await Trait.filter(is_custom=False, is_archived=False).all()
 
         # Then: Count should match
         assert len(traits) in [
@@ -340,15 +342,15 @@ class TestBootstrapAsync:
         expected_section_count = len(traits_fixture)
 
         # When: Running bootstrap again
-        await bootstrap_async(do_setup_database=False)
+        await bootstrap_async()
 
         # Then: Counts should remain the same (no duplicates)
-        assert await CharacterConcept.count() == expected_concept_count
-        assert await VampireClan.count() == expected_clan_count
-        assert await WerewolfAuspice.count() == expected_auspice_count
-        assert await WerewolfTribe.count() == expected_tribe_count
-        assert await Trait.find(Trait.gift_attributes != None).count() == expected_gift_count
-        assert await CharSheetSection.count() == expected_section_count
+        assert await CharacterConcept.all().count() == expected_concept_count
+        assert await VampireClan.all().count() == expected_clan_count
+        assert await WerewolfAuspice.all().count() == expected_auspice_count
+        assert await WerewolfTribe.all().count() == expected_tribe_count
+        assert await Trait.filter(gift_renown__isnull=False).count() == expected_gift_count
+        assert await CharSheetSection.all().count() == expected_section_count
 
     async def test_specific_vampire_clan_brujah(self, vampire_clans_fixture: list[dict]) -> None:
         """Verify Brujah vampire clan has correct data."""
@@ -356,16 +358,16 @@ class TestBootstrapAsync:
         brujah_fixture = next(c for c in vampire_clans_fixture if c["name"] == "Brujah")
 
         # When: Querying from database
-        db_brujah = await VampireClan.find_one(VampireClan.name == "Brujah")
+        db_brujah = await VampireClan.filter(name="Brujah").first()
 
         # Then: All fields should match
         assert db_brujah is not None
         assert db_brujah.description == brujah_fixture.get("description")
         assert db_brujah.link == brujah_fixture.get("link")
-        assert db_brujah.bane is not None
-        assert db_brujah.bane.name == brujah_fixture["bane"]["name"]
-        assert db_brujah.compulsion is not None
-        assert db_brujah.compulsion.name == brujah_fixture["compulsion"]["name"]
+        assert db_brujah.bane_name is not None
+        assert db_brujah.bane_name == brujah_fixture["bane"]["name"]
+        assert db_brujah.compulsion_name is not None
+        assert db_brujah.compulsion_name == brujah_fixture["compulsion"]["name"]
 
     async def test_specific_werewolf_auspice_ahroun(
         self, werewolf_auspices_fixture: list[dict]
@@ -375,7 +377,7 @@ class TestBootstrapAsync:
         ahroun_fixture = next(a for a in werewolf_auspices_fixture if a["name"] == "Ahroun")
 
         # When: Querying from database
-        db_ahroun = await WerewolfAuspice.find_one(WerewolfAuspice.name == "Ahroun")
+        db_ahroun = await WerewolfAuspice.filter(name="Ahroun").first()
 
         # Then: All fields should match
         assert db_ahroun is not None
@@ -393,7 +395,7 @@ class TestBootstrapAsync:
         )
 
         # When: Querying from database
-        db_silver_fangs = await WerewolfTribe.find_one(WerewolfTribe.name == "Silver Fangs")
+        db_silver_fangs = await WerewolfTribe.filter(name="Silver Fangs").first()
 
         # Then: All fields should match
         assert db_silver_fangs is not None
@@ -411,14 +413,14 @@ class TestBootstrapAsync:
         berserker_fixture = next(c for c in concepts_fixture if c["name"] == "Berserker")
 
         # When: Querying from database
-        db_berserker = await CharacterConcept.find_one(CharacterConcept.name == "Berserker")
+        db_berserker = await CharacterConcept.filter(name="Berserker").first()
 
         # Then: All fields should match
         assert db_berserker is not None
         assert db_berserker.description == berserker_fixture["description"]
         assert db_berserker.max_specialties == berserker_fixture["max_specialties"]
         assert len(db_berserker.specialties) == len(berserker_fixture["specialties"])
-        assert db_berserker.specialties[0].name == berserker_fixture["specialties"][0]["name"]
+        assert db_berserker.specialties[0]["name"] == berserker_fixture["specialties"][0]["name"]
 
 
 class TestBootstrapCommand:

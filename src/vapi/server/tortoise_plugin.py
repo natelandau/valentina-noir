@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from litestar.plugins import InitPluginProtocol
 from tortoise import Tortoise
 
-from vapi.lib.postgres_database import tortoise_config
+from vapi.lib.database import tortoise_config
 
 if TYPE_CHECKING:
     from litestar.config.app import AppConfig

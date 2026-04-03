@@ -29,12 +29,12 @@ class TestVerifyTermIsEditable:
 
     async def test_not_editable_when_source_type_set(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify term with source_type is not editable."""
-        company = await pg_company_factory()
-        term = await pg_dictionary_term_factory(
+        company = await company_factory()
+        term = await dictionary_term_factory(
             company_id=company.id,
             source_type=DictionarySourceType.TRAIT,
             source_id=uuid7(),
@@ -47,13 +47,13 @@ class TestVerifyTermIsEditable:
 
     async def test_not_editable_when_wrong_company(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify term owned by different company is not editable."""
-        company_a = await pg_company_factory()
-        company_b = await pg_company_factory(name="Other Company", email="other@example.com")
-        term = await pg_dictionary_term_factory(company_id=company_a.id)
+        company_a = await company_factory()
+        company_b = await company_factory(name="Other Company", email="other@example.com")
+        term = await dictionary_term_factory(company_id=company_a.id)
         with pytest.raises(
             ValidationError,
             match=r"You may not update dictionary terms that are not owned by your company",
@@ -62,12 +62,12 @@ class TestVerifyTermIsEditable:
 
     async def test_not_editable_when_no_company_id(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify global term (no company_id) is not editable."""
-        company = await pg_company_factory()
-        term = await pg_dictionary_term_factory(company_id=None)
+        company = await company_factory()
+        term = await dictionary_term_factory(company_id=None)
         with pytest.raises(
             ValidationError,
             match=r"You may not update dictionary terms that are not owned by your company",
@@ -76,12 +76,12 @@ class TestVerifyTermIsEditable:
 
     async def test_editable_when_owned_by_company(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify company-owned term without source_type is editable."""
-        company = await pg_company_factory()
-        term = await pg_dictionary_term_factory(company_id=company.id)
+        company = await company_factory()
+        term = await dictionary_term_factory(company_id=company.id)
         result = DictionaryService().verify_term_is_editable(term, company_id=company.id)
         assert result is True
 
@@ -91,20 +91,20 @@ class TestListAllDictionaryTerms:
 
     async def test_returns_company_and_global_terms(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify listing returns company-owned and global terms, excludes others."""
         # Use _TEST_TAG as a shared synonym to isolate test terms from bootstrap data
-        company = await pg_company_factory()
-        other_company = await pg_company_factory(name="Other Company", email="other@example.com")
-        company_term = await pg_dictionary_term_factory(
+        company = await company_factory()
+        other_company = await company_factory(name="Other Company", email="other@example.com")
+        company_term = await dictionary_term_factory(
             term="foo",
             definition="Foo is a bar.",
             company_id=company.id,
             synonyms=[_TEST_TAG],
         )
-        global_term = await pg_dictionary_term_factory(
+        global_term = await dictionary_term_factory(
             term="bar",
             definition="Bar is a baz.",
             company_id=None,
@@ -112,13 +112,13 @@ class TestListAllDictionaryTerms:
             source_id=uuid7(),
             synonyms=[_TEST_TAG],
         )
-        await pg_dictionary_term_factory(
+        await dictionary_term_factory(
             term="baz",
             definition="Baz is a qux.",
             company_id=other_company.id,
             synonyms=[_TEST_TAG],
         )
-        await pg_dictionary_term_factory(
+        await dictionary_term_factory(
             term="qux",
             definition="Qux is a quux.",
             company_id=company.id,
@@ -138,21 +138,19 @@ class TestListAllDictionaryTerms:
 
     async def test_search_by_term(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify search filters by term name or synonym."""
-        company = await pg_company_factory()
-        company_term = await pg_dictionary_term_factory(
+        company = await company_factory()
+        company_term = await dictionary_term_factory(
             term="foo",
             definition="Foo is a bar.",
             company_id=company.id,
             synonyms=["bar"],
         )
-        await pg_dictionary_term_factory(
-            term="baz", definition="Baz is a qux.", company_id=company.id
-        )
-        global_term = await pg_dictionary_term_factory(
+        await dictionary_term_factory(term="baz", definition="Baz is a qux.", company_id=company.id)
+        global_term = await dictionary_term_factory(
             term="bar",
             definition="Bar is a baz.",
             company_id=None,
@@ -171,16 +169,16 @@ class TestListAllDictionaryTerms:
 
     async def test_pagination(
         self,
-        pg_company_factory: Callable[..., Company],
-        pg_dictionary_term_factory: Callable[..., DictionaryTerm],
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
         """Verify skip and limit work correctly."""
-        company = await pg_company_factory()
+        company = await company_factory()
         # Use _TEST_TAG synonym to scope results to exactly these 2 test-created terms
-        await pg_dictionary_term_factory(
+        await dictionary_term_factory(
             term="alpha", definition="First.", company_id=company.id, synonyms=[_TEST_TAG]
         )
-        term_b = await pg_dictionary_term_factory(
+        term_b = await dictionary_term_factory(
             term="beta", definition="Second.", company_id=company.id, synonyms=[_TEST_TAG]
         )
 

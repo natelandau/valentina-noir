@@ -25,10 +25,10 @@ from vapi.db.sql_models.character_sheet import (
     TraitCategory,
     TraitSubcategory,
 )
-from vapi.domain import pg_deps, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterBlueprintService
-from vapi.lib.pg_guards import pg_developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -49,9 +49,9 @@ class CharacterBlueprintSectionController(Controller):
 
     tags = [APITags.CHARACTERS_BLUEPRINTS.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
+        "company": Provide(deps.provide_company_by_id),
     }
-    guards = [pg_developer_company_user_guard]
+    guards = [developer_company_user_guard]
 
     ## SHEET SECTIONS #######################################################
     @get(
@@ -99,7 +99,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_SECTION_DESCRIPTION,
         cache=True,
         dependencies={
-            "section": Provide(pg_deps.provide_character_blueprint_section_by_id),
+            "section": Provide(deps.provide_character_blueprint_section_by_id),
         },
     )
     async def get_character_blueprint_section(
@@ -163,7 +163,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_CATEGORY_DESCRIPTION,
         cache=True,
         dependencies={
-            "category": Provide(pg_deps.provide_trait_category_by_id),
+            "category": Provide(deps.provide_trait_category_by_id),
         },
     )
     async def get_character_blueprint_category(
@@ -227,7 +227,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_SUBCATEGORY_DESCRIPTION,
         cache=True,
         dependencies={
-            "subcategory": Provide(pg_deps.provide_trait_subcategory_by_id),
+            "subcategory": Provide(deps.provide_trait_subcategory_by_id),
         },
     )
     async def get_character_blueprint_subcategory(
@@ -304,7 +304,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_TRAIT_DESCRIPTION,
         cache=True,
         dependencies={
-            "trait": Provide(pg_deps.provide_trait_by_id),
+            "trait": Provide(deps.provide_trait_by_id),
         },
     )
     async def get_trait(self, *, trait: Trait) -> TraitResponse:
@@ -343,7 +343,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_CONCEPT_DESCRIPTION,
         cache=True,
         dependencies={
-            "concept": Provide(pg_deps.provide_character_concept_by_id),
+            "concept": Provide(deps.provide_character_concept_by_id),
         },
     )
     async def get_character_blueprint_concept(
@@ -390,7 +390,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_VAMPIRE_CLAN_DESCRIPTION,
         cache=True,
         dependencies={
-            "vampire_clan": Provide(pg_deps.provide_vampire_clan_by_id),
+            "vampire_clan": Provide(deps.provide_vampire_clan_by_id),
         },
     )
     async def get_character_blueprint_vampire_clan(
@@ -437,7 +437,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_WEREWOLF_TRIBE_DESCRIPTION,
         cache=True,
         dependencies={
-            "werewolf_tribe": Provide(pg_deps.provide_werewolf_tribe_by_id),
+            "werewolf_tribe": Provide(deps.provide_werewolf_tribe_by_id),
         },
     )
     async def get_character_blueprint_werewolf_tribe(
@@ -484,7 +484,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.GET_WEREWOLF_AUSPICE_DESCRIPTION,
         cache=True,
         dependencies={
-            "werewolf_auspice": Provide(pg_deps.provide_werewolf_auspice_by_id),
+            "werewolf_auspice": Provide(deps.provide_werewolf_auspice_by_id),
         },
     )
     async def get_character_blueprint_werewolf_auspice(

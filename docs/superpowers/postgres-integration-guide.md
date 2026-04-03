@@ -1,25 +1,24 @@
 # PostgreSQL Integration Guide
 
-Living document tracking how the PostgreSQL migration is structured. Update this as each session progresses.
+Living document describing how the PostgreSQL-based architecture is structured.
 
 ## Database Setup
 
-- PostgreSQL 18 runs alongside MongoDB in Docker (`compose-db.yml`)
+- PostgreSQL 18 runs in Docker (`compose-db.yml`)
 - TortoiseORM (asyncpg backend) connects via `lib/postgres_database.py`
 - `TortoisePlugin` in `server/tortoise_plugin.py` manages lifecycle in the Litestar app
 - Configuration in `config/base.py` → `PostgresSettings`
 
 ## Bootstrap
 
-Both databases are seeded by a single command: `duty bootstrap` / `uv run app bootstrap`.
+The database is seeded by a single command: `duty bootstrap` / `uv run app bootstrap`.
 
 **Flow:**
 
-1. `bootstrap_async()` seeds MongoDB via Beanie (existing, unchanged)
-2. `_bootstrap_all()` then initializes Tortoise and calls `pg_bootstrap_async()`
-3. `pg_bootstrap_async()` orchestrates all PG syncers in dependency order
+1. `_bootstrap_all()` initializes Tortoise and calls `pg_bootstrap_async()`
+2. `pg_bootstrap_async()` orchestrates all PG syncers in dependency order
 
-**PG bootstrap order:**
+**Bootstrap order:**
 
 1. `PgTraitSyncer().sync()` — sections → categories → subcategories → traits
 2. `PgVampireClanSyncer().sync()` — clans + discipline M2M linking
@@ -43,9 +42,8 @@ Both databases are seeded by a single command: `duty bootstrap` / `uv run app bo
 In `tests/conftest.py`:
 
 - `init_test_postgres` — creates test database, initializes Tortoise, generates schemas, runs `pg_bootstrap_async()` to seed constant data
-- `init_test_database` — same for MongoDB (existing, unchanged)
 
-Both databases are fully seeded before any tests run. This mirrors how the MongoDB bootstrap works — seed once, query many times.
+The database is fully seeded before any tests run.
 
 ### Constant data (preserved across tests)
 
@@ -58,7 +56,7 @@ These tables are seeded by bootstrap and **never cleaned** between tests:
 
 ### Non-constant data (cleaned after every test)
 
-The `cleanup_pg_database` fixture (autouse) runs `DELETE FROM` on all non-constant tables after every test. This prevents data leaks between tests. Uses DELETE (not TRUNCATE CASCADE) to avoid cascading into constant tables that have nullable FK relationships.
+The `cleanup_database` fixture (autouse) runs `DELETE FROM` on all non-constant tables after every test. This prevents data leaks between tests. Uses DELETE (not TRUNCATE CASCADE) to avoid cascading into constant tables that have nullable FK relationships.
 
 Tables cleaned: `audit_log`, `campaign`, `campaign_book`, `campaign_chapter`, `character`, `character_trait`, `character_inventory`, `specialty`, `vampire_attributes`, `werewolf_attributes`, `mage_attributes`, `hunter_attributes`, `campaign_experience`, `company_settings`, `developer_company_permission`, `developer`, `"user"` (quoted — reserved word), `company`, `dice_roll`, `dice_roll_result`, `quick_roll`, `note`, `s3_asset`, `chargen_session`, `chargen_session_characters`
 
@@ -79,13 +77,13 @@ Tables cleaned: `audit_log`, `campaign`, `campaign_book`, `campaign_chapter`, `c
 
 ### Test factories for Tortoise models
 
-`tests/pg_fixture_models.py` — Tortoise-equivalent of `tests/fixture_models.py` (Beanie). Registered as a pytest plugin in `conftest.py`.
+`tests/fixture_models.py` — Tortoise test factories registered as a pytest plugin in `conftest.py`.
 
 Factories that create constant data (traits, concepts) use the yield + cleanup pattern to avoid polluting bootstrap data:
 
 ```python
 @pytest.fixture
-async def pg_trait_factory():
+async def trait_factory():
     created: list[Trait] = []
     async def _factory(**kwargs) -> Trait:
         ...
@@ -99,51 +97,65 @@ async def pg_trait_factory():
 
 Available factories:
 
-- `pg_trait_factory` — creates Tortoise `Trait` instances, auto-populates `category` and `sheet_section` if not provided
-- `pg_character_concept_factory` — creates Tortoise `CharacterConcept` instances
-- `pg_dictionary_term_factory` — creates Tortoise `DictionaryTerm` instances, self-cleaning (constant table)
-- `pg_developer_factory` — creates Tortoise `Developer` instances, supports `is_global_admin`, auto-cleaned
-- `pg_developer_company_permission_factory` — creates `DeveloperCompanyPermission` rows, auto-cleaned
-- `pg_user_factory` — creates Tortoise `User` instances, auto-cleaned
-- `pg_campaign_factory` — creates Tortoise `Campaign` instances (for FK resolution in experience tests), auto-cleaned
-- `pg_campaign_book_factory` — creates Tortoise `CampaignBook` instances, auto-assigns number
-- `pg_campaign_chapter_factory` — creates Tortoise `CampaignChapter` instances, auto-assigns number
-- `pg_campaign_experience_factory` — creates Tortoise `CampaignExperience` instances, auto-cleaned
-- `pg_company_factory` — creates Tortoise `Company` instances; auto-creates a `CompanySettings` row (since `CompanySettings` is a separate table in PostgreSQL, unlike Beanie where it was an embedded subdocument)
-- `pg_character_factory` — creates Tortoise `Character` instances; auto-creates a `User` and `Campaign` if not provided; `company` kwarg is required
-- `pg_character_inventory_factory` — creates Tortoise `CharacterInventory` instances
-- `pg_specialty_factory` — creates Tortoise `Specialty` instances
-- `pg_character_trait_factory` — creates Tortoise `CharacterTrait` instances with prefetched trait relations
-- `pg_vampire_attributes_factory` — creates Tortoise `VampireAttributes` OneToOne instances
-- `pg_werewolf_attributes_factory` — creates Tortoise `WerewolfAttributes` OneToOne instances
-- `pg_chargen_session_factory` — creates Tortoise `ChargenSession` instances with auto-created user/company/campaign, self-cleaning
-- `pg_quickroll_factory` — creates Tortoise `QuickRoll` instances, auto-cleaned
-- `pg_note_factory` — creates Tortoise `Note` instances, supports all parent FK fields (character, campaign, book, chapter, user), auto-cleaned
-- `pg_diceroll_factory` — creates Tortoise `DiceRoll` and `DiceRollResult` instances together, auto-cleaned
-- `pg_s3asset_factory` — creates Tortoise `S3Asset` instances, supports all parent FK fields (character, campaign, book, chapter, user), auto-cleaned
+- `trait_factory` — creates Tortoise `Trait` instances, auto-populates `category` and `sheet_section` if not provided
+- `character_concept_factory` — creates Tortoise `CharacterConcept` instances
+- `dictionary_term_factory` — creates Tortoise `DictionaryTerm` instances, self-cleaning (constant table)
+- `developer_factory` — creates Tortoise `Developer` instances, supports `is_global_admin`, auto-cleaned
+- `developer_company_permission_factory` — creates `DeveloperCompanyPermission` rows, auto-cleaned
+- `user_factory` — creates Tortoise `User` instances, auto-cleaned
+- `campaign_factory` — creates Tortoise `Campaign` instances (for FK resolution in experience tests), auto-cleaned
+- `campaign_book_factory` — creates Tortoise `CampaignBook` instances, auto-assigns number
+- `campaign_chapter_factory` — creates Tortoise `CampaignChapter` instances, auto-assigns number
+- `campaign_experience_factory` — creates Tortoise `CampaignExperience` instances, auto-cleaned
+- `company_factory` — creates Tortoise `Company` instances; auto-creates a `CompanySettings` row (since `CompanySettings` is a separate table in PostgreSQL, unlike the previous embedded subdocument approach)
+- `character_factory` — creates Tortoise `Character` instances; auto-creates a `User` and `Campaign` if not provided; `company` kwarg is required
+- `character_inventory_factory` — creates Tortoise `CharacterInventory` instances
+- `specialty_factory` — creates Tortoise `Specialty` instances
+- `character_trait_factory` — creates Tortoise `CharacterTrait` instances with prefetched trait relations
+- `vampire_attributes_factory` — creates Tortoise `VampireAttributes` OneToOne instances
+- `werewolf_attributes_factory` — creates Tortoise `WerewolfAttributes` OneToOne instances
+- `chargen_session_factory` — creates Tortoise `ChargenSession` instances with auto-created user/company/campaign, self-cleaning
+- `quickroll_factory` — creates Tortoise `QuickRoll` instances, auto-cleaned
+- `note_factory` — creates Tortoise `Note` instances, supports all parent FK fields (character, campaign, book, chapter, user), auto-cleaned
+- `diceroll_factory` — creates Tortoise `DiceRoll` and `DiceRollResult` instances together, auto-cleaned
+- `s3asset_factory` — creates Tortoise `S3Asset` instances, supports all parent FK fields (character, campaign, book, chapter, user), auto-cleaned
 
-Add new factories here as domains migrate. Non-constant data factories (companies, users, characters, etc.) don't need self-cleanup because `cleanup_pg_database` handles those tables.
+Non-constant data factories (companies, users, characters, etc.) don't need self-cleanup because `cleanup_database` handles those tables.
 
-### Bridge Fixtures (Session 6+)
+## Auth Middleware
 
-- `pg_mirror_user` — creates Tortoise User mirroring Beanie `base_user`
-- `pg_mirror_user_storyteller` — storyteller role variant
-- `pg_mirror_user_admin` — admin role variant
-- `pg_mirror_campaign` — creates Tortoise Campaign mirroring Beanie `base_campaign`
+Auth middleware uses Tortoise `Developer` model for verification and a `CachedDeveloper` msgspec Struct for Redis caching.
 
-The `_patch_pg_bridge` fixture patches `CampaignController`, `CampaignBookController`, `CampaignChapterController`, `CharacterController`, `CharacterInventoryController`, `CharacterGenerationController`, `CharacterTraitController`, `CampaignBookNoteController`, `CampaignNoteController`, `CampaignChapterNoteController`, `CharacterNoteController`, `UserNoteController`, `DiceRollController`, `StatisticsController`, `BookAssetsController`, `CampaignAssetsController`, `ChapterAssetsController`, `CharacterAssetsController`, and `UserAssetsController` in addition to the Session 5-6 controllers.
+- `connection.user` is a `CachedDeveloper` Struct with `id: UUID` and `is_global_admin: bool`
+- Redis cache uses `msgspec.json.encode/decode` for serialization
+- `DeveloperService.verify_api_key()` handles API key verification
+- JWT and basic auth middleware follow the same pattern: deserialize to `CachedDeveloper` Struct from cache or query Tortoise on cache miss
 
-### Archive Handler Bridge (User Domain)
+Guards read `.id` and `.is_global_admin` from the `CachedDeveloper` Struct.
 
-`archive_user_cascade(user_id)` in `archive_handlers.py` performs cascade-only archival of QuickRoll, S3Asset, and Character data (all still in MongoDB) for a given user ID. The Tortoise `UserService` archives the User record itself, then calls this function. The existing `UserArchiveHandler.handle()` method is preserved for `CompanyArchiveHandler`.
+## After-Response Hooks
 
-### Validation Service Bridge (User Domain)
+`after_response_hooks.py` uses Tortoise throughout:
 
-`GetModelByIdValidationService.get_user_by_id()` routes by ID format: UUID → Tortoise, ObjectId → Beanie fallback. This bridge exists because unmigrated domains (character_trait) still pass PydanticObjectId. Remove the fallback when all callers are migrated.
+- `add_audit_log` creates Tortoise `AuditLog` records via `.create()`
+- `post_data_update_hook` queries Tortoise `Company` to resolve the company name for the audit log
 
-### Mid-migration xfail state
+## Archive Handlers
 
-After Session 6: `test_post_data_update_hook` in `test_after_response_hooks.py` is xfailed — the after-response hooks query Beanie Company with a Tortoise UUID. This will be resolved when hooks migrate in Session 10.
+`archive_handlers.py` uses Tortoise throughout:
+
+- `archive_s3_assets` takes `fk_field: str` and `object_ids: list[UUID]`. Callers pass the FK field name as a string (e.g., `"character_id"`) and a list of UUIDs to archive
+- All handler classes (`CampaignArchiveHandler`, `CharacterArchiveHandler`, `UserArchiveHandler`, etc.) accept Tortoise model instances
+- `archive_user_cascade` accepts `UUID`
+- Cascade archival of Character, CharacterTrait, CharacterInventory, Specialty, and Attribute rows is handled via Tortoise bulk updates
+
+## CLI
+
+CLI modules use Tortoise models throughout:
+
+- `developer.py`, `development.py`, and `population.py` all use Tortoise models for database operations
+- `PopulationService` uses `Developer.create()`, `Company.create()`, etc.
+- The `purge_db` CLI command purges all PostgreSQL tables via `Tortoise.execute_script()`
 
 ## Tortoise Models
 
@@ -172,8 +184,6 @@ Established in Session 3.5. All API response DTOs are hand-crafted `msgspec.Stru
 
 **Request DTOs (CRUD domains):** For domains with write operations (POST/PATCH), define separate `*Create` and `*Patch` Structs. Create Structs list required and optional fields with defaults. Patch Structs use `msgspec.UNSET` as default for all fields to distinguish "not sent" from "sent as null." The controller checks `isinstance(data.field, msgspec.UnsetType)` before applying each field.
 
-**Previous DTOs:** `PydanticDTO[BeanieModel]` wrappers in `lib/dto.py` with `dto_config()` — still used by domains that haven't migrated yet.
-
 ## Do Not Use `from __future__ import annotations` in Litestar Files
 
 Litestar resolves type hints at runtime via `get_type_hints()` for handler signatures, dependency providers, and return types. `from __future__ import annotations` makes all annotations lazy strings, which breaks this resolution and forces imports out of `TYPE_CHECKING` with `# noqa: TC002` suppressions.
@@ -181,71 +191,36 @@ Litestar resolves type hints at runtime via `get_type_hints()` for handler signa
 **Rule:** Do not use `from __future__ import annotations` in:
 
 - Controller files (`domain/controllers/**/controllers.py`)
-- Dependency provider files (`domain/pg_deps.py`, `domain/deps.py`)
+- Dependency provider files (`domain/deps.py`)
 - Any file where types appear in Litestar handler signatures or `Provide()` return types
 
 Without the future import, annotations evaluate at definition time, ruff's TC rules work correctly, and no noqa suppressions are needed. Use string quotes for forward references if needed (rare in controllers).
 
-Existing Beanie controller files still have it — they'll be cleaned up when each domain migrates.
+## Dependency Providers
 
-## Dependency Providers: Dual-file Pattern
+`domain/deps.py` — Tortoise-based dependency providers for all domains.
 
-During migration, two dependency provider files coexist:
+`deps.py` has its own `_find_or_404` helper using `model.filter(id=..., is_archived=False).first()`. Providers that return models used in Struct conversion prefetch related objects for `@property` name fields and M2M ID lists.
 
-- `domain/deps.py` — Beanie-based providers for domains still on MongoDB
-- `domain/pg_deps.py` — Tortoise-based providers for migrated domains
+### Guards
 
-Controllers may import from both (e.g., blueprint controller uses `deps.provide_company_by_id` + `pg_deps.provide_trait_by_id`).
+`lib/guards.py` — Tortoise-based authorization guards for checking company membership and permissions.
 
-`pg_deps.py` has its own `_find_or_404` helper using `model.filter(id=..., is_archived=False).first()`. Providers that return models used in Struct conversion prefetch related objects for `@property` name fields and M2M ID lists.
+Guards query the `DeveloperCompanyPermission` table directly instead of iterating through `Developer.companies`. Guards read `.id` and `.is_global_admin` from the authenticated developer (`CachedDeveloper` Struct).
 
-**Cleanup (Session 4):** Removed Beanie constant providers from `deps.py` — `provide_character_blueprint_section_by_id`, `provide_trait_by_id`, `provide_trait_subcategory_by_id`, `provide_vampire_clan_by_id`, `provide_werewolf_tribe_by_id`, `provide_werewolf_auspice_by_id`, `provide_character_concept_by_id`, `provide_dictionary_term_by_id`. Only `provide_trait_category_by_id` remains (used by character controller until Session 8).
+`user_character_player_or_storyteller_guard` — checks that the authenticated user is the character's owner (player) or a storyteller for the character's campaign.
 
-**Cleanup (Session 11):** Delete `deps.py`, rename `pg_deps.py` → `deps.py`.
-
-### Tortoise Guards
-
-`lib/pg_guards.py` — Tortoise-based authorization guards, parallel to `lib/guards.py` (Beanie). Migrated controllers use Tortoise guards for checking company membership and permissions.
-
-Guards query the `DeveloperCompanyPermission` table directly instead of iterating through `Developer.companies`. The `connection.user` object remains Beanie — guards only read `.id` and `.is_global_admin` from the authenticated developer.
-
-Session 8 added `pg_user_character_player_or_storyteller_guard` — checks that the authenticated user is the character's owner (player) or a storyteller for the character's campaign.
+`user_storyteller_guard` — for the chargen autogenerate route. Queries the `User` table to check role, matching the pattern of `user_not_unapproved_guard`.
 
 ## DeveloperService
 
-`DeveloperService` — centralized service for API key generation and verification. Functionality was previously methods on the Beanie `Developer` model; it's now a dedicated service class used by migrated controllers.
+`DeveloperService` — centralized service for API key generation and verification. Used by controllers for developer CRUD operations.
 
-## Beanie/Tortoise Bridge for Integration Tests
-
-During the migration period, integration tests mixing Beanie and Tortoise need both databases synchronized. A bridge pattern handles this:
-
-**`tests/integration/domain/conftest.py`** — bridge fixtures that create Tortoise mirror objects matching Beanie auth developers:
-
-- `pg_mirror_company` — creates Tortoise `Company` and returns `(beanie_company, pg_company)` tuple
-- `pg_mirror_global_admin` — creates Beanie `Developer` with `is_global_admin=True` and mirrors in Tortoise
-- `pg_mirror_company_owner` — creates Beanie `Developer`, adds to company as owner, mirrors in Tortoise
-- `pg_mirror_company_user` — creates Beanie `Developer`, adds to company as user, mirrors in Tortoise
-- `neutralize_after_response_hook` — resets `after_response_hooks` fixture for tests using migrated controllers with Beanie auth middleware
-
-This is a temporary bridge pattern — it will be removed when the auth middleware migrates to Tortoise.
-
-## Character Domain (Session 8)
+## Character Domain
 
 ### OneToOne attribute pattern
 
 `VampireAttributes`, `WerewolfAttributes`, `MageAttributes`, and `HunterAttributes` are each separate Tortoise models with a `OneToOneField` pointing to `Character`. Attribute rows are created on-demand (when a character's type is set), not at character creation time. Access is via `await character.vampire_attributes` (returns `None` if the row does not exist).
-
-### Minimal `archive_character()`
-
-The `archive_character()` method on `CharacterService` performs a soft-delete only — it sets `is_archived=True` on the `Character` row. Cascade archival of related rows (traits, inventory, specialties, attributes) is deferred to Session 10.5 when archive handlers migrate to Tortoise.
-
-### `character_create_trait_to_character_traits()` without derived-trait sync
-
-The Tortoise-native implementation of `character_create_trait_to_character_traits()` creates `CharacterTrait` rows directly via Tortoise ORM. The derived-trait synchronization logic (which kept computed traits in sync with base traits in the Beanie implementation) is deferred to Session 8.5 when the character traits domain migrates fully.
-
-### Validation service bridge for `get_character_by_id()`
-
-`GetModelByIdValidationService.get_character_by_id()` routes by ID format: UUID → Tortoise `Character`, ObjectId → Beanie `Character` fallback. This bridge exists because some unmigrated callers still pass `PydanticObjectId`. Remove the Beanie fallback when all callers are migrated (Session 9+).
 
 ## DiceRollResult
 
@@ -267,7 +242,7 @@ Access via `await dice_roll.result` (returns the `DiceRollResult` instance). The
 
 Exactly one of these FKs is non-null per asset row. Services use keyword arguments to set the appropriate FK when creating assets. The `S3AssetResponse.from_model()` classmethod reads the `_id` suffix attributes to populate the nullable ID fields in the response.
 
-## Character Generation Domain (Session 9)
+## Character Generation Domain
 
 ### Transaction wrapping
 
@@ -277,23 +252,11 @@ Exactly one of these FKs is non-null per asset row. Services use keyword argumen
 
 The handler creates `VampireAttributes`, `WerewolfAttributes`, and `HunterAttributes` as separate table rows via `.create()` instead of embedding them as subdocuments on the Character. Attributes are created on-demand within the transaction.
 
-### `pg_user_storyteller_guard`
-
-New Tortoise guard in `pg_guards.py` for the chargen autogenerate route. Queries the `User` table to check role, matching the pattern of `pg_user_not_unapproved_guard`.
-
-### Validation service UUID methods
-
-`GetModelByIdValidationService` gained four new methods: `get_concept_by_uuid`, `get_vampire_clan_by_uuid`, `get_werewolf_auspice_by_uuid`, `get_werewolf_tribe_by_uuid`. These use `_pg_get_or_raise` for Tortoise lookups. The original Beanie methods are preserved for unmigrated callers.
-
 ### `CHARGEN_SESSION_PREFETCH`
 
 Module-level constant in the chargen controller for nested prefetching of characters and their relations (vampire_attributes, werewolf_attributes, concept, specialties, etc.).
 
-### Bridge fixture update
-
-`CharacterGenerationController` added to `_patch_pg_bridge` in `tests/integration/conftest.py`.
-
-## Character Traits Domain (Session 8.5)
+## Character Traits Domain
 
 ### Derived-trait sync constants
 
@@ -309,37 +272,29 @@ The service's `after_save()` method takes `(character_trait, character)` instead
 
 ### `_guard_permissions_free_trait_changes` is now async
 
-This method queries `CompanySettings` from PostgreSQL (Beanie had it embedded in Company as a subdocument). All call sites must `await` it.
+This method queries `CompanySettings` from PostgreSQL. All call sites must `await` it.
 
 ### `character_create_trait_to_character_traits()` sync
 
-The method in `character_svc.py` now calls `CharacterTraitService.after_save()` after `bulk_create()` to sync willpower and total renown. The "deferred to Session 8.5" comment has been removed.
+The method in `character_svc.py` calls `CharacterTraitService.after_save()` after `bulk_create()` to sync willpower and total renown.
 
 ### UserXPService for XP operations
 
-The service uses `UserXPService` (from `user_svc.py`) for `add_xp()`, `spend_xp()`, and `get_or_create_campaign_experience()` instead of Beanie User model methods.
+The service uses `UserXPService` (from `user_svc.py`) for `add_xp()`, `spend_xp()`, and `get_or_create_campaign_experience()`.
 
-### Bridge fixture update
+## Supporting Entities Domain
 
-`CharacterTraitController` added to `_patch_pg_bridge` in `tests/integration/conftest.py`.
+### Utils
 
-## Supporting Entities Domain (Session 9.5)
+`domain/utils.py` uses Tortoise ORM throughout. The `get_user_by_id()` and `get_character_by_id()` helpers query PostgreSQL. All UUID-based lookups go directly to Tortoise.
 
-### Utils migration
+### Scheduled tasks
 
-`domain/utils.py` was updated to use Tortoise ORM throughout. The `get_user_by_id()` and `get_character_by_id()` helpers now query PostgreSQL instead of MongoDB. The Beanie fallback paths in `GetModelByIdValidationService` for user and character lookups by UUID were removed — all UUID-based lookups now go directly to Tortoise.
-
-### Scheduled tasks changes
-
-The `collect_quickroll_stats()` and `collect_diceroll_stats()` scheduled tasks were migrated to query Tortoise `QuickRoll` and `DiceRoll` models respectively. The task functions live in `lib/scheduled_tasks.py` and use Tortoise's async ORM methods.
+The `collect_quickroll_stats()` and `collect_diceroll_stats()` scheduled tasks query Tortoise `QuickRoll` and `DiceRoll` models respectively. The task functions live in `lib/scheduled_tasks.py`.
 
 ### `AssetParentType` removal
 
 The `AssetParentType` enum (previously used as the `parent_type` discriminator on S3Asset) was removed. All code that previously checked `asset.parent_type` now null-checks the individual FK ID fields on the response DTO (`character_id`, `campaign_id`, `book_id`, `chapter_id`, `user_parent_id`).
-
-### Bridge fixture update
-
-`DiceRollController`, `StatisticsController`, `CampaignBookNoteController`, `CampaignNoteController`, `CampaignChapterNoteController`, `CharacterNoteController`, `UserNoteController`, `BookAssetsController`, `CampaignAssetsController`, `ChapterAssetsController`, `CharacterAssetsController`, and `UserAssetsController` were all added to `_patch_pg_bridge` in `tests/integration/conftest.py`. `QuickRollController` was not added because it does not use `provide_developer_from_request` — it uses company/user/quickroll dependency providers only.
 
 ## Migration Status
 
@@ -357,7 +312,6 @@ The `AssetParentType` enum (previously used as the `parent_type` discriminator o
 | 8.5     | Complete | Character traits domain migration                |
 | 9       | Complete | Character generation domain migration            |
 | 9.5     | Complete | Supporting entities domain migration             |
-| 10      | Pending  | Handlers, DI, middleware, CLI cleanup            |
-| 10.5    | Pending  | Archive handlers migration                       |
-| 11      | Pending  | Remove MongoDB                                   |
-| 12      | Pending  | Post-migration cleanup                           |
+| 10      | Complete | Handlers, DI, middleware, CLI cleanup            |
+| 11      | Complete | Remove MongoDB                                   |
+| 12      | Complete | Post-migration cleanup                           |

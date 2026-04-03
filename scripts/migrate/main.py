@@ -17,13 +17,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
-
 from vapi.db.models.campaign import Campaign
 from vapi.db.models.character import CharacterTrait
 from vapi.db.models.constants.sheet_section import CharSheetSection
 from vapi.db.models.constants.trait import Trait
 from vapi.db.models.constants.trait_categories import TraitCategory
 from vapi.db.models.constants.trait_subcategories import TraitSubcategory
+
 from vapi.domain.services.aws_service import AWSS3Service
 
 from .id_map import IDMap

@@ -9,7 +9,6 @@ from click import Group  # noqa: TC002
 from litestar.plugins import CLIPluginProtocol, InitPluginProtocol
 
 from vapi.config import settings
-from vapi.lib.database import setup_database
 
 from .stores import RedisStore
 
@@ -46,7 +45,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         Args:
             app_config: The app config.
         """
-        from beanie import PydanticObjectId
         from litestar.config.compression import CompressionConfig
         from litestar.config.cors import CORSConfig
         from litestar.config.response_cache import ResponseCacheConfig
@@ -69,7 +67,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from vapi.middleware.request_id import request_id_middleware
         from vapi.openapi.config import create_openapi_config
         from vapi.server import plugins
-        from vapi.server.custom_types import DecodePydanticObjectId
 
         self.redis = settings.redis.get_client()
         self.app_slug = settings.slug
@@ -84,13 +81,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         from uuid_utils import UUID as UUID_UTILS_UUID
 
-        app_config.type_encoders = {PydanticObjectId: str, UUID_UTILS_UUID: str}
-        app_config.type_decoders = [
-            (
-                DecodePydanticObjectId.is_pydantic_object_id,
-                DecodePydanticObjectId.decode,
-            )
-        ]
+        app_config.type_encoders = {UUID_UTILS_UUID: str}
 
         app_config.route_handlers.extend(route_handlers)
         app_config.logging_config = get_logging_config()
@@ -139,7 +130,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             cache_response_filter=self.custom_cache_response_filter,
         )
         app_config.stores = StoreRegistry(default_factory=self.redis_store_factory)
-        app_config.on_startup.append(setup_database)
         app_config.on_shutdown.append(self._close_redis)
 
         return app_config

@@ -1,211 +1,233 @@
-"""Shared fixtures for domain integration tests that use Tortoise-based controllers.
+"""Shared fixtures for integration tests.
 
-The auth middleware queries Tortoise Developer by API key fingerprint. Integration
-tests create Beanie developers (via fixture_models.py) that only exist in MongoDB.
-The bridge creates matching Tortoise developers with the same API key credentials
-so auth and guards work natively — no monkeypatching needed.
+Creates developers with real API key credentials so the auth
+middleware finds them. All records are created directly in PostgreSQL.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
 import pytest
 
-from vapi.constants import CompanyPermission
-from vapi.db.sql_models.campaign import Campaign as PgCampaign
-from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
-from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
-from vapi.db.sql_models.company import Company as PgCompany
-from vapi.db.sql_models.company import CompanySettings as PgCompanySettings
-from vapi.db.sql_models.developer import Developer as PgDeveloper
-from vapi.db.sql_models.developer import DeveloperCompanyPermission
-from vapi.db.sql_models.user import User as PgUser
-
-if TYPE_CHECKING:
-    from vapi.db.models import Company, Developer
+from vapi.constants import AUTH_HEADER_KEY, CompanyPermission
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.user import User
+from vapi.domain.services.developer_svc import DeveloperService
 
 pytestmark = pytest.mark.anyio
 
-# Module-level mapping from Beanie developer ID (str) to Tortoise developer object
-_BEANIE_TO_PG_DEVELOPER: dict[str, PgDeveloper] = {}
-_BEANIE_COMPANY_TO_PG_COMPANY: dict[str, PgCompany] = {}
-_BEANIE_USER_TO_PG_USER: dict[str, PgUser] = {}
+_developer_service = DeveloperService()
 
 
-@pytest.fixture
-def _clear_bridge_maps() -> None:
-    """Clear bridge mappings before each test."""
-    _BEANIE_TO_PG_DEVELOPER.clear()
-    _BEANIE_COMPANY_TO_PG_COMPANY.clear()
-    _BEANIE_USER_TO_PG_USER.clear()
-    yield
-    _BEANIE_TO_PG_DEVELOPER.clear()
-    _BEANIE_COMPANY_TO_PG_COMPANY.clear()
-    _BEANIE_USER_TO_PG_USER.clear()
+async def _create_developer_with_key(
+    *,
+    username: str,
+    email: str,
+    is_global_admin: bool = False,
+) -> tuple[Developer, str]:
+    """Create a Developer and generate an API key.
 
-
-@pytest.fixture
-async def pg_mirror_company(
-    base_company: Company,
-    _clear_bridge_maps: None,
-    _patch_pg_bridge: None,
-) -> PgCompany:
-    """Return the Tortoise Company created by the bridge."""
-    return _BEANIE_COMPANY_TO_PG_COMPANY[str(base_company.id)]
-
-
-@pytest.fixture
-async def pg_mirror_global_admin(
-    base_developer_global_admin: Developer,
-    pg_mirror_company: PgCompany,
-) -> PgDeveloper:
-    """Return the Tortoise Developer created by the bridge."""
-    return _BEANIE_TO_PG_DEVELOPER[str(base_developer_global_admin.id)]
-
-
-@pytest.fixture
-async def pg_mirror_company_owner(
-    base_developer_company_owner: Developer,
-    pg_mirror_company: PgCompany,
-) -> PgDeveloper:
-    """Return the Tortoise Developer created by the bridge."""
-    return _BEANIE_TO_PG_DEVELOPER[str(base_developer_company_owner.id)]
-
-
-@pytest.fixture
-async def pg_mirror_company_admin(
-    base_developer_company_admin: Developer,
-    pg_mirror_company: PgCompany,
-) -> PgDeveloper:
-    """Return the Tortoise Developer created by the bridge."""
-    return _BEANIE_TO_PG_DEVELOPER[str(base_developer_company_admin.id)]
-
-
-@pytest.fixture
-async def pg_mirror_company_user(
-    base_developer_company_user: Developer,
-    pg_mirror_company: PgCompany,
-) -> PgDeveloper:
-    """Return the Tortoise Developer created by the bridge."""
-    return _BEANIE_TO_PG_DEVELOPER[str(base_developer_company_user.id)]
-
-
-async def _create_pg_mirror_user(
-    beanie_user: Any,
-    pg_company: PgCompany,
-    role: str = "PLAYER",
-) -> PgUser:
-    """Create a Tortoise User mirroring a Beanie User."""
-    user = await PgUser.create(
-        username=beanie_user.username,
-        email=beanie_user.email,
-        role=role,
-        company=pg_company,
-        name_first=getattr(beanie_user, "name_first", None),
-        name_last=getattr(beanie_user, "name_last", None),
-    )
-    user = await PgUser.filter(id=user.id).prefetch_related("campaign_experiences").first()
-    _BEANIE_USER_TO_PG_USER[str(beanie_user.id)] = user
-    return user
-
-
-@pytest.fixture
-async def pg_mirror_user(base_user: Any, pg_mirror_company: PgCompany) -> PgUser:
-    """Create a Tortoise User mirroring the Beanie base_user."""
-    return await _create_pg_mirror_user(base_user, pg_mirror_company, role="PLAYER")
-
-
-@pytest.fixture
-async def pg_mirror_user_storyteller(
-    base_user_storyteller: Any, pg_mirror_company: PgCompany
-) -> PgUser:
-    """Create a Tortoise User mirroring the Beanie base_user_storyteller."""
-    return await _create_pg_mirror_user(
-        base_user_storyteller, pg_mirror_company, role="STORYTELLER"
-    )
-
-
-@pytest.fixture
-async def pg_mirror_user_admin(base_user_admin: Any, pg_mirror_company: PgCompany) -> PgUser:
-    """Create a Tortoise User mirroring the Beanie base_user_admin."""
-    return await _create_pg_mirror_user(base_user_admin, pg_mirror_company, role="ADMIN")
-
-
-@pytest.fixture
-async def pg_mirror_campaign(base_campaign: Any, pg_mirror_company: PgCompany) -> PgCampaign:
-    """Create a Tortoise Campaign mirroring the Beanie base_campaign."""
-    return await PgCampaign.create(
-        name=base_campaign.name,
-        company=pg_mirror_company,
-    )
-
-
-@pytest.fixture
-async def pg_mirror_campaign_book(
-    pg_mirror_campaign: PgCampaign,
-) -> PgCampaignBook:
-    """Create a Tortoise CampaignBook mirroring a Beanie campaign book."""
-    return await PgCampaignBook.create(
-        name="Mirror Book",
-        number=1,
-        campaign=pg_mirror_campaign,
-    )
-
-
-@pytest.fixture
-async def pg_mirror_campaign_chapter(
-    pg_mirror_campaign_book: PgCampaignBook,
-) -> PgCampaignChapter:
-    """Create a Tortoise CampaignChapter mirroring a Beanie campaign chapter."""
-    return await PgCampaignChapter.create(
-        name="Mirror Chapter",
-        number=1,
-        book=pg_mirror_campaign_book,
-    )
-
-
-@pytest.fixture
-async def _patch_pg_bridge(
-    base_company: Company,
-    base_developer_global_admin: Developer,
-    base_developer_company_owner: Developer,
-    base_developer_company_admin: Developer,
-    base_developer_company_user: Developer,
-) -> None:
-    """Create Tortoise developers mirroring Beanie auth developers.
-
-    Copy API key credentials so the Tortoise auth middleware finds them.
-    Guards and dependency providers work natively — no monkeypatching needed.
+    Returns:
+        Tuple of (developer, plaintext_api_key).
     """
-    pg_company = await PgCompany.create(
-        name=base_company.name,
-        email=getattr(base_company, "email", "test@example.com"),
+    developer = await Developer.create(
+        username=username,
+        email=email,
+        is_global_admin=is_global_admin,
     )
-    await PgCompanySettings.create(company=pg_company)
-    _BEANIE_COMPANY_TO_PG_COMPANY[str(base_company.id)] = pg_company
+    api_key = await _developer_service.generate_api_key(developer)
+    developer = (
+        await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+    )
+    return developer, api_key
 
-    developers_config = [
-        (base_developer_global_admin, CompanyPermission.OWNER, True),
-        (base_developer_company_owner, CompanyPermission.OWNER, False),
-        (base_developer_company_admin, CompanyPermission.ADMIN, False),
-        (base_developer_company_user, CompanyPermission.USER, False),
-    ]
-    for beanie_dev, permission, is_admin in developers_config:
-        pg_dev = await PgDeveloper.create(
-            username=beanie_dev.username,
-            email=beanie_dev.email,
-            is_global_admin=is_admin,
-            api_key_fingerprint=beanie_dev.api_key_fingerprint,
-            hashed_api_key=beanie_dev.hashed_api_key,
-            key_generated=getattr(beanie_dev, "key_generated", None),
-        )
-        await DeveloperCompanyPermission.create(
-            developer=pg_dev,
-            company=pg_company,
-            permission=permission,
-        )
-        pg_dev = (
-            await PgDeveloper.filter(id=pg_dev.id).prefetch_related("permissions__company").first()
-        )
-        _BEANIE_TO_PG_DEVELOPER[str(beanie_dev.id)] = pg_dev
+
+# ---------------------------------------------------------------------------
+# Company fixture
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def mirror_company() -> Company:
+    """Create a Company for integration tests."""
+    company = await Company.create(name="Integration Test Company", email="test@example.com")
+    await CompanySettings.create(company=company)
+    # Re-fetch to normalize UUID
+    return await Company.get(id=str(company.id))
+
+
+# ---------------------------------------------------------------------------
+# Developer fixtures (with API keys for auth)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def mirror_global_admin(
+    mirror_company: Company,
+) -> Developer:
+    """Create a global admin Developer with a valid API key."""
+    developer, _ = await _create_developer_with_key(
+        username="test-global-admin",
+        email="global-admin@example.com",
+        is_global_admin=True,
+    )
+    await DeveloperCompanyPermission.create(
+        developer=developer,
+        company=mirror_company,
+        permission=CompanyPermission.OWNER,
+    )
+    return await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+
+
+@pytest.fixture
+async def mirror_company_owner(
+    mirror_company: Company,
+) -> Developer:
+    """Create a company owner Developer with a valid API key."""
+    developer, _ = await _create_developer_with_key(
+        username="test-company-owner",
+        email="owner@example.com",
+    )
+    await DeveloperCompanyPermission.create(
+        developer=developer,
+        company=mirror_company,
+        permission=CompanyPermission.OWNER,
+    )
+    return await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+
+
+@pytest.fixture
+async def mirror_company_admin(
+    mirror_company: Company,
+) -> Developer:
+    """Create a company admin Developer with a valid API key."""
+    developer, _ = await _create_developer_with_key(
+        username="test-company-admin",
+        email="admin@example.com",
+    )
+    await DeveloperCompanyPermission.create(
+        developer=developer,
+        company=mirror_company,
+        permission=CompanyPermission.ADMIN,
+    )
+    return await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+
+
+@pytest.fixture
+async def mirror_company_user(
+    mirror_company: Company,
+) -> Developer:
+    """Create a company user Developer with a valid API key."""
+    developer, _ = await _create_developer_with_key(
+        username="test-company-user",
+        email="user-dev@example.com",
+    )
+    await DeveloperCompanyPermission.create(
+        developer=developer,
+        company=mirror_company,
+        permission=CompanyPermission.USER,
+    )
+    return await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+
+
+# ---------------------------------------------------------------------------
+# Token fixtures (auth headers for HTTP client)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def token_global_admin(mirror_global_admin: Developer) -> dict[str, str]:
+    """Return auth header for the global admin developer."""
+    api_key = await _developer_service.generate_api_key(mirror_global_admin)
+    return {AUTH_HEADER_KEY: api_key}
+
+
+@pytest.fixture
+async def token_company_owner(mirror_company_owner: Developer) -> dict[str, str]:
+    """Return auth header for the company owner developer."""
+    api_key = await _developer_service.generate_api_key(mirror_company_owner)
+    return {AUTH_HEADER_KEY: api_key}
+
+
+@pytest.fixture
+async def token_company_admin(mirror_company_admin: Developer) -> dict[str, str]:
+    """Return auth header for the company admin developer."""
+    api_key = await _developer_service.generate_api_key(mirror_company_admin)
+    return {AUTH_HEADER_KEY: api_key}
+
+
+@pytest.fixture
+async def token_company_user(mirror_company_user: Developer) -> dict[str, str]:
+    """Return auth header for the company user developer."""
+    api_key = await _developer_service.generate_api_key(mirror_company_user)
+    return {AUTH_HEADER_KEY: api_key}
+
+
+# ---------------------------------------------------------------------------
+# User fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def mirror_user(mirror_company: Company) -> User:
+    """Create a User with PLAYER role."""
+    user = await User.create(
+        username="test-player",
+        email="player@example.com",
+        role="PLAYER",
+        company=mirror_company,
+    )
+    return await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
+
+
+@pytest.fixture
+async def mirror_user_storyteller(mirror_company: Company) -> User:
+    """Create a User with STORYTELLER role."""
+    user = await User.create(
+        username="test-storyteller",
+        email="storyteller@example.com",
+        role="STORYTELLER",
+        company=mirror_company,
+    )
+    return await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
+
+
+@pytest.fixture
+async def mirror_user_admin(mirror_company: Company) -> User:
+    """Create a User with ADMIN role."""
+    user = await User.create(
+        username="test-admin-user",
+        email="admin-user@example.com",
+        role="ADMIN",
+        company=mirror_company,
+    )
+    return await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
+
+
+# ---------------------------------------------------------------------------
+# Campaign fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def mirror_campaign(mirror_company: Company) -> Campaign:
+    """Create a Campaign."""
+    campaign = await Campaign.create(name="Integration Campaign", company=mirror_company)
+    return await Campaign.get(id=str(campaign.id))
+
+
+@pytest.fixture
+async def mirror_campaign_book(mirror_campaign: Campaign) -> CampaignBook:
+    """Create a CampaignBook."""
+    book = await CampaignBook.create(name="Integration Book", number=1, campaign=mirror_campaign)
+    return await CampaignBook.get(id=str(book.id))
+
+
+@pytest.fixture
+async def mirror_campaign_chapter(mirror_campaign_book: CampaignBook) -> CampaignChapter:
+    """Create a CampaignChapter."""
+    chapter = await CampaignChapter.create(
+        name="Integration Chapter", number=1, book=mirror_campaign_book
+    )
+    return await CampaignChapter.get(id=str(chapter.id))

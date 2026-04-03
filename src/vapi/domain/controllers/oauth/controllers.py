@@ -12,7 +12,7 @@ from litestar.response import Redirect
 
 from vapi.config.oauth import get_discord_oauth_client
 from vapi.db.sql_models.user import User
-from vapi.domain import pg_deps, urls
+from vapi.domain import deps, urls
 from vapi.domain.controllers.oauth import lib
 from vapi.lib.exceptions import ImproperlyConfiguredError, InternalServerError
 from vapi.server.oauth import AccessTokenState, OAuth2AuthorizeCallback
@@ -27,7 +27,7 @@ class OAuth2Controller(Controller):
     """OAuth2 controller."""
 
     dependencies = {
-        "user": Provide(pg_deps.provide_user_by_id),
+        "user": Provide(deps.provide_user_by_id),
     }
 
     @get(

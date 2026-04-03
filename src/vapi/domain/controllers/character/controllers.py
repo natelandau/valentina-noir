@@ -22,13 +22,13 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_sheet import TraitCategory
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService
-from vapi.lib.pg_guards import (
-    pg_developer_company_user_guard,
-    pg_user_character_player_or_storyteller_guard,
-    pg_user_not_unapproved_guard,
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_character_player_or_storyteller_guard,
+    user_not_unapproved_guard,
 )
 from vapi.openapi.tags import APITags
 
@@ -48,13 +48,13 @@ class CharacterController(Controller):
 
     tags = [APITags.CHARACTERS.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "campaign": Provide(pg_deps.provide_campaign_by_id),
-        "character": Provide(pg_deps.provide_character_by_id_and_company),
-        "developer": Provide(pg_deps.provide_developer_from_request),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "campaign": Provide(deps.provide_campaign_by_id),
+        "character": Provide(deps.provide_character_by_id_and_company),
+        "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @get(
         path=urls.Characters.LIST,
@@ -218,7 +218,7 @@ class CharacterController(Controller):
         summary="Update character",
         operation_id="updateCharacter",
         description=docs.UPDATE_CHARACTER_DESCRIPTION,
-        guards=[pg_user_character_player_or_storyteller_guard],
+        guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def update_character(  # noqa: C901, PLR0912
@@ -310,7 +310,7 @@ class CharacterController(Controller):
         summary="Delete character",
         operation_id="deleteCharacter",
         description=docs.DELETE_CHARACTER_DESCRIPTION,
-        guards=[pg_user_character_player_or_storyteller_guard],
+        guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def delete_character(self, character: Character) -> None:
@@ -345,7 +345,7 @@ class CharacterController(Controller):
         operation_id="getCharacterFullSheetCategory",
         description=docs.GET_CHARACTER_FULL_SHEET_CATEGORY_DESCRIPTION,
         cache=True,
-        dependencies={"category": Provide(pg_deps.provide_trait_category_by_id)},
+        dependencies={"category": Provide(deps.provide_trait_category_by_id)},
     )
     async def get_character_full_sheet_category(
         self,

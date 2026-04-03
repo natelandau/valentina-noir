@@ -187,12 +187,10 @@ async def purge_db_expired_items(_: Context) -> None:
     handles its own imports, error handling, and logging so that a failure in one
     does not prevent the others from running.
     """
-    from vapi.lib.database import init_database
-    from vapi.lib.postgres_database import init_tortoise
+    from vapi.lib.database import init_tortoise
 
     logger.info("Start database cleanup.", extra=_LOG_EXTRA)
 
-    await init_database()
     await init_tortoise()
 
     await _purge_archived_models()

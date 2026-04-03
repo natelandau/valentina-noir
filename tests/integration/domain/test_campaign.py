@@ -28,22 +28,22 @@ class TestListCampaigns:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_mirror_user: User,
-        pg_campaign_factory: Callable[..., Campaign],
+        mirror_company: Company,
+        mirror_global_admin,
+        mirror_user: User,
+        campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
     ) -> None:
         """Verify listing campaigns returns only company-scoped results."""
         # Given a company with one campaign
-        campaign = await pg_campaign_factory(company=pg_mirror_company)
+        campaign = await campaign_factory(company=mirror_company)
 
         # When we list the campaigns
         response = await client.get(
             build_url(
                 Campaigns.LIST,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_global_admin,
         )
@@ -64,23 +64,23 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_mirror_user: User,
-        pg_campaign_factory: Callable[..., Campaign],
+        mirror_company: Company,
+        mirror_global_admin,
+        mirror_user: User,
+        campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
     ) -> None:
         """Verify getting a campaign by ID."""
         # Given a campaign
-        campaign = await pg_campaign_factory(company=pg_mirror_company)
+        campaign = await campaign_factory(company=mirror_company)
 
         # When we get the campaign
         response = await client.get(
             build_url(
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_global_admin,
         )
@@ -94,25 +94,25 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_mirror_user: User,
-        pg_company_factory: Callable[..., Company],
-        pg_campaign_factory: Callable[..., Campaign],
+        mirror_company: Company,
+        mirror_global_admin,
+        mirror_user: User,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
     ) -> None:
         """Verify get returns 404 when campaign belongs to a different company."""
         # Given a campaign belonging to a different company
-        other_company = await pg_company_factory(name="Other Co", email="other@example.com")
-        campaign = await pg_campaign_factory(company=other_company)
+        other_company = await company_factory(name="Other Co", email="other@example.com")
+        campaign = await campaign_factory(company=other_company)
 
         # When we get the campaign under the wrong company
         response = await client.get(
             build_url(
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_global_admin,
         )
@@ -139,9 +139,9 @@ class TestCreateCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_user_factory: Callable[..., User],
+        mirror_company: Company,
+        mirror_global_admin,
+        user_factory: Callable[..., User],
         build_url: Callable[..., str],
         campaign_permission: PermissionManageCampaign,
         user_role: UserRole,
@@ -149,16 +149,16 @@ class TestCreateCampaign:
     ) -> None:
         """Verify create campaign respects permission settings."""
         # Given a company with a specific campaign permission
-        await CompanySettings.filter(company_id=pg_mirror_company.id).update(
+        await CompanySettings.filter(company_id=mirror_company.id).update(
             permission_manage_campaign=campaign_permission
         )
-        user = await pg_user_factory(company=pg_mirror_company, role=user_role.value)
+        user = await user_factory(company=mirror_company, role=user_role.value)
 
         # When we create the campaign
         response = await client.post(
             build_url(
                 Campaigns.CREATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=user.id,
             ),
             headers=token_global_admin,
@@ -170,7 +170,7 @@ class TestCreateCampaign:
         if expected_status_code == HTTP_201_CREATED:
             assert response.json()["name"] == "Test Campaign"
             assert response.json()["description"] == "Test Description"
-            assert response.json()["company_id"] == str(pg_mirror_company.id)
+            assert response.json()["company_id"] == str(mirror_company.id)
             assert response.json()["desperation"] == 0
             assert response.json()["danger"] == 1
             assert response.json()["date_created"] is not None
@@ -198,10 +198,10 @@ class TestUpdateCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_user_factory: Callable[..., User],
-        pg_campaign_factory: Callable[..., Campaign],
+        mirror_company: Company,
+        mirror_global_admin,
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
         campaign_permission: PermissionManageCampaign,
         user_role: UserRole,
@@ -209,12 +209,12 @@ class TestUpdateCampaign:
     ) -> None:
         """Verify update campaign respects permission settings."""
         # Given a company with a campaign and specific permission
-        await CompanySettings.filter(company_id=pg_mirror_company.id).update(
+        await CompanySettings.filter(company_id=mirror_company.id).update(
             permission_manage_campaign=campaign_permission
         )
-        user = await pg_user_factory(company=pg_mirror_company, role=user_role.value)
-        campaign = await pg_campaign_factory(
-            company=pg_mirror_company,
+        user = await user_factory(company=mirror_company, role=user_role.value)
+        campaign = await campaign_factory(
+            company=mirror_company,
             name="original",
             description="original description",
             danger=1,
@@ -225,7 +225,7 @@ class TestUpdateCampaign:
         response = await client.patch(
             build_url(
                 Campaigns.UPDATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 campaign_id=campaign.id,
                 user_id=user.id,
             ),
@@ -242,7 +242,7 @@ class TestUpdateCampaign:
         if expected_status_code == HTTP_200_OK:
             assert response.json()["name"] == "Test Campaign Updated"
             assert response.json()["description"] == "Test Description Updated"
-            assert response.json()["company_id"] == str(pg_mirror_company.id)
+            assert response.json()["company_id"] == str(mirror_company.id)
             assert response.json()["desperation"] == 3
             assert response.json()["danger"] == 2
 
@@ -268,10 +268,10 @@ class TestDeleteCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_user_factory: Callable[..., User],
-        pg_campaign_factory: Callable[..., Campaign],
+        mirror_company: Company,
+        mirror_global_admin,
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
         user_role: UserRole,
         campaign_permission: PermissionManageCampaign,
@@ -279,12 +279,12 @@ class TestDeleteCampaign:
     ) -> None:
         """Verify delete campaign respects permission settings."""
         # Given a company with a campaign and specific permission
-        await CompanySettings.filter(company_id=pg_mirror_company.id).update(
+        await CompanySettings.filter(company_id=mirror_company.id).update(
             permission_manage_campaign=campaign_permission
         )
-        user = await pg_user_factory(company=pg_mirror_company, role=user_role.value)
-        campaign = await pg_campaign_factory(
-            company=pg_mirror_company,
+        user = await user_factory(company=mirror_company, role=user_role.value)
+        campaign = await campaign_factory(
+            company=mirror_company,
             name="original",
         )
 
@@ -292,7 +292,7 @@ class TestDeleteCampaign:
         response = await client.delete(
             build_url(
                 Campaigns.DELETE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 campaign_id=campaign.id,
                 user_id=user.id,
             ),

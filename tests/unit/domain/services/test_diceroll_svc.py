@@ -24,14 +24,14 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_roll_minimal(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify creating a dice roll with minimal fields."""
         # Given a company and user
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
         data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
@@ -51,18 +51,18 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_roll_every_field(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_character_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify creating a dice roll with all fields populated."""
         # Given objects
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
-        character = await pg_character_factory(company=company, campaign=campaign)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, campaign=campaign)
         traits = await Trait.filter(is_archived=False).limit(2)
 
         data = DiceRollCreate(
@@ -88,14 +88,14 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_invalid_trait_ids(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify creating a dice roll with invalid trait IDs raises an error."""
         # Given a company and user
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
         data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
@@ -113,14 +113,14 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_roll_character_not_found(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify creating a dice roll with a nonexistent character raises an error."""
         # Given a company and user
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
         data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
@@ -138,14 +138,14 @@ class TestDiceRollService:
 
     async def test_create_complete_dice_roll_campaign_not_found(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify creating a dice roll with a nonexistent campaign raises an error."""
         # Given a company and user
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
         data = DiceRollCreate(
             num_dice=6,
             num_desperation_dice=0,
@@ -163,30 +163,30 @@ class TestDiceRollService:
 
     async def test_roll_quickroll(
         self,
-        pg_quickroll_factory: Callable[..., Any],
-        pg_character_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_character_trait_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify rolling a quickroll creates a dice roll with expected fields."""
         # Given objects
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
-        character = await pg_character_factory(company=company, campaign=campaign)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, campaign=campaign)
 
         # Create character traits with distinct traits
         traits = await Trait.filter(is_archived=False).limit(2)
-        ct1 = await pg_character_trait_factory(character=character, trait=traits[0])
-        ct2 = await pg_character_trait_factory(character=character, trait=traits[1])
+        ct1 = await character_trait_factory(character=character, trait=traits[0])
+        ct2 = await character_trait_factory(character=character, trait=traits[1])
         await ct1.fetch_related("trait")
         await ct2.fetch_related("trait")
 
         # Create quickroll with the same traits
-        quickroll = await pg_quickroll_factory(user=user, traits=[ct1.trait, ct2.trait])
+        quickroll = await quickroll_factory(user=user, traits=[ct1.trait, ct2.trait])
 
         data = QuickRollRequest(
             quickroll_id=quickroll.id,
@@ -214,23 +214,23 @@ class TestDiceRollService:
 
     async def test_roll_quickroll_no_matching_traits(
         self,
-        pg_quickroll_factory: Callable[..., Any],
-        pg_character_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify rolling a quickroll with no matching traits raises an error."""
         # Given a character with no traits matching the quickroll
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
-        character = await pg_character_factory(company=company, campaign=campaign)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, campaign=campaign)
 
         # Create quickroll with some traits, but don't add them to the character
         traits = await Trait.filter(is_archived=False).limit(2)
-        quickroll = await pg_quickroll_factory(user=user, traits=list(traits))
+        quickroll = await quickroll_factory(user=user, traits=list(traits))
 
         data = QuickRollRequest(
             quickroll_id=quickroll.id,

@@ -73,19 +73,19 @@ class TestListNotes:
 
     async def test_list_notes_returns_paginated_results(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _list_notes returns paginated results."""
         # Given a controller and notes attached to a character
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        await pg_note_factory(
+        company = await company_factory()
+        character = await character_factory(company=company)
+        await note_factory(
             title="Note 1", content="Content 1", character=character, company=company
         )
-        await pg_note_factory(
+        await note_factory(
             title="Note 2", content="Content 2", character=character, company=company
         )
 
@@ -100,19 +100,19 @@ class TestListNotes:
 
     async def test_list_notes_excludes_archived(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _list_notes excludes archived notes."""
         # Given a controller with both active and archived notes
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        await pg_note_factory(
+        company = await company_factory()
+        character = await character_factory(company=company)
+        await note_factory(
             title="Active Note", content="Content", character=character, company=company
         )
-        await pg_note_factory(
+        await note_factory(
             title="Archived Note",
             content="Content",
             character=character,
@@ -130,17 +130,17 @@ class TestListNotes:
 
     async def test_list_notes_respects_limit_and_offset(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _list_notes respects limit and offset parameters."""
         # Given a controller with multiple notes
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
         for i in range(5):
-            await pg_note_factory(
+            await note_factory(
                 title=f"Note {i}", content=f"Content {i}", character=character, company=company
             )
 
@@ -172,16 +172,16 @@ class TestGetNote:
 
     async def test_get_note_returns_response(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _get_note returns a NoteResponse."""
         # Given a controller and a note
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        note = await pg_note_factory(
+        company = await company_factory()
+        character = await character_factory(company=company)
+        note = await note_factory(
             title="Test Note", content="Test Content", character=character, company=company
         )
 
@@ -198,14 +198,14 @@ class TestCreateNote:
 
     async def test_create_note_saves_with_parent_ref(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
+        company_factory: Callable,
+        character_factory: Callable,
     ) -> None:
         """Verify _create_note saves note with correct parent reference."""
         # Given a controller and create data
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
         data = NoteCreate(title="New Note", content="New Content")
 
         # When we create a note
@@ -222,14 +222,14 @@ class TestCreateNote:
 
     async def test_create_note_persists_to_database(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
+        company_factory: Callable,
+        character_factory: Callable,
     ) -> None:
         """Verify _create_note persists the note in the database."""
         # Given a controller and create data
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
         data = NoteCreate(title="Persist Test", content="Content")
 
         # When we create a note
@@ -248,16 +248,16 @@ class TestUpdateNote:
 
     async def test_update_note_saves_changes(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _update_note saves updated note."""
         # Given a controller and an existing note
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        note = await pg_note_factory(
+        company = await company_factory()
+        character = await character_factory(company=company)
+        note = await note_factory(
             title="Original Title",
             content="Original Content",
             character=character,
@@ -274,16 +274,16 @@ class TestUpdateNote:
 
     async def test_update_note_partial_update(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _update_note handles partial updates with UNSET fields."""
         # Given a controller and an existing note
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        note = await pg_note_factory(
+        company = await company_factory()
+        character = await character_factory(company=company)
+        note = await note_factory(
             title="Original Title",
             content="Original Content",
             character=character,
@@ -304,16 +304,16 @@ class TestDeleteNote:
 
     async def test_delete_note_sets_archived_flag(
         self,
-        pg_company_factory: Callable,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable[..., Note],
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _delete_note sets is_archived flag to True."""
         # Given a controller and an active note
         controller = ConcreteNoteController(parent_name="character")
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
-        note = await pg_note_factory(
+        company = await company_factory()
+        character = await character_factory(company=company)
+        note = await note_factory(
             title="Delete Test", content="Content", character=character, company=company
         )
         assert note.is_archived is False

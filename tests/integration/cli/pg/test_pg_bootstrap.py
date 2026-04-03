@@ -310,7 +310,7 @@ class TestPgBootstrapIdempotency:
 
     async def test_bootstrap_is_idempotent(self) -> None:
         """Verify running bootstrap twice does not duplicate data."""
-        from vapi.cli.bootstrap import pg_bootstrap_async
+        from vapi.cli.bootstrap import bootstrap_async
 
         # Given: Counts from the session-scoped bootstrap
         first_section_count = await CharSheetSection.all().count()
@@ -318,7 +318,7 @@ class TestPgBootstrapIdempotency:
         first_term_count = await DictionaryTerm.all().count()
 
         # When: Running bootstrap again
-        await pg_bootstrap_async()
+        await bootstrap_async()
 
         # Then: No duplicates
         assert await CharSheetSection.all().count() == first_section_count

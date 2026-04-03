@@ -25,11 +25,11 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.sql_models.campaign import Campaign as PgCampaign
+    from vapi.db.sql_models.campaign import Campaign
     from vapi.db.sql_models.character import Character, CharacterTrait
-    from vapi.db.sql_models.company import Company as PgCompany
-    from vapi.db.sql_models.developer import Developer as PgDeveloper
-    from vapi.db.sql_models.user import User as PgUser
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
 
@@ -41,10 +41,10 @@ class TestErrorPipeline:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
         token_global_admin: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
@@ -53,9 +53,9 @@ class TestErrorPipeline:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -89,10 +89,10 @@ class TestErrorPipeline:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
         token_global_admin: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
@@ -102,9 +102,9 @@ class TestErrorPipeline:
         response = await client.get(
             build_url(
                 CharacterURL.DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=non_existent_id,
             ),
             headers=token_global_admin,
@@ -125,33 +125,33 @@ class TestErrorPipeline:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable[..., Character],
-        pg_character_trait_factory: Callable[..., CharacterTrait],
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ConflictError returns proper HTTP 409 response."""
         # Given a character with a trait already assigned
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            campaign=mirror_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
-        await pg_character_trait_factory(character=character, trait=trait)
+        await character_trait_factory(character=character, trait=trait)
         trait_category = await TraitCategory.filter(is_archived=False).first()
 
         # When we try to create a custom trait with the same name
         response = await client.post(
             build_url(
                 CharacterURL.TRAIT_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -184,10 +184,10 @@ class TestErrorPipeline:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
         token_global_admin: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
@@ -196,9 +196,9 @@ class TestErrorPipeline:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={

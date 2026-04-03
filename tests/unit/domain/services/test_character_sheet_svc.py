@@ -44,13 +44,13 @@ class TestCharacterSheetService:
 
         async def test_empty_character_returns_skeleton(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify a character with no traits returns the full skeleton for their class/version."""
             # Given a character with no traits
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the expected skeleton structure for the character's class/version
             char_class = character.character_class
@@ -81,14 +81,14 @@ class TestCharacterSheetService:
 
         async def test_skeleton_matches_character_class(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify the skeleton only includes sections/categories for the character's class."""
             # Given a mortal and a vampire character
-            company = await pg_company_factory()
-            mortal = await pg_character_factory(character_class="MORTAL", company=company)
-            vampire = await pg_character_factory(character_class="VAMPIRE", company=company)
+            company = await company_factory()
+            mortal = await character_factory(character_class="MORTAL", company=company)
+            vampire = await character_factory(character_class="VAMPIRE", company=company)
 
             # When we get the full sheet for both
             service = CharacterSheetService()
@@ -114,13 +114,13 @@ class TestCharacterSheetService:
 
         async def test_skeleton_includes_empty_categories_and_subcategories(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify the skeleton includes categories and subcategories even without traits."""
             # Given a character with no traits
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the expected category count for one of the skeleton sections
             char_class = character.character_class
@@ -147,14 +147,14 @@ class TestCharacterSheetService:
 
         async def test_traits_without_subcategory(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits without subcategories appear directly on the category."""
             # Given a character with a trait that has no subcategory
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
             trait = (
                 await Trait.filter(
                     is_archived=False,
@@ -168,7 +168,7 @@ class TestCharacterSheetService:
             assert trait is not None
             assert trait.category_name is not None
 
-            await pg_character_trait_factory(character=character, trait=trait, value=3)
+            await character_trait_factory(character=character, trait=trait, value=3)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -187,14 +187,14 @@ class TestCharacterSheetService:
 
         async def test_traits_with_subcategory(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits with subcategories are nested under the correct subcategory."""
             # Given a character with a trait that belongs to a subcategory
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
             trait = (
                 await Trait.filter(
                     is_archived=False,
@@ -209,7 +209,7 @@ class TestCharacterSheetService:
             assert trait.category_name is not None
             assert trait.subcategory_name is not None
 
-            await pg_character_trait_factory(character=character, trait=trait, value=2)
+            await character_trait_factory(character=character, trait=trait, value=2)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -235,13 +235,13 @@ class TestCharacterSheetService:
 
         async def test_sections_sorted_by_order(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify skeleton sections are sorted by order."""
             # Given a character (no traits needed, skeleton is enough)
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -258,9 +258,9 @@ class TestCharacterSheetService:
 
         async def test_mixed_subcategory_and_direct_traits(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify a category can have both direct traits and subcategory traits.
 
@@ -271,8 +271,8 @@ class TestCharacterSheetService:
             include a category with both patterns, this test will run automatically.
             """
             # Given a trait with a subcategory
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
             trait_with_sub = (
                 await Trait.filter(
                     is_archived=False,
@@ -300,8 +300,8 @@ class TestCharacterSheetService:
                     "No traits without subcategory in the same category as a subcategory trait"
                 )
 
-            await pg_character_trait_factory(character=character, trait=trait_with_sub, value=2)
-            await pg_character_trait_factory(character=character, trait=trait_without_sub, value=3)
+            await character_trait_factory(character=character, trait=trait_with_sub, value=2)
+            await character_trait_factory(character=character, trait=trait_without_sub, value=3)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -329,14 +329,14 @@ class TestCharacterSheetService:
 
         async def test_out_of_class_trait_backfills_parent_category(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify a trait from a category outside the character's class backfills that category."""
             # Given a mortal character
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the mortal skeleton categories for this game version
             mortal_categories = await TraitCategory.filter(
@@ -358,7 +358,7 @@ class TestCharacterSheetService:
             )
 
             # When we assign the out-of-class trait to the mortal
-            await pg_character_trait_factory(character=character, trait=vampire_only_trait, value=1)
+            await character_trait_factory(character=character, trait=vampire_only_trait, value=1)
 
             # And get the full sheet
             service = CharacterSheetService()
@@ -385,14 +385,14 @@ class TestCharacterSheetService:
 
         async def test_out_of_class_trait_does_not_duplicate_shared_sections(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits from another class that share a section don't create duplicates."""
             # Given a mortal character
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a trait from a different class that shares a section with the mortal skeleton
             mortal_sections = await CharSheetSection.filter(
@@ -411,7 +411,7 @@ class TestCharacterSheetService:
                 .prefetch_related("category", "subcategory", "sheet_section")
                 .first()
             )
-            await pg_character_trait_factory(character=character, trait=shared_trait, value=2)
+            await character_trait_factory(character=character, trait=shared_trait, value=2)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -423,13 +423,13 @@ class TestCharacterSheetService:
 
         async def test_available_traits_empty_when_flag_off(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available_traits is empty on all categories and subcategories when flag is off."""
             # Given a character with no traits
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # When we get the full sheet without include_available_traits
             service = CharacterSheetService()
@@ -444,13 +444,13 @@ class TestCharacterSheetService:
 
         async def test_available_traits_populated_when_flag_on(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available_traits contains matching standard traits when flag is on."""
             # Given a character with no assigned traits
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the total count of standard traits for this character's class/version
             expected_trait_count = await Trait.filter(
@@ -478,14 +478,14 @@ class TestCharacterSheetService:
 
         async def test_assigned_traits_excluded_from_available(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify assigned traits do not appear in available_traits."""
             # Given a character with a specific trait assigned
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
             trait = await Trait.filter(
                 is_archived=False,
                 character_classes__contains=["MORTAL"],
@@ -493,7 +493,7 @@ class TestCharacterSheetService:
                 is_custom=False,
             ).first()
             assert trait is not None
-            await pg_character_trait_factory(character=character, trait=trait, value=2)
+            await character_trait_factory(character=character, trait=trait, value=2)
 
             # When we get the full sheet with available traits
             service = CharacterSheetService()
@@ -507,17 +507,17 @@ class TestCharacterSheetService:
 
         async def test_custom_traits_excluded_from_available(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_trait_factory: "Callable[..., Trait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            trait_factory: "Callable[..., Trait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify custom traits do not appear in available_traits."""
             # Given a character
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a custom trait exists for this character
-            custom_trait = await pg_trait_factory(
+            custom_trait = await trait_factory(
                 is_custom=True,
                 custom_for_character_id=character.id,
                 character_classes=["MORTAL"],
@@ -536,13 +536,13 @@ class TestCharacterSheetService:
 
         async def test_available_traits_sorted_by_name(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available traits are sorted alphabetically by name."""
             # Given a character with no assigned traits
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # When we get the full sheet with available traits
             service = CharacterSheetService()
@@ -565,13 +565,13 @@ class TestCharacterSheetService:
 
         async def test_out_of_class_traits_excluded_from_available(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits from other character classes do not appear in available_traits."""
             # Given a mortal character
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a vampire-only trait exists
             vampire_trait = await Trait.filter(
@@ -593,13 +593,13 @@ class TestCharacterSheetService:
 
         async def test_wrong_game_version_traits_excluded_from_available(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits from a different game version do not appear in available_traits."""
             # Given a character
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a trait that exists only for a different game version
             other_version_trait = (
@@ -626,14 +626,14 @@ class TestCharacterSheetService:
 
         async def test_available_traits_empty_when_all_assigned(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_character_trait_factory: "Callable[..., CharacterTrait]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available_traits is empty when all matching standard traits are assigned."""
             # Given a character
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="MORTAL", company=company)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And all matching standard traits are assigned to the character
             all_traits = await Trait.filter(
@@ -643,7 +643,7 @@ class TestCharacterSheetService:
                 is_custom=False,
             )
             for trait in all_traits:
-                await pg_character_trait_factory(character=character, trait=trait, value=1)
+                await character_trait_factory(character=character, trait=trait, value=1)
 
             # When we get the full sheet with available traits
             service = CharacterSheetService()
@@ -664,9 +664,9 @@ class TestCharacterSheetService:
 
         async def test_werewolf_available_gifts_filtered_by_tribe_and_auspice(
             self,
-            pg_character_factory: "Callable[..., Character]",
-            pg_werewolf_attributes_factory: "Callable[..., WerewolfAttributes]",
-            pg_company_factory: "Callable[..., Company]",
+            character_factory: "Callable[..., Character]",
+            werewolf_attributes_factory: "Callable[..., WerewolfAttributes]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify werewolf available gifts include only tribe, auspice, and native gifts."""
             # Given a tribe and auspice from bootstrap data
@@ -676,9 +676,9 @@ class TestCharacterSheetService:
             assert auspice is not None
 
             # And a werewolf character with that tribe and auspice
-            company = await pg_company_factory()
-            character = await pg_character_factory(character_class="WEREWOLF", company=company)
-            werewolf_attrs = await pg_werewolf_attributes_factory(
+            company = await company_factory()
+            character = await character_factory(character_class="WEREWOLF", company=company)
+            werewolf_attrs = await werewolf_attributes_factory(
                 character=character,
                 tribe=tribe,
                 auspice=auspice,

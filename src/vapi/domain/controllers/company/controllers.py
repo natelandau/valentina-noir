@@ -20,14 +20,14 @@ from vapi.constants import (
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.pg_guards import (
-    pg_developer_company_admin_guard,
-    pg_developer_company_owner_guard,
-    pg_developer_company_user_guard,
+from vapi.lib.guards import (
+    developer_company_admin_guard,
+    developer_company_owner_guard,
+    developer_company_user_guard,
 )
 from vapi.openapi.tags import APITags
 
@@ -83,8 +83,8 @@ class CompanyController(Controller):
 
     tags = [APITags.COMPANIES.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "requesting_developer": Provide(pg_deps.provide_developer_from_request),
+        "company": Provide(deps.provide_company_by_id),
+        "requesting_developer": Provide(deps.provide_developer_from_request),
     }
 
     @get(
@@ -120,7 +120,7 @@ class CompanyController(Controller):
         summary="Get company",
         operation_id="getCompany",
         description=docs.GET_COMPANY_DESCRIPTION,
-        guards=[pg_developer_company_user_guard],
+        guards=[developer_company_user_guard],
         cache=True,
     )
     async def get_company(self, *, company: Company) -> CompanyResponse:
@@ -180,7 +180,7 @@ class CompanyController(Controller):
         summary="Update company",
         operation_id="updateCompany",
         description=docs.UPDATE_COMPANY_DESCRIPTION,
-        guards=[pg_developer_company_admin_guard],
+        guards=[developer_company_admin_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def update_company(self, company: Company, data: CompanyPatch) -> CompanyResponse:
@@ -213,7 +213,7 @@ class CompanyController(Controller):
         summary="Delete company",
         operation_id="deleteCompany",
         description=docs.DELETE_COMPANY_DESCRIPTION,
-        guards=[pg_developer_company_owner_guard],
+        guards=[developer_company_owner_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def delete_company(self, company: Company) -> None:
@@ -226,7 +226,7 @@ class CompanyController(Controller):
         summary="Grant developer access",
         operation_id="addDeveloperToCompany",
         description=docs.DEVELOPER_ACCESS_DESCRIPTION,
-        guards=[pg_developer_company_owner_guard],
+        guards=[developer_company_owner_guard],
         after_response=hooks.post_data_update_hook,
     )
     async def developer_company_permissions(

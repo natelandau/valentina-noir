@@ -84,17 +84,17 @@ class TestGenerateCharacter:
     )
     async def test_generate_base_character_for_each_class(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         character_class: CharacterClass | None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify base character generation with various parameter combinations."""
         # Given a chargen instance
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -118,17 +118,17 @@ class TestGenerateCharacter:
     )
     async def test_generate_base_character_for_each_experience_level(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify base character generation with various parameter combinations."""
         # Given a chargen instance
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -152,17 +152,17 @@ class TestGenerateCharacter:
     )
     async def test_generate_base_character_for_each_skill_focus(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         skill_focus: AbilityFocus,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify base character generation with various parameter combinations."""
         # Given a chargen instance
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -186,17 +186,17 @@ class TestGenerateCharacter:
     )
     async def test_generate_base_character_for_each_character_type(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         character_type: CharacterType,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify base character generation with various parameter combinations."""
         # Given a chargen instance
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -216,16 +216,16 @@ class TestGenerateCharacter:
     @pytest.mark.repeat(10)
     async def test_generate_base_character_with_concept(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify base character generation with various parameter combinations."""
         # Given a chargen instance and optional concept
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -264,17 +264,17 @@ class TestGenerateAttributeValues:
     )
     async def test_generate_attribute_values(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify attribute values are generated with correct sum for experience level."""
         # Given a character with a specific experience level
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -307,16 +307,16 @@ class TestGenerateWillpowerValue:
 
     async def test_do_not_set_willpower_value_for_v5_characters(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify willpower value is not set for V5 characters."""
         # Given a character with a V5 game version
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -340,16 +340,16 @@ class TestGenerateWillpowerValue:
 
     async def test_generate_willpower_value_for_v4_characters(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify willpower value is zero when composure and resolve are not set."""
         # Given a character without composure and resolve traits
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -386,18 +386,18 @@ class TestGenerateAbilityValues:
     )
     async def test_generate_ability_values(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         skill_focus: AbilityFocus,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ability values are generated with correct sum for experience level and skill focus."""
         # Given a character with a specific experience level and skill focus
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -444,17 +444,17 @@ class TestGenerateVampireAttributes:
     )
     async def test_vampire_attributes_skipped(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         character_class: CharacterClass,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify vampire attributes are not generated for non-vampire characters."""
         # Given a character with a non-vampire class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -473,16 +473,16 @@ class TestGenerateVampireAttributes:
 
     async def test_random_vampire_attributes_generated(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify vampire attributes are generated for vampire characters."""
         # Given a character with a vampire class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -525,17 +525,17 @@ class TestGenerateVampireAttributes:
     )
     async def test_extra_disciplines_generated(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify extra disciplines are generated for vampire characters."""
         # Given a character with a vampire class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -580,17 +580,17 @@ class TestGenerateVampireAttributes:
     )
     async def test_set_clan(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         clan_name: str,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify the clan is selected correctly."""
         # Given a character with a vampire class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -615,16 +615,16 @@ class TestGenerateWerewolfAttributes:
 
     async def test_werewolf_attributes_skipped_for_non_werewolf_characters(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify werewolf attributes are not generated for non-werewolf characters."""
         # Given a character with a non-werewolf class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -642,16 +642,16 @@ class TestGenerateWerewolfAttributes:
 
     async def test_random_werewolf_attributes_generated(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify werewolf attributes are generated for werewolf characters."""
         # Given a character with a werewolf class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -710,17 +710,17 @@ class TestGenerateWerewolfAttributes:
     )
     async def test_set_tribe(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         tribe_name: str,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify the tribe is selected correctly."""
         # Given a character with a werewolf class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -749,17 +749,17 @@ class TestGenerateWerewolfAttributes:
     )
     async def test_set_auspice(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         auspice_name: str,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify the auspice is selected correctly."""
         # Given a character with a werewolf class
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -788,9 +788,9 @@ class TestGenerateWerewolfAttributes:
     )
     async def test_generate_werewolf_gifts_and_rites(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         debug: Callable[[Any], None],
         auspice_name: str,
         tribe_name: str,
@@ -798,9 +798,9 @@ class TestGenerateWerewolfAttributes:
     ) -> None:
         """Verify werewolf gifts and rites are generated for werewolf characters."""
         # Given a character
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -849,9 +849,9 @@ class TestGenerateHunterAttributes:
     )
     async def test_hunter_attributes_generated(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         debug: Callable[[Any], None],
     ) -> None:
@@ -867,9 +867,9 @@ class TestGenerateHunterAttributes:
         ]
 
         # Given a character
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -924,17 +924,17 @@ class TestGenerateAdvantageValues:
     )
     async def test_advantage_values_generated(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify advantage values are generated for character."""
         # Given a character
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,
@@ -977,17 +977,17 @@ class TestGenerateFlawValues:
     )
     async def test_flaw_values_generated(
         self,
-        pg_company_factory: Callable[..., Any],
-        pg_user_factory: Callable[..., Any],
-        pg_campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
         experience_level: AutoGenExperienceLevel,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify flaw values are generated for character."""
         # Given a character
-        company = await pg_company_factory()
-        user = await pg_user_factory(company=company)
-        campaign = await pg_campaign_factory(company=company)
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         chargen = CharacterAutogenerationHandler(
             company=company,
             user=user,

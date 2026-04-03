@@ -1,696 +1,781 @@
-"""Fixtures for the database models."""
+"""Test factory fixtures for Tortoise ORM models.
+
+Fixtures that create constant data (traits, concepts, etc.) must clean up after
+themselves because the cleanup_pg_database fixture only deletes non-constant tables.
+"""
 
 from __future__ import annotations
 
-import random
-from typing import TYPE_CHECKING, Any
+import contextlib
+from datetime import timedelta
+from typing import Any
 
 import pytest
+from uuid_utils import uuid7
 
-from vapi.cli.lib.factories import (
-    CampaignBookFactory,
-    CampaignChapterFactory,
-    CampaignFactory,
-    CompanyFactory,
-    DeveloperFactory,
-    UserFactory,
-)
-from vapi.constants import (
-    AUTH_HEADER_KEY,
-    AssetParentType,
-    AssetType,
-    CharacterClass,
-    CompanyPermission,
-    GameVersion,
-    InventoryItemType,
-    UserRole,
-)
-from vapi.db.models import (
-    Campaign,
-    CampaignBook,
-    CampaignChapter,
+from vapi.constants import AssetType, DiceSize, RollResultType
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import (
     Character,
-    CharacterConcept,
     CharacterInventory,
-    Company,
-    Developer,
-    DiceRoll,
-    DictionaryTerm,
-    Note,
-    QuickRoll,
-    S3Asset,
-    Trait,
-    TraitCategory,
-    User,
-    VampireClan,
-    WerewolfAuspice,
-    WerewolfTribe,
-)
-from vapi.db.models.character import (
-    HunterAttributes,
-    MageAttributes,
+    CharacterTrait,
+    Specialty,
     VampireAttributes,
     WerewolfAttributes,
 )
-from vapi.db.models.developer import CompanyPermissions
-
-from .factories import (
-    CharacterFactory,
-    CharacterTraitFactory,
-    DiceRollFactory,
-    TraitFactory,
-)
-
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
-
-    from vapi.db.models import CharacterTrait
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
+from vapi.db.sql_models.dictionary import DictionaryTerm
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.db.sql_models.user import CampaignExperience, User
+from vapi.utils.time import time_now
 
 pytestmark = pytest.mark.anyio
 
-API_KEY_CACHE: dict[str, str] = {}
 
+@pytest.fixture
+async def company_factory():
+    """Return a factory that creates Tortoise Company instances with cleanup.
 
-def _token_header(developer: Developer) -> dict[str, str]:
-    """Build an auth header dict from a developer's cached API key."""
-    api_key = API_KEY_CACHE.get(str(developer.id))
-    assert api_key is not None, f"Missing cached API key for developer {developer.id}"
-    return {AUTH_HEADER_KEY: api_key}
-
-
-async def _create_character(**kwargs: Any) -> Character:
-    """Create a character for testing and save it to the database.
-
-    Args:
-        **kwargs: Keyword arguments to pass to the character factory.
-
-    Returns:
-        Character: A character object.
+    Company is non-constant data, so the per-test cleanup handles deletion.
+    The factory still tracks instances for explicit cleanup in case it is used
+    in tests that do not rely on the automatic cleanup fixture.
     """
-    raw_class = kwargs.pop("character_class", None)
-    character_class = (
-        CharacterClass(raw_class) if raw_class else random.choice(list(CharacterClass))
-    )
+    created: list[Company] = []
 
-    vampire_attributes = VampireAttributes()
-    werewolf_attributes = WerewolfAttributes()
-    mage_attributes = MageAttributes()
-    hunter_attributes = HunterAttributes()
-    if character_class == CharacterClass.VAMPIRE:
-        clan = await VampireClan.find_one(
-            VampireClan.is_archived == False, VampireClan.game_versions == GameVersion.V5
-        )
-        vampire_attributes = VampireAttributes(clan_id=clan.id)
-    elif character_class == CharacterClass.WEREWOLF:
-        tribe = await WerewolfTribe.find_one(WerewolfTribe.is_archived == False)
-        auspice = await WerewolfAuspice.find_one(WerewolfAuspice.is_archived == False)
-        werewolf_attributes = WerewolfAttributes(tribe_id=tribe.id, auspice_id=auspice.id)
-
-    character = CharacterFactory().build(
-        character_class=character_class,
-        vampire_attributes=vampire_attributes,
-        werewolf_attributes=werewolf_attributes,
-        mage_attributes=mage_attributes,
-        hunter_attributes=hunter_attributes,
-        **kwargs,
-    )
-
-    await character.save()
-    return character
-
-
-@pytest.fixture
-async def token_global_admin(base_developer_global_admin: Developer) -> dict[str, str]:
-    """Return auth header for the global admin developer."""
-    return _token_header(base_developer_global_admin)
-
-
-@pytest.fixture
-async def token_company_owner(base_developer_company_owner: Developer) -> dict[str, str]:
-    """Return auth header for the company owner developer."""
-    return _token_header(base_developer_company_owner)
-
-
-@pytest.fixture
-async def token_company_admin(base_developer_company_admin: Developer) -> dict[str, str]:
-    """Return auth header for the company admin developer."""
-    return _token_header(base_developer_company_admin)
-
-
-@pytest.fixture
-async def token_company_user(base_developer_company_user: Developer) -> dict[str, str]:
-    """Return auth header for the company user developer."""
-    return _token_header(base_developer_company_user)
-
-
-@pytest.fixture
-async def base_company() -> Company:
-    """Return the base company for testing, creating it if needed."""
-    company = await Company.find_one(Company.is_archived == False, Company.name == "Base Company")
-    if not company:
-        company = CompanyFactory().build(is_archived=False, name="Base Company")
-        await company.save()
-    else:
-        company.settings = CompanyFactory().build().settings
-        await company.save()
-
-    return company
-
-
-@pytest.fixture
-async def base_developer_global_admin() -> Developer:
-    """Return a global admin developer, creating it if needed."""
-    developer = await Developer.find_one(
-        Developer.is_archived == False, Developer.is_global_admin == True
-    )
-    if not developer:
-        developer = DeveloperFactory().build(is_global_admin=True)
-        await developer.save()
-
-    api_key = await developer.generate_api_key()
-    API_KEY_CACHE[str(developer.id)] = api_key
-    return developer
-
-
-async def _get_or_create_company_developer(
-    company: Company, permission: CompanyPermission
-) -> Developer:
-    """Find or create a developer with the given permission for the company."""
-    developer = await Developer.find_one(
-        Developer.is_archived == False,
-        Developer.is_global_admin == False,
-        Developer.companies.company_id == company.id,
-        Developer.companies.permission == permission,
-    )
-    if not developer:
-        developer = DeveloperFactory().build(
-            is_global_admin=False,
-            companies=[
-                CompanyPermissions(
-                    company_id=company.id,
-                    name=company.name,
-                    permission=permission,
-                )
-            ],
-        )
-        await developer.save()
-
-    api_key = await developer.generate_api_key()
-    API_KEY_CACHE[str(developer.id)] = api_key
-    return developer
-
-
-@pytest.fixture
-async def base_developer_company_owner(base_company: Company) -> Developer:
-    """Return a developer with OWNER permission on the base company."""
-    return await _get_or_create_company_developer(base_company, CompanyPermission.OWNER)
-
-
-@pytest.fixture
-async def base_developer_company_admin(base_company: Company) -> Developer:
-    """Return a developer with ADMIN permission on the base company."""
-    return await _get_or_create_company_developer(base_company, CompanyPermission.ADMIN)
-
-
-@pytest.fixture
-async def base_developer_company_user(base_company: Company) -> Developer:
-    """Return a developer with USER permission on the base company."""
-    return await _get_or_create_company_developer(base_company, CompanyPermission.USER)
-
-
-async def _get_or_create_user(company: Company, role: UserRole) -> User:
-    """Find or create a user with the given role in the company."""
-    user = await User.find_one(
-        User.is_archived == False,
-        User.company_id == company.id,
-        User.role == role,
-    )
-    if not user:
-        user = UserFactory().build(company_id=company.id, is_archived=False, role=role)
-        await user.save()
-
-    if user.id not in company.user_ids:
-        company.user_ids.append(user.id)
-        await company.save()
-
-    return user
-
-
-@pytest.fixture
-async def base_user(base_company: Company) -> User:
-    """Return a base player user for testing."""
-    return await _get_or_create_user(base_company, UserRole.PLAYER)
-
-
-@pytest.fixture
-async def base_user_storyteller(base_company: Company) -> User:
-    """Return a base storyteller user for testing."""
-    return await _get_or_create_user(base_company, UserRole.STORYTELLER)
-
-
-@pytest.fixture
-async def base_user_admin(base_company: Company) -> User:
-    """Return a base admin user for testing."""
-    return await _get_or_create_user(base_company, UserRole.ADMIN)
-
-
-@pytest.fixture
-async def base_campaign(base_company: Company) -> Campaign:
-    """Return the base campaign for testing, creating it if needed."""
-    campaign = await Campaign.find_one(
-        Campaign.company_id == base_company.id,
-        Campaign.is_archived == False,
-    )
-    if not campaign:
-        campaign = CampaignFactory().build(company_id=base_company.id, is_archived=False)
-        await campaign.save()
-
-    return campaign
-
-
-@pytest.fixture
-async def base_campaign_book(base_campaign: Campaign) -> CampaignBook:
-    """Return the base campaign book for testing, creating it if needed."""
-    campaign_book = await CampaignBook.find_one(
-        CampaignBook.campaign_id == base_campaign.id,
-        CampaignBook.is_archived == False,
-    )
-    if not campaign_book:
-        campaign_book = CampaignBookFactory().build(campaign_id=base_campaign.id, is_archived=False)
-        await campaign_book.save()
-
-    return campaign_book
-
-
-@pytest.fixture
-async def base_campaign_chapter(base_campaign_book: CampaignBook) -> CampaignChapter:
-    """Return the base campaign chapter for testing, creating it if needed."""
-    campaign_chapter = await CampaignChapter.find_one(
-        CampaignChapter.book_id == base_campaign_book.id,
-        CampaignChapter.is_archived == False,
-    )
-    if not campaign_chapter:
-        campaign_chapter = CampaignChapterFactory().build(
-            book_id=base_campaign_book.id, is_archived=False
-        )
-        await campaign_chapter.save()
-
-    return campaign_chapter
-
-
-@pytest.fixture
-async def base_character(
-    base_company: Company, base_user: User, base_campaign: Campaign
-) -> Character:
-    """Return the base character for testing, creating it if needed."""
-    character = await Character.find_one(
-        Character.company_id == base_company.id,
-        Character.user_creator_id == base_user.id,
-        Character.user_player_id == base_user.id,
-        Character.campaign_id == base_campaign.id,
-        Character.is_archived == False,
-        Character.name_first == "Base",
-        Character.name_last == "Character",
-    )
-    if not character:
-        character = await _create_character(
-            company_id=base_company.id,
-            user_creator_id=base_user.id,
-            user_player_id=base_user.id,
-            campaign_id=base_campaign.id,
-            is_archived=False,
-            name_first="Base",
-            name_last="Character",
-        )
-
-    return character
-
-
-@pytest.fixture
-async def developer_factory(base_company: Company) -> DeveloperFactory:
-    """Return a factory function that creates Developer instances."""
-
-    async def _developer_factory(
-        permission: CompanyPermission = CompanyPermission.USER,
-        *,
-        is_global_admin: bool = False,
-        **kwargs: Any,
-    ) -> Developer:
-        _sentinel = object()
-        companies = kwargs.pop("companies", _sentinel)
-        if companies is _sentinel:
-            companies = [
-                CompanyPermissions(
-                    company_id=base_company.id,
-                    name=base_company.name,
-                    permission=permission,
-                )
-            ]
-
-        developer = DeveloperFactory().build(
-            is_global_admin=is_global_admin,
-            companies=companies,
-            **kwargs,
-        )
-        await developer.save()
-        return developer
-
-    return _developer_factory
-
-
-@pytest.fixture
-async def company_factory() -> CompanyFactory:
-    """Return a factory function that creates Company instances."""
-
-    async def _company_factory(
-        dev_admin_id: PydanticObjectId | str = None, **kwargs: Any
-    ) -> Company:
-        company = CompanyFactory().build(**kwargs)
-        await company.save()
-
-        if dev_admin_id:
-            developer = await Developer.get(dev_admin_id)
-            developer.companies.append(
-                CompanyPermissions(
-                    company_id=company.id, name=company.name, permission=CompanyPermission.ADMIN
-                )
-            )
-            await developer.save()
-
+    async def _factory(**kwargs: Any) -> Company:
+        defaults: dict[str, Any] = {
+            "name": "Test Company",
+            "email": "test@example.com",
+        }
+        defaults.update(kwargs)
+        company = await Company.create(**defaults)
+        # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
+        # avoiding type-mismatch issues when comparing with term.company_id
+        company = await Company.get(id=str(company.id))
+        # Auto-create CompanySettings so services that query settings don't fail
+        await CompanySettings.get_or_create(company=company)
+        created.append(company)
         return company
 
-    return _company_factory
+    yield _factory
+
+    for company in created:
+        with contextlib.suppress(Exception):
+            await company.delete()
 
 
 @pytest.fixture
-async def user_factory(base_company) -> UserFactory:
-    """Return a factory function that creates User instances."""
+async def trait_factory():
+    """Return a factory that creates Tortoise Trait instances and cleans up after the test.
 
-    async def _user_factory(
-        company_id: PydanticObjectId | str = base_company.id, **kwargs: Any
-    ) -> User:
-        user = UserFactory().build(**kwargs, company_id=company_id)
-        await user.save()
+    Traits are constant data preserved across tests, so the factory tracks
+    created instances and deletes them when the test completes.
+    """
+    created: list[Trait] = []
 
-        company = await Company.get(company_id)
-        if company:
-            company.user_ids.append(user.id)
-            await company.save()
-        return user
+    async def _factory(**kwargs: Any) -> Trait:
+        if "category" not in kwargs and "category_id" not in kwargs:
+            category = await TraitCategory.filter(is_archived=False).first()
+            kwargs["category"] = category
+        if "sheet_section" not in kwargs and "sheet_section_id" not in kwargs:
+            category = kwargs.get("category") or await TraitCategory.get(id=kwargs["category_id"])
+            section = await CharSheetSection.get(id=category.sheet_section_id)
+            kwargs["sheet_section"] = section
 
-    return _user_factory
-
-
-@pytest.fixture
-async def character_factory(base_company, base_user, base_campaign) -> CharacterFactory:
-    """Return a factory function that creates Character instances."""
-
-    async def _character_factory(
-        company_id: PydanticObjectId | str = base_company.id,
-        user_player_id: PydanticObjectId | str = base_user.id,
-        user_creator_id: PydanticObjectId | str = base_user.id,
-        campaign_id: PydanticObjectId | str = base_campaign.id,
-        **kwargs: Any,
-    ) -> Character:
-        return await _create_character(
-            company_id=company_id,
-            user_creator_id=user_creator_id,
-            user_player_id=user_player_id,
-            campaign_id=campaign_id,
-            **kwargs,
-        )
-
-    return _character_factory
-
-
-@pytest.fixture
-async def campaign_factory(base_company) -> CampaignFactory:
-    """Return a factory function that creates Campaign instances."""
-
-    async def _campaign_factory(
-        company_id: PydanticObjectId | str = base_company.id, **kwargs: Any
-    ) -> Campaign:
-        campaign = CampaignFactory().build(**kwargs, company_id=company_id)
-        await campaign.save()
-        return campaign
-
-    return _campaign_factory
-
-
-@pytest.fixture
-async def campaign_book_factory(base_campaign: Campaign) -> CampaignBookFactory:
-    """Return a factory function that creates CampaignBook instances."""
-
-    async def _campaign_book_factory(**kwargs: Any) -> CampaignBook:
-        """Create a campaign book for testing."""
-        campaign_id = kwargs.pop("campaign_id", base_campaign.id)
-        number = kwargs.pop("number", None)
-        if number is None:
-            count = await CampaignBook.find(
-                CampaignBook.campaign_id == campaign_id,
-                CampaignBook.is_archived == False,
-            ).count()
-            number = count + 1
-
-        campaign_book = CampaignBookFactory().build(
-            **kwargs, campaign_id=campaign_id, number=number
-        )
-        await campaign_book.save()
-        return campaign_book
-
-    return _campaign_book_factory
-
-
-@pytest.fixture
-async def campaign_chapter_factory(base_campaign_book: CampaignBook) -> CampaignChapterFactory:
-    """Return a factory function that creates CampaignChapter instances."""
-
-    async def _campaign_chapter_factory(**kwargs: Any) -> CampaignChapter:
-        """Create a campaign chapter for testing."""
-        book_id = kwargs.pop("book_id", base_campaign_book.id)
-        number = kwargs.pop("number", None)
-        if number is None:
-            count = await CampaignChapter.find(
-                CampaignChapter.book_id == book_id,
-                CampaignChapter.is_archived == False,
-            ).count()
-            number = count + 1
-
-        campaign_chapter = CampaignChapterFactory().build(**kwargs, book_id=book_id, number=number)
-        await campaign_chapter.save()
-        return campaign_chapter
-
-    return _campaign_chapter_factory
-
-
-@pytest.fixture
-async def dice_roll_factory(base_company) -> DiceRollFactory:
-    """Return a factory function that creates DiceRoll instances."""
-
-    async def _dice_roll_factory(**kwargs: Any) -> DiceRoll:
-        """Create a dice roll for testing."""
-        if not kwargs.get("company_id"):
-            kwargs["company_id"] = base_company.id
-
-        dice_roll = DiceRollFactory().build(**kwargs)
-        await dice_roll.save()
-        return dice_roll
-
-    return _dice_roll_factory
-
-
-@pytest.fixture
-async def note_factory(base_company) -> Note:
-    """Return a factory function that creates Note instances."""
-
-    async def _note_factory(**kwargs: Any) -> Note:
-        data = {
-            "title": "Test Note",
-            "content": "Test content",
-            "company_id": base_company.id,
+        defaults: dict[str, Any] = {
+            "name": "Test Trait",
+            "min_value": 0,
+            "max_value": 5,
+            "show_when_zero": True,
+            "initial_cost": 1,
+            "upgrade_cost": 2,
+            "is_custom": False,
+            "custom_for_character_id": None,
+            "is_archived": False,
         }
-
-        data |= kwargs
-
-        note = Note(**data)
-        await note.save()
-        return note
-
-    return _note_factory
-
-
-@pytest.fixture
-async def trait_factory() -> TraitFactory:
-    """Return a factory function that creates Trait instances."""
-
-    async def _trait_factory(**kwargs: Any) -> Trait:
-        if not kwargs.get("parent_category_id"):
-            trait_category = await TraitCategory.find_one(TraitCategory.is_archived == False)
-            kwargs["parent_category_id"] = trait_category.id
-
-        if not kwargs.get("is_custom"):
-            kwargs["is_custom"] = True
-
-        trait = TraitFactory().build(**kwargs)
-        await trait.save()
+        defaults.update(kwargs)
+        trait = await Trait.create(**defaults)
+        created.append(trait)
         return trait
 
-    return _trait_factory
+    yield _factory
+
+    for trait in created:
+        await trait.delete()
 
 
 @pytest.fixture
-async def character_trait_factory(base_character, trait_factory) -> CharacterTrait:
-    """Return a factory function that creates CharacterTrait instances."""
+async def character_concept_factory():
+    """Return a factory that creates Tortoise CharacterConcept instances with cleanup.
 
-    async def _character_trait_factory(
-        character_id: PydanticObjectId = base_character.id,
-        trait: Trait | None = None,
-        **kwargs: Any,
-    ) -> CharacterTrait:
-        if not kwargs.get("is_custom"):
-            kwargs["is_custom"] = False
+    Concepts are constant data preserved across tests, so the factory tracks
+    created instances and deletes them when the test completes.
+    """
+    created: list[CharacterConcept] = []
 
-        if kwargs["is_custom"] and not trait:
-            parent_category = await TraitCategory.find_one(TraitCategory.is_archived == False)
-            trait_to_use = TraitFactory().build(
-                is_custom=True,
-                custom_for_character_id=character_id,
-                parent_category_id=parent_category.id,
-                sheet_section_id=parent_category.parent_sheet_section_id,
-            )
-            await trait_to_use.save()
-        else:
-            trait_to_use = trait or await Trait.find_one(Trait.is_archived == False)
-
-        character_trait = CharacterTraitFactory().build(
-            **kwargs, character_id=character_id, trait=trait_to_use
-        )
-        await character_trait.save()
-        return character_trait
-
-    return _character_trait_factory
-
-
-@pytest.fixture
-async def quickroll_factory(base_user) -> QuickRoll:
-    """Return a factory function that creates QuickRoll instances."""
-
-    async def _quickroll_factory(**kwargs: Any) -> QuickRoll:
-        """Create a quick roll for testing."""
-        if "trait_ids" not in kwargs:
-            traits = await Trait.find(Trait.is_archived == False).limit(2).to_list()
-            kwargs["trait_ids"] = [t.id for t in traits]
-
-        data = {
-            "name": "Quick Roll 1",
-            "user_id": base_user.id,
-            "description": "Quick roll description",
-            "is_archived": False,
-        }
-        data |= kwargs
-
-        quickroll = QuickRoll(**data)
-        await quickroll.save()
-        return quickroll
-
-    return _quickroll_factory
-
-
-@pytest.fixture
-async def s3asset_factory(base_company, base_user) -> S3Asset:
-    """Return a factory function that creates S3Asset instances."""
-
-    async def _s3asset_factory(**kwargs: Any) -> S3Asset:
-        data = {
-            "asset_type": AssetType.IMAGE,
-            "mime_type": "image/jpeg",
-            "original_filename": "test.jpg",
-            "parent_type": AssetParentType.UNKNOWN,
-            "parent_id": None,
-            "company_id": base_company.id,
-            "uploaded_by": base_user.id,
-            "s3_key": "test-key",
-            "s3_bucket": "test-bucket",
-            "public_url": "https://example.com/test.jpg",
-            "is_archived": False,
-        }
-
-        data |= kwargs
-
-        s3asset = S3Asset(**data)
-        await s3asset.save()
-        return s3asset
-
-    return _s3asset_factory
-
-
-@pytest.fixture
-async def inventory_item_factory(base_character) -> CharacterInventory:
-    """Return a factory function that creates CharacterInventory instances."""
-
-    async def _inventory_item_factory(**kwargs: Any) -> CharacterInventory:
-        data = {
-            "character_id": base_character.id,
-            "name": "Test Item",
+    async def _factory(**kwargs: Any) -> CharacterConcept:
+        defaults: dict[str, Any] = {
+            "name": "Test Concept",
             "description": "Test description",
-            "type": InventoryItemType.EQUIPMENT,
+            "examples": ["Example 1", "Example 2"],
+            "company_id": None,
             "is_archived": False,
         }
+        defaults.update(kwargs)
+        concept = await CharacterConcept.create(**defaults)
+        created.append(concept)
+        return concept
 
-        data |= kwargs
+    yield _factory
 
-        inventory_item = CharacterInventory(**data)
-        await inventory_item.save()
-        return inventory_item
-
-    return _inventory_item_factory
+    for concept in created:
+        await concept.delete()
 
 
 @pytest.fixture
-async def dictionary_term_factory(base_company) -> DictionaryTerm:
-    """Return a factory function that creates DictionaryTerm instances."""
+async def developer_factory():
+    """Return a factory that creates Tortoise Developer instances with cleanup.
 
-    async def _dictionary_term_factory(**kwargs: Any) -> DictionaryTerm:
-        data = {
+    Developer is non-constant data, so the per-test cleanup handles deletion.
+    The factory still tracks instances for explicit cleanup in case it is used
+    in tests that do not rely on the automatic cleanup fixture.
+    """
+    created: list[Developer] = []
+
+    async def _factory(**kwargs: Any) -> Developer:
+        defaults: dict[str, Any] = {
+            "username": f"test-dev-{len(created)}",
+            "email": f"dev{len(created)}@example.com",
+            "is_global_admin": False,
+        }
+        defaults.update(kwargs)
+        developer = await Developer.create(**defaults)
+        # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
+        # avoiding type-mismatch issues when comparing with developer.id
+        developer = await Developer.get(id=str(developer.id))
+        created.append(developer)
+        return developer
+
+    yield _factory
+
+    for developer in created:
+        with contextlib.suppress(Exception):
+            await developer.delete()
+
+
+@pytest.fixture
+async def developer_company_permission_factory():
+    """Return a factory that creates Tortoise DeveloperCompanyPermission instances with cleanup.
+
+    Permissions are non-constant data. Caller must supply developer, company, and permission.
+    """
+    created: list[DeveloperCompanyPermission] = []
+
+    async def _factory(**kwargs: Any) -> DeveloperCompanyPermission:
+        permission = await DeveloperCompanyPermission.create(**kwargs)
+        created.append(permission)
+        return permission
+
+    yield _factory
+
+    for permission in created:
+        with contextlib.suppress(Exception):
+            await permission.delete()
+
+
+@pytest.fixture
+async def dictionary_term_factory():
+    """Return a factory that creates Tortoise DictionaryTerm instances with cleanup.
+
+    Dictionary terms include bootstrap-seeded data, so the factory tracks
+    created instances and deletes them when the test completes.
+    """
+    created: list[DictionaryTerm] = []
+
+    async def _factory(**kwargs: Any) -> DictionaryTerm:
+        defaults: dict[str, Any] = {
             "term": "Test Term",
             "definition": "Test definition",
             "link": "https://example.com/test",
-            "synonyms": ["Test Synonym", "Test Synonym 2"],
-            "company_id": base_company.id,
+            "synonyms": ["test synonym", "test synonym 2"],
+            "company_id": None,
             "source_type": None,
             "source_id": None,
             "is_archived": False,
         }
-        data |= kwargs
+        defaults.update(kwargs)
+        # Tortoise's UUIDField cannot accept uuid_utils.UUID directly; convert via str
+        for uuid_field in ("company_id", "source_id"):
+            if defaults.get(uuid_field) is not None:
+                defaults[uuid_field] = str(defaults[uuid_field])
+        term = await DictionaryTerm.create(**defaults)
+        created.append(term)
+        return term
 
-        dictionary_term = DictionaryTerm(**data)
-        await dictionary_term.save()
-        return dictionary_term
+    yield _factory
 
-    return _dictionary_term_factory
+    for term in created:
+        await term.delete()
 
 
 @pytest.fixture
-async def character_concept_factory() -> CharacterConcept:
-    """Return a factory function that creates CharacterConcept instances."""
-    created_concepts = []
+async def user_factory():
+    """Return a factory that creates Tortoise User instances.
 
-    async def _character_concept_factory(**kwargs: Any) -> CharacterConcept:
-        data = {
-            "name": "Test Concept",
-            "description": "Test description",
-            "examples": ["Test example", "Test example 2"],
-            "company_id": None,
-            "is_archived": False,
+    User is non-constant data, so the per-test cleanup handles deletion.
+    """
+    created: list[User] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> User:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "username": f"test-user-{_counter}",
+            "email": f"user{_counter}@example.com",
+            "role": "PLAYER",
         }
+        defaults.update(kwargs)
+        user = await User.create(**defaults)
+        user = await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
+        created.append(user)
+        return user
 
-        data |= kwargs
+    yield _factory
 
-        character_concept = CharacterConcept(**data)
-        await character_concept.save()
-        created_concepts.append(character_concept)
-        return character_concept
+    for user in created:
+        with contextlib.suppress(Exception):
+            await user.delete()
 
-    yield _character_concept_factory
-    for concept in created_concepts:
-        await concept.delete()
+
+@pytest.fixture
+async def campaign_factory():
+    """Return a factory that creates Tortoise Campaign instances.
+
+    Campaign is non-constant data, so the per-test cleanup handles deletion.
+    """
+    created: list[Campaign] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Campaign:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "name": f"Test Campaign {_counter}",
+        }
+        defaults.update(kwargs)
+        campaign = await Campaign.create(**defaults)
+        # Re-fetch from DB so Tortoise normalizes the UUID to stdlib uuid.UUID,
+        # avoiding type-mismatch issues when comparing with campaign.id
+        campaign = await Campaign.get(id=str(campaign.id))
+        created.append(campaign)
+        return campaign
+
+    yield _factory
+
+    for campaign in created:
+        with contextlib.suppress(Exception):
+            await campaign.delete()
+
+
+@pytest.fixture
+async def campaign_experience_factory():
+    """Return a factory that creates Tortoise CampaignExperience instances.
+
+    CampaignExperience is non-constant data, so the per-test cleanup handles deletion.
+    Caller must supply user and campaign (or user_id and campaign_id).
+    """
+    created: list[CampaignExperience] = []
+
+    async def _factory(**kwargs: Any) -> CampaignExperience:
+        experience = await CampaignExperience.create(**kwargs)
+        created.append(experience)
+        return experience
+
+    yield _factory
+
+    for experience in created:
+        with contextlib.suppress(Exception):
+            await experience.delete()
+
+
+@pytest.fixture
+async def campaign_book_factory():
+    """Return a factory that creates Tortoise CampaignBook instances.
+
+    CampaignBook is non-constant data, so the per-test cleanup handles deletion.
+    Auto-assigns number by counting active siblings + 1.
+    """
+    created: list[CampaignBook] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CampaignBook:
+        nonlocal _counter
+        _counter += 1
+        campaign_id = kwargs.get("campaign_id") or kwargs.get("campaign")
+        if campaign_id and hasattr(campaign_id, "id"):
+            campaign_id = campaign_id.id
+
+        if "number" not in kwargs and campaign_id:
+            count = await CampaignBook.filter(campaign_id=campaign_id, is_archived=False).count()
+            kwargs["number"] = count + 1
+        elif "number" not in kwargs:
+            kwargs["number"] = _counter
+
+        defaults: dict[str, Any] = {
+            "name": f"Test Book {_counter}",
+        }
+        defaults.update(kwargs)
+        book = await CampaignBook.create(**defaults)
+        book = await CampaignBook.get(id=str(book.id))
+        created.append(book)
+        return book
+
+    yield _factory
+
+    for book in created:
+        with contextlib.suppress(Exception):
+            await book.delete()
+
+
+@pytest.fixture
+async def campaign_chapter_factory():
+    """Return a factory that creates Tortoise CampaignChapter instances.
+
+    CampaignChapter is non-constant data, so the per-test cleanup handles deletion.
+    Auto-assigns number by counting active siblings + 1.
+    """
+    created: list[CampaignChapter] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CampaignChapter:
+        nonlocal _counter
+        _counter += 1
+        book_id = kwargs.get("book_id") or kwargs.get("book")
+        if book_id and hasattr(book_id, "id"):
+            book_id = book_id.id
+
+        if "number" not in kwargs and book_id:
+            count = await CampaignChapter.filter(book_id=book_id, is_archived=False).count()
+            kwargs["number"] = count + 1
+        elif "number" not in kwargs:
+            kwargs["number"] = _counter
+
+        defaults: dict[str, Any] = {
+            "name": f"Test Chapter {_counter}",
+        }
+        defaults.update(kwargs)
+        chapter = await CampaignChapter.create(**defaults)
+        chapter = await CampaignChapter.get(id=str(chapter.id))
+        created.append(chapter)
+        return chapter
+
+    yield _factory
+
+    for chapter in created:
+        with contextlib.suppress(Exception):
+            await chapter.delete()
+
+
+@pytest.fixture
+async def character_factory(company_factory, user_factory, campaign_factory):
+    """Return a factory that creates Tortoise Character instances.
+
+    Auto-creates company, user, and campaign if not provided.
+    """
+    created: list[Character] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Character:
+        nonlocal _counter
+        _counter += 1
+
+        # Auto-create a company when none is provided
+        if "company" not in kwargs and "company_id" not in kwargs:
+            kwargs["company"] = await company_factory()
+
+        if "user_creator" not in kwargs and "user_creator_id" not in kwargs:
+            user = await user_factory(company=kwargs.get("company"))
+            kwargs["user_creator"] = user
+        if "user_player" not in kwargs and "user_player_id" not in kwargs:
+            kwargs["user_player"] = kwargs.get("user_creator") or await user_factory(
+                company=kwargs.get("company")
+            )
+        if "campaign" not in kwargs and "campaign_id" not in kwargs:
+            kwargs["campaign"] = await campaign_factory(company=kwargs.get("company"))
+
+        defaults: dict[str, Any] = {
+            "name_first": f"TestFirst{_counter}",
+            "name_last": f"TestLast{_counter}",
+            "character_class": "MORTAL",
+            "type": "PLAYER",
+            "game_version": "V5",
+        }
+        defaults.update(kwargs)
+        character = await Character.create(**defaults)
+        character = (
+            await Character.filter(id=character.id)
+            .prefetch_related(
+                "concept",
+                "vampire_attributes__clan",
+                "werewolf_attributes__tribe",
+                "werewolf_attributes__auspice",
+                "mage_attributes",
+                "hunter_attributes",
+                "specialties",
+            )
+            .first()
+        )
+        created.append(character)
+        return character
+
+    yield _factory
+
+    for character in created:
+        with contextlib.suppress(Exception):
+            await character.delete()
+
+
+@pytest.fixture
+async def character_inventory_factory():
+    """Return a factory that creates Tortoise CharacterInventory instances."""
+    created: list[CharacterInventory] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CharacterInventory:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "name": f"Test Item {_counter}",
+            "type": "WEAPON",
+        }
+        defaults.update(kwargs)
+        item = await CharacterInventory.create(**defaults)
+        created.append(item)
+        return item
+
+    yield _factory
+
+    for item in created:
+        with contextlib.suppress(Exception):
+            await item.delete()
+
+
+@pytest.fixture
+async def specialty_factory():
+    """Return a factory that creates Tortoise Specialty instances."""
+    created: list[Specialty] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Specialty:
+        nonlocal _counter
+        _counter += 1
+        defaults: dict[str, Any] = {
+            "name": f"Test Specialty {_counter}",
+            "type": "SKILL",
+        }
+        defaults.update(kwargs)
+        specialty = await Specialty.create(**defaults)
+        created.append(specialty)
+        return specialty
+
+    yield _factory
+
+    for specialty in created:
+        with contextlib.suppress(Exception):
+            await specialty.delete()
+
+
+@pytest.fixture
+async def character_trait_factory(character_factory):
+    """Return a factory that creates Tortoise CharacterTrait instances."""
+    created: list[CharacterTrait] = []
+
+    async def _factory(**kwargs: Any) -> CharacterTrait:
+        # Auto-create a character when none is provided
+        if "character" not in kwargs and "character_id" not in kwargs:
+            kwargs["character"] = await character_factory()
+
+        # Auto-pick a trait when none is provided
+        if "trait" not in kwargs and "trait_id" not in kwargs:
+            kwargs["trait"] = await Trait.filter(is_archived=False).first()
+
+        defaults: dict[str, Any] = {
+            "value": 1,
+        }
+        defaults.update(kwargs)
+        ct = await CharacterTrait.create(**defaults)
+        ct = (
+            await CharacterTrait.filter(id=ct.id)
+            .prefetch_related(
+                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+            )
+            .first()
+        )
+        created.append(ct)
+        return ct
+
+    yield _factory
+
+    for ct in created:
+        with contextlib.suppress(Exception):
+            await ct.delete()
+
+
+@pytest.fixture
+async def vampire_attributes_factory():
+    """Return a factory that creates Tortoise VampireAttributes instances."""
+    created: list[VampireAttributes] = []
+
+    async def _factory(**kwargs: Any) -> VampireAttributes:
+        attrs = await VampireAttributes.create(**kwargs)
+        created.append(attrs)
+        return attrs
+
+    yield _factory
+
+    for attrs in created:
+        with contextlib.suppress(Exception):
+            await attrs.delete()
+
+
+@pytest.fixture
+async def werewolf_attributes_factory():
+    """Return a factory that creates Tortoise WerewolfAttributes instances."""
+    created: list[WerewolfAttributes] = []
+
+    async def _factory(**kwargs: Any) -> WerewolfAttributes:
+        attrs = await WerewolfAttributes.create(**kwargs)
+        created.append(attrs)
+        return attrs
+
+    yield _factory
+
+    for attrs in created:
+        with contextlib.suppress(Exception):
+            await attrs.delete()
+
+
+@pytest.fixture
+async def chargen_session_factory(
+    user_factory: Any,
+    company_factory: Any,
+    campaign_factory: Any,
+) -> Any:
+    """Return a factory that creates Tortoise ChargenSession instances for testing."""
+    from vapi.db.sql_models.chargen_session import ChargenSession
+
+    created: list[ChargenSession] = []
+
+    async def _factory(**kwargs: Any) -> ChargenSession:
+        if "user" not in kwargs:
+            kwargs["user"] = await user_factory()
+        if "company" not in kwargs:
+            kwargs["company"] = await company_factory()
+        if "campaign" not in kwargs:
+            kwargs["campaign"] = await campaign_factory()
+
+        defaults: dict[str, Any] = {
+            "expires_at": time_now() + timedelta(hours=24),
+            "requires_selection": False,
+        }
+        defaults.update(kwargs)
+
+        session = await ChargenSession.create(**defaults)
+        created.append(session)
+        return session
+
+    yield _factory
+
+    for session in created:
+        with contextlib.suppress(Exception):
+            await session.delete()
+
+
+@pytest.fixture
+async def quickroll_factory(user_factory: Any) -> Any:
+    """Return a factory that creates Tortoise QuickRoll instances.
+
+    Auto-creates a User if not provided. Accepts an optional list of Trait
+    objects to attach via the M2M `traits` relation.
+    """
+    created: list[QuickRoll] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> QuickRoll:
+        nonlocal _counter
+        _counter += 1
+
+        traits: list[Trait] = kwargs.pop("traits", [])
+
+        if "user" not in kwargs and "user_id" not in kwargs:
+            kwargs["user"] = await user_factory()
+
+        defaults: dict[str, Any] = {
+            "name": f"Test QuickRoll {_counter}",
+            "description": None,
+        }
+        defaults.update(kwargs)
+        quickroll = await QuickRoll.create(**defaults)
+
+        if traits:
+            await quickroll.traits.add(*traits)
+
+        created.append(quickroll)
+        return quickroll
+
+    yield _factory
+
+    for quickroll in created:
+        with contextlib.suppress(Exception):
+            await quickroll.delete()
+
+
+@pytest.fixture
+async def note_factory() -> Any:
+    """Return a factory that creates Tortoise Note instances.
+
+    Caller must supply `company`. All other FK kwargs (campaign, book, chapter,
+    character, user) are optional and default to None.
+    """
+    created: list[Note] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> Note:
+        nonlocal _counter
+        _counter += 1
+
+        defaults: dict[str, Any] = {
+            "title": f"Test Note {_counter}",
+            "content": "Test note content.",
+            "user": None,
+            "campaign": None,
+            "book": None,
+            "chapter": None,
+            "character": None,
+        }
+        defaults.update(kwargs)
+        note = await Note.create(**defaults)
+        created.append(note)
+        return note
+
+    yield _factory
+
+    for note in created:
+        with contextlib.suppress(Exception):
+            await note.delete()
+
+
+@pytest.fixture
+async def diceroll_factory(company_factory: Any, user_factory: Any) -> Any:
+    """Return a factory that creates Tortoise DiceRoll + DiceRollResult instances.
+
+    Auto-creates company and user if not provided. Accepts an optional list of
+    Trait objects to attach via the M2M `traits` relation. Always creates a
+    linked DiceRollResult so callers have a fully-populated roll object.
+    """
+    created: list[DiceRoll] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> DiceRoll:
+        nonlocal _counter
+        _counter += 1
+
+        traits: list[Trait] = kwargs.pop("traits", [])
+
+        # Result fields are consumed separately; they don't belong on DiceRoll itself
+        total_result: int | None = kwargs.pop("total_result", None)
+        total_result_type: RollResultType = kwargs.pop("total_result_type", RollResultType.SUCCESS)
+        total_result_humanized: str = kwargs.pop("total_result_humanized", "Success")
+        total_dice_roll: list[int] = kwargs.pop("total_dice_roll", [5])
+        player_roll: list[int] = kwargs.pop("player_roll", [5])
+        desperation_roll: list[int] = kwargs.pop("desperation_roll", [])
+
+        if "company" not in kwargs and "company_id" not in kwargs:
+            kwargs["company"] = await company_factory()
+        if "user" not in kwargs and "user_id" not in kwargs:
+            kwargs["user"] = await user_factory()
+
+        defaults: dict[str, Any] = {
+            "difficulty": None,
+            "dice_size": DiceSize.D10,
+            "num_dice": 1,
+            "num_desperation_dice": 0,
+            "campaign": None,
+            "character": None,
+        }
+        defaults.update(kwargs)
+        dice_roll = await DiceRoll.create(**defaults)
+
+        await DiceRollResult.create(
+            dice_roll=dice_roll,
+            total_result=total_result,
+            total_result_type=total_result_type,
+            total_result_humanized=total_result_humanized,
+            total_dice_roll=total_dice_roll,
+            player_roll=player_roll,
+            desperation_roll=desperation_roll,
+        )
+
+        if traits:
+            await dice_roll.traits.add(*traits)
+
+        created.append(dice_roll)
+        return dice_roll
+
+    yield _factory
+
+    for dice_roll in created:
+        with contextlib.suppress(Exception):
+            await dice_roll.delete()
+
+
+@pytest.fixture
+async def s3asset_factory(company_factory: Any, user_factory: Any) -> Any:
+    """Return a factory that creates Tortoise S3Asset instances.
+
+    Auto-creates company and uploaded_by user if not provided. Generates dummy
+    S3 coordinates (key, bucket, public URL) from uuid7 so each asset is unique.
+    """
+    created: list[S3Asset] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> S3Asset:
+        nonlocal _counter
+        _counter += 1
+
+        if "company" not in kwargs and "company_id" not in kwargs:
+            kwargs["company"] = await company_factory()
+        if "uploaded_by" not in kwargs and "uploaded_by_id" not in kwargs:
+            kwargs["uploaded_by"] = await user_factory()
+
+        uid = str(uuid7())
+        defaults: dict[str, Any] = {
+            "asset_type": AssetType.IMAGE,
+            "mime_type": "image/png",
+            "original_filename": f"test-asset-{_counter}.png",
+            "s3_key": f"test/{uid}.png",
+            "s3_bucket": "test-bucket",
+            "public_url": f"https://test-bucket.s3.amazonaws.com/test/{uid}.png",
+            "character": None,
+            "campaign": None,
+            "book": None,
+            "chapter": None,
+            "user_parent": None,
+        }
+        defaults.update(kwargs)
+        asset = await S3Asset.create(**defaults)
+        created.append(asset)
+        return asset
+
+    yield _factory
+
+    for asset in created:
+        with contextlib.suppress(Exception):
+            await asset.delete()

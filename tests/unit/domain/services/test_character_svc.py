@@ -29,13 +29,13 @@ class TestUpdateDateKilled:
 
     async def test_update_date_killed_alive(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify date_killed stays None when character status is ALIVE."""
         # Given an alive character
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
         service = CharacterService()
 
         # When we call update_date_killed on an alive character
@@ -46,13 +46,13 @@ class TestUpdateDateKilled:
 
     async def test_update_date_killed_alive_to_dead(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify date_killed is set when character transitions to DEAD."""
         # Given an alive character
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
         service = CharacterService()
 
         # When we set the character to dead
@@ -64,13 +64,13 @@ class TestUpdateDateKilled:
 
     async def test_update_date_killed_dead_to_alive(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify date_killed is cleared when character transitions back to ALIVE."""
         # Given a character that is dead
-        company = await pg_company_factory()
-        character = await pg_character_factory(company=company)
+        company = await company_factory()
+        character = await character_factory(company=company)
         service = CharacterService()
         character.status = CharacterStatus.DEAD
         service.update_date_killed(character)
@@ -88,15 +88,15 @@ class TestAssignVampireClanAttributes:
 
     async def test_assign_vampire_clan_attributes_no_clan(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_vampire_attributes_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        vampire_attributes_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify ValidationError is raised when vampire has no clan_id."""
         # Given a vampire character without a clan
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="VAMPIRE", company=company)
-        await pg_vampire_attributes_factory(character=character)
+        company = await company_factory()
+        character = await character_factory(character_class="VAMPIRE", company=company)
+        await vampire_attributes_factory(character=character)
         service = CharacterService()
 
         # When we assign clan attributes without a clan set
@@ -106,16 +106,16 @@ class TestAssignVampireClanAttributes:
 
     async def test_assign_vampire_clan_attributes_clan_not_found(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
         mocker: Any,
     ) -> None:
         """Verify ValidationError is raised when the specified clan does not exist."""
         from unittest.mock import MagicMock
 
         # Given a vampire character whose VampireAttributes has a non-existent clan_id
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="VAMPIRE", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="VAMPIRE", company=company)
 
         # Return a fake attrs object with a non-existent clan_id from the DB query
         fake_attrs = MagicMock()
@@ -142,16 +142,16 @@ class TestAssignVampireClanAttributes:
 
     async def test_assign_vampire_clan_attributes_clan_found(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_vampire_attributes_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        vampire_attributes_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify clan bane and compulsion are copied to VampireAttributes when clan exists."""
         # Given a vampire character and a real clan
         clan = await VampireClan.filter(is_archived=False).first()
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="VAMPIRE", company=company)
-        await pg_vampire_attributes_factory(character=character, clan=clan)
+        company = await company_factory()
+        character = await character_factory(character_class="VAMPIRE", company=company)
+        await vampire_attributes_factory(character=character, clan=clan)
         service = CharacterService()
 
         # When we assign clan attributes
@@ -166,13 +166,13 @@ class TestAssignVampireClanAttributes:
 
     async def test_assign_vampire_clan_attributes_skips_non_vampire(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify method returns early for non-vampire characters."""
         # Given a mortal character
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         service = CharacterService()
 
         # When we call assign_vampire_clan_attributes on a mortal
@@ -185,15 +185,15 @@ class TestAssignWerewolfAttributes:
 
     async def test_assign_werewolf_attributes_no_tribe_or_auspice(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_werewolf_attributes_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        werewolf_attributes_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify ValidationError is raised when tribe and auspice IDs are missing."""
         # Given a werewolf character without tribe or auspice
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="WEREWOLF", company=company)
-        await pg_werewolf_attributes_factory(character=character)
+        company = await company_factory()
+        character = await character_factory(character_class="WEREWOLF", company=company)
+        await werewolf_attributes_factory(character=character)
         service = CharacterService()
 
         # When we assign werewolf attributes without tribe/auspice set
@@ -203,8 +203,8 @@ class TestAssignWerewolfAttributes:
 
     async def test_assign_werewolf_attributes_tribe_not_found(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
         mocker: Any,
     ) -> None:
         """Verify ValidationError is raised when tribe is not found."""
@@ -212,8 +212,8 @@ class TestAssignWerewolfAttributes:
 
         # Given a werewolf character whose WerewolfAttributes has non-existent tribe_id
         auspice = await WerewolfAuspice.filter(is_archived=False).first()
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="WEREWOLF", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="WEREWOLF", company=company)
 
         # Return a fake attrs object with non-existent IDs from the DB query
         fake_attrs = MagicMock()
@@ -251,8 +251,8 @@ class TestAssignWerewolfAttributes:
 
     async def test_assign_werewolf_attributes_auspice_not_found(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
         mocker: Any,
     ) -> None:
         """Verify ValidationError is raised when auspice is not found."""
@@ -260,8 +260,8 @@ class TestAssignWerewolfAttributes:
 
         # Given a werewolf character whose WerewolfAttributes has a non-existent auspice_id
         tribe = await WerewolfTribe.filter(is_archived=False).first()
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="WEREWOLF", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="WEREWOLF", company=company)
 
         # Return a fake attrs object with non-existent IDs from the DB query
         fake_attrs = MagicMock()
@@ -299,17 +299,17 @@ class TestAssignWerewolfAttributes:
 
     async def test_assign_werewolf_attributes_success(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_werewolf_attributes_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        werewolf_attributes_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify tribe and auspice names are set when both exist."""
         # Given a werewolf character with valid tribe and auspice
         tribe = await WerewolfTribe.filter(is_archived=False).first()
         auspice = await WerewolfAuspice.filter(is_archived=False).first()
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="WEREWOLF", company=company)
-        await pg_werewolf_attributes_factory(character=character, tribe=tribe, auspice=auspice)
+        company = await company_factory()
+        character = await character_factory(character_class="WEREWOLF", company=company)
+        await werewolf_attributes_factory(character=character, tribe=tribe, auspice=auspice)
         service = CharacterService()
 
         # When we assign werewolf attributes
@@ -323,13 +323,13 @@ class TestAssignWerewolfAttributes:
 
     async def test_assign_werewolf_attributes_skips_non_werewolf(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify method returns early for non-werewolf characters."""
         # Given a mortal character
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         service = CharacterService()
 
         # When we call assign_werewolf_attributes on a mortal
@@ -342,15 +342,15 @@ class TestValidateUniqueName:
 
     async def test_validate_unique_name_duplicate(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
-        pg_campaign_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        campaign_factory: "Callable[..., Any]",
     ) -> None:
         """Verify ValidationError is raised when character name is not unique within a company."""
         # Given an existing character
-        company = await pg_company_factory()
-        campaign = await pg_campaign_factory(company=company)
-        existing = await pg_character_factory(
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        existing = await character_factory(
             name_first="Duplicate", name_last="Name", company=company, campaign=campaign
         )
         service = CharacterService()
@@ -384,17 +384,17 @@ class TestValidateUniqueName:
 
     async def test_validate_unique_name_different_company(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify no error when same name exists in a different company."""
         # Given an existing character in one company
-        company_a = await pg_company_factory()
-        await pg_character_factory(name_first="Same", name_last="Name", company=company_a)
+        company_a = await company_factory()
+        await character_factory(name_first="Same", name_last="Name", company=company_a)
 
         # Given a new character with the same name in a different company
-        company_b = await pg_company_factory()
-        new_character = await pg_character_factory(
+        company_b = await company_factory()
+        new_character = await character_factory(
             name_first="Same", name_last="Name", company=company_b
         )
         service = CharacterService()
@@ -405,15 +405,13 @@ class TestValidateUniqueName:
 
     async def test_validate_unique_name_same_character(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify no error when validating the same character (update scenario)."""
         # Given an existing character
-        company = await pg_company_factory()
-        character = await pg_character_factory(
-            name_first="Update", name_last="Test", company=company
-        )
+        company = await company_factory()
+        character = await character_factory(name_first="Update", name_last="Test", company=company)
         service = CharacterService()
 
         # When we validate the same character's name (simulating an update)
@@ -426,13 +424,13 @@ class TestApplyConceptSpecialties:
 
     async def test_apply_concept_specialties_no_concept(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify method returns early when no concept_id is set."""
         # Given a character without a concept
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         character.concept_id = None  # type: ignore[attr-defined]
         service = CharacterService()
 
@@ -442,13 +440,13 @@ class TestApplyConceptSpecialties:
 
     async def test_apply_concept_specialties_concept_not_found(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify ValidationError is raised when concept is not found."""
         # Given a character with a non-existent concept_id
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         character.concept_id = uuid4()  # type: ignore[attr-defined]
         service = CharacterService()
 
@@ -459,20 +457,20 @@ class TestApplyConceptSpecialties:
 
     async def test_apply_concept_specialties_success(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_character_concept_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        character_concept_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify specialties are synced from concept to the character's Specialty table."""
         # Given a concept with specialties and a character linked to it
-        concept = await pg_character_concept_factory(
+        concept = await character_concept_factory(
             specialties=[
                 {"name": "Investigation", "type": "ACTION", "description": "Finding clues"},
                 {"name": "Intimidation", "type": "ACTION", "description": "Scaring people"},
             ]
         )
-        company = await pg_company_factory()
-        character = await pg_character_factory(
+        company = await company_factory()
+        character = await character_factory(
             character_class="MORTAL", company=company, concept=concept
         )
         service = CharacterService()
@@ -492,16 +490,16 @@ class TestValidateClassAttributes:
 
     async def test_validate_class_attributes_routes_to_vampire(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_vampire_attributes_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        vampire_attributes_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
         mocker: Any,
     ) -> None:
         """Verify vampire characters are routed to assign_vampire_clan_attributes."""
         # Given a vampire character with attributes
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="VAMPIRE", company=company)
-        await pg_vampire_attributes_factory(character=character)
+        company = await company_factory()
+        character = await character_factory(character_class="VAMPIRE", company=company)
+        await vampire_attributes_factory(character=character)
         service = CharacterService()
 
         # When we spy on assign_vampire_clan_attributes and call validate_class_attributes
@@ -516,16 +514,16 @@ class TestValidateClassAttributes:
 
     async def test_validate_class_attributes_routes_to_werewolf(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_werewolf_attributes_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        werewolf_attributes_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
         mocker: Any,
     ) -> None:
         """Verify werewolf characters are routed to assign_werewolf_attributes."""
         # Given a werewolf character with attributes
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="WEREWOLF", company=company)
-        await pg_werewolf_attributes_factory(character=character)
+        company = await company_factory()
+        character = await character_factory(character_class="WEREWOLF", company=company)
+        await werewolf_attributes_factory(character=character)
         service = CharacterService()
 
         # When we spy on assign_werewolf_attributes and call validate_class_attributes
@@ -540,13 +538,13 @@ class TestValidateClassAttributes:
 
     async def test_validate_class_attributes_mortal_passes(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify mortal characters pass validation without errors."""
         # Given a mortal character
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         service = CharacterService()
 
         # When we validate class attributes
@@ -559,14 +557,14 @@ class TestPrepareForSave:
 
     async def test_prepare_for_save_calls_all_validations(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
         mocker: Any,
     ) -> None:
         """Verify prepare_for_save calls all validation methods."""
         # Given a valid mortal character
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         service = CharacterService()
 
         # When we spy on all service methods
@@ -590,13 +588,13 @@ class TestCharacterCreateTraitToCharacterTraits:
 
     async def test_character_create_trait_to_character_traits_success(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify CharacterTrait rows are created for each TraitCreate item."""
         # Given a character and two real traits
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         traits = await Trait.filter(is_archived=False).limit(2)
         trait1, trait2 = traits[0], traits[1]
         trait_create_data = [
@@ -619,13 +617,13 @@ class TestCharacterCreateTraitToCharacterTraits:
 
     async def test_character_create_trait_to_character_traits_trait_not_found(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify ValidationError is raised when a trait_id does not exist."""
         # Given a character and a bogus trait_id
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         trait_create_data = [CharacterTraitCreate(trait_id=uuid4(), value=2)]
         service = CharacterService()
 
@@ -640,13 +638,13 @@ class TestArchiveCharacter:
 
     async def test_archive_character(
         self,
-        pg_character_factory: "Callable[..., Any]",
-        pg_company_factory: "Callable[..., Any]",
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
         """Verify archive_character sets is_archived=True and populates archive_date."""
         # Given an active character
-        company = await pg_company_factory()
-        character = await pg_character_factory(character_class="MORTAL", company=company)
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
         assert character.is_archived is False
         assert character.archive_date is None
         service = CharacterService()

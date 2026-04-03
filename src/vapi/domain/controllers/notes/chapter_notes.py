@@ -9,7 +9,7 @@ from litestar.params import Parameter
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
@@ -22,12 +22,12 @@ class CampaignChapterNoteController(BaseNoteController):
 
     tags = [APITags.CAMPAIGN_CHAPTER_NOTES.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "campaign": Provide(pg_deps.provide_campaign_by_id),
-        "book": Provide(pg_deps.provide_campaign_book_by_id),
-        "chapter": Provide(pg_deps.provide_campaign_chapter_by_id),
-        "note": Provide(pg_deps.provide_note_by_id),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "campaign": Provide(deps.provide_campaign_by_id),
+        "book": Provide(deps.provide_campaign_book_by_id),
+        "chapter": Provide(deps.provide_campaign_chapter_by_id),
+        "note": Provide(deps.provide_note_by_id),
     }
 
     @property

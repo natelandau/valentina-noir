@@ -97,7 +97,7 @@ class DiceRollService:
         """Roll a quick roll."""
         validation_svc = GetModelByIdValidationService()
         quickroll, character = await asyncio.gather(
-            validation_svc.get_quickroll_by_uuid(data.quickroll_id),
+            validation_svc.get_quickroll_by_id(data.quickroll_id),
             validation_svc.get_character_by_id(data.character_id),
         )
 

@@ -28,19 +28,19 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
-        pg_character_inventory_factory: Callable[..., CharacterInventory],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
+        character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify listing inventory items returns only non-archived items."""
         # Given a character with one active and one archived inventory item
-        character = await pg_character_factory(company=pg_mirror_company)
-        item = await pg_character_inventory_factory(
+        character = await character_factory(company=mirror_company)
+        item = await character_inventory_factory(
             character=character, name="Test Item", type=InventoryItemType.OTHER
         )
-        await pg_character_inventory_factory(
+        await character_inventory_factory(
             character=character,
             name="Archived Item",
             type=InventoryItemType.OTHER,
@@ -51,7 +51,7 @@ class TestInventoryItem:
         response = await client.get(
             build_url(
                 Characters.INVENTORY,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -76,16 +76,16 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
-        pg_character_inventory_factory: Callable[..., CharacterInventory],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
+        character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify retrieving a single inventory item by ID returns correct data."""
         # Given a character with an inventory item
-        character = await pg_character_factory(company=pg_mirror_company)
-        item = await pg_character_inventory_factory(
+        character = await character_factory(company=mirror_company)
+        item = await character_inventory_factory(
             character=character, name="Test Item", type=InventoryItemType.OTHER
         )
 
@@ -93,7 +93,7 @@ class TestInventoryItem:
         response = await client.get(
             build_url(
                 Characters.INVENTORY_DETAIL,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -115,16 +115,16 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
-        pg_character_inventory_factory: Callable[..., CharacterInventory],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
+        character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify that requesting an archived inventory item returns 404."""
         # Given a character with an archived inventory item
-        character = await pg_character_factory(company=pg_mirror_company)
-        item = await pg_character_inventory_factory(
+        character = await character_factory(company=mirror_company)
+        item = await character_inventory_factory(
             character=character,
             name="Archived Item",
             type=InventoryItemType.OTHER,
@@ -135,7 +135,7 @@ class TestInventoryItem:
         response = await client.get(
             build_url(
                 Characters.INVENTORY_DETAIL,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -152,20 +152,20 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify creating an inventory item persists it with the correct data."""
         # Given a character
-        character = await pg_character_factory(company=pg_mirror_company)
+        character = await character_factory(company=mirror_company)
 
         # When we create an inventory item
         response = await client.post(
             build_url(
                 Characters.INVENTORY_CREATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -199,20 +199,20 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify creating an inventory item with an invalid type returns 400."""
         # Given a character
-        character = await pg_character_factory(company=pg_mirror_company)
+        character = await character_factory(company=mirror_company)
 
         # When we post invalid enum data
         response = await client.post(
             build_url(
                 Characters.INVENTORY_CREATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -234,20 +234,20 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify creating an inventory item without required fields returns 400."""
         # Given a character
-        character = await pg_character_factory(company=pg_mirror_company)
+        character = await character_factory(company=mirror_company)
 
         # When we post an empty body
         response = await client.post(
             build_url(
                 Characters.INVENTORY_CREATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -266,16 +266,16 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
-        pg_character_inventory_factory: Callable[..., CharacterInventory],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
+        character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify updating an inventory item persists the changed fields."""
         # Given a character with an inventory item
-        character = await pg_character_factory(company=pg_mirror_company)
-        item = await pg_character_inventory_factory(
+        character = await character_factory(company=mirror_company)
+        item = await character_inventory_factory(
             character=character,
             name="Test Item",
             type=InventoryItemType.OTHER,
@@ -286,7 +286,7 @@ class TestInventoryItem:
         response = await client.patch(
             build_url(
                 Characters.INVENTORY_UPDATE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -314,16 +314,16 @@ class TestInventoryItem:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        pg_mirror_company: Company,
-        pg_mirror_global_admin,
-        pg_character_factory: Callable[..., Character],
-        pg_character_inventory_factory: Callable[..., CharacterInventory],
+        mirror_company: Company,
+        mirror_global_admin,
+        character_factory: Callable[..., Character],
+        character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify deleting an inventory item archives it rather than removing it."""
         # Given a character with an inventory item
-        character = await pg_character_factory(company=pg_mirror_company)
-        item = await pg_character_inventory_factory(
+        character = await character_factory(company=mirror_company)
+        item = await character_inventory_factory(
             character=character, name="Test Item", type=InventoryItemType.OTHER
         )
 
@@ -331,7 +331,7 @@ class TestInventoryItem:
         response = await client.delete(
             build_url(
                 Characters.INVENTORY_DELETE,
-                company_id=pg_mirror_company.id,
+                company_id=mirror_company.id,
                 user_id=character.user_player_id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,

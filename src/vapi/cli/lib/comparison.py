@@ -5,7 +5,6 @@ import re
 from enum import Enum
 from typing import Any
 
-from beanie import Document
 from pydantic import BaseModel
 
 from vapi.constants import PROJECT_ROOT_PATH
@@ -103,14 +102,14 @@ def _flatten_dict(d: dict[str, Any], parent_key: str = "") -> dict[str, Any]:
     return dict(items)
 
 
-def document_differs_from_fixture[T: Document](document: T, fixture_data: dict[str, Any]) -> bool:
-    """Compare a Beanie document against fixture data.
+def document_differs_from_fixture[T](document: T, fixture_data: dict[str, Any]) -> bool:
+    """Compare a database model against fixture data.
 
     Only compares fields present in the fixture data. Fields that exist in the
     document but not in the fixture are ignored.
 
     Args:
-        document (T): The Beanie document from the database.
+        document (T): The database model instance.
         fixture_data (dict[str, Any]): The corresponding fixture data from JSON.
 
     Returns:
@@ -126,13 +125,13 @@ def document_differs_from_fixture[T: Document](document: T, fixture_data: dict[s
     return False
 
 
-def get_differing_fields[T: Document](
+def get_differing_fields[T](
     document: T, fixture_data: dict[str, Any]
 ) -> dict[str, tuple[Any, Any]]:
-    """Get all fields that differ between a document and fixture data.
+    """Get all fields that differ between a model and fixture data.
 
     Args:
-        document (T): The Beanie document from the database.
+        document (T): The database model instance.
         fixture_data (dict[str, Any]): The corresponding fixture data from JSON.
 
     Returns:

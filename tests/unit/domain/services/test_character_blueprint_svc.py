@@ -544,7 +544,7 @@ class TestListAllTraits:
             assert trait.is_rollable is True
 
     async def test_list_all_traits_subcategory_id(
-        self, pg_trait_factory: Callable[..., Trait]
+        self, trait_factory: Callable[..., Trait]
     ) -> None:
         """Verify that list_all_traits filters by subcategory_id."""
         # Given a subcategory with a parent category
@@ -555,7 +555,7 @@ class TestListAllTraits:
         game_version = GameVersion(category.game_versions[0])
 
         # Given a trait assigned to the subcategory
-        await pg_trait_factory(
+        await trait_factory(
             name="subcategory filter test trait",
             description="trait for subcategory filter test",
             game_versions=[game_version.value],
@@ -586,14 +586,14 @@ class TestListAllTraits:
             assert trait.subcategory_id == subcategory.id
 
     async def test_list_all_traits_exclude_subcategory_traits(
-        self, pg_trait_factory: Callable[..., Trait]
+        self, trait_factory: Callable[..., Trait]
     ) -> None:
         """Verify that list_all_traits excludes subcategory traits when flag is set."""
         # Given a subcategory exists
         subcategory = await TraitSubcategory.filter(is_archived=False).first()
 
         # Given a trait with a subcategory assignment
-        subcategory_trait = await pg_trait_factory(
+        subcategory_trait = await trait_factory(
             name="exclude subcategory test trait",
             description="trait for exclude subcategory test",
             subcategory=subcategory,

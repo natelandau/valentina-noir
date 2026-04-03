@@ -33,7 +33,7 @@ class SystemController(Controller):
     )
     async def check_system_health(self) -> Response[dto.SystemHealth]:
         """Check database available and returns app config info."""
-        db_status = "online" if test_db_connection() else "offline"
+        db_status = "online" if await test_db_connection() else "offline"
 
         try:
             cache_ping = await settings.redis.get_client().ping()

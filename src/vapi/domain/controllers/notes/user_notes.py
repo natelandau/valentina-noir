@@ -9,7 +9,7 @@ from litestar.params import Parameter
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
@@ -22,10 +22,10 @@ class UserNoteController(BaseNoteController):
 
     tags = [APITags.USERS_NOTES.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "developer": Provide(pg_deps.provide_developer_from_request),
-        "note": Provide(pg_deps.provide_note_by_id),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "developer": Provide(deps.provide_developer_from_request),
+        "note": Provide(deps.provide_note_by_id),
     }
 
     @property

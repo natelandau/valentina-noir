@@ -12,11 +12,11 @@ from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterTraitService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.pg_guards import pg_developer_company_user_guard, pg_user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -35,13 +35,13 @@ class CharacterTraitController(Controller):
 
     tags = [APITags.CHARACTERS_TRAITS.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "character": Provide(pg_deps.provide_character_by_id_and_company),
-        "character_trait": Provide(pg_deps.provide_character_trait_by_id),
-        "developer": Provide(pg_deps.provide_developer_from_request),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "character": Provide(deps.provide_character_by_id_and_company),
+        "character_trait": Provide(deps.provide_character_trait_by_id),
+        "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [pg_developer_company_user_guard, pg_user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_not_unapproved_guard]
 
     @get(
         path=urls.Characters.TRAITS,

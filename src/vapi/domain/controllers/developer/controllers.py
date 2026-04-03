@@ -8,7 +8,7 @@ from litestar.di import Provide
 from litestar.handlers import get, patch, post
 
 from vapi.db.sql_models.developer import Developer
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.services import DeveloperService
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
@@ -25,7 +25,7 @@ class DeveloperController(Controller):
 
     tags = [APITags.DEVELOPERS.name]
     dependencies = {
-        "developer": Provide(pg_deps.provide_developer_from_request),
+        "developer": Provide(deps.provide_developer_from_request),
     }
 
     @get(

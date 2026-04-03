@@ -13,10 +13,10 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import hooks, pg_deps, urls
+from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.pg_guards import pg_user_character_player_or_storyteller_guard
+from vapi.lib.guards import user_character_player_or_storyteller_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -29,10 +29,10 @@ class CharacterAssetsController(BaseAssetsController):
     parent_fk_field = "character_id"
     tags = [APITags.CHARACTERS_ASSETS.name]
     dependencies = {
-        "company": Provide(pg_deps.provide_pg_company_by_id),
-        "user": Provide(pg_deps.provide_user_by_id_and_company),
-        "character": Provide(pg_deps.provide_character_by_id_and_company),
-        "asset": Provide(pg_deps.provide_s3_asset_by_id),
+        "company": Provide(deps.provide_company_by_id),
+        "user": Provide(deps.provide_user_by_id_and_company),
+        "character": Provide(deps.provide_character_by_id_and_company),
+        "asset": Provide(deps.provide_s3_asset_by_id),
     }
 
     @get(
@@ -78,7 +78,7 @@ class CharacterAssetsController(BaseAssetsController):
         operation_id="uploadCharacterAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[pg_user_character_player_or_storyteller_guard],
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def handle_file_upload(
         self,

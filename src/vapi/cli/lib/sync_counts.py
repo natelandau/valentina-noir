@@ -1,4 +1,4 @@
-"""PostgreSQL bootstrap syncers."""
+"""Bootstrap sync count tracking."""
 
 from __future__ import annotations
 

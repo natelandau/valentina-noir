@@ -28,7 +28,6 @@ DEV_DIR = PROJECT_ROOT / ".dev"
 DEV_DIRECTORIES = [
     DEV_DIR / "logs",
     DEV_DIR / "redis",
-    DEV_DIR / "mongodb",
 ]
 
 

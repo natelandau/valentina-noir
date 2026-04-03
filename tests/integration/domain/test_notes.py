@@ -20,12 +20,10 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.sql_models.campaign import Campaign as PgCampaign
-    from vapi.db.sql_models.campaign import CampaignBook as PgCampaignBook
-    from vapi.db.sql_models.campaign import CampaignChapter as PgCampaignChapter
-    from vapi.db.sql_models.company import Company as PgCompany
-    from vapi.db.sql_models.developer import Developer as PgDeveloper
-    from vapi.db.sql_models.user import User as PgUser
+    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
 
@@ -38,27 +36,27 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify listing notes returns empty when no notes exist."""
         # Given a character with no notes
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
 
         response = await client.get(
             build_url(
                 Characters.NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -72,41 +70,41 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify listing notes returns only non-archived notes."""
         # Given a character with notes
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
-        await pg_note_factory(
-            title="Note 1", content="Content 1", character=character, company=pg_mirror_company
+        await note_factory(
+            title="Note 1", content="Content 1", character=character, company=mirror_company
         )
-        await pg_note_factory(
-            title="Note 2", content="Content 2", character=character, company=pg_mirror_company
+        await note_factory(
+            title="Note 2", content="Content 2", character=character, company=mirror_company
         )
-        await pg_note_factory(
+        await note_factory(
             title="Archived Note",
             content="Content",
             character=character,
-            company=pg_mirror_company,
+            company=mirror_company,
             is_archived=True,
         )
 
         response = await client.get(
             build_url(
                 Characters.NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -121,31 +119,31 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify getting a single note by ID."""
         # Given a character with a note
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
-        note = await pg_note_factory(
-            title="Note 1", content="Content 1", character=character, company=pg_mirror_company
+        note = await note_factory(
+            title="Note 1", content="Content 1", character=character, company=mirror_company
         )
 
         response = await client.get(
             build_url(
                 Characters.NOTE_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
                 note_id=note.id,
             ),
@@ -161,27 +159,27 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify 404 when getting a note that doesn't exist."""
         # Given a character
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
 
         response = await client.get(
             build_url(
                 Characters.NOTE_DETAIL,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
                 note_id=uuid4(),
             ),
@@ -196,27 +194,27 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify creating a new note."""
         # Given a character
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
 
         response = await client.post(
             build_url(
                 Characters.NOTE_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -228,41 +226,41 @@ class TestCharacterNotes:
         assert data["title"] == "New Note"
         assert data["content"] == "New Content"
         assert data["character_id"] == str(character.id)
-        assert data["company_id"] == str(pg_mirror_company.id)
+        assert data["company_id"] == str(mirror_company.id)
 
     async def test_update_note(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify updating an existing note."""
         # Given a character with a note
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
-        note = await pg_note_factory(
+        note = await note_factory(
             title="Original Title",
             content="Original Content",
             character=character,
-            company=pg_mirror_company,
+            company=mirror_company,
         )
 
         response = await client.patch(
             build_url(
                 Characters.NOTE_UPDATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
                 note_id=note.id,
             ),
@@ -279,34 +277,34 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
-        pg_note_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify soft-deleting a note."""
         # Given a character with a note
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
-        note = await pg_note_factory(
+        note = await note_factory(
             title="Note to Delete",
             content="Content",
             character=character,
-            company=pg_mirror_company,
+            company=mirror_company,
         )
 
         response = await client.delete(
             build_url(
                 Characters.NOTE_DELETE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
                 note_id=note.id,
             ),
@@ -326,27 +324,27 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_character_factory: Callable,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify character notes create and list operations work."""
-        character = await pg_character_factory(
-            company=pg_mirror_company,
-            user_player=pg_mirror_user,
-            user_creator=pg_mirror_user,
-            campaign=pg_mirror_campaign,
+        character = await character_factory(
+            company=mirror_company,
+            user_player=mirror_user,
+            user_creator=mirror_user,
+            campaign=mirror_campaign,
         )
 
         # When we create a note
         create_response = await client.post(
             build_url(
                 Characters.NOTE_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -361,9 +359,9 @@ class TestAllNoteControllersSmoke:
         list_response = await client.get(
             build_url(
                 Characters.NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -379,19 +377,19 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
     ) -> None:
         """Verify campaign notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
             build_url(
                 Campaigns.NOTE_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
             json={"title": "Campaign Smoke Note", "content": "Campaign smoke content"},
@@ -405,9 +403,9 @@ class TestAllNoteControllersSmoke:
         list_response = await client.get(
             build_url(
                 Campaigns.NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -422,17 +420,17 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
     ) -> None:
         """Verify user notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
             build_url(
                 Users.NOTE_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_global_admin,
             json={"title": "User Smoke Note", "content": "User smoke content"},
@@ -446,8 +444,8 @@ class TestAllNoteControllersSmoke:
         list_response = await client.get(
             build_url(
                 Users.LIST_NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
             ),
             headers=token_global_admin,
         )
@@ -462,21 +460,21 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_mirror_campaign_book: PgCampaignBook,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        mirror_campaign_book: CampaignBook,
     ) -> None:
         """Verify campaign book notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
             build_url(
                 Campaigns.BOOK_NOTE_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
-                book_id=pg_mirror_campaign_book.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
+                book_id=mirror_campaign_book.id,
             ),
             headers=token_global_admin,
             json={"title": "Book Smoke Note", "content": "Book smoke content"},
@@ -490,10 +488,10 @@ class TestAllNoteControllersSmoke:
         list_response = await client.get(
             build_url(
                 Campaigns.BOOK_NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
-                book_id=pg_mirror_campaign_book.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
+                book_id=mirror_campaign_book.id,
             ),
             headers=token_global_admin,
         )
@@ -508,23 +506,23 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
-        pg_mirror_company: PgCompany,
-        pg_mirror_global_admin: PgDeveloper,
-        pg_mirror_user: PgUser,
-        pg_mirror_campaign: PgCampaign,
-        pg_mirror_campaign_book: PgCampaignBook,
-        pg_mirror_campaign_chapter: PgCampaignChapter,
+        mirror_company: Company,
+        mirror_global_admin: Developer,
+        mirror_user: User,
+        mirror_campaign: Campaign,
+        mirror_campaign_book: CampaignBook,
+        mirror_campaign_chapter: CampaignChapter,
     ) -> None:
         """Verify campaign chapter notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
             build_url(
                 Campaigns.CHAPTER_NOTE_CREATE,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
-                book_id=pg_mirror_campaign_book.id,
-                chapter_id=pg_mirror_campaign_chapter.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
+                book_id=mirror_campaign_book.id,
+                chapter_id=mirror_campaign_chapter.id,
             ),
             headers=token_global_admin,
             json={"title": "Chapter Smoke Note", "content": "Chapter smoke content"},
@@ -538,11 +536,11 @@ class TestAllNoteControllersSmoke:
         list_response = await client.get(
             build_url(
                 Campaigns.CHAPTER_NOTES,
-                company_id=pg_mirror_company.id,
-                user_id=pg_mirror_user.id,
-                campaign_id=pg_mirror_campaign.id,
-                book_id=pg_mirror_campaign_book.id,
-                chapter_id=pg_mirror_campaign_chapter.id,
+                company_id=mirror_company.id,
+                user_id=mirror_user.id,
+                campaign_id=mirror_campaign.id,
+                book_id=mirror_campaign_book.id,
+                chapter_id=mirror_campaign_chapter.id,
             ),
             headers=token_global_admin,
         )
