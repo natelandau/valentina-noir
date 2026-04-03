@@ -5,42 +5,29 @@ Used to handle the archiving of various models and their associated data.
 
 import asyncio
 import logging
-from typing import Any
+from uuid import UUID
 
-from beanie import PydanticObjectId
-from beanie.operators import In, Set
-
-from vapi.constants import AssetParentType
-from vapi.db.models import (
-    Campaign,
-    CampaignBook,
-    CampaignChapter,
-    Character,
-    CharacterConcept,
-    CharacterInventory,
-    Company,
-    DiceRoll,
-    DictionaryTerm,
-    Note,
-    QuickRoll,
-    S3Asset,
-    Trait,
-    User,
-)
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import Character, CharacterInventory
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.diceroll import DiceRoll
+from vapi.db.sql_models.dictionary import DictionaryTerm
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.db.sql_models.user import User
 
 logger = logging.getLogger("vapi")
 
 
-async def archive_s3_assets(
-    s3_asset_type: AssetParentType, object_ids: list[PydanticObjectId]
-) -> int:
-    """Archive all S3 assets associated with the campaign."""
-    updated_s3_assets = await S3Asset.find(
-        S3Asset.parent_type == s3_asset_type,
-        In(S3Asset.parent_id, object_ids),
-    ).update_many(Set({S3Asset.is_archived: True}))
-
-    return updated_s3_assets.modified_count  # type: ignore [union-attr]
+async def archive_s3_assets(fk_field: str, object_ids: list[UUID]) -> int:
+    """Archive all S3 assets matching the given FK field and IDs."""
+    return await S3Asset.filter(
+        **{f"{fk_field}__in": object_ids},
+        is_archived=False,
+    ).update(is_archived=True)
 
 
 class CampaignArchiveHandler:
@@ -52,27 +39,19 @@ class CampaignArchiveHandler:
 
     async def handle(self) -> None:
         """Handle the archiving of the campaign."""
-        campaign_books = await CampaignBook.find(
-            CampaignBook.campaign_id == self.campaign.id
-        ).to_list()
+        campaign_books = await CampaignBook.filter(campaign_id=self.campaign.id)
         book_ids = [b.id for b in campaign_books]
 
-        campaign_chapters = await CampaignChapter.find(
-            In(CampaignChapter.book_id, book_ids)
-        ).to_list()
+        campaign_chapters = await CampaignChapter.filter(book_id__in=book_ids)
         chapter_ids = [c.id for c in campaign_chapters]
 
-        await CampaignChapter.find(In(CampaignChapter.book_id, book_ids)).update_many(
-            Set({CampaignChapter.is_archived: True})
-        )
-        await CampaignBook.find(CampaignBook.campaign_id == self.campaign.id).update_many(
-            Set({CampaignBook.is_archived: True})
-        )
+        await CampaignChapter.filter(book_id__in=book_ids).update(is_archived=True)
+        await CampaignBook.filter(campaign_id=self.campaign.id).update(is_archived=True)
 
         s3_counts = await asyncio.gather(
-            archive_s3_assets(AssetParentType.CAMPAIGN_CHAPTER, chapter_ids),
-            archive_s3_assets(AssetParentType.CAMPAIGN_BOOK, book_ids),
-            archive_s3_assets(AssetParentType.CAMPAIGN, [self.campaign.id]),
+            archive_s3_assets("chapter_id", chapter_ids),
+            archive_s3_assets("book_id", book_ids),
+            archive_s3_assets("campaign_id", [self.campaign.id]),
         )
         num_s3_assets = sum(s3_counts)
 
@@ -103,27 +82,24 @@ class CharacterArchiveHandler:
         self.character.is_archived = True
         await self.character.save()
 
-        num_s3_assets_archived = await archive_s3_assets(
-            AssetParentType.CHARACTER, [self.character.id]
-        )
+        num_s3_assets_archived = await archive_s3_assets("character_id", [self.character.id])
 
-        custom_traits = await Trait.find(
-            Trait.custom_for_character_id == self.character.id
-        ).update_many(Set({Trait.is_archived: True}))
+        custom_traits_archived = await Trait.filter(
+            custom_for_character_id=self.character.id,
+        ).update(is_archived=True)
 
-        inventory_items = await CharacterInventory.find(
-            CharacterInventory.character_id == self.character.id
-        ).update_many(Set({CharacterInventory.is_archived: True}))
+        inventory_items_archived = await CharacterInventory.filter(
+            character_id=self.character.id,
+        ).update(is_archived=True)
 
-        msg = "Archive character"
         logger.debug(
-            msg,
+            "Archive character",
             extra={
                 "component": "character_archive_handler",
                 "character_id": self.character.id,
                 "s3_assets_archived": num_s3_assets_archived,
-                "custom_traits_archived": custom_traits.modified_count,  # type: ignore [union-attr]
-                "inventory_items_archived": inventory_items.modified_count,  # type: ignore [union-attr]
+                "custom_traits_archived": custom_traits_archived,
+                "inventory_items_archived": inventory_items_archived,
             },
         )
 
@@ -140,44 +116,39 @@ class UserArchiveHandler:
         self.user.is_archived = True
         await self.user.save()
 
-        num_quickrolls_archived = await QuickRoll.find(
-            QuickRoll.user_id == self.user.id
-        ).update_many(Set({QuickRoll.is_archived: True}))
+        num_quickrolls_archived = await QuickRoll.filter(
+            user_id=self.user.id,
+        ).update(is_archived=True)
 
-        num_s3_assets_archived = await archive_s3_assets(AssetParentType.USER, [self.user.id])
+        num_s3_assets_archived = await archive_s3_assets("user_parent_id", [self.user.id])
 
-        for character in await Character.find(Character.user_player_id == self.user.id).to_list():
+        for character in await Character.filter(user_player_id=self.user.id):
             await CharacterArchiveHandler(character=character).handle()
 
-        msg = "Archive user"
         logger.debug(
-            msg,
+            "Archive user",
             extra={
                 "component": "user_archive_handler",
                 "user_id": self.user.id,
-                "num_quickrolls_archived": num_quickrolls_archived.modified_count,  # type: ignore [union-attr]
+                "num_quickrolls_archived": num_quickrolls_archived,
                 "num_s3_assets_archived": num_s3_assets_archived,
             },
         )
 
 
-async def archive_user_cascade(user_id: PydanticObjectId | Any) -> None:
+async def archive_user_cascade(user_id: UUID) -> None:
     """Archive data owned by a user without touching the User record itself.
 
-    Bridge function for the Beanie-to-Tortoise migration period: the User record
-    is archived by the Tortoise service, then this function cascades archival
-    to QuickRoll, S3Asset, and Character (all still in MongoDB).
+    The Tortoise UserService archives the User record, then calls this
+    function to cascade archival to QuickRoll, S3Asset, and Character.
 
     Args:
-        user_id: The user's ID (UUID from Tortoise or ObjectId from Beanie).
+        user_id: The user's UUID.
     """
-    await QuickRoll.find(QuickRoll.user_id == user_id).update_many(
-        Set({QuickRoll.is_archived: True})
-    )
+    await QuickRoll.filter(user_id=user_id).update(is_archived=True)
+    await archive_s3_assets("user_parent_id", [user_id])
 
-    await archive_s3_assets(AssetParentType.USER, [user_id])
-
-    for character in await Character.find(Character.user_player_id == user_id).to_list():
+    for character in await Character.filter(user_player_id=user_id):
         await CharacterArchiveHandler(character=character).handle()
 
 
@@ -191,35 +162,35 @@ class CompanyArchiveHandler:
     async def _archive_other_models(self) -> None:
         """Archive other models associated with the company."""
         for model in [Note, DictionaryTerm, CharacterConcept, DiceRoll, S3Asset]:
-            archived = await model.find(
-                model.company_id == self.company.id,
-                model.is_archived == False,
-            ).update_many(Set({model.is_archived: True}))
+            archived = await model.filter(
+                company_id=self.company.id,
+                is_archived=False,
+            ).update(is_archived=True)
 
-            msg = f"Archive {model.__name__}"
             logger.debug(
-                msg,
+                "Archive %s",
+                model.__name__,
                 extra={
                     "component": "company_archive_handler",
                     "company_id": self.company.id,
-                    "num_archived": archived.modified_count,  # type: ignore [union-attr]
+                    "num_archived": archived,
                 },
             )
 
     async def handle(self) -> None:
         """Handle the archiving of a company."""
-        msg = "Archive company and all associated data."
         logger.debug(
-            msg, extra={"component": "company_archive_handler", "company_id": self.company.id}
+            "Archive company and all associated data.",
+            extra={"component": "company_archive_handler", "company_id": self.company.id},
         )
 
-        for campaign in await Campaign.find(Campaign.company_id == self.company.id).to_list():
+        for campaign in await Campaign.filter(company_id=self.company.id):
             await CampaignArchiveHandler(campaign=campaign).handle()
 
-        for character in await Character.find(Character.company_id == self.company.id).to_list():
+        for character in await Character.filter(company_id=self.company.id):
             await CharacterArchiveHandler(character=character).handle()
 
-        for user in await User.find(User.company_id == self.company.id).to_list():
+        for user in await User.filter(company_id=self.company.id):
             await UserArchiveHandler(user=user).handle()
 
         await self._archive_other_models()
@@ -227,8 +198,7 @@ class CompanyArchiveHandler:
         self.company.is_archived = True
         await self.company.save()
 
-        msg = msg + " Completed"
         logger.debug(
-            msg,
+            "Archive company and all associated data. Completed",
             extra={"component": "company_archive_handler", "company_id": self.company.id},
         )
