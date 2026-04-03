@@ -72,7 +72,6 @@ async def test_cached_campaign_route_with_default_ttl(
     pg_mirror_company_user: PgDeveloper,
     pg_mirror_user: PgUser,
     pg_mirror_campaign: PgCampaign,
-    neutralize_after_response_hook: None,
     url_name: str,
 ) -> None:
     """Verify Tortoise-backed campaign routes with cache=True use default TTL from settings."""

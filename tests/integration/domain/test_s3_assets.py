@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from vapi.db.sql_models.developer import Developer as PgDeveloper
     from vapi.db.sql_models.user import User as PgUser
 
-pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("neutralize_after_response_hook")]
+pytestmark = pytest.mark.anyio
 
 
 async def test_list_assets(

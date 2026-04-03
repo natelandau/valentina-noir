@@ -28,7 +28,6 @@ async def test_chapter_controller(
     pg_campaign_book_factory: Callable[..., CampaignBook],
     pg_campaign_chapter_factory: Callable[..., CampaignChapter],
     build_url: Callable[..., str],
-    neutralize_after_response_hook,
 ) -> None:
     """Verify the campaign chapter CRUD workflow."""
     # Given a campaign with a book and one chapter
@@ -145,7 +144,6 @@ async def test_renumber_chapter(
     pg_campaign_book_factory: Callable[..., CampaignBook],
     pg_campaign_chapter_factory: Callable[..., CampaignChapter],
     build_url: Callable[..., str],
-    neutralize_after_response_hook,
 ) -> None:
     """Verify the renumber chapter endpoint."""
     # Given a book with 4 chapters

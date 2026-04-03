@@ -24,7 +24,7 @@ from vapi.domain.services import CharacterTraitService
 from vapi.domain.services.user_svc import UserXPService
 from vapi.domain.urls import Characters
 
-pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("neutralize_after_response_hook")]
+pytestmark = pytest.mark.anyio
 
 
 class TestFetchingCharacterTraits:

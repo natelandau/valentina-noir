@@ -33,7 +33,6 @@ class TestListCampaigns:
         pg_mirror_user: User,
         pg_campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify listing campaigns returns only company-scoped results."""
         # Given a company with one campaign
@@ -70,7 +69,6 @@ class TestGetCampaign:
         pg_mirror_user: User,
         pg_campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify getting a campaign by ID."""
         # Given a campaign
@@ -102,7 +100,6 @@ class TestGetCampaign:
         pg_company_factory: Callable[..., Company],
         pg_campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify get returns 404 when campaign belongs to a different company."""
         # Given a campaign belonging to a different company
@@ -149,7 +146,6 @@ class TestCreateCampaign:
         campaign_permission: PermissionManageCampaign,
         user_role: UserRole,
         expected_status_code: int,
-        neutralize_after_response_hook,
     ) -> None:
         """Verify create campaign respects permission settings."""
         # Given a company with a specific campaign permission
@@ -210,7 +206,6 @@ class TestUpdateCampaign:
         campaign_permission: PermissionManageCampaign,
         user_role: UserRole,
         expected_status_code: int,
-        neutralize_after_response_hook,
     ) -> None:
         """Verify update campaign respects permission settings."""
         # Given a company with a campaign and specific permission
@@ -281,7 +276,6 @@ class TestDeleteCampaign:
         user_role: UserRole,
         campaign_permission: PermissionManageCampaign,
         expected_status_code: int,
-        neutralize_after_response_hook,
     ) -> None:
         """Verify delete campaign respects permission settings."""
         # Given a company with a campaign and specific permission

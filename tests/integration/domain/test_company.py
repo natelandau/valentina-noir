@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 
-pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("neutralize_after_response_hook")]
+pytestmark = pytest.mark.anyio
 
 
 class TestCompanyCRUD:

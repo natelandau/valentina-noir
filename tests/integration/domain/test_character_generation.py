@@ -61,7 +61,6 @@ class TestAutogenerateCharacter:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify autogenerate character must be storyteller."""
@@ -86,7 +85,6 @@ class TestAutogenerateCharacter:
         pg_mirror_global_admin: Any,
         pg_mirror_user_storyteller: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
         mocker: Any,
     ) -> None:
@@ -161,7 +159,6 @@ class TestCharacterChargen:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
         character_autogen_num_choices: int,
         debug: Callable[[Any], None],
     ) -> None:
@@ -203,7 +200,6 @@ class TestCharacterChargen:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify start chargen endpoint with no XP."""
         # Given a company with character_autogen_num_choices set to 1 and xp cost of 100
@@ -237,7 +233,6 @@ class TestCharacterChargen:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify finalize chargen endpoint."""
         # Given a chargen session with 3 characters
@@ -295,7 +290,6 @@ class TestCharacterChargen:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify finalize chargen endpoint with invalid session id."""
         # Given a chargen session with 3 characters
@@ -344,7 +338,6 @@ class TestCharacterChargen:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify finalize chargen endpoint with invalid selected character id."""
         # Given a chargen session with 3 characters
@@ -397,7 +390,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify listing active chargen sessions returns sessions with characters."""
         # Given a chargen session exists
@@ -446,7 +438,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify expired sessions are excluded from the list."""
         # Given an expired chargen session
@@ -498,7 +489,6 @@ class TestChargenSessions:
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
         pg_user_factory: Any,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify sessions from other users are not visible."""
         # Given a chargen session for base_user
@@ -555,7 +545,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify retrieving a session by ID returns the session with characters."""
         # Given a chargen session
@@ -628,7 +617,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify getting an expired session returns an error."""
         # Given an expired session
@@ -677,7 +665,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify starting chargen creates a ChargenSession in the database."""
         # Given
@@ -715,7 +702,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify finalizing chargen deletes the ChargenSession document."""
         # Given a chargen session with 3 characters
@@ -763,7 +749,6 @@ class TestChargenSessions:
         pg_mirror_global_admin: Any,
         pg_mirror_user: User,
         pg_mirror_campaign: Campaign,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify the scheduled task deletes expired sessions and their characters."""
         from vapi.lib.scheduled_tasks import purge_db_expired_items

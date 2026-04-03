@@ -33,7 +33,6 @@ class TestInventoryItem:
         pg_character_factory: Callable[..., Character],
         pg_character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify listing inventory items returns only non-archived items."""
         # Given a character with one active and one archived inventory item
@@ -82,7 +81,6 @@ class TestInventoryItem:
         pg_character_factory: Callable[..., Character],
         pg_character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify retrieving a single inventory item by ID returns correct data."""
         # Given a character with an inventory item
@@ -122,7 +120,6 @@ class TestInventoryItem:
         pg_character_factory: Callable[..., Character],
         pg_character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify that requesting an archived inventory item returns 404."""
         # Given a character with an archived inventory item
@@ -159,7 +156,6 @@ class TestInventoryItem:
         pg_mirror_global_admin,
         pg_character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify creating an inventory item persists it with the correct data."""
         # Given a character
@@ -207,7 +203,6 @@ class TestInventoryItem:
         pg_mirror_global_admin,
         pg_character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify creating an inventory item with an invalid type returns 400."""
         # Given a character
@@ -243,7 +238,6 @@ class TestInventoryItem:
         pg_mirror_global_admin,
         pg_character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify creating an inventory item without required fields returns 400."""
         # Given a character
@@ -277,7 +271,6 @@ class TestInventoryItem:
         pg_character_factory: Callable[..., Character],
         pg_character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify updating an inventory item persists the changed fields."""
         # Given a character with an inventory item
@@ -326,7 +319,6 @@ class TestInventoryItem:
         pg_character_factory: Callable[..., Character],
         pg_character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook,
     ) -> None:
         """Verify deleting an inventory item archives it rather than removing it."""
         # Given a character with an inventory item

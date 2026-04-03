@@ -27,7 +27,6 @@ async def test_book_controller(
     pg_campaign_factory: Callable[..., Campaign],
     pg_campaign_book_factory: Callable[..., CampaignBook],
     build_url: Callable[..., str],
-    neutralize_after_response_hook,
 ) -> None:
     """Verify the campaign book CRUD workflow."""
     # Given a campaign with one book
@@ -137,7 +136,6 @@ async def test_renumber_book(
     pg_campaign_factory: Callable[..., Campaign],
     pg_campaign_book_factory: Callable[..., CampaignBook],
     build_url: Callable[..., str],
-    neutralize_after_response_hook,
 ) -> None:
     """Verify the renumber book endpoint."""
     # Given a campaign with 4 books

@@ -27,7 +27,6 @@ class TestIdempotencyMiddleware:
         pg_mirror_company: PgCompany,
         pg_mirror_company_admin: PgDeveloper,
         pg_mirror_user_storyteller: PgUser,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify POST requests with same idempotency key and body return cached response."""
         # Given an idempotency key and a fixed request body
@@ -66,7 +65,6 @@ class TestIdempotencyMiddleware:
         pg_mirror_company: PgCompany,
         pg_mirror_company_admin: PgDeveloper,
         pg_mirror_user_storyteller: PgUser,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify POST requests with same idempotency key but different body raise ConflictError."""
         # Given an idempotency key
@@ -107,7 +105,6 @@ class TestIdempotencyMiddleware:
         pg_mirror_company: PgCompany,
         pg_mirror_company_admin: PgDeveloper,
         pg_mirror_user_storyteller: PgUser,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify POST requests without idempotency header create new resources each time."""
         # Given headers without an idempotency key
@@ -150,7 +147,6 @@ class TestIdempotencyMiddleware:
         pg_mirror_company: PgCompany,
         pg_mirror_company_user: PgDeveloper,
         pg_mirror_user: PgUser,
-        neutralize_after_response_hook: None,
     ) -> None:
         """Verify GET requests ignore the idempotency header entirely."""
         # Given an idempotency key on a GET request

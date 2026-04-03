@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from vapi.db.sql_models.developer import Developer as PgDeveloper
     from vapi.db.sql_models.dictionary import DictionaryTerm
 
-pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("neutralize_after_response_hook")]
+pytestmark = pytest.mark.anyio
 
 
 class TestDictionaryController:

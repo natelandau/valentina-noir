@@ -46,7 +46,6 @@ class TestErrorPipeline:
         pg_mirror_user: PgUser,
         pg_mirror_campaign: PgCampaign,
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ValidationError from service layer returns proper HTTP 400 response with invalid_parameters."""
@@ -95,7 +94,6 @@ class TestErrorPipeline:
         pg_mirror_user: PgUser,
         pg_mirror_campaign: PgCampaign,
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify NotFoundError returns proper HTTP 404 response."""
@@ -134,7 +132,6 @@ class TestErrorPipeline:
         pg_character_factory: Callable[..., Character],
         pg_character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ConflictError returns proper HTTP 409 response."""
@@ -192,7 +189,6 @@ class TestErrorPipeline:
         pg_mirror_user: PgUser,
         pg_mirror_campaign: PgCampaign,
         token_global_admin: dict[str, str],
-        neutralize_after_response_hook: None,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify Litestar ValidationException is converted to proper HTTP 400 response."""
