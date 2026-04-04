@@ -1,15 +1,11 @@
-"""Transform old database documents into new model instances."""
+"""Transform old database documents into new Tortoise ORM model instances."""
 
 from __future__ import annotations
 
 import logging
 import re
 from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
-
-    from .id_map import IDMap
+from uuid import UUID as StdUUID  # noqa: N811
 
 from vapi.constants import (
     CharacterClass,
@@ -24,8 +20,8 @@ from vapi.constants import (
     RollResultType,
     UserRole,
 )
-from vapi.db.models.campaign import Campaign, CampaignBook, CampaignChapter
-from vapi.db.models.character import (
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import (
     Character,
     CharacterInventory,
     HunterAttributes,
@@ -33,10 +29,18 @@ from vapi.db.models.character import (
     VampireAttributes,
     WerewolfAttributes,
 )
-from vapi.db.models.company import Company, CompanySettings
-from vapi.db.models.diceroll import DiceRoll, DiceRollResultSchema
-from vapi.db.models.notes import Note
-from vapi.db.models.user import CampaignExperience, DiscordProfile, User
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import CampaignExperience, User
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from tortoise.models import Model as TortoiseModel
+
+    from .id_map import IDMap
 
 logger = logging.getLogger("migrate")
 
@@ -124,27 +128,31 @@ def _map_permissions(old_permissions: dict[str, Any]) -> CompanySettings:
     return settings
 
 
-def transform_guild_to_company(guild: dict[str, Any]) -> Company:
-    """Transform an old Guild document into a new Company instance.
+def transform_guild_to_company(guild: dict[str, Any]) -> tuple[Company, CompanySettings]:
+    """Transform an old Guild document into a new Company and CompanySettings.
+
+    The CompanySettings is returned without ``company_id`` set; the caller must
+    wire it after saving the Company.
 
     Args:
         guild: The old Guild document as a dict.
 
     Returns:
-        A new Company instance (not yet saved).
+        A tuple of (Company, CompanySettings) instances (not yet saved).
     """
     permissions = guild.get("permissions", {})
-    return Company(
+    company = Company(
         name=_pad_name(guild["name"][:50]),
         email=f"guild-{guild['_id']}@migrated.example.com",
-        settings=_map_permissions(permissions),
     )
+    settings = _map_permissions(permissions)
+    return company, settings
 
 
 def transform_user(
     user: dict[str, Any],
     guild: dict[str, Any],
-    company_id: PydanticObjectId,
+    company_id: UUID,
 ) -> User:
     """Transform an old User document into a new User instance.
 
@@ -188,16 +196,13 @@ def transform_user(
         email=f"{old_id}@migrated.example.com",
         role=role,
         company_id=company_id,
-        discord_profile=DiscordProfile(
-            id=str(old_id),
-            username=name,
-        ),
+        discord_profile={"id": str(old_id), "username": name},
     )
 
 
 def transform_campaign(
     campaign: dict[str, Any],
-    company_id: PydanticObjectId,
+    company_id: UUID,
 ) -> Campaign:
     """Transform an old Campaign document into a new Campaign instance.
 
@@ -219,7 +224,7 @@ def transform_campaign(
 
 def transform_campaign_book(
     book: dict[str, Any],
-    campaign_id: PydanticObjectId,
+    campaign_id: UUID,
 ) -> CampaignBook:
     """Transform an old CampaignBook into a new CampaignBook instance.
 
@@ -241,7 +246,7 @@ def transform_campaign_book(
 
 def transform_campaign_chapter(
     chapter: dict[str, Any],
-    book_id: PydanticObjectId,
+    book_id: UUID,
 ) -> CampaignChapter:
     """Transform an old CampaignBookChapter into a new CampaignChapter instance.
 
@@ -266,6 +271,9 @@ def build_campaign_experience_list(
     id_map: IDMap,
 ) -> list[CampaignExperience]:
     """Build a list of CampaignExperience objects from old dict format.
+
+    The returned instances do not have ``user_id`` set; the caller must wire
+    that after creation.
 
     Args:
         old_experience: Old campaign_experience dict keyed by campaign string ID.
@@ -331,29 +339,27 @@ def _map_character_type(old_char: dict[str, Any]) -> CharacterType:
     return CharacterType.NPC
 
 
-def transform_character(
+def _resolve_character_users(
     char: dict[str, Any],
     id_map: IDMap,
-    company_id: PydanticObjectId,
-    campaign_id: PydanticObjectId,
     guild_id: int,
-) -> Character:
-    """Transform an old Character document into a new Character instance.
+) -> tuple[UUID | None, UUID | None]:
+    """Resolve creator and player user IDs for a character.
+
+    Falls back to the first available user in the guild when the original
+    creator or owner cannot be found in the ID map.
 
     Args:
         char: The old Character document as a dict.
         id_map: The ID map for user ID lookups.
-        company_id: The new Company ID.
-        campaign_id: The new Campaign ID.
         guild_id: The old guild ID for user lookup.
 
     Returns:
-        A new Character instance (not yet saved).
+        A tuple of (user_creator_id, user_player_id).
     """
     user_creator_id = id_map.get("user", (char.get("user_creator"), guild_id))
     user_player_id = id_map.get("user", (char.get("user_owner"), guild_id))
 
-    # Fall back to first available user if creator/owner not migrated
     if user_creator_id is None:
         all_users = id_map.get_all("user")
         user_creator_id = next(
@@ -367,32 +373,80 @@ def transform_character(
     if user_player_id is None:
         user_player_id = user_creator_id
 
+    return user_creator_id, user_player_id
+
+
+async def _resolve_character_class_fks(
+    char: dict[str, Any],
+) -> tuple[UUID | None, UUID | None, UUID | None]:
+    """Resolve clan, tribe, and auspice FK IDs from character class name strings.
+
+    Queries the database for matching constant records. Logs a warning and
+    returns None for any name that cannot be resolved.
+
+    Args:
+        char: The old Character document as a dict.
+
+    Returns:
+        A tuple of (clan_id, tribe_id, auspice_id).
+    """
+    clan_id = None
+    clan_name = _safe_str(char.get("clan_name"))
+    if clan_name:
+        clan_obj = await VampireClan.filter(name__iexact=clan_name).first()
+        if clan_obj:
+            clan_id = StdUUID(str(clan_obj.id))
+        else:
+            logger.warning("Vampire clan not found: %s", clan_name)
+
+    tribe_id = None
+    tribe_name = _safe_str(char.get("tribe"))
+    if tribe_name:
+        tribe_obj = await WerewolfTribe.filter(name__iexact=tribe_name).first()
+        if tribe_obj:
+            tribe_id = StdUUID(str(tribe_obj.id))
+        else:
+            logger.warning("Werewolf tribe not found: %s", tribe_name)
+
+    auspice_id = None
+    auspice_name = _safe_str(char.get("auspice"))
+    if auspice_name:
+        auspice_obj = await WerewolfAuspice.filter(name__iexact=auspice_name).first()
+        if auspice_obj:
+            auspice_id = StdUUID(str(auspice_obj.id))
+        else:
+            logger.warning("Werewolf auspice not found: %s", auspice_name)
+
+    return clan_id, tribe_id, auspice_id
+
+
+async def transform_character(
+    char: dict[str, Any],
+    id_map: IDMap,
+    company_id: UUID,
+    campaign_id: UUID,
+    guild_id: int,
+) -> tuple[Character, list[TortoiseModel]]:
+    """Transform an old Character document into a new Character and attribute models.
+
+    The returned attribute models do not have ``character_id`` set; the caller
+    must wire that after saving the Character.
+
+    Args:
+        char: The old Character document as a dict.
+        id_map: The ID map for user ID lookups.
+        company_id: The new Company ID.
+        campaign_id: The new Campaign ID.
+        guild_id: The old guild ID for user lookup.
+
+    Returns:
+        A tuple of (Character, list of attribute model instances).
+    """
+    user_creator_id, user_player_id = _resolve_character_users(char, id_map, guild_id)
     character_class = _map_character_class(char.get("char_class_name", "MORTAL"))
+    clan_id, tribe_id, auspice_id = await _resolve_character_class_fks(char)
 
-    vampire_attrs = VampireAttributes(
-        clan_name=_safe_str(char.get("clan_name")),
-        generation=_parse_generation(char.get("generation")),
-        sire=_safe_str(char.get("sire")),
-    )
-
-    werewolf_attrs = WerewolfAttributes(
-        tribe_name=_safe_str(char.get("tribe")),
-        auspice_name=_safe_str(char.get("auspice")),
-    )
-
-    mage_attrs = None
-    if character_class == CharacterClass.MAGE:
-        tradition = _safe_str(char.get("tradition"))
-        if tradition:
-            mage_attrs = MageAttributes(tradition=tradition)
-
-    hunter_attrs = None
-    if character_class == CharacterClass.HUNTER:
-        creed = _safe_str(char.get("creed_name"))
-        if creed:
-            hunter_attrs = HunterAttributes(creed=creed)
-
-    return Character(
+    character = Character(
         name_first=_pad_name(char.get("name_first", "Unknown")),
         name_last=_pad_name(char.get("name_last", "Unknown")),
         name_nick=_safe_str(char.get("name_nick")),
@@ -405,21 +459,41 @@ def transform_character(
         biography=_safe_str(char.get("bio")),
         demeanor=_safe_str(char.get("demeanor")),
         nature=_safe_str(char.get("nature")),
-        concept_name=_safe_str(char.get("concept_name")),
         user_creator_id=user_creator_id,
         user_player_id=user_player_id,
         company_id=company_id,
         campaign_id=campaign_id,
-        vampire_attributes=vampire_attrs,
-        werewolf_attributes=werewolf_attrs,
-        mage_attributes=mage_attrs,
-        hunter_attributes=hunter_attrs,
     )
+
+    # Build attribute models (without character_id -- caller wires after save)
+    related_models: list[TortoiseModel] = [
+        VampireAttributes(
+            clan_id=clan_id,
+            generation=_parse_generation(char.get("generation")),
+            sire=_safe_str(char.get("sire")),
+        ),
+        WerewolfAttributes(
+            tribe_id=tribe_id,
+            auspice_id=auspice_id,
+        ),
+    ]
+
+    if character_class == CharacterClass.MAGE:
+        tradition = _safe_str(char.get("tradition"))
+        if tradition:
+            related_models.append(MageAttributes(tradition=tradition))
+
+    if character_class == CharacterClass.HUNTER:
+        creed = _safe_str(char.get("creed_name"))
+        if creed:
+            related_models.append(HunterAttributes(creed=creed))
+
+    return character, related_models
 
 
 def transform_inventory_item(
     item: dict[str, Any],
-    character_id: PydanticObjectId,
+    character_id: UUID,
 ) -> CharacterInventory:
     """Transform an old InventoryItem into a new CharacterInventory instance.
 
@@ -529,8 +603,11 @@ def transform_roll_statistic(
     stat: dict[str, Any],
     id_map: IDMap,
     guild_id: int,
-) -> DiceRoll | None:
-    """Transform an old RollStatistic into a new DiceRoll instance.
+) -> tuple[DiceRoll, DiceRollResult] | None:
+    """Transform an old RollStatistic into a new DiceRoll and DiceRollResult.
+
+    The DiceRollResult is returned without ``dice_roll_id`` set; the caller must
+    wire it after saving the DiceRoll.
 
     Args:
         stat: The old RollStatistic document.
@@ -538,21 +615,13 @@ def transform_roll_statistic(
         guild_id: The old guild ID.
 
     Returns:
-        A new DiceRoll instance, or None if company lookup fails.
+        A tuple of (DiceRoll, DiceRollResult), or None if company lookup fails.
     """
     company_id = id_map.get("guild", guild_id)
     if company_id is None:
         return None
 
     result_type = _map_roll_result_type(stat.get("result", "OTHER"))
-    result_schema = DiceRollResultSchema(
-        total_result=None,
-        total_result_type=result_type,
-        total_result_humanized=result_type.value.title(),
-        total_dice_roll=[],
-        player_roll=[],
-        desperation_roll=[],
-    )
 
     # Map user ID
     old_user_id = stat.get("user")
@@ -570,7 +639,6 @@ def transform_roll_statistic(
         difficulty=stat.get("difficulty"),
         dice_size=DiceSize.D10,
         num_dice=stat.get("pool", 1),
-        result=result_schema,
         user_id=user_id,
         character_id=character_id,
         campaign_id=campaign_id,
@@ -581,4 +649,13 @@ def transform_roll_statistic(
     if stat.get("date_rolled"):
         dice_roll.date_created = stat["date_rolled"]
 
-    return dice_roll
+    dice_roll_result = DiceRollResult(
+        total_result=None,
+        total_result_type=result_type,
+        total_result_humanized=result_type.value.title(),
+        total_dice_roll=[],
+        player_roll=[],
+        desperation_roll=[],
+    )
+
+    return dice_roll, dice_roll_result

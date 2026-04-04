@@ -8,6 +8,7 @@ from tortoise import fields
 
 from vapi.constants import CompanyPermission
 from vapi.db.sql_models.base import BaseModel
+from vapi.db.sql_models.validators import validate_email_format
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.audit_log import AuditLog
@@ -18,7 +19,7 @@ class Developer(BaseModel):
     """An API developer with key-based authentication."""
 
     username = fields.CharField(max_length=50, unique=True)
-    email = fields.CharField(max_length=255, unique=True)
+    email = fields.CharField(max_length=255, unique=True, validators=[validate_email_format])
     is_global_admin = fields.BooleanField(default=False)
     api_key_fingerprint = fields.CharField(max_length=255, null=True, db_index=True)
     hashed_api_key = fields.CharField(max_length=255, null=True)

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.exceptions import ValidationError
+from tortoise.validators import MinLengthValidator
 
 from vapi.constants import DictionarySourceType
 from vapi.db.sql_models.base import BaseModel
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 class DictionaryTerm(BaseModel):
     """A game terminology entry with definition and/or link."""
 
-    term = fields.CharField(max_length=50)
+    term = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
     definition = fields.TextField(null=True)
     link = fields.TextField(null=True)
     synonyms = ArrayField(element_type="text", default=list)

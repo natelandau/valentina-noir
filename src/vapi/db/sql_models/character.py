@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from tortoise import fields
+from tortoise.validators import MinLengthValidator
 
 from vapi.constants import (
     CharacterClass,
@@ -31,21 +32,25 @@ if TYPE_CHECKING:
 class Character(BaseModel):
     """A player or NPC character in a campaign."""
 
-    name_first = fields.CharField(max_length=50)
-    name_last = fields.CharField(max_length=50)
-    name_nick = fields.CharField(max_length=50, null=True)
+    name_first = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    name_last = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    name_nick = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
     character_class = fields.CharEnumField(CharacterClass)
     type = fields.CharEnumField(CharacterType)
     game_version = fields.CharEnumField(GameVersion)
     status = fields.CharEnumField(CharacterStatus, default=CharacterStatus.ALIVE)
     starting_points = fields.IntField(default=0)
     age = fields.IntField(null=True)
-    biography = fields.TextField(null=True)
-    demeanor = fields.CharField(max_length=50, null=True)
-    nature = fields.CharField(max_length=50, null=True)
+    biography = fields.TextField(null=True, validators=[MinLengthValidator(3)])
+    demeanor = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
+    nature = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
     is_temporary = fields.BooleanField(default=False)
     is_chargen = fields.BooleanField(default=False)
     date_killed = fields.DatetimeField(null=True)
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset(
+        {"name_nick", "biography", "demeanor", "nature"}
+    )
 
     # FKs
     user_creator: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
@@ -115,11 +120,13 @@ class VampireAttributes(BaseModel):
         null=True,
     )
     generation = fields.IntField(null=True)
-    sire = fields.CharField(max_length=50, null=True)
+    sire = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
     bane_name = fields.CharField(max_length=50, null=True)
     bane_description = fields.TextField(null=True)
     compulsion_name = fields.CharField(max_length=50, null=True)
     compulsion_description = fields.TextField(null=True)
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"sire"})
 
     class Meta:
         """Tortoise ORM meta options."""
@@ -150,8 +157,10 @@ class WerewolfAttributes(BaseModel):
         on_delete=fields.OnDelete.SET_NULL,
         null=True,
     )
-    pack_name = fields.CharField(max_length=50, null=True)
+    pack_name = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
     total_renown = fields.IntField(default=0)
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"pack_name"})
 
     class Meta:
         """Tortoise ORM meta options."""
@@ -175,8 +184,10 @@ class MageAttributes(BaseModel):
     character: fields.OneToOneRelation[Character] = fields.OneToOneField(
         "models.Character", related_name="mage_attributes", on_delete=fields.OnDelete.CASCADE
     )
-    sphere = fields.CharField(max_length=50, null=True)
-    tradition = fields.CharField(max_length=50, null=True)
+    sphere = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
+    tradition = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"sphere", "tradition"})
 
     class Meta:
         """Tortoise ORM meta options."""
@@ -190,7 +201,9 @@ class HunterAttributes(BaseModel):
     character: fields.OneToOneRelation[Character] = fields.OneToOneField(
         "models.Character", related_name="hunter_attributes", on_delete=fields.OnDelete.CASCADE
     )
-    creed = fields.CharField(max_length=50, null=True)
+    creed = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"creed"})
 
     class Meta:
         """Tortoise ORM meta options."""

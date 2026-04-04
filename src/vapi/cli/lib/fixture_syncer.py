@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from tortoise.models import Model
 
-from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder
+from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, needs_update
 from vapi.cli.lib.sync_counts import SyncCounts
 from vapi.constants import WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
@@ -42,10 +42,11 @@ class FixtureSyncer:
         for fixture_item in fixture_items:
             lookup = self._lookup_fields(fixture_item)
             defaults = self._defaults(fixture_item)
-            instance, created = await self.model.update_or_create(defaults=defaults, **lookup)
+            instance, created = await self.model.get_or_create(defaults=defaults, **lookup)
             if created:
                 self.counts.created += 1
-            else:
+            elif needs_update(instance, defaults):
+                await instance.update_from_dict(defaults).save()
                 self.counts.updated += 1
             self._process_item(fixture_item, instance)
 

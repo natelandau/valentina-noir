@@ -50,12 +50,14 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from litestar.config.response_cache import ResponseCacheConfig
         from litestar.exceptions import HTTPException
         from litestar.stores.registry import StoreRegistry
+        from tortoise.exceptions import ValidationError as TortoiseValidationError
 
         from vapi.domain import route_handlers
         from vapi.lib.exceptions import (
             HTTPError,
             http_error_to_http_response,
             litestar_http_exc_to_http_response,
+            tortoise_validation_to_http_response,
         )
         from vapi.lib.log_config import get_logging_config, middleware_logging_config
         from vapi.lib.stores import response_cache_key_builder
@@ -121,6 +123,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.exception_handlers = {
             HTTPError: http_error_to_http_response,
             HTTPException: litestar_http_exc_to_http_response,
+            TortoiseValidationError: tortoise_validation_to_http_response,
         }
 
         app_config.response_cache_config = ResponseCacheConfig(
@@ -130,6 +133,10 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             cache_response_filter=self.custom_cache_response_filter,
         )
         app_config.stores = StoreRegistry(default_factory=self.redis_store_factory)
+
+        from vapi.server.tortoise_plugin import tortoise_lifespan
+
+        app_config.lifespan.append(tortoise_lifespan)
         app_config.on_shutdown.append(self._close_redis)
 
         return app_config

@@ -5,9 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from tortoise import fields
+from tortoise.validators import MinLengthValidator
 
 from vapi.constants import UserRole
 from vapi.db.sql_models.base import BaseModel
+from vapi.db.sql_models.validators import validate_email_format
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.aws import S3Asset
@@ -23,10 +25,10 @@ if TYPE_CHECKING:
 class User(BaseModel):
     """A user of the application."""
 
-    name_first = fields.CharField(max_length=50, null=True)
-    name_last = fields.CharField(max_length=50, null=True)
-    username = fields.CharField(max_length=50)
-    email = fields.CharField(max_length=255)
+    name_first = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(2)])
+    name_last = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(2)])
+    username = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    email = fields.CharField(max_length=255, validators=[validate_email_format])
     role = fields.CharEnumField(UserRole)
     lifetime_xp = fields.IntField(default=0)
     lifetime_cool_points = fields.IntField(default=0)

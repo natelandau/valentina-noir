@@ -1,43 +1,34 @@
-"""TortoiseORM lifecycle plugin for Litestar."""
+"""TortoiseORM lifecycle for Litestar."""
 
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
-from litestar.plugins import InitPluginProtocol
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 from tortoise import Tortoise
 
 from vapi.lib.database import tortoise_config
 
-if TYPE_CHECKING:
-    from litestar.config.app import AppConfig
-
 logger = logging.getLogger("vapi")
 
 
-class TortoisePlugin(InitPluginProtocol):
-    """Manage TortoiseORM startup and shutdown within the Litestar app lifecycle."""
+@asynccontextmanager
+async def tortoise_lifespan(_app: object) -> AsyncGenerator[None]:
+    """Manage TortoiseORM lifecycle as a Litestar lifespan context manager.
 
-    def on_app_init(self, app_config: AppConfig) -> AppConfig:
-        """Register Tortoise startup and shutdown hooks.
-
-        Args:
-            app_config: The Litestar application configuration.
-        """
-        app_config.on_startup.append(_startup)
-        app_config.on_shutdown.append(_shutdown)
-        return app_config
-
-
-async def _startup() -> None:
-    """Initialize TortoiseORM and create any missing tables."""
-    await Tortoise.init(config=tortoise_config())
+    Using a lifespan context manager instead of on_startup/on_shutdown ensures
+    the TortoiseContext (contextvar) remains active for all request handling,
+    since Tortoise v1.x scopes its connections via contextvars.
+    """
+    await Tortoise.init(config=tortoise_config(), _enable_global_fallback=True)
     await Tortoise.generate_schemas(safe=True)
     logger.info("PostgreSQL database initialized", extra={"component": "database"})
-
-
-async def _shutdown() -> None:
-    """Close all TortoiseORM database connections."""
-    await Tortoise.close_connections()
-    logger.info("PostgreSQL connections closed", extra={"component": "database"})
+    try:
+        yield
+    finally:
+        await Tortoise.close_connections()
+        logger.info("PostgreSQL connections closed", extra={"component": "database"})

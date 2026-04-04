@@ -176,10 +176,6 @@ class TestErrorPipeline:
         assert "title" in response_data
         assert "instance" in response_data
 
-    @pytest.mark.xfail(
-        reason="msgspec Structs do not enforce string length constraints; 'name_first: a' is accepted as valid",
-        strict=True,
-    )
     async def test_litestar_validation_error_returns_400(
         self,
         client: AsyncClient,
@@ -191,8 +187,8 @@ class TestErrorPipeline:
         token_global_admin: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
-        """Verify Litestar ValidationException is converted to proper HTTP 400 response."""
-        # Given a request with invalid field values (triggers Litestar validation)
+        """Verify Tortoise ValidationError is converted to proper HTTP 400 response."""
+        # Given a request with a name_first that violates MinLengthValidator(3)
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
@@ -202,7 +198,7 @@ class TestErrorPipeline:
             ),
             headers=token_global_admin,
             json={
-                "name_first": "a",  # Too short - but msgspec does not enforce this
+                "name_first": "a",  # Too short — rejected by MinLengthValidator(3)
                 "name_last": "Test",
                 "character_class": "MORTAL",
                 "game_version": "V5",

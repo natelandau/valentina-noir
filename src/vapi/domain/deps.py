@@ -317,7 +317,7 @@ async def provide_quickroll_by_id(quickroll_id: UUID) -> QuickRoll:
     )
 
 
-async def provide_diceroll_by_id(diceroll_id: str) -> DiceRoll:
+async def provide_diceroll_by_id(diceroll_id: UUID) -> DiceRoll:
     """Provide a DiceRoll by ID, prefetching result and traits."""
     return await _find_or_404(
         DiceRoll,
@@ -327,6 +327,6 @@ async def provide_diceroll_by_id(diceroll_id: str) -> DiceRoll:
     )
 
 
-async def provide_s3_asset_by_id(asset_id: str) -> S3Asset:
+async def provide_s3_asset_by_id(asset_id: UUID) -> S3Asset:
     """Provide an S3Asset by ID."""
     return await _find_or_404(S3Asset, "Asset", doc_id=asset_id)

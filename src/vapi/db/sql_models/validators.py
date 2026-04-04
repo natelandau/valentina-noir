@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from tortoise.exceptions import ValidationError
 
 from vapi.constants import CharacterClass, GameVersion
@@ -94,4 +96,25 @@ def validate_company_settings_num_choices(value: int) -> None:
     """
     if not (_NUM_CHOICES_MIN <= value <= _NUM_CHOICES_MAX):
         msg = f"character_autogen_num_choices must be between {_NUM_CHOICES_MIN} and {_NUM_CHOICES_MAX}, got {value}"
+        raise ValidationError(msg)
+
+
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def validate_email_format(value: str) -> None:
+    """Validate that a string looks like an email address.
+
+    Check for the presence of exactly one @ with non-empty local and domain parts,
+    where the domain contains at least one dot. This matches the level of validation
+    that Pydantic's EmailStr provided in the old Beanie models.
+
+    Args:
+        value: The email string to validate.
+
+    Raises:
+        ValidationError: If the value does not match basic email format.
+    """
+    if not _EMAIL_PATTERN.match(value):
+        msg = f"Invalid email format: {value}"
         raise ValidationError(msg)

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
+from tortoise.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
 
 from vapi.constants import HunterEdgeType, WerewolfRenown
 from vapi.db.sql_models.base import BaseModel
@@ -82,8 +83,8 @@ class TraitCategory(BaseModel):
 class TraitSubcategory(BaseModel):
     """A subcategory within a trait category."""
 
-    name = fields.CharField(max_length=50)
-    description = fields.TextField(null=True)
+    name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    description = fields.TextField(null=True, validators=[MinLengthValidator(3)])
     character_classes = ArrayField(
         element_type="text", default=list, validators=[validate_character_classes]
     )
@@ -91,13 +92,19 @@ class TraitSubcategory(BaseModel):
         element_type="text", default=list, validators=[validate_game_versions]
     )
     show_when_empty = fields.BooleanField(default=False)
-    initial_cost = fields.IntField(default=0)
-    upgrade_cost = fields.IntField(default=0)
+    initial_cost = fields.IntField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    upgrade_cost = fields.IntField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
     count_based_cost_multiplier = fields.IntField(null=True)
     requires_parent = fields.BooleanField(default=False)
     pool = fields.TextField(null=True)
     system = fields.TextField(null=True)
     hunter_edge_type = fields.CharEnumField(HunterEdgeType, null=True)
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"description"})
 
     category: fields.ForeignKeyRelation[TraitCategory] = fields.ForeignKeyField(
         "models.TraitCategory", related_name="subcategories", on_delete=fields.OnDelete.CASCADE
@@ -131,7 +138,7 @@ class TraitSubcategory(BaseModel):
 class Trait(BaseModel):
     """A trait that can be assigned to characters. Gift attributes are nullable columns."""
 
-    name = fields.CharField(max_length=50)
+    name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
     description = fields.TextField(null=True)
     character_classes = ArrayField(
         element_type="text", default=list, validators=[validate_character_classes]
@@ -141,12 +148,22 @@ class Trait(BaseModel):
     )
     link = fields.TextField(null=True)
     show_when_zero = fields.BooleanField(default=False)
-    max_value = fields.IntField(default=5)
-    min_value = fields.IntField(default=0)
+    max_value = fields.IntField(
+        default=5, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    min_value = fields.IntField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
     is_custom = fields.BooleanField(default=False)
-    initial_cost = fields.IntField(default=0)
-    upgrade_cost = fields.IntField(default=0)
-    count_based_cost_multiplier = fields.IntField(null=True)
+    initial_cost = fields.IntField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    upgrade_cost = fields.IntField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    count_based_cost_multiplier = fields.IntField(
+        null=True, validators=[MinValueValidator(1), MaxValueValidator(100)]
+    )
     is_rollable = fields.BooleanField(default=False)
     pool = fields.TextField(null=True)
     opposing_pool = fields.TextField(null=True)

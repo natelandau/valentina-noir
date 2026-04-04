@@ -8,7 +8,6 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from vapi.constants import (
     CompanyPermission,
@@ -23,7 +22,6 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
-from vapi.lib.exceptions import ValidationError
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
@@ -56,7 +54,7 @@ async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettin
         patch: The incoming patch data containing optional field overrides.
 
     Raises:
-        ValidationError: If Tortoise rejects the updated settings values.
+        tortoise.exceptions.ValidationError: If Tortoise rejects the updated settings values.
     """
     if not isinstance(patch.character_autogen_xp_cost, msgspec.UnsetType):
         settings.character_autogen_xp_cost = patch.character_autogen_xp_cost
@@ -72,10 +70,7 @@ async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettin
         settings.permission_free_trait_changes = PermissionsFreeTraitChanges(
             patch.permission_free_trait_changes
         )
-    try:
-        await settings.save()
-    except TortoiseValidationError as e:
-        raise ValidationError(detail=str(e)) from e
+    await settings.save()
 
 
 class CompanyController(Controller):

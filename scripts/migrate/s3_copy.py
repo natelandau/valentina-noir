@@ -2,13 +2,13 @@
 
 import logging
 from pathlib import Path
+from uuid import UUID
 
 import boto3
-from beanie import PydanticObjectId
 from botocore.config import Config as BotoConfig
-from vapi.db.models import S3Asset
 
 from vapi.config import settings
+from vapi.db.sql_models.aws import S3Asset
 
 from .config import get_old_settings
 
@@ -26,7 +26,7 @@ class S3Migrator:
 
     def __init__(self, *, dry_run: bool = False) -> None:
         self.dry_run = dry_run
-        self._company_ids: set[PydanticObjectId] = set()
+        self._company_ids: set[UUID] = set()
 
         old_settings = get_old_settings()
         self._old_client = boto3.client(
@@ -63,29 +63,29 @@ class S3Migrator:
         return response["Body"].read()
 
     @staticmethod
-    def _parse_company_ids(lines: list[str]) -> list[PydanticObjectId]:
+    def _parse_company_ids(lines: list[str]) -> list[UUID]:
         """Parse company IDs from log file lines, skipping invalid entries.
 
-        Handles old-format logs that contain individual S3 keys instead of ObjectIds.
+        Handles old-format logs that contain individual S3 keys instead of UUIDs.
 
         Args:
             lines: Raw lines from the log file.
 
         Returns:
-            Valid PydanticObjectId values parsed from the lines.
+            Valid UUID values parsed from the lines.
         """
-        company_ids: list[PydanticObjectId] = []
+        company_ids: list[UUID] = []
         for line in lines:
             stripped = line.strip()
             if not stripped:
                 continue
             try:
-                company_ids.append(PydanticObjectId(stripped))
-            except Exception:  # noqa: BLE001
+                company_ids.append(UUID(stripped))
+            except ValueError:
                 logger.warning("Skipping invalid company ID in log: %s", stripped)
         return company_ids
 
-    async def _cleanup_company(self, company_id: PydanticObjectId) -> None:
+    async def _cleanup_company(self, company_id: UUID) -> None:
         """Delete all S3 objects and database records for a single company.
 
         Args:
@@ -109,7 +109,7 @@ class S3Migrator:
             logger.info("Deleted %d S3 objects under %s", deleted_total, prefix)
 
         # Delete S3Asset database records for this company
-        deleted_count = await S3Asset.find(S3Asset.company_id == company_id).delete()
+        deleted_count = await S3Asset.filter(company_id=company_id).delete()
         logger.info("Deleted %s S3Asset records for company %s", deleted_count, company_id)
 
     async def cleanup_previous_run(self) -> None:
@@ -148,11 +148,11 @@ class S3Migrator:
         if not self.dry_run:
             S3_ASSETS_LOG.write_text("")  # noqa: ASYNC240
 
-    def record_company(self, company_id: PydanticObjectId) -> None:
+    def record_company(self, company_id: UUID) -> None:
         """Record a migrated company ID for the log file.
 
         Args:
-            company_id: The new company's PydanticObjectId.
+            company_id: The new company's UUID.
         """
         self._company_ids.add(company_id)
 

@@ -49,8 +49,8 @@ class PopulationService:
         await self._create_characters(
             campaigns=campaigns, users=users, num_characters=num_characters
         )
-        api_key_users = await self._generate_api_keys(developers=developers)
-        self.write_api_keys_to_stdout(api_key_users=api_key_users, companies=companies)
+        api_key_users = await self._generate_api_keys(developers=developers, companies=companies)
+        self.write_api_keys_to_stdout(api_key_users=api_key_users)
         self.write_api_keys_to_file(api_key_users=api_key_users)
 
     async def _create_developers(self) -> list[Developer]:
@@ -170,7 +170,7 @@ class PopulationService:
         characters: list = []
 
         for campaign in campaigns:
-            company = await Company.filter(id=campaign.company_id).first()
+            company = await Company.filter(id=campaign.company_id).first()  # type: ignore[attr-defined]
             for _ in range(num_characters):
                 user = random.choice(users)
                 chargen = CharacterAutogenerationHandler(
@@ -193,18 +193,29 @@ class PopulationService:
         )
         return characters
 
-    async def _generate_api_keys(self, developers: list[Developer]) -> list[APIKeyUser]:
+    async def _generate_api_keys(
+        self, developers: list[Developer], companies: list[Company]
+    ) -> list[APIKeyUser]:
         """Generate API keys for all developer accounts."""
-        return [
-            APIKeyUser(
-                api_key=await self._developer_service.generate_api_key(developer),
-                developer_id=developer.id,
-                developer_name=developer.username,
-                developer_email=developer.email,
-                developer_is_global_admin=developer.is_global_admin,
+        api_key_users: list[APIKeyUser] = []
+        for developer in developers:
+            if developer.is_global_admin:
+                company_ids = [c.id for c in companies]
+            else:
+                await developer.fetch_related("permissions")
+                company_ids = [p.company_id for p in developer.permissions]  # type: ignore[attr-defined]
+
+            api_key_users.append(
+                APIKeyUser(
+                    api_key=await self._developer_service.generate_api_key(developer),
+                    developer_id=developer.id,
+                    developer_name=developer.username,
+                    developer_email=developer.email,
+                    developer_is_global_admin=developer.is_global_admin,
+                    company_ids=company_ids,
+                ),
             )
-            for developer in developers
-        ]
+        return api_key_users
 
     def write_api_keys_to_file(self, api_key_users: list[APIKeyUser]) -> None:
         """Write the API keys to a file for later reference."""
@@ -216,19 +227,19 @@ class PopulationService:
 
         with API_KEYS_FILE.open("a") as f:
             for user in api_key_users:
+                companies = ", ".join(str(c) for c in user.company_ids)
                 f.write(f"""\
 id:              {user.developer_id}
-username:        {user.developer_name}
-email:           {user.developer_email}
-is global admin: {user.developer_is_global_admin}
-api key:         {user.api_key}
+Name:            {user.developer_name}
+Email:           {user.developer_email}
+API key:         {user.api_key}
+Is global admin: {user.developer_is_global_admin}
+Companies:       {companies}
 \n""")
 
         self.console.print(f"API keys saved to [green bold]{API_KEYS_FILE}[/green bold]\n")
 
-    def write_api_keys_to_stdout(
-        self, api_key_users: list[APIKeyUser], companies: list[Company]
-    ) -> None:
+    def write_api_keys_to_stdout(self, api_key_users: list[APIKeyUser]) -> None:
         """Write the API keys to stdout."""
         self.console.rule("API Keys")
         self.console.print(
@@ -236,10 +247,11 @@ api key:         {user.api_key}
         )
 
         for user in api_key_users:
+            companies = ", ".join(str(c) for c in user.company_ids)
             self.console.print(f"[underline]id:              {user.developer_id}")
             self.console.print(f"Name:            {user.developer_name}")
             self.console.print(f"Email:           {user.developer_email}")
             self.console.print(f"API key:         [green bold]{user.api_key}[/green bold]")
             self.console.print(f"Is global admin: {user.developer_is_global_admin}")
-            self.console.print(f"Companies:       {(', '.join([str(x.id) for x in companies]))}")
+            self.console.print(f"Companies:       {companies}")
             self.console.print()

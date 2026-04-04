@@ -124,7 +124,7 @@ class TestDictionaryController:
         assert response.status_code == HTTP_201_CREATED
         created = response.json()
         assert created["term"] == "foo"
-        assert created["definition"] == "  Foo is a bar.  "
+        assert created["definition"] == "Foo is a bar."
         assert created["link"] == "https://example.com"
         assert created["source_type"] is None
 

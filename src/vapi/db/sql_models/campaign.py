@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from tortoise import fields
+from tortoise.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
 
 from vapi.db.sql_models.base import BaseModel
 
@@ -20,10 +21,14 @@ if TYPE_CHECKING:
 class Campaign(BaseModel):
     """A game campaign belonging to a company."""
 
-    name = fields.CharField(max_length=50)
-    description = fields.TextField(null=True)
-    desperation = fields.IntField(default=0)
-    danger = fields.IntField(default=0)
+    name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    description = fields.TextField(null=True, validators=[MinLengthValidator(3)])
+    desperation = fields.IntField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(5)]
+    )
+    danger = fields.IntField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"description"})
 
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="campaigns", on_delete=fields.OnDelete.CASCADE

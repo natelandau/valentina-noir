@@ -21,7 +21,7 @@ async def init_tortoise() -> None:
     """
     from tortoise import Tortoise
 
-    await Tortoise.init(config=tortoise_config())
+    await Tortoise.init(config=tortoise_config(), _enable_global_fallback=True)
 
 
 def tortoise_config() -> dict[str, Any]:

@@ -88,7 +88,7 @@ async def init_test_postgres(
 
     # Now connect to the actual test database
     config = tortoise_config()
-    await Tortoise.init(config=config)
+    await Tortoise.init(config=config, _enable_global_fallback=True)
     await Tortoise.generate_schemas(safe=True)
 
     # Bootstrap PostgreSQL with constants
@@ -178,11 +178,12 @@ async def fx_client(redis: Redis, monkeypatch: pytest.MonkeyPatch) -> AsyncItera
     from vapi.asgi import create_app
     from vapi.config.base import RedisSettings
     from vapi.server.core import ApplicationCore
-    from vapi.server.tortoise_plugin import _shutdown, _startup
+    from vapi.server.tortoise_plugin import tortoise_lifespan
 
     app = create_app()
-    app.on_startup = [h for h in app.on_startup if h is not _startup]
-    app.on_shutdown = [h for h in app.on_shutdown if h is not _shutdown]
+    # Remove the Tortoise lifespan — the session-scoped init_test_postgres fixture
+    # manages the DB connection for tests
+    app._lifespan_managers = [lf for lf in app._lifespan_managers if lf is not tortoise_lifespan]
 
     cache_config = app.response_cache_config
     assert cache_config is not None

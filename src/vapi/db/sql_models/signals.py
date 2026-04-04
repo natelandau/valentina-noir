@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from tortoise.signals import pre_save
 
+from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.developer import Developer
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.user import User
@@ -55,6 +56,21 @@ async def lowercase_dictionary_term(
     using_db: BaseDBAsyncClient | None,  # noqa: ARG001
     update_fields: Iterable[str] | None,  # noqa: ARG001
 ) -> None:
-    """Lowercase and strip term, deduplicate and sort synonyms."""
-    instance.term = instance.term.lower().strip()
+    """Lowercase term, deduplicate and sort synonyms.
+
+    BaseModel.save() already strips whitespace on CharFields before signals fire,
+    so .strip() is only needed for individual synonym elements inside the ArrayField.
+    """
+    instance.term = instance.term.lower()
     instance.synonyms = sorted({s.lower().strip() for s in instance.synonyms})
+
+
+@pre_save(Trait)
+async def normalize_trait_name(
+    sender: type[Trait],  # noqa: ARG001
+    instance: Trait,
+    using_db: BaseDBAsyncClient | None,  # noqa: ARG001
+    update_fields: Iterable[str] | None,  # noqa: ARG001
+) -> None:
+    """Normalize trait name to title case before saving."""
+    instance.name = instance.name.title()

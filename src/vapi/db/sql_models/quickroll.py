@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from tortoise import fields
+from tortoise.validators import MinLengthValidator
 
 from vapi.db.sql_models.base import BaseModel
 
@@ -16,8 +17,10 @@ if TYPE_CHECKING:
 class QuickRoll(BaseModel):
     """A saved dice roll template for quick access."""
 
-    name = fields.CharField(max_length=50)
-    description = fields.TextField(null=True)
+    name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    description = fields.TextField(null=True, validators=[MinLengthValidator(3)])
+
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"description"})
 
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User", related_name="quick_rolls", on_delete=fields.OnDelete.CASCADE

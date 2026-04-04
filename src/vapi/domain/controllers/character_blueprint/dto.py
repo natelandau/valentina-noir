@@ -1,27 +1,22 @@
 """Character blueprint response DTOs."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import datetime
+from uuid import UUID
 
 import msgspec
 
-if TYPE_CHECKING:
-    from datetime import datetime
-    from uuid import UUID
-
-    from vapi.db.sql_models.character_classes import (
-        VampireClan,
-        WerewolfAuspice,
-        WerewolfTribe,
-    )
-    from vapi.db.sql_models.character_concept import CharacterConcept
-    from vapi.db.sql_models.character_sheet import (
-        CharSheetSection,
-        Trait,
-        TraitCategory,
-        TraitSubcategory,
-    )
+from vapi.db.sql_models.character_classes import (
+    VampireClan,
+    WerewolfAuspice,
+    WerewolfTribe,
+)
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import (
+    CharSheetSection,
+    Trait,
+    TraitCategory,
+    TraitSubcategory,
+)
 
 
 class CharSheetSectionResponse(msgspec.Struct):
@@ -38,7 +33,7 @@ class CharSheetSectionResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: CharSheetSection) -> CharSheetSectionResponse:
+    def from_model(cls, m: CharSheetSection) -> "CharSheetSectionResponse":
         """Convert a Tortoise CharSheetSection to a response Struct."""
         return cls(
             id=m.id,
@@ -72,7 +67,7 @@ class TraitCategoryResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: TraitCategory) -> TraitCategoryResponse:
+    def from_model(cls, m: TraitCategory) -> "TraitCategoryResponse":
         """Convert a Tortoise TraitCategory to a response Struct.
 
         Requires ``fetch_related("sheet_section")`` to populate the name property.
@@ -119,7 +114,7 @@ class TraitSubcategoryResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: TraitSubcategory) -> TraitSubcategoryResponse:
+    def from_model(cls, m: TraitSubcategory) -> "TraitSubcategoryResponse":
         """Convert a Tortoise TraitSubcategory to a response Struct.
 
         Requires ``fetch_related("category", "sheet_section")`` to populate name properties.
@@ -200,7 +195,7 @@ class TraitResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: Trait) -> TraitResponse:
+    def from_model(cls, m: Trait) -> "TraitResponse":
         """Convert a Tortoise Trait to a response Struct.
 
         Requires ``fetch_related("category", "sheet_section", "subcategory",
@@ -265,7 +260,7 @@ class CharacterConceptResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: CharacterConcept) -> CharacterConceptResponse:
+    def from_model(cls, m: CharacterConcept) -> "CharacterConceptResponse":
         """Convert a Tortoise CharacterConcept to a response Struct."""
         return cls(
             id=m.id,
@@ -296,7 +291,7 @@ class VampireClanResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: VampireClan) -> VampireClanResponse:
+    def from_model(cls, m: VampireClan) -> "VampireClanResponse":
         """Convert a Tortoise VampireClan to a response Struct.
 
         Requires ``fetch_related("disciplines")`` to populate discipline_ids.
@@ -339,7 +334,7 @@ class WerewolfAuspiceResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: WerewolfAuspice) -> WerewolfAuspiceResponse:
+    def from_model(cls, m: WerewolfAuspice) -> "WerewolfAuspiceResponse":
         """Convert a Tortoise WerewolfAuspice to a response Struct.
 
         Requires ``fetch_related("gifts")`` to populate gift_trait_ids.
@@ -373,7 +368,7 @@ class WerewolfTribeResponse(msgspec.Struct):
     date_modified: datetime
 
     @classmethod
-    def from_model(cls, m: WerewolfTribe) -> WerewolfTribeResponse:
+    def from_model(cls, m: WerewolfTribe) -> "WerewolfTribeResponse":
         """Convert a Tortoise WerewolfTribe to a response Struct.
 
         Requires ``fetch_related("gifts")`` to populate gift_trait_ids.

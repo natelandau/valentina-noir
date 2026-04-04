@@ -7,14 +7,12 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DictionaryService
-from vapi.lib.exceptions import ValidationError
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -87,10 +85,7 @@ class DictionaryTermController(Controller):
             synonyms=data.synonyms,
             company_id=company.id,
         )
-        try:
-            await dictionary_term.save()
-        except TortoiseValidationError as e:
-            raise ValidationError(detail=str(e)) from e
+        await dictionary_term.save()
 
         return DictionaryTermResponse.from_model(dictionary_term)
 
@@ -117,10 +112,7 @@ class DictionaryTermController(Controller):
         if not isinstance(data.synonyms, msgspec.UnsetType):
             dictionary_term.synonyms = data.synonyms
 
-        try:
-            await dictionary_term.save()
-        except TortoiseValidationError as e:
-            raise ValidationError(detail=str(e)) from e
+        await dictionary_term.save()
 
         return DictionaryTermResponse.from_model(dictionary_term)
 

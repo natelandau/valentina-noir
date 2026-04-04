@@ -93,16 +93,16 @@ class CharacterAutogenerationHandler:
     ) -> None:
         self.company = company
         self.user = user
-        self.experience_level: AutoGenExperienceLevel = None  # type: ignore[assignment]
+        self.experience_level: AutoGenExperienceLevel | None = None
         self.campaign = campaign
-        self.skill_focus: AbilityFocus = None  # type: ignore[assignment]
-        self.concept: CharacterConcept = None  # type: ignore[assignment]
+        self.skill_focus: AbilityFocus | None = None
+        self.concept: CharacterConcept | None = None
         self.character_trait_service = CharacterTraitService()
 
     async def generate_character(  # noqa: PLR0913
         self,
         character_type: CharacterType,
-        experience_level: AutoGenExperienceLevel = None,  # type: ignore[assignment]
+        experience_level: AutoGenExperienceLevel | None = None,
         skill_focus: AbilityFocus | None = None,
         char_class: CharacterClass | None = None,
         concept: CharacterConcept | None = None,
@@ -156,7 +156,7 @@ class CharacterAutogenerationHandler:
     async def _generate_base_character(
         self,
         character_type: CharacterType,
-        experience_level: AutoGenExperienceLevel = None,  # type: ignore[assignment]
+        experience_level: AutoGenExperienceLevel | None = None,
         skill_focus: AbilityFocus | None = None,
         char_class: CharacterClass | None = None,
         concept: CharacterConcept | None = None,
@@ -588,10 +588,7 @@ class CharacterAutogenerationHandler:
         )
 
         rites = list(await Trait.filter(category_id=rites_category.id)) if rites_category else []
-        existing_trait_ids: set[UUID] = {
-            ct.trait.id  # type: ignore[attr-defined]
-            for ct in existing_char_traits
-        }
+        existing_trait_ids: set[UUID] = {ct.trait.id for ct in existing_char_traits}
 
         value_modifiers = divide_total_randomly(
             total=EXTRA_WEREWOLF_GIFT_MAP[self.experience_level], num=3, max_value=5

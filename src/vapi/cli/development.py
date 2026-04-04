@@ -26,42 +26,29 @@ def development_group() -> None:
 
 
 async def _purge_pg_async() -> None:
-    """Truncate all non-constant PostgreSQL tables."""
-    await init_tortoise()
+    """Drop and recreate the entire PostgreSQL database.
+
+    Connects to the ``postgres`` maintenance database to execute DROP/CREATE,
+    since you cannot drop a database while connected to it.
+    """
+    import asyncpg
+
+    pg = settings.postgres
+    conn = await asyncpg.connect(
+        host=pg.host,
+        port=pg.port,
+        user=pg.user,
+        password=pg.password,
+        database="postgres",
+    )
     try:
-        conn = Tortoise.get_connection("default")
-        # Delete in reverse dependency order to respect FK constraints
-        tables = [
-            "audit_log",
-            "chargen_session_characters",
-            "chargen_session",
-            "note",
-            "s3_asset",
-            "dice_roll_result",
-            "dice_roll",
-            "quick_roll",
-            "character_trait",
-            "character_inventory",
-            "specialty",
-            "vampire_attributes",
-            "werewolf_attributes",
-            "mage_attributes",
-            "hunter_attributes",
-            "character",
-            "campaign_chapter",
-            "campaign_book",
-            "campaign",
-            "campaign_experience",
-            "company_settings",
-            "developer_company_permission",
-            "developer",
-            '"user"',
-            "company",
-        ]
-        for table in tables:
-            await conn.execute_query(f"DELETE FROM {table}")  # noqa: S608
+        # Terminate existing connections so the DROP succeeds
+        terminate_sql = f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{pg.database}' AND pid <> pg_backend_pid()"  # noqa: S608
+        await conn.execute(terminate_sql)
+        await conn.execute(f'DROP DATABASE IF EXISTS "{pg.database}"')
+        await conn.execute(f'CREATE DATABASE "{pg.database}" OWNER {pg.user}')
     finally:
-        await Tortoise.close_connections()
+        await conn.close()
 
 
 @development_group.command(name="purgedb", help="Purge the database")
@@ -123,6 +110,7 @@ def populate_db(
 
         # Then bootstrap and populate
         await init_tortoise()
+        await Tortoise.generate_schemas(safe=True)
         await bootstrap_async()
         try:
             service = PopulationService()

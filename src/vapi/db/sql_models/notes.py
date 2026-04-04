@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tortoise import fields
+from tortoise.validators import MinLengthValidator
 
 from vapi.db.sql_models.base import BaseModel
 
@@ -18,8 +19,8 @@ if TYPE_CHECKING:
 class Note(BaseModel):
     """A note attached to a user, campaign, book, chapter, or character."""
 
-    title = fields.CharField(max_length=50)
-    content = fields.TextField()
+    title = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    content = fields.TextField(validators=[MinLengthValidator(3)])
 
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="notes", on_delete=fields.OnDelete.CASCADE

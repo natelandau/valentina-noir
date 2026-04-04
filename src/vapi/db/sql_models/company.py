@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tortoise import fields
+from tortoise.validators import MinLengthValidator
 
 from vapi.constants import (
     PermissionManageCampaign,
@@ -15,6 +16,7 @@ from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import (
     validate_company_settings_num_choices,
     validate_company_settings_xp_cost,
+    validate_email_format,
 )
 
 if TYPE_CHECKING:
@@ -33,9 +35,9 @@ if TYPE_CHECKING:
 class Company(BaseModel):
     """An organization that owns campaigns, characters, and users."""
 
-    name = fields.CharField(max_length=50)
-    description = fields.TextField(null=True)
-    email = fields.CharField(max_length=255)
+    name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    description = fields.TextField(null=True, validators=[MinLengthValidator(3)])
+    email = fields.CharField(max_length=255, validators=[validate_email_format])
     resources_modified_at = fields.DatetimeField(null=True)
 
     # Reverse relations

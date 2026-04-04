@@ -38,11 +38,11 @@ class TestCharacterModelProperties:
         # Given a character with a nickname
         company = await company_factory()
         character = await character_factory(
-            name_first="John", name_last="Doe", name_nick="JD", company=company
+            name_first="John", name_last="Doe", name_nick="Johnny", company=company
         )
 
         # Then
-        assert character.name_full == "John 'JD' Doe"
+        assert character.name_full == "John 'Johnny' Doe"
 
     @pytest.mark.anyio
     async def test_character_concept_name_with_concept(

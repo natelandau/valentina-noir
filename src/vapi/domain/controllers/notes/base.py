@@ -64,7 +64,7 @@ class BaseNoteController(Controller, ABC):
             "company_id": company_id,
             self.parent_ref_field: parent_id,
         }
-        note = await Note.create(**create_kwargs)
+        note = await Note.create(**create_kwargs)  # type: ignore[arg-type]
         return dto.NoteResponse.from_model(note)
 
     async def _update_note(

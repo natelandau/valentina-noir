@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder
+from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, needs_update
 from vapi.cli.lib.sync_counts import SyncCounts
 from vapi.db.sql_models.character_classes import WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import (
@@ -52,10 +52,10 @@ class TraitSyncer:
         self.gift_fixture_map = _build_gift_fixture_map(fixture_data)
 
         for fixture_section in fixture_data:
-            section, created = await self._sync_section(fixture_section)
+            section, created, updated = await self._sync_section(fixture_section)
             if created:
                 self.result.sections.created += 1
-            else:
+            elif updated:
                 self.result.sections.updated += 1
 
             cat_counts, subcat_counts, trait_counts = await self._sync_section_categories(
@@ -72,87 +72,102 @@ class TraitSyncer:
 
         self._log_counts()
 
-    async def _sync_section(self, fixture_section: dict[str, Any]) -> tuple[CharSheetSection, bool]:
+    async def _sync_section(
+        self, fixture_section: dict[str, Any]
+    ) -> tuple[CharSheetSection, bool, bool]:
         """Upsert a CharSheetSection from fixture data.
 
         Returns:
-            Tuple of (section instance, created flag).
+            Tuple of (section instance, created flag, updated flag).
         """
-        section, created = await CharSheetSection.update_or_create(
+        defaults = {
+            "description": fixture_section.get("description"),
+            "character_classes": fixture_section.get("character_classes", []),
+            "game_versions": fixture_section.get("game_versions", []),
+            "show_when_empty": fixture_section.get("show_when_empty", False),
+            "order": fixture_section.get("order", 0),
+        }
+        section, created = await CharSheetSection.get_or_create(
             name=fixture_section["name"],
-            defaults={
-                "description": fixture_section.get("description"),
-                "character_classes": fixture_section.get("character_classes", []),
-                "game_versions": fixture_section.get("game_versions", []),
-                "show_when_empty": fixture_section.get("show_when_empty", False),
-                "order": fixture_section.get("order", 0),
-            },
+            defaults=defaults,
         )
-        return section, created
+        updated = False
+        if not created and needs_update(section, defaults):
+            await section.update_from_dict(defaults).save()
+            updated = True
+        return section, created, updated
 
     async def _sync_category(
         self,
         fixture_category: dict[str, Any],
         section: CharSheetSection,
-    ) -> tuple[TraitCategory, bool]:
+    ) -> tuple[TraitCategory, bool, bool]:
         """Upsert a TraitCategory, inheriting from section when fields are absent.
 
         Returns:
-            Tuple of (category instance, created flag).
+            Tuple of (category instance, created flag, updated flag).
         """
         character_classes = fixture_category.get("character_classes") or section.character_classes
         game_versions = fixture_category.get("game_versions") or section.game_versions
 
-        category, created = await TraitCategory.update_or_create(
+        defaults = {
+            "description": fixture_category.get("description"),
+            "character_classes": character_classes,
+            "game_versions": game_versions,
+            "show_when_empty": fixture_category.get("show_when_empty", False),
+            "order": fixture_category.get("order", 0),
+            "initial_cost": fixture_category.get("initial_cost", 1),
+            "upgrade_cost": fixture_category.get("upgrade_cost", 2),
+            "count_based_cost_multiplier": fixture_category.get("count_based_cost_multiplier"),
+        }
+        category, created = await TraitCategory.get_or_create(
             name=fixture_category["name"],
             sheet_section=section,
-            defaults={
-                "description": fixture_category.get("description"),
-                "character_classes": character_classes,
-                "game_versions": game_versions,
-                "show_when_empty": fixture_category.get("show_when_empty", False),
-                "order": fixture_category.get("order", 0),
-                "initial_cost": fixture_category.get("initial_cost", 1),
-                "upgrade_cost": fixture_category.get("upgrade_cost", 2),
-                "count_based_cost_multiplier": fixture_category.get("count_based_cost_multiplier"),
-            },
+            defaults=defaults,
         )
-        return category, created
+        updated = False
+        if not created and needs_update(category, defaults):
+            await category.update_from_dict(defaults).save()
+            updated = True
+        return category, created, updated
 
     async def _sync_subcategory(
         self,
         fixture_subcategory: dict[str, Any],
         category: TraitCategory,
         section: CharSheetSection,
-    ) -> tuple[TraitSubcategory, bool]:
+    ) -> tuple[TraitSubcategory, bool, bool]:
         """Upsert a TraitSubcategory, inheriting from category when fields are absent.
 
         Returns:
-            Tuple of (subcategory instance, created flag).
+            Tuple of (subcategory instance, created flag, updated flag).
         """
-        subcategory, created = await TraitSubcategory.update_or_create(
+        defaults = {
+            "description": fixture_subcategory.get("description"),
+            "character_classes": fixture_subcategory.get("character_classes")
+            or category.character_classes,
+            "game_versions": fixture_subcategory.get("game_versions") or category.game_versions,
+            "show_when_empty": fixture_subcategory.get("show_when_empty", True),
+            "initial_cost": fixture_subcategory.get("initial_cost") or category.initial_cost,
+            "upgrade_cost": fixture_subcategory.get("upgrade_cost") or category.upgrade_cost,
+            "count_based_cost_multiplier": fixture_subcategory.get("count_based_cost_multiplier")
+            or category.count_based_cost_multiplier,
+            "requires_parent": fixture_subcategory.get("requires_parent", False),
+            "pool": fixture_subcategory.get("pool"),
+            "system": fixture_subcategory.get("system"),
+            "hunter_edge_type": fixture_subcategory.get("hunter_edge_type"),
+            "sheet_section": section,
+        }
+        subcategory, created = await TraitSubcategory.get_or_create(
             name=fixture_subcategory["name"],
             category=category,
-            defaults={
-                "description": fixture_subcategory.get("description"),
-                "character_classes": fixture_subcategory.get("character_classes")
-                or category.character_classes,
-                "game_versions": fixture_subcategory.get("game_versions") or category.game_versions,
-                "show_when_empty": fixture_subcategory.get("show_when_empty", True),
-                "initial_cost": fixture_subcategory.get("initial_cost") or category.initial_cost,
-                "upgrade_cost": fixture_subcategory.get("upgrade_cost") or category.upgrade_cost,
-                "count_based_cost_multiplier": fixture_subcategory.get(
-                    "count_based_cost_multiplier"
-                )
-                or category.count_based_cost_multiplier,
-                "requires_parent": fixture_subcategory.get("requires_parent", False),
-                "pool": fixture_subcategory.get("pool"),
-                "system": fixture_subcategory.get("system"),
-                "hunter_edge_type": fixture_subcategory.get("hunter_edge_type"),
-                "sheet_section": section,
-            },
+            defaults=defaults,
         )
-        return subcategory, created
+        updated = False
+        if not created and needs_update(subcategory, defaults):
+            await subcategory.update_from_dict(defaults).save()
+            updated = True
+        return subcategory, created, updated
 
     async def _sync_trait(
         self,
@@ -161,14 +176,14 @@ class TraitSyncer:
         category: TraitCategory,
         section: CharSheetSection,
         subcategory: TraitSubcategory | None = None,
-    ) -> tuple[Trait, bool]:
+    ) -> tuple[Trait, bool, bool]:
         """Upsert a Trait, inheriting costs from subcategory/category.
 
         Gift attributes are extracted and stored as nullable columns on Trait.
         tribe_name/auspice_name are popped from the fixture for later resolution.
 
         Returns:
-            Tuple of (trait instance, created flag).
+            Tuple of (trait instance, created flag, updated flag).
         """
         trait_name = fixture_trait["name"].strip().title()
 
@@ -214,8 +229,12 @@ class TraitSyncer:
         if subcategory:
             lookup["subcategory"] = subcategory
 
-        trait, created = await Trait.update_or_create(defaults=defaults, **lookup)
-        return trait, created
+        trait, created = await Trait.get_or_create(defaults=defaults, **lookup)
+        updated = False
+        if not created and needs_update(trait, defaults):
+            await trait.update_from_dict(defaults).save()
+            updated = True
+        return trait, created, updated
 
     async def _sync_traits_batch(
         self,
@@ -228,7 +247,7 @@ class TraitSyncer:
         """Sync all traits from a category or subcategory fixture block."""
         counts = SyncCounts()
         for fixture_trait in fixture_data.get("traits", []):
-            _, created = await self._sync_trait(
+            _, created, updated = await self._sync_trait(
                 fixture_trait,
                 category=category,
                 section=section,
@@ -236,7 +255,7 @@ class TraitSyncer:
             )
             if created:
                 counts.created += 1
-            else:
+            elif updated:
                 counts.updated += 1
         return counts
 
@@ -255,20 +274,20 @@ class TraitSyncer:
         trait_counts = SyncCounts()
 
         for fixture_category in fixture_section.get("categories", []):
-            category, created = await self._sync_category(fixture_category, section)
+            category, created, updated = await self._sync_category(fixture_category, section)
             if created:
                 cat_counts.created += 1
-            else:
+            elif updated:
                 cat_counts.updated += 1
 
             # Sync subcategories and their traits
             for fixture_subcategory in fixture_category.get("subcategories", []):
-                subcategory, sub_created = await self._sync_subcategory(
+                subcategory, sub_created, sub_updated = await self._sync_subcategory(
                     fixture_subcategory, category, section
                 )
                 if sub_created:
                     subcat_counts.created += 1
-                else:
+                elif sub_updated:
                     subcat_counts.updated += 1
 
                 batch_counts = await self._sync_traits_batch(
@@ -395,15 +414,17 @@ async def resolve_gift_trait_references(
 
         if tribe_name and tribe_name in tribes_by_name:
             tribe = tribes_by_name[tribe_name]
-            trait.gift_tribe = tribe
             tribe_gifts[tribe_name].append(trait)
-            changed = True
+            if trait.gift_tribe_id != tribe.pk:  # type: ignore [attr-defined]
+                trait.gift_tribe = tribe
+                changed = True
 
         if auspice_name and auspice_name in auspices_by_name:
             auspice = auspices_by_name[auspice_name]
-            trait.gift_auspice = auspice
             auspice_gifts[auspice_name].append(trait)
-            changed = True
+            if trait.gift_auspice_id != auspice.pk:  # type: ignore [attr-defined]
+                trait.gift_auspice = auspice
+                changed = True
 
         if changed:
             modified_traits.append(trait)
