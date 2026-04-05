@@ -68,6 +68,16 @@ class DictionaryService:
 
         existing_term = self._existing_terms.get(normalized_term)
         if not existing_term:
+            # Cache miss — check DB directly to handle name collisions across
+            # entity types (e.g., a subcategory and trait sharing the same name)
+            # where the dict cache silently drops one entry
+            existing_term = await DictionaryTerm.filter(
+                term=normalized_term, company_id__isnull=True
+            ).first()
+            if existing_term:
+                self._existing_terms[normalized_term] = existing_term
+
+        if not existing_term:
             new_term = DictionaryTerm(
                 term=normalized_term,
                 definition=normalized_definition,
