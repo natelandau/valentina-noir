@@ -40,13 +40,13 @@ class TraitSyncer:
 
     def __init__(self) -> None:
         self.result = TraitSyncResult()
-        self.gift_fixture_map: dict[str, dict] = {}
+        self.gift_fixture_map: dict[str, dict[str, Any]] = {}
 
     async def sync(self) -> None:
         """Load traits.json and sync the full hierarchy into PostgreSQL."""
         fixture_path = FIXTURES_PATH / "traits.json"
         with fixture_path.open("r") as f:
-            fixture_data: list[dict] = json.load(f, cls=JSONWithCommentsDecoder)
+            fixture_data: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
         # Pre-build gift_fixture_map before sync mutates fixture dicts via .pop()
         self.gift_fixture_map = _build_gift_fixture_map(fixture_data)
@@ -327,7 +327,9 @@ class TraitSyncer:
             )
 
 
-def _build_gift_fixture_map(fixture_data: list[dict] | None = None) -> dict[str, dict]:
+def _build_gift_fixture_map(
+    fixture_data: list[dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
     """Pre-build a map of trait names to gift_attributes before sync mutates fixtures.
 
     Args:
@@ -341,7 +343,7 @@ def _build_gift_fixture_map(fixture_data: list[dict] | None = None) -> dict[str,
         with fixture_path.open("r") as f:
             fixture_data = json.load(f, cls=JSONWithCommentsDecoder)
 
-    result: dict[str, dict] = {}
+    result: dict[str, dict[str, Any]] = {}
     for section in fixture_data:
         for category in section.get("categories", []):
             for subcategory in category.get("subcategories", []):
@@ -375,7 +377,7 @@ async def _populate_gift_m2m(
 
 
 async def resolve_gift_trait_references(
-    gift_fixture_map: dict[str, dict] | None = None,
+    gift_fixture_map: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     """Resolve gift trait tribe/auspice references and build M2M links.
 

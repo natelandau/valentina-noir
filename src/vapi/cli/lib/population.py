@@ -10,6 +10,7 @@ from vapi.cli.constants import API_KEYS_FILE, DEV_FOLDER
 from vapi.cli.schemas import APIKeyUser
 from vapi.constants import CharacterType, CompanyPermission, UserRole
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
@@ -47,7 +48,7 @@ class PopulationService:
         users = await self._create_users(companies=companies, num_users=num_users)
         campaigns = await self._create_campaigns(companies=companies, num_campaigns=num_campaigns)
         await self._create_characters(
-            campaigns=campaigns, users=users, num_characters=num_characters
+            campaigns=campaigns, companies=companies, users=users, num_characters=num_characters
         )
         api_key_users = await self._generate_api_keys(developers=developers, companies=companies)
         self.write_api_keys_to_stdout(api_key_users=api_key_users)
@@ -164,13 +165,18 @@ class PopulationService:
         return campaigns
 
     async def _create_characters(
-        self, campaigns: list[Campaign], users: list[User], num_characters: int
-    ) -> list:
+        self,
+        campaigns: list[Campaign],
+        companies: list[Company],
+        users: list[User],
+        num_characters: int,
+    ) -> list[Character]:
         """Create characters for each campaign."""
-        characters: list = []
+        companies_by_id = {company.id: company for company in companies}
+        characters: list[Character] = []
 
         for campaign in campaigns:
-            company = await Company.filter(id=campaign.company_id).first()  # type: ignore[attr-defined]
+            company = companies_by_id[campaign.company_id]  # type: ignore[attr-defined]
             for _ in range(num_characters):
                 user = random.choice(users)
                 chargen = CharacterAutogenerationHandler(
@@ -221,11 +227,7 @@ class PopulationService:
         """Write the API keys to a file for later reference."""
         DEV_FOLDER.mkdir(parents=True, exist_ok=True)
 
-        if API_KEYS_FILE.exists():
-            API_KEYS_FILE.unlink()
-        API_KEYS_FILE.touch(exist_ok=True)
-
-        with API_KEYS_FILE.open("a") as f:
+        with API_KEYS_FILE.open("w") as f:
             for user in api_key_users:
                 companies = ", ".join(str(c) for c in user.company_ids)
                 f.write(f"""\

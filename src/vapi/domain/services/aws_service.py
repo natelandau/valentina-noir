@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -33,8 +34,8 @@ class AWSS3Service:
 
     def __init__(self) -> None:
         """Initialize the AWS Service class with credentials from settings."""
-        self.aws_access_key_id = settings.aws.access_key_id
-        self.aws_secret_access_key = settings.aws.secret_access_key
+        aws_access_key_id = settings.aws.access_key_id
+        aws_secret_access_key = settings.aws.secret_access_key
         self.bucket_name = settings.aws.s3_bucket_name
         self.prefix = (
             settings.aws.cloudfront_origin_path.rstrip("/") + "/"
@@ -42,14 +43,14 @@ class AWSS3Service:
             else ""
         )
 
-        if not self.aws_access_key_id or not self.aws_secret_access_key or not self.bucket_name:
+        if not aws_access_key_id or not aws_secret_access_key or not self.bucket_name:
             msg = "AWS"
             raise MissingConfigurationError(msg)
 
         self.s3 = boto3.client(
             "s3",
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
             config=Config(retries={"max_attempts": 10, "mode": "standard"}),
         )
 
@@ -66,10 +67,10 @@ class AWSS3Service:
         filename = f"{date}{uuid4().hex}.{extension}"
         return f"{prefix}/{filename}"
 
-    def _delete_object_from_s3(self, key: str) -> None:
+    async def _delete_object_from_s3(self, key: str) -> None:
         """Delete an object from the S3 bucket."""
         try:
-            self.s3.delete_object(Bucket=self.bucket_name, Key=key)
+            await asyncio.to_thread(self.s3.delete_object, Bucket=self.bucket_name, Key=key)
         except ClientError as e:
             msg = "Failed to delete object from AWS S3"
             raise AWSS3Error(detail=msg) from e
@@ -91,7 +92,8 @@ class AWSS3Service:
         """Upload data to the S3 bucket."""
         cache_control = self._get_cache_control(asset.asset_type)
         try:
-            self.s3.put_object(
+            await asyncio.to_thread(
+                self.s3.put_object,
                 Key=asset.s3_key,
                 Bucket=self.bucket_name,
                 Body=data,
@@ -109,7 +111,7 @@ class AWSS3Service:
 
     async def delete_asset(self, asset: S3Asset) -> None:
         """Delete an asset from S3 and the database."""
-        self._delete_object_from_s3(key=asset.s3_key)
+        await self._delete_object_from_s3(key=asset.s3_key)
         await asset.delete()
 
     async def upload_asset(

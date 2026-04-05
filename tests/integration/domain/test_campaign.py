@@ -28,22 +28,22 @@ class TestListCampaigns:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_global_admin,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
         campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
     ) -> None:
         """Verify listing campaigns returns only company-scoped results."""
         # Given a company with one campaign
-        campaign = await campaign_factory(company=mirror_company)
+        campaign = await campaign_factory(company=session_company)
 
         # When we list the campaigns
         response = await client.get(
             build_url(
                 Campaigns.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
@@ -64,23 +64,23 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_global_admin,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
         campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
     ) -> None:
         """Verify getting a campaign by ID."""
         # Given a campaign
-        campaign = await campaign_factory(company=mirror_company)
+        campaign = await campaign_factory(company=session_company)
 
         # When we get the campaign
         response = await client.get(
             build_url(
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
@@ -94,9 +94,9 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_global_admin,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
         company_factory: Callable[..., Company],
         campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
@@ -111,8 +111,8 @@ class TestGetCampaign:
             build_url(
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
@@ -139,8 +139,8 @@ class TestCreateCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_global_admin,
+        session_company: Company,
+        session_global_admin,
         user_factory: Callable[..., User],
         build_url: Callable[..., str],
         campaign_permission: PermissionManageCampaign,
@@ -149,16 +149,16 @@ class TestCreateCampaign:
     ) -> None:
         """Verify create campaign respects permission settings."""
         # Given a company with a specific campaign permission
-        await CompanySettings.filter(company_id=mirror_company.id).update(
+        await CompanySettings.filter(company_id=session_company.id).update(
             permission_manage_campaign=campaign_permission
         )
-        user = await user_factory(company=mirror_company, role=user_role.value)
+        user = await user_factory(company=session_company, role=user_role.value)
 
         # When we create the campaign
         response = await client.post(
             build_url(
                 Campaigns.CREATE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=user.id,
             ),
             headers=token_global_admin,
@@ -170,7 +170,7 @@ class TestCreateCampaign:
         if expected_status_code == HTTP_201_CREATED:
             assert response.json()["name"] == "Test Campaign"
             assert response.json()["description"] == "Test Description"
-            assert response.json()["company_id"] == str(mirror_company.id)
+            assert response.json()["company_id"] == str(session_company.id)
             assert response.json()["desperation"] == 0
             assert response.json()["danger"] == 1
             assert response.json()["date_created"] is not None
@@ -198,8 +198,8 @@ class TestUpdateCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_global_admin,
+        session_company: Company,
+        session_global_admin,
         user_factory: Callable[..., User],
         campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
@@ -209,12 +209,12 @@ class TestUpdateCampaign:
     ) -> None:
         """Verify update campaign respects permission settings."""
         # Given a company with a campaign and specific permission
-        await CompanySettings.filter(company_id=mirror_company.id).update(
+        await CompanySettings.filter(company_id=session_company.id).update(
             permission_manage_campaign=campaign_permission
         )
-        user = await user_factory(company=mirror_company, role=user_role.value)
+        user = await user_factory(company=session_company, role=user_role.value)
         campaign = await campaign_factory(
-            company=mirror_company,
+            company=session_company,
             name="original",
             description="original description",
             danger=1,
@@ -225,7 +225,7 @@ class TestUpdateCampaign:
         response = await client.patch(
             build_url(
                 Campaigns.UPDATE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 campaign_id=campaign.id,
                 user_id=user.id,
             ),
@@ -242,7 +242,7 @@ class TestUpdateCampaign:
         if expected_status_code == HTTP_200_OK:
             assert response.json()["name"] == "Test Campaign Updated"
             assert response.json()["description"] == "Test Description Updated"
-            assert response.json()["company_id"] == str(mirror_company.id)
+            assert response.json()["company_id"] == str(session_company.id)
             assert response.json()["desperation"] == 3
             assert response.json()["danger"] == 2
 
@@ -268,8 +268,8 @@ class TestDeleteCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_global_admin,
+        session_company: Company,
+        session_global_admin,
         user_factory: Callable[..., User],
         campaign_factory: Callable[..., Campaign],
         build_url: Callable[..., str],
@@ -279,12 +279,12 @@ class TestDeleteCampaign:
     ) -> None:
         """Verify delete campaign respects permission settings."""
         # Given a company with a campaign and specific permission
-        await CompanySettings.filter(company_id=mirror_company.id).update(
+        await CompanySettings.filter(company_id=session_company.id).update(
             permission_manage_campaign=campaign_permission
         )
-        user = await user_factory(company=mirror_company, role=user_role.value)
+        user = await user_factory(company=session_company, role=user_role.value)
         campaign = await campaign_factory(
-            company=mirror_company,
+            company=session_company,
             name="original",
         )
 
@@ -292,7 +292,7 @@ class TestDeleteCampaign:
         response = await client.delete(
             build_url(
                 Campaigns.DELETE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 campaign_id=campaign.id,
                 user_id=user.id,
             ),

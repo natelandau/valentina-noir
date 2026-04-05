@@ -27,12 +27,12 @@ async def test_cached_route_returns_cache_control_header(
     client: AsyncClient,
     build_url: Callable[[str, Any], str],
     token_company_user: dict[str, str],
-    mirror_company: Company,
-    mirror_company_user: Developer,
+    session_company: Company,
+    session_company_user: Developer,
 ) -> None:
     """Verify cached route includes private Cache-Control header with max-age."""
     # Given a request to the options endpoint which has cache=600
-    url = build_url(urls.Options.LIST, company_id=mirror_company.id)
+    url = build_url(urls.Options.LIST, company_id=session_company.id)
 
     # When making a request to the cached endpoint
     response = await client.get(url, headers=token_company_user)
@@ -49,12 +49,12 @@ async def test_cached_blueprint_route_with_default_ttl(
     client: AsyncClient,
     build_url: Callable[[str, Any], str],
     token_company_user: dict[str, str],
-    mirror_company: Company,
-    mirror_company_user: Developer,
+    session_company: Company,
+    session_company_user: Developer,
 ) -> None:
     """Verify blueprint route with cache=True uses default TTL from settings."""
     # Given a request to a cached blueprint endpoint
-    url = build_url(urls.CharacterBlueprints.SECTIONS, company_id=mirror_company.id)
+    url = build_url(urls.CharacterBlueprints.SECTIONS, company_id=session_company.id)
 
     # When making a request to the cached endpoint
     response = await client.get(url, headers=token_company_user)
@@ -78,19 +78,19 @@ async def test_cached_campaign_route_with_default_ttl(
     client: AsyncClient,
     build_url: Callable[[str, Any], str],
     token_company_user: dict[str, str],
-    mirror_company: Company,
-    mirror_company_user: Developer,
-    mirror_user: User,
-    mirror_campaign: Campaign,
+    session_company: Company,
+    session_company_user: Developer,
+    session_user: User,
+    session_campaign: Campaign,
     url_name: str,
 ) -> None:
     """Verify Tortoise-backed campaign routes with cache=True use default TTL from settings."""
     # Given a request to a Tortoise-backed cached campaign endpoint
     url = build_url(
         url_name,
-        company_id=mirror_company.id,
-        user_id=mirror_user.id,
-        campaign_id=mirror_campaign.id,
+        company_id=session_company.id,
+        user_id=session_user.id,
+        campaign_id=session_campaign.id,
     )
 
     # When making a request to the cached endpoint
@@ -107,8 +107,8 @@ async def test_cached_campaign_route_with_default_ttl(
 async def test_uncached_route_returns_no_cache_header(
     client: AsyncClient,
     token_company_user: dict[str, str],
-    mirror_company: Company,
-    mirror_company_user: Developer,
+    session_company: Company,
+    session_company_user: Developer,
 ) -> None:
     """Verify route with cache=False returns no-cache Cache-Control header."""
     # Given a request to the health endpoint which has cache=False

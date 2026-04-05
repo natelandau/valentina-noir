@@ -24,9 +24,9 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
-        mirror_user_storyteller: User,
+        session_company: Company,
+        session_company_admin: Developer,
+        session_user_storyteller: User,
     ) -> None:
         """Verify POST requests with same idempotency key and body return cached response."""
         # Given an idempotency key and a fixed request body
@@ -39,8 +39,8 @@ class TestIdempotencyMiddleware:
         request_body = {"name": "Test Campaign Idempotent", "description": "Test"}
         url = build_url(
             Campaigns.CREATE,
-            company_id=mirror_company.id,
-            user_id=mirror_user_storyteller.id,
+            company_id=session_company.id,
+            user_id=session_user_storyteller.id,
         )
 
         # When making a POST request
@@ -62,9 +62,9 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
-        mirror_user_storyteller: User,
+        session_company: Company,
+        session_company_admin: Developer,
+        session_user_storyteller: User,
     ) -> None:
         """Verify POST requests with same idempotency key but different body raise ConflictError."""
         # Given an idempotency key
@@ -76,8 +76,8 @@ class TestIdempotencyMiddleware:
         }
         url = build_url(
             Campaigns.CREATE,
-            company_id=mirror_company.id,
-            user_id=mirror_user_storyteller.id,
+            company_id=session_company.id,
+            user_id=session_user_storyteller.id,
         )
 
         # When making a POST request with a body
@@ -102,9 +102,9 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
-        mirror_user_storyteller: User,
+        session_company: Company,
+        session_company_admin: Developer,
+        session_user_storyteller: User,
     ) -> None:
         """Verify POST requests without idempotency header create new resources each time."""
         # Given headers without an idempotency key
@@ -114,8 +114,8 @@ class TestIdempotencyMiddleware:
         }
         url = build_url(
             Campaigns.CREATE,
-            company_id=mirror_company.id,
-            user_id=mirror_user_storyteller.id,
+            company_id=session_company.id,
+            user_id=session_user_storyteller.id,
         )
 
         # When making a POST request
@@ -144,9 +144,9 @@ class TestIdempotencyMiddleware:
         client: AsyncClient,
         build_url: Callable[[str], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_company_user: Developer,
+        session_user: User,
     ) -> None:
         """Verify GET requests ignore the idempotency header entirely."""
         # Given an idempotency key on a GET request
@@ -161,8 +161,8 @@ class TestIdempotencyMiddleware:
         response = await client.get(
             build_url(
                 Campaigns.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=headers,
         )

@@ -35,8 +35,11 @@ from vapi.openapi.tags import APITags
 from . import docs
 from .dto import (
     CHARACTER_RESPONSE_PREFETCH,
+    INCLUDE_PREFETCH_MAP,
     CharacterCreate,
+    CharacterDetailResponse,
     CharacterFullSheetDTO,
+    CharacterInclude,
     CharacterPatch,
     CharacterResponse,
     FullSheetTraitCategoryDTO,
@@ -130,9 +133,21 @@ class CharacterController(Controller):
         description=docs.GET_CHARACTER_DESCRIPTION,
         cache=True,
     )
-    async def get_character(self, character: Character) -> CharacterResponse:
-        """Get a character by ID."""
-        return CharacterResponse.from_model(character)
+    async def get_character(
+        self,
+        character: Character,
+        include: list[CharacterInclude] | None = None,
+    ) -> CharacterDetailResponse:
+        """Get a character by ID with optional embedded children."""
+        requested = set(include) if include else set()
+
+        prefetches: list[str] = []
+        for inc in requested:
+            prefetches.extend(INCLUDE_PREFETCH_MAP[inc])
+        if prefetches:
+            await character.fetch_related(*prefetches)
+
+        return CharacterDetailResponse.from_model(character, requested)
 
     @post(
         path=urls.Characters.CREATE,

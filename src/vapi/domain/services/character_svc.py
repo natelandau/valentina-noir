@@ -140,7 +140,7 @@ class CharacterService:
             company_id=character.company_id,  # type: ignore[attr-defined]
         ).exclude(id=character.id)
 
-        if await qs.first():
+        if await qs.exists():
             msg = "Combination of name_first and name_last is not unique"
             raise ValidationError(
                 invalid_parameters=[
@@ -169,17 +169,13 @@ class CharacterService:
         # concept.specialties is a JSONField list of dicts: [{"name": ..., "type": ..., "description": ...}]
         desired = {(s["name"], s["type"]) for s in concept.specialties}
         existing = await Specialty.filter(character=character)
-        existing_keys = {
-            (s.name, s.type.value if hasattr(s.type, "value") else s.type) for s in existing
-        }
 
-        # Bulk-delete specialties no longer in the concept
-        stale_ids = [
-            spec.id
-            for spec in existing
-            if (spec.name, spec.type.value if hasattr(spec.type, "value") else spec.type)
-            not in desired
-        ]
+        def _spec_key(spec: Specialty) -> tuple[str, str]:
+            return (spec.name, spec.type.value if hasattr(spec.type, "value") else spec.type)
+
+        existing_keys = {_spec_key(s) for s in existing}
+
+        stale_ids = [spec.id for spec in existing if _spec_key(spec) not in desired]
         if stale_ids:
             await Specialty.filter(id__in=stale_ids).delete()
 

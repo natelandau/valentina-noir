@@ -145,8 +145,7 @@ class DiceRollService:
             desperation_roll=result.desperation_roll,
         )
 
-        if quickroll_trait_ids:
-            trait_objects = await Trait.filter(id__in=quickroll_trait_ids)
-            await dice_roll.traits.add(*trait_objects)
+        if quickroll.traits:
+            await dice_roll.traits.add(*quickroll.traits)
 
         return await DiceRoll.get(id=dice_roll.id).prefetch_related("roll_result", "traits")

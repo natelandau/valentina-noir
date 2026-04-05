@@ -56,8 +56,8 @@ class TestSheetSection:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list sheet sections endpoint is working."""
@@ -68,7 +68,7 @@ class TestSheetSection:
         ).order_by("order")
 
         response = await client.get(
-            build_url(CharacterBlueprints.SECTIONS, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.SECTIONS, company_id=session_company.id),
             headers=token_company_admin,
             params={
                 "game_version": GameVersion.V4.name,
@@ -88,8 +88,8 @@ class TestSheetSection:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet section endpoint is working."""
@@ -98,7 +98,7 @@ class TestSheetSection:
         response = await client.get(
             build_url(
                 CharacterBlueprints.SECTION_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 section_id=sheet_section.id,
             ),
             headers=token_company_admin,
@@ -118,8 +118,8 @@ class TestSheetCategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet category endpoint is working."""
@@ -137,7 +137,7 @@ class TestSheetCategory:
         response = await client.get(
             build_url(
                 CharacterBlueprints.CATEGORY_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 category_id=trait_category.id,
             ),
             headers=token_company_admin,
@@ -153,8 +153,8 @@ class TestSheetCategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list sheet categories endpoint is working."""
@@ -179,7 +179,7 @@ class TestSheetCategory:
         )
 
         response = await client.get(
-            build_url(CharacterBlueprints.CATEGORIES, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.CATEGORIES, company_id=session_company.id),
             headers=token_company_admin,
             params={
                 "game_version": GameVersion.V4.name,
@@ -208,8 +208,8 @@ class TestSheetSubcategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list category subcategories endpoint is working."""
@@ -228,7 +228,7 @@ class TestSheetSubcategory:
 
         # When requesting subcategories via the API
         response = await client.get(
-            build_url(CharacterBlueprints.SUBCATEGORIES, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.SUBCATEGORIES, company_id=session_company.id),
             headers=token_company_admin,
             params={
                 "game_version": GameVersion(game_version).name,
@@ -248,8 +248,8 @@ class TestSheetSubcategory:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get category subcategory endpoint is working."""
@@ -265,7 +265,7 @@ class TestSheetSubcategory:
         response = await client.get(
             build_url(
                 CharacterBlueprints.SUBCATEGORY_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 subcategory_id=subcategory.id,
             ),
             headers=token_company_admin,
@@ -286,8 +286,8 @@ class TestSheetTrait:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet trait endpoint is working."""
@@ -302,7 +302,7 @@ class TestSheetTrait:
         response = await client.get(
             build_url(
                 CharacterBlueprints.TRAIT_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 trait_id=trait.id,
             ),
             headers=token_company_admin,
@@ -318,13 +318,13 @@ class TestSheetTrait:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list all character sheet traits endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.TRAITS, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.TRAITS, company_id=session_company.id),
             headers=token_company_admin,
         )
         assert response.status_code == HTTP_200_OK
@@ -352,14 +352,14 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list concepts endpoint is working."""
         # When we list concepts
         response = await client.get(
-            build_url(CharacterBlueprints.CONCEPTS, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.CONCEPTS, company_id=session_company.id),
             headers=token_company_admin,
         )
 
@@ -377,8 +377,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get concept endpoint is working."""
@@ -386,7 +386,7 @@ class TestClassesConceptsAndSpecificOptions:
         response = await client.get(
             build_url(
                 CharacterBlueprints.CONCEPT_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 concept_id=concept.id,
             ),
             headers=token_company_admin,
@@ -401,13 +401,13 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list vampire clans endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.VAMPIRE_CLANS, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.VAMPIRE_CLANS, company_id=session_company.id),
             headers=token_company_admin,
         )
         vampire_clans = (
@@ -431,8 +431,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get vampire clan endpoint is working."""
@@ -442,7 +442,7 @@ class TestClassesConceptsAndSpecificOptions:
         response = await client.get(
             build_url(
                 CharacterBlueprints.VAMPIRE_CLAN_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 vampire_clan_id=vampire_clan.id,
             ),
             headers=token_company_admin,
@@ -461,13 +461,13 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list werewolf tribes endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.WEREWOLF_TRIBES, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.WEREWOLF_TRIBES, company_id=session_company.id),
             headers=token_company_admin,
         )
         werewolf_tribes = (
@@ -489,8 +489,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get werewolf tribe endpoint is working."""
@@ -500,7 +500,7 @@ class TestClassesConceptsAndSpecificOptions:
         response = await client.get(
             build_url(
                 CharacterBlueprints.WEREWOLF_TRIBE_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 werewolf_tribe_id=werewolf_tribe.id,
             ),
             headers=token_company_admin,
@@ -519,13 +519,13 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the list werewolf auspices endpoint is working."""
         response = await client.get(
-            build_url(CharacterBlueprints.WEREWOLF_AUSPICES, company_id=mirror_company.id),
+            build_url(CharacterBlueprints.WEREWOLF_AUSPICES, company_id=session_company.id),
             headers=token_company_admin,
         )
         werewolf_auspices = (
@@ -549,8 +549,8 @@ class TestClassesConceptsAndSpecificOptions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_admin: dict[str, str],
-        mirror_company: Company,
-        mirror_company_admin: Developer,
+        session_company: Company,
+        session_company_admin: Developer,
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get werewolf auspice endpoint is working."""
@@ -560,7 +560,7 @@ class TestClassesConceptsAndSpecificOptions:
         response = await client.get(
             build_url(
                 CharacterBlueprints.WEREWOLF_AUSPICE_DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 werewolf_auspice_id=werewolf_auspice.id,
             ),
             headers=token_company_admin,

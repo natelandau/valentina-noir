@@ -26,19 +26,19 @@ pytestmark = pytest.mark.anyio
 
 @pytest.fixture
 async def create_dice_rolls(
-    mirror_company: Company,
-    mirror_user: User,
-    mirror_campaign: Campaign,
+    session_company: Company,
+    session_user: User,
+    session_campaign: Campaign,
     character_factory: Callable[..., Any],
     diceroll_factory: Callable[..., Any],
 ) -> Callable[..., Awaitable[tuple[Trait, Trait, Trait]]]:
     """Create dice rolls for statistics tests."""
     # Pre-create the character once so it's available for all calls
     character = await character_factory(
-        company=mirror_company,
-        user_player=mirror_user,
-        user_creator=mirror_user,
-        campaign=mirror_campaign,
+        company=session_company,
+        user_player=session_user,
+        user_creator=session_user,
+        campaign=session_campaign,
     )
 
     async def _inner(
@@ -68,12 +68,12 @@ async def create_dice_rolls(
             traits_for_roll1 = [trait1, trait2]
             traits_for_roll2 = [trait1, trait3]
 
-        company = kwargs.get("company", mirror_company)
+        company = kwargs.get("company", session_company)
 
         await diceroll_factory(
             company=company,
-            user=mirror_user if with_user else None,
-            campaign=mirror_campaign if with_campaign else None,
+            user=session_user if with_user else None,
+            campaign=session_campaign if with_campaign else None,
             character=character if with_character else None,
             traits=traits_for_roll1,
             difficulty=6,
@@ -90,8 +90,8 @@ async def create_dice_rolls(
 
         await diceroll_factory(
             company=company,
-            user=mirror_user if with_user else None,
-            campaign=mirror_campaign if with_campaign else None,
+            user=session_user if with_user else None,
+            campaign=session_campaign if with_campaign else None,
             character=character if with_character else None,
             traits=traits_for_roll2,
             difficulty=10,
@@ -119,14 +119,14 @@ class TestCompanyStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify company statistics returns zeros when no rolls exist."""
         response = await client.get(
-            build_url(Companies.STATISTICS, company_id=mirror_company.id),
+            build_url(Companies.STATISTICS, company_id=session_company.id),
             headers=token_global_admin,
         )
         assert response.status_code == HTTP_200_OK
@@ -151,10 +151,10 @@ class TestCompanyStatistics:
         token_global_admin: dict[str, str],
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         create_dice_rolls: Callable[..., Awaitable[tuple[Trait, Trait, Trait]]],
         debug: Callable[[Any], None],
     ) -> None:
@@ -162,7 +162,7 @@ class TestCompanyStatistics:
         trait1, trait2, trait3 = await create_dice_rolls(with_traits=True)
 
         response = await client.get(
-            build_url(Companies.STATISTICS, company_id=mirror_company.id),
+            build_url(Companies.STATISTICS, company_id=session_company.id),
             headers=token_global_admin,
         )
         assert response.status_code == HTTP_200_OK
@@ -203,10 +203,10 @@ class TestCompanyStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         create_dice_rolls: Callable[..., Awaitable[tuple[Trait, Trait, Trait]]],
         debug: Callable[[Any], None],
     ) -> None:
@@ -214,7 +214,7 @@ class TestCompanyStatistics:
         trait1, _, _ = await create_dice_rolls(with_traits=True)
 
         response = await client.get(
-            build_url(Companies.STATISTICS, company_id=mirror_company.id),
+            build_url(Companies.STATISTICS, company_id=session_company.id),
             headers=token_global_admin,
             params={"num_top_traits": 1},
         )
@@ -250,17 +250,17 @@ class TestUserStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify user statistics returns zeros when no rolls exist."""
         response = await client.get(
             build_url(
                 Users.STATISTICS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
@@ -286,10 +286,10 @@ class TestUserStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         create_dice_rolls: Callable[..., Awaitable[tuple[Trait, Trait, Trait]]],
         debug: Callable[[Any], None],
     ) -> None:
@@ -299,8 +299,8 @@ class TestUserStatistics:
         response = await client.get(
             build_url(
                 Users.STATISTICS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
@@ -342,10 +342,10 @@ class TestUserStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         create_dice_rolls: Callable[..., Awaitable[tuple[Trait, Trait, Trait]]],
         debug: Callable[[Any], None],
     ) -> None:
@@ -355,8 +355,8 @@ class TestUserStatistics:
         response = await client.get(
             build_url(
                 Users.STATISTICS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
             params={"num_top_traits": 1},
@@ -393,26 +393,26 @@ class TestCharacterStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify character statistics returns zeros when no rolls exist."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         response = await client.get(
             build_url(
                 Characters.STATISTICS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -439,10 +439,10 @@ class TestCharacterStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         create_dice_rolls: Callable[..., Awaitable[tuple[Trait, Trait, Trait]]],
         character_factory: Callable[..., Any],
         debug: Callable[[Any], None],
@@ -454,15 +454,15 @@ class TestCharacterStatistics:
         # we need to find that character to build the URL
         from vapi.db.sql_models.diceroll import DiceRoll
 
-        dr = await DiceRoll.filter(company_id=mirror_company.id).first()
+        dr = await DiceRoll.filter(company_id=session_company.id).first()
         character_id = dr.character_id  # type: ignore[attr-defined]
 
         response = await client.get(
             build_url(
                 Characters.STATISTICS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character_id,
             ),
             headers=token_global_admin,
@@ -505,10 +505,10 @@ class TestCharacterStatistics:
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
         client: AsyncClient,
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         create_dice_rolls: Callable[..., Awaitable[tuple[Trait, Trait, Trait]]],
         debug: Callable[[Any], None],
     ) -> None:
@@ -517,15 +517,15 @@ class TestCharacterStatistics:
 
         from vapi.db.sql_models.diceroll import DiceRoll
 
-        dr = await DiceRoll.filter(company_id=mirror_company.id).first()
+        dr = await DiceRoll.filter(company_id=session_company.id).first()
         character_id = dr.character_id  # type: ignore[attr-defined]
 
         response = await client.get(
             build_url(
                 Characters.STATISTICS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character_id,
             ),
             headers=token_global_admin,

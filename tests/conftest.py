@@ -99,6 +99,22 @@ async def init_test_postgres(
     await Tortoise.close_connections()
 
 
+# Registry of row IDs that session-scoped fixtures own. These rows survive
+# per-test cleanup. Maps quoted table name (e.g. '"company"') to a set of
+# primary-key values to preserve.
+_SESSION_PRESERVED_IDS: dict[str, set[str]] = {}
+
+
+def register_session_id(table: str, row_id: str) -> None:
+    """Register a row ID to be preserved across per-test cleanup.
+
+    Args:
+        table: Quoted table name matching an entry in _PG_CLEANUP_TABLES (e.g. '"company"').
+        row_id: The primary key value of the row to preserve.
+    """
+    _SESSION_PRESERVED_IDS.setdefault(table, set()).add(row_id)
+
+
 # Tables that hold non-constant data created by tests. Truncated after each test
 # to prevent data leaks. Constant tables (char_sheet_section, trait_category, etc.)
 # are seeded once at session scope and preserved.
@@ -143,11 +159,16 @@ async def _cleanup_non_constant_pg_data() -> None:
     Constant data (traits, sections, clans, etc.) is preserved. Uses DELETE (not
     TRUNCATE) to avoid CASCADE side effects on constant tables that have nullable FK
     relationships to these tables. Tables are ordered children-first so FK constraints
-    are satisfied.
+    are satisfied. Rows registered via `register_session_id` are excluded.
     """
     conn = Tortoise.get_connection("default")
     for table in _PG_CLEANUP_TABLES:
-        await conn.execute_query(f"DELETE FROM {table}")  # noqa: S608
+        preserved = _SESSION_PRESERVED_IDS.get(table)
+        if preserved:
+            placeholders = ", ".join(f"'{pid}'" for pid in preserved)
+            await conn.execute_query(f"DELETE FROM {table} WHERE id NOT IN ({placeholders})")  # noqa: S608
+        else:
+            await conn.execute_query(f"DELETE FROM {table}")  # noqa: S608
 
 
 @pytest.fixture(autouse=True)
@@ -162,10 +183,21 @@ async def cleanup_pg_database() -> AsyncGenerator[None]:
 
 
 @pytest.fixture(name="redis", autouse=True)
-async def fx_redis(redis_service: RedisService) -> AsyncGenerator[Redis]:
-    """Redis instance for testing."""
-    redis_client = Redis(host=redis_service.host, port=redis_service.port)
+async def fx_redis(redis_service: RedisService, worker_id: str) -> AsyncGenerator[Redis]:
+    """Redis instance for testing.
+
+    Each xdist worker gets its own Redis database (0-15) to prevent data leaks
+    between parallel workers sharing the same Redis server.
+    """
+    # Map worker IDs to Redis database numbers (gw0→1, gw1→2, ...; master→0)
+    if worker_id == "master":
+        db = 0
+    else:
+        db = int(worker_id.replace("gw", "")) + 1
+
+    redis_client = Redis(host=redis_service.host, port=redis_service.port, db=db)
     yield redis_client
+    await redis_client.flushdb()
     await redis_client.aclose()
 
 

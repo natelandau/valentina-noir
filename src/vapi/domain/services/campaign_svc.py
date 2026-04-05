@@ -161,5 +161,5 @@ class CampaignService:
                 number__gt=item.number,
                 is_archived=False,
             ).update(number=F("number") - 1),
-            model.filter(id=item.id).update(is_archived=True),
+            model.filter(id=item.id).update(is_archived=True, archive_date=time_now()),
         )

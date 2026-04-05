@@ -37,7 +37,7 @@ class FixtureSyncer:
         """Load fixture data and upsert all items into PostgreSQL."""
         fixture_path = FIXTURES_PATH / self.fixture_filename
         with fixture_path.open("r") as f:
-            fixture_items: list[dict] = json.load(f, cls=JSONWithCommentsDecoder)
+            fixture_items: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
         for fixture_item in fixture_items:
             lookup = self._lookup_fields(fixture_item)
@@ -172,7 +172,13 @@ class VampireClanSyncer(FixtureSyncer):
 
     async def _post_sync(self) -> None:
         """Link discipline traits to clans via M2M relationship."""
+        if not self._discipline_links:
+            return
+
+        all_names = {name for _, names in self._discipline_links for name in names}
+        traits_by_name = {t.name: t for t in await Trait.filter(name__in=all_names)}
+
         for clan, discipline_names in self._discipline_links:
-            traits = await Trait.filter(name__in=discipline_names)
             await clan.disciplines.clear()
+            traits = [traits_by_name[n] for n in discipline_names if n in traits_by_name]
             await clan.disciplines.add(*traits)

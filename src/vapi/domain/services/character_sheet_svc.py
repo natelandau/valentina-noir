@@ -4,6 +4,8 @@ from asyncio import gather
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from tortoise.exceptions import NoValuesFetched
+
 from vapi.constants import CharacterClass
 from vapi.db.sql_models.character import CharacterTrait
 from vapi.db.sql_models.character_sheet import (
@@ -177,7 +179,9 @@ class CharacterSheetService:
                 is_archived=False,
                 category_id=category.id,
             ).order_by("name"),
-            CharacterTrait.filter(character_id=character.id).prefetch_related(
+            CharacterTrait.filter(
+                character_id=character.id, trait__category_id=category.id
+            ).prefetch_related(
                 "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
             ),
         ]
@@ -327,7 +331,7 @@ class CharacterSheetService:
             if werewolf_attrs:
                 tribe_id = werewolf_attrs.tribe_id  # type: ignore[attr-defined]
                 auspice_id = werewolf_attrs.auspice_id  # type: ignore[attr-defined]
-        except Exception:  # noqa: BLE001 S110
+        except (AttributeError, NoValuesFetched):
             pass
 
         return [

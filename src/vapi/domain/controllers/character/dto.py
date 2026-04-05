@@ -1,6 +1,7 @@
 """Character DTOs — msgspec Structs for request/response bodies."""
 
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -30,6 +31,28 @@ if TYPE_CHECKING:
         TraitCategory,
         TraitSubcategory,
     )
+
+
+class CharacterInclude(StrEnum):
+    """Child resources that can be embedded in a character detail response."""
+
+    TRAITS = "traits"
+    INVENTORY = "inventory"
+    NOTES = "notes"
+    ASSETS = "assets"
+
+
+INCLUDE_PREFETCH_MAP: dict[CharacterInclude, list[str]] = {
+    CharacterInclude.TRAITS: [
+        "traits__trait",
+        "traits__trait__category",
+        "traits__trait__subcategory",
+        "traits__trait__sheet_section",
+    ],
+    CharacterInclude.INVENTORY: ["inventory"],
+    CharacterInclude.NOTES: ["notes"],
+    CharacterInclude.ASSETS: ["assets"],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -537,4 +560,61 @@ class CharacterFullSheetDTO(msgspec.Struct):
         return cls(
             character=CharacterResponse.from_model(character),
             sections=sections,
+        )
+
+
+class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
+    """Response body for a single character with optional embedded children.
+
+    Inherits all fields from CharacterResponse and adds optional child lists.
+    When no includes are requested, the serialized JSON is identical to
+    CharacterResponse (child fields are omitted via omit_defaults).
+    """
+
+    # Optional children — omitted from JSON when not requested.
+    # Types use msgspec.Struct base because the concrete DTO modules can't be
+    # imported at module level without causing circular imports.
+    traits: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    inventory: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+
+    @classmethod
+    def from_model(
+        cls,
+        m: "Character",
+        includes: set[CharacterInclude] | None = None,
+    ) -> "CharacterDetailResponse":
+        """Convert a Tortoise Character to a detail response.
+
+        Delegate base fields to CharacterResponse.from_model(), then conditionally
+        populate child lists based on the requested includes.
+
+        Args:
+            m: The Character model instance with relations prefetched.
+            includes: Set of CharacterInclude values indicating which children to embed.
+        """
+        # Lazy imports to avoid circular dependency: these controller dto modules
+        # import from deps.py which imports from this file at module level.
+        from vapi.domain.controllers.character_inventory.dto import InventoryItemResponse
+        from vapi.domain.controllers.character_trait.dto import CharacterTraitResponse
+        from vapi.domain.controllers.notes.dto import NoteResponse
+        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
+
+        includes = includes or set()
+        base = CharacterResponse.from_model(m)
+
+        kwargs: dict[str, list] = {}
+        if CharacterInclude.TRAITS in includes:
+            kwargs["traits"] = [CharacterTraitResponse.from_model(t) for t in m.traits]
+        if CharacterInclude.INVENTORY in includes:
+            kwargs["inventory"] = [InventoryItemResponse.from_model(i) for i in m.inventory]
+        if CharacterInclude.NOTES in includes:
+            kwargs["notes"] = [NoteResponse.from_model(n) for n in m.notes]
+        if CharacterInclude.ASSETS in includes:
+            kwargs["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
+
+        return cls(
+            **{f: getattr(base, f) for f in base.__struct_fields__},
+            **kwargs,
         )

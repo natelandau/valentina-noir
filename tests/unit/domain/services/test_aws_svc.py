@@ -402,7 +402,7 @@ class TestUploadAsset:
 class TestDeleteObjectFromS3:
     """Test the _delete_object_from_s3 method."""
 
-    def test_delete_object_from_s3_success(self, mocker: MockerFixture) -> None:
+    async def test_delete_object_from_s3_success(self, mocker: MockerFixture) -> None:
         """Verify _delete_object_from_s3 succeeds when S3 returns DeleteMarker True."""
         # Given: A mocked S3 client that returns DeleteMarker True
         mock_s3_client = mocker.MagicMock()
@@ -412,14 +412,16 @@ class TestDeleteObjectFromS3:
 
         # When: Deleting an object
         service = AWSS3Service()
-        service._delete_object_from_s3(key="test-key")
+        await service._delete_object_from_s3(key="test-key")
 
         # Then: delete_object was called with correct parameters
         mock_s3_client.delete_object.assert_called_once_with(
             Bucket=settings.aws.s3_bucket_name, Key="test-key"
         )
 
-    def test_delete_object_from_s3_raises_on_client_error(self, mocker: MockerFixture) -> None:
+    async def test_delete_object_from_s3_raises_on_client_error(
+        self, mocker: MockerFixture
+    ) -> None:
         """Verify _delete_object_from_s3 raises AWSS3Error on ClientError."""
         # Given: A mocked S3 client that raises ClientError
         mock_s3_client = mocker.MagicMock()
@@ -432,7 +434,7 @@ class TestDeleteObjectFromS3:
         # When/Then: Deleting raises AWSS3Error
         service = AWSS3Service()
         with pytest.raises(AWSS3Error, match="Failed to delete object from AWS S3"):
-            service._delete_object_from_s3(key="test-key")
+            await service._delete_object_from_s3(key="test-key")
 
 
 class TestDeleteAsset:

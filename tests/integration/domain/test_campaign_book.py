@@ -21,25 +21,25 @@ pytestmark = pytest.mark.anyio
 async def test_book_controller(
     client: AsyncClient,
     token_global_admin: dict[str, str],
-    mirror_company: Company,
-    mirror_global_admin,
-    mirror_user: User,
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
     campaign_factory: Callable[..., Campaign],
     campaign_book_factory: Callable[..., CampaignBook],
     build_url: Callable[..., str],
 ) -> None:
     """Verify the campaign book CRUD workflow."""
     # Given a campaign with one book
-    campaign = await campaign_factory(company=mirror_company)
+    campaign = await campaign_factory(company=session_company)
     base_book = await campaign_book_factory(campaign=campaign)
 
     # When we create a book
     response = await client.post(
         build_url(
             Campaigns.BOOK_CREATE,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
             campaign_id=campaign.id,
-            user_id=mirror_user.id,
+            user_id=session_user.id,
         ),
         headers=token_global_admin,
         json={"name": "Test Book", "description": "Test Description"},
@@ -62,10 +62,10 @@ async def test_book_controller(
     response = await client.patch(
         build_url(
             Campaigns.BOOK_UPDATE,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=new_book_id,
-            user_id=mirror_user.id,
+            user_id=session_user.id,
         ),
         headers=token_global_admin,
         json={"name": "Test Book Updated"},
@@ -82,10 +82,10 @@ async def test_book_controller(
     response = await client.delete(
         build_url(
             Campaigns.BOOK_DELETE,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=new_book_id,
-            user_id=mirror_user.id,
+            user_id=session_user.id,
         ),
         headers=token_global_admin,
     )
@@ -97,9 +97,9 @@ async def test_book_controller(
     response = await client.get(
         build_url(
             Campaigns.BOOKS,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
             campaign_id=campaign.id,
-            user_id=mirror_user.id,
+            user_id=session_user.id,
         ),
         headers=token_global_admin,
     )
@@ -114,10 +114,10 @@ async def test_book_controller(
     response = await client.get(
         build_url(
             Campaigns.BOOK_DETAIL,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=base_book.id,
-            user_id=mirror_user.id,
+            user_id=session_user.id,
         ),
         headers=token_global_admin,
     )
@@ -130,16 +130,16 @@ async def test_book_controller(
 async def test_renumber_book(
     client: AsyncClient,
     token_global_admin: dict[str, str],
-    mirror_company: Company,
-    mirror_global_admin,
-    mirror_user: User,
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
     campaign_factory: Callable[..., Campaign],
     campaign_book_factory: Callable[..., CampaignBook],
     build_url: Callable[..., str],
 ) -> None:
     """Verify the renumber book endpoint."""
     # Given a campaign with 4 books
-    campaign = await campaign_factory(company=mirror_company)
+    campaign = await campaign_factory(company=session_company)
     book1 = await campaign_book_factory(campaign=campaign)
     book2 = await campaign_book_factory(campaign=campaign)
     book3 = await campaign_book_factory(campaign=campaign)
@@ -154,10 +154,10 @@ async def test_renumber_book(
     response = await client.put(
         build_url(
             Campaigns.BOOK_NUMBER,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book1.id,
-            user_id=mirror_user.id,
+            user_id=session_user.id,
         ),
         json={"number": 3},
         headers=token_global_admin,

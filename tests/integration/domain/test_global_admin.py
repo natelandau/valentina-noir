@@ -26,7 +26,7 @@ async def test_admin_list_developers(
     client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_global_admin: Developer,
+    session_global_admin: Developer,
     developer_factory: Callable[..., Developer],
 ) -> None:
     """Verify the admin can list Developers."""
@@ -41,29 +41,29 @@ async def test_admin_list_developers(
     json_data = response.json()
     returned_ids = [item["id"] for item in json_data["items"]]
     assert str(new_developer.id) in returned_ids
-    assert str(mirror_global_admin.id) in returned_ids
+    assert str(session_global_admin.id) in returned_ids
 
 
 async def test_get_developer(
     client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_global_admin: Developer,
+    session_global_admin: Developer,
 ) -> None:
     """Verify the admin can get a Developer."""
     # When retrieving the global admin developer
     response = await client.get(
-        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=mirror_global_admin.id),
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=session_global_admin.id),
         headers=token_global_admin,
     )
 
     # Then the response contains the developer data
     assert response.status_code == HTTP_200_OK
     data = response.json()
-    assert data["id"] == str(mirror_global_admin.id)
-    assert data["username"] == mirror_global_admin.username
-    assert data["email"] == mirror_global_admin.email
-    assert data["is_global_admin"] == mirror_global_admin.is_global_admin
+    assert data["id"] == str(session_global_admin.id)
+    assert data["username"] == session_global_admin.username
+    assert data["email"] == session_global_admin.email
+    assert data["is_global_admin"] == session_global_admin.is_global_admin
     assert "companies" in data
     assert isinstance(data["companies"], list)
 
@@ -72,7 +72,7 @@ async def test_post_developer(
     client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_global_admin: Developer,
+    session_global_admin: Developer,
 ) -> None:
     """Verify the admin can create a Developer."""
     # When creating a new developer
@@ -101,7 +101,7 @@ async def test_patch_developer(
     client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_global_admin: Developer,
+    session_global_admin: Developer,
     developer_factory: Callable[..., Developer],
 ) -> None:
     """Verify the admin can patch a Developer."""
@@ -132,7 +132,7 @@ async def test_delete_developer(
     client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_global_admin: Developer,
+    session_global_admin: Developer,
     developer_factory: Callable[..., Developer],
 ) -> None:
     """Verify the admin can delete a Developer."""
@@ -158,7 +158,7 @@ async def test_new_api_key(
     client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_global_admin: Developer,
+    session_global_admin: Developer,
     developer_factory: Callable[..., Developer],
 ) -> None:
     """Verify the admin can generate a new API key for a Developer."""

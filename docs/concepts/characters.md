@@ -138,6 +138,78 @@ POST /api/v1/companies/{company_id}/campaigns/{campaign_id}/characters
 }
 ```
 
+## Fetching a Character
+
+Retrieve a single character by ID.
+
+```shell
+GET /api/v1/companies/{company_id}/users/{user_id}/campaigns/{campaign_id}/characters/{character_id}
+```
+
+The response includes the character's core properties, class-specific attributes, and specialties. By default, it doesn't include related collections like traits, inventory, notes, or assets. To embed those in a single request, use the `include` query parameter.
+
+### Embedding Related Resources
+
+The `include` parameter lets you fetch a character and its related data without making separate API calls. Pass one or more values to embed the corresponding collections in the response.
+
+| Value       | Embeds                                              |
+| ----------- | --------------------------------------------------- |
+| `traits`    | All assigned traits with full trait details          |
+| `inventory` | All inventory items                                 |
+| `notes`     | All notes attached to the character                 |
+| `assets`    | All uploaded assets (images, files) for the character |
+
+Repeat the parameter for multiple values:
+
+```shell
+GET /api/v1/.../characters/{character_id}?include=traits&include=inventory
+```
+
+When a requested collection is empty, the response contains an empty array (`[]`). When a collection isn't requested, its key is absent from the response entirely.
+
+??? example "Response with `include=traits&include=inventory`"
+
+    ```json
+    {
+        "id": "a1b2c3d4-...",
+        "name_first": "Marcus",
+        "name_last": "Vane",
+        "name": "Marcus Vane",
+        "character_class": "VAMPIRE",
+        "status": "ALIVE",
+        "traits": [
+            {
+                "id": "t1-...",
+                "character_id": "a1b2c3d4-...",
+                "value": 3,
+                "trait": {
+                    "name": "Strength",
+                    "description": "Raw physical power.",
+                    "max_value": 5,
+                    "min_value": 0,
+                    "category_name": "Physical",
+                    "sheet_section_name": "Attributes"
+                },
+                "date_created": "2026-01-15T10:30:00Z",
+                "date_modified": "2026-03-20T14:00:00Z"
+            }
+        ],
+        "inventory": [],
+        "specialties": [],
+        "vampire_attributes": {
+            "clan_id": "c1-...",
+            "clan_name": "Ventrue",
+            "generation": 10
+        }
+    }
+    ```
+
+    Fields like `notes` and `assets` are absent because they weren't included in the request.
+
+!!! info "Use dedicated endpoints for mutations"
+
+    The `include` parameter is read-only. To add, update, or remove traits, inventory items, notes, or assets, use their dedicated endpoints.
+
 ## Full Character Sheet
 
 The full character sheet endpoint returns a character's complete trait data in a single request, organized in the same hierarchy as a physical character sheet. Use this endpoint to render a character sheet for gameplay without assembling the hierarchy client-side.
@@ -227,7 +299,7 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
 
 ## Character Sub-Resources
 
-Characters support several sub-resources for managing related data.
+Characters have several related collections, each with its own set of CRUD endpoints. You can also embed these collections directly in the character response using the [`include` parameter](#embedding-related-resources).
 
 ### Traits
 
@@ -247,3 +319,11 @@ Track items a character carries or owns. Each inventory item has a name, descrip
 | `EQUIPMENT`  | General gear        |
 | `WEAPON`     | Weapons             |
 | `OTHER`      | Miscellaneous items |
+
+### Notes
+
+Attach free-form text notes to a character for tracking backstory, session recaps, or storyteller-only details. Each note has a title and content field.
+
+### Assets
+
+Upload files (images, documents) associated with a character. Common uses include character portraits, handouts, and reference images. Each asset tracks its file type, original filename, and a public URL for retrieval.

@@ -18,6 +18,7 @@ from vapi.constants import (
 from vapi.db.sql_models.base import BaseModel
 
 if TYPE_CHECKING:
+    from vapi.db.sql_models.aws import S3Asset
     from vapi.db.sql_models.campaign import Campaign
     from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
     from vapi.db.sql_models.character_concept import CharacterConcept
@@ -82,6 +83,7 @@ class Character(BaseModel):
     hunter_attributes: fields.OneToOneRelation[HunterAttributes]
     notes: fields.ReverseRelation[Note]
     dice_rolls: fields.ReverseRelation[DiceRoll]
+    assets: fields.ReverseRelation[S3Asset]
     chargen_sessions: fields.ManyToManyRelation[ChargenSession]
 
     class Meta:

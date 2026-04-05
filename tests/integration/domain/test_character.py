@@ -15,7 +15,12 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
-from vapi.db.sql_models.character import Character, VampireAttributes, WerewolfAttributes
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterTrait,
+    VampireAttributes,
+    WerewolfAttributes,
+)
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.domain.urls import Characters as CharacterURL
@@ -63,10 +68,10 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify listing characters returns empty when none exist."""
@@ -74,9 +79,9 @@ class TestCharacterList:
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -89,63 +94,63 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify listing characters returns all non-archived, non-temporary characters."""
         # Given multiple characters with various statuses/types
-        second_user = await user_factory(company=mirror_company)
+        second_user = await user_factory(company=session_company)
         character1 = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         character_dead = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             status=CharacterStatus.DEAD,
         )
         character_storyteller = await character_factory(
-            company=mirror_company,
-            user_creator=mirror_user,
-            user_player=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_creator=session_user,
+            user_player=session_user,
+            campaign=session_campaign,
             type=CharacterType.STORYTELLER,
         )
         character_different_user = await character_factory(
-            company=mirror_company,
-            user_creator=mirror_user,
+            company=session_company,
+            user_creator=session_user,
             user_player=second_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         # Different campaign — should not appear
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
         )
         # Archived — should not appear
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             is_archived=True,
         )
         # Temporary — should not appear (default filter is is_temporary=False)
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             is_temporary=True,
         )
 
@@ -153,9 +158,9 @@ class TestCharacterList:
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
         )
@@ -175,37 +180,37 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify filtering by user_player_id returns only that user's characters."""
         # Given characters owned by different users
-        second_user = await user_factory(company=mirror_company)
+        second_user = await user_factory(company=session_company)
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         character_different_user = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=second_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
         # When we filter by user_player_id
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             params={"user_player_id": str(second_user.id)},
@@ -221,37 +226,37 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify filtering by user_creator_id returns only characters created by that user."""
         # Given characters created by different users
-        second_user = await user_factory(company=mirror_company)
+        second_user = await user_factory(company=session_company)
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         character_by_second = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_creator=second_user,
             user_player=second_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
 
         # When we filter by user_creator_id
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             params={"user_creator_id": str(second_user.id)},
@@ -267,27 +272,27 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify filtering by character_type returns only matching characters."""
         # Given a player character and a storyteller character
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             type=CharacterType.PLAYER,
         )
         character_storyteller = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             type=CharacterType.STORYTELLER,
         )
 
@@ -295,9 +300,9 @@ class TestCharacterList:
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             params={"character_type": CharacterType.STORYTELLER.value},
@@ -313,27 +318,27 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify filtering by character_class returns only matching characters."""
         # Given a vampire and a mortal character
         character_vampire = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.VAMPIRE,
         )
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.MORTAL,
         )
 
@@ -341,9 +346,9 @@ class TestCharacterList:
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             params={"character_class": CharacterClass.VAMPIRE.value},
@@ -359,26 +364,26 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify filtering by status returns only matching characters."""
         # Given an alive and a dead character
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         character_dead = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             status=CharacterStatus.DEAD,
         )
 
@@ -386,9 +391,9 @@ class TestCharacterList:
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             params={"status": CharacterStatus.DEAD.value},
@@ -404,26 +409,26 @@ class TestCharacterList:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify filtering by is_temporary returns only temporary characters."""
         # Given a normal and a temporary character
         await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         character_temporary = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             is_temporary=True,
         )
 
@@ -431,9 +436,9 @@ class TestCharacterList:
         response = await client.get(
             build_url(
                 CharacterURL.LIST,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             params={"is_temporary": True},
             headers=token_global_admin,
@@ -453,29 +458,29 @@ class TestCharacterController:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify getting a character by ID."""
         # Given a character
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
         # When we get the character
         response = await client.get(
             build_url(
                 CharacterURL.DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -493,10 +498,10 @@ class TestCharacterController:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify 404 when getting a character that does not exist."""
@@ -507,9 +512,9 @@ class TestCharacterController:
         response = await client.get(
             build_url(
                 CharacterURL.DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=fake_id,
             ),
             headers=token_global_admin,
@@ -519,24 +524,242 @@ class TestCharacterController:
         assert response.status_code == HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Character not found"
 
+    async def test_get_character_no_include_omits_children(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify getCharacter without include param omits child resource keys."""
+        # Given a character
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
+        # When we get the character without include
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+        )
+
+        # Then the response has base fields but no child keys
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        _assert_character_response_shape(data)
+        assert "traits" not in data
+        assert "inventory" not in data
+        assert "notes" not in data
+        assert "assets" not in data
+
+    async def test_get_character_include_traits(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_trait_factory,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify getCharacter with include=traits embeds traits and omits other children."""
+        # Given a character with a trait
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await character_trait_factory(character=character)
+
+        # When we get the character with include=traits
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+            params={"include": ["traits"]},
+        )
+
+        # Then traits are embedded and other children are absent
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert "traits" in data
+        assert len(data["traits"]) == 1
+        assert data["traits"][0]["id"] == str(trait.id)
+        assert "inventory" not in data
+        assert "notes" not in data
+        assert "assets" not in data
+
+    async def test_get_character_include_all_children(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_trait_factory,
+        character_inventory_factory,
+        note_factory,
+        s3asset_factory,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify getCharacter with all includes embeds all four child lists."""
+        # Given a character with one of each child type
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await character_trait_factory(character=character)
+        item = await character_inventory_factory(character=character)
+        note = await note_factory(company=session_company, character=character)
+        asset = await s3asset_factory(
+            company=session_company, character=character, uploaded_by=session_user
+        )
+
+        # When we include all four child types
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+            params={"include": ["traits", "inventory", "notes", "assets"]},
+        )
+
+        # Then all four child lists are present
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert len(data["traits"]) == 1
+        assert data["traits"][0]["id"] == str(trait.id)
+        assert len(data["inventory"]) == 1
+        assert data["inventory"][0]["id"] == str(item.id)
+        assert len(data["notes"]) == 1
+        assert data["notes"][0]["id"] == str(note.id)
+        assert len(data["assets"]) == 1
+        assert data["assets"][0]["id"] == str(asset.id)
+
+    async def test_get_character_include_empty_children(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify included children with no data return empty lists, not absent keys."""
+        # Given a character with no children
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
+        # When we request all includes
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+            params={"include": ["traits", "inventory", "notes", "assets"]},
+        )
+
+        # Then all four child keys are present as empty lists
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["traits"] == []
+        assert data["inventory"] == []
+        assert data["notes"] == []
+        assert data["assets"] == []
+
+    async def test_get_character_include_invalid_value(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify invalid include value returns 400."""
+        # Given a character
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
+        # When we pass an invalid include value
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+            params={"include": ["bogus"]},
+        )
+
+        # Then we get a 400
+        assert response.status_code == HTTP_400_BAD_REQUEST
+
     async def test_patch_character(
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify patching a character updates the specified fields."""
         # Given a character
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         original_name_last = character.name_last
 
@@ -544,9 +767,9 @@ class TestCharacterController:
         response = await client.patch(
             build_url(
                 CharacterURL.UPDATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -573,29 +796,29 @@ class TestCharacterController:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify deleting a character archives it."""
         # Given a character
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
         # When we delete the character
         response = await client.delete(
             build_url(
                 CharacterURL.DELETE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -612,9 +835,9 @@ class TestCharacterController:
         response = await client.get(
             build_url(
                 CharacterURL.DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -629,10 +852,10 @@ class TestVampireAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify creating a vampire character populates clan attributes."""
@@ -644,9 +867,9 @@ class TestVampireAttributes:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -679,10 +902,10 @@ class TestVampireAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         vampire_attributes_factory: Callable[..., VampireAttributes],
         token_global_admin: dict[str, str],
@@ -692,10 +915,10 @@ class TestVampireAttributes:
         vampire_clan = await VampireClan.filter(is_archived=False).first()
         assert vampire_clan is not None
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.VAMPIRE,
         )
         await vampire_attributes_factory(character=character, clan=vampire_clan)
@@ -704,9 +927,9 @@ class TestVampireAttributes:
         response = await client.patch(
             build_url(
                 CharacterURL.UPDATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -729,10 +952,10 @@ class TestVampireAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         vampire_attributes_factory: Callable[..., VampireAttributes],
         token_global_admin: dict[str, str],
@@ -742,10 +965,10 @@ class TestVampireAttributes:
         original_clan = await VampireClan.filter(is_archived=False).first()
         assert original_clan is not None
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.VAMPIRE,
         )
         await vampire_attributes_factory(
@@ -766,9 +989,9 @@ class TestVampireAttributes:
         response = await client.patch(
             build_url(
                 CharacterURL.UPDATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -791,10 +1014,10 @@ class TestVampireAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         vampire_attributes_factory: Callable[..., VampireAttributes],
         token_global_admin: dict[str, str],
@@ -804,10 +1027,10 @@ class TestVampireAttributes:
         original_clan = await VampireClan.filter(is_archived=False, bane_name__isnull=False).first()
         assert original_clan is not None
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.VAMPIRE,
         )
         await vampire_attributes_factory(
@@ -823,9 +1046,9 @@ class TestVampireAttributes:
         response = await client.patch(
             build_url(
                 CharacterURL.UPDATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -851,10 +1074,10 @@ class TestWerewolfAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify creating a werewolf character populates tribe and auspice attributes."""
@@ -868,9 +1091,9 @@ class TestWerewolfAttributes:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -900,10 +1123,10 @@ class TestWerewolfAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         werewolf_attributes_factory: Callable[..., WerewolfAttributes],
         token_global_admin: dict[str, str],
@@ -915,10 +1138,10 @@ class TestWerewolfAttributes:
         assert tribe is not None
         assert auspice is not None
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.WEREWOLF,
         )
         await werewolf_attributes_factory(character=character, tribe=tribe, auspice=auspice)
@@ -931,9 +1154,9 @@ class TestWerewolfAttributes:
         response = await client.patch(
             build_url(
                 CharacterURL.UPDATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -955,10 +1178,10 @@ class TestWerewolfAttributes:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         werewolf_attributes_factory: Callable[..., WerewolfAttributes],
         token_global_admin: dict[str, str],
@@ -970,10 +1193,10 @@ class TestWerewolfAttributes:
         assert tribe is not None
         assert auspice is not None
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.WEREWOLF,
         )
         await werewolf_attributes_factory(character=character, tribe=tribe, auspice=auspice)
@@ -984,9 +1207,9 @@ class TestWerewolfAttributes:
         response = await client.patch(
             build_url(
                 CharacterURL.UPDATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -1011,10 +1234,10 @@ class TestCharacterCreate:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         trait_factory: Callable[..., Trait],
         token_global_admin: dict[str, str],
     ) -> None:
@@ -1032,9 +1255,9 @@ class TestCharacterCreate:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -1056,7 +1279,6 @@ class TestCharacterCreate:
         assert data["character_class"] == CharacterClass.MORTAL.value
 
         # And the traits are persisted
-        from vapi.db.sql_models.character import CharacterTrait
 
         ct_count = await CharacterTrait.filter(character_id=data["id"]).count()
         assert ct_count == len(traits)
@@ -1075,10 +1297,10 @@ class TestCharacterCreate:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         json_data: dict[str, str],
         token_global_admin: dict[str, str],
     ) -> None:
@@ -1098,9 +1320,9 @@ class TestCharacterCreate:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             json=base_json_data,
@@ -1111,23 +1333,23 @@ class TestCharacterCreate:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
+        session_company: Company,
+        session_global_admin: Developer,
         user_factory: Callable[..., User],
-        mirror_campaign: Campaign,
+        session_campaign: Campaign,
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify 404 when creating a character with an archived user."""
         # Given an archived user
-        archived_user = await user_factory(company=mirror_company, is_archived=True)
+        archived_user = await user_factory(company=session_company, is_archived=True)
 
         # When we try to create a character for the archived user
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=archived_user.id,
-                campaign_id=mirror_campaign.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -1146,17 +1368,17 @@ class TestCharacterCreate:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         user_factory: Callable[..., User],
         character_concept_factory: Callable[..., CharacterConcept],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify creating a character with all optional fields."""
         # Given a second user to be the player, a concept, and a vampire clan
-        user_player = await user_factory(company=mirror_company)
+        user_player = await user_factory(company=session_company)
         vampire_clan = await VampireClan.filter(is_archived=False).first()
         assert vampire_clan is not None
         concept = await character_concept_factory()
@@ -1173,9 +1395,9 @@ class TestCharacterCreate:
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin,
             json={
@@ -1221,7 +1443,6 @@ class TestCharacterCreate:
         assert data["user_player_id"] == str(user_player.id)
 
         # And the character has the correct trait count in DB
-        from vapi.db.sql_models.character import CharacterTrait
 
         ct_count = await CharacterTrait.filter(character_id=data["id"]).count()
         assert ct_count >= len(traits)
@@ -1234,10 +1455,10 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
@@ -1245,10 +1466,10 @@ class TestCharacterFullSheet:
         """Verify the full sheet endpoint returns the character with organized sections."""
         # Given a character with traits
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait_no_sub = await Trait.filter(is_archived=False, subcategory_id__isnull=True).first()
         trait_with_sub = await Trait.filter(is_archived=False, subcategory_id__isnull=False).first()
@@ -1262,9 +1483,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -1298,10 +1519,10 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
@@ -1309,10 +1530,10 @@ class TestCharacterFullSheet:
         """Verify the full sheet endpoint includes available traits when flag is set."""
         # Given a character with one assigned trait
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         assigned_trait = await Trait.filter(
             is_archived=False,
@@ -1327,9 +1548,9 @@ class TestCharacterFullSheet:
         # When we request the full sheet with include_available_traits=true
         url = build_url(
             CharacterURL.FULL_SHEET,
-            company_id=mirror_company.id,
-            user_id=mirror_user.id,
-            campaign_id=mirror_campaign.id,
+            company_id=session_company.id,
+            user_id=session_user.id,
+            campaign_id=session_campaign.id,
             character_id=character.id,
         )
         response = await client.get(
@@ -1366,29 +1587,29 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify available_traits is empty when include_available_traits is not set."""
         # Given a character
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
         # When we request the full sheet without the flag
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
             headers=token_global_admin,
@@ -1407,10 +1628,10 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
@@ -1418,10 +1639,10 @@ class TestCharacterFullSheet:
         """Verify the category slice endpoint returns a single category with traits."""
         # Given a trait without a subcategory
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait_no_sub = await Trait.filter(is_archived=False, subcategory_id__isnull=True).first()
         assert trait_no_sub is not None
@@ -1431,9 +1652,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(trait_no_sub.category_id),  # type: ignore[attr-defined]
             ),
@@ -1458,10 +1679,10 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
@@ -1469,10 +1690,10 @@ class TestCharacterFullSheet:
         """Verify the category slice includes available traits when requested."""
         # Given a trait assigned to the character
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(
             is_archived=False, subcategory_id__isnull=True, is_custom=False
@@ -1484,9 +1705,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(trait.category_id),  # type: ignore[attr-defined]
             ),
@@ -1511,20 +1732,20 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify available traits are empty when not requested."""
         # Given a character and a category
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         category = await TraitCategory.filter(is_archived=False).first()
         assert category is not None
@@ -1533,9 +1754,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(category.id),
             ),
@@ -1553,20 +1774,20 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify 404 when category does not exist."""
         # Given a character and a non-existent category ID
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         fake_id = uuid4()
 
@@ -1574,9 +1795,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(fake_id),
             ),
@@ -1590,20 +1811,20 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify an empty category returns the skeleton structure."""
         # Given a character and a category with show_when_empty=True
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         category = await TraitCategory.filter(is_archived=False, show_when_empty=True).first()
         assert category is not None
@@ -1612,9 +1833,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(category.id),
             ),
@@ -1633,10 +1854,10 @@ class TestCharacterFullSheet:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
@@ -1644,10 +1865,10 @@ class TestCharacterFullSheet:
         """Verify out-of-class category returns traits granted by storyteller."""
         # Given a character
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             character_class=CharacterClass.MORTAL,
         )
 
@@ -1671,9 +1892,9 @@ class TestCharacterFullSheet:
         response = await client.get(
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
-                campaign_id=mirror_campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(trait.category_id),  # type: ignore[attr-defined]
             ),

@@ -37,14 +37,14 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify listing dice rolls returns empty when none exist."""
         response = await client.get(
-            build_url(DiceRolls.LIST, company_id=mirror_company.id, user_id=mirror_user.id),
+            build_url(DiceRolls.LIST, company_id=session_company.id, user_id=session_user.id),
             headers=token_global_admin,
         )
         assert response.status_code == HTTP_200_OK
@@ -55,19 +55,19 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify listing dice rolls returns results."""
         # Given a dice roll exists
-        dice_roll = await diceroll_factory(company=mirror_company, user=mirror_user)
+        dice_roll = await diceroll_factory(company=session_company, user=session_user)
 
         # When we list dice rolls
         response = await client.get(
-            build_url(DiceRolls.LIST, company_id=mirror_company.id, user_id=mirror_user.id),
+            build_url(DiceRolls.LIST, company_id=session_company.id, user_id=session_user.id),
             headers=token_global_admin,
         )
 
@@ -83,22 +83,22 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify getting a single dice roll by ID."""
         # Given a dice roll
-        dice_roll = await diceroll_factory(company=mirror_company, user=mirror_user)
+        dice_roll = await diceroll_factory(company=session_company, user=session_user)
 
         # When we get it
         response = await client.get(
             build_url(
                 DiceRolls.DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 diceroll_id=dice_roll.id,
             ),
             headers=token_global_admin,
@@ -113,9 +113,9 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         debug: Callable[[Any], None],
     ) -> None:
         """Verify getting a nonexistent dice roll returns 404."""
@@ -123,8 +123,8 @@ class TestDiceRoll:
         response = await client.get(
             build_url(
                 DiceRolls.DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 diceroll_id=dice_roll_id,
             ),
             headers=token_global_admin,
@@ -137,10 +137,10 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Any],
         character_trait_factory: Callable[..., Any],
         debug: Callable[[Any], None],
@@ -148,10 +148,10 @@ class TestDiceRoll:
         """Verify creating a dice roll with all fields."""
         # Given a character with traits
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         character_trait = await character_trait_factory(character=character)
         trait = await Trait.filter(is_archived=False).first()
@@ -160,8 +160,8 @@ class TestDiceRoll:
         response = await client.post(
             build_url(
                 DiceRolls.CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
             json={
@@ -170,7 +170,7 @@ class TestDiceRoll:
                 "num_dice": 6,
                 "num_desperation_dice": 0,
                 "character_id": str(character.id),
-                "campaign_id": str(mirror_campaign.id),
+                "campaign_id": str(session_campaign.id),
                 "comment": "Test comment",
                 "trait_ids": [str(character_trait.id), str(trait.id)],
             },
@@ -185,9 +185,9 @@ class TestDiceRoll:
         assert data["num_dice"] == 6
         assert data["num_desperation_dice"] == 0
         assert data["character_id"] == str(character.id)
-        assert data["campaign_id"] == str(mirror_campaign.id)
-        assert data["user_id"] == str(mirror_user.id)
-        assert data["company_id"] == str(mirror_company.id)
+        assert data["campaign_id"] == str(session_campaign.id)
+        assert data["user_id"] == str(session_user.id)
+        assert data["company_id"] == str(session_company.id)
         assert data["comment"] == "Test comment"
         assert data["result"]["total_result_type"] in RollResultType
 
@@ -196,10 +196,10 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Any],
         diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
@@ -207,20 +207,20 @@ class TestDiceRoll:
         """Verify filtering dice rolls by user, character, and campaign."""
         # Given dice rolls with different relations
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         dice_roll_character = await diceroll_factory(
-            company=mirror_company, user=mirror_user, character=character
+            company=session_company, user=session_user, character=character
         )
         dice_roll_campaign = await diceroll_factory(
-            company=mirror_company, user=mirror_user, campaign=mirror_campaign
+            company=session_company, user=session_user, campaign=session_campaign
         )
-        await diceroll_factory(company=mirror_company, user=mirror_user)
+        await diceroll_factory(company=session_company, user=session_user)
 
-        base_url = build_url(DiceRolls.LIST, company_id=mirror_company.id, user_id=mirror_user.id)
+        base_url = build_url(DiceRolls.LIST, company_id=session_company.id, user_id=session_user.id)
 
         # When filtering by character
         response = await client.get(
@@ -236,7 +236,7 @@ class TestDiceRoll:
         response = await client.get(
             base_url,
             headers=token_global_admin,
-            params={"campaignid": str(mirror_campaign.id)},
+            params={"campaignid": str(session_campaign.id)},
         )
         assert response.status_code == HTTP_200_OK
         assert response.json()["total"] == 1
@@ -246,7 +246,7 @@ class TestDiceRoll:
         response = await client.get(
             base_url,
             headers=token_global_admin,
-            params={"userid": str(mirror_user.id)},
+            params={"userid": str(session_user.id)},
         )
         assert response.status_code == HTTP_200_OK
         # All 3 dice rolls belong to this user
@@ -257,10 +257,10 @@ class TestDiceRoll:
         client: AsyncClient,
         token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        mirror_company: Company,
-        mirror_global_admin: Developer,
-        mirror_user: User,
-        mirror_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
         character_factory: Callable[..., Any],
         character_trait_factory: Callable[..., Any],
         quickroll_factory: Callable[..., Any],
@@ -269,10 +269,10 @@ class TestDiceRoll:
         """Verify creating a dice roll from a quickroll."""
         # Given a character with traits matching a quickroll
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
         # Use distinct traits for the two character traits
@@ -283,7 +283,7 @@ class TestDiceRoll:
 
         quickroll = await quickroll_factory(
             name="Quick Roll 1",
-            user=mirror_user,
+            user=session_user,
             traits=[trait1, trait2],
         )
 
@@ -291,8 +291,8 @@ class TestDiceRoll:
         response = await client.post(
             build_url(
                 DiceRolls.QUICKROLL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
             json={
@@ -310,7 +310,7 @@ class TestDiceRoll:
         assert data["num_desperation_dice"] == 0
         assert sorted(data["trait_ids"]) == sorted([str(trait1.id), str(trait2.id)])
         assert data["character_id"] == str(character.id)
-        assert data["campaign_id"] == str(mirror_campaign.id)
-        assert data["user_id"] == str(mirror_user.id)
-        assert data["company_id"] == str(mirror_company.id)
+        assert data["campaign_id"] == str(session_campaign.id)
+        assert data["user_id"] == str(session_user.id)
+        assert data["company_id"] == str(session_company.id)
         assert data["result"]["total_result_type"] in RollResultType

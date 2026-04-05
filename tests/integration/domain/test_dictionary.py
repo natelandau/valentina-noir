@@ -30,13 +30,13 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
     ) -> None:
         """Verify creating a term without definition or link returns 400."""
         # When we create a term with no definition or link
         response = await client.post(
-            build_url(Dictionaries.CREATE, company_id=mirror_company.id),
+            build_url(Dictionaries.CREATE, company_id=session_company.id),
             headers=token_company_user,
             json={"term": "something"},
         )
@@ -49,8 +49,8 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
         dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify listing dictionary terms returns company and global terms."""
@@ -62,7 +62,7 @@ class TestDictionaryController:
 
         # When we list dictionary terms with a high limit to include all
         response = await client.get(
-            build_url(Dictionaries.LIST, company_id=mirror_company.id),
+            build_url(Dictionaries.LIST, company_id=session_company.id),
             headers=token_company_user,
             params={"limit": 100, "term": "foo"},
         )
@@ -79,8 +79,8 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
         dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify getting a single dictionary term by ID."""
@@ -93,7 +93,7 @@ class TestDictionaryController:
         response = await client.get(
             build_url(
                 Dictionaries.DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -109,13 +109,13 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
     ) -> None:
         """Verify creating a dictionary term returns 201 with correct data."""
         # When we create a term
         response = await client.post(
-            build_url(Dictionaries.CREATE, company_id=mirror_company.id),
+            build_url(Dictionaries.CREATE, company_id=session_company.id),
             headers=token_company_user,
             json={"term": "Foo", "definition": "  Foo is a bar.  ", "link": "https://example.com"},
         )
@@ -133,8 +133,8 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
         dictionary_term_factory: "Callable[..., DictionaryTerm]",
         mocker: Any,
     ) -> None:
@@ -143,7 +143,7 @@ class TestDictionaryController:
 
         # Given a company-owned term (editable by the company)
         term = await dictionary_term_factory(
-            term="Foo", definition="Foo is a bar.", company_id=str(mirror_company.id)
+            term="Foo", definition="Foo is a bar.", company_id=str(session_company.id)
         )
         spy = mocker.spy(DictionaryService, "verify_term_is_editable")
 
@@ -151,7 +151,7 @@ class TestDictionaryController:
         response = await client.patch(
             build_url(
                 Dictionaries.UPDATE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -169,21 +169,21 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
         dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify updating a term to have no definition or link returns 400."""
         # Given a company-owned term with a definition but no link
         term = await dictionary_term_factory(
-            term="Foo", definition="Foo is a bar.", company_id=str(mirror_company.id), link=None
+            term="Foo", definition="Foo is a bar.", company_id=str(session_company.id), link=None
         )
 
         # When we clear the definition
         response = await client.patch(
             build_url(
                 Dictionaries.UPDATE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -197,8 +197,8 @@ class TestDictionaryController:
         self,
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
         dictionary_term_factory: "Callable[..., DictionaryTerm]",
         token_company_user: dict[str, str],
         mocker: Any,
@@ -208,7 +208,7 @@ class TestDictionaryController:
 
         # Given a company-owned term (editable by the company)
         term = await dictionary_term_factory(
-            term="Foo", definition="Foo is a bar.", company_id=str(mirror_company.id)
+            term="Foo", definition="Foo is a bar.", company_id=str(session_company.id)
         )
         spy = mocker.spy(DictionaryService, "verify_term_is_editable")
 
@@ -216,7 +216,7 @@ class TestDictionaryController:
         response = await client.delete(
             build_url(
                 Dictionaries.DELETE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,
@@ -234,8 +234,8 @@ class TestDictionaryController:
         client: "AsyncClient",
         build_url: "Callable[[str, Any], str]",
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: "Developer",
+        session_company: Company,
+        session_company_user: "Developer",
         dictionary_term_factory: "Callable[..., DictionaryTerm]",
         company_factory: "Callable[..., Any]",
     ) -> None:
@@ -250,7 +250,7 @@ class TestDictionaryController:
         response = await client.get(
             build_url(
                 Dictionaries.DETAIL,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 dictionary_term_id=term.id,
             ),
             headers=token_company_user,

@@ -34,10 +34,10 @@ class TestFetchingCharacterTraits:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         trait_factory: Callable[..., Trait],
@@ -45,10 +45,10 @@ class TestFetchingCharacterTraits:
     ) -> None:
         """Verify listing character traits filtered by parent category ID."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait_categories = await TraitCategory.filter(is_archived=False)
         trait1 = await trait_factory(category=trait_categories[0])
@@ -60,8 +60,8 @@ class TestFetchingCharacterTraits:
         response = await client.get(
             build_url(
                 Characters.TRAITS,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
@@ -81,20 +81,20 @@ class TestFetchingCharacterTraits:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify getting a single character trait by ID."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(character=character, trait=trait)
@@ -102,8 +102,8 @@ class TestFetchingCharacterTraits:
         response = await client.get(
             build_url(
                 Characters.TRAIT_DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
@@ -121,25 +121,25 @@ class TestFetchingCharacterTraits:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify getting a non-existent character trait returns 404."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         response = await client.get(
             build_url(
                 Characters.TRAIT_DETAIL,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=uuid4(),
@@ -157,20 +157,20 @@ class TestAddConstantTraitToCharacter:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         mocker: Any,
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify adding a constant trait to a character."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
         # Find a trait not already on the character
@@ -184,8 +184,8 @@ class TestAddConstantTraitToCharacter:
         response = await client.post(
             build_url(
                 Characters.TRAIT_ASSIGN,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
@@ -229,19 +229,19 @@ class TestCustomTraits:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify that creating a custom trait works."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait_category = await TraitCategory.filter(is_archived=False).first()
         custom_trait_data = {
@@ -258,8 +258,8 @@ class TestCustomTraits:
         response = await client.post(
             build_url(
                 Characters.TRAIT_CREATE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
@@ -292,20 +292,20 @@ class TestDeleteCharacterTrait:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify that deleting a character trait works."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(character=character, trait=trait)
@@ -314,8 +314,8 @@ class TestDeleteCharacterTrait:
         response = await client.delete(
             build_url(
                 Characters.TRAIT_DELETE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
@@ -331,10 +331,10 @@ class TestDeleteCharacterTrait:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         trait_factory: Callable[..., Trait],
@@ -342,10 +342,10 @@ class TestDeleteCharacterTrait:
     ) -> None:
         """Verify that deleting a custom character trait also deletes the trait."""
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         custom_trait = await trait_factory(
             is_custom=True,
@@ -357,8 +357,8 @@ class TestDeleteCharacterTrait:
         response = await client.delete(
             build_url(
                 Characters.TRAIT_DELETE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
@@ -374,9 +374,9 @@ class TestDeleteCharacterTrait:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -385,13 +385,13 @@ class TestDeleteCharacterTrait:
         """Verify that deleting a trait with currency=XP refunds XP to the user."""
         # Given a character with a trait at max value and user with XP
         character_player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company
+            role=UserRole.PLAYER.value, company=session_company
         )
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_player_user,
             user_creator=character_player_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False, min_value__gt=0).first()
         character_trait = await character_trait_factory(
@@ -405,7 +405,7 @@ class TestDeleteCharacterTrait:
         response = await client.delete(
             build_url(
                 Characters.TRAIT_DELETE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=character_player_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -436,9 +436,9 @@ class TestModifyTraitValue:
         user_role: UserRole,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -447,13 +447,13 @@ class TestModifyTraitValue:
         """Verify increasing a trait value with NO_COST currency."""
         # Given a user whose role determines the permission check, and a character
         # owned by a different user so that PLAYER fails the ownership guard
-        user = await user_factory(role=user_role.value, company=mirror_company)
-        character_owner = await user_factory(role=UserRole.PLAYER.value, company=mirror_company)
+        user = await user_factory(role=user_role.value, company=session_company)
+        character_owner = await user_factory(role=UserRole.PLAYER.value, company=session_company)
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_owner,
             user_creator=character_owner,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(value=0, trait=trait, character=character)
@@ -462,7 +462,7 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -489,9 +489,9 @@ class TestModifyTraitValue:
         user_role: UserRole,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -500,13 +500,13 @@ class TestModifyTraitValue:
         """Verify decreasing a trait value with NO_COST currency."""
         # Given a user whose role determines the permission check, and a character
         # owned by a different user so that PLAYER fails the ownership guard
-        user = await user_factory(role=user_role.value, company=mirror_company)
-        character_owner = await user_factory(role=UserRole.PLAYER.value, company=mirror_company)
+        user = await user_factory(role=user_role.value, company=session_company)
+        character_owner = await user_factory(role=UserRole.PLAYER.value, company=session_company)
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_owner,
             user_creator=character_owner,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(
@@ -517,7 +517,7 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -540,9 +540,9 @@ class TestModifyTraitValue:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -551,13 +551,13 @@ class TestModifyTraitValue:
         """Verify purchasing a trait value increase with XP."""
         # Given a character with XP
         character_player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company
+            role=UserRole.PLAYER.value, company=session_company
         )
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_player_user,
             user_creator=character_player_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(value=0, trait=trait, character=character)
@@ -568,7 +568,7 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=character_player_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -592,9 +592,9 @@ class TestModifyTraitValue:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -603,16 +603,16 @@ class TestModifyTraitValue:
         """Verify a storyteller can purchase trait values with XP for any character."""
         # Given a storyteller and a character owned by another player
         storyteller_user = await user_factory(
-            role=UserRole.STORYTELLER.value, company=mirror_company, username="Storyteller User"
+            role=UserRole.STORYTELLER.value, company=session_company, username="Storyteller User"
         )
         character_player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company
+            role=UserRole.PLAYER.value, company=session_company
         )
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_player_user,
             user_creator=character_player_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(value=0, trait=trait, character=character)
@@ -623,7 +623,7 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=storyteller_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -642,9 +642,9 @@ class TestModifyTraitValue:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -653,16 +653,16 @@ class TestModifyTraitValue:
         """Verify a player cannot modify traits on a character they don't own."""
         # Given a player trying to modify another player's character
         player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company, username="Player User"
+            role=UserRole.PLAYER.value, company=session_company, username="Player User"
         )
         character_player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company
+            role=UserRole.PLAYER.value, company=session_company
         )
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_player_user,
             user_creator=character_player_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(value=0, trait=trait, character=character)
@@ -673,7 +673,7 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=player_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -690,9 +690,9 @@ class TestModifyTraitValue:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -701,13 +701,13 @@ class TestModifyTraitValue:
         """Verify refunding a trait value decrease with XP."""
         # Given a character with a trait at max value
         character_player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company
+            role=UserRole.PLAYER.value, company=session_company
         )
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_player_user,
             user_creator=character_player_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
         )
         trait = await Trait.filter(is_archived=False).first()
         character_trait = await character_trait_factory(
@@ -720,7 +720,7 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=character_player_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -744,10 +744,10 @@ class TestModifyTraitValue:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
@@ -755,10 +755,10 @@ class TestModifyTraitValue:
         """Verify purchasing a trait value increase with starting points."""
         # Given a character with starting points
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             starting_points=100,
         )
         trait = await Trait.filter(is_archived=False).first()
@@ -768,8 +768,8 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
@@ -789,10 +789,10 @@ class TestModifyTraitValue:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
@@ -800,10 +800,10 @@ class TestModifyTraitValue:
         """Verify refunding a trait value decrease with starting points."""
         # Given a character with a trait at max value
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
             starting_points=100,
         )
         trait = await Trait.filter(is_archived=False).first()
@@ -815,8 +815,8 @@ class TestModifyTraitValue:
         response = await client.put(
             build_url(
                 Characters.TRAIT_VALUE,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
@@ -840,9 +840,9 @@ class TestGetValueOptions:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_campaign: Any,
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
@@ -851,13 +851,13 @@ class TestGetValueOptions:
         """Verify getting value options returns correct structure."""
         # Given a character with XP and starting points
         character_player_user = await user_factory(
-            role=UserRole.PLAYER.value, company=mirror_company
+            role=UserRole.PLAYER.value, company=session_company
         )
         character = await character_factory(
-            company=mirror_company,
+            company=session_company,
             user_player=character_player_user,
             user_creator=character_player_user,
-            campaign=mirror_campaign,
+            campaign=session_campaign,
             starting_points=50,
         )
         trait = await Trait.filter(is_archived=False).first()
@@ -869,7 +869,7 @@ class TestGetValueOptions:
         response = await client.get(
             build_url(
                 Characters.TRAIT_VALUE_OPTIONS,
-                company_id=mirror_company.id,
+                company_id=session_company.id,
                 user_id=character_player_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
@@ -908,10 +908,10 @@ class TestBulkAssignTraitsToCharacter:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
@@ -919,10 +919,10 @@ class TestBulkAssignTraitsToCharacter:
         """Verify bulk assign returns succeeded and failed lists with mixed outcomes."""
         # Given a character with one existing trait
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         existing_ct = await character_trait_factory(character=character)
         existing_trait_id = existing_ct.trait_id
@@ -936,8 +936,8 @@ class TestBulkAssignTraitsToCharacter:
         response = await client.post(
             build_url(
                 Characters.TRAIT_BULK_ASSIGN,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
@@ -984,20 +984,20 @@ class TestBulkAssignTraitsToCharacter:
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
-        mirror_company: Company,
-        mirror_global_admin: Any,
-        mirror_user: User,
-        mirror_campaign: Any,
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
     ) -> None:
         """Verify request with more than 200 items returns 400."""
         # Given a batch of 201 items (using a fake trait_id repeated)
         character = await character_factory(
-            company=mirror_company,
-            user_player=mirror_user,
-            user_creator=mirror_user,
-            campaign=mirror_campaign,
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
         fake_id = str(uuid4())
         items = [
@@ -1009,8 +1009,8 @@ class TestBulkAssignTraitsToCharacter:
         response = await client.post(
             build_url(
                 Characters.TRAIT_BULK_ASSIGN,
-                company_id=mirror_company.id,
-                user_id=mirror_user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
                 campaign_id=character.campaign_id,
                 character_id=character.id,
             ),

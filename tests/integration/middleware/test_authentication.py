@@ -139,7 +139,7 @@ async def test_no_auth(
 
 async def test_no_company_permission(
     client: AsyncClient,
-    mirror_company: Company,
+    session_company: Company,
 ) -> None:
     """Verify endpoints reject requests from developers without company access."""
     # Create a Tortoise developer with no company permissions
@@ -157,7 +157,7 @@ async def test_no_company_permission(
 
             response = await client.request(
                 method,
-                _format_url(url, company_id=str(mirror_company.id)),
+                _format_url(url, company_id=str(session_company.id)),
                 headers={AUTH_HEADER_KEY: api_key, IGNORE_RATE_LIMIT_HEADER_KEY: "true"},
             )
             assert response.status_code == HTTP_403_FORBIDDEN

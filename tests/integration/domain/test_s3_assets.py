@@ -34,10 +34,10 @@ async def test_list_assets(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_company: Company,
-    mirror_company_admin: Developer,
-    mirror_user: User,
-    mirror_campaign: Campaign,
+    session_company: Company,
+    session_company_admin: Developer,
+    session_user: User,
+    session_campaign: Campaign,
     character_factory: Callable,
     s3asset_factory: Callable,
     debug: Callable[[...], None],
@@ -45,42 +45,42 @@ async def test_list_assets(
     """Verify listing assets filtered by type returns correct results."""
     # Given: A character with image assets and a text asset
     character = await character_factory(
-        company=mirror_company,
-        user_player=mirror_user,
-        user_creator=mirror_user,
-        campaign=mirror_campaign,
+        company=session_company,
+        user_player=session_user,
+        user_creator=session_user,
+        campaign=session_campaign,
     )
     image_assets = []
     for _ in range(3):
         asset = await s3asset_factory(
             asset_type=AssetType.IMAGE,
-            uploaded_by=mirror_user,
+            uploaded_by=session_user,
             character=character,
-            company=mirror_company,
+            company=session_company,
         )
         image_assets.append(asset)
 
     # And a text asset that should not be returned when filtering by IMAGE
     await s3asset_factory(
         asset_type=AssetType.TEXT,
-        uploaded_by=mirror_user,
+        uploaded_by=session_user,
         character=character,
-        company=mirror_company,
+        company=session_company,
     )
 
     # And an unrelated asset (no character FK)
     await s3asset_factory(
         asset_type=AssetType.IMAGE,
-        uploaded_by=mirror_user,
-        company=mirror_company,
+        uploaded_by=session_user,
+        company=session_company,
     )
 
     # When: Listing assets filtered by IMAGE type
     response = await client.get(
         build_url(
             Characters.ASSETS,
-            company_id=mirror_company.id,
-            user_id=mirror_user.id,
+            company_id=session_company.id,
+            user_id=session_user.id,
             character_id=character.id,
         ),
         headers=token_company_admin,
@@ -101,9 +101,9 @@ async def test_get_asset(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_company: Company,
-    mirror_company_admin: Developer,
-    mirror_user: User,
+    session_company: Company,
+    session_company_admin: Developer,
+    session_user: User,
     s3asset_factory: Callable,
     debug: Callable[[...], None],
 ) -> None:
@@ -111,17 +111,17 @@ async def test_get_asset(
     # Given: A user with an asset
     asset = await s3asset_factory(
         asset_type=AssetType.TEXT,
-        uploaded_by=mirror_user,
-        user_parent=mirror_user,
-        company=mirror_company,
+        uploaded_by=session_user,
+        user_parent=session_user,
+        company=session_company,
     )
 
     # When: Getting the asset
     response = await client.get(
         build_url(
             Users.ASSET_DETAIL,
-            company_id=mirror_company.id,
-            user_id=mirror_user.id,
+            company_id=session_company.id,
+            user_id=session_user.id,
             asset_id=asset.id,
         ),
         headers=token_company_admin,
@@ -133,19 +133,19 @@ async def test_get_asset(
     response_json = response.json()
     assert response_json["id"] == str(asset.id)
     assert response_json["asset_type"] == AssetType.TEXT.value
-    assert response_json["user_parent_id"] == str(mirror_user.id)
+    assert response_json["user_parent_id"] == str(session_user.id)
 
 
 async def test_get_asset_not_parent(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_company: Company,
-    mirror_company_admin: Developer,
-    mirror_user: User,
-    mirror_campaign: Campaign,
-    mirror_campaign_book: CampaignBook,
-    mirror_campaign_chapter: CampaignChapter,
+    session_company: Company,
+    session_company_admin: Developer,
+    session_user: User,
+    session_campaign: Campaign,
+    session_campaign_book: CampaignBook,
+    session_campaign_chapter: CampaignChapter,
     s3asset_factory: Callable,
     debug: Callable[[...], None],
 ) -> None:
@@ -154,18 +154,18 @@ async def test_get_asset_not_parent(
     asset = await s3asset_factory(
         asset_type=AssetType.TEXT,
         chapter=None,
-        company=mirror_company,
-        uploaded_by=mirror_user,
+        company=session_company,
+        uploaded_by=session_user,
     )
 
     # When: Getting the asset via the chapter's URL
     response = await client.get(
         build_url(
             Campaigns.CHAPTER_ASSET_DETAIL,
-            company_id=mirror_company.id,
-            campaign_id=mirror_campaign.id,
-            book_id=mirror_campaign_book.id,
-            chapter_id=mirror_campaign_chapter.id,
+            company_id=session_company.id,
+            campaign_id=session_campaign.id,
+            book_id=session_campaign_book.id,
+            chapter_id=session_campaign_chapter.id,
             asset_id=asset.id,
         ),
         headers=token_company_admin,
@@ -179,10 +179,10 @@ async def test_upload_image(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_company: Company,
-    mirror_company_admin: Developer,
-    mirror_user: User,
-    mirror_campaign: Campaign,
+    session_company: Company,
+    session_company_admin: Developer,
+    session_user: User,
+    session_campaign: Campaign,
     debug: Callable[[...], None],
 ) -> None:
     """Verify uploading an asset creates an S3Asset record."""
@@ -190,9 +190,9 @@ async def test_upload_image(
     response = await client.post(
         build_url(
             Campaigns.ASSET_UPLOAD,
-            company_id=mirror_company.id,
-            campaign_id=mirror_campaign.id,
-            user_id=mirror_user.id,
+            company_id=session_company.id,
+            campaign_id=session_campaign.id,
+            user_id=session_user.id,
         ),
         headers=token_company_admin,
         files={"upload": ("somefile.txt", b"world")},
@@ -208,12 +208,12 @@ async def test_upload_image(
     assert response_json["original_filename"] == "somefile.txt"
     assert response_json["mime_type"] == "text/plain"
     assert response_json["asset_type"] == "text"
-    assert response_json["campaign_id"] == str(mirror_campaign.id)
-    assert response_json["uploaded_by_id"] == str(mirror_user.id)
-    assert response_json["company_id"] == str(mirror_company.id)
+    assert response_json["campaign_id"] == str(session_campaign.id)
+    assert response_json["uploaded_by_id"] == str(session_user.id)
+    assert response_json["company_id"] == str(session_company.id)
     assert response_json["id"] is not None
 
-    expected_pattern = rf"^MOCK_URL/{mirror_company.id}/{mirror_campaign.id}/text/.+\.txt$"
+    expected_pattern = rf"^MOCK_URL/{session_company.id}/{session_campaign.id}/text/.+\.txt$"
     assert re.match(expected_pattern, response_json["public_url"]) is not None
 
     # Then: Asset exists in the database
@@ -221,9 +221,9 @@ async def test_upload_image(
     assert db_asset is not None
     assert db_asset.asset_type == AssetType.TEXT
     assert db_asset.mime_type == "text/plain"
-    assert str(db_asset.campaign_id) == str(mirror_campaign.id)  # type: ignore[attr-defined]
-    assert str(db_asset.company_id) == str(mirror_company.id)  # type: ignore[attr-defined]
-    assert str(db_asset.uploaded_by_id) == str(mirror_user.id)  # type: ignore[attr-defined]
+    assert str(db_asset.campaign_id) == str(session_campaign.id)  # type: ignore[attr-defined]
+    assert str(db_asset.company_id) == str(session_company.id)  # type: ignore[attr-defined]
+    assert str(db_asset.uploaded_by_id) == str(session_user.id)  # type: ignore[attr-defined]
     assert db_asset.public_url == response_json["public_url"]
 
 
@@ -231,30 +231,30 @@ async def test_delete_image(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    mirror_company: Company,
-    mirror_company_admin: Developer,
-    mirror_user: User,
-    mirror_campaign: Campaign,
-    mirror_campaign_book: CampaignBook,
+    session_company: Company,
+    session_company_admin: Developer,
+    session_user: User,
+    session_campaign: Campaign,
+    session_campaign_book: CampaignBook,
     s3asset_factory: Callable,
     debug: Callable[[...], None],
 ) -> None:
     """Verify deleting an asset removes it from S3 and the database."""
     # Given: A book with an asset
     asset = await s3asset_factory(
-        book=mirror_campaign_book,
-        uploaded_by=mirror_user,
-        company=mirror_company,
+        book=session_campaign_book,
+        uploaded_by=session_user,
+        company=session_company,
     )
 
     # When: Deleting the asset
     response = await client.delete(
         build_url(
             Campaigns.BOOK_ASSET_DELETE,
-            company_id=mirror_company.id,
-            user_id=mirror_user.id,
-            campaign_id=mirror_campaign.id,
-            book_id=mirror_campaign_book.id,
+            company_id=session_company.id,
+            user_id=session_user.id,
+            campaign_id=session_campaign.id,
+            book_id=session_campaign_book.id,
             asset_id=asset.id,
         ),
         headers=token_company_admin,

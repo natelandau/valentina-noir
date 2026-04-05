@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
+from tortoise import Tortoise
 
 from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY
@@ -41,17 +42,20 @@ class TestAfterResponseHooks:
         build_url: Callable[[str, ...], str],
         token_company_owner: dict[str, str],
         redis: Redis,
-        mirror_company: Company,
-        mirror_company_owner: Developer,
-        mirror_user: User,
+        session_company: Company,
+        session_company_owner: Developer,
+        session_user: User,
         user_factory: Callable[..., User],
         debug: Callable[[...], None],
     ) -> None:
         """Verify audit log and delete api key cache hook."""
         await AuditLog.all().delete()
-        # Reset the Tortoise company timestamp so the hook update is detectable
-        mirror_company.resources_modified_at = time_now() - timedelta(days=10)
-        await mirror_company.save()
+        # Reset the company timestamp via SQL to avoid mutating the session-scoped fixture
+        old_ts = time_now() - timedelta(days=10)
+        conn = Tortoise.get_connection("default")
+        await conn.execute_query(
+            f"UPDATE company SET resources_modified_at = '{old_ts.isoformat()}' WHERE id = '{session_company.id}'"  # noqa: S608
+        )
 
         ### BUILD A RESPONSE CACHE ENTRY ###
         # Given a user and an API key
@@ -60,7 +64,7 @@ class TestAfterResponseHooks:
 
         # When: making a cacheable GET request
         response = await client.get(
-            build_url(UsersURL.LIST, company_id=mirror_company.id),
+            build_url(UsersURL.LIST, company_id=session_company.id),
             headers=token_company_owner,
         )
         assert response.status_code == HTTP_200_OK
@@ -76,9 +80,9 @@ class TestAfterResponseHooks:
         ## CREATE A NEW USER AND CREATE AN AUDIT LOG AND CLEAR THE CACHE ##
         # When we create a user
 
-        requesting_user = await user_factory(company=mirror_company, role="ADMIN")
+        requesting_user = await user_factory(company=session_company, role="ADMIN")
         response = await client.post(
-            build_url(UsersURL.CREATE, company_id=mirror_company.id),
+            build_url(UsersURL.CREATE, company_id=session_company.id),
             headers=token_company_owner,
             json={
                 "name_first": "Test",
@@ -99,7 +103,7 @@ class TestAfterResponseHooks:
 
         # And an audit log should be created in Tortoise
         audit = await AuditLog.first()
-        assert audit.developer_id == mirror_company_owner.id
+        assert audit.developer_id == session_company_owner.id
         assert audit.summary == "Create user"
         assert (
             audit.handler
@@ -108,7 +112,7 @@ class TestAfterResponseHooks:
         assert audit.handler_name == "create_user"
         assert audit.operation_id == "createUser"
         assert audit.method == "POST"
-        assert audit.url == f"http://testserver/api/v1/companies/{mirror_company.id}/users"
+        assert audit.url == f"http://testserver/api/v1/companies/{session_company.id}/users"
         assert audit.request_json == {
             "name_first": "Test",
             "name_last": "User",
@@ -118,8 +122,8 @@ class TestAfterResponseHooks:
             "discord_profile": {"username": "discord_username"},
             "requesting_user_id": str(requesting_user.id),
         }
-        assert audit.path_params == {"company_id": str(mirror_company.id)}
+        assert audit.path_params == {"company_id": str(session_company.id)}
 
         # Then: the Tortoise company resources_modified_at should be updated
-        updated_company = await Company.get(id=mirror_company.id)
+        updated_company = await Company.get(id=session_company.id)
         assert updated_company.resources_modified_at > time_now() - timedelta(days=1)

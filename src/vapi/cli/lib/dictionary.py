@@ -10,6 +10,7 @@ from vapi.constants import DictionarySourceType
 
 if TYPE_CHECKING:
     from uuid import UUID
+
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import Trait, TraitSubcategory
 from vapi.db.sql_models.dictionary import DictionaryTerm
@@ -22,16 +23,10 @@ class DictionaryService:
 
     def __init__(self) -> None:
         self.counts = SyncCounts()
-        self._tribes: list[WerewolfTribe] = []
-        self._auspices: list[WerewolfAuspice] = []
         self._existing_terms: dict[str, DictionaryTerm] = {}
 
     async def sync_all(self) -> None:
         """Build dictionary terms for all entity types, then log counts."""
-        self._tribes = list(await WerewolfTribe.all())
-        self._auspices = list(await WerewolfAuspice.all())
-
-        # Bulk-fetch all existing global terms to avoid N+1 queries in _upsert_term
         all_terms = await DictionaryTerm.filter(source_type__isnull=False)
         self._existing_terms = {t.term: t for t in all_terms}
 
@@ -66,12 +61,15 @@ class DictionaryService:
             return
 
         normalized_term = term.lower().strip()
+        normalized_definition = definition.strip() if definition else None
+        normalized_link = link.strip() if link else None
+
         existing_term = self._existing_terms.get(normalized_term)
         if not existing_term:
             new_term = DictionaryTerm(
                 term=normalized_term,
-                definition=definition.strip() if definition else None,
-                link=link.strip() if link else None,
+                definition=normalized_definition,
+                link=normalized_link,
                 source_type=source_type,
                 source_id=source_id,
             )
@@ -79,13 +77,13 @@ class DictionaryService:
             self._existing_terms[normalized_term] = new_term
             self.counts.created += 1
         elif (
-            existing_term.definition != definition
-            or existing_term.link != link
+            existing_term.definition != normalized_definition
+            or existing_term.link != normalized_link
             or existing_term.source_type != source_type
             or existing_term.source_id != source_id
         ):
-            existing_term.definition = definition.strip() if definition else None
-            existing_term.link = link.strip() if link else None
+            existing_term.definition = normalized_definition
+            existing_term.link = normalized_link
             existing_term.source_type = source_type
             existing_term.source_id = source_id
             await existing_term.save()
@@ -113,7 +111,8 @@ class DictionaryService:
 
     async def _sync_werewolf_auspice_terms(self) -> None:
         """Create dictionary terms for all werewolf auspices."""
-        for auspice in self._auspices:
+        auspices = await WerewolfAuspice.all()
+        for auspice in auspices:
             await self._upsert_term(
                 auspice.name,
                 definition=auspice.description,
@@ -124,7 +123,8 @@ class DictionaryService:
 
     async def _sync_werewolf_tribe_terms(self) -> None:
         """Create dictionary terms for all werewolf tribes."""
-        for tribe in self._tribes:
+        tribes = await WerewolfTribe.all()
+        for tribe in tribes:
             definition = tribe.description or ""
             if tribe.renown:
                 definition += f"\n\n- **Renown:** {tribe.renown.value.title()}"

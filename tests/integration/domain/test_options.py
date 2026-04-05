@@ -31,13 +31,13 @@ async def test_get_company_options(
     client: AsyncClient,
     build_url: Callable[[str, Any], str],
     token_company_user: dict[str, str],
-    mirror_company: Company,
-    mirror_company_user: Developer,
+    session_company: Company,
+    session_company_user: Developer,
     debug: Callable[[Any], None],
 ) -> None:
     """Verify the routes are working for a company user."""
     response = await client.get(
-        build_url(urls.Options.LIST, company_id=mirror_company.id),
+        build_url(urls.Options.LIST, company_id=session_company.id),
         headers=token_company_user,
     )
 

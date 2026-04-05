@@ -35,8 +35,8 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify listing companies returns paginated results."""
         # Given a company the developer has access to (created by mirror fixtures)
@@ -53,27 +53,27 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify getting a single company returns correct data."""
         # When we get the company
         response = await client.get(
-            build_url(Companies.DETAIL, company_id=mirror_company.id),
+            build_url(Companies.DETAIL, company_id=session_company.id),
             headers=token_company_user,
         )
 
         # Then the response contains the company detail
         assert response.status_code == HTTP_200_OK
-        assert response.json()["id"] == str(mirror_company.id)
+        assert response.json()["id"] == str(session_company.id)
 
     async def test_create_company(
         self,
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify creating a company returns company and admin user."""
         # Given a new company to create
@@ -90,8 +90,8 @@ class TestCompanyCRUD:
         assert data["company"]["name"] == "Test Company"
         assert data["company"]["description"] == "Test Description"
         assert data["company"]["email"] == "test@test.com"
-        assert data["admin_user"]["username"] == mirror_company_user.username
-        assert data["admin_user"]["email"] == mirror_company_user.email
+        assert data["admin_user"]["username"] == session_company_user.username
+        assert data["admin_user"]["email"] == session_company_user.email
         assert data["admin_user"]["role"] == "ADMIN"
         assert data["admin_user"]["company_id"] == data["company"]["id"]
 
@@ -104,7 +104,7 @@ class TestCompanyCRUD:
 
         # And the developer is granted OWNER permission for the new company
         perm = await DeveloperCompanyPermission.filter(
-            developer_id=mirror_company_user.id,
+            developer_id=session_company_user.id,
             company_id=company_id,
         ).first()
         assert perm is not None
@@ -115,15 +115,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify patching a company updates its name."""
         # Given a new company the developer has ADMIN access to
         new_company = await Company.create(name="original", email="original@test.com")
         await CompanySettings.create(company=new_company)
         await DeveloperCompanyPermission.create(
-            developer=mirror_company_user,
+            developer=session_company_user,
             company=new_company,
             permission=CompanyPermission.ADMIN,
         )
@@ -149,15 +149,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify patch fails when developer only has USER permission."""
         # Given a company where developer only has USER permission
         new_company = await Company.create(name="original", email="original@test.com")
         await CompanySettings.create(company=new_company)
         await DeveloperCompanyPermission.create(
-            developer=mirror_company_user,
+            developer=session_company_user,
             company=new_company,
             permission=CompanyPermission.USER,
         )
@@ -177,15 +177,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify deleting a company soft-deletes it."""
         # Given a company the developer owns
         company = await Company.create(name="to-delete", email="delete@test.com")
         await CompanySettings.create(company=company)
         await DeveloperCompanyPermission.create(
-            developer=mirror_company_user,
+            developer=session_company_user,
             company=company,
             permission=CompanyPermission.OWNER,
         )
@@ -208,15 +208,15 @@ class TestCompanyCRUD:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify delete fails when developer only has ADMIN permission."""
         # Given a company where developer only has ADMIN permission
         new_company = await Company.create(name="original", email="original@test.com")
         await CompanySettings.create(company=new_company)
         await DeveloperCompanyPermission.create(
-            developer=mirror_company_user,
+            developer=session_company_user,
             company=new_company,
             permission=CompanyPermission.ADMIN,
         )
@@ -239,8 +239,8 @@ class TestCompanyPermissions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_owner: dict[str, str],
-        mirror_company: Company,
-        mirror_company_owner: Developer,
+        session_company: Company,
+        session_company_owner: Developer,
         developer_factory: Callable,
     ) -> None:
         """Verify granting developer access to a company."""
@@ -249,7 +249,7 @@ class TestCompanyPermissions:
 
         # When we grant the developer USER permission
         response = await client.post(
-            build_url(Companies.DEVELOPER_ACCESS, company_id=mirror_company.id),
+            build_url(Companies.DEVELOPER_ACCESS, company_id=session_company.id),
             headers=token_company_owner,
             json={
                 "developer_id": str(new_developer.id),
@@ -259,14 +259,14 @@ class TestCompanyPermissions:
 
         # Then the response shows the permission
         assert response.status_code == HTTP_201_CREATED
-        assert response.json()["company_id"] == str(mirror_company.id)
-        assert response.json()["name"] == mirror_company.name
+        assert response.json()["company_id"] == str(session_company.id)
+        assert response.json()["name"] == session_company.name
         assert response.json()["permission"] == CompanyPermission.USER.value
 
         # And the permission exists in the database
         perm = await DeveloperCompanyPermission.filter(
             developer_id=new_developer.id,
-            company_id=mirror_company.id,
+            company_id=session_company.id,
         ).first()
         assert perm is not None
         assert perm.permission == CompanyPermission.USER
@@ -276,16 +276,16 @@ class TestCompanyPermissions:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify granting permissions fails for non-owner."""
         # When we try to control permissions as a USER
         response = await client.post(
-            build_url(Companies.DEVELOPER_ACCESS, company_id=mirror_company.id),
+            build_url(Companies.DEVELOPER_ACCESS, company_id=session_company.id),
             headers=token_company_user,
             json={
-                "developer_id": str(mirror_company_user.id),
+                "developer_id": str(session_company_user.id),
                 "permission": CompanyPermission.USER.name,
             },
         )
@@ -302,15 +302,15 @@ class TestCompanyValidation:
         client: AsyncClient,
         build_url: Callable[[str, ...], str],
         token_company_user: dict[str, str],
-        mirror_company: Company,
-        mirror_company_user: Developer,
+        session_company: Company,
+        session_company_user: Developer,
     ) -> None:
         """Verify invalid company settings are rejected."""
         # Given a company the developer owns
         company = await Company.create(name="validation-test", email="valid@test.com")
         await CompanySettings.create(company=company)
         await DeveloperCompanyPermission.create(
-            developer=mirror_company_user,
+            developer=session_company_user,
             company=company,
             permission=CompanyPermission.OWNER,
         )
