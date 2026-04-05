@@ -117,7 +117,7 @@ class TestListCharacterTraits:
         returned_ids = {t.id for t in traits}
         assert returned_ids.issubset({ct.id for ct in created_character_traits})
 
-    async def test_list_character_traits_filter_by_parent_category_id(
+    async def test_list_character_traits_filter_by_category_id(
         self,
         character_factory,
         character_trait_factory,

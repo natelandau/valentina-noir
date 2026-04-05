@@ -30,7 +30,7 @@ pytestmark = pytest.mark.anyio
 class TestFetchingCharacterTraits:
     """Test fetching character traits."""
 
-    async def test_list_character_trait_with_traits_by_parent_category_id(
+    async def test_list_character_trait_with_traits_by_category_id(
         self,
         client: AsyncClient,
         build_url: Callable[..., str],

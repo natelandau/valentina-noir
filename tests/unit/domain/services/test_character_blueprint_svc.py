@@ -388,8 +388,8 @@ class TestListAllTraits:
         assert count == all_traits_count
         assert traits == all_traits_limited
 
-    async def test_list_all_traits_parent_category_id(self) -> None:
-        """Verify that list_all_traits filters by parent category."""
+    async def test_list_all_traits_category_id(self) -> None:
+        """Verify that list_all_traits filters by category."""
         # Given a non-archived category
         category = await TraitCategory.filter(is_archived=False).first()
 
