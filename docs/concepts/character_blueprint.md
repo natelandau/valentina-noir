@@ -65,11 +65,11 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
         "upgrade_cost": 2, // (8)!
         "sheet_section_name": "Attributes", // (9)!
         "sheet_section_id": "69679d6b92e8772cd93d8185", // (10)!
-        "parent_category_name": "Physical", // (11)!
-        "parent_category_id": "69679d6b92e8772cd93d8185", // (12)!
+        "category_name": "Physical", // (11)!
+        "category_id": "69679d6b92e8772cd93d8185", // (12)!
         "custom_for_character_id": null, // (13)!
-        "trait_subcategory_id": null, // (14)!
-        "trait_subcategory_name": null, // (15)!
+        "subcategory_id": null, // (14)!
+        "subcategory_name": null, // (15)!
         "pool": null, // (16)!
         "system": null // (17)!
     }
@@ -85,11 +85,11 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
     8.  The experience cost to upgrade the trait by 1 dot.
     9.  The name of the sheet section which the trait belongs to.
     10. The ID of the sheet section which the trait belongs to.
-    11. The name of the parent category which the trait belongs to.
-    12. The ID of the parent category which the trait belongs to.
+    11. The name of the category which the trait belongs to.
+    12. The ID of the category which the trait belongs to.
     13. If the trait is custom, this is the ID of the character which the trait is custom for.
-    14. The ID of the trait subcategory, if the trait belongs to one. See [Trait Subcategories](./character_traits.md#trait-subcategories).
-    15. The name of the trait subcategory, if the trait belongs to one.
+    14. The ID of the subcategory, if the trait belongs to one. See [Trait Subcategories](./character_traits.md#trait-subcategories).
+    15. The name of the subcategory, if the trait belongs to one.
     16. A string describing the dice pool associated with this trait, if applicable (e.g., hunter edges).
     17. A string describing the system description for this trait, if applicable (e.g., hunter edges).
 
@@ -160,8 +160,8 @@ Optionally filter by `character_class` to get class-specific subcategories.
         "requires_parent": false, // (4)!
         "pool": null, // (5)!
         "system": null, // (6)!
-        "parent_category_id": "69679d6b92e8772cd93d8185",
-        "parent_category_name": "Backgrounds"
+        "category_id": "69679d6b92e8772cd93d8185",
+        "category_name": "Backgrounds"
     }
     ```
 
@@ -187,7 +187,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/subcategories/{subcategory
 List all system traits with optional filters for game version, character class, category, subcategory, and rollable status:
 
 ```shell
-GET /api/v1/companies/{company_id}/characterblueprint/traits?game_version=V5&character_class=VAMPIRE&parent_category_id={category_id}
+GET /api/v1/companies/{company_id}/characterblueprint/traits?game_version=V5&character_class=VAMPIRE&category_id={category_id}
 ```
 
 Use `exclude_subcategory_traits=true` to return only top-level traits that don't belong to any subcategory. Use `subcategory_id` to return only traits within a specific subcategory.
@@ -196,7 +196,7 @@ Use `exclude_subcategory_traits=true` to return only top-level traits that don't
 
     To display a complete trait selection UI for a category that has subcategories:
 
-    1. List top-level traits with `parent_category_id={id}&exclude_subcategory_traits=true`
+    1. List top-level traits with `category_id={id}&exclude_subcategory_traits=true`
     2. List subcategories with `category_id={id}`
     3. For each subcategory, list its traits with `subcategory_id={id}`
 
@@ -325,7 +325,7 @@ GET /api/v1/companies/{company_id}/characterblueprint/werewolf-tribes?limit=10&o
 
 #### Gifts and Rites
 
-Werewolf gifts and rites are managed as traits under the "Other" sheet section. Gifts belong to the "Gifts" category and rites belong to the "Rites" category. Browse them using the [trait blueprint endpoints](#listing-traits) with the appropriate `parent_category_id` filter.
+Werewolf gifts and rites are managed as traits under the "Other" sheet section. Gifts belong to the "Gifts" category and rites belong to the "Rites" category. Browse them using the [trait blueprint endpoints](#listing-traits) with the appropriate `category_id` filter.
 
 Both gifts and rites are binary traits (`min_value=1`, `max_value=1`). Assign them to a character with `value=1` through the standard [trait assignment](./character_traits.md#assigning-constant-traits) endpoint.
 

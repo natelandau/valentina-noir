@@ -74,7 +74,7 @@ Each subcategory carries its own configuration that can override or supplement t
 
 ### Using Subcategories
 
-When a trait belongs to a subcategory, the trait response includes `trait_subcategory_id` and `trait_subcategory_name` fields. Use these fields to group traits on character sheets under their subcategory headings.
+When a trait belongs to a subcategory, the trait response includes `subcategory_id` and `subcategory_name` fields. Use these fields to group traits on character sheets under their subcategory headings.
 
 If a subcategory has `requires_parent` set to `true`, the subcategory must be explicitly added to a character before any of its child traits can be assigned. This is useful for traits like hunter edges, where the edge itself must be selected before its perks become available.
 
@@ -134,7 +134,7 @@ Provide the trait name, parent category, and optional cost overrides. If you omi
 {
     "name": "Cryptography",
     "description": "Skill at deciphering encoded messages",
-    "parent_category_id": "69679d6b92e8772cd93d8185",
+    "category_id": "69679d6b92e8772cd93d8185",
     "max_value": 5,
     "value": 1
 }
@@ -285,7 +285,7 @@ The trait API provides endpoints for listing, adding, modifying, and removing tr
 
 ### GET `/traits`
 
-List all traits assigned to a character. Supports pagination and optional filtering by `parent_category_id` to return only traits within a specific category.
+List all traits assigned to a character. Supports pagination and optional filtering by `category_id` to return only traits within a specific category.
 
 ### GET `/traits/{character_trait_id}`
 
@@ -328,7 +328,7 @@ The response includes:
         "max_value": 5,
         "min_value": 0,
         "show_when_zero": true,
-        "parent_category_id": "69679d6b92e8772cd93d8186"
+        "category_id": "69679d6b92e8772cd93d8186"
         ...
     },
     "current_value": 2,
