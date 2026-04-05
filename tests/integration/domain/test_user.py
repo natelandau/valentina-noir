@@ -678,6 +678,50 @@ class TestQuickRollController:
         assert data["name"] == "Updated Quick Roll"
         assert len(data["trait_ids"]) == 2
 
+    async def test_patch_user_quickroll_with_traits(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: Developer,
+        session_user: User,
+        quickroll_factory: Callable[..., QuickRoll],
+    ) -> None:
+        """Verify patching a quick roll with new trait_ids replaces existing traits."""
+        # Given a quickroll with 2 traits
+        initial_traits = await Trait.filter(is_archived=False).limit(2)
+        quickroll = await quickroll_factory(
+            name="Quick Roll 1", user=session_user, traits=initial_traits
+        )
+
+        # Given a different set of traits to replace them
+        replacement_traits = await Trait.filter(is_archived=False).offset(2).limit(3)
+        replacement_ids = [str(t.id) for t in replacement_traits]
+
+        # When we patch with new trait_ids and description
+        response = await client.patch(
+            build_url(
+                UsersURL.QUICKROLL_UPDATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                quickroll_id=quickroll.id,
+            ),
+            headers=token_company_user,
+            json={
+                "description": "Updated description",
+                "trait_ids": replacement_ids,
+            },
+        )
+
+        # Then the traits and description are updated, name unchanged
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["name"] == "Quick Roll 1"
+        assert data["description"] == "Updated description"
+        assert len(data["trait_ids"]) == 3
+        assert set(data["trait_ids"]) == {str(t.id) for t in replacement_traits}
+
     async def test_delete_user_quickroll(
         self,
         client: AsyncClient,
