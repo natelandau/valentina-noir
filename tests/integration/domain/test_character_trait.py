@@ -284,6 +284,10 @@ class TestCustomTraits:
         assert ct.trait.name == "Test Trait"
         assert ct.trait.description == "Test Description"
 
+        # Clean up the custom trait since it lives in the constant trait table
+        # and won't be removed by per-test cleanup
+        await ct.trait.delete()
+
 
 class TestDeleteCharacterTrait:
     """Test deleting a character trait."""
