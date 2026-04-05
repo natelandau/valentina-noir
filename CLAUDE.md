@@ -19,7 +19,9 @@ duty test -- -n 0 -v -s -x    # Serial, verbose, show output, stop on first fail
 
 # Database
 docker compose -f compose-db.yml up -d   # Start PostgreSQL + Redis
-duty bootstrap                           # Create database schema and seed data
+duty migrate                             # Apply pending database migrations
+duty seed                                # Seed reference data (traits, concepts, etc.)
+duty makemigrations                      # Generate migration files from model changes
 duty populate                            # Delete existing data and populate with test data
 
 # Maintenance

@@ -33,9 +33,11 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
     def on_cli_init(self, cli: Group) -> None:
         """Initialize CLI by adding custom commands."""
-        from vapi.cli import bootstrap, developer_group, development_group
+        from vapi.cli import developer_group, development_group, makemigrations, migrate, seed
 
-        cli.add_command(bootstrap)
+        cli.add_command(seed)
+        cli.add_command(migrate)
+        cli.add_command(makemigrations)
         cli.add_command(developer_group)
         cli.add_command(development_group)
 

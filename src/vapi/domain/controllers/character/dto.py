@@ -604,17 +604,15 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
         includes = includes or set()
         base = CharacterResponse.from_model(m)
 
-        kwargs: dict[str, list] = {}
+        # Build base field dict, then overlay optional children
+        fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
         if CharacterInclude.TRAITS in includes:
-            kwargs["traits"] = [CharacterTraitResponse.from_model(t) for t in m.traits]
+            fields["traits"] = [CharacterTraitResponse.from_model(t) for t in m.traits]
         if CharacterInclude.INVENTORY in includes:
-            kwargs["inventory"] = [InventoryItemResponse.from_model(i) for i in m.inventory]
+            fields["inventory"] = [InventoryItemResponse.from_model(i) for i in m.inventory]
         if CharacterInclude.NOTES in includes:
-            kwargs["notes"] = [NoteResponse.from_model(n) for n in m.notes]
+            fields["notes"] = [NoteResponse.from_model(n) for n in m.notes]
         if CharacterInclude.ASSETS in includes:
-            kwargs["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
+            fields["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
 
-        return cls(
-            **{f: getattr(base, f) for f in base.__struct_fields__},
-            **kwargs,
-        )
+        return cls(**fields)  # type: ignore[arg-type]

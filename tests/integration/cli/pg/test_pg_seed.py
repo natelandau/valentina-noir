@@ -1,7 +1,7 @@
-"""Integration tests for the PostgreSQL bootstrap.
+"""Integration tests for the PostgreSQL seed.
 
 Data is seeded once at session scope via conftest.py's init_test_postgres fixture.
-These tests verify the pre-seeded data is correct -they do not re-run bootstrap.
+These tests verify the pre-seeded data is correct — they do not re-run seed.
 """
 
 from __future__ import annotations
@@ -68,8 +68,8 @@ def concepts_fixture() -> list[dict]:
 # --- Trait hierarchy tests ---
 
 
-class TestPgTraitBootstrap:
-    """Verify trait hierarchy was bootstrapped into PostgreSQL."""
+class TestPgTraitSeed:
+    """Verify trait hierarchy was seeded into PostgreSQL."""
 
     async def test_sections_match_fixture(self, traits_fixture: list[dict]) -> None:
         """Verify all character sheet sections exist."""
@@ -140,8 +140,8 @@ class TestPgTraitBootstrap:
 # --- Vampire clan tests ---
 
 
-class TestPgVampireClanBootstrap:
-    """Verify vampire clans were bootstrapped into PostgreSQL."""
+class TestPgVampireClanSeed:
+    """Verify vampire clans were seeded into PostgreSQL."""
 
     async def test_clans_match_fixture(self, vampire_clans_fixture: list[dict]) -> None:
         """Verify all vampire clans exist."""
@@ -189,8 +189,8 @@ class TestPgVampireClanBootstrap:
 # --- Werewolf auspice/tribe tests ---
 
 
-class TestPgWerewolfBootstrap:
-    """Verify werewolf auspices and tribes were bootstrapped into PostgreSQL."""
+class TestPgWerewolfSeed:
+    """Verify werewolf auspices and tribes were seeded into PostgreSQL."""
 
     async def test_auspices_match_fixture(self, werewolf_auspices_fixture: list[dict]) -> None:
         """Verify all werewolf auspices exist."""
@@ -242,8 +242,8 @@ class TestPgWerewolfBootstrap:
 # --- Character concept tests ---
 
 
-class TestPgCharacterConceptBootstrap:
-    """Verify character concepts were bootstrapped into PostgreSQL."""
+class TestPgCharacterConceptSeed:
+    """Verify character concepts were seeded into PostgreSQL."""
 
     async def test_concepts_match_fixture(self, concepts_fixture: list[dict]) -> None:
         """Verify all character concepts exist."""
@@ -265,8 +265,8 @@ class TestPgCharacterConceptBootstrap:
 # --- Dictionary term tests ---
 
 
-class TestPgDictionaryBootstrap:
-    """Verify dictionary terms were bootstrapped into PostgreSQL."""
+class TestPgDictionarySeed:
+    """Verify dictionary terms were seeded into PostgreSQL."""
 
     async def test_dictionary_terms_exist(self) -> None:
         """Verify dictionary terms were created."""
@@ -305,20 +305,20 @@ class TestPgDictionaryBootstrap:
 # --- Idempotency test ---
 
 
-class TestPgBootstrapIdempotency:
-    """Verify bootstrap is idempotent when run a second time."""
+class TestPgSeedIdempotency:
+    """Verify seed is idempotent when run a second time."""
 
-    async def test_bootstrap_is_idempotent(self) -> None:
-        """Verify running bootstrap twice does not duplicate data."""
-        from vapi.cli.bootstrap import bootstrap_async
+    async def test_seed_is_idempotent(self) -> None:
+        """Verify running seed twice does not duplicate data."""
+        from vapi.cli.seed import seed_async
 
-        # Given: Counts from the session-scoped bootstrap
+        # Given: Counts from the session-scoped seed
         first_section_count = await CharSheetSection.all().count()
         first_clan_count = await VampireClan.all().count()
         first_term_count = await DictionaryTerm.all().count()
 
-        # When: Running bootstrap again
-        await bootstrap_async()
+        # When: Running seed again
+        await seed_async()
 
         # Then: No duplicates
         assert await CharSheetSection.all().count() == first_section_count

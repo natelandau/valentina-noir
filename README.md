@@ -9,14 +9,14 @@ Valentina Noir is a comprehensive API for managing World of Darkness tabletop ro
 Valentina is built using the following core technologies:
 
 - [Litestar](https://litestar.dev/) - Lightweight and flexible Python ASGI framework
-- [MongoDB](https://www.mongodb.com/) - NoSQL database
-- [Beanie](https://beanie-orm.dev/) - MongoDB ORM for Python
+- [PostgreSQL](https://www.postgresql.org/) - Relational database
+- [Tortoise ORM](https://tortoise.github.io/) - Async Python ORM
 - [Redis](https://redis.io/) - In-memory data structure store
 - [Granian](https://github.com/emmett-framework/granian) - ASGI server for Python
 
 ## Running with Docker
 
-The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The container requires MongoDB and Redis to be available. See `compose.yml` for a full stack example.
+The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The container requires PostgreSQL and Redis to be available. See `compose.yml` for a full stack example.
 
 ### Docker-Specific Environment Variables
 
@@ -26,7 +26,8 @@ These variables are used by the container entrypoint and are also available in `
 | ------------------------------ | ------- | ------------------------------------------------------------ |
 | `PUID`                         | `1000`  | UID for the application user inside the container            |
 | `PGID`                         | `1000`  | GID for the application user inside the container            |
-| `VAPI_DOCKER_BOOTSTRAP`        | `false` | Set to `true` to create database collections on startup      |
+| `VAPI_DOCKER_MIGRATE`          | `false` | Set to `true` to run database migrations on startup          |
+| `VAPI_DOCKER_SEED`             | `false` | Set to `true` to seed reference data on startup              |
 | `VAPI_APIUSER_USERNAME`        |         | Username for a developer account created on startup          |
 | `VAPI_APIUSER_EMAIL`           |         | Email for the developer account                              |
 | `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer |
@@ -55,9 +56,10 @@ We use [uv](https://docs.astral.sh/uv/) for dependency management. To start deve
 
 1. Configure the necessary environment variables in `.env.secret` (See `.env.example` for all possible variables)
 2. Two encryption keys are required which can be generated using the following command: `python3 -c 'import secrets; print(secrets.token_hex(32))'`
-3. Optionally, start MongoDB and Redis from Docker: `docker compose -f compose-db.yml up -d`. The filestore for these containers will be stored in the `.dev` directory.
-4. Bootstrap the database:
-    - Create the required database collections: `duty bootstrap`
+3. Optionally, start PostgreSQL and Redis from Docker: `docker compose -f compose-db.yml up -d`. The filestore for these containers will be stored in the `.dev` directory.
+4. Set up the database:
+    - Apply database migrations: `duty migrate`
+    - Seed with reference data: `duty seed`
     - Optionally, run `duty populate` to populate the database with dummy data including developers and API keys, companies, users, campaigns, and characters
 5. Run the development server: `duty run`
 
@@ -71,8 +73,10 @@ We use [Duty](https://pawamoy.github.io/duty/) as a task runner.
 - `duty lint` - Run all linters
 - `duty test` - Run all tests
 - `duty clean` - Clean the project of all temporary files
-- `duty run` - Run the development server locally (requires MongoDB and Redis to be running)
-- `duty bootstrap` - Bootstrap the development database
+- `duty run` - Run the development server locally (requires PostgreSQL and Redis to be running)
+- `duty seed` - Seed the database with reference data (traits, concepts, clans, etc.)
+- `duty migrate` - Apply pending database migrations
+- `duty makemigrations` - Generate migration files from model changes
 - `duty populate` - Populate the database with dummy data. This will create developers, companies, users, campaigns, and characters.
 - `duty dev-clean` - Clean the development environment
 - `duty dev-setup` - Set up the development environment in `.dev` including storage for logs, the development database, and Redis instance all of which are mounted as volumes.

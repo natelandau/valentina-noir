@@ -11,7 +11,7 @@ import pytest
 from redis.asyncio import Redis
 from tortoise import Tortoise
 
-from vapi.cli.bootstrap import bootstrap_async
+from vapi.cli.seed import seed_async
 from vapi.config import settings
 from vapi.lib.database import tortoise_config
 
@@ -91,8 +91,8 @@ async def init_test_postgres(
     await Tortoise.init(config=config, _enable_global_fallback=True)
     await Tortoise.generate_schemas(safe=True)
 
-    # Bootstrap PostgreSQL with constants
-    await bootstrap_async()
+    # Seed PostgreSQL with constants
+    await seed_async()
 
     yield
 
@@ -190,10 +190,7 @@ async def fx_redis(redis_service: RedisService, worker_id: str) -> AsyncGenerato
     between parallel workers sharing the same Redis server.
     """
     # Map worker IDs to Redis database numbers (gw0→1, gw1→2, ...; master→0)
-    if worker_id == "master":
-        db = 0
-    else:
-        db = int(worker_id.replace("gw", "")) + 1
+    db = 0 if worker_id == "master" else int(worker_id.replace("gw", "")) + 1
 
     redis_client = Redis(host=redis_service.host, port=redis_service.port, db=db)
     yield redis_client

@@ -13,8 +13,8 @@ from tortoise import Tortoise
 from vapi.config import settings
 from vapi.lib.database import init_tortoise
 
-from .bootstrap import bootstrap_async
 from .lib.population import PopulationService
+from .seed import seed_async
 
 logger = logging.getLogger("vapi")
 console = Console()
@@ -111,7 +111,7 @@ def populate_db(
         # Then bootstrap and populate
         await init_tortoise()
         await Tortoise.generate_schemas(safe=True)
-        await bootstrap_async()
+        await seed_async()
         try:
             service = PopulationService()
             await service.populate(

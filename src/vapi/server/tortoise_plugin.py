@@ -25,7 +25,6 @@ async def tortoise_lifespan(_app: object) -> AsyncGenerator[None]:
     since Tortoise v1.x scopes its connections via contextvars.
     """
     await Tortoise.init(config=tortoise_config(), _enable_global_fallback=True)
-    await Tortoise.generate_schemas(safe=True)
     logger.info("PostgreSQL database initialized", extra={"component": "database"})
     try:
         yield

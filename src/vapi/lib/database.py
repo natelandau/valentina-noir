@@ -48,9 +48,14 @@ def tortoise_config() -> dict[str, Any]:
             "models": {
                 "models": ["vapi.db.sql_models"],
                 "default_connection": "default",
+                "migrations": "vapi.db.migrations",
             },
         },
     }
+
+
+# Module-level config for the `tortoise` CLI (e.g. `tortoise -c vapi.lib.database.TORTOISE_ORM`)
+TORTOISE_ORM = tortoise_config()
 
 
 async def test_db_connection() -> bool:  # pragma: no cover

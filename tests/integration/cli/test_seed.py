@@ -1,4 +1,4 @@
-"""Integration tests for the bootstrap CLI module."""
+"""Integration tests for the seed CLI module."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import json
 import pytest
 from click.testing import CliRunner
 
-from vapi.cli.bootstrap import bootstrap, bootstrap_async
 from vapi.cli.lib.comparison import JSONWithCommentsDecoder
+from vapi.cli.seed import seed, seed_async
 from vapi.constants import PROJECT_ROOT_PATH, WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
@@ -67,13 +67,11 @@ def hunter_edges_fixture() -> list[dict]:
         return json.load(f)
 
 
-class TestBootstrapAsync:
-    """Integration tests for the bootstrap_async function."""
+class TestSeedAsync:
+    """Integration tests for the seed_async function."""
 
-    async def test_bootstrap_creates_all_character_concepts(
-        self, concepts_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all character concepts from fixture."""
+    async def test_seed_creates_all_character_concepts(self, concepts_fixture: list[dict]) -> None:
+        """Verify seed creates all character concepts from fixture."""
         # Given: The fixture data with expected concepts
         expected_names = {concept["name"] for concept in concepts_fixture}
 
@@ -100,10 +98,8 @@ class TestBootstrapAsync:
             assert db_concept.max_specialties == fixture_concept["max_specialties"]
             assert len(db_concept.specialties) == len(fixture_concept["specialties"])
 
-    async def test_bootstrap_creates_all_vampire_clans(
-        self, vampire_clans_fixture: list[dict]
-    ) -> None:
-        """Verify bootstrap creates all vampire clans from fixture."""
+    async def test_seed_creates_all_vampire_clans(self, vampire_clans_fixture: list[dict]) -> None:
+        """Verify seed creates all vampire clans from fixture."""
         # Given: The fixture data with expected clans
         expected_names = {clan["name"] for clan in vampire_clans_fixture}
 
@@ -150,10 +146,10 @@ class TestBootstrapAsync:
                 f"expected {expected_discipline_count}"
             )
 
-    async def test_bootstrap_creates_all_werewolf_auspices(
+    async def test_seed_creates_all_werewolf_auspices(
         self, werewolf_auspices_fixture: list[dict]
     ) -> None:
-        """Verify bootstrap creates all werewolf auspices from fixture."""
+        """Verify seed creates all werewolf auspices from fixture."""
         # Given: The fixture data with expected auspices
         expected_names = {auspice["name"] for auspice in werewolf_auspices_fixture}
 
@@ -180,10 +176,10 @@ class TestBootstrapAsync:
             assert db_auspice.name == fixture_auspice["name"]
             assert db_auspice.description == fixture_auspice["description"]
 
-    async def test_bootstrap_creates_all_werewolf_tribes(
+    async def test_seed_creates_all_werewolf_tribes(
         self, werewolf_tribes_fixture: list[dict]
     ) -> None:
-        """Verify bootstrap creates all werewolf tribes from fixture."""
+        """Verify seed creates all werewolf tribes from fixture."""
         # Given: The fixture data with expected tribes
         expected_names = {tribe["name"] for tribe in werewolf_tribes_fixture}
 
@@ -195,8 +191,8 @@ class TestBootstrapAsync:
         assert expected_names == db_names
         assert len(tribes) == len(werewolf_tribes_fixture)
 
-    async def test_bootstrap_creates_all_werewolf_rites(self) -> None:
-        """Verify bootstrap creates all werewolf rites as traits from fixture."""
+    async def test_seed_creates_all_werewolf_rites(self) -> None:
+        """Verify seed creates all werewolf rites as traits from fixture."""
         # Given: Rites are stored as Trait records under the "Rites" category
         rites_category = await TraitCategory.filter(name="Rites").first()
         assert rites_category is not None
@@ -226,8 +222,8 @@ class TestBootstrapAsync:
             assert db_tribe.ban == fixture_tribe["ban"]
             assert db_tribe.link == fixture_tribe.get("link")
 
-    async def test_bootstrap_creates_all_werewolf_gifts(self) -> None:
-        """Verify bootstrap creates all werewolf gifts as traits from fixture."""
+    async def test_seed_creates_all_werewolf_gifts(self) -> None:
+        """Verify seed creates all werewolf gifts as traits from fixture."""
         # Given: Gifts are stored as Trait records with gift_* fields set
         # When: Querying gift traits from database (traits linked to auspices or tribes via gifts)
         gift_count = await Trait.filter(gift_renown__isnull=False).count()
@@ -236,8 +232,8 @@ class TestBootstrapAsync:
         assert gift_count == 152
 
     async def test_gift_traits_linked_to_tribes_and_auspices(self) -> None:
-        """Verify bootstrap populates gift traits on tribes and auspices."""
-        # Given: Bootstrapped tribes and auspices
+        """Verify seed populates gift traits on tribes and auspices."""
+        # Given: Seeded tribes and auspices
         tribes = await WerewolfTribe.all()
         auspices = await WerewolfAuspice.all()
 
@@ -266,8 +262,8 @@ class TestBootstrapAsync:
         fetched_tribe = await trait.gift_tribe
         assert fetched_tribe.id == sample_tribe.id
 
-    async def test_bootstrap_creates_char_sheet_sections(self, traits_fixture: list[dict]) -> None:
-        """Verify bootstrap creates all character sheet sections from fixture."""
+    async def test_seed_creates_char_sheet_sections(self, traits_fixture: list[dict]) -> None:
+        """Verify seed creates all character sheet sections from fixture."""
         # Given: The fixture data with expected sections
         expected_names = {section["name"] for section in traits_fixture}
 
@@ -279,14 +275,14 @@ class TestBootstrapAsync:
         assert expected_names == db_names
         assert len(sections) == len(traits_fixture)
 
-    async def test_bootstrap_creates_trait_categories(self, traits_fixture: list[dict]) -> None:
-        """Verify bootstrap creates all trait categories from fixture."""
+    async def test_seed_creates_trait_categories(self, traits_fixture: list[dict]) -> None:
+        """Verify seed creates all trait categories from fixture."""
         # Given: Count expected categories from fixture
         expected_category_count = sum(
             len(section.get("categories", [])) for section in traits_fixture
         )
 
-        # When: Querying trait categories linked to bootstrapped sections
+        # When: Querying trait categories linked to seeded sections
         sections = await CharSheetSection.all()
         section_ids = [s.id for s in sections]
         categories = await TraitCategory.filter(
@@ -297,8 +293,8 @@ class TestBootstrapAsync:
         # Then: Count should match
         assert len(categories) == expected_category_count
 
-    async def test_bootstrap_creates_traits(self, traits_fixture: list[dict]) -> None:
-        """Verify bootstrap creates all traits from fixture."""
+    async def test_seed_creates_traits(self, traits_fixture: list[dict]) -> None:
+        """Verify seed creates all traits from fixture."""
         # Given: Count expected traits from fixture
         expected_trait_count = sum(
             len(cat.get("traits", []))
@@ -324,7 +320,7 @@ class TestBootstrapAsync:
             total_trait_count - 1,
         ]
 
-    async def test_bootstrap_is_idempotent(
+    async def test_seed_is_idempotent(
         self,
         concepts_fixture: list[dict],
         vampire_clans_fixture: list[dict],
@@ -332,7 +328,7 @@ class TestBootstrapAsync:
         werewolf_tribes_fixture: list[dict],
         traits_fixture: list[dict],
     ) -> None:
-        """Verify running bootstrap multiple times does not duplicate data."""
+        """Verify running seed multiple times does not duplicate data."""
         # Given: Expected counts from fixtures
         expected_concept_count = len(concepts_fixture)
         expected_clan_count = len(vampire_clans_fixture)
@@ -341,8 +337,8 @@ class TestBootstrapAsync:
         expected_gift_count = 152
         expected_section_count = len(traits_fixture)
 
-        # When: Running bootstrap again
-        await bootstrap_async()
+        # When: Running seed again
+        await seed_async()
 
         # Then: Counts should remain the same (no duplicates)
         assert await CharacterConcept.all().count() == expected_concept_count
@@ -423,26 +419,26 @@ class TestBootstrapAsync:
         assert db_berserker.specialties[0]["name"] == berserker_fixture["specialties"][0]["name"]
 
 
-class TestBootstrapCommand:
-    """Integration tests for the bootstrap click command."""
+class TestSeedCommand:
+    """Integration tests for the seed click command."""
 
-    def test_bootstrap_command_is_importable(self) -> None:
-        """Verify the bootstrap click command can be imported and has correct attributes."""
-        # Given: The bootstrap command module
+    def test_seed_command_is_importable(self) -> None:
+        """Verify the seed click command can be imported and has correct attributes."""
+        # Given: The seed command module
 
         # When: Inspecting the command
         # Then: Command should have correct attributes
-        assert bootstrap.name == "bootstrap"
-        assert callable(bootstrap)
+        assert seed.name == "seed"
+        assert callable(seed)
 
-    def test_bootstrap_command_has_help_text(self) -> None:
-        """Verify the bootstrap click command has help text."""
+    def test_seed_command_has_help_text(self) -> None:
+        """Verify the seed click command has help text."""
         # Given: A CLI runner
         runner = CliRunner()
 
         # When: Running the help command
-        result = runner.invoke(bootstrap, ["--help"])
+        result = runner.invoke(seed, ["--help"])
 
         # Then: Help should display and contain expected text
         assert result.exit_code == 0
-        assert "Bootstrap the database" in result.output
+        assert "Seed the database" in result.output

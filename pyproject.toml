@@ -2,7 +2,7 @@
     authors = [{ name = "Nate Landau", email = "github@natelandau.com" }]
     dependencies = [
         "asyncio>=4.0.0",
-        "boto3>=1.42.79",
+        "boto3>=1.42.83",
         "faker>=40.12.0",
         "httpx-oauth>=0.16.1",
         "litestar-granian>=0.14.2",
@@ -13,13 +13,13 @@
         "passlib[argon2]>=1.7.4",
         "pydantic-settings>=2.13.1,<3.0.0",
         "pydantic[email]>=2.12.5,<3.0.0",
-        "tortoise-orm[asyncpg]>=0.25.0",
-        "uuid-utils>=0.10.0",
         "python-json-logger>=4.1.0",
         "rich>=14.3.3",
         "ruamel-yaml>=0.19.1",
         "semver>=3.0.4",
-]
+        "tortoise-orm[asyncpg]>=1.1.7",
+        "uuid-utils>=0.14.1",
+    ]
     description = "Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games."
     license = { file = "LICENSE" }
     name = "vapi"
@@ -40,7 +40,7 @@
         "coverage>=7.13.5",
         "docker>=7.1.0",
         "duty>=1.9.0",
-        "mypy>=1.19.1",
+        "mypy>=1.20.0",
         "prek>=0.3.8",
         "pymongo>=4.16.0",
         "pytest-clarity>=1.0.1",
@@ -53,12 +53,12 @@
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.0.2",
-        "ruff>=0.15.8",
+        "ruff>=0.15.9",
         "shellcheck-py>=0.11.0.1",
-        "typos>=1.44.0",
+        "typos>=1.45.0",
         "yamllint>=1.38.0",
-]
-    docs = ["zensical>=0.0.30"]
+    ]
+    docs = ["zensical>=0.0.31"]
 
 [tool.commitizen]
     bump_message               = "bump(release): v$current_version → v$new_version"
@@ -109,7 +109,7 @@
     disallow_subclassing_any    = false
     disallow_untyped_decorators = false
     disallow_untyped_defs       = true
-    exclude                     = ['duties.py', 'tests/']
+    exclude                     = ['duties.py', 'tests/', 'src/vapi/db/migrations/']
     follow_imports              = "normal"
     ignore_missing_imports      = true
     junit_xml                   = ".cache/mypy.xml"
@@ -177,11 +177,21 @@
 
 [tool.ruff] # https://github.com/charliermarsh/ruff
 
-    exclude        = [".cache", ".dev", ".git", ".venv", "_build", "_site", "build", "dist"]
-    fix            = true
-    line-length    = 100
-    output-format  = "grouped"
-    src            = ["src", "tests"]
+    exclude = [
+        ".cache",
+        ".dev",
+        ".git",
+        ".venv",
+        "_build",
+        "_site",
+        "build",
+        "dist",
+        "src/vapi/db/migrations",
+    ]
+    fix = true
+    line-length = 100
+    output-format = "grouped"
+    src = ["src", "tests"]
     target-version = "py313"
     [tool.ruff.lint]
         ignore = [

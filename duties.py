@@ -216,9 +216,21 @@ def populate(ctx: Context) -> None:
 
 
 @duty()
-def bootstrap(ctx: Context) -> None:
-    """Bootstrap the development database."""
-    ctx.run("uv run app bootstrap", title="bootstrap development database", capture=False)
+def seed(ctx: Context) -> None:
+    """Seed the database with reference data."""
+    ctx.run("uv run app seed", title="seed development database", capture=False)
+
+
+@duty()
+def migrate(ctx: Context) -> None:
+    """Apply pending database migrations."""
+    ctx.run("uv run app migrate", title="apply database migrations", capture=False)
+
+
+@duty()
+def makemigrations(ctx: Context) -> None:
+    """Generate migration files from model changes."""
+    ctx.run("uv run app makemigrations", title="generate database migrations", capture=False)
 
 
 @duty()
