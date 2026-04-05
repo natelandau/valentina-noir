@@ -31,6 +31,7 @@ class DevelopersAndCompanies:
     developer_user: Developer
     company: Company
     other_company: Company
+    archived_company: Company
 
 
 @pytest.fixture
@@ -42,7 +43,9 @@ async def developers_and_companies(
     """Create developers with varying permissions and two companies for permission tests."""
     other_company = await company_factory(name="Other Company", email="other@example.com")
     company = await company_factory(name="Main Company", email="main@example.com")
-    await company_factory(name="Archived Company", email="archived@example.com", is_archived=True)
+    archived_company = await company_factory(
+        name="Archived Company", email="archived@example.com", is_archived=True
+    )
 
     global_admin = await developer_factory(is_global_admin=True)
     developer_owner = await developer_factory(is_global_admin=False)
@@ -68,6 +71,7 @@ async def developers_and_companies(
     return DevelopersAndCompanies(
         global_admin=global_admin,
         developer_owner=developer_owner,
+        archived_company=archived_company,
         developer_admin=developer_admin,
         developer_user=developer_user,
         company=company,
@@ -89,11 +93,14 @@ class TestListCompanies:
 
         # When the method is called
         service = CompanyService()
-        count, companies = await service.list_companies(global_admin)
+        count, companies = await service.list_companies(global_admin, limit=100)
 
-        # Then the result should be the correct count and companies
-        assert count == 2
-        assert {x.id for x in companies} == {company.id, other_company.id}
+        # Then the result should include the fixture companies and exclude archived
+        # (other session-scoped companies may also be present in the database)
+        assert count >= 2
+        returned_ids = {x.id for x in companies}
+        assert {company.id, other_company.id} <= returned_ids
+        assert developers_and_companies.archived_company.id not in returned_ids
 
     async def test_list_companies_developer(
         self, developers_and_companies: DevelopersAndCompanies

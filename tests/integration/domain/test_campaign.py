@@ -51,10 +51,12 @@ class TestListCampaigns:
         # Then we should get a 200 with the campaign in the list
         assert response.status_code == HTTP_200_OK
         items = response.json()["items"]
-        assert len(items) == 1
-        assert items[0]["id"] == str(campaign.id)
-        assert items[0]["name"] == campaign.name
-        assert response.json()["total"] == 1
+        assert response.json()["total"] >= 1
+        # Verify our campaign is present and all results are scoped to the company
+        returned_ids = {item["id"] for item in items}
+        assert str(campaign.id) in returned_ids
+        for item in items:
+            assert item["company_id"] == str(session_company.id)
 
 
 class TestGetCampaign:
