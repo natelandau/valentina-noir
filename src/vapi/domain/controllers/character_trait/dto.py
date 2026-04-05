@@ -6,10 +6,10 @@ from uuid import UUID
 import msgspec
 
 from vapi.constants import TraitModifyCurrency
+from vapi.domain.controllers.character_blueprint.dto import TraitResponse
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.character import CharacterTrait
-    from vapi.db.sql_models.character_sheet import Trait
 
 
 # ---------------------------------------------------------------------------
@@ -51,54 +51,6 @@ class TraitModifyRequest(msgspec.Struct):
 # ---------------------------------------------------------------------------
 
 
-class TraitResponse(msgspec.Struct):
-    """Trait detail embedded in character trait responses."""
-
-    id: UUID
-    name: str
-    description: str | None
-    max_value: int
-    min_value: int
-    initial_cost: int
-    upgrade_cost: int
-    count_based_cost_multiplier: int | None
-    is_rollable: bool
-    is_custom: bool
-    show_when_zero: bool
-    category_id: UUID
-    category_name: str
-    subcategory_id: UUID | None
-    subcategory_name: str | None
-    sheet_section_id: UUID
-    sheet_section_name: str
-
-    @classmethod
-    def from_model(cls, m: "Trait") -> "TraitResponse":
-        """Convert a Tortoise Trait to a response Struct.
-
-        Requires prefetch_related("category", "subcategory", "sheet_section").
-        """
-        return cls(
-            id=m.id,
-            name=m.name,
-            description=m.description,
-            max_value=m.max_value,
-            min_value=m.min_value,
-            initial_cost=m.initial_cost,
-            upgrade_cost=m.upgrade_cost,
-            count_based_cost_multiplier=m.count_based_cost_multiplier,
-            is_rollable=m.is_rollable,
-            is_custom=m.is_custom,
-            show_when_zero=m.show_when_zero,
-            category_id=m.category.id,
-            category_name=m.category.name,
-            subcategory_id=m.subcategory.id if m.subcategory else None,
-            subcategory_name=m.subcategory.name if m.subcategory else None,
-            sheet_section_id=m.sheet_section.id,
-            sheet_section_name=m.sheet_section.name,
-        )
-
-
 class CharacterTraitResponse(msgspec.Struct):
     """Response body for a character trait."""
 
@@ -113,7 +65,7 @@ class CharacterTraitResponse(msgspec.Struct):
     def from_model(cls, m: "CharacterTrait") -> "CharacterTraitResponse":
         """Convert a Tortoise CharacterTrait to a response Struct.
 
-        Requires prefetch_related("trait", "trait__category", "trait__subcategory", "trait__sheet_section").
+        Requires prefetch_related(*CHARACTER_TRAIT_PREFETCH).
         """
         return cls(
             id=m.id,
@@ -130,6 +82,8 @@ CHARACTER_TRAIT_PREFETCH = [
     "trait__category",
     "trait__subcategory",
     "trait__sheet_section",
+    "trait__gift_tribe",
+    "trait__gift_auspice",
 ]
 
 
