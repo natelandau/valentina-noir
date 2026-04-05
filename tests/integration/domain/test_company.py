@@ -110,6 +110,43 @@ class TestCompanyCRUD:
         assert perm is not None
         assert perm.permission == CompanyPermission.OWNER
 
+    async def test_create_company_with_settings(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: Developer,
+    ) -> None:
+        """Verify creating a company with custom settings persists them."""
+        # Given a company payload with explicit settings
+        body = {
+            "name": "Settings Co",
+            "email": "settings@test.com",
+            "settings": {
+                "character_autogen_xp_cost": 20,
+                "character_autogen_num_choices": 5,
+                "permission_manage_campaign": "STORYTELLER",
+                "permission_grant_xp": "STORYTELLER",
+                "permission_free_trait_changes": "STORYTELLER",
+            },
+        }
+
+        # When we create the company
+        response = await client.post(
+            build_url(Companies.CREATE), headers=token_company_user, json=body
+        )
+
+        # Then the response contains the custom settings
+        assert response.status_code == HTTP_201_CREATED
+        data = response.json()
+        settings = data["company"]["settings"]
+        assert settings["character_autogen_xp_cost"] == 20
+        assert settings["character_autogen_num_choices"] == 5
+        assert settings["permission_manage_campaign"] == "STORYTELLER"
+        assert settings["permission_grant_xp"] == "STORYTELLER"
+        assert settings["permission_free_trait_changes"] == "STORYTELLER"
+
     async def test_patch_company(
         self,
         client: AsyncClient,
@@ -143,6 +180,83 @@ class TestCompanyCRUD:
         # And the company is updated in the database
         await new_company.refresh_from_db()
         assert new_company.name == "patched"
+
+    async def test_patch_company_description_and_email(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: Developer,
+    ) -> None:
+        """Verify patching a company updates description and email."""
+        # Given a company the developer has ADMIN access to
+        new_company = await Company.create(
+            name="desc-test", description="old desc", email="old@test.com"
+        )
+        await CompanySettings.create(company=new_company)
+        await DeveloperCompanyPermission.create(
+            developer=session_company_user,
+            company=new_company,
+            permission=CompanyPermission.ADMIN,
+        )
+
+        # When we patch description and email
+        response = await client.patch(
+            build_url(Companies.UPDATE, company_id=new_company.id),
+            headers=token_company_user,
+            json={"description": "new desc", "email": "new@test.com"},
+        )
+
+        # Then the response reflects the updates
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["description"] == "new desc"
+        assert response.json()["email"] == "new@test.com"
+
+        # And the database is updated
+        await new_company.refresh_from_db()
+        assert new_company.description == "new desc"
+        assert new_company.email == "new@test.com"
+
+    async def test_patch_company_settings(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: Developer,
+    ) -> None:
+        """Verify patching company settings updates all settings fields."""
+        # Given a company with default settings
+        new_company = await Company.create(name="settings-patch", email="sp@test.com")
+        await CompanySettings.create(company=new_company)
+        await DeveloperCompanyPermission.create(
+            developer=session_company_user,
+            company=new_company,
+            permission=CompanyPermission.ADMIN,
+        )
+
+        # When we patch all settings fields
+        response = await client.patch(
+            build_url(Companies.UPDATE, company_id=new_company.id),
+            headers=token_company_user,
+            json={
+                "settings": {
+                    "character_autogen_xp_cost": 25,
+                    "permission_manage_campaign": "STORYTELLER",
+                    "permission_grant_xp": "STORYTELLER",
+                    "permission_free_trait_changes": "WITHIN_24_HOURS",
+                }
+            },
+        )
+
+        # Then the response contains the updated settings
+        assert response.status_code == HTTP_200_OK
+        settings = response.json()["settings"]
+        assert settings["character_autogen_xp_cost"] == 25
+        assert settings["permission_manage_campaign"] == "STORYTELLER"
+        assert settings["permission_grant_xp"] == "STORYTELLER"
+        assert settings["permission_free_trait_changes"] == "WITHIN_24_HOURS"
 
     async def test_patch_company_forbidden_without_admin(
         self,
