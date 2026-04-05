@@ -241,7 +241,7 @@ class TestSheetSubcategory:
         assert response.json()["total"] == expected_count
         assert len(response.json()["items"]) == min(10, expected_count)
         for item in response.json()["items"]:
-            assert item["parent_category_id"] == str(category.id)
+            assert item["category_id"] == str(category.id)
 
     async def test_get_category_subcategory(
         self,

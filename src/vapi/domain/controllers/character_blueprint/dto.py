@@ -106,8 +106,8 @@ class TraitSubcategoryResponse(msgspec.Struct):
     pool: str | None
     system: str | None
     hunter_edge_type: str | None
-    parent_category_id: UUID | None
-    parent_category_name: str | None
+    category_id: UUID | None
+    category_name: str | None
     sheet_section_id: UUID | None
     sheet_section_name: str | None
     date_created: datetime
@@ -133,8 +133,8 @@ class TraitSubcategoryResponse(msgspec.Struct):
             pool=m.pool,
             system=m.system,
             hunter_edge_type=m.hunter_edge_type.value if m.hunter_edge_type else None,
-            parent_category_id=m.category.id if m.category else None,
-            parent_category_name=m.category_name,
+            category_id=m.category.id if m.category else None,
+            category_name=m.category_name,
             sheet_section_id=m.sheet_section.id if m.sheet_section else None,
             sheet_section_name=m.sheet_section_name,
             date_created=m.date_created,
@@ -182,11 +182,11 @@ class TraitResponse(msgspec.Struct):
     is_rollable: bool
     sheet_section_id: UUID
     sheet_section_name: str | None
-    parent_category_id: UUID
-    parent_category_name: str | None
+    category_id: UUID
+    category_name: str | None
     custom_for_character_id: UUID | None
-    trait_subcategory_id: UUID | None
-    trait_subcategory_name: str | None
+    subcategory_id: UUID | None
+    subcategory_name: str | None
     pool: str | None
     opposing_pool: str | None
     system: str | None
@@ -232,11 +232,11 @@ class TraitResponse(msgspec.Struct):
             is_rollable=m.is_rollable,
             sheet_section_id=m.sheet_section.id,
             sheet_section_name=m.sheet_section_name,
-            parent_category_id=m.category.id,
-            parent_category_name=m.category_name,
+            category_id=m.category.id,
+            category_name=m.category_name,
             custom_for_character_id=m.custom_for_character_id,
-            trait_subcategory_id=m.subcategory.id if m.subcategory else None,
-            trait_subcategory_name=m.subcategory_name,
+            subcategory_id=m.subcategory.id if m.subcategory else None,
+            subcategory_name=m.subcategory_name,
             pool=m.pool,
             opposing_pool=m.opposing_pool,
             system=m.system,
