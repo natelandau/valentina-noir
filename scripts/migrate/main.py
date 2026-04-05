@@ -180,7 +180,7 @@ async def _clean_migrated_data(*, dry_run: bool) -> None:
     """Truncate all non-constant tables in reverse-dependency order for idempotency.
 
     Constants (CharSheetSection, TraitCategory, Trait, VampireClan, etc.) are
-    seeded by ``duty bootstrap`` and left untouched.
+    seeded by ``duty seed`` and left untouched.
 
     Args:
         dry_run: If True, skip truncation.

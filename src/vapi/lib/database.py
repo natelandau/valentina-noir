@@ -54,8 +54,12 @@ def tortoise_config() -> dict[str, Any]:
     }
 
 
-# Module-level config for the `tortoise` CLI (e.g. `tortoise -c vapi.lib.database.TORTOISE_ORM`)
-TORTOISE_ORM = tortoise_config()
+def __getattr__(name: str) -> dict[str, Any]:
+    """Lazy module-level attribute for the `tortoise` CLI (e.g. `tortoise -c vapi.lib.database.TORTOISE_ORM`)."""
+    if name == "TORTOISE_ORM":
+        return tortoise_config()
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 async def test_db_connection() -> bool:  # pragma: no cover

@@ -226,7 +226,8 @@ class Settings(BaseSettings):
 
     authentication_encryption_key: str
 
-    docker_bootstrap: bool = Field(default=False)
+    docker_migrate: bool = Field(default=False)
+    docker_seed: bool = Field(default=False)
 
     log: LoggingSettings = LoggingSettings()
     cors: CORSSettings = CORSSettings()

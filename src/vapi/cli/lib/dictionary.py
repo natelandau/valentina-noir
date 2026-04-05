@@ -186,6 +186,6 @@ class DictionaryService:
                 "num_updated": self.counts.updated,
                 "num_total": self.counts.total,
                 "component": "cli",
-                "command": "bootstrap",
+                "command": "seed",
             },
         )

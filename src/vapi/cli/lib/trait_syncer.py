@@ -322,7 +322,7 @@ class TraitSyncer:
                     "num_updated": counts.updated,
                     "num_total": counts.total,
                     "component": "cli",
-                    "command": "bootstrap",
+                    "command": "seed",
                 },
             )
 
@@ -441,6 +441,6 @@ async def resolve_gift_trait_references(
         extra={
             "num_updated": len(modified_traits),
             "component": "cli",
-            "command": "bootstrap",
+            "command": "seed",
         },
     )

@@ -108,7 +108,7 @@ def populate_db(
         # First purge the database
         await _purge_pg_async()
 
-        # Then bootstrap and populate
+        # Then seed and populate
         await init_tortoise()
         await Tortoise.generate_schemas(safe=True)
         await seed_async()

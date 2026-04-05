@@ -83,7 +83,7 @@ class DiceSize(IntEnum):
 
 
 class DictionarySourceType(StrEnum):
-    """Source types for bootstrapped dictionary terms."""
+    """Source types for seeded dictionary terms."""
 
     TRAIT = "trait"
     CLAN = "clan"

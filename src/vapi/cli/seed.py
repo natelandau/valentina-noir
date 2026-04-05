@@ -16,7 +16,7 @@ from vapi.cli.lib.fixture_syncer import (
     WerewolfTribeSyncer,
 )
 from vapi.cli.lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
-from vapi.lib.database import tortoise_config
+from vapi.lib.database import init_tortoise
 
 logger = logging.getLogger("vapi")
 
@@ -42,7 +42,7 @@ async def _seed_all() -> None:
     Initializes Tortoise ORM, seeds the database, then closes Tortoise
     connections for clean CLI shutdown.
     """
-    await Tortoise.init(config=tortoise_config())
+    await init_tortoise()
     await seed_async()
     await Tortoise.close_connections()
 
