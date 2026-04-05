@@ -257,7 +257,7 @@ class CharacterBlueprintSectionController(Controller):
             CharacterClass | None,
             Parameter(description="Filter traits by character class.", title="Character Class"),
         ] = None,
-        parent_category_id: Annotated[
+        category_id: Annotated[
             UUID | None,
             Parameter(description="Filter traits by category.", title="Category ID"),
         ] = None,
@@ -282,7 +282,7 @@ class CharacterBlueprintSectionController(Controller):
         count, traits = await service.list_all_traits(
             game_version=game_version,
             character_class=character_class,
-            parent_category_id=parent_category_id,
+            category_id=category_id,
             subcategory_id=subcategory_id,
             exclude_subcategory_traits=exclude_subcategory_traits,
             is_rollable=is_rollable,

@@ -55,9 +55,7 @@ class CharacterTraitController(Controller):
         character: Character,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-        parent_category_id: Annotated[
-            UUID, Parameter(description="Show traits in this parent category.")
-        ]
+        category_id: Annotated[UUID, Parameter(description="Filter by trait category.")]
         | None = None,
         is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,
     ) -> OffsetPagination[CharacterTraitResponse]:
@@ -67,7 +65,7 @@ class CharacterTraitController(Controller):
             character=character,
             limit=limit,
             offset=offset,
-            category_id=parent_category_id,
+            category_id=category_id,
             is_rollable=is_rollable,
         )
         return OffsetPagination(

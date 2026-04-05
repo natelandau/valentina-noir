@@ -161,7 +161,7 @@ class TestErrorPipeline:
                 "max_value": 5,
                 "min_value": 0,
                 "show_when_zero": True,
-                "parent_category_id": str(trait_category.id),
+                "category_id": str(trait_category.id),
                 "value": 1,
             },
         )

@@ -66,7 +66,7 @@ class TestFetchingCharacterTraits:
                 character_id=character.id,
             ),
             headers=token_global_admin,
-            params={"parent_category_id": str(trait_categories[0].id)},
+            params={"category_id": str(trait_categories[0].id)},
         )
         assert response.status_code == HTTP_200_OK
         assert response.json()["total"] == 1
@@ -250,7 +250,7 @@ class TestCustomTraits:
             "max_value": 5,
             "min_value": 0,
             "show_when_zero": True,
-            "parent_category_id": str(trait_category.id),
+            "category_id": str(trait_category.id),
             "initial_cost": 10,
             "upgrade_cost": 10,
         }

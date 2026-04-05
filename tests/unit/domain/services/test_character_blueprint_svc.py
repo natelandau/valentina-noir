@@ -412,7 +412,7 @@ class TestListAllTraits:
         # When listing all traits for the category
         service = CharacterBlueprintService()
         count, traits = await service.list_all_traits(
-            parent_category_id=category.id,
+            category_id=category.id,
         )
 
         # Then the count should be the same as the filtered total

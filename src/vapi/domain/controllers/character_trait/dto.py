@@ -29,7 +29,7 @@ class CharacterTraitCreateCustom(msgspec.Struct):
     """Request body for creating a custom trait on a character."""
 
     name: str
-    parent_category_id: UUID
+    category_id: UUID
     description: str | None = None
     max_value: int = 5
     min_value: int = 0

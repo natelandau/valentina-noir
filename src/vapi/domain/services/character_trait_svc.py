@@ -866,7 +866,7 @@ class CharacterTraitService:
 
         parent_category = (
             await TraitCategory.filter(
-                id=data.parent_category_id,
+                id=data.category_id,
                 is_archived=False,
             )
             .select_related("sheet_section")

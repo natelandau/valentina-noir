@@ -1816,7 +1816,7 @@ class TestCreateCustomTrait:
             max_value=5,
             min_value=0,
             show_when_zero=True,
-            parent_category_id=trait_category.id,
+            category_id=trait_category.id,
             value=1,
         )
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
@@ -1872,7 +1872,7 @@ class TestCreateCustomTrait:
             max_value=5,
             min_value=0,
             show_when_zero=True,
-            parent_category_id=trait_category.id,
+            category_id=trait_category.id,
             value=1,
         )
 
@@ -1919,7 +1919,7 @@ class TestCreateCustomTrait:
             max_value=5,
             min_value=0,
             show_when_zero=True,
-            parent_category_id=unassigned_trait.category_id,
+            category_id=unassigned_trait.category_id,
             value=1,
         )
 

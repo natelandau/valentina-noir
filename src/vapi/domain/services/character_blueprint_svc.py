@@ -126,7 +126,7 @@ class CharacterBlueprintService:
         *,
         game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
-        parent_category_id: UUID | None = None,
+        category_id: UUID | None = None,
         subcategory_id: UUID | None = None,
         exclude_subcategory_traits: bool = False,
         is_rollable: bool | None = None,
@@ -139,7 +139,7 @@ class CharacterBlueprintService:
         Args:
             game_version: The game version to list the traits for.
             character_class: The character class to list the traits for.
-            parent_category_id: The parent category id to list the traits for.
+            category_id: The category id to list the traits for.
             subcategory_id: Filter traits by subcategory.
             exclude_subcategory_traits: When True, only return traits without a subcategory.
             is_rollable: Whether to list the rollable traits.
@@ -156,8 +156,8 @@ class CharacterBlueprintService:
             character_class=character_class,
             extra_q=Q(custom_for_character_id=None),
         )
-        if parent_category_id:
-            qs = qs.filter(category_id=parent_category_id)
+        if category_id:
+            qs = qs.filter(category_id=category_id)
         if subcategory_id:
             qs = qs.filter(subcategory_id=subcategory_id)
         if exclude_subcategory_traits:
