@@ -1,6 +1,6 @@
 """Test campaign."""
 
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 
 import pytest
 from httpx import AsyncClient
@@ -124,6 +124,14 @@ class TestGetCampaign:
 class TestCreateCampaign:
     """Test create campaign."""
 
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
+
     @pytest.mark.parametrize(
         ("user_role", "campaign_permission", "expected_status_code"),
         [
@@ -182,6 +190,14 @@ class TestCreateCampaign:
 
 class TestUpdateCampaign:
     """Test update campaign."""
+
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
 
     @pytest.mark.parametrize(
         ("user_role", "campaign_permission", "expected_status_code"),
@@ -252,6 +268,14 @@ class TestUpdateCampaign:
 
 class TestDeleteCampaign:
     """Test delete campaign."""
+
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
 
     @pytest.mark.parametrize(
         ("user_role", "campaign_permission", "expected_status_code"),

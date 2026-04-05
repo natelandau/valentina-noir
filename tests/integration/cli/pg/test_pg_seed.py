@@ -312,10 +312,12 @@ class TestPgSeedIdempotency:
         """Verify running seed twice does not duplicate data."""
         from vapi.cli.seed import seed_async
 
-        # Given: Counts from the session-scoped seed
+        # Given: Counts from the session-scoped seed (global seed terms only)
         first_section_count = await CharSheetSection.all().count()
         first_clan_count = await VampireClan.all().count()
-        first_term_count = await DictionaryTerm.all().count()
+        first_term_count = await DictionaryTerm.filter(
+            company_id__isnull=True, source_type__isnull=False
+        ).count()
 
         # When: Running seed again
         await seed_async()
@@ -323,4 +325,7 @@ class TestPgSeedIdempotency:
         # Then: No duplicates
         assert await CharSheetSection.all().count() == first_section_count
         assert await VampireClan.all().count() == first_clan_count
-        assert await DictionaryTerm.all().count() == first_term_count
+        assert (
+            await DictionaryTerm.filter(company_id__isnull=True, source_type__isnull=False).count()
+            == first_term_count
+        )

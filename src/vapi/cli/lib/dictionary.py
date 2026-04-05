@@ -27,7 +27,9 @@ class DictionaryService:
 
     async def sync_all(self) -> None:
         """Build dictionary terms for all entity types, then log counts."""
-        all_terms = await DictionaryTerm.filter(source_type__isnull=False)
+        # Load only global seed terms (company_id IS NULL) to avoid collisions
+        # with company-scoped terms created via the API
+        all_terms = await DictionaryTerm.filter(company_id__isnull=True, source_type__isnull=False)
         self._existing_terms = {t.term: t for t in all_terms}
 
         await self._sync_vampire_clan_terms()
