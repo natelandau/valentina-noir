@@ -1,3 +1,10 @@
+## v0.11.0 (2026-04-06)
+
+### Feat
+
+- **backup**: add daily PostgreSQL backup SAQ task with S3 retention (#96)
+- **middleware**: add proxy headers middleware for real client IP (#95)
+
 ## v0.10.0 (2026-04-06)
 
 ### Feat
