@@ -57,6 +57,17 @@ class SAQSettings(BaseModel):
         return self
 
 
+class BackupSettings(BaseModel):
+    """Database backup settings."""
+
+    enabled: bool = Field(default=False)
+    cron: str = Field(default="0 3 * * *")
+    retain_daily: int = Field(default=7)
+    retain_weekly: int = Field(default=4)
+    retain_monthly: int = Field(default=6)
+    retain_yearly: int = Field(default=2)
+
+
 class AWSSettings(BaseModel):
     """AWS settings."""
 
@@ -240,6 +251,7 @@ class Settings(BaseSettings):
     stores: StoresSettings = StoresSettings()
     aws: AWSSettings = AWSSettings()
     saq: SAQSettings = SAQSettings()
+    backup: BackupSettings = BackupSettings()
 
     @computed_field  # type: ignore [prop-decorator]
     @property
