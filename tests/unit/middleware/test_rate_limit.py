@@ -363,21 +363,20 @@ class TestGetRequestIdentifier:
         assert result == expected
 
     @pytest.mark.parametrize(
-        ("headers", "client_host", "expected"),
+        ("client_host", "expected"),
         [
-            ({"X-Forwarded-For": "203.0.113.1"}, "10.0.0.1", "203.0.113.1"),
-            ({}, "10.0.0.1", "10.0.0.1"),
-            ({}, None, "anonymous"),
+            ("10.0.0.1", "10.0.0.1"),
+            (None, "anonymous"),
         ],
-        ids=["forwarded-ip", "client-host", "anonymous"],
+        ids=["client-host", "anonymous"],
     )
-    def test_identifier_fallback_chain(
-        self, headers: dict[str, str], client_host: str | None, expected: str
+    def test_identifier_fallback_to_client_host(
+        self, client_host: str | None, expected: str
     ) -> None:
-        """Verify identifier falls back through proxy headers, client host, then anonymous."""
-        # Given a request with the specified headers and client
+        """Verify identifier uses client host or falls back to anonymous."""
+        # Given a request with the specified client
         middleware = RateLimitMiddleware.__new__(RateLimitMiddleware)
-        mock_request = _make_request(headers=headers, client_host=client_host)
+        mock_request = _make_request(client_host=client_host)
 
         # When getting the identifier
         result = middleware._get_request_identifier(mock_request)

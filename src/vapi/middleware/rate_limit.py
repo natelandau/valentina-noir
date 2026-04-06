@@ -337,12 +337,7 @@ class RateLimitMiddleware(ASGIMiddleware):
                 digestmod=hashlib.sha256,
             ).hexdigest()[:16]
 
-        return (
-            request.headers.get("X-Forwarded-For", None)
-            or request.headers.get("X-Real-IP", None)
-            or request.headers.get("CF-Connecting-IP", None)
-            or getattr(request.client, "host", "anonymous")
-        )
+        return getattr(request.client, "host", "anonymous")
 
     def _wrap_send(self, send: Send, buckets: list[TokenBucket]) -> Send:
         policy_parts: list[str] = []
