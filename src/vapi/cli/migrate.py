@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
-import sys
 
 import click
 from tortoise.migrations.api import migrate as tortoise_migrate
@@ -38,9 +37,7 @@ def migrate() -> None:
 def makemigrations(name: str | None) -> None:
     """Generate new migration files by detecting model changes."""
     cmd = [
-        sys.executable,
-        "-m",
-        "tortoise.cli",
+        "tortoise",
         "-c",
         "vapi.lib.database.TORTOISE_ORM",
         "makemigrations",

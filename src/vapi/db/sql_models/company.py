@@ -38,7 +38,7 @@ class Company(BaseModel):
     name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
     description = fields.TextField(null=True, validators=[MinLengthValidator(3)])
     email = fields.CharField(max_length=255, validators=[validate_email_format])
-    resources_modified_at = fields.DatetimeField(null=True)
+    resources_modified_at = fields.DatetimeField(auto_now_add=True)
 
     # Reverse relations
     settings: fields.OneToOneRelation[CompanySettings]

@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
                 ("name", fields.CharField(max_length=50)),
                 ("description", fields.TextField(null=True, unique=False)),
                 ("email", fields.CharField(max_length=255)),
-                ("resources_modified_at", fields.DatetimeField(null=True, auto_now=False, auto_now_add=False)),
+                ("resources_modified_at", fields.DatetimeField(auto_now=False, auto_now_add=True)),
             ],
             options={"table": "company", "app": "models", "pk_attr": "id", "table_description": "An organization that owns campaigns, characters, and users."},
             bases=["BaseModel"],

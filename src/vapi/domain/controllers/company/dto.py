@@ -47,7 +47,7 @@ class CompanyResponse(msgspec.Struct):
     name: str
     description: str | None
     email: str
-    resources_modified_at: datetime | None
+    resources_modified_at: datetime
     settings: CompanySettingsResponse | None
 
     @classmethod
