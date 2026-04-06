@@ -27,7 +27,7 @@ FROM python:3.13-slim-trixie
 
 # Runtime-only system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates tini tzdata gosu libargon2-1 \
+    curl ca-certificates tini tzdata gosu libargon2-1 postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Timezone

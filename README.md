@@ -41,6 +41,33 @@ id -g  # GID
 
 All application configuration variables from `.env.example` are also supported and should be passed to the container via an env file or environment variables.
 
+### Database Backups
+
+Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket.
+
+**Requirements:**
+- `pg_dump` must be available in the environment (included in the Docker image)
+- AWS credentials and S3 bucket must be configured (the same `VAPI_AWS__*` variables used for asset storage)
+
+**Enable backups** by setting `VAPI_BACKUP__ENABLED=true`. Backups are disabled by default.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `VAPI_BACKUP__ENABLED` | `false` | Enable automatic database backups |
+| `VAPI_BACKUP__CRON` | `0 3 * * *` | Cron schedule (default: 3 AM daily) |
+| `VAPI_BACKUP__RETAIN_DAILY` | `7` | Number of daily backups to keep |
+| `VAPI_BACKUP__RETAIN_WEEKLY` | `4` | Weekly backups to keep (oldest per ISO week) |
+| `VAPI_BACKUP__RETAIN_MONTHLY` | `6` | Monthly backups to keep (oldest per month) |
+| `VAPI_BACKUP__RETAIN_YEARLY` | `2` | Yearly backups to keep (oldest per year) |
+
+**Retention policy:** Every backup is a daily backup. At prune time, the retention logic selects which backups to keep: the N most recent for daily, and the oldest backup from each week/month/year for the other tiers. A single backup can satisfy multiple tiers. Backups not covered by any tier are deleted.
+
+**Restoring a backup:**
+
+```bash
+pg_restore -h <host> -p <port> -U <user> -d <database> --clean --if-exists <backup-file>.dump
+```
+
 ## Getting Started Developing Valentina Noir
 
 We use [uv](https://docs.astral.sh/uv/) for dependency management. To start developing:
