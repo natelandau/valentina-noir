@@ -1,3 +1,17 @@
+## v0.10.0 (2026-04-06)
+
+### Feat
+
+- migrate database from MongoDB to PostgreSQL (#92)
+
+### Fix
+
+- **docker**: resolve PostgreSQL startup and migration issues (#94)
+
+### Refactor
+
+- stop auto-computing Willpower trait (#93)
+
 ## v0.9.0 (2026-03-31)
 
 ### Feat
