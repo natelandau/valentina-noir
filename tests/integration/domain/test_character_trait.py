@@ -222,6 +222,59 @@ class TestAddConstantTraitToCharacter:
         character_trait_spy.assert_called_once()
 
 
+class TestAssignTraitAffordability:
+    """Test that assigning a trait checks currency affordability."""
+
+    async def test_assign_trait_with_xp_insufficient(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify assigning a trait with XP fails when the user has no experience."""
+        # Given a character whose player has 0 XP
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
+        # Given a trait not already on the character
+        existing_cts = await CharacterTrait.filter(character_id=character.id)
+        existing_trait_ids = [ct.trait_id for ct in existing_cts]
+        trait = await Trait.filter(is_archived=False).exclude(id__in=existing_trait_ids).first()
+
+        # When assigning the trait using XP
+        response = await client.post(
+            build_url(
+                Characters.TRAIT_ASSIGN,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=character.campaign_id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+            json={
+                "trait_id": str(trait.id),
+                "value": 1,
+                "currency": TraitModifyCurrency.XP.value,
+            },
+        )
+
+        # Then the request is rejected
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        assert "XP" in response.json()["detail"]
+
+        # Then no orphaned CharacterTrait is created
+        orphan = await CharacterTrait.filter(character_id=character.id, trait_id=trait.id).first()
+        assert orphan is None
+
+
 class TestCustomTraits:
     """Test custom traits."""
 

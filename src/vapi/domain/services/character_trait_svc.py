@@ -111,6 +111,68 @@ class CharacterTraitService:
                 invalid_parameters=[{"field": "trait_id", "message": msg}],
             )
 
+    async def _guard_can_afford_new_trait(
+        self,
+        trait: Trait,
+        character: Character,
+        value: int,
+        currency: TraitModifyCurrency,
+    ) -> None:
+        """Check that the character can afford to add a new trait before creating it.
+
+        Computes the upgrade cost from 0 to `value` using the trait's cost fields and
+        verifies the character (or user) has enough currency. Flaw traits grant currency
+        instead of spending it, so the check is skipped for flaws.
+
+        Args:
+            trait: The trait definition being added.
+            character: The character receiving the trait.
+            value: The target value (number of dots).
+            currency: The currency being used (XP or STARTING_POINTS).
+
+        Raises:
+            NotEnoughXPError: If the user cannot afford the XP cost.
+            ValidationError: If the character cannot afford the starting points cost.
+        """
+        if await self._is_flaw_category(trait.category_id):  # type: ignore[attr-defined]
+            return
+
+        multiplier = trait.count_based_cost_multiplier
+        if multiplier is not None:
+            count = await self._count_category_traits(character.id, trait.category_id)  # type: ignore[attr-defined]
+            cost = (count + 1) * multiplier
+        else:
+            cost = 0
+            for dot in range(1, value + 1):
+                cost += self._cost_for_dot_value(trait.initial_cost, trait.upgrade_cost, dot)
+
+        if currency == TraitModifyCurrency.XP:
+            user_svc = UserXPService()
+            experience = await user_svc.get_or_create_campaign_experience(
+                character.user_player_id,  # type: ignore[attr-defined]
+                character.campaign_id,  # type: ignore[attr-defined]
+            )
+            if experience.xp_current < cost:
+                raise NotEnoughXPError
+        elif currency == TraitModifyCurrency.STARTING_POINTS and character.starting_points < cost:
+            raise ValidationError(detail="Not enough starting points")
+
+    @staticmethod
+    def _cost_for_dot_value(initial_cost: int, upgrade_cost: int, dot_value: int) -> int:
+        """Return the cost for a single dot at the given value.
+
+        Args:
+            initial_cost: The cost for the first dot.
+            upgrade_cost: The per-dot multiplier for subsequent dots.
+            dot_value: The dot position (1-based).
+
+        Returns:
+            The cost for that dot: initial_cost for dot 1, dot_value * upgrade_cost otherwise.
+        """
+        if dot_value == 1:
+            return initial_cost
+        return dot_value * upgrade_cost
+
     def _cost_for_dot(self, character_trait: CharacterTrait, dot_value: int) -> int:
         """Return the cost for a single dot at the given value.
 
@@ -121,9 +183,9 @@ class CharacterTraitService:
         Returns:
             The cost for that dot: initial_cost for dot 1, dot_value * upgrade_cost otherwise.
         """
-        if dot_value == 1:
-            return character_trait.trait.initial_cost
-        return dot_value * character_trait.trait.upgrade_cost
+        return self._cost_for_dot_value(
+            character_trait.trait.initial_cost, character_trait.trait.upgrade_cost, dot_value
+        )
 
     async def _count_category_traits(self, character_id: UUID, category_id: UUID) -> int:
         """Count how many active traits a character has in a given category.
@@ -141,20 +203,17 @@ class CharacterTraitService:
             value__gt=0,
         ).count()
 
-    async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
-        """Check if the trait is a flaw based on its parent category.
-
-        Flaw traits have reversed XP/starting points economy: adding a flaw grants
-        currency, removing a flaw costs currency. Trait must be prefetched before calling.
+    async def _is_flaw_category(self, category_id: UUID) -> bool:
+        """Check if a category ID belongs to the "Flaws" category.
 
         Uses a class-level cache for the "Flaws" TraitCategory ID to avoid repeated
         database lookups.
 
         Args:
-            character_trait: The character trait to check.
+            category_id: The category ID to check.
 
         Returns:
-            True if the trait belongs to the "Flaws" parent category.
+            True if the category ID matches the "Flaws" category.
         """
         if CharacterTraitService._flaws_category_id is None:
             flaws_category = await TraitCategory.filter(name="Flaws").first()
@@ -162,7 +221,21 @@ class CharacterTraitService:
                 return False
             CharacterTraitService._flaws_category_id = flaws_category.id
 
-        return character_trait.trait.category_id == CharacterTraitService._flaws_category_id  # type: ignore[attr-defined]
+        return category_id == CharacterTraitService._flaws_category_id
+
+    async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
+        """Check if the trait is a flaw based on its parent category.
+
+        Flaw traits have reversed XP/starting points economy: adding a flaw grants
+        currency, removing a flaw costs currency. Trait must be prefetched before calling.
+
+        Args:
+            character_trait: The character trait to check.
+
+        Returns:
+            True if the trait belongs to the "Flaws" parent category.
+        """
+        return await self._is_flaw_category(character_trait.trait.category_id)  # type: ignore[attr-defined]
 
     def guard_user_can_manage_character(self, character: Character, user: "User") -> bool:
         """Guard to check if the user is able to update traits on the given character.
@@ -576,6 +649,9 @@ class CharacterTraitService:
             raise ConflictError(
                 detail=f"Trait named '{trait.name}' already exists on character. Use modify trait value instead."
             )
+
+        if currency != TraitModifyCurrency.NO_COST:
+            await self._guard_can_afford_new_trait(trait, character, value, currency)
 
         character_trait = await CharacterTrait.create(
             character=character,

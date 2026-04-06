@@ -4151,3 +4151,215 @@ class TestGetValueOptionsGifts:
         assert "DELETE" in result.options
         assert result.options["DELETE"].direction == "decrease"
         assert result.options["DELETE"].point_change == 2  # 1 gift: 1 x 2
+
+
+class TestGuardCanAffordNewTrait:
+    """Test the _guard_can_afford_new_trait pre-creation affordability check."""
+
+    async def test_xp_sufficient(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        campaign_experience_factory,
+        trait_factory,
+    ) -> None:
+        """Verify no error when user has enough XP."""
+        # Given a character whose player has 100 XP
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        await campaign_experience_factory(
+            user=target_user, campaign=campaign, xp_current=100, xp_total=100
+        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5)
+
+        # When checking affordability for 1 dot (cost = 1)
+        service = CharacterTraitService()
+        await service._guard_can_afford_new_trait(
+            trait, character, value=1, currency=TraitModifyCurrency.XP
+        )
+
+        # Then no exception is raised
+
+    async def test_xp_insufficient(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        trait_factory,
+    ) -> None:
+        """Verify NotEnoughXPError when user cannot afford the trait."""
+        # Given a character whose player has 0 XP
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5)
+
+        # When checking affordability for 1 dot
+        service = CharacterTraitService()
+        with pytest.raises(NotEnoughXPError):
+            await service._guard_can_afford_new_trait(
+                trait, character, value=1, currency=TraitModifyCurrency.XP
+            )
+
+    async def test_starting_points_sufficient(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        trait_factory,
+    ) -> None:
+        """Verify no error when character has enough starting points."""
+        # Given a character with 100 starting points
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company, starting_points=100
+        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5)
+
+        # When checking affordability for 1 dot (cost = 1)
+        service = CharacterTraitService()
+        await service._guard_can_afford_new_trait(
+            trait, character, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+        )
+
+        # Then no exception is raised
+
+    async def test_starting_points_insufficient(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        trait_factory,
+    ) -> None:
+        """Verify ValidationError when character cannot afford the starting points cost."""
+        # Given a character with 0 starting points
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company, starting_points=0
+        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5)
+
+        # When checking affordability for 1 dot
+        service = CharacterTraitService()
+        with pytest.raises(ValidationError, match="Not enough starting points"):
+            await service._guard_can_afford_new_trait(
+                trait, character, value=1, currency=TraitModifyCurrency.STARTING_POINTS
+            )
+
+    async def test_flaw_trait_skips_check(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        trait_factory,
+    ) -> None:
+        """Verify flaw traits bypass the affordability check since they grant currency."""
+        # Given a character with 0 XP and a flaw trait
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        flaws_category = await TraitCategory.filter(name="Flaws").first()
+        flaw_trait = await trait_factory(
+            category=flaws_category, initial_cost=1, upgrade_cost=2, max_value=5
+        )
+
+        # When checking affordability for 1 dot with XP
+        service = CharacterTraitService()
+        await service._guard_can_afford_new_trait(
+            flaw_trait, character, value=1, currency=TraitModifyCurrency.XP
+        )
+
+        # Then no exception is raised despite having 0 XP
+
+    @pytest.mark.parametrize(
+        ("value", "initial_cost", "upgrade_cost", "expected_cost"),
+        [
+            (1, 1, 2, 1),
+            (2, 1, 2, 5),
+            (3, 1, 2, 11),
+        ],
+    )
+    async def test_xp_cost_calculation(
+        self,
+        value: int,
+        initial_cost: int,
+        upgrade_cost: int,
+        expected_cost: int,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        campaign_experience_factory,
+        trait_factory,
+    ) -> None:
+        """Verify the guard computes the correct cost from value 0 to the target."""
+        # Given a character whose player has exactly enough XP
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        await campaign_experience_factory(
+            user=target_user, campaign=campaign, xp_current=expected_cost, xp_total=expected_cost
+        )
+        trait = await trait_factory(
+            initial_cost=initial_cost, upgrade_cost=upgrade_cost, max_value=5
+        )
+
+        # When checking affordability at exactly the cost threshold
+        service = CharacterTraitService()
+        await service._guard_can_afford_new_trait(
+            trait, character, value=value, currency=TraitModifyCurrency.XP
+        )
+
+        # Then no exception is raised (exact amount is sufficient)
+
+    async def test_xp_one_short_raises(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        campaign_factory,
+        campaign_experience_factory,
+        trait_factory,
+    ) -> None:
+        """Verify the guard rejects when XP is one short of the cost."""
+        # Given a character whose player has 4 XP (cost for 2 dots = 5)
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        await campaign_experience_factory(
+            user=target_user, campaign=campaign, xp_current=4, xp_total=4
+        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5)
+
+        # When checking affordability for 2 dots (cost = 1 + 4 = 5, have 4)
+        service = CharacterTraitService()
+        with pytest.raises(NotEnoughXPError):
+            await service._guard_can_afford_new_trait(
+                trait, character, value=2, currency=TraitModifyCurrency.XP
+            )
