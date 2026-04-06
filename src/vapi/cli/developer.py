@@ -55,7 +55,7 @@ def developer(
             ).first()
             if existing_developer:
                 logger.info(
-                    "Developer already exists",
+                    "Developer already exists, skipping creation",
                     extra={
                         "email": email,
                         "username": username,
@@ -65,7 +65,7 @@ def developer(
                         "command": "developer create",
                     },
                 )
-                raise click.Abort
+                return
 
             try:
                 new_developer = await Developer.create(

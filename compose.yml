@@ -16,8 +16,10 @@ services:
     volumes:
       - .dev:/app/.dev
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     ports:
       - 8000:8000
     develop:
@@ -53,5 +55,10 @@ services:
       POSTGRES_PASSWORD: valentina
       POSTGRES_DB: valentina-noir
     volumes:
-      - .dev/postgres:/var/lib/postgresql/data
+      - .dev/postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U valentina -d valentina-noir"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
     attach: false # suppress logs to console

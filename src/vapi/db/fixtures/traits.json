@@ -6989,7 +6989,8 @@
           {
             "name": "Willpower",
             "game_versions": [
-              "V4"
+              "V4",
+              "V5"
             ],
             "description": "Willpower is a tracker, with both a maximum rating and a temporary amount of points to be used. It represents the character's confidence and determination to accomplish a task.",
             "max_value": 10,

@@ -126,7 +126,7 @@ def typos(ctx: Context) -> None:
 def precommit(ctx: Context) -> None:
     """Run prek hooks."""
     ctx.run(
-        "PREK_SKIP=mypy,pytest,ruff prek run --all-files",
+        "PREK_SKIP=mypy,pytest prek run --all-files",
         title=pyprefix("prek hooks"),
     )
 
