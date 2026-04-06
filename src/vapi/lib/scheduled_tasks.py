@@ -5,9 +5,12 @@ mind that the tasks are run in a separate process from the main application.
 """
 
 import asyncio
+import contextlib
 import logging
+import os
 from datetime import date, timedelta
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any
 
 from saq.types import Context
@@ -15,8 +18,9 @@ from saq.types import Context
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from vapi.config.base import BackupSettings
+from vapi.config.base import BackupSettings, settings
 from vapi.domain.services import AWSS3Service
+from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
 from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
@@ -198,8 +202,7 @@ def _parse_dated_keys(keys: list[str]) -> list[tuple[date, str]]:
     """
     dated: list[tuple[date, str]] = []
     for key in keys:
-        filename = key.rsplit("/", 1)[-1]
-        date_str = filename.removesuffix(".dump")
+        date_str = Path(key).stem
         try:
             d = date.fromisoformat(date_str)
         except ValueError:
@@ -317,41 +320,31 @@ _BACKUP_PREFIX = "db_backups"
 async def backup_database(_: Context) -> None:
     """Create a PostgreSQL backup, upload to S3, and prune old backups per retention policy.
 
-    Runs pg_dump in custom format, uploads the dump to S3 under db_backups/,
+    Runs pg_dump in custom format, streams the dump to S3 under db_backups/,
     then applies retention rules to delete expired backups. Each stage is
     isolated so that a failure in pruning does not affect the backup itself.
     """
-    from tempfile import NamedTemporaryFile
-
-    from vapi.config.base import settings
-    from vapi.lib.database import init_tortoise
-    from vapi.utils.time import time_now
-
     if not settings.backup.enabled:
         logger.info("Database backup is disabled, skipping.", extra=_BACKUP_LOG_EXTRA)
         return
 
-    if (
-        not settings.aws.access_key_id
-        or not settings.aws.secret_access_key
-        or not settings.aws.s3_bucket_name
-    ):
+    try:
+        aws_service = AWSS3Service()
+    except MissingConfigurationError:
         logger.warning(
             "AWS credentials not configured, skipping database backup.",
             extra=_BACKUP_LOG_EXTRA,
         )
         return
 
-    await init_tortoise()
-
     logger.info("Starting database backup.", extra=_BACKUP_LOG_EXTRA)
 
     tmp_path: str | None = None
     try:
-        # Dump - open and immediately close to obtain a unique temp path for pg_dump to write to
         with NamedTemporaryFile(suffix=".dump", delete=False) as tmp_file:
             tmp_path = tmp_file.name
 
+        # Inherit the parent environment so pg_dump can find PATH, locale data, and shared libs
         process = await asyncio.create_subprocess_exec(
             "pg_dump",
             "-Fc",
@@ -365,8 +358,8 @@ async def backup_database(_: Context) -> None:
             settings.postgres.database,
             "-f",
             tmp_path,
-            env={"PGPASSWORD": settings.postgres.password},
-            stdout=asyncio.subprocess.PIPE,
+            env={**os.environ, "PGPASSWORD": settings.postgres.password},
+            stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
         _stdout, stderr = await process.communicate()
@@ -385,48 +378,46 @@ async def backup_database(_: Context) -> None:
             extra={**_BACKUP_LOG_EXTRA, "file_size_bytes": file_size},
         )
 
-        # Upload
-        today = time_now().strftime("%Y-%m-%d")
-        s3_key = f"{_BACKUP_PREFIX}/{today}.dump"
-
-        dump_data = await asyncio.to_thread(Path(tmp_path).read_bytes)
+        s3_key = f"{_BACKUP_PREFIX}/{time_now().strftime('%Y-%m-%d')}.dump"
 
         try:
-            aws_service = AWSS3Service()
-            await aws_service.upload_bytes(
+            await aws_service.upload_file(
                 key=s3_key,
-                data=dump_data,
+                file_path=Path(tmp_path),
                 content_type="application/octet-stream",
             )
-            logger.info("Backup uploaded to S3.", extra={**_BACKUP_LOG_EXTRA, "s3_key": s3_key})
-        except Exception:
+        except AWSS3Error:
             logger.exception("Failed to upload backup to S3.", extra=_BACKUP_LOG_EXTRA)
             return
 
-        # Prune
+        logger.info("Backup uploaded to S3.", extra={**_BACKUP_LOG_EXTRA, "s3_key": s3_key})
+
         try:
             all_keys = await aws_service.list_keys(prefix=f"{_BACKUP_PREFIX}/")
-            to_delete = _compute_backups_to_delete(all_keys, settings.backup)
-            for key in to_delete:
-                try:
-                    await aws_service.delete_key(key=key)
-                except Exception:
-                    logger.exception(
-                        "Failed to delete expired backup %s.",
-                        key,
-                        extra=_BACKUP_LOG_EXTRA,
-                    )
+        except AWSS3Error:
+            logger.exception("Failed to list backups during pruning.", extra=_BACKUP_LOG_EXTRA)
+            return
 
-            logger.info(
-                "Backup retention pruning complete.",
-                extra={**_BACKUP_LOG_EXTRA, "num_deleted": len(to_delete)},
-            )
-        except Exception:
-            logger.exception("Failed during backup retention pruning.", extra=_BACKUP_LOG_EXTRA)
+        to_delete = _compute_backups_to_delete(all_keys, settings.backup)
+        results = await asyncio.gather(
+            *(aws_service.delete_key(key=key) for key in to_delete),
+            return_exceptions=True,
+        )
+        for key, result in zip(to_delete, results, strict=True):
+            if isinstance(result, BaseException):
+                logger.exception(
+                    "Failed to delete expired backup %s.",
+                    key,
+                    exc_info=result,
+                    extra=_BACKUP_LOG_EXTRA,
+                )
+
+        logger.info(
+            "Backup retention pruning complete.",
+            extra={**_BACKUP_LOG_EXTRA, "num_deleted": len(to_delete)},
+        )
 
     finally:
         if tmp_path is not None:
-            import contextlib
-
             with contextlib.suppress(OSError):
                 await asyncio.to_thread(Path(tmp_path).unlink, missing_ok=True)

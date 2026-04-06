@@ -13,8 +13,6 @@ _scheduled_tasks: list[CronJob] = [
     ),
 ]
 
-_task_paths = ["vapi.lib.scheduled_tasks.purge_db_expired_items"]
-
 if settings.backup.enabled:
     _scheduled_tasks.append(
         CronJob(
@@ -24,7 +22,6 @@ if settings.backup.enabled:
             timeout=600,
         ),
     )
-    _task_paths.append("vapi.lib.scheduled_tasks.backup_database")
 
 saq_settings = SAQConfig(
     web_enabled=settings.saq.web_enabled,
@@ -34,7 +31,7 @@ saq_settings = SAQConfig(
         QueueConfig(
             dsn=settings.redis.url,
             name="scheduled-tasks",
-            tasks=_task_paths,
+            tasks=[job.function for job in _scheduled_tasks],
             scheduled_tasks=_scheduled_tasks,
         ),
     ],

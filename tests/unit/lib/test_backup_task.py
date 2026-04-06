@@ -76,15 +76,13 @@ class TestBackupDatabaseGuards:
             "vapi.lib.scheduled_tasks.asyncio.create_subprocess_exec",
             return_value=mock_process,
         )
-        mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
-
-        mock_upload = mocker.patch("vapi.lib.scheduled_tasks.AWSS3Service")
+        mock_aws = mocker.patch("vapi.lib.scheduled_tasks.AWSS3Service")
 
         # When running the task
         await backup_database({})
 
-        # Then AWSS3Service was never instantiated for upload
-        mock_upload.return_value.upload_bytes.assert_not_called()
+        # Then upload_file was never called (pg_dump failed first)
+        mock_aws.return_value.upload_file.assert_not_called()
 
         # Cleanup
         settings.backup.enabled = original_enabled
