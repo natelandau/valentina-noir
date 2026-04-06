@@ -228,7 +228,7 @@ class CharacterService:
     ) -> None:
         """Create CharacterTrait rows for a newly created character.
 
-        After bulk creation, syncs derived traits (willpower, total_renown) so
+        After bulk creation, syncs derived traits (total renown) so
         the character's computed stats reflect the newly added traits.
 
         Args:
@@ -259,7 +259,7 @@ class CharacterService:
         if rows:
             await CharacterTrait.bulk_create(rows)
 
-            # Sync derived traits (willpower, total renown) now that all rows exist
+            # Sync derived traits (total renown) now that all rows exist
             from vapi.domain.services.character_trait_svc import CharacterTraitService
 
             trait_svc = CharacterTraitService()
