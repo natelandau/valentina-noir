@@ -67,14 +67,6 @@ class AWSS3Service:
         filename = f"{date}{uuid4().hex}.{extension}"
         return f"{prefix}/{filename}"
 
-    async def _delete_object_from_s3(self, key: str) -> None:
-        """Delete an object from the S3 bucket."""
-        try:
-            await asyncio.to_thread(self.s3.delete_object, Bucket=self.bucket_name, Key=key)
-        except ClientError as e:
-            msg = "Failed to delete object from AWS S3"
-            raise AWSS3Error(detail=msg) from e
-
     def _generate_public_url(self, key: str) -> str:
         """Get the public URL for any object in the S3 bucket by its key."""
         key_for_url = key.replace(self.prefix, "") if settings.aws.cloudfront_origin_path else key
@@ -87,6 +79,62 @@ class AWSS3Service:
         if asset_type is AssetType.DOCUMENT:
             return AWS_ONE_DAY_CACHE_HEADER
         return AWS_ONE_HOUR_CACHE_HEADER
+
+    async def upload_file(self, key: str, file_path: Path, content_type: str) -> None:
+        """Stream a file from disk to the S3 bucket under the given key.
+
+        Use this for large files (e.g., database dumps) so the file is uploaded
+        in chunks via boto3's multipart upload rather than loaded entirely into
+        memory.
+
+        Args:
+            key: The full S3 object key (e.g., "db_backups/2026-04-06.dump").
+            file_path: Path to the file to upload.
+            content_type: MIME type of the file.
+        """
+        try:
+            await asyncio.to_thread(
+                self.s3.upload_file,
+                str(file_path),
+                self.bucket_name,
+                key,
+                ExtraArgs={"ContentType": content_type},
+            )
+        except ClientError as e:
+            msg = "Failed to upload file to AWS S3"
+            raise AWSS3Error(detail=msg) from e
+
+    async def list_keys(self, prefix: str) -> list[str]:
+        """List all object keys under a prefix.
+
+        Args:
+            prefix: The S3 key prefix to list (e.g., "db_backups/").
+
+        Returns:
+            A list of S3 object keys matching the prefix.
+        """
+        try:
+            paginator = self.s3.get_paginator("list_objects_v2")
+            pages = await asyncio.to_thread(
+                lambda: list(paginator.paginate(Bucket=self.bucket_name, Prefix=prefix))
+            )
+        except ClientError as e:
+            msg = "Failed to list objects from AWS S3"
+            raise AWSS3Error(detail=msg) from e
+        else:
+            return [obj["Key"] for page in pages for obj in page.get("Contents", [])]
+
+    async def delete_key(self, key: str) -> None:
+        """Delete a single object from the S3 bucket by key.
+
+        Args:
+            key: The full S3 object key to delete.
+        """
+        try:
+            await asyncio.to_thread(self.s3.delete_object, Bucket=self.bucket_name, Key=key)
+        except ClientError as e:
+            msg = "Failed to delete object from AWS S3"
+            raise AWSS3Error(detail=msg) from e
 
     async def _upload_to_s3(self, asset: S3Asset, data: bytes) -> None:
         """Upload data to the S3 bucket."""
@@ -111,7 +159,7 @@ class AWSS3Service:
 
     async def delete_asset(self, asset: S3Asset) -> None:
         """Delete an asset from S3 and the database."""
-        await self._delete_object_from_s3(key=asset.s3_key)
+        await self.delete_key(key=asset.s3_key)
         await asset.delete()
 
     async def upload_asset(

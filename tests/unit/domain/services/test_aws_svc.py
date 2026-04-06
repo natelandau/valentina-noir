@@ -399,30 +399,142 @@ class TestUploadAsset:
         assert ";" not in asset.original_filename
 
 
-class TestDeleteObjectFromS3:
-    """Test the _delete_object_from_s3 method."""
+class TestUploadFile:
+    """Test the upload_file method."""
 
-    async def test_delete_object_from_s3_success(self, mocker: MockerFixture) -> None:
-        """Verify _delete_object_from_s3 succeeds when S3 returns DeleteMarker True."""
-        # Given: A mocked S3 client that returns DeleteMarker True
+    async def test_upload_file_success(self, mocker: MockerFixture, tmp_path) -> None:
+        """Verify upload_file streams the file via boto3 upload_file with the correct parameters."""
+        # Given: A mocked S3 client and a real file on disk
+        mock_s3_client = mocker.MagicMock()
+        mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
+        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        file_path = tmp_path / "backup.dump"
+        file_path.write_bytes(b"backup data")
+
+        # When: Uploading the file
+        service = AWSS3Service()
+        await service.upload_file(
+            key="db_backups/2026-04-06.dump",
+            file_path=file_path,
+            content_type="application/octet-stream",
+        )
+
+        # Then: upload_file was called with correct parameters
+        mock_s3_client.upload_file.assert_called_once_with(
+            str(file_path),
+            settings.aws.s3_bucket_name,
+            "db_backups/2026-04-06.dump",
+            ExtraArgs={"ContentType": "application/octet-stream"},
+        )
+
+    async def test_upload_file_raises_on_client_error(
+        self, mocker: MockerFixture, tmp_path
+    ) -> None:
+        """Verify upload_file raises AWSS3Error when S3 returns a ClientError."""
+        # Given: A mocked S3 client that raises ClientError
+        mock_s3_client = mocker.MagicMock()
+        mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
+        mock_s3_client.upload_file.side_effect = ClientError(
+            {"Error": {"Code": "500", "Message": "Error"}}, "PutObject"
+        )
+        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        file_path = tmp_path / "backup.dump"
+        file_path.write_bytes(b"backup data")
+
+        # When/Then: Uploading raises AWSS3Error
+        service = AWSS3Service()
+        with pytest.raises(AWSS3Error):
+            await service.upload_file(
+                key="db_backups/2026-04-06.dump",
+                file_path=file_path,
+                content_type="application/octet-stream",
+            )
+
+
+class TestListKeys:
+    """Test the list_keys method."""
+
+    async def test_list_keys_returns_keys(self, mocker: MockerFixture) -> None:
+        """Verify list_keys returns all keys under the given prefix."""
+        # Given: A mocked S3 paginator returning two objects
+        mock_s3_client = mocker.MagicMock()
+        mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
+        mock_paginator = mocker.MagicMock()
+        mock_paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {"Key": "db_backups/2026-04-05.dump"},
+                    {"Key": "db_backups/2026-04-06.dump"},
+                ]
+            }
+        ]
+        mock_s3_client.get_paginator.return_value = mock_paginator
+        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+
+        # When: Listing keys
+        service = AWSS3Service()
+        keys = await service.list_keys(prefix="db_backups/")
+
+        # Then: Both keys are returned
+        assert keys == ["db_backups/2026-04-05.dump", "db_backups/2026-04-06.dump"]
+
+    async def test_list_keys_empty_prefix(self, mocker: MockerFixture) -> None:
+        """Verify list_keys returns an empty list when there are no matching objects."""
+        # Given: A mocked S3 paginator returning an empty page
+        mock_s3_client = mocker.MagicMock()
+        mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
+        mock_paginator = mocker.MagicMock()
+        mock_paginator.paginate.return_value = [{}]
+        mock_s3_client.get_paginator.return_value = mock_paginator
+        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+
+        # When: Listing keys
+        service = AWSS3Service()
+        keys = await service.list_keys(prefix="db_backups/")
+
+        # Then: An empty list is returned
+        assert keys == []
+
+    async def test_list_keys_raises_on_client_error(self, mocker: MockerFixture) -> None:
+        """Verify list_keys raises AWSS3Error when S3 returns a ClientError."""
+        # Given: A mocked S3 paginator that raises ClientError
+        mock_s3_client = mocker.MagicMock()
+        mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
+        mock_paginator = mocker.MagicMock()
+        mock_paginator.paginate.side_effect = ClientError(
+            {"Error": {"Code": "500", "Message": "Error"}}, "ListObjectsV2"
+        )
+        mock_s3_client.get_paginator.return_value = mock_paginator
+        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+
+        # When/Then: Listing raises AWSS3Error
+        service = AWSS3Service()
+        with pytest.raises(AWSS3Error):
+            await service.list_keys(prefix="db_backups/")
+
+
+class TestDeleteKey:
+    """Test the delete_key method."""
+
+    async def test_delete_key_success(self, mocker: MockerFixture) -> None:
+        """Verify delete_key calls delete_object with the correct parameters."""
+        # Given: A mocked S3 client
         mock_s3_client = mocker.MagicMock()
         mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
         mock_s3_client.delete_object.return_value = {"DeleteMarker": True}
         mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
 
-        # When: Deleting an object
+        # When: Deleting a key
         service = AWSS3Service()
-        await service._delete_object_from_s3(key="test-key")
+        await service.delete_key(key="db_backups/2026-04-06.dump")
 
         # Then: delete_object was called with correct parameters
         mock_s3_client.delete_object.assert_called_once_with(
-            Bucket=settings.aws.s3_bucket_name, Key="test-key"
+            Bucket=settings.aws.s3_bucket_name, Key="db_backups/2026-04-06.dump"
         )
 
-    async def test_delete_object_from_s3_raises_on_client_error(
-        self, mocker: MockerFixture
-    ) -> None:
-        """Verify _delete_object_from_s3 raises AWSS3Error on ClientError."""
+    async def test_delete_key_raises_on_client_error(self, mocker: MockerFixture) -> None:
+        """Verify delete_key raises AWSS3Error when S3 returns a ClientError."""
         # Given: A mocked S3 client that raises ClientError
         mock_s3_client = mocker.MagicMock()
         mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
@@ -433,8 +545,8 @@ class TestDeleteObjectFromS3:
 
         # When/Then: Deleting raises AWSS3Error
         service = AWSS3Service()
-        with pytest.raises(AWSS3Error, match="Failed to delete object from AWS S3"):
-            await service._delete_object_from_s3(key="test-key")
+        with pytest.raises(AWSS3Error):
+            await service.delete_key(key="db_backups/2026-04-06.dump")
 
 
 class TestDeleteAsset:
@@ -454,7 +566,7 @@ class TestDeleteAsset:
         asset = await s3asset_factory(company=company, uploaded_by=user)
 
         # Patch the S3 deletion
-        mocker.patch.object(AWSS3Service, "_delete_object_from_s3")
+        mocker.patch.object(AWSS3Service, "delete_key")
 
         # When: Deleting the asset
         service = AWSS3Service()
@@ -479,7 +591,7 @@ class TestDeleteAsset:
         # Patch the S3 deletion to raise an error
         mocker.patch.object(
             AWSS3Service,
-            "_delete_object_from_s3",
+            "delete_key",
             side_effect=AWSS3Error(detail="S3 deletion failed"),
         )
 

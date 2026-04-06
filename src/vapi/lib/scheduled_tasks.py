@@ -4,12 +4,23 @@ This module contains the tasks for the SAQ plugin which are run at scheduled int
 mind that the tasks are run in a separate process from the main application.
 """
 
+import asyncio
+import contextlib
 import logging
-from datetime import timedelta
+import os
+from datetime import date, timedelta
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING, Any
 
 from saq.types import Context
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+from vapi.config.base import BackupSettings, settings
 from vapi.domain.services import AWSS3Service
+from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
 from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
@@ -180,6 +191,103 @@ async def _purge_temporary_characters() -> None:
         )
 
 
+def _parse_dated_keys(keys: list[str]) -> list[tuple[date, str]]:
+    """Parse S3 keys into (date, key) pairs, silently skipping unparsable keys.
+
+    Args:
+        keys: S3 object keys in the form ``prefix/YYYY-MM-DD.dump``.
+
+    Returns:
+        Parsed pairs sorted newest-first.
+    """
+    dated: list[tuple[date, str]] = []
+    for key in keys:
+        date_str = Path(key).stem
+        try:
+            d = date.fromisoformat(date_str)
+        except ValueError:
+            continue
+        dated.append((d, key))
+
+    dated.sort(key=lambda x: x[0], reverse=True)
+    return dated
+
+
+def _keep_oldest_per_bucket(
+    dated: list[tuple[date, str]],
+    bucket_fn: "Callable[[date], Any]",
+    retain: int,
+) -> set[str]:
+    """Keep the oldest backup from each of the N most recent buckets.
+
+    Args:
+        dated: (date, key) pairs sorted newest-first.
+        bucket_fn: Maps a date to a hashable bucket identifier.
+        retain: Number of most-recent buckets to keep.
+
+    Returns:
+        Keys that should be retained.
+    """
+    buckets: dict[Any, list[tuple[Any, str]]] = {}
+    for d, key in dated:
+        buckets.setdefault(bucket_fn(d), []).append((d, key))
+
+    kept: set[str] = set()
+    for bucket in sorted(buckets.keys(), reverse=True)[:retain]:
+        oldest = min(buckets[bucket], key=lambda x: x[0])
+        kept.add(oldest[1])
+    return kept
+
+
+def _compute_backups_to_delete(keys: list[str], backup_settings: BackupSettings) -> list[str]:
+    """Determine which backup keys to delete based on retention policy.
+
+    Each key is expected to match the pattern ``db_backups/YYYY-MM-DD.dump``.
+    Keys that do not match are silently ignored (never returned for deletion).
+
+    Args:
+        keys: S3 object keys to evaluate.
+        backup_settings: Retention configuration.
+
+    Returns:
+        Keys that should be deleted.
+    """
+    dated = _parse_dated_keys(keys)
+    if not dated:
+        return []
+
+    keep: set[str] = set()
+
+    # Daily: keep the most recent N
+    keep.update(key for _, key in dated[: backup_settings.retain_daily])
+
+    # Weekly: oldest backup from each of the N most recent ISO weeks
+    if backup_settings.retain_weekly > 0:
+        keep |= _keep_oldest_per_bucket(
+            dated,
+            lambda d: (d.isocalendar()[0], d.isocalendar()[1]),
+            backup_settings.retain_weekly,
+        )
+
+    # Monthly: oldest backup from each of the N most recent months
+    if backup_settings.retain_monthly > 0:
+        keep |= _keep_oldest_per_bucket(
+            dated,
+            lambda d: (d.year, d.month),
+            backup_settings.retain_monthly,
+        )
+
+    # Yearly: oldest backup from each of the N most recent years
+    if backup_settings.retain_yearly > 0:
+        keep |= _keep_oldest_per_bucket(
+            dated,
+            lambda d: d.year,
+            backup_settings.retain_yearly,
+        )
+
+    return [key for _, key in dated if key not in keep]
+
+
 async def purge_db_expired_items(_: Context) -> None:
     """Purge expired and archived data across all database models, S3 assets, and sessions.
 
@@ -203,3 +311,113 @@ async def purge_db_expired_items(_: Context) -> None:
         "Database cleanup completed.",
         extra=_LOG_EXTRA,
     )
+
+
+_BACKUP_LOG_EXTRA = {"component": "saq", "task": "backup_database"}
+_BACKUP_PREFIX = "db_backups"
+
+
+async def backup_database(_: Context) -> None:
+    """Create a PostgreSQL backup, upload to S3, and prune old backups per retention policy.
+
+    Runs pg_dump in custom format, streams the dump to S3 under db_backups/,
+    then applies retention rules to delete expired backups. Each stage is
+    isolated so that a failure in pruning does not affect the backup itself.
+    """
+    if not settings.backup.enabled:
+        logger.info("Database backup is disabled, skipping.", extra=_BACKUP_LOG_EXTRA)
+        return
+
+    try:
+        aws_service = AWSS3Service()
+    except MissingConfigurationError:
+        logger.warning(
+            "AWS credentials not configured, skipping database backup.",
+            extra=_BACKUP_LOG_EXTRA,
+        )
+        return
+
+    logger.info("Starting database backup.", extra=_BACKUP_LOG_EXTRA)
+
+    tmp_path: str | None = None
+    try:
+        with NamedTemporaryFile(suffix=".dump", delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+
+        # Inherit the parent environment so pg_dump can find PATH, locale data, and shared libs
+        process = await asyncio.create_subprocess_exec(
+            "pg_dump",
+            "-Fc",
+            "-h",
+            settings.postgres.host,
+            "-p",
+            str(settings.postgres.port),
+            "-U",
+            settings.postgres.user,
+            "-d",
+            settings.postgres.database,
+            "-f",
+            tmp_path,
+            env={**os.environ, "PGPASSWORD": settings.postgres.password},
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            logger.error(
+                "pg_dump failed: %s",
+                stderr.decode().strip(),
+                extra=_BACKUP_LOG_EXTRA,
+            )
+            return
+
+        file_size = await asyncio.to_thread(lambda: Path(tmp_path).stat().st_size)
+        logger.info(
+            "Database dump complete.",
+            extra={**_BACKUP_LOG_EXTRA, "file_size_bytes": file_size},
+        )
+
+        s3_key = f"{_BACKUP_PREFIX}/{time_now().strftime('%Y-%m-%d')}.dump"
+
+        try:
+            await aws_service.upload_file(
+                key=s3_key,
+                file_path=Path(tmp_path),
+                content_type="application/octet-stream",
+            )
+        except AWSS3Error:
+            logger.exception("Failed to upload backup to S3.", extra=_BACKUP_LOG_EXTRA)
+            return
+
+        logger.info("Backup uploaded to S3.", extra={**_BACKUP_LOG_EXTRA, "s3_key": s3_key})
+
+        try:
+            all_keys = await aws_service.list_keys(prefix=f"{_BACKUP_PREFIX}/")
+        except AWSS3Error:
+            logger.exception("Failed to list backups during pruning.", extra=_BACKUP_LOG_EXTRA)
+            return
+
+        to_delete = _compute_backups_to_delete(all_keys, settings.backup)
+        results = await asyncio.gather(
+            *(aws_service.delete_key(key=key) for key in to_delete),
+            return_exceptions=True,
+        )
+        for key, result in zip(to_delete, results, strict=True):
+            if isinstance(result, BaseException):
+                logger.exception(
+                    "Failed to delete expired backup %s.",
+                    key,
+                    exc_info=result,
+                    extra=_BACKUP_LOG_EXTRA,
+                )
+
+        logger.info(
+            "Backup retention pruning complete.",
+            extra={**_BACKUP_LOG_EXTRA, "num_deleted": len(to_delete)},
+        )
+
+    finally:
+        if tmp_path is not None:
+            with contextlib.suppress(OSError):
+                await asyncio.to_thread(Path(tmp_path).unlink, missing_ok=True)
