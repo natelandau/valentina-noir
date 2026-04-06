@@ -149,7 +149,7 @@
     VAPI_AWS__SECRET_ACCESS_KEY        = "MOCK_SECRET_ACCESS_KEY"
     VAPI_CORS__ENABLED                 = "false"
     VAPI_DEBUG                         = "true"
-    VAPI_DOCKER_BOOTSTRAP              = "false"
+    VAPI_DOCKER_SEED                   = "false"
     VAPI_LOG__ASGI_SERVER_LEVEL        = "WARNING"
     VAPI_LOG__FILE_PATH                = ""
     VAPI_LOG__LEVEL                    = "WARNING"

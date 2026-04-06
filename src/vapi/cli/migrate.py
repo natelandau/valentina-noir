@@ -15,8 +15,44 @@ logger = logging.getLogger("vapi")
 
 
 async def _apply_migrations() -> None:
-    """Apply all pending migrations."""
-    await tortoise_migrate(config=tortoise_config())
+    """Apply all pending migrations.
+
+    Use ``generate_schemas`` for initial setup because Tortoise ORM's migration
+    ``CreateModel`` operation silently drops foreign-key columns. Once the
+    schema exists, subsequent migrations work correctly.
+    """
+    from tortoise import Tortoise
+
+    config = tortoise_config()
+    await Tortoise.init(config=config)
+
+    conn = Tortoise.get_connection("default")
+    try:
+        _, rows = await conn.execute_query(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'trait')"
+        )
+        tables_exist = rows[0]["exists"]
+    except Exception:  # noqa: BLE001
+        tables_exist = False
+
+    if not tables_exist:
+        await Tortoise.generate_schemas()
+        # Record the initial migration so future migrations know it was applied
+        await conn.execute_script(
+            "CREATE TABLE IF NOT EXISTS tortoise_migrations ("
+            "  id SERIAL PRIMARY KEY,"
+            "  app VARCHAR(100) NOT NULL,"
+            "  name VARCHAR(255) NOT NULL,"
+            "  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ");"
+            "INSERT INTO tortoise_migrations (app, name) VALUES ('models', '0001_initial');"
+        )
+    else:
+        await Tortoise.close_connections()
+        await tortoise_migrate(config=config)
+        return
+
+    await Tortoise.close_connections()
 
 
 @click.command(
