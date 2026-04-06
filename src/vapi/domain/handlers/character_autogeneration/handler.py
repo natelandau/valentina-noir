@@ -260,12 +260,11 @@ class CharacterAutogenerationHandler:
             return
 
         willpower_trait = await Trait.filter(name="Willpower").first()
-        character_trait = await CharacterTrait.create(
+        await CharacterTrait.create(
             value=random.randint(3, 7),
             character=character,
             trait=willpower_trait,
         )
-        await self.character_trait_service.after_save(character_trait, character)
 
     async def _generate_humanity_value(self, character: Character) -> None:
         """Randomly generate humanity value for the character.

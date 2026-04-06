@@ -256,9 +256,8 @@ The `value-options` endpoint reflects this reversal: increase options for flaws 
 
 ## Derived Traits
 
-Certain traits are automatically recalculated when their source traits change. Examples:
+Certain traits are automatically recalculated when their source traits change:
 
-- **Willpower** - Computed as `Composure + Resolve`. Updated whenever either source trait changes. If the Willpower trait doesn't exist on the character, the system creates it.
 - **Total Renown** (werewolves only) - Computed as `Honor + Wisdom + Glory`. Stored on the character's werewolf attributes.
 
 ## Deleting Traits

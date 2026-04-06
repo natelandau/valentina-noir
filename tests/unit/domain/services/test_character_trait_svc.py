@@ -1250,88 +1250,6 @@ class TestNonCountBasedCostRegression:
         assert savings == 10  # (3x2) + (2x2) = 6 + 4
 
 
-class TestUpdateCharacterWillpower:
-    """Test the update_character_willpower method."""
-
-    async def test_update_willpower_skips_non_composure_resolve(
-        self,
-        character_factory,
-        character_trait_factory,
-    ) -> None:
-        """Verify method returns early for traits that are not Composure or Resolve."""
-        # Given a character with a non-Composure/Resolve trait
-        character = await character_factory(character_class="MORTAL")
-
-        trait = (
-            await Trait.filter(
-                is_archived=False,
-            )
-            .exclude(name__in=["Composure", "Resolve", "Willpower", "Courage"])
-            .first()
-        )
-        _ = await character_trait_factory(character=character, trait=trait, value=3)
-        service = CharacterTraitService()
-
-        # When we call update_character_willpower
-        # Then no error should be raised (method returns early)
-        await service.update_character_willpower(character)
-
-    async def test_update_willpower_creates_willpower_trait(
-        self,
-        character_factory,
-        character_trait_factory,
-    ) -> None:
-        """Verify willpower trait is created when Composure or Resolve is saved."""
-        # Given a character with a Courage trait
-        character = await character_factory(character_class="MORTAL")
-
-        composure_trait = await Trait.filter(name="Courage").first()
-        _ = await character_trait_factory(character=character, trait=composure_trait, value=3)
-        service = CharacterTraitService()
-
-        # When we call update_character_willpower
-        await service.update_character_willpower(character)
-
-        # Then a willpower trait should be created
-        willpower = (
-            await CharacterTrait.filter(character_id=character.id)
-            .select_related("trait")
-            .filter(trait__name="Willpower")
-            .first()
-        )
-        assert willpower is not None
-        assert willpower.value == 3
-
-    async def test_update_willpower_sums_composure_and_resolve(
-        self,
-        character_factory,
-        character_trait_factory,
-    ) -> None:
-        """Verify willpower equals Composure + Resolve."""
-        # Given a character with both Composure and Resolve traits
-        character = await character_factory(character_class="MORTAL")
-
-        composure_trait = await Trait.filter(name="Composure").first()
-        resolve_trait = await Trait.filter(name="Resolve").first()
-
-        await character_trait_factory(character=character, trait=composure_trait, value=3)
-        _ = await character_trait_factory(character=character, trait=resolve_trait, value=2)
-        service = CharacterTraitService()
-
-        # When we call update_character_willpower on the character
-        await service.update_character_willpower(character)
-
-        # Then willpower should equal Composure + Resolve
-        willpower = (
-            await CharacterTrait.filter(character_id=character.id)
-            .select_related("trait")
-            .filter(trait__name="Willpower")
-            .first()
-        )
-        assert willpower is not None
-        assert willpower.value == 5  # 3 + 2
-
-
 class TestUpdateWerewolfTotalRenown:
     """Test the update_werewolf_total_renown method."""
 
@@ -1418,13 +1336,13 @@ class TestUpdateWerewolfTotalRenown:
 class TestAfterSave:
     """Test the after_save orchestration method."""
 
-    async def test_after_save_calls_willpower_and_renown(
+    async def test_after_save_calls_renown(
         self,
         character_factory,
         character_trait_factory,
         mocker: Any,
     ) -> None:
-        """Verify after_save calls both update methods."""
+        """Verify after_save calls update_werewolf_total_renown."""
         # Given a character with a trait
         character = await character_factory(character_class="MORTAL")
 
@@ -1432,15 +1350,13 @@ class TestAfterSave:
         character_trait = await character_trait_factory(character=character, trait=trait, value=1)
         service = CharacterTraitService()
 
-        # When we spy on the service methods
-        spy_willpower = mocker.spy(service, "update_character_willpower")
+        # When we spy on the renown update method
         spy_renown = mocker.spy(service, "update_werewolf_total_renown")
 
         # And call after_save
         await service.after_save(character_trait, character)
 
-        # Then both update methods should be called with the character
-        spy_willpower.assert_called_once_with(character)
+        # Then the renown update should be called with the character
         spy_renown.assert_called_once_with(character)
 
 
