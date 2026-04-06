@@ -5,10 +5,15 @@ mind that the tasks are run in a separate process from the main application.
 """
 
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
+from typing import TYPE_CHECKING, Any
 
 from saq.types import Context
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+from vapi.config.base import BackupSettings
 from vapi.domain.services import AWSS3Service
 from vapi.utils.time import time_now
 
@@ -178,6 +183,104 @@ async def _purge_temporary_characters() -> None:
             "Failed to purge temporary Characters.",
             extra=_LOG_EXTRA,
         )
+
+
+def _parse_dated_keys(keys: list[str]) -> list[tuple[date, str]]:
+    """Parse S3 keys into (date, key) pairs, silently skipping unparsable keys.
+
+    Args:
+        keys: S3 object keys in the form ``prefix/YYYY-MM-DD.dump``.
+
+    Returns:
+        Parsed pairs sorted newest-first.
+    """
+    dated: list[tuple[date, str]] = []
+    for key in keys:
+        filename = key.rsplit("/", 1)[-1]
+        date_str = filename.removesuffix(".dump")
+        try:
+            d = date.fromisoformat(date_str)
+        except ValueError:
+            continue
+        dated.append((d, key))
+
+    dated.sort(key=lambda x: x[0], reverse=True)
+    return dated
+
+
+def _keep_oldest_per_bucket(
+    dated: list[tuple[date, str]],
+    bucket_fn: "Callable[[date], Any]",
+    retain: int,
+) -> set[str]:
+    """Keep the oldest backup from each of the N most recent buckets.
+
+    Args:
+        dated: (date, key) pairs sorted newest-first.
+        bucket_fn: Maps a date to a hashable bucket identifier.
+        retain: Number of most-recent buckets to keep.
+
+    Returns:
+        Keys that should be retained.
+    """
+    buckets: dict[Any, list[tuple[Any, str]]] = {}
+    for d, key in dated:
+        buckets.setdefault(bucket_fn(d), []).append((d, key))
+
+    kept: set[str] = set()
+    for bucket in sorted(buckets.keys(), reverse=True)[:retain]:
+        oldest = min(buckets[bucket], key=lambda x: x[0])
+        kept.add(oldest[1])
+    return kept
+
+
+def _compute_backups_to_delete(keys: list[str], backup_settings: BackupSettings) -> list[str]:
+    """Determine which backup keys to delete based on retention policy.
+
+    Each key is expected to match the pattern ``db_backups/YYYY-MM-DD.dump``.
+    Keys that do not match are silently ignored (never returned for deletion).
+
+    Args:
+        keys: S3 object keys to evaluate.
+        backup_settings: Retention configuration.
+
+    Returns:
+        Keys that should be deleted.
+    """
+    dated = _parse_dated_keys(keys)
+    if not dated:
+        return []
+
+    keep: set[str] = set()
+
+    # Daily: keep the most recent N
+    keep.update(key for _, key in dated[: backup_settings.retain_daily])
+
+    # Weekly: oldest backup from each of the N most recent ISO weeks
+    if backup_settings.retain_weekly > 0:
+        keep |= _keep_oldest_per_bucket(
+            dated,
+            lambda d: (d.isocalendar()[0], d.isocalendar()[1]),
+            backup_settings.retain_weekly,
+        )
+
+    # Monthly: oldest backup from each of the N most recent months
+    if backup_settings.retain_monthly > 0:
+        keep |= _keep_oldest_per_bucket(
+            dated,
+            lambda d: (d.year, d.month),
+            backup_settings.retain_monthly,
+        )
+
+    # Yearly: oldest backup from each of the N most recent years
+    if backup_settings.retain_yearly > 0:
+        keep |= _keep_oldest_per_bucket(
+            dated,
+            lambda d: d.year,
+            backup_settings.retain_yearly,
+        )
+
+    return [key for _, key in dated if key not in keep]
 
 
 async def purge_db_expired_items(_: Context) -> None:
