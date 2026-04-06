@@ -42,8 +42,6 @@ if TYPE_CHECKING:
     from vapi.db.sql_models.user import User
 
 # Derived-trait sync constants
-WILLPOWER_COMPONENTS = frozenset({"Composure", "Resolve", "Courage"})
-WILLPOWER_TRAIT = "Willpower"
 RENOWN_COMPONENTS = frozenset({"Honor", "Wisdom", "Glory"})
 
 
@@ -488,56 +486,6 @@ class CharacterTraitService:
 
         return savings
 
-    async def update_character_willpower(self, character: Character) -> None:
-        """Update character willpower based on Composure + Resolve (or Courage alone).
-
-        Args:
-            character: The character whose willpower should be recalculated.
-        """
-        # Sum the willpower component traits for this character
-        component_traits = await CharacterTrait.filter(
-            character_id=character.id,
-            trait__name__in=list(WILLPOWER_COMPONENTS),
-        ).select_related("trait")
-
-        if not component_traits:
-            return
-
-        # Determine which components are present
-        trait_map = {ct.trait.name: ct.value for ct in component_traits}
-
-        # Courage-based willpower (e.g., WtA)
-        if "Courage" in trait_map:
-            total_willpower_value = trait_map["Courage"]
-        # Composure + Resolve based willpower (e.g., VtM 5e)
-        elif "Composure" in trait_map or "Resolve" in trait_map:
-            total_willpower_value = trait_map.get("Composure", 0) + trait_map.get("Resolve", 0)
-        else:
-            return
-
-        character_willpower = (
-            await CharacterTrait.filter(
-                character_id=character.id,
-                trait__name=WILLPOWER_TRAIT,
-            )
-            .select_related("trait")
-            .first()
-        )
-
-        if character_willpower:
-            character_willpower.value = int(total_willpower_value)
-            await character_willpower.save(update_fields=["value", "date_modified"])
-        else:
-            willpower_trait = await Trait.filter(name=WILLPOWER_TRAIT, is_archived=False).first()
-            if willpower_trait is None:
-                return
-            character_willpower = await CharacterTrait.create(
-                character=character,
-                trait=willpower_trait,
-                value=int(total_willpower_value),
-            )
-            await self.after_save(character_willpower, character)
-
     async def update_werewolf_total_renown(self, character: Character) -> None:
         """Update werewolf total renown based on Honor + Wisdom + Glory.
 
@@ -568,10 +516,7 @@ class CharacterTraitService:
             character_trait: The trait that was saved.
             character: The character that owns the trait.
         """
-        await asyncio.gather(
-            self.update_character_willpower(character),
-            self.update_werewolf_total_renown(character),
-        )
+        await self.update_werewolf_total_renown(character)
 
     async def _refetch_character_trait(self, character_trait_id: UUID) -> CharacterTrait:
         """Refetch a CharacterTrait with all relations prefetched for response serialization.
