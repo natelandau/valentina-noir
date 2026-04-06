@@ -8,7 +8,7 @@ import pytest
 
 from vapi.cli.lib.comparison import JSONWithCommentsDecoder
 from vapi.cli.lib.sync_counts import SyncCounts
-from vapi.cli.lib.trait_syncer import TraitSyncResult
+from vapi.cli.lib.trait_syncer import TraitSyncResult, _validate_trait_value_ranges
 
 pytestmark = pytest.mark.anyio
 
@@ -141,3 +141,147 @@ class TestJSONWithCommentsDecoder:
 
         # Then: Strings should be preserved
         assert result["url"] == "http://example.com/path"
+
+
+class TestValidateTraitValueRanges:
+    """Tests for _validate_trait_value_ranges."""
+
+    def test_valid_traits_no_error(self) -> None:
+        """Verify no error when all traits have valid min/max ranges."""
+        # Given: Fixture data with correctly ordered values
+        fixture_data = [
+            {
+                "name": "Section",
+                "categories": [
+                    {
+                        "name": "Cat",
+                        "traits": [
+                            {"name": "Trait A", "min_value": 0, "max_value": 5},
+                            {"name": "Trait B", "min_value": 1, "max_value": 3},
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        # When/Then: No exception raised
+        _validate_trait_value_ranges(fixture_data)
+
+    def test_inverted_category_trait_raises(self) -> None:
+        """Verify error when a category-level trait has inverted min/max."""
+        # Given: A category trait with min > max
+        fixture_data = [
+            {
+                "name": "Section",
+                "categories": [
+                    {
+                        "name": "Cat",
+                        "traits": [
+                            {"name": "Bad Trait", "min_value": 5, "max_value": 1},
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        # When/Then: ValueError is raised mentioning the trait
+        with pytest.raises(ValueError, match="Bad Trait"):
+            _validate_trait_value_ranges(fixture_data)
+
+    def test_inverted_subcategory_trait_raises(self) -> None:
+        """Verify error when a subcategory-level trait has inverted min/max."""
+        # Given: A subcategory trait with min > max
+        fixture_data = [
+            {
+                "name": "Section",
+                "categories": [
+                    {
+                        "name": "Cat",
+                        "traits": [],
+                        "subcategories": [
+                            {
+                                "name": "Subcat",
+                                "traits": [
+                                    {"name": "Sub Trait", "min_value": 10, "max_value": 2},
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        # When/Then: ValueError is raised mentioning the trait
+        with pytest.raises(ValueError, match="Sub Trait"):
+            _validate_trait_value_ranges(fixture_data)
+
+    def test_multiple_violations_reported(self) -> None:
+        """Verify all inverted traits are listed in the error message."""
+        # Given: Multiple traits with inverted values across levels
+        fixture_data = [
+            {
+                "name": "Section",
+                "categories": [
+                    {
+                        "name": "Cat",
+                        "traits": [
+                            {"name": "Bad One", "min_value": 5, "max_value": 1},
+                        ],
+                        "subcategories": [
+                            {
+                                "name": "Subcat",
+                                "traits": [
+                                    {"name": "Bad Two", "min_value": 8, "max_value": 3},
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        # When/Then: Both violations appear in the error
+        with pytest.raises(ValueError, match=r"(?s)Bad One.*Bad Two"):
+            _validate_trait_value_ranges(fixture_data)
+
+    def test_defaults_used_when_values_absent(self) -> None:
+        """Verify traits without explicit min/max use defaults (0 and 5) and pass."""
+        # Given: Traits with no min_value or max_value specified
+        fixture_data = [
+            {
+                "name": "Section",
+                "categories": [
+                    {
+                        "name": "Cat",
+                        "traits": [{"name": "Default Trait"}],
+                    }
+                ],
+            }
+        ]
+
+        # When/Then: No exception since defaults are min=0, max=5
+        _validate_trait_value_ranges(fixture_data)
+
+    def test_equal_min_max_passes(self) -> None:
+        """Verify a trait with equal min and max values is valid."""
+        # Given: A trait where min equals max
+        fixture_data = [
+            {
+                "name": "Section",
+                "categories": [
+                    {
+                        "name": "Cat",
+                        "traits": [{"name": "Fixed Trait", "min_value": 3, "max_value": 3}],
+                    }
+                ],
+            }
+        ]
+
+        # When/Then: No exception raised
+        _validate_trait_value_ranges(fixture_data)
+
+    def test_empty_fixture_passes(self) -> None:
+        """Verify empty fixture data raises no error."""
+        # Given: Empty fixture data
+        # When/Then: No exception raised
+        _validate_trait_value_ranges([])

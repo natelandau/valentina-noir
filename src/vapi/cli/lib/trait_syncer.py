@@ -48,6 +48,8 @@ class TraitSyncer:
         with fixture_path.open("r") as f:
             fixture_data: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
+        _validate_trait_value_ranges(fixture_data)
+
         # Pre-build gift_fixture_map before sync mutates fixture dicts via .pop()
         self.gift_fixture_map = _build_gift_fixture_map(fixture_data)
 
@@ -325,6 +327,42 @@ class TraitSyncer:
                     "command": "seed",
                 },
             )
+
+
+def _validate_trait_value_ranges(fixture_data: list[dict[str, Any]]) -> None:
+    """Validate that no trait has min_value greater than max_value.
+
+    Checks traits at both category and subcategory levels. Raises on the first
+    batch of violations so fixture errors are caught before any database writes.
+
+    Args:
+        fixture_data: The parsed traits.json data.
+
+    Raises:
+        ValueError: If any traits have inverted min/max values.
+    """
+    violations: list[str] = []
+    for section in fixture_data:
+        for category in section.get("categories", []):
+            for trait in category.get("traits", []):
+                min_val = trait.get("min_value", 0)
+                max_val = trait.get("max_value", 5)
+                if min_val > max_val:
+                    violations.append(
+                        f"  {trait['name']}: min_value={min_val}, max_value={max_val}"
+                    )
+            for subcategory in category.get("subcategories", []):
+                for trait in subcategory.get("traits", []):
+                    min_val = trait.get("min_value", 0)
+                    max_val = trait.get("max_value", 5)
+                    if min_val > max_val:
+                        violations.append(
+                            f"  {trait['name']}: min_value={min_val}, max_value={max_val}"
+                        )
+
+    if violations:
+        msg = "traits.json has traits where min_value > max_value:\n" + "\n".join(violations)
+        raise ValueError(msg)
 
 
 def _build_gift_fixture_map(
