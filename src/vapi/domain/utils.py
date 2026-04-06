@@ -7,34 +7,6 @@ from vapi.db.sql_models.character_sheet import Trait
 from vapi.lib.exceptions import ValidationError
 
 
-async def resolve_trait_id_from_mixed_source(trait_id: UUID) -> UUID:
-    """Resolve a trait ID from either a trait ID or character trait ID.
-
-    Accept either a trait UUID or a character trait UUID and return
-    the corresponding trait UUID. If the input is already a trait ID, return
-    the same ID. If it's a character trait ID, return the associated trait ID.
-
-    Args:
-        trait_id: The trait or character trait UUID to resolve.
-
-    Returns:
-        The resolved trait UUID.
-
-    Raises:
-        ValueError: If the ID matches neither a Trait nor a CharacterTrait.
-    """
-    trait = await Trait.get_or_none(id=trait_id)
-    if trait:
-        return trait.id
-
-    character_trait = await CharacterTrait.get_or_none(id=trait_id).select_related("trait")
-    if character_trait:
-        return character_trait.trait.id
-
-    msg = "Invalid trait ID"
-    raise ValueError(msg)
-
-
 async def validate_trait_ids_from_mixed_sources(
     trait_ids: list[UUID],
 ) -> list[UUID]:

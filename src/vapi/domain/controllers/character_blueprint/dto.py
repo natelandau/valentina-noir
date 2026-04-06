@@ -58,8 +58,8 @@ class TraitCategoryResponse(msgspec.Struct):
     game_versions: list[str]
     show_when_empty: bool
     order: int
-    parent_sheet_section_id: UUID
-    parent_sheet_section_name: str | None
+    sheet_section_id: UUID
+    sheet_section_name: str | None
     initial_cost: int
     upgrade_cost: int
     count_based_cost_multiplier: int | None
@@ -80,8 +80,8 @@ class TraitCategoryResponse(msgspec.Struct):
             game_versions=m.game_versions or [],
             show_when_empty=m.show_when_empty,
             order=m.order,
-            parent_sheet_section_id=m.sheet_section.id,
-            parent_sheet_section_name=m.sheet_section_name,
+            sheet_section_id=m.sheet_section.id,
+            sheet_section_name=m.sheet_section_name,
             initial_cost=m.initial_cost,
             upgrade_cost=m.upgrade_cost,
             count_based_cost_multiplier=m.count_based_cost_multiplier,
