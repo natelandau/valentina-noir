@@ -84,7 +84,7 @@
     branch       = true
     command_line = "--module pytest"
     data_file    = ".cache/coverage"
-    omit         = ["tests/*"]
+    omit         = ["src/vapi/db/migrations/*", "tests/*"]
     source       = ["src"]
 
 [tool.coverage.xml]
@@ -109,7 +109,7 @@
     disallow_subclassing_any    = false
     disallow_untyped_decorators = false
     disallow_untyped_defs       = true
-    exclude                     = ['duties.py', 'tests/', 'src/vapi/db/migrations/']
+    exclude                     = ['duties.py', 'src/vapi/db/migrations/', 'tests/']
     follow_imports              = "normal"
     ignore_missing_imports      = true
     junit_xml                   = ".cache/mypy.xml"
