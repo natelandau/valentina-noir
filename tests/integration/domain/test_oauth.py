@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote_plus
 
 import pytest
 from httpx_oauth.oauth2 import OAuth2Token
 from litestar.status_codes import HTTP_200_OK, HTTP_302_FOUND
+from tortoise import Tortoise
 
 from vapi.config.base import settings
-from vapi.db.models.user import User
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from httpx import AsyncClient
     from pytest_mock import MockerFixture
+
+    from vapi.db.sql_models.user import User
 
 
 pytestmark = pytest.mark.anyio
@@ -25,21 +28,21 @@ encoded_url = quote_plus(settings.server.url)
 
 
 @pytest.fixture
-async def base_url(base_user) -> str:
-    """Create a base URL for the campaign book."""
-    return f"/oauth/discord/{base_user.id}/"
+async def base_url(session_user: User) -> str:
+    """Create a base URL for the OAuth endpoints."""
+    return f"/oauth/discord/{session_user.id}/"
 
 
 async def test_discord_login_url(
     client: AsyncClient,
-    base_user: User,
+    session_user: User,
     base_url: str,
     debug: Callable[[Any], None],
     mocker: MockerFixture,
 ) -> None:
     """Verify Discord login URL generation returns correct authorization URL."""
     # Given: Expected state parameter for the user
-    mock_state = f"%257B%2522user_id%2522%253A%2B%2522{base_user.id!s}%2522%257D"
+    mock_state = f"%257B%2522user_id%2522%253A%2B%2522{session_user.id!s}%2522%257D"
 
     # Optional: mock client to avoid relying on httpx_oauth URL builder
     mock_client = mocker.AsyncMock()
@@ -66,13 +69,13 @@ async def test_discord_login_url(
 
 async def test_discord_login_redirect(
     client: AsyncClient,
-    base_user: User,
+    session_user: User,
     base_url: str,
     debug: Callable[[Any], None],
     mocker: MockerFixture,
 ) -> None:
     """Verify Discord login redirect returns proper redirect response to authorization URL."""
-    mock_state = f"%257B%2522user_id%2522%253A%2B%2522{base_user.id!s}%2522%257D"
+    mock_state = f"%257B%2522user_id%2522%253A%2B%2522{session_user.id!s}%2522%257D"
 
     mock_client = mocker.AsyncMock()
     expected_url = (
@@ -96,12 +99,12 @@ async def test_discord_login_redirect(
 
 async def test_discord_callback(
     client: AsyncClient,
-    base_user: User,
+    session_user: User,
     mocker: MockerFixture,
     debug: Callable[[Any], None],
 ) -> None:
     """Verify Discord OAuth callback processes authorization code and updates user profile."""
-    mock_state = f"%7B%22user_id%22%3A+%22{base_user.id!s}%22%7D"
+    mock_state = f"%7B%22user_id%22%3A+%22{session_user.id!s}%22%7D"
     mock_access_token = "ABCDEFGHIJKLMNOPQRSTUVWXYZ.4sUwuslA4j5ozuDegMyp66jT5ZnjQx"  # noqa: S105
     mock_refresh_token = "ABCDEFGHIJKLMNOPQRSTUVWXYZxUZaQHRABCDEFGsraUP8ZA0w012345s"  # noqa: S105
     mock_token = OAuth2Token(
@@ -157,31 +160,43 @@ async def test_discord_callback(
 
     assert response.status_code == HTTP_200_OK
     assert response.json()["success"] is True
-    await base_user.sync()
-    assert base_user.discord_oauth.access_token == mock_access_token
-    assert base_user.discord_oauth.refresh_token == mock_refresh_token
-    assert base_user.discord_oauth.expires_in == 604800
-    assert base_user.discord_oauth.expires_at == 1761136794
-    assert base_user.discord_profile.id == "123456789010111213"  # gitleaks:allow
-    assert base_user.discord_profile.username == "someusername"
-    assert base_user.discord_profile.global_name == "someusername"
-    assert base_user.discord_profile.avatar_id == "12345678901012345678901012345678901012"
-    assert base_user.discord_profile.discriminator == "0"
-    assert base_user.discord_profile.email == "some_email@example.com"
-    assert base_user.discord_profile.verified is True
-    assert (
-        base_user.discord_profile.avatar_url
-        == "https://cdn.discordapp.com/avatars/123456789010111213/12345678901012345678901012345678901012.png"
-    )
+
+    # Reload the Tortoise user to check the updated fields
+    await session_user.refresh_from_db()
+    assert session_user.discord_oauth["access_token"] == mock_access_token
+    assert session_user.discord_oauth["refresh_token"] == mock_refresh_token
+    assert session_user.discord_oauth["expires_in"] == 604800
+    assert session_user.discord_oauth["expires_at"] == 1761136794
+    assert session_user.discord_profile["id"] == "123456789010111213"  # gitleaks:allow
+    assert session_user.discord_profile["username"] == "someusername"
+    assert session_user.discord_profile["global_name"] == "someusername"
+    assert session_user.discord_profile["avatar_id"] == "12345678901012345678901012345678901012"
+    assert session_user.discord_profile["discriminator"] == "0"
+    assert session_user.discord_profile["email"] == "some_email@example.com"
+    assert session_user.discord_profile["verified"] is True
 
 
 async def test_discord_refresh(
     client: AsyncClient,
-    base_user: User,
+    session_user: User,
     mocker: MockerFixture,
     debug: Callable[[Any], None],
 ) -> None:
     """Verify Discord OAuth token refresh updates expired tokens and user profile."""
+    # Seed the user with initial OAuth data via SQL to avoid mutating the session-scoped fixture
+    oauth_data = json.dumps(
+        {
+            "access_token": "old_access_token",
+            "refresh_token": "old_refresh_token",
+            "expires_in": 604800,
+            "expires_at": 1000000000,
+        }
+    )
+    conn = Tortoise.get_connection("default")
+    await conn.execute_query(
+        f"UPDATE \"user\" SET discord_oauth = '{oauth_data}' WHERE id = '{session_user.id}'"  # noqa: S608
+    )
+
     mock_access_token = "ABCDEFGHIJKLMNOPQRSTUVWXYZ.4sUwuslA4j5ozuDegMyp66jT5ZnjQx"  # noqa: S105
     mock_refresh_token = "ABCDEFGHIJKLMNOPQRSTUVWXYZxUZaQHRABCDEFGsraUP8ZA0w012345s"  # noqa: S105
     mock_token = OAuth2Token(
@@ -217,7 +232,10 @@ async def test_discord_refresh(
         "verified": True,
     }
 
-    mocker.patch.object(User, "is_discord_oauth_expired", return_value=True)
+    mocker.patch(
+        "vapi.domain.controllers.oauth.lib.is_discord_oauth_expired",
+        return_value=True,
+    )
 
     mock_client = mocker.AsyncMock()
     mock_client.refresh_token.return_value = mock_token
@@ -235,12 +253,13 @@ async def test_discord_refresh(
         autospec=True,
     )
 
-    response = await client.get(f"/oauth/discord/{base_user.id}/refresh/")
+    response = await client.get(f"/oauth/discord/{session_user.id}/refresh/")
 
     assert response.status_code == HTTP_200_OK
     assert response.json()["success"] is True
-    await base_user.sync()
-    assert base_user.discord_oauth.access_token == mock_access_token
-    assert base_user.discord_oauth.refresh_token == mock_refresh_token
-    assert base_user.discord_oauth.expires_in == 604800
-    assert base_user.discord_oauth.expires_at == 1761136794
+
+    await session_user.refresh_from_db()
+    assert session_user.discord_oauth["access_token"] == mock_access_token
+    assert session_user.discord_oauth["refresh_token"] == mock_refresh_token
+    assert session_user.discord_oauth["expires_in"] == 604800
+    assert session_user.discord_oauth["expires_at"] == 1761136794

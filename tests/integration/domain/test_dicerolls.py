@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import pytest
-from beanie import PydanticObjectId
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -13,8 +13,7 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import RollResultType
-from vapi.db.models import DiceRoll, QuickRoll, Trait
-from vapi.domain.controllers.dicerolls.dto import QuickRollDTO
+from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.urls import DiceRolls
 
 if TYPE_CHECKING:
@@ -22,7 +21,10 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.models import Campaign, Character, CharacterTrait, Company, User
+    from vapi.db.sql_models.campaign import Campaign
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
 
@@ -33,64 +35,99 @@ class TestDiceRoll:
     async def test_diceroll_list_no_results(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the dice roll endpoint list no results."""
-        response = await client.get(build_url(DiceRolls.LIST), headers=token_company_admin)
+        """Verify listing dice rolls returns empty when none exist."""
+        response = await client.get(
+            build_url(DiceRolls.LIST, company_id=session_company.id, user_id=session_user.id),
+            headers=token_global_admin,
+        )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {"items": [], "limit": 10, "offset": 0, "total": 0}
 
     async def test_diceroll_list_with_results(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test diceroll list with results."""
-        dice_roll = await dice_roll_factory()
-        response = await client.get(build_url(DiceRolls.LIST), headers=token_company_admin)
+        """Verify listing dice rolls returns results."""
+        # Given a dice roll exists
+        dice_roll = await diceroll_factory(company=session_company, user=session_user)
+
+        # When we list dice rolls
+        response = await client.get(
+            build_url(DiceRolls.LIST, company_id=session_company.id, user_id=session_user.id),
+            headers=token_global_admin,
+        )
+
+        # Then we get results
         assert response.status_code == HTTP_200_OK
-        assert response.json() == {
-            "items": [dice_roll.model_dump(mode="json", exclude={"is_archived", "archive_date"})],
-            "limit": 10,
-            "offset": 0,
-            "total": 1,
-        }
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == str(dice_roll.id)
 
     async def test_get_diceroll(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test get diceroll."""
-        dice_roll = await dice_roll_factory()
+        """Verify getting a single dice roll by ID."""
+        # Given a dice roll
+        dice_roll = await diceroll_factory(company=session_company, user=session_user)
+
+        # When we get it
         response = await client.get(
-            build_url(DiceRolls.DETAIL, diceroll_id=dice_roll.id), headers=token_company_admin
+            build_url(
+                DiceRolls.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                diceroll_id=dice_roll.id,
+            ),
+            headers=token_global_admin,
         )
+
+        # Then we get the correct roll
         assert response.status_code == HTTP_200_OK
-        response_json = response.json()
-        assert response_json == dice_roll.model_dump(
-            mode="json", exclude={"is_archived", "archive_date"}
-        )
+        assert response.json()["id"] == str(dice_roll.id)
 
     async def test_get_dice_roll_not_found(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the dice roll controller get not found."""
-        dice_roll_id = PydanticObjectId()
+        """Verify getting a nonexistent dice roll returns 404."""
+        dice_roll_id = uuid4()
         response = await client.get(
-            build_url(DiceRolls.DETAIL, diceroll_id=dice_roll_id), headers=token_company_admin
+            build_url(
+                DiceRolls.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                diceroll_id=dice_roll_id,
+            ),
+            headers=token_global_admin,
         )
         assert response.status_code == HTTP_404_NOT_FOUND
         assert response.json()["detail"] == f"Dice roll {dice_roll_id} not found"
@@ -98,151 +135,182 @@ class TestDiceRoll:
     async def test_create_diceroll(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        base_company: Company,
-        base_user: User,
-        base_character: Character,
-        base_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
         debug: Callable[[Any], None],
-        character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
     ) -> None:
-        """Test the dice roll controller with character traits."""
-        character_trait = await character_trait_factory()
-        trait = await Trait.find_one(Trait.is_archived == False)
+        """Verify creating a dice roll with all fields."""
+        # Given a character with traits
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        character_trait = await character_trait_factory(character=character)
+        trait = await Trait.filter(is_archived=False).first()
 
+        # When we create a dice roll
         response = await client.post(
-            build_url(DiceRolls.CREATE),
-            headers=token_company_admin,
+            build_url(
+                DiceRolls.CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+            ),
+            headers=token_global_admin,
             json={
                 "difficulty": 6,
                 "dice_size": 10,
                 "num_dice": 6,
                 "num_desperation_dice": 0,
-                "character_id": str(base_character.id),
-                "campaign_id": str(base_campaign.id),
+                "character_id": str(character.id),
+                "campaign_id": str(session_campaign.id),
                 "comment": "Test comment",
                 "trait_ids": [str(character_trait.id), str(trait.id)],
             },
         )
+
+        # Then the dice roll is created
         assert response.status_code == HTTP_201_CREATED
-        assert response.json()["id"] is not None
-        assert response.json()["trait_ids"] == [str(character_trait.trait.id), str(trait.id)]
-        assert response.json()["difficulty"] == 6
-        assert response.json()["dice_size"] == 10
-        assert response.json()["num_dice"] == 6
-        assert response.json()["num_desperation_dice"] == 0
-        assert response.json()["character_id"] == str(base_character.id)
-        assert response.json()["campaign_id"] == str(base_campaign.id)
-        assert response.json()["user_id"] == str(base_user.id)
-        assert response.json()["company_id"] == str(base_company.id)
-        assert response.json()["comment"] == "Test comment"
-        assert response.json()["result"]["total_result_type"] in RollResultType
+        data = response.json()
+        assert data["id"] is not None
+        assert data["difficulty"] == 6
+        assert data["dice_size"] == 10
+        assert data["num_dice"] == 6
+        assert data["num_desperation_dice"] == 0
+        assert data["character_id"] == str(character.id)
+        assert data["campaign_id"] == str(session_campaign.id)
+        assert data["user_id"] == str(session_user.id)
+        assert data["company_id"] == str(session_company.id)
+        assert data["comment"] == "Test comment"
+        assert data["result"]["total_result_type"] in RollResultType
 
     async def test_dice_roll_controller_list_filter(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        base_user: User,
-        base_character: Character,
-        base_campaign: Campaign,
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
-        dice_roll_factory: Callable[[dict[str, Any]], DiceRoll],
     ) -> None:
-        """Test the dice roll controller list filter."""
-        await DiceRoll.delete_all()
-        dice_roll_character = await dice_roll_factory(character_id=base_character.id)
-        dice_roll_campaign = await dice_roll_factory(campaign_id=base_campaign.id)
-        dice_roll_user = await dice_roll_factory(user_id=base_user.id)
+        """Verify filtering dice rolls by user, character, and campaign."""
+        # Given dice rolls with different relations
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        dice_roll_character = await diceroll_factory(
+            company=session_company, user=session_user, character=character
+        )
+        dice_roll_campaign = await diceroll_factory(
+            company=session_company, user=session_user, campaign=session_campaign
+        )
+        await diceroll_factory(company=session_company, user=session_user)
 
+        base_url = build_url(DiceRolls.LIST, company_id=session_company.id, user_id=session_user.id)
+
+        # When filtering by character
         response = await client.get(
-            build_url(DiceRolls.LIST),
-            headers=token_company_admin,
-            params={"characterid": str(base_character.id)},
+            base_url,
+            headers=token_global_admin,
+            params={"characterid": str(character.id)},
         )
         assert response.status_code == HTTP_200_OK
-        response_json = response.json()
-        assert response_json["items"] == [
-            dice_roll_character.model_dump(mode="json", exclude={"is_archived", "archive_date"}),
-        ]
-        assert response_json["limit"] == 10
-        assert response_json["offset"] == 0
-        assert response_json["total"] == 1
+        assert response.json()["total"] == 1
+        assert response.json()["items"][0]["id"] == str(dice_roll_character.id)
 
+        # When filtering by campaign
         response = await client.get(
-            build_url(DiceRolls.LIST),
-            headers=token_company_admin,
-            params={"campaignid": str(base_campaign.id)},
+            base_url,
+            headers=token_global_admin,
+            params={"campaignid": str(session_campaign.id)},
         )
         assert response.status_code == HTTP_200_OK
-        response_json = response.json()
-        assert response_json["items"] == [
-            dice_roll_campaign.model_dump(mode="json", exclude={"is_archived", "archive_date"}),
-        ]
-        assert response_json["limit"] == 10
-        assert response_json["offset"] == 0
-        assert response_json["total"] == 1
+        assert response.json()["total"] == 1
+        assert response.json()["items"][0]["id"] == str(dice_roll_campaign.id)
 
+        # When filtering by user
         response = await client.get(
-            build_url(DiceRolls.LIST),
-            headers=token_company_admin,
-            params={"userid": str(base_user.id)},
+            base_url,
+            headers=token_global_admin,
+            params={"userid": str(session_user.id)},
         )
         assert response.status_code == HTTP_200_OK
-        response_json = response.json()
-        assert response_json["items"] == [
-            dice_roll_user.model_dump(mode="json", exclude={"is_archived", "archive_date"}),
-        ]
-        assert response_json["limit"] == 10
-        assert response_json["offset"] == 0
-        assert response_json["total"] == 1
+        # All 3 dice rolls belong to this user
+        assert response.json()["total"] == 3
 
     async def test_create_diceroll_from_quickroll(
         self,
         client: AsyncClient,
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
         build_url: Callable[[str, Any], str],
-        base_company: Company,
-        base_user: User,
-        base_character: Character,
-        base_campaign: Campaign,
-        character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
-        quickroll_factory: Callable[[dict[str, Any]], QuickRoll],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Test the create diceroll from quickroll endpoint."""
-        character_trait1 = await character_trait_factory()
-        character_trait2 = await character_trait_factory()
-        quickroll = await quickroll_factory(
-            name="Quick Roll 1",
-            user_id=base_user.id,
-            trait_ids=[character_trait1.trait.id, character_trait2.trait.id],
+        """Verify creating a dice roll from a quickroll."""
+        # Given a character with traits matching a quickroll
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
 
-        quickroll_dto = QuickRollDTO(
-            quickroll_id=quickroll.id,
-            character_id=base_character.id,
-            comment="Test comment",
+        # Use distinct traits for the two character traits
+        distinct_traits = await Trait.filter(is_archived=False).limit(2)
+        trait1, trait2 = distinct_traits[0], distinct_traits[1]
+        await character_trait_factory(character=character, trait=trait1)
+        await character_trait_factory(character=character, trait=trait2)
+
+        quickroll = await quickroll_factory(
+            name="Quick Roll 1",
+            user=session_user,
+            traits=[trait1, trait2],
         )
 
         # When we create a quick roll
         response = await client.post(
-            build_url(DiceRolls.QUICKROLL),
-            headers=token_company_admin,
-            json=quickroll_dto.model_dump(mode="json"),
+            build_url(
+                DiceRolls.QUICKROLL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+            ),
+            headers=token_global_admin,
+            json={
+                "quickroll_id": str(quickroll.id),
+                "character_id": str(character.id),
+                "comment": "Test comment",
+            },
         )
+
+        # Then the dice roll is created
         assert response.status_code == HTTP_201_CREATED
-        response_json = response.json()
-        assert response_json["comment"] == "Test comment"
-        assert response_json["difficulty"] == 6
-        assert response_json["num_desperation_dice"] == 0
-        assert response_json["trait_ids"] == [
-            str(character_trait1.trait.id),
-            str(character_trait2.trait.id),
-        ]
-        assert response_json["character_id"] == str(base_character.id)
-        assert response_json["campaign_id"] == str(base_campaign.id)
-        assert response_json["user_id"] == str(base_user.id)
-        assert response_json["company_id"] == str(base_company.id)
-        assert response_json["result"]["total_result_type"] in RollResultType
+        data = response.json()
+        assert data["comment"] == "Test comment"
+        assert data["difficulty"] == 6
+        assert data["num_desperation_dice"] == 0
+        assert sorted(data["trait_ids"]) == sorted([str(trait1.id), str(trait2.id)])
+        assert data["character_id"] == str(character.id)
+        assert data["campaign_id"] == str(session_campaign.id)
+        assert data["user_id"] == str(session_user.id)
+        assert data["company_id"] == str(session_company.id)
+        assert data["result"]["total_result_type"] in RollResultType

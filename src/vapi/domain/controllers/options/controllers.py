@@ -1,7 +1,5 @@
 """Options controllers."""
 
-from __future__ import annotations
-
 import logging
 import re
 
@@ -11,7 +9,6 @@ from litestar.handlers import get
 
 from vapi.config import settings
 from vapi.constants import (
-    AssetParentType,
     AssetType,
     BlueprintTraitOrderBy,
     CharacterClass,
@@ -126,6 +123,5 @@ class OptionsController(Controller):
             },
             "assets": {
                 "AssetType": [x.value for x in AssetType],
-                "AssetParentType": [x.value for x in AssetParentType],
             },
         }

@@ -1,117 +1,76 @@
-"""Test character."""
-
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+"""Test Tortoise Character model properties."""
 
 import pytest
-from beanie import PydanticObjectId
 
-from vapi.constants import CharacterClass, CharacterStatus, GameVersion
-from vapi.db.models import Character, CharacterConcept, CharacterTrait, Trait
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-pytestmark = pytest.mark.anyio
+from vapi.db.sql_models.character import Character
 
 
-@pytest.fixture
-async def character_model() -> Character:
-    """Base character."""
-    return Character(
-        character_class=CharacterClass.MORTAL,
-        game_version=GameVersion.V4,
-        name_first="  Foo  ",
-        name_last="  Bar  ",
-        name_nick="  Baz  ",
-        company_id=PydanticObjectId(),
-        user_creator_id=PydanticObjectId(),
-        user_player_id=PydanticObjectId(),
-        status=CharacterStatus.ALIVE,
-        campaign_id=PydanticObjectId(),
-    )
+class TestCharacterModelProperties:
+    """Test Character model computed properties."""
 
+    @pytest.mark.anyio
+    async def test_character_name(self, character_factory, company_factory) -> None:
+        """Verify name property returns 'First Last'."""
+        # Given a character
+        company = await company_factory()
+        character = await character_factory(name_first="John", name_last="Doe", company=company)
 
-async def test_character_computed_fields(character_model: Character) -> None:
-    """Test the character computed fields."""
-    assert character_model.name == "Foo Bar"
-    assert character_model.name_full == "Foo 'Baz' Bar"
+        # Then
+        assert character.name == "John Doe"
 
-
-class TestModelHooks:
-    """Test the hooks on the character model."""
-
-    async def test_character_delete_character_traits(
-        self,
-        character_factory: Callable[[dict[str, Any]], Character],
-        character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
-        debug: Callable[[Any], None],
+    @pytest.mark.anyio
+    async def test_character_name_full_without_nick(
+        self, character_factory, company_factory
     ) -> None:
-        """Verify that the character traits are deleted when the character is deleted."""
-        # Given a character with character traits
-        character = await character_factory()
-        assert len(character.character_trait_ids) == 0
-        traits = await Trait.find(Trait.is_archived == False).limit(3).to_list()
-        for trait in traits:
-            await character_trait_factory(character_id=character.id, trait=trait)
-
-        await character.sync()
-        assert len(character.character_trait_ids) == len(traits)
-
-        # When the character is deleted
-        await character.delete()
-
-        # Then the character traits are deleted
-        character_traits = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id
-        ).to_list()
-
-        assert not character_traits, (
-            f"Character traits should be deleted when the character is deleted: {[x.id for x in character_traits]=}"
+        """Verify name_full returns 'First Last' when no nickname."""
+        # Given a character without a nickname
+        company = await company_factory()
+        character = await character_factory(
+            name_first="John", name_last="Doe", name_nick=None, company=company
         )
 
-    async def test_update_concept_name_on_save(
-        self,
-        character_factory: Callable[..., Character],
+        # Then
+        assert character.name_full == "John Doe"
+
+    @pytest.mark.anyio
+    async def test_character_name_full_with_nick(self, character_factory, company_factory) -> None:
+        """Verify name_full returns "First 'Nick' Last" when nickname set."""
+        # Given a character with a nickname
+        company = await company_factory()
+        character = await character_factory(
+            name_first="John", name_last="Doe", name_nick="Johnny", company=company
+        )
+
+        # Then
+        assert character.name_full == "John 'Johnny' Doe"
+
+    @pytest.mark.anyio
+    async def test_character_concept_name_with_concept(
+        self, character_factory, character_concept_factory, company_factory
     ) -> None:
-        """Verify concept_name is synced from the linked CharacterConcept on save."""
-        # Given a character concept
-        concept = await CharacterConcept.find_one()
-        assert concept is not None
+        """Verify concept_name returns the concept's name when prefetched."""
+        # Given a concept and a character with that concept
+        concept = await character_concept_factory(name="Scholar")
+        company = await company_factory()
+        character = await character_factory(concept=concept, company=company)
 
-        # Given a character with that concept_id but no concept_name
-        character = await character_factory(concept_id=concept.id)
+        # When we re-fetch with concept prefetched
+        character = await Character.filter(id=character.id).prefetch_related("concept").first()
 
-        # Then the concept_name is populated from the concept
-        assert character.concept_name == concept.name
+        # Then
+        assert character.concept_name == "Scholar"
 
-    async def test_update_concept_name_when_concept_changes(
-        self,
-        character_factory: Callable[..., Character],
+    @pytest.mark.anyio
+    async def test_character_concept_name_without_concept(
+        self, character_factory, company_factory
     ) -> None:
-        """Verify concept_name updates when the linked concept's name changes."""
-        # Given a character linked to a concept
-        concept = await CharacterConcept.find_one()
-        assert concept is not None
-        character = await character_factory(concept_id=concept.id)
-        assert character.concept_name == concept.name
+        """Verify concept_name returns None when no concept set."""
+        # Given a character without a concept
+        company = await company_factory()
+        character = await character_factory(concept=None, company=company)
 
-        # When the concept's name changes and the character is saved
-        concept.name = "Warrior"
-        await concept.save()
-        await character.save()
+        # When we re-fetch with concept prefetched
+        character = await Character.filter(id=character.id).prefetch_related("concept").first()
 
-        # Then the concept_name reflects the new name
-        assert character.concept_name == "Warrior"
-
-    async def test_update_concept_name_skipped_when_no_concept_id(
-        self,
-        character_factory: Callable[..., Character],
-    ) -> None:
-        """Verify concept_name is unchanged when concept_id is None."""
-        # Given a character with no concept_id and an arbitrary concept_name
-        character = await character_factory(concept_id=None, concept_name="Stale Name")
-
-        # Then the hook does not modify concept_name
-        assert character.concept_name == "Stale Name"
+        # Then
+        assert character.concept_name is None

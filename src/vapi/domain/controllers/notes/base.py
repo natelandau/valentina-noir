@@ -1,33 +1,22 @@
 """Base notes controller with shared CRUD logic."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
+from uuid import UUID
 
-from beanie import PydanticObjectId  # noqa: TC002
+import msgspec
 from litestar.controller import Controller
-from litestar.dto import DTOData  # noqa: TC002
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.db.models import Note
+from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
 from . import dto
 
 
 class BaseNoteController(Controller, ABC):
-    """Abstract base controller for note CRUD operations.
-
-    Subclasses must define the parent_name property which identifies the parent entity
-    type (e.g., "character", "campaign", "user"). The parent_ref_field is derived
-    automatically as "{parent_name}_id".
-    """
+    """Abstract base controller for note CRUD operations."""
 
     guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = dto.NoteResponseDTO
 
     @property
     @abstractmethod
@@ -37,99 +26,61 @@ class BaseNoteController(Controller, ABC):
 
     @property
     def parent_ref_field(self) -> str:
-        """Return the document reference field name (e.g., 'character_id')."""
+        """Return the FK field name (e.g., 'character_id')."""
         return f"{self.parent_name}_id"
 
     async def _list_notes(
         self,
-        parent_id: PydanticObjectId,
+        parent_id: UUID,
         limit: int = 10,
         offset: int = 0,
-    ) -> OffsetPagination[Note]:
-        """List all notes for a parent entity.
+    ) -> OffsetPagination[dto.NoteResponse]:
+        """List all notes for a parent entity."""
+        filters = {self.parent_ref_field: parent_id, "is_archived": False}
+        qs = Note.filter(**filters)
+        count = await qs.count()
+        notes = await qs.offset(offset).limit(limit)
+        return OffsetPagination(
+            items=[dto.NoteResponse.from_model(n) for n in notes],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
-        Args:
-            parent_id (PydanticObjectId): The ID of the parent document.
-            limit (int): Maximum number of notes to return.
-            offset (int): Number of notes to skip.
-
-        Returns:
-            OffsetPagination[Note]: Paginated list of notes.
-        """
-        query = {self.parent_ref_field: parent_id, "is_archived": False}
-        count = await Note.find(query).count()
-        notes = await Note.find(query).skip(offset).limit(limit).to_list()
-        return OffsetPagination(items=notes, limit=limit, offset=offset, total=count)
-
-    async def _get_note(self, note: Note) -> Note:
-        """Get a single note by ID.
-
-        Args:
-            note (Note): The note document.
-
-        Returns:
-            Note: The note document.
-        """
-        return note
+    async def _get_note(self, note: Note) -> dto.NoteResponse:
+        """Get a single note by ID."""
+        return dto.NoteResponse.from_model(note)
 
     async def _create_note(
         self,
-        company_id: PydanticObjectId,
-        parent_id: PydanticObjectId,
-        data: DTOData[Note],
-    ) -> Note:
-        """Create a new note attached to a parent entity.
-
-        Args:
-            company_id (PydanticObjectId): The ID of the company.
-            parent_id (PydanticObjectId): The ID of the parent document.
-            data (DTOData[Note]): The note data from the request.
-            request (Request): The Litestar request object.
-
-        Returns:
-            Note: The created note document.
-        """
-        try:
-            note_data = data.create_instance(
-                **{self.parent_ref_field: parent_id, "company_id": company_id}
-            )
-            note = Note(**note_data.model_dump(exclude_unset=True))
-            await note.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
-        return note
+        company_id: UUID,
+        parent_id: UUID,
+        data: dto.NoteCreate,
+    ) -> dto.NoteResponse:
+        """Create a new note attached to a parent entity."""
+        create_kwargs = {
+            "title": data.title,
+            "content": data.content,
+            "company_id": company_id,
+            self.parent_ref_field: parent_id,
+        }
+        note = await Note.create(**create_kwargs)  # type: ignore[arg-type]
+        return dto.NoteResponse.from_model(note)
 
     async def _update_note(
         self,
         note: Note,
-        data: DTOData[Note],
-    ) -> Note:
-        """Update an existing note.
-
-        Args:
-            note (Note): The note document to update.
-            data (DTOData[Note]): The update data from the request.
-            request (Request): The Litestar request object.
-
-        Returns:
-            Note: The updated note document.
-        """
-        note, data = await patch_dto_data_internal_objects(original=note, data=data)
-        updated_note = data.update_instance(note)
-        try:
-            await updated_note.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
-        return updated_note
+        data: dto.NotePatch,
+    ) -> dto.NoteResponse:
+        """Update an existing note."""
+        if not isinstance(data.title, msgspec.UnsetType):
+            note.title = data.title
+        if not isinstance(data.content, msgspec.UnsetType):
+            note.content = data.content
+        await note.save()
+        return dto.NoteResponse.from_model(note)
 
     async def _delete_note(self, note: Note) -> None:
-        """Soft-delete a note by archiving it.
-
-        Args:
-            note (Note): The note document to delete.
-            request (Request): The Litestar request object.
-        """
+        """Soft-delete a note by archiving it."""
         note.is_archived = True
         await note.save()

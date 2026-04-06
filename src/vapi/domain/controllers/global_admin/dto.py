@@ -1,45 +1,61 @@
-"""Developer schemas."""
+"""Global admin DTOs."""
 
-from litestar.plugins.pydantic import PydanticDTO
+from datetime import datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
 
-from vapi.db.models import Developer
-from vapi.lib.dto import dto_config
+import msgspec
 
+from vapi.domain.controllers.company.dto import CompanyPermissionResponse
 
-class DeveloperCreateDTO(PydanticDTO[Developer]):
-    """Developer DTO."""
-
-    config = dto_config(
-        exclude={
-            "id",
-            "api_key_fingerprint",
-            "hashed_api_key",
-            "key_generated",
-            "companies",
-            "date_created",
-            "date_modified",
-        }
-    )
+if TYPE_CHECKING:
+    from vapi.db.sql_models.developer import Developer
 
 
-class DeveloperPatchDTO(PydanticDTO[Developer]):
-    """Update Developer DTO."""
+class DeveloperCreate(msgspec.Struct):
+    """Request body for creating a developer."""
 
-    config = dto_config(
-        partial=True,
-        exclude={
-            "id",
-            "api_key_fingerprint",
-            "hashed_api_key",
-            "key_generated",
-            "companies",
-            "date_created",
-            "date_modified",
-        },
-    )
+    username: str
+    email: str
+    is_global_admin: bool = False
 
 
-class DeveloperReturnDTO(PydanticDTO[Developer]):
-    """Developer DTO."""
+class DeveloperAdminResponse(msgspec.Struct):
+    """Response body for a developer in the global admin context.
 
-    config = dto_config(exclude={"api_key_fingerprint", "hashed_api_key"})
+    Includes is_global_admin which the regular DeveloperResponse omits.
+    """
+
+    id: UUID
+    date_created: datetime
+    date_modified: datetime
+    username: str
+    email: str
+    is_global_admin: bool
+    key_generated: datetime | None
+    companies: list[CompanyPermissionResponse]
+
+    @classmethod
+    def from_model(cls, m: "Developer") -> "DeveloperAdminResponse":
+        """Convert a Tortoise Developer to an admin response Struct.
+
+        Requires the permissions and their related company relations to be prefetched.
+        """
+        return cls(
+            id=m.id,
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+            username=m.username,
+            email=m.email,
+            is_global_admin=m.is_global_admin,
+            key_generated=m.key_generated,
+            companies=[CompanyPermissionResponse.from_model(p) for p in m.permissions],
+        )
+
+
+class AdminDeveloperPatch(msgspec.Struct):
+    """Request body for partially updating a developer as global admin."""
+
+    username: str | msgspec.UnsetType = msgspec.UNSET
+    email: str | msgspec.UnsetType = msgspec.UNSET
+    is_global_admin: bool | msgspec.UnsetType = msgspec.UNSET

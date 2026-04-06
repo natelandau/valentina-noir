@@ -9,8 +9,12 @@ from litestar.handlers import delete, get, post
 from litestar.params import Body, Parameter
 
 from vapi.constants import AssetType
-from vapi.db.models import CampaignBook, Company, S3Asset, User
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.campaign import CampaignBook
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
+from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
@@ -21,6 +25,7 @@ from .base import BaseAssetsController
 class BookAssetsController(BaseAssetsController):
     """Book assets controller."""
 
+    parent_fk_field = "book_id"
     tags = [APITags.CAMPAIGN_BOOK_ASSETS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
@@ -45,7 +50,7 @@ class BookAssetsController(BaseAssetsController):
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
-    ) -> OffsetPagination[S3Asset]:
+    ) -> OffsetPagination[dto.S3AssetResponse]:
         """List all book assets."""
         return await self._list_assets(
             parent_id=book.id,
@@ -61,9 +66,9 @@ class BookAssetsController(BaseAssetsController):
         description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
-    async def get_book_asset(self, book: CampaignBook, asset: S3Asset) -> S3Asset:
+    async def get_book_asset(self, book: CampaignBook, asset: S3Asset) -> dto.S3AssetResponse:
         """Get a book asset."""
-        return await self._get_asset(asset, parent=book)
+        return await self._get_asset(asset, parent_id=book.id)
 
     @post(
         path=urls.Campaigns.BOOK_ASSET_UPLOAD,
@@ -78,10 +83,10 @@ class BookAssetsController(BaseAssetsController):
         book: CampaignBook,
         user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
-    ) -> S3Asset:
+    ) -> dto.S3AssetResponse:
         """Upload a book asset."""
         return await self._create_asset(
-            parent=book,
+            parent_id=book.id,
             company_id=company.id,
             upload_user_id=user.id,
             data=data,

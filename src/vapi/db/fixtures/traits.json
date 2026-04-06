@@ -6596,8 +6596,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "link": "http://snakepit.wikidot.com/the-path-of-blood"
           },
@@ -6612,8 +6612,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "link": "http://snakepit.wikidot.com/discipliner:thaumaturgical-countermagic",
             "system": "Thaumaturgical Countermagic is treated as a separate Discipline. It cannot be taken as a character's primary path, and a rating in it does not allow the character to perform rituals. The use of Thaumaturgical Countermagic is treated as a free action in combat and does not require a split dice pool. To oppose a Thaumaturgy power or ritual, a character must have a Thaumaturgical Countermagic rating equal to or greater than the rating of that power or ritual (which means that rituals of Level Six or greater cannot ever be countered with this power). The player spends a blood point and rolls the number of dice indicated by the character's Thaumaturgical Countermagic rating (difficulty equal to the difficulty of the power in use). Each success cancels one of the opposing thaumaturge's successes.\n\nThaumaturgical Countermagic can only be used against Tremere Thaumaturgy at full effectiveness. It works with halved dice pools against non-Tremere blood magic and mortal 'hedge wizardry', and is completely ineffective against non-vampiric magics and powers. Thaumaturgical Countermagic can be learned by characters who are unable to learn Thaumaturgy (e.g. those with the Merit Magic Resistance). Any non-Tremere character with a rating in this power automatically gains the Flaw Clan Enmity (Tremere), receiving no freebie points for it. This power cannot be taken during character creation and cannot be spontaneously developed. It costs the same as any other non-clan Discipline to learn."
@@ -6629,8 +6629,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "link": "http://snakepit.wikidot.com/spirit-manipulation"
           },
@@ -6645,8 +6645,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "link": "http://snakepit.wikidot.com/weather-control",
             "system": " The number of successes rolled indicates how long it takes the weather magic to take effect. One success indicates an entire day may pass before the weather changes to the thaumaturge's liking, while a roll with five successes brings an almost instant effect.\n\nThe difficulty of the Willpower roll necessary to invoke this power may change depending on the current local weather conditions and the weather the character is attempting to create. The Storyteller should impose a bonus (-1 or -2 difficulty) for relatively minor shifts, such as clearing away a light drizzle or calling lightning when a severe thunderstorm is already raging. Conversely, a penalty (+1 or +2 difficulty) should be applied when the desired change is at odds with the current conditions, such as summoning the same light drizzle in the middle of the Sahara Desert or calling down lightning from a cloudless sky.\n\nIf the character tries to strike a specific target with lightning, the player must roll Perception + Occult (difficulty 6 if the target is standing in open terrain, 8 if he is under shelter, or 10 if he inside but near a window) in addition to the base roll to use Thaumaturgy. Otherwise the bolt goes astray, with the relative degree of failure of the roll determining where exactly the lightning strikes."
@@ -6662,8 +6662,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "The number of successes determines how accurately the thaumaturge places the flame in his desired location. One success is all that is necessary to conjure a flame in one's hand, while five successes place a flame anywhere in the Kindred's line of sight.",
             "link": "http://snakepit.wikidot.com/the-lure-of-flames"
@@ -6681,8 +6681,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true
           },
           {
@@ -6698,8 +6698,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true
           },
           {
@@ -6714,8 +6714,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true
           },
           {
@@ -6730,8 +6730,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "Use of any of these powers requires at least five minutes of reading the signs during which the Warlock goes into a trance similar to sleep. Awareness of his surroundings is limited, and he can 'awaken' from the trance at any time but will suffer the same penalties as if awakening during the day for three turns (maximum dice pool equals his Humanity score). Oneiromancy powers can also be used while the thaumaturge is in torpor."
           },
@@ -6747,8 +6747,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "Unless otherwise stated, the powers of Mastery of the Mortal Shell last the number of turns equal to the number of successes a thaumaturge scores on his activation roll."
           },
@@ -6764,8 +6764,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "The number of successes on the activation roll determines how radically a thaumaturge may alter a given compound's form. He need not use all his successes - a thaumaturge wishing to effect only a simple change in form need not turn lead into gold if he accumulates five successes. The thaumaturge must, however, acquire at least the minimum number of successes suggested by the table below to generate the effects he seeks.\nChanging one element into another requires familarity with both elements. One cannot suddenly decide he wants to change a balloon's worth of helium into a sphere of solid titanium if he has never dealt with either of those elements before. Simply knowing an atomic number isn't enough to warp the laws of nature so radically. It is worthwhile to note, however, that Alchemy makes no distinction between naturally occurring and man-made elements - it affects Einsteinium as readily as it affects carbon.\n\nNote also that this path has fallen out of practice because it is less useful in modern nights than it was in the past. Transmutations create Hermetic 'ideals' rather than perfect real-world resources which cannot be broken down into lesser constructs. A hunk of gold is a hunk of gold - an attempt to cast coins with it will reduce the hunk to a pile of inert sludge. Before you ask - yes, this means your Tremere anarch will not be able to create nuclear bombs by turning the prince's shoes into uranium. There's nothing wrong with converting lead into gold and selling that hunk of gold to someone else, however - caveat emptor!"
           },
@@ -6781,8 +6781,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "Biothaumaturgy does not require the expenditure of blood points to create its magic. Rather, the powers of this path take one week per level to complete at Levels One and Two, and one month per level to complete at Levels Three through Five. For example, the Level One power takes one week to work, while the Level Three power takes three months for the biothaumaturge's experiments to come to fruition. Biothaumaturgy also requires the thaumaturge to have a laboratory where he may conduct his experiments. This need be nothing more complex than a doctor's table and a few sharp knives, but it may be as complex as the 'mad scientist' affairs of pulp fiction, with steaming alembics and crackling generators. The Storyteller should feel free to modify a character's Biothaumaturgy difficulties if he has an excellent laboratory resources or his facilities are utterly lacking. Working with a crude lab may add two to the difficulty while a high-grade facility may lower the difficulties by two."
           },
@@ -6798,8 +6798,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "Unlike most Thaumaturgy, the powers of this path do not require an action to invoke, although they still require the normal blood expenditure and Willpower activation roll. Each of these powers is usable only once per turn."
           },
@@ -6815,8 +6815,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "This Path functions only with the thaumaturge's primary haven; their home, as it were, which contains their sanctum sanctorum."
           },
@@ -6832,8 +6832,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": ""
           },
@@ -6849,8 +6849,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": "When cursing a victim, the thaumaturge is obvious - curses must be spoken aloud and directly toward the target of their ill effects, although the curse itself is often comprised of dead languages and sounds like gibberish. In modem, industrialized countries, many tend to discount the verbal telltales of being cursed, while some areas of the world might see a witch who acts so brazenly outright assaulted. Additionally, the thaumaturge requires some essence of the victim to curse him. This essence can be hair, blood, flesh or any other part of the victim. This link binds the mystic energies bringing the malison to the accursed.\n\nBecause of the severe psychological effects on a victim, the target may attempt to resist all the powers of this path with a Willpower roll (difficulty 7, unless stated otherwise). This is the victim asserting his own strength of will and personality to throw off the yoke of anathema. The thaumaturge can lift the curses that she brings down at any time she wishes, which makes an excellent bargaining chip."
           },
@@ -6866,8 +6866,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": ""
           },
@@ -6883,8 +6883,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true,
             "system": ""
           },
@@ -6900,8 +6900,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true
           },
           {
@@ -6916,8 +6916,8 @@
               "V4"
             ],
             "show_when_zero": false,
-            "max_value": 1,
-            "min_value": 5,
+            "max_value": 5,
+            "min_value": 1,
             "is_rollable": true
           }
         ]

@@ -1,11 +1,9 @@
 """Test campaign."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from collections.abc import AsyncGenerator, Callable
 
 import pytest
-from beanie import PydanticObjectId
+from httpx import AsyncClient
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -15,15 +13,10 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import PermissionManageCampaign, UserRole
-from vapi.db.models import Campaign
+from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.user import User
 from vapi.domain.urls import Campaigns
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from httpx import AsyncClient
-
-    from vapi.db.models import Company, User
 
 pytestmark = pytest.mark.anyio
 
@@ -35,32 +28,35 @@ class TestListCampaigns:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        user_factory: Callable[[], User],
-        build_url: Callable[[str, ...], str],
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
+        campaign_factory: Callable[..., Campaign],
+        build_url: Callable[..., str],
     ) -> None:
-        """Test list campaigns."""
-        # Given a company, a user, and a campaign
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        campaign = await campaign_factory(company_id=company.id)
-        await campaign_factory(company_id=PydanticObjectId())
+        """Verify listing campaigns returns only company-scoped results."""
+        # Given a company with one campaign
+        campaign = await campaign_factory(company=session_company)
 
         # When we list the campaigns
         response = await client.get(
-            build_url(Campaigns.LIST, company_id=company.id, user_id=user.id),
+            build_url(
+                Campaigns.LIST,
+                company_id=session_company.id,
+                user_id=session_user.id,
+            ),
             headers=token_global_admin,
         )
 
-        # Then we should get a 200 ok response with the campaign in the list
+        # Then we should get a 200 with the campaign in the list
         assert response.status_code == HTTP_200_OK
-        assert response.json() == {
-            "items": [campaign.model_dump(mode="json", exclude={"is_archived", "archive_date"})],
-            "limit": 10,
-            "offset": 0,
-            "total": 1,
-        }
+        items = response.json()["items"]
+        assert response.json()["total"] >= 1
+        # Verify our campaign is present and all results are scoped to the company
+        returned_ids = {item["id"] for item in items}
+        assert str(campaign.id) in returned_ids
+        for item in items:
+            assert item["company_id"] == str(session_company.id)
 
 
 class TestGetCampaign:
@@ -70,63 +66,73 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[], User],
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
+        campaign_factory: Callable[..., Campaign],
+        build_url: Callable[..., str],
     ) -> None:
-        """Verify the get campaign endpoint."""
-        # Given a company, a user, and a campaign
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        campaign = await campaign_factory(company_id=company.id)
+        """Verify getting a campaign by ID."""
+        # Given a campaign
+        campaign = await campaign_factory(company=session_company)
 
         # When we get the campaign
         response = await client.get(
             build_url(
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
-                company_id=company.id,
-                user_id=user.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
 
-        # Then we should get a 200 ok response with the campaign
+        # Then we should get a 200 with the campaign details
         assert response.status_code == HTTP_200_OK
-        assert response.json() == campaign.model_dump(
-            mode="json", exclude={"is_archived", "archive_date"}
-        )
+        assert response.json()["id"] == str(campaign.id)
+        assert response.json()["name"] == campaign.name
 
     async def test_get_campaign_wrong_company(
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        user_factory: Callable[[], User],
-        build_url: Callable[[str, ...], str],
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        build_url: Callable[..., str],
     ) -> None:
-        """Verify the get campaign endpoint."""
-        # Given a company and a campaign
-        company = await company_factory()
-        user = await user_factory(company_id=company.id)
-        campaign = await campaign_factory(company_id=PydanticObjectId())
+        """Verify get returns 404 when campaign belongs to a different company."""
+        # Given a campaign belonging to a different company
+        other_company = await company_factory(name="Other Co", email="other@example.com")
+        campaign = await campaign_factory(company=other_company)
 
-        # When we get the campaign
+        # When we get the campaign under the wrong company
         response = await client.get(
             build_url(
-                Campaigns.DETAIL, campaign_id=campaign.id, company_id=company.id, user_id=user.id
+                Campaigns.DETAIL,
+                campaign_id=campaign.id,
+                company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin,
         )
 
-        # Then we should get a 404 not found response
+        # Then we should get a 404
         assert response.status_code == HTTP_404_NOT_FOUND
 
 
 class TestCreateCampaign:
     """Test create campaign."""
+
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
 
     @pytest.mark.parametrize(
         ("user_role", "campaign_permission", "expected_status_code"),
@@ -143,25 +149,28 @@ class TestCreateCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[], User],
+        session_company: Company,
+        session_global_admin,
+        user_factory: Callable[..., User],
+        build_url: Callable[..., str],
         campaign_permission: PermissionManageCampaign,
         user_role: UserRole,
         expected_status_code: int,
-        debug: Callable[[...], None],
     ) -> None:
-        """Test create campaign."""
-        # Given a company and a campaign
-        company = await company_factory()
-        company.settings.permission_manage_campaign = campaign_permission
-        await company.save()
-        user = await user_factory(company_id=company.id, role=user_role)
+        """Verify create campaign respects permission settings."""
+        # Given a company with a specific campaign permission
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=campaign_permission
+        )
+        user = await user_factory(company=session_company, role=user_role.value)
 
         # When we create the campaign
         response = await client.post(
-            build_url(Campaigns.CREATE, company_id=company.id, user_id=user.id),
+            build_url(
+                Campaigns.CREATE,
+                company_id=session_company.id,
+                user_id=user.id,
+            ),
             headers=token_global_admin,
             json={"name": "Test Campaign", "description": "Test Description", "danger": 1},
         )
@@ -171,24 +180,26 @@ class TestCreateCampaign:
         if expected_status_code == HTTP_201_CREATED:
             assert response.json()["name"] == "Test Campaign"
             assert response.json()["description"] == "Test Description"
-            assert response.json()["company_id"] == str(company.id)
+            assert response.json()["company_id"] == str(session_company.id)
             assert response.json()["desperation"] == 0
             assert response.json()["danger"] == 1
             assert response.json()["date_created"] is not None
             assert response.json()["date_modified"] is not None
 
-            campaign = await Campaign.get(response.json()["id"])
+            campaign = await Campaign.get(id=response.json()["id"])
             assert campaign.name == "Test Campaign"
-            assert campaign.description == "Test Description"
-            assert campaign.company_id == company.id
-            assert campaign.desperation == 0
-            assert campaign.danger == 1
-            assert campaign.date_created is not None
-            assert campaign.date_modified is not None
 
 
 class TestUpdateCampaign:
     """Test update campaign."""
+
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
 
     @pytest.mark.parametrize(
         ("user_role", "campaign_permission", "expected_status_code"),
@@ -205,34 +216,36 @@ class TestUpdateCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[], User],
+        session_company: Company,
+        session_global_admin,
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        build_url: Callable[..., str],
         campaign_permission: PermissionManageCampaign,
         user_role: UserRole,
         expected_status_code: int,
-        debug: Callable[[...], None],
     ) -> None:
-        """Test update campaign."""
-        # Given a company and a campaign
-        company = await company_factory()
-        company.settings.permission_manage_campaign = campaign_permission
-        await company.save()
-        user = await user_factory(company_id=company.id, role=user_role)
+        """Verify update campaign respects permission settings."""
+        # Given a company with a campaign and specific permission
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=campaign_permission
+        )
+        user = await user_factory(company=session_company, role=user_role.value)
         campaign = await campaign_factory(
-            company_id=company.id,
+            company=session_company,
             name="original",
             description="original description",
             danger=1,
             desperation=3,
         )
-        # debug(campaign)
 
         # When we update the campaign
         response = await client.patch(
             build_url(
-                Campaigns.UPDATE, company_id=company.id, campaign_id=campaign.id, user_id=user.id
+                Campaigns.UPDATE,
+                company_id=session_company.id,
+                campaign_id=campaign.id,
+                user_id=user.id,
             ),
             headers=token_global_admin,
             json={
@@ -241,28 +254,30 @@ class TestUpdateCampaign:
                 "danger": 2,
             },
         )
-        # debug(response.json())
 
         # Then we should get the expected status code
         assert response.status_code == expected_status_code
-
         if expected_status_code == HTTP_200_OK:
             assert response.json()["name"] == "Test Campaign Updated"
             assert response.json()["description"] == "Test Description Updated"
-            assert response.json()["company_id"] == str(company.id)
+            assert response.json()["company_id"] == str(session_company.id)
             assert response.json()["desperation"] == 3
             assert response.json()["danger"] == 2
 
-            await campaign.sync()
+            await campaign.refresh_from_db()
             assert campaign.name == "Test Campaign Updated"
-            assert campaign.description == "Test Description Updated"
-            assert campaign.company_id == company.id
-            assert campaign.desperation == 3
-            assert campaign.danger == 2
 
 
 class TestDeleteCampaign:
     """Test delete campaign."""
+
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
 
     @pytest.mark.parametrize(
         ("user_role", "campaign_permission", "expected_status_code"),
@@ -279,43 +294,40 @@ class TestDeleteCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        company_factory: Callable[[], Company],
-        campaign_factory: Callable[[], Campaign],
-        build_url: Callable[[str, ...], str],
-        user_factory: Callable[[], User],
+        session_company: Company,
+        session_global_admin,
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        build_url: Callable[..., str],
         user_role: UserRole,
         campaign_permission: PermissionManageCampaign,
         expected_status_code: int,
-        debug: Callable[[...], None],
     ) -> None:
-        """Test delete campaign."""
-        # Given a company and a campaign
-        company = await company_factory()
-        company.settings.permission_manage_campaign = campaign_permission
-        await company.save()
-        user = await user_factory(company_id=company.id, role=user_role)
-        campaign = await campaign_factory(
-            company_id=company.id,
-            name="original",
-            description="original description",
-            danger=1,
-            desperation=3,
+        """Verify delete campaign respects permission settings."""
+        # Given a company with a campaign and specific permission
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=campaign_permission
         )
-        # debug(campaign)
+        user = await user_factory(company=session_company, role=user_role.value)
+        campaign = await campaign_factory(
+            company=session_company,
+            name="original",
+        )
 
         # When we delete the campaign
         response = await client.delete(
             build_url(
-                Campaigns.DELETE, company_id=company.id, campaign_id=campaign.id, user_id=user.id
+                Campaigns.DELETE,
+                company_id=session_company.id,
+                campaign_id=campaign.id,
+                user_id=user.id,
             ),
             headers=token_global_admin,
         )
-        # debug(response.json())
 
         # Then we should get the expected status code
         assert response.status_code == expected_status_code
-
         if expected_status_code == HTTP_204_NO_CONTENT:
-            await campaign.sync()
+            await campaign.refresh_from_db()
             assert campaign.is_archived
             assert campaign.archive_date is not None

@@ -5,160 +5,57 @@ import re
 from enum import Enum
 from typing import Any
 
-from beanie import Document
-from pydantic import BaseModel
-
 from vapi.constants import PROJECT_ROOT_PATH
 
 FIXTURES_PATH = PROJECT_ROOT_PATH / "src/vapi/db/fixtures"
 
+# Matches JSON strings (preserved) and comments (removed)
+_COMMENT_RE = re.compile(r"""("(?:\\"|[^"])*?")|(\/\*(?:.|\s)*?\*\/|\/\/.*)""")
+
 __all__ = (
     "FIXTURES_PATH",
     "JSONWithCommentsDecoder",
-    "document_differs_from_fixture",
-    "get_differing_fields",
+    "needs_update",
 )
 
 
-def _normalize_value(value: Any) -> Any:
-    """Normalize a value for comparison.
+def needs_update(instance: Any, defaults: dict[str, Any]) -> bool:
+    """Check whether a Tortoise model instance differs from proposed default values.
 
-    Converts enums to their values, Pydantic models to dicts, and recursively
-    normalizes nested structures.
-
-    Args:
-        value (Any): The value to normalize.
-
-    Returns:
-        Any: The normalized value suitable for comparison.
-    """
-    if value is None:
-        return None
-
-    if isinstance(value, Enum):
-        return value.value
-
-    if isinstance(value, BaseModel):
-        return {k: _normalize_value(v) for k, v in value.model_dump().items()}
-
-    if isinstance(value, list):
-        return [_normalize_value(item) for item in value]
-
-    if isinstance(value, dict):
-        return {k: _normalize_value(v) for k, v in value.items()}
-
-    return value
-
-
-def _values_equal(model_value: Any, fixture_value: Any) -> bool:
-    """Compare two values after normalization.
+    Handle enums (compare .value) and FK model instances (compare via _id suffix).
 
     Args:
-        model_value (Any): The value from the database model.
-        fixture_value (Any): The value from the fixture JSON.
+        instance: The existing Tortoise model instance.
+        defaults: The proposed field values to compare against.
 
     Returns:
-        bool: True if values are equal, False otherwise.
+        bool: True if any field in defaults differs from the instance's current value.
     """
-    normalized_model = _normalize_value(model_value)
-    normalized_fixture = _normalize_value(fixture_value)
-
-    # Handle list of dicts - compare as unordered sets
-    if (
-        isinstance(normalized_model, list)
-        and normalized_model
-        and isinstance(normalized_model[0], dict)
-    ):
-        if not isinstance(normalized_fixture, list) or len(normalized_model) != len(
-            normalized_fixture
-        ):
-            return False
-
-        try:
-            model_set = {frozenset(_flatten_dict(d).items()) for d in normalized_model}
-            fixture_set = {frozenset(_flatten_dict(d).items()) for d in normalized_fixture}
-            return model_set == fixture_set  # noqa: TRY300
-        except TypeError:
-            return normalized_model == normalized_fixture
-
-    return normalized_model == normalized_fixture
-
-
-def _flatten_dict(d: dict[str, Any], parent_key: str = "") -> dict[str, Any]:
-    """Flatten a nested dictionary for hashable comparison."""
-    items: list[tuple[str, Any]] = []
-    for k, v in d.items():
-        new_key = f"{parent_key}.{k}" if parent_key else k
-        if isinstance(v, dict):
-            items.extend(_flatten_dict(v, new_key).items())
-        elif isinstance(v, list):
-            items.append(
-                (
-                    new_key,
-                    tuple(_normalize_value(item) if isinstance(item, dict) else item for item in v),
-                )
-            )
-        else:
-            items.append((new_key, v))
-    return dict(items)
-
-
-def document_differs_from_fixture[T: Document](document: T, fixture_data: dict[str, Any]) -> bool:
-    """Compare a Beanie document against fixture data.
-
-    Only compares fields present in the fixture data. Fields that exist in the
-    document but not in the fixture are ignored.
-
-    Args:
-        document (T): The Beanie document from the database.
-        fixture_data (dict[str, Any]): The corresponding fixture data from JSON.
-
-    Returns:
-        bool: True if the document differs from the fixture, False if they match.
-    """
-    for field_name, fixture_value in fixture_data.items():
-        if not hasattr(document, field_name):
+    for key, new_value in defaults.items():
+        # FK fields: Tortoise stores the raw ID as {field}_id
+        id_attr = f"{key}_id"
+        if hasattr(instance, id_attr):
+            current_id = getattr(instance, id_attr)
+            new_id = new_value.pk if hasattr(new_value, "pk") else new_value
+            if current_id != new_id:
+                return True
             continue
 
-        if not _values_equal(getattr(document, field_name), fixture_value):
+        current = getattr(instance, key, None)
+
+        current_cmp = current.value if isinstance(current, Enum) else current
+        new_cmp = new_value.value if isinstance(new_value, Enum) else new_value
+
+        if current_cmp != new_cmp:
             return True
 
     return False
 
 
-def get_differing_fields[T: Document](
-    document: T, fixture_data: dict[str, Any]
-) -> dict[str, tuple[Any, Any]]:
-    """Get all fields that differ between a document and fixture data.
-
-    Args:
-        document (T): The Beanie document from the database.
-        fixture_data (dict[str, Any]): The corresponding fixture data from JSON.
-
-    Returns:
-        dict[str, tuple[Any, Any]]: Field names mapped to (document_value, fixture_value).
-    """
-    differences: dict[str, tuple[Any, Any]] = {}
-
-    for field_name, fixture_value in fixture_data.items():
-        if not hasattr(document, field_name):
-            continue
-
-        document_value = getattr(document, field_name)
-        if not _values_equal(document_value, fixture_value):
-            differences[field_name] = (_normalize_value(document_value), fixture_value)
-
-    return differences
-
-
 class JSONWithCommentsDecoder(json.JSONDecoder):
-    """JSON with comments decoder."""
-
-    def __init__(self, **kwgs: Any):
-        super().__init__(**kwgs)
+    """JSON decoder that strips single-line and block comments before parsing."""
 
     def decode(self, s: str) -> Any:  # type: ignore [override]
-        """Decode the JSON with comments."""
-        regex = r"""("(?:\\"|[^"])*?")|(\/\*(?:.|\s)*?\*\/|\/\/.*)"""
-        s = re.sub(regex, r"\1", s)
+        """Decode JSON after stripping comments."""
+        s = _COMMENT_RE.sub(r"\1", s)
         return super().decode(s)

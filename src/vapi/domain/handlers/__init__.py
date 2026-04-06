@@ -5,6 +5,7 @@ from .archive_handlers import (
     CharacterArchiveHandler,
     CompanyArchiveHandler,
     UserArchiveHandler,
+    archive_user_cascade,
 )
 from .character_autogeneration.handler import CharacterAutogenerationHandler
 
@@ -14,4 +15,5 @@ __all__ = (
     "CharacterAutogenerationHandler",
     "CompanyArchiveHandler",
     "UserArchiveHandler",
+    "archive_user_cascade",
 )

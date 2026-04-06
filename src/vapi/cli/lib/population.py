@@ -7,18 +7,15 @@ import click
 from rich.console import Console
 
 from vapi.cli.constants import API_KEYS_FILE, DEV_FOLDER
-from vapi.cli.lib import factories
 from vapi.cli.schemas import APIKeyUser
 from vapi.constants import CharacterType, CompanyPermission, UserRole
-from vapi.db.models import (
-    Campaign,
-    Character,
-    Company,
-    Developer,
-    User,
-)
-from vapi.db.models.developer import CompanyPermissions
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import Character
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.user import User
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
+from vapi.domain.services.developer_svc import DeveloperService
 
 logger = logging.getLogger("vapi")
 
@@ -28,6 +25,7 @@ class PopulationService:
 
     def __init__(self) -> None:
         self.console = Console()
+        self._developer_service = DeveloperService()
 
     async def populate(
         self,
@@ -50,22 +48,20 @@ class PopulationService:
         users = await self._create_users(companies=companies, num_users=num_users)
         campaigns = await self._create_campaigns(companies=companies, num_campaigns=num_campaigns)
         await self._create_characters(
-            campaigns=campaigns, users=users, num_characters=num_characters
+            campaigns=campaigns, companies=companies, users=users, num_characters=num_characters
         )
-        api_key_users = await self._generate_api_keys(developers=developers)
-        self.write_api_keys_to_stdout(api_key_users=api_key_users, companies=companies)
+        api_key_users = await self._generate_api_keys(developers=developers, companies=companies)
+        self.write_api_keys_to_stdout(api_key_users=api_key_users)
         self.write_api_keys_to_file(api_key_users=api_key_users)
 
     async def _create_developers(self) -> list[Developer]:
         """Create developer accounts for testing."""
-        global_admin = factories.DeveloperFactory.build(
-            model_version=1, is_global_admin=True, is_archived=False
+        global_admin = await Developer.create(
+            is_global_admin=True, username="dev-admin", email="admin@test.dev"
         )
-        await global_admin.save()
-        non_global_admin = factories.DeveloperFactory.build(
-            model_version=1, is_global_admin=False, is_archived=False
+        non_global_admin = await Developer.create(
+            is_global_admin=False, username="dev-user", email="user@test.dev"
         )
-        await non_global_admin.save()
 
         logger.info(
             "Created 2 Developers",
@@ -89,16 +85,17 @@ class PopulationService:
 
         companies: list[Company] = []
         for i in range(num_companies):
-            company = factories.CompanyFactory.build(model_version=1)
-            await company.save()
+            company = await Company.create(
+                name=f"Company {i + 1}", email=f"company{i + 1}@test.dev"
+            )
+            await CompanySettings.create(company=company)
             companies.append(company)
             if i != 0:
-                non_global_admin_developer.companies.append(
-                    CompanyPermissions(
-                        company_id=company.id, name=company.name, permission=CompanyPermission.ADMIN
-                    )
+                await DeveloperCompanyPermission.create(
+                    developer=non_global_admin_developer,
+                    company=company,
+                    permission=CompanyPermission.ADMIN,
                 )
-                await non_global_admin_developer.save()
         logger.info(
             "Created companies",
             extra={
@@ -114,19 +111,19 @@ class PopulationService:
         users: list[User] = []
         for company in companies:
             for i in range(num_users):
-                if i == 0:
-                    user = factories.UserFactory.build(company_id=company.id, role=UserRole.ADMIN)
-                else:
-                    user = factories.UserFactory.build(
-                        company_id=company.id,
-                        role=random.choice([UserRole.PLAYER, UserRole.STORYTELLER]),
-                    )
-
-                await user.save()
+                role = (
+                    UserRole.ADMIN
+                    if i == 0
+                    else random.choice([UserRole.PLAYER, UserRole.STORYTELLER])
+                )
+                user = await User.create(
+                    company=company,
+                    role=role,
+                    username=f"user-{i}-{company.id}",
+                    email=f"user{i}@{company.id}.dev",
+                )
                 users.append(user)
-                company.user_ids.append(user.id)
 
-            await company.save()
         logger.info(
             "Created users",
             extra={
@@ -143,22 +140,19 @@ class PopulationService:
         """Create campaigns with books and chapters for each company."""
         campaigns: list[Campaign] = []
         for company in companies:
-            for _ in range(num_campaigns):
-                campaign = factories.CampaignFactory.build(company_id=company.id)
-                await campaign.save()
+            for c in range(num_campaigns):
+                campaign = await Campaign.create(company=company, name=f"Campaign {c + 1}")
                 campaigns.append(campaign)
 
                 for i in range(2):
-                    campaign_book = factories.CampaignBookFactory.build(
-                        campaign_id=campaign.id, number=i + 1
+                    campaign_book = await CampaignBook.create(
+                        campaign=campaign, number=i + 1, name=f"Book {i + 1}"
                     )
-                    await campaign_book.save()
 
                     for j in range(2):
-                        campaign_chapter = factories.CampaignChapterFactory.build(
-                            book_id=campaign_book.id, number=j + 1
+                        await CampaignChapter.create(
+                            book=campaign_book, number=j + 1, name=f"Chapter {j + 1}"
                         )
-                        await campaign_chapter.save()
 
         logger.info(
             "Created campaigns",
@@ -171,13 +165,18 @@ class PopulationService:
         return campaigns
 
     async def _create_characters(
-        self, campaigns: list[Campaign], users: list[User], num_characters: int
+        self,
+        campaigns: list[Campaign],
+        companies: list[Company],
+        users: list[User],
+        num_characters: int,
     ) -> list[Character]:
         """Create characters for each campaign."""
+        companies_by_id = {company.id: company for company in companies}
         characters: list[Character] = []
 
         for campaign in campaigns:
-            company = await Company.get(campaign.company_id)
+            company = companies_by_id[campaign.company_id]  # type: ignore[attr-defined]
             for _ in range(num_characters):
                 user = random.choice(users)
                 chargen = CharacterAutogenerationHandler(
@@ -200,42 +199,49 @@ class PopulationService:
         )
         return characters
 
-    async def _generate_api_keys(self, developers: list[Developer]) -> list[APIKeyUser]:
+    async def _generate_api_keys(
+        self, developers: list[Developer], companies: list[Company]
+    ) -> list[APIKeyUser]:
         """Generate API keys for all developer accounts."""
-        return [
-            APIKeyUser(
-                api_key=await user.generate_api_key(),
-                developer_id=user.id,
-                developer_name=user.username,
-                developer_email=user.email,
-                developer_is_global_admin=user.is_global_admin,
+        api_key_users: list[APIKeyUser] = []
+        for developer in developers:
+            if developer.is_global_admin:
+                company_ids = [c.id for c in companies]
+            else:
+                await developer.fetch_related("permissions")
+                company_ids = [p.company_id for p in developer.permissions]  # type: ignore[attr-defined]
+
+            api_key_users.append(
+                APIKeyUser(
+                    api_key=await self._developer_service.generate_api_key(developer),
+                    developer_id=developer.id,
+                    developer_name=developer.username,
+                    developer_email=developer.email,
+                    developer_is_global_admin=developer.is_global_admin,
+                    company_ids=company_ids,
+                ),
             )
-            for user in developers
-        ]
+        return api_key_users
 
     def write_api_keys_to_file(self, api_key_users: list[APIKeyUser]) -> None:
         """Write the API keys to a file for later reference."""
         DEV_FOLDER.mkdir(parents=True, exist_ok=True)
 
-        if API_KEYS_FILE.exists():
-            API_KEYS_FILE.unlink()
-        API_KEYS_FILE.touch(exist_ok=True)
-
-        with API_KEYS_FILE.open("a") as f:
+        with API_KEYS_FILE.open("w") as f:
             for user in api_key_users:
+                companies = ", ".join(str(c) for c in user.company_ids)
                 f.write(f"""\
 id:              {user.developer_id}
-username:        {user.developer_name}
-email:           {user.developer_email}
-is global admin: {user.developer_is_global_admin}
-api key:         {user.api_key}
+Name:            {user.developer_name}
+Email:           {user.developer_email}
+API key:         {user.api_key}
+Is global admin: {user.developer_is_global_admin}
+Companies:       {companies}
 \n""")
 
         self.console.print(f"API keys saved to [green bold]{API_KEYS_FILE}[/green bold]\n")
 
-    def write_api_keys_to_stdout(
-        self, api_key_users: list[APIKeyUser], companies: list[Company]
-    ) -> None:
+    def write_api_keys_to_stdout(self, api_key_users: list[APIKeyUser]) -> None:
         """Write the API keys to stdout."""
         self.console.rule("API Keys")
         self.console.print(
@@ -243,10 +249,11 @@ api key:         {user.api_key}
         )
 
         for user in api_key_users:
+            companies = ", ".join(str(c) for c in user.company_ids)
             self.console.print(f"[underline]id:              {user.developer_id}")
             self.console.print(f"Name:            {user.developer_name}")
             self.console.print(f"Email:           {user.developer_email}")
             self.console.print(f"API key:         [green bold]{user.api_key}[/green bold]")
             self.console.print(f"Is global admin: {user.developer_is_global_admin}")
-            self.console.print(f"Companies:       {(', '.join([str(x.id) for x in companies]))}")
+            self.console.print(f"Companies:       {companies}")
             self.console.print()

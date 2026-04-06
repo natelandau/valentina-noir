@@ -112,11 +112,14 @@ class RedisSettings(BaseModel):
         )
 
 
-class MongoDBSettings(BaseModel):
-    """MongoDB settings."""
+class PostgresSettings(BaseModel):
+    """PostgreSQL database settings."""
 
-    uri: str = Field(default="mongodb://localhost:27017")
-    database_name: str = Field(default="valentina-noir")
+    host: str = Field(default="localhost")
+    port: int = Field(default=5432)
+    user: str = Field(default="valentina")
+    password: str = Field(default="valentina")
+    database: str = Field(default="valentina-noir")
 
 
 class StoresSettings(BaseModel):
@@ -223,12 +226,13 @@ class Settings(BaseSettings):
 
     authentication_encryption_key: str
 
-    docker_bootstrap: bool = Field(default=False)
+    docker_migrate: bool = Field(default=False)
+    docker_seed: bool = Field(default=False)
 
     log: LoggingSettings = LoggingSettings()
     cors: CORSSettings = CORSSettings()
     allowed_hosts: AllowedHostsSettings = AllowedHostsSettings()
-    mongo: MongoDBSettings = MongoDBSettings()
+    postgres: PostgresSettings = PostgresSettings()
     oauth: OAuthSettings = OAuthSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     redis: RedisSettings = RedisSettings()

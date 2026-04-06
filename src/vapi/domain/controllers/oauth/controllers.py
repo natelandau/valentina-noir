@@ -1,7 +1,5 @@
 """OAuth2 controllers."""
 
-from __future__ import annotations
-
 import json
 from typing import Any
 from urllib.parse import unquote_plus
@@ -13,7 +11,7 @@ from litestar.di import Provide
 from litestar.response import Redirect
 
 from vapi.config.oauth import get_discord_oauth_client
-from vapi.db.models.user import User
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, urls
 from vapi.domain.controllers.oauth import lib
 from vapi.lib.exceptions import ImproperlyConfiguredError, InternalServerError
@@ -78,7 +76,7 @@ class OAuth2Controller(Controller):
 
         state = json.loads(unquote_plus(state))
 
-        user = await User.get(state["user_id"])
+        user = await User.filter(id=state["user_id"]).first()
         user = await lib.discord_oauth_token_to_user(user, token)
         user = await lib.discord_profile_to_user(user)
         return {"success": True}
@@ -93,18 +91,18 @@ class OAuth2Controller(Controller):
     )
     async def discord_refresh(self, user: User) -> dict[str, Any]:
         """Refresh the Discord OAuth token."""
-        if user.is_discord_oauth_expired():
+        if lib.is_discord_oauth_expired(user):
             try:
                 response = await get_discord_oauth_client().refresh_token(
-                    user.discord_oauth.refresh_token
+                    user.discord_oauth["refresh_token"]
                 )
             except RefreshTokenError as e:
                 raise InternalServerError from e
 
             user = await lib.discord_oauth_token_to_user(user, response)
 
-        await user.sync()
-        if user.discord_oauth.access_token is None:
+        await user.refresh_from_db()
+        if user.discord_oauth.get("access_token") is None:
             raise ImproperlyConfiguredError(
                 detail="Discord OAuth token is not set. User must login again."
             )

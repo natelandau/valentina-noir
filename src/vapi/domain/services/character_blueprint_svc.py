@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from tortoise.expressions import Q
 
 from vapi.constants import BlueprintTraitOrderBy
-from vapi.db.models import CharSheetSection, Trait, TraitCategory, TraitSubcategory
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import (
+    CharSheetSection,
+    Trait,
+    TraitCategory,
+    TraitSubcategory,
+)
 
 if TYPE_CHECKING:
-    from beanie import Document, PydanticObjectId
+    from uuid import UUID
+
+    from tortoise.models import Model
+    from tortoise.queryset import QuerySet
 
     from vapi.constants import CharacterClass, GameVersion
 
@@ -36,20 +48,18 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of sections and the list of sections.
         """
-        filters = self._common_filters(
+        qs = self._build_queryset(
             CharSheetSection,
             game_version=game_version,
             character_class=character_class,
         )
-        return await self._paginated_query(
-            CharSheetSection, filters, sort_key="order", limit=limit, offset=offset
-        )
+        return await self._paginated_query(qs, order_by="order", limit=limit, offset=offset)
 
     async def list_sheet_categories(
         self,
         *,
         game_version: GameVersion | None = None,
-        section_id: PydanticObjectId | None = None,
+        section_id: UUID | None = None,
         character_class: CharacterClass | None = None,
         limit: int = 10,
         offset: int = 0,
@@ -66,23 +76,23 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of categories and the list of categories.
         """
-        filters = self._common_filters(
+        qs = self._build_queryset(
             TraitCategory,
             game_version=game_version,
             character_class=character_class,
         )
         if section_id:
-            filters.append(TraitCategory.parent_sheet_section_id == section_id)
+            qs = qs.filter(sheet_section_id=section_id)
 
         return await self._paginated_query(
-            TraitCategory, filters, sort_key="order", limit=limit, offset=offset
+            qs, order_by="order", limit=limit, offset=offset, prefetch=["sheet_section"]
         )
 
     async def list_sheet_category_subcategories(
         self,
         *,
         game_version: GameVersion | None = None,
-        category_id: PydanticObjectId | None = None,
+        category_id: UUID | None = None,
         character_class: CharacterClass | None = None,
         limit: int = 10,
         offset: int = 0,
@@ -99,16 +109,16 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of subcategories and the list of subcategories.
         """
-        filters = self._common_filters(
+        qs = self._build_queryset(
             TraitSubcategory,
             game_version=game_version,
             character_class=character_class,
         )
         if category_id:
-            filters.append(TraitSubcategory.parent_category_id == category_id)
+            qs = qs.filter(category_id=category_id)
 
         return await self._paginated_query(
-            TraitSubcategory, filters, sort_key="name", limit=limit, offset=offset
+            qs, order_by="name", limit=limit, offset=offset, prefetch=["category", "sheet_section"]
         )
 
     async def list_all_traits(  # noqa: PLR0913
@@ -116,8 +126,8 @@ class CharacterBlueprintService:
         *,
         game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
-        parent_category_id: PydanticObjectId | None = None,
-        subcategory_id: PydanticObjectId | None = None,
+        category_id: UUID | None = None,
+        subcategory_id: UUID | None = None,
         exclude_subcategory_traits: bool = False,
         is_rollable: bool | None = None,
         order_by: BlueprintTraitOrderBy = BlueprintTraitOrderBy.NAME,
@@ -129,7 +139,7 @@ class CharacterBlueprintService:
         Args:
             game_version: The game version to list the traits for.
             character_class: The character class to list the traits for.
-            parent_category_id: The parent category id to list the traits for.
+            category_id: The category id to list the traits for.
             subcategory_id: Filter traits by subcategory.
             exclude_subcategory_traits: When True, only return traits without a subcategory.
             is_rollable: Whether to list the rollable traits.
@@ -140,118 +150,172 @@ class CharacterBlueprintService:
         Returns:
             A tuple containing the total number of traits and the list of traits.
         """
-        filters = self._common_filters(
+        qs = self._build_queryset(
             Trait,
             game_version=game_version,
             character_class=character_class,
-            extra=[Trait.custom_for_character_id == None],
+            extra_q=Q(custom_for_character_id=None),
         )
-        if parent_category_id:
-            filters.append(Trait.parent_category_id == parent_category_id)
+        if category_id:
+            qs = qs.filter(category_id=category_id)
         if subcategory_id:
-            filters.append(Trait.trait_subcategory_id == subcategory_id)
+            qs = qs.filter(subcategory_id=subcategory_id)
         if exclude_subcategory_traits:
-            filters.append(Trait.trait_subcategory_id == None)
+            qs = qs.filter(subcategory_id=None)
         if is_rollable is not None:
-            filters.append(Trait.is_rollable == is_rollable)
+            qs = qs.filter(is_rollable=is_rollable)
 
-        if order_by == BlueprintTraitOrderBy.NAME:
-            return await self._paginated_query(
-                Trait, filters, sort_key="name", limit=limit, offset=offset
-            )
+        sort_key: str | tuple[str, ...] = "name"
+        if order_by == BlueprintTraitOrderBy.SHEET:
+            sort_key = ("sheet_section__order", "category__order", "name")
 
-        # SHEET ordering requires an aggregation pipeline to join and sort by
-        # CharSheetSection.order, TraitCategory.order, then Trait.name
-        count = await Trait.find(*filters).count()
-        match_conditions = Trait.find(*filters).get_filter_query()
+        prefetch = ["category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"]
 
-        pipeline: list[dict[str, Any]] = [
-            {"$match": match_conditions},
-            {
-                "$lookup": {
-                    "from": "CharSheetSection",
-                    "localField": "sheet_section_id",
-                    "foreignField": "_id",
-                    "as": "_section",
-                }
-            },
-            {"$unwind": {"path": "$_section", "preserveNullAndEmptyArrays": True}},
-            {
-                "$lookup": {
-                    "from": "TraitCategory",
-                    "localField": "parent_category_id",
-                    "foreignField": "_id",
-                    "as": "_category",
-                }
-            },
-            {"$unwind": {"path": "$_category", "preserveNullAndEmptyArrays": True}},
-            {
-                "$sort": {
-                    "_section.order": 1,
-                    "_category.order": 1,
-                    "name": 1,
-                }
-            },
-            {"$skip": offset},
-            {"$limit": limit},
-            {"$project": {"_section": 0, "_category": 0}},
-        ]
+        return await self._paginated_query(
+            qs, order_by=sort_key, limit=limit, offset=offset, prefetch=prefetch
+        )
 
-        results = await Trait.aggregate(pipeline).to_list()
-        traits = [Trait.model_validate(doc) for doc in results]
-        return count, traits
+    async def list_concepts(
+        self,
+        *,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[CharacterConcept]]:
+        """List all non-archived character concepts.
+
+        Company-scoped filtering will be added when the Company model migrates to PostgreSQL.
+
+        Args:
+            limit: The limit of concepts to return.
+            offset: The offset of the concepts to return.
+
+        Returns:
+            A tuple containing the total number of concepts and the list of concepts.
+        """
+        qs = CharacterConcept.filter(is_archived=False)
+        return await self._paginated_query(qs, order_by="name", limit=limit, offset=offset)
+
+    async def list_vampire_clans(
+        self,
+        *,
+        game_version: GameVersion | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[VampireClan]]:
+        """List all vampire clans.
+
+        Args:
+            game_version: Filter clans by game version.
+            limit: The limit of clans to return.
+            offset: The offset of the clans to return.
+
+        Returns:
+            A tuple containing the total number of clans and the list of clans.
+        """
+        qs = self._build_queryset(VampireClan, game_version=game_version)
+        return await self._paginated_query(
+            qs, order_by="name", limit=limit, offset=offset, prefetch=["disciplines"]
+        )
+
+    async def list_werewolf_tribes(
+        self,
+        *,
+        game_version: GameVersion | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[WerewolfTribe]]:
+        """List all werewolf tribes.
+
+        Args:
+            game_version: Filter tribes by game version.
+            limit: The limit of tribes to return.
+            offset: The offset of the tribes to return.
+
+        Returns:
+            A tuple containing the total number of tribes and the list of tribes.
+        """
+        qs = self._build_queryset(WerewolfTribe, game_version=game_version)
+        return await self._paginated_query(
+            qs, order_by="name", limit=limit, offset=offset, prefetch=["gifts"]
+        )
+
+    async def list_werewolf_auspices(
+        self,
+        *,
+        game_version: GameVersion | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[int, list[WerewolfAuspice]]:
+        """List all werewolf auspices.
+
+        Args:
+            game_version: Filter auspices by game version.
+            limit: The limit of auspices to return.
+            offset: The offset of the auspices to return.
+
+        Returns:
+            A tuple containing the total number of auspices and the list of auspices.
+        """
+        qs = self._build_queryset(WerewolfAuspice, game_version=game_version)
+        return await self._paginated_query(
+            qs, order_by="name", limit=limit, offset=offset, prefetch=["gifts"]
+        )
 
     @staticmethod
-    def _common_filters(
-        model: type[Document],
+    def _build_queryset(
+        model: type[Model],
         *,
         game_version: GameVersion | None = None,
         character_class: CharacterClass | None = None,
-        extra: list[Any] | None = None,
-    ) -> list[Any]:
-        """Build the common filter list shared by all list methods.
+        extra_q: Q | None = None,
+    ) -> QuerySet:
+        """Build a base queryset with common filters.
 
         Args:
-            model: The Beanie document model to filter.
+            model: The Tortoise model to query.
             game_version: Filter by game version.
             character_class: Filter by character class.
-            extra: Additional base filters to include.
+            extra_q: Additional Q filter to apply.
 
         Returns:
-            list: The filter expressions for use with ``model.find()``.
+            A filtered QuerySet.
         """
-        filters: list[Any] = [model.is_archived == False]
-        if extra:
-            filters.extend(extra)
+        qs = model.filter(is_archived=False)
+        if extra_q:
+            qs = qs.filter(extra_q)
         if game_version:
-            filters.append(model.game_versions == game_version)
+            qs = qs.filter(game_versions__contains=[game_version.value])
         if character_class:
-            filters.append(model.character_classes == character_class)
-        return filters
+            qs = qs.filter(character_classes__contains=[character_class.value])
+        return qs
 
     @staticmethod
     async def _paginated_query(
-        model: type[Document],
-        filters: list[Any],
+        qs: QuerySet,
         *,
-        sort_key: str,
+        order_by: str | tuple[str, ...],
         limit: int,
         offset: int,
-    ) -> tuple[int, list[Any]]:
+        prefetch: list[str] | None = None,
+    ) -> tuple[int, list]:
         """Run a count and paginated fetch concurrently.
 
         Args:
-            model: The Beanie document model to query.
-            filters: Filter expressions for ``model.find()``.
-            sort_key: Field name to sort by.
+            qs: The base QuerySet to paginate.
+            order_by: Field name(s) to sort by. A tuple applies multi-column ordering.
             limit: Maximum number of results.
             offset: Number of results to skip.
+            prefetch: Relations to prefetch on the results.
 
         Returns:
-            A tuple of (total_count, page_of_documents).
+            A tuple of (total_count, page_of_results).
         """
-        count, items = await asyncio.gather(
-            model.find(*filters).count(),
-            model.find(*filters).sort(sort_key).skip(offset).limit(limit).to_list(),
-        )
-        return count, items
+        if isinstance(order_by, tuple):
+            fetch_qs = qs.order_by(*order_by).offset(offset).limit(limit)
+        else:
+            fetch_qs = qs.order_by(order_by).offset(offset).limit(limit)
+        if prefetch:
+            fetch_qs = fetch_qs.prefetch_related(*prefetch)
+
+        count, items = await asyncio.gather(qs.count(), fetch_qs)
+        return count, list(items)

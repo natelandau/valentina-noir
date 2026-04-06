@@ -372,11 +372,6 @@ def get_logging_config() -> LoggingConfig:
                 "level": settings.log.level.value,
                 "handlers": handler_call_list,
             },
-            "pymongo": {
-                "propagate": False,
-                "level": "ERROR",
-                "handlers": handler_call_list,
-            },
         },
         root={
             "level": settings.log.root_level.value,

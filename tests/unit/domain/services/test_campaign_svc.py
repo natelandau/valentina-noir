@@ -12,7 +12,8 @@ from vapi.lib.exceptions import ValidationError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from vapi.db.models import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.company import Company
 
 pytestmark = pytest.mark.anyio
 
@@ -22,106 +23,120 @@ class TestCampaignService:
 
     async def test_get_next_book_number_first_book(
         self,
-        campaign_factory: Callable[[], Campaign],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
     ) -> None:
-        """Test the get_next_book_number method."""
-        campaign = await campaign_factory()
+        """Verify get_next_book_number returns 1 for a campaign with no books."""
+        # Given a campaign with no books
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
 
-        # when the next book number is requested
+        # When the next book number is requested
         service = CampaignService()
         next_book_number = await service.get_next_book_number(campaign)
 
-        # then the next book number should be 1
+        # Then the next book number should be 1
         assert next_book_number == 1
 
     async def test_get_next_book_number(
         self,
-        campaign_factory: Callable[[], Campaign],
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the get_next_book_number method."""
-        campaign = await campaign_factory()
-        await campaign_book_factory(campaign_id=campaign.id)
-        await campaign_book_factory(campaign_id=campaign.id)
-        await campaign_book_factory(campaign_id=campaign.id)
+        """Verify get_next_book_number returns count + 1."""
+        # Given a campaign with 3 books
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        await campaign_book_factory(campaign=campaign)
+        await campaign_book_factory(campaign=campaign)
+        await campaign_book_factory(campaign=campaign)
 
-        # when the next book number is requested
+        # When the next book number is requested
         service = CampaignService()
         next_book_number = await service.get_next_book_number(campaign)
 
-        # then the next book number should be 4
+        # Then the next book number should be 4
         assert next_book_number == 4
 
     async def test_get_next_chapter_number_first_chapter(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the get_next_chapter_number method."""
-        book = await campaign_book_factory()
+        """Verify get_next_chapter_number returns 1 for a book with no chapters."""
+        # Given a book with no chapters
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
 
-        # when the next chapter number is requested
+        # When the next chapter number is requested
         service = CampaignService()
         next_chapter_number = await service.get_next_chapter_number(book)
 
-        # then the next chapter number should be 1
+        # Then the next chapter number should be 1
         assert next_chapter_number == 1
 
     async def test_get_next_chapter_number(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        campaign_chapter_factory: Callable[[], CampaignChapter],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
-        """Test the get_next_chapter_number method."""
-        book = await campaign_book_factory()
-        await campaign_chapter_factory(book_id=book.id)
-        await campaign_chapter_factory(book_id=book.id)
+        """Verify get_next_chapter_number returns count + 1."""
+        # Given a book with 2 chapters
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        await campaign_chapter_factory(book=book)
+        await campaign_chapter_factory(book=book)
 
-        # when the next chapter number is requested
+        # When the next chapter number is requested
         service = CampaignService()
         next_chapter_number = await service.get_next_chapter_number(book)
 
-        # then the next chapter number should be 3
+        # Then the next chapter number should be 3
         assert next_chapter_number == 3
 
     async def test_renumber_books(
         self,
-        campaign_factory: Callable[[], Campaign],
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the renumber_books method."""
-        campaign = await campaign_factory()
-        booka = await campaign_book_factory(name="Book A", campaign_id=campaign.id)
-        bookb = await campaign_book_factory(name="Book B", campaign_id=campaign.id)
-        bookc = await campaign_book_factory(name="Book C", campaign_id=campaign.id)
-        bookd = await campaign_book_factory(name="Book D", campaign_id=campaign.id)
+        """Verify renumber_books shifts siblings correctly in both directions."""
+        # Given a campaign with 4 books
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        booka = await campaign_book_factory(name="Book A", campaign=campaign)
+        bookb = await campaign_book_factory(name="Book B", campaign=campaign)
+        bookc = await campaign_book_factory(name="Book C", campaign=campaign)
+        bookd = await campaign_book_factory(name="Book D", campaign=campaign)
 
-        # when the bookd is renumberd to 2
+        # When bookd is renumbered to 2
         service = CampaignService()
         await service.renumber_books(bookd, 2)
-        await booka.sync()
-        await bookb.sync()
-        await bookc.sync()
-        await bookd.sync()
+        await booka.refresh_from_db()
+        await bookb.refresh_from_db()
+        await bookc.refresh_from_db()
+        await bookd.refresh_from_db()
 
-        # then the books should be in the following order: 1, 3, 4, 2
+        # Then the books should be in the following order: 1, 3, 4, 2
         assert booka.number == 1
         assert bookb.number == 3
         assert bookc.number == 4
         assert bookd.number == 2
 
-        # when the bookd is renumberd back to 4
+        # When bookd is renumbered back to 4
         await service.renumber_books(bookd, 4)
-        await booka.sync()
-        await bookb.sync()
-        await bookc.sync()
-        await bookd.sync()
+        await booka.refresh_from_db()
+        await bookb.refresh_from_db()
+        await bookc.refresh_from_db()
+        await bookd.refresh_from_db()
 
-        # then the books should be in the following order: 1, 2, 3, 4
+        # Then the books should be in the following order: 1, 2, 3, 4
         assert booka.number == 1
         assert bookb.number == 2
         assert bookc.number == 3
@@ -129,70 +144,78 @@ class TestCampaignService:
 
     async def test_renumber_books_out_of_range(
         self,
-        campaign_factory: Callable[[], Campaign],
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the renumber_books method."""
-        campaign = await campaign_factory()
-        book = await campaign_book_factory(name="Book A", campaign_id=campaign.id)
+        """Verify renumber_books raises ValidationError when number exceeds count."""
+        # Given a campaign with 1 book
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign)
 
-        # when the book is renumberd to 2
-        # then a ValidationError should be raised
+        # When the book is renumbered to 2
+        # Then a ValidationError should be raised
         service = CampaignService()
         with pytest.raises(ValidationError):
             await service.renumber_books(book, 2)
 
     async def test_renumber_books_less_than_one(
         self,
-        campaign_factory: Callable[[], Campaign],
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the renumber_books method."""
-        campaign = await campaign_factory()
-        book = await campaign_book_factory(name="Book A", campaign_id=campaign.id)
+        """Verify renumber_books raises ValidationError when number is less than 1."""
+        # Given a campaign with 1 book
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign)
 
-        # when the book is renumberd to 0
-        # then a ValidationError should be raised
+        # When the book is renumbered to 0
+        # Then a ValidationError should be raised
         service = CampaignService()
         with pytest.raises(ValidationError):
             await service.renumber_books(book, 0)
 
     async def test_renumber_chapters(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        campaign_chapter_factory: Callable[[], CampaignChapter],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
-        """Test the renumber_chapters method."""
-        book = await campaign_book_factory()
-        chaptera = await campaign_chapter_factory(name="Chapter A", book_id=book.id)
-        chapterb = await campaign_chapter_factory(name="Chapter B", book_id=book.id)
-        chapterc = await campaign_chapter_factory(name="Chapter C", book_id=book.id)
-        chapterd = await campaign_chapter_factory(name="Chapter D", book_id=book.id)
+        """Verify renumber_chapters shifts siblings correctly in both directions."""
+        # Given a book with 4 chapters
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chaptera = await campaign_chapter_factory(name="Chapter A", book=book)
+        chapterb = await campaign_chapter_factory(name="Chapter B", book=book)
+        chapterc = await campaign_chapter_factory(name="Chapter C", book=book)
+        chapterd = await campaign_chapter_factory(name="Chapter D", book=book)
 
-        # when the chapterd is renumberd to 2
+        # When chapterd is renumbered to 2
         service = CampaignService()
         await service.renumber_chapters(chapterd, 2)
-        await chaptera.sync()
-        await chapterb.sync()
-        await chapterc.sync()
-        await chapterd.sync()
+        await chaptera.refresh_from_db()
+        await chapterb.refresh_from_db()
+        await chapterc.refresh_from_db()
+        await chapterd.refresh_from_db()
 
-        # then the chapters should be in the following order: 1, 3, 4, 2
+        # Then the chapters should be in the following order: 1, 3, 4, 2
         assert chaptera.number == 1
         assert chapterb.number == 3
         assert chapterc.number == 4
 
-        # when the chapterd is renumberd back to 4
+        # When chapterd is renumbered back to 4
         await service.renumber_chapters(chapterd, 4)
-        await chaptera.sync()
-        await chapterb.sync()
-        await chapterc.sync()
-        await chapterd.sync()
+        await chaptera.refresh_from_db()
+        await chapterb.refresh_from_db()
+        await chapterc.refresh_from_db()
+        await chapterd.refresh_from_db()
 
-        # then the chapters should be in the following order: 1, 2, 3, 4
+        # Then the chapters should be in the following order: 1, 2, 3, 4
         assert chaptera.number == 1
         assert chapterb.number == 2
         assert chapterc.number == 3
@@ -200,78 +223,89 @@ class TestCampaignService:
 
     async def test_renumber_chapters_out_of_range(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        campaign_chapter_factory: Callable[[], CampaignChapter],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
-        """Test the renumber_chapters method."""
-        book = await campaign_book_factory()
-        chapter = await campaign_chapter_factory(name="Chapter A", book_id=book.id)
+        """Verify renumber_chapters raises ValidationError when number exceeds count."""
+        # Given a book with 1 chapter
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
-        # when the chapter is renumberd to 2
-        # then a ValidationError should be raised
+        # When the chapter is renumbered to 2
+        # Then a ValidationError should be raised
         service = CampaignService()
         with pytest.raises(ValidationError):
             await service.renumber_chapters(chapter, 2)
 
     async def test_renumber_chapters_less_than_one(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        campaign_chapter_factory: Callable[[], CampaignChapter],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
-        """Test the renumber_chapters method."""
-        book = await campaign_book_factory()
-        chapter = await campaign_chapter_factory(name="Chapter A", book_id=book.id)
+        """Verify renumber_chapters raises ValidationError when number is less than 1."""
+        # Given a book with 1 chapter
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
-        # when the chapter is renumberd to 0
-        # then a ValidationError should be raised
+        # When the chapter is renumbered to 0
+        # Then a ValidationError should be raised
         service = CampaignService()
         with pytest.raises(ValidationError):
             await service.renumber_chapters(chapter, 0)
 
     async def test_delete_book_and_renumber_one_book(
         self,
-        campaign_factory: Callable[[], Campaign],
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the delete_book_and_renumber method."""
-        campaign = await campaign_factory()
-        book = await campaign_book_factory(name="Book A", campaign_id=campaign.id)
+        """Verify delete_book_and_renumber soft-deletes a single book."""
+        # Given a campaign with 1 book
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign)
 
-        # when the book is deleted
+        # When the book is deleted
         service = CampaignService()
-
         await service.delete_book_and_renumber(book)
-        await book.sync()
+        await book.refresh_from_db()
 
-        # then the book should be deleted
+        # Then the book should be archived
         assert book.is_archived
         assert book.number == 1
 
     async def test_delete_book_and_renumber_multiple_books(
         self,
-        campaign_factory: Callable[[], Campaign],
-        campaign_book_factory: Callable[[], CampaignBook],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
     ) -> None:
-        """Test the delete_book_and_renumber method."""
-        campaign = await campaign_factory()
-        booka = await campaign_book_factory(name="Book A", campaign_id=campaign.id, number=1)
-        bookb = await campaign_book_factory(name="Book B", campaign_id=campaign.id, number=2)
-        bookc = await campaign_book_factory(name="Book C", campaign_id=campaign.id, number=3)
-        bookd = await campaign_book_factory(name="Book D", campaign_id=campaign.id, number=4)
+        """Verify delete_book_and_renumber shifts higher-numbered books down."""
+        # Given a campaign with 4 books
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        booka = await campaign_book_factory(name="Book A", campaign=campaign, number=1)
+        bookb = await campaign_book_factory(name="Book B", campaign=campaign, number=2)
+        bookc = await campaign_book_factory(name="Book C", campaign=campaign, number=3)
+        bookd = await campaign_book_factory(name="Book D", campaign=campaign, number=4)
 
-        # when the bookc is deleted
+        # When bookb is deleted
         service = CampaignService()
         await service.delete_book_and_renumber(bookb)
-        await booka.sync()
-        await bookb.sync()
-        await bookc.sync()
-        await bookd.sync()
+        await booka.refresh_from_db()
+        await bookb.refresh_from_db()
+        await bookc.refresh_from_db()
+        await bookd.refresh_from_db()
 
-        # then the books should be in the following order: 1, 2, 3
+        # Then the books should be renumbered: 1, archived, 2, 3
         assert booka.number == 1
         assert bookb.is_archived
         assert bookc.number == 2
@@ -279,47 +313,86 @@ class TestCampaignService:
 
     async def test_delete_chapter_and_renumber_one_chapter(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        campaign_chapter_factory: Callable[[], CampaignChapter],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
-        """Test the delete_chapter_and_renumber method."""
-        book = await campaign_book_factory()
-        chapter = await campaign_chapter_factory(name="Chapter A", book_id=book.id)
+        """Verify delete_chapter_and_renumber soft-deletes a single chapter."""
+        # Given a book with 1 chapter
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
-        # when the chapter is deleted
+        # When the chapter is deleted
         service = CampaignService()
         await service.delete_chapter_and_renumber(chapter)
-        await chapter.sync()
+        await chapter.refresh_from_db()
 
-        # then the chapter should be deleted
+        # Then the chapter should be archived
         assert chapter.is_archived
         assert chapter.number == 1
 
     async def test_delete_chapter_and_renumber_multiple_chapters(
         self,
-        campaign_book_factory: Callable[[], CampaignBook],
-        campaign_chapter_factory: Callable[[], CampaignChapter],
-        debug: Callable[[...], None],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
     ) -> None:
-        """Test the delete_chapter_and_renumber method."""
-        book = await campaign_book_factory()
-        chaptera = await campaign_chapter_factory(name="Chapter A", book_id=book.id, number=1)
-        chapterb = await campaign_chapter_factory(name="Chapter B", book_id=book.id, number=2)
-        chapterc = await campaign_chapter_factory(name="Chapter C", book_id=book.id, number=3)
-        chapterd = await campaign_chapter_factory(name="Chapter D", book_id=book.id, number=4)
+        """Verify delete_chapter_and_renumber shifts higher-numbered chapters down."""
+        # Given a book with 4 chapters
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chaptera = await campaign_chapter_factory(name="Chapter A", book=book, number=1)
+        chapterb = await campaign_chapter_factory(name="Chapter B", book=book, number=2)
+        chapterc = await campaign_chapter_factory(name="Chapter C", book=book, number=3)
+        chapterd = await campaign_chapter_factory(name="Chapter D", book=book, number=4)
 
-        # when the chapterc is deleted
+        # When chapterb is deleted
         service = CampaignService()
         await service.delete_chapter_and_renumber(chapterb)
+        await chaptera.refresh_from_db()
+        await chapterb.refresh_from_db()
+        await chapterc.refresh_from_db()
+        await chapterd.refresh_from_db()
 
-        await chaptera.sync()
-        await chapterb.sync()
-        await chapterc.sync()
-        await chapterd.sync()
-
-        # then the chapters should be in the following order: 1, 2, 3
+        # Then the chapters should be renumbered: 1, archived, 2, 3
         assert chaptera.number == 1
         assert chapterb.is_archived
         assert chapterc.number == 2
         assert chapterd.number == 3
+
+    async def test_archive_campaign(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+    ) -> None:
+        """Verify archive_campaign soft-archives campaign, books, and chapters."""
+        # Given a campaign with books and chapters
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book1 = await campaign_book_factory(campaign=campaign)
+        book2 = await campaign_book_factory(campaign=campaign)
+        chapter1 = await campaign_chapter_factory(book=book1)
+        chapter2 = await campaign_chapter_factory(book=book1)
+
+        # When the campaign is archived
+        service = CampaignService()
+        await service.archive_campaign(campaign)
+        await campaign.refresh_from_db()
+        await book1.refresh_from_db()
+        await book2.refresh_from_db()
+        await chapter1.refresh_from_db()
+        await chapter2.refresh_from_db()
+
+        # Then all should be archived
+        assert campaign.is_archived
+        assert book1.is_archived
+        assert book2.is_archived
+        assert chapter1.is_archived
+        assert chapter2.is_archived

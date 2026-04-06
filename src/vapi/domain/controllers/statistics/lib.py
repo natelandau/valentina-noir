@@ -2,67 +2,76 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+from tortoise.functions import Avg
 
 from vapi.constants import RollResultType
-from vapi.db.models import DiceRoll, Trait
+from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.diceroll import DiceRoll
 
 from . import dto
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from beanie import PydanticObjectId
-
 
 async def calculate_roll_statistics(
-    filters: Sequence[Any],
+    filters: dict[str, Any],
     num_top_traits: int = 5,
 ) -> dto.RollStatistics:
-    """Calculate the statistics for a list of dice rolls."""
-    dice_rolls_with_traits = await DiceRoll.find(
-        *filters, DiceRoll.trait_ids != [], fetch_links=True
-    ).to_list()
+    """Calculate statistics for a set of dice rolls matching the given filters."""
+    base_qs = DiceRoll.filter(**filters)
+
+    # Get dice rolls with prefetched traits for frequency analysis
+    dice_rolls_with_traits = [dr for dr in await base_qs.prefetch_related("traits") if dr.traits]
 
     # Calculate trait usage counts
-    trait_usage_counts: dict[PydanticObjectId, int] = {}
+    trait_usage_counts: dict[Any, int] = {}
     for dice_roll in dice_rolls_with_traits:
-        for trait_id in dice_roll.trait_ids:
-            trait_usage_counts[trait_id] = trait_usage_counts.get(trait_id, 0) + 1
+        for trait in dice_roll.traits:
+            trait_usage_counts[trait.id] = trait_usage_counts.get(trait.id, 0) + 1
 
     # Get top traits by usage count
-    top_trait_ids = sorted(trait_usage_counts.items(), key=lambda x: x[1], reverse=True)[
+    top_trait_entries = sorted(trait_usage_counts.items(), key=lambda x: x[1], reverse=True)[
         :num_top_traits
     ]
 
-    # Fetch trait details for top traits
-    top_traits_by_usage: list[dict[str, int | str | PydanticObjectId]] = []
-    for trait_id, usage_count in top_trait_ids:
-        trait = await Trait.get(trait_id)
-        if trait:
-            top_traits_by_usage.append(
-                {
-                    "name": trait.name,
-                    "usage_count": usage_count,
-                    "trait_id": trait_id,
-                }
-            )
+    # Batch fetch trait details
+    top_traits_by_usage: list[dict[str, Any]] = []
+    if top_trait_entries:
+        top_trait_ids = [tid for tid, _ in top_trait_entries]
+        traits_by_id = {t.id: t for t in await Trait.filter(id__in=top_trait_ids)}
+        for trait_id, usage_count in top_trait_entries:
+            trait = traits_by_id.get(trait_id)
+            if trait:
+                top_traits_by_usage.append(
+                    {
+                        "name": trait.name,
+                        "usage_count": usage_count,
+                        "trait_id": trait_id,
+                    }
+                )
+
+    # Calculate aggregate statistics
+    total_rolls = await base_qs.count()
+
+    avg_result = await base_qs.annotate(
+        avg_difficulty=Avg("difficulty"), avg_pool=Avg("num_dice")
+    ).values("avg_difficulty", "avg_pool")
+    avg_difficulty = avg_result[0]["avg_difficulty"] if avg_result else None
+    avg_pool = avg_result[0]["avg_pool"] if avg_result else None
 
     return dto.RollStatistics(
-        total_rolls=await DiceRoll.find(*filters).count(),
-        average_difficulty=await DiceRoll.find(*filters).avg(DiceRoll.difficulty),
-        average_pool=await DiceRoll.find(*filters).avg(DiceRoll.num_dice),
-        botches=await DiceRoll.find(
-            *filters, DiceRoll.result.total_result_type == RollResultType.BOTCH
+        total_rolls=total_rolls,
+        average_difficulty=avg_difficulty,
+        average_pool=avg_pool,
+        botches=await base_qs.filter(roll_result__total_result_type=RollResultType.BOTCH).count(),
+        successes=await base_qs.filter(
+            roll_result__total_result_type=RollResultType.SUCCESS
         ).count(),
-        successes=await DiceRoll.find(
-            *filters, DiceRoll.result.total_result_type == RollResultType.SUCCESS
+        failures=await base_qs.filter(
+            roll_result__total_result_type=RollResultType.FAILURE
         ).count(),
-        failures=await DiceRoll.find(
-            *filters, DiceRoll.result.total_result_type == RollResultType.FAILURE
-        ).count(),
-        criticals=await DiceRoll.find(
-            *filters, DiceRoll.result.total_result_type == RollResultType.CRITICAL
+        criticals=await base_qs.filter(
+            roll_result__total_result_type=RollResultType.CRITICAL
         ).count(),
         top_traits=top_traits_by_usage,
     )

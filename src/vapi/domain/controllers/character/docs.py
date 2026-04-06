@@ -7,7 +7,12 @@ Optionally, filter results by `user_player_id`, `user_creator_id`, `character_cl
 """
 
 GET_CHARACTER_DESCRIPTION = """\
-Retrieve detailed information about a specific character including traits, status, and biographical data.
+Retrieve detailed information about a specific character including status and biographical data.
+
+Use the `include` query parameter to embed related child resources in the response. \
+Pass one or more of: `traits`, `inventory`, `notes`, `assets`. Example: \
+`?include=traits&include=notes`. When omitted, child resources are not included \
+and must be fetched via their dedicated endpoints.
 """
 
 CREATE_CHARACTER_DESCRIPTION = """\

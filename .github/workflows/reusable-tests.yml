@@ -16,8 +16,6 @@ env:
     VAPI_DEBUG: false
     VAPI_AUTHENTICATION_ENCRYPTION_KEY: 95bfffc1521e76be955aa786f623f996c85f49e6a5788e126b85d1d630c30245 # gitleaks:allow
     VAPI_RATE_LIMIT__ENCRYPTION_KEY: 95bfffc1521e76be955aa786f623f996c85f49e6a5788e126b85d1d630c30245 # gitleaks:allow
-    VAPI_MONGO__URI: "mongodb://localhost:27017"
-    VAPI_MONGO__DATABASE_NAME: "valentina-ci"
     VAPI_REDIS__URL: "redis://localhost:6379/0"
     VAPI_SERVER__HOST: 0.0.0.0
 
@@ -48,7 +46,7 @@ jobs:
 
             - name: Upload coverage to Codecov
               if: ${{ inputs.run-coverage && matrix.python-version == '3.13' }}
-              uses: codecov/codecov-action@v5
+              uses: codecov/codecov-action@v6
               with:
                   files: .cache/coverage.xml
               env:

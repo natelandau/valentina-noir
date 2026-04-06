@@ -15,19 +15,33 @@ import logging
 import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import UUID as StdUUID  # noqa: N811
 
-from beanie import PydanticObjectId
-
-from vapi.db.models.campaign import Campaign
-from vapi.db.models.character import CharacterTrait
-from vapi.db.models.constants.sheet_section import CharSheetSection
-from vapi.db.models.constants.trait import Trait
-from vapi.db.models.constants.trait_categories import TraitCategory
-from vapi.db.models.constants.trait_subcategories import TraitSubcategory
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.character import (
+    CharacterInventory,
+    CharacterTrait,
+    HunterAttributes,
+    MageAttributes,
+    Specialty,
+    VampireAttributes,
+    WerewolfAttributes,
+)
+from vapi.db.sql_models.character_sheet import (
+    CharSheetSection,
+    Trait,
+    TraitCategory,
+    TraitSubcategory,
+)
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.services.aws_service import AWSS3Service
 
 from .id_map import IDMap
-from .new_db import connect_new_db
+from .new_db import close_new_db, connect_new_db
 from .old_db import (
     connect_old_db,
     read_campaign_books,
@@ -56,11 +70,23 @@ from .transformers import (
 )
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from pymongo.asynchronous.database import AsyncDatabase
+    from tortoise.models import Model as TortoiseModel
 
 logger = logging.getLogger("migrate")
 # Minimum trait name length before padding with underscores
 MIN_TRAIT_NAME_LENGTH = 3
+
+
+def _std_id(obj: Any) -> StdUUID:
+    """Convert a model's id (uuid_utils.UUID) to stdlib uuid.UUID.
+
+    Tortoise's UUIDField.to_python_value rejects uuid_utils.UUID when passed
+    as a FK value during model construction. This converts to stdlib UUID.
+    """
+    return StdUUID(str(obj.id))
 
 
 # Old trait name (lowercase) → corrected name for matching against new blueprints
@@ -136,23 +162,53 @@ class MigrationStats:
                 print(f"  {failure}")  # noqa: T201
 
 
-async def _save(doc: Any, *, dry_run: bool) -> None:
-    """Save a document, respecting dry-run mode.
+async def _save(obj: TortoiseModel, *, dry_run: bool) -> None:
+    """Save a Tortoise model instance, respecting dry-run mode.
 
-    In dry-run mode, assigns a synthetic ObjectId so downstream ID map
-    lookups still work correctly.
+    UUID v7 default means the ID is populated at construction time,
+    so it is available for ID map lookups even in dry-run mode.
 
     Args:
-        doc: The Beanie document to save.
+        obj: The Tortoise model instance to save.
         dry_run: If True, skip the actual save.
     """
-    if dry_run:
-        if doc.id is None:
-            from bson import ObjectId
+    if not dry_run:
+        await obj.save()
 
-            doc.id = PydanticObjectId(ObjectId())
-    else:
-        await doc.insert()
+
+async def _clean_migrated_data(*, dry_run: bool) -> None:
+    """Truncate all non-constant tables in reverse-dependency order for idempotency.
+
+    Constants (CharSheetSection, TraitCategory, Trait, VampireClan, etc.) are
+    seeded by ``duty seed`` and left untouched.
+
+    Args:
+        dry_run: If True, skip truncation.
+    """
+    if dry_run:
+        return
+
+    models_to_clean: list[type[TortoiseModel]] = [
+        DiceRollResult,
+        DiceRoll,
+        Note,
+        S3Asset,
+        CharacterTrait,
+        CharacterInventory,
+        Specialty,
+        VampireAttributes,
+        WerewolfAttributes,
+        MageAttributes,
+        HunterAttributes,
+        CampaignExperience,
+        Campaign,
+        User,
+        CompanySettings,
+        Company,
+    ]
+    for model in models_to_clean:
+        await model.all().delete()
+    logger.info("Cleaned all non-constant tables")
 
 
 def _has_activity(user: dict[str, Any], characters: list[dict[str, Any]]) -> bool:
@@ -184,7 +240,7 @@ async def _migrate_users(
     stats: MigrationStats,
     *,
     dry_run: bool,
-) -> list[PydanticObjectId]:
+) -> None:
     """Migrate users belonging to a guild, filtered to active participants only.
 
     Args:
@@ -195,12 +251,8 @@ async def _migrate_users(
         id_map: The ID map registry.
         stats: Migration statistics tracker.
         dry_run: If True, don't write to the new database.
-
-    Returns:
-        List of new user IDs created in this company.
     """
     guild_id = guild["_id"]
-    user_ids_in_company: list[PydanticObjectId] = []
 
     for user in old_users:
         if not _has_activity(user, all_characters):
@@ -210,16 +262,13 @@ async def _migrate_users(
         if guild_id not in user.get("guilds", []):
             continue
         try:
-            new_user = transform_user(user, guild, company.id)
+            new_user = transform_user(user, guild, _std_id(company))
             await _save(new_user, dry_run=dry_run)
-            id_map.add("user", (user["_id"], guild_id), new_user.id)
-            user_ids_in_company.append(new_user.id)
+            id_map.add("user", (user["_id"], guild_id), _std_id(new_user))
             stats.record_created("user")
             logger.info("User %s → %s", user["_id"], new_user.id)
         except Exception as e:  # noqa: BLE001
             stats.record_failed("user", user["_id"], e)
-
-    return user_ids_in_company
 
 
 async def _migrate_campaigns(
@@ -244,10 +293,10 @@ async def _migrate_campaigns(
     old_campaigns = await read_campaigns(old_db, guild_id)
     for campaign in old_campaigns:
         try:
-            new_campaign = transform_campaign(campaign, company.id)
+            new_campaign = transform_campaign(campaign, _std_id(company))
             await _save(new_campaign, dry_run=dry_run)
             old_campaign_id = str(campaign["_id"])
-            id_map.add("campaign", old_campaign_id, new_campaign.id)
+            id_map.add("campaign", old_campaign_id, _std_id(new_campaign))
             stats.record_created("campaign")
             logger.info("Campaign %s → %s", old_campaign_id, new_campaign.id)
 
@@ -280,18 +329,18 @@ async def _migrate_books(
     old_books = await read_campaign_books(old_db, old_campaign_id)
     for book in old_books:
         try:
-            new_book = transform_campaign_book(book, new_campaign.id)
+            new_book = transform_campaign_book(book, _std_id(new_campaign))
             await _save(new_book, dry_run=dry_run)
             old_book_id = str(book["_id"])
-            id_map.add("book", old_book_id, new_book.id)
+            id_map.add("book", old_book_id, _std_id(new_book))
             stats.record_created("book")
 
             old_chapters = await read_campaign_chapters(old_db, old_book_id)
             for chapter in old_chapters:
                 try:
-                    new_chapter = transform_campaign_chapter(chapter, new_book.id)
+                    new_chapter = transform_campaign_chapter(chapter, _std_id(new_book))
                     await _save(new_chapter, dry_run=dry_run)
-                    id_map.add("chapter", str(chapter["_id"]), new_chapter.id)
+                    id_map.add("chapter", str(chapter["_id"]), _std_id(new_chapter))
                     stats.record_created("chapter")
                 except Exception as e:  # noqa: BLE001
                     stats.record_failed("chapter", chapter.get("_id"), e)
@@ -308,6 +357,8 @@ async def _backfill_campaign_experience(
     dry_run: bool,
 ) -> None:
     """Backfill campaign experience onto already-migrated users.
+
+    Creates CampaignExperience rows and updates lifetime totals on the User.
 
     Args:
         old_users: All user documents from the old database.
@@ -326,18 +377,18 @@ async def _backfill_campaign_experience(
             continue
         try:
             experiences = build_campaign_experience_list(old_experience, id_map)
-            if experiences and not dry_run:
-                from vapi.db.models.user import User as UserModel
+            total_xp = sum(e.xp_total for e in experiences)
+            total_cp = sum(e.cool_points for e in experiences)
 
-                db_user = await UserModel.get(new_user_id)
-                if db_user:
-                    db_user.campaign_experience = experiences
-                    # Sum totals for lifetime fields
-                    db_user.lifetime_xp = sum(e.xp_total for e in experiences)
-                    db_user.lifetime_cool_points = sum(e.cool_points for e in experiences)
-                    await db_user.save()
-            elif experiences:
+            for exp in experiences:
+                exp.user_id = new_user_id
+                await _save(exp, dry_run=dry_run)
                 stats.record_created("campaign_experience")
+
+            if experiences and not dry_run:
+                await User.filter(id=new_user_id).update(
+                    lifetime_xp=total_xp, lifetime_cool_points=total_cp
+                )
         except Exception as e:  # noqa: BLE001
             stats.record_failed("campaign_experience", user["_id"], e)
 
@@ -371,7 +422,7 @@ async def _migrate_character_contents(
     old_traits = await read_character_traits(old_db, old_char_id)
     for trait_doc in old_traits:
         try:
-            await _migrate_trait(trait_doc, new_char.id, stats, dry_run=dry_run)
+            await _migrate_trait(trait_doc, _std_id(new_char), stats, dry_run=dry_run)
         except Exception as e:  # noqa: BLE001
             stats.record_failed("trait", trait_doc.get("_id"), e)
 
@@ -379,7 +430,7 @@ async def _migrate_character_contents(
     old_items = await read_inventory_items(old_db, old_char_id)
     for item in old_items:
         try:
-            new_item = transform_inventory_item(item, new_char.id)
+            new_item = transform_inventory_item(item, _std_id(new_char))
             await _save(new_item, dry_run=dry_run)
             stats.record_created("inventory")
         except Exception as e:  # noqa: BLE001
@@ -398,9 +449,10 @@ async def _migrate_character_contents(
                 filename = Path(old_key).name
                 mime_type = mimetypes.guess_type(old_key)[0] or "application/octet-stream"
                 await aws_service.upload_asset(
-                    parent=new_char,
-                    company_id=company.id,
-                    upload_user_id=new_char.user_creator_id,
+                    company_id=_std_id(company),
+                    uploaded_by_id=new_char.user_creator_id,
+                    parent_id=_std_id(new_char),
+                    parent_fk_field="character_id",
                     data=data,
                     filename=filename,
                     mime_type=mime_type,
@@ -436,7 +488,7 @@ async def _migrate_characters(
         dry_run: If True, don't write to the new database or upload S3 objects.
     """
     # Created on first use to avoid empty campaigns when all chars have campaigns
-    uncategorized_campaign_id: PydanticObjectId | None = None
+    uncategorized_campaign_id: UUID | None = None
 
     for char in all_characters:
         old_char_id = str(char["_id"])
@@ -451,16 +503,21 @@ async def _migrate_characters(
         else:
             # Create the uncategorized placeholder campaign once per company
             if uncategorized_campaign_id is None:
-                uncat = Campaign(name="Uncategorized", company_id=company.id)
+                uncat = Campaign(name="Uncategorized", company_id=_std_id(company))
                 await _save(uncat, dry_run=dry_run)
-                uncategorized_campaign_id = uncat.id
+                uncategorized_campaign_id = _std_id(uncat)
                 stats.record_created("campaign")
             campaign_id = uncategorized_campaign_id
 
         try:
-            new_char = transform_character(char, id_map, company.id, campaign_id, guild_id)
+            new_char, char_attrs = await transform_character(
+                char, id_map, _std_id(company), campaign_id, guild_id
+            )
             await _save(new_char, dry_run=dry_run)
-            id_map.add("character", old_char_id, new_char.id)
+            for attr in char_attrs:
+                attr.character_id = _std_id(new_char)
+                await _save(attr, dry_run=dry_run)
+            id_map.add("character", old_char_id, _std_id(new_char))
             stats.record_created("character")
             logger.info("Character %s → %s", old_char_id, new_char.id)
 
@@ -509,7 +566,7 @@ async def _migrate_dice_rolls(
     *,
     dry_run: bool,
 ) -> None:
-    """Migrate roll statistics as DiceRoll documents for a guild.
+    """Migrate roll statistics as DiceRoll + DiceRollResult documents for a guild.
 
     Args:
         old_db: The old database connection.
@@ -521,22 +578,23 @@ async def _migrate_dice_rolls(
     old_rolls = await read_roll_statistics(old_db, guild_id)
     for stat_doc in old_rolls:
         try:
-            dice_roll = transform_roll_statistic(stat_doc, id_map, guild_id)
-            if dice_roll is None:
+            result = transform_roll_statistic(stat_doc, id_map, guild_id)
+            if result is None:
                 stats.record_skipped("diceroll", f"no company: {stat_doc.get('_id')}")
                 continue
 
-            # Best-effort trait_ids lookup from old trait names
-            old_trait_names = stat_doc.get("traits", [])
-            if old_trait_names:
-                for tname in old_trait_names:
-                    matched = await Trait.find_one(
-                        Trait.name == tname.title(), Trait.is_custom == False
-                    )
-                    if matched:
-                        dice_roll.trait_ids.append(matched.id)
-
+            dice_roll, roll_result = result
             await _save(dice_roll, dry_run=dry_run)
+            roll_result.dice_roll_id = _std_id(dice_roll)
+            await _save(roll_result, dry_run=dry_run)
+
+            # Best-effort M2M trait linking from old trait names
+            old_trait_names = stat_doc.get("traits", [])
+            for tname in old_trait_names:
+                matched = await Trait.filter(name=tname.title(), is_custom=False).first()
+                if matched and not dry_run:
+                    await dice_roll.traits.add(matched)
+
             stats.record_created("diceroll")
         except Exception as e:  # noqa: BLE001
             stats.record_failed("diceroll", stat_doc.get("_id"), e)
@@ -569,11 +627,13 @@ async def migrate_guild(
     guild_id = guild["_id"]
     logger.info("Migrating guild: %s (id=%s)", guild.get("name"), guild_id)
 
-    # Step 1: Guild → Company
+    # Step 1: Guild → Company + CompanySettings
     try:
-        company = transform_guild_to_company(guild)
+        company, company_settings = transform_guild_to_company(guild)
         await _save(company, dry_run=dry_run)
-        id_map.add("guild", guild_id, company.id)
+        company_settings.company_id = _std_id(company)
+        await _save(company_settings, dry_run=dry_run)
+        id_map.add("guild", guild_id, _std_id(company))
         stats.record_created("company")
         logger.info("Guild %s → Company %s", guild_id, company.id)
         s3.record_company(company.id)
@@ -584,14 +644,7 @@ async def migrate_guild(
     # Step 2: Users
     all_characters = await read_characters(old_db, guild_id)
     old_users = await read_users(old_db)
-    user_ids_in_company = await _migrate_users(
-        guild, old_users, all_characters, company, id_map, stats, dry_run=dry_run
-    )
-
-    # Step 2b: Backfill Company.user_ids
-    if user_ids_in_company and not dry_run:
-        company.user_ids = user_ids_in_company
-        await company.save()
+    await _migrate_users(guild, old_users, all_characters, company, id_map, stats, dry_run=dry_run)
 
     # Step 3: Campaigns + Books + Chapters
     await _migrate_campaigns(old_db, guild_id, company, id_map, stats, dry_run=dry_run)
@@ -607,13 +660,13 @@ async def migrate_guild(
     # Step 6: Notes
     await _migrate_notes(old_db, guild_id, id_map, stats, dry_run=dry_run)
 
-    # Step 7: RollStatistic → DiceRoll
+    # Step 7: RollStatistic → DiceRoll + DiceRollResult
     await _migrate_dice_rolls(old_db, guild_id, id_map, stats, dry_run=dry_run)
 
 
 async def _migrate_trait(  # noqa: C901, PLR0915
     trait_doc: dict[str, Any],
-    character_id: PydanticObjectId,
+    character_id: UUID,
     stats: MigrationStats,
     *,
     dry_run: bool,
@@ -626,12 +679,10 @@ async def _migrate_trait(  # noqa: C901, PLR0915
         stats: Migration statistics.
         dry_run: If True, skip saves.
     """
-    advantages_section = await CharSheetSection.find_one(CharSheetSection.name == "Advantages")
-    abilities_section = await CharSheetSection.find_one(CharSheetSection.name == "Abilities")
-    other_section = await CharSheetSection.find_one(CharSheetSection.name == "Other")
-    subcategory = await TraitSubcategory.find_one(
-        TraitSubcategory.name == trait_doc.get("name", "")
-    )
+    advantages_section = await CharSheetSection.filter(name="Advantages").first()
+    abilities_section = await CharSheetSection.filter(name="Abilities").first()
+    other_section = await CharSheetSection.filter(name="Other").first()
+    subcategory = await TraitSubcategory.filter(name=trait_doc.get("name", "")).first()
     trait_name = trait_doc.get("name", "")
     trait_value = trait_doc.get("value", 0)
 
@@ -641,15 +692,15 @@ async def _migrate_trait(  # noqa: C901, PLR0915
         return
 
     # Try to find an existing trait blueprint by name (case-insensitive via title())
-    existing_trait = await Trait.find_one(
-        Trait.name == trait_name.title(),
-        Trait.is_custom == False,
-    )
+    existing_trait = await Trait.filter(
+        name=trait_name.title(),
+        is_custom=False,
+    ).first()
 
     if existing_trait and trait_name != "Surveillance":
         char_trait = CharacterTrait(
             character_id=character_id,
-            trait=existing_trait,
+            trait_id=StdUUID(str(existing_trait.id)),
             value=trait_value,
         )
 
@@ -662,24 +713,22 @@ async def _migrate_trait(  # noqa: C901, PLR0915
         await _save(char_trait, dry_run=dry_run)
         stats.record_created("trait_matched")
     elif subcategory:
-        subcategory_traits = await Trait.find(
-            Trait.trait_subcategory_id == subcategory.id
-        ).to_list()
+        subcategory_traits = await Trait.filter(subcategory_id=subcategory.id)
         for dot in range(trait_value):
             trait_to_assign = subcategory_traits[dot] if dot < len(subcategory_traits) else None
             if trait_to_assign:
                 char_trait = CharacterTrait(
                     character_id=character_id,
-                    trait=trait_to_assign,
+                    trait_id=StdUUID(str(trait_to_assign.id)),
                     value=1,
                 )
                 await _save(char_trait, dry_run=dry_run)
                 stats.record_created("trait_matched")
     elif trait_name == "Surveillance":
-        category = await TraitCategory.find_one(
-            TraitCategory.name == "Social",
-            TraitCategory.parent_sheet_section_id == abilities_section.id,
-        )
+        category = await TraitCategory.filter(
+            name="Social",
+            sheet_section_id=abilities_section.id,
+        ).first()
         custom_trait = Trait(
             name=(
                 trait_name.title()
@@ -688,48 +737,47 @@ async def _migrate_trait(  # noqa: C901, PLR0915
             ),
             is_custom=True,
             custom_for_character_id=character_id,
-            sheet_section_id=abilities_section.id,
-            parent_category_id=category.id,
+            sheet_section_id=StdUUID(str(abilities_section.id)),
+            category_id=StdUUID(str(category.id)),
             max_value=trait_doc.get("max_value", 5),
         )
         await _save(custom_trait, dry_run=dry_run)
         char_trait = CharacterTrait(
             character_id=character_id,
-            trait=custom_trait,
+            trait_id=StdUUID(str(custom_trait.id)),
             value=trait_value,
         )
         await _save(char_trait, dry_run=dry_run)
         stats.record_created("trait_custom")
     else:
         old_category_name = trait_doc.get("category_name")
+        section = None
+        category = None
+
         if old_category_name == "TALENTS":
             section = abilities_section
-            category = await TraitCategory.find_one(
-                TraitCategory.name == "Physical",
-                TraitCategory.parent_sheet_section_id == abilities_section.id,
-            )
+            category = await TraitCategory.filter(
+                name="Physical",
+                sheet_section_id=abilities_section.id,
+            ).first()
 
         elif old_category_name == "SKILLS":
             section = abilities_section
-            category = await TraitCategory.find_one(
-                TraitCategory.name == "Social",
-                TraitCategory.parent_sheet_section_id == abilities_section.id,
-            )
+            category = await TraitCategory.filter(
+                name="Social",
+                sheet_section_id=abilities_section.id,
+            ).first()
         elif old_category_name == "KNOWLEDGES":
             section = abilities_section
-            category = await TraitCategory.find_one(
-                TraitCategory.name == "Mental",
-                TraitCategory.parent_sheet_section_id == abilities_section.id,
-            )
+            category = await TraitCategory.filter(
+                name="Mental",
+                sheet_section_id=abilities_section.id,
+            ).first()
         else:
-            possible_categories = await TraitCategory.find(
-                TraitCategory.name == old_category_name.title()
-            ).to_list()
+            possible_categories = await TraitCategory.filter(name=old_category_name.title())
             if len(possible_categories) == 1:
                 category = possible_categories[0]
-                section = await CharSheetSection.find_one(
-                    CharSheetSection.id == category.parent_sheet_section_id
-                )
+                section = await CharSheetSection.filter(id=category.sheet_section_id).first()
 
         if section and category:
             custom_trait = Trait(
@@ -740,15 +788,15 @@ async def _migrate_trait(  # noqa: C901, PLR0915
                 ),
                 is_custom=True,
                 custom_for_character_id=character_id,
-                sheet_section_id=section.id,
-                parent_category_id=category.id,
+                sheet_section_id=StdUUID(str(section.id)),
+                category_id=StdUUID(str(category.id)),
                 max_value=trait_doc.get("max_value", 5),
             )
             await _save(custom_trait, dry_run=dry_run)
 
             char_trait = CharacterTrait(
                 character_id=character_id,
-                trait=custom_trait,
+                trait_id=StdUUID(str(custom_trait.id)),
                 value=trait_value,
             )
             await _save(char_trait, dry_run=dry_run)
@@ -771,7 +819,7 @@ async def run_migration(*, dry_run: bool) -> None:
     logger.info("%sStarting migration", prefix)
 
     # Connect to databases
-    new_client = await connect_new_db()
+    await connect_new_db()
     old_client, old_db = await connect_old_db()
 
     id_map = IDMap()
@@ -781,6 +829,7 @@ async def run_migration(*, dry_run: bool) -> None:
 
     # Clean up S3 objects and DB records from any previous migration run
     await s3.cleanup_previous_run()
+    await _clean_migrated_data(dry_run=dry_run)
 
     try:
         guilds = await read_guilds(old_db)
@@ -794,7 +843,7 @@ async def run_migration(*, dry_run: bool) -> None:
 
     finally:
         await old_client.close()
-        await new_client.close()
+        await close_new_db()
 
     stats.print_summary(dry_run=dry_run)
 

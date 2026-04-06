@@ -25,10 +25,16 @@ fi
 # Set ownership of app directory (non-recursive to avoid touching bind mounts)
 chown "${PUID}:${PGID}" /app
 
-# Optional: bootstrap database
-if [[ "${VAPI_DOCKER_BOOTSTRAP:-}" == "true" ]]; then
-    printf "VAPI_DOCKER_BOOTSTRAP is set to true - running bootstrap\n"
-    gosu appuser app bootstrap
+# Optional: run database migrations
+if [[ "${VAPI_DOCKER_MIGRATE:-}" == "true" ]]; then
+    printf "VAPI_DOCKER_MIGRATE is set to true - running migrations\n"
+    gosu appuser app migrate
+fi
+
+# Optional: seed reference data
+if [[ "${VAPI_DOCKER_SEED:-}" == "true" ]]; then
+    printf "VAPI_DOCKER_SEED is set to true - seeding reference data\n"
+    gosu appuser app seed
 fi
 
 # Optional: create developer user

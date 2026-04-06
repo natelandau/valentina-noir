@@ -35,6 +35,7 @@ __all__ = (
     "ValidationError",
     "http_error_to_http_response",
     "litestar_http_exc_to_http_response",
+    "tortoise_validation_to_http_response",
 )
 
 logger = logging.getLogger("litestar")
@@ -336,3 +337,25 @@ def litestar_http_exc_to_http_response(
         )
 
     return exc.to_response(request)
+
+
+def tortoise_validation_to_http_response(
+    request: Request[Any, Any, Any],
+    exc: Exception,  # Litestar handler signature requires Exception; actual type is TortoiseValidationError
+) -> Response[dict[str, Any]]:
+    """Convert Tortoise ORM ValidationError to HTTP 400 response.
+
+    Tortoise field validators raise ``tortoise.exceptions.ValidationError`` when
+    constraints (min_length, range, email format, etc.) are violated. This handler
+    converts those into the application's RFC 7807 error format so callers don't
+    need per-endpoint try/except blocks.
+
+    Args:
+        request: The incoming request object.
+        exc: The Tortoise ORM ValidationError.
+
+    Returns:
+        Response[dict[str, Any]]: A properly formatted HTTP 400 response.
+    """
+    app_exc = ValidationError(detail=str(exc))
+    return app_exc.to_response(request)

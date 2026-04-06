@@ -1,57 +1,55 @@
 """Notes DTOs."""
 
-from litestar.plugins.pydantic import PydanticDTO
+from datetime import datetime
+from uuid import UUID
 
-from vapi.db.models import Note
-from vapi.lib.dto import dto_config
+import msgspec
 
-
-class NotePostDTO(PydanticDTO[Note]):
-    """Note create DTO."""
-
-    config = dto_config(
-        exclude={
-            "id",
-            "date_created",
-            "date_modified",
-            "character_id",
-            "company_id",
-            "campaign_id",
-            "book_id",
-            "chapter_id",
-            "user_id",
-        }
-    )
+from vapi.db.sql_models.notes import Note
 
 
-class NotePatchDTO(PydanticDTO[Note]):
-    """Note update DTO."""
+class NoteCreate(msgspec.Struct):
+    """Request body for creating a note."""
 
-    config = dto_config(
-        exclude={
-            "id",
-            "date_created",
-            "date_modified",
-            "character_id",
-            "company_id",
-            "campaign_id",
-            "book_id",
-            "chapter_id",
-            "user_id",
-        }
-    )
+    title: str
+    content: str = ""
 
 
-class NoteResponseDTO(PydanticDTO[Note]):
-    """Note response DTO."""
+class NotePatch(msgspec.Struct):
+    """Request body for updating a note."""
 
-    config = dto_config(
-        exclude={
-            "character_id",
-            "company_id",
-            "campaign_id",
-            "book_id",
-            "chapter_id",
-            "user_id",
-        }
-    )
+    title: str | msgspec.UnsetType = msgspec.UNSET
+    content: str | msgspec.UnsetType = msgspec.UNSET
+
+
+class NoteResponse(msgspec.Struct):
+    """Response body for a note."""
+
+    id: UUID
+    date_created: datetime
+    date_modified: datetime
+    title: str
+    content: str
+    company_id: UUID
+    campaign_id: UUID | None
+    book_id: UUID | None
+    chapter_id: UUID | None
+    character_id: UUID | None
+    user_id: UUID | None
+
+    @classmethod
+    def from_model(cls, m: Note) -> "NoteResponse":
+        """Convert a Tortoise Note to a response Struct."""
+        return cls(
+            id=m.id,
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+            title=m.title,
+            content=m.content or "",
+            company_id=m.company_id,  # type: ignore[attr-defined]
+            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
+            book_id=m.book_id,  # type: ignore[attr-defined]
+            chapter_id=m.chapter_id,  # type: ignore[attr-defined]
+            character_id=m.character_id,  # type: ignore[attr-defined]
+            user_id=m.user_id,  # type: ignore[attr-defined]
+        )

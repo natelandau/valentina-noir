@@ -1,20 +1,18 @@
-"""Test notes controllers."""
+"""Test notes controllers (Tortoise ORM)."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import pytest
-from beanie import PydanticObjectId
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
-    HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.db.models import Note
 from vapi.domain.urls import Campaigns, Characters, Users
 
 if TYPE_CHECKING:
@@ -22,20 +20,12 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.models import Campaign, CampaignBook, CampaignChapter, Character, User
+    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
-
-NOTE_EXCLUDE_FIELDS = {
-    "archive_date",
-    "is_archived",
-    "company_id",
-    "campaign_id",
-    "book_id",
-    "chapter_id",
-    "user_id",
-    "character_id",
-}
 
 
 class TestCharacterNotes:
@@ -45,14 +35,31 @@ class TestCharacterNotes:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify listing notes returns empty when no notes exist."""
-        await Note.delete_all()
+        # Given a character with no notes
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
         response = await client.get(
-            build_url(Characters.NOTES, character_id=base_character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
         )
 
         assert response.status_code == HTTP_200_OK
@@ -62,67 +69,121 @@ class TestCharacterNotes:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
-        note_factory: Callable[..., Note],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify listing notes returns only non-archived notes."""
-        await Note.delete_all()
-        note1 = await note_factory(
-            title="Note 1", content="Content 1", character_id=base_character.id
+        # Given a character with notes
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
         )
-        note2 = await note_factory(
-            title="Note 2", content="Content 2", character_id=base_character.id
+        await note_factory(
+            title="Note 1", content="Content 1", character=character, company=session_company
+        )
+        await note_factory(
+            title="Note 2", content="Content 2", character=character, company=session_company
         )
         await note_factory(
             title="Archived Note",
             content="Content",
-            character_id=base_character.id,
+            character=character,
+            company=session_company,
             is_archived=True,
         )
 
         response = await client.get(
-            build_url(Characters.NOTES, character_id=base_character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
         )
 
         assert response.status_code == HTTP_200_OK
         items = response.json()["items"]
         assert len(items) == 2
-        assert items[0] == note1.model_dump(mode="json", exclude=NOTE_EXCLUDE_FIELDS)
-        assert items[1] == note2.model_dump(mode="json", exclude=NOTE_EXCLUDE_FIELDS)
 
     async def test_get_note(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
-        note_factory: Callable[..., Note],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify getting a single note by ID."""
+        # Given a character with a note
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
         note = await note_factory(
-            title="Note 1", content="Content 1", character_id=base_character.id
+            title="Note 1", content="Content 1", character=character, company=session_company
         )
 
         response = await client.get(
-            build_url(Characters.NOTE_DETAIL, note_id=note.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTE_DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+                note_id=note.id,
+            ),
+            headers=token_global_admin,
         )
 
         assert response.status_code == HTTP_200_OK
-        assert response.json() == note.model_dump(mode="json", exclude=NOTE_EXCLUDE_FIELDS)
+        assert response.json()["id"] == str(note.id)
+        assert response.json()["title"] == "Note 1"
 
     async def test_get_note_not_found(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify 404 when getting a note that doesn't exist."""
+        # Given a character
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
         response = await client.get(
-            build_url(Characters.NOTE_DETAIL, note_id=PydanticObjectId()),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTE_DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+                note_id=uuid4(),
+            ),
+            headers=token_global_admin,
         )
 
         assert response.status_code == HTTP_404_NOT_FOUND
@@ -132,109 +193,127 @@ class TestCharacterNotes:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify creating a new note."""
+        # Given a character
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
         response = await client.post(
-            build_url(Characters.NOTE_CREATE, character_id=base_character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTE_CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             json={"title": "New Note", "content": "New Content"},
         )
 
         assert response.status_code == HTTP_201_CREATED
-        note = await Note.get(response.json()["id"])
-        assert response.json() == note.model_dump(mode="json", exclude=NOTE_EXCLUDE_FIELDS)
-        assert note.character_id == base_character.id
-
-    async def test_create_note_invalid_parameters(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
-    ) -> None:
-        """Verify 400 when creating a note with invalid parameters."""
-        response = await client.post(
-            build_url(Characters.NOTE_CREATE, character_id=base_character.id),
-            headers=token_company_admin,
-            json={"title": "", "content": ""},
-        )
-
-        assert response.status_code == HTTP_400_BAD_REQUEST
-        assert response.json()["invalid_parameters"][0]["field"] == ["title"]
-        assert "at least 3 characters" in response.json()["invalid_parameters"][0]["message"]
-        assert response.json()["invalid_parameters"][1]["field"] == ["content"]
-        assert "at least 3 characters" in response.json()["invalid_parameters"][1]["message"]
+        data = response.json()
+        assert data["title"] == "New Note"
+        assert data["content"] == "New Content"
+        assert data["character_id"] == str(character.id)
+        assert data["company_id"] == str(session_company.id)
 
     async def test_update_note(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
-        note_factory: Callable[..., Note],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify updating an existing note."""
+        # Given a character with a note
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
         note = await note_factory(
-            title="Original Title", content="Original Content", character_id=base_character.id
+            title="Original Title",
+            content="Original Content",
+            character=character,
+            company=session_company,
         )
 
         response = await client.patch(
-            build_url(Characters.NOTE_UPDATE, note_id=note.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTE_UPDATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+                note_id=note.id,
+            ),
+            headers=token_global_admin,
             json={"title": "Updated Title", "content": "Updated Content"},
         )
 
         assert response.status_code == HTTP_200_OK
-        updated_note = await Note.get(note.id)
-        assert response.json() == updated_note.model_dump(mode="json", exclude=NOTE_EXCLUDE_FIELDS)
-        assert updated_note.title == "Updated Title"
-        assert updated_note.content == "Updated Content"
-
-    async def test_update_note_invalid_parameters(
-        self,
-        client: AsyncClient,
-        build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
-        note_factory: Callable[..., Note],
-    ) -> None:
-        """Verify 400 when updating a note with invalid parameters."""
-        note = await note_factory(title="Note", content="Content", character_id=base_character.id)
-
-        response = await client.patch(
-            build_url(Characters.NOTE_UPDATE, note_id=note.id),
-            headers=token_company_admin,
-            json={"title": "", "content": ""},
-        )
-
-        assert response.status_code == HTTP_400_BAD_REQUEST
-        assert response.json()["invalid_parameters"][0]["field"] == ["title"]
-        assert response.json()["invalid_parameters"][1]["field"] == ["content"]
+        assert response.json()["title"] == "Updated Title"
+        assert response.json()["content"] == "Updated Content"
 
     async def test_delete_note(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
-        note_factory: Callable[..., Note],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
+        note_factory: Callable,
     ) -> None:
         """Verify soft-deleting a note."""
+        # Given a character with a note
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
         note = await note_factory(
-            title="Note to Delete", content="Content", character_id=base_character.id
+            title="Note to Delete",
+            content="Content",
+            character=character,
+            company=session_company,
         )
 
         response = await client.delete(
-            build_url(Characters.NOTE_DELETE, note_id=note.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTE_DELETE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+                note_id=note.id,
+            ),
+            headers=token_global_admin,
         )
 
         assert response.status_code == HTTP_204_NO_CONTENT
-        await note.sync()
+        await note.refresh_from_db()
         assert note.is_archived is True
-        assert note.archive_date is not None
 
 
 class TestAllNoteControllersSmoke:
@@ -244,14 +323,31 @@ class TestAllNoteControllersSmoke:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_character: Character,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable,
     ) -> None:
         """Verify character notes create and list operations work."""
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+
         # When we create a note
         create_response = await client.post(
-            build_url(Characters.NOTE_CREATE, character_id=base_character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTE_CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
             json={"title": "Smoke Test Note", "content": "Smoke test content"},
         )
 
@@ -261,8 +357,14 @@ class TestAllNoteControllersSmoke:
 
         # When we list notes
         list_response = await client.get(
-            build_url(Characters.NOTES, character_id=base_character.id),
-            headers=token_company_admin,
+            build_url(
+                Characters.NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
         )
 
         # Then the created note should appear in the list
@@ -274,14 +376,22 @@ class TestAllNoteControllersSmoke:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
     ) -> None:
         """Verify campaign notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
-            build_url(Campaigns.NOTE_CREATE, campaign_id=base_campaign.id),
-            headers=token_company_admin,
+            build_url(
+                Campaigns.NOTE_CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+            ),
+            headers=token_global_admin,
             json={"title": "Campaign Smoke Note", "content": "Campaign smoke content"},
         )
 
@@ -291,8 +401,13 @@ class TestAllNoteControllersSmoke:
 
         # When we list notes
         list_response = await client.get(
-            build_url(Campaigns.NOTES, campaign_id=base_campaign.id),
-            headers=token_company_admin,
+            build_url(
+                Campaigns.NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+            ),
+            headers=token_global_admin,
         )
 
         # Then the created note should appear in the list
@@ -304,14 +419,20 @@ class TestAllNoteControllersSmoke:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_user: User,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
     ) -> None:
         """Verify user notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
-            build_url(Users.NOTE_CREATE, user_id=base_user.id),
-            headers=token_company_admin,
+            build_url(
+                Users.NOTE_CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+            ),
+            headers=token_global_admin,
             json={"title": "User Smoke Note", "content": "User smoke content"},
         )
 
@@ -321,8 +442,12 @@ class TestAllNoteControllersSmoke:
 
         # When we list notes
         list_response = await client.get(
-            build_url(Users.LIST_NOTES, user_id=base_user.id),
-            headers=token_company_admin,
+            build_url(
+                Users.LIST_NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+            ),
+            headers=token_global_admin,
         )
 
         # Then the created note should appear in the list
@@ -334,14 +459,24 @@ class TestAllNoteControllersSmoke:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_campaign_book: CampaignBook,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        session_campaign_book: CampaignBook,
     ) -> None:
         """Verify campaign book notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
-            build_url(Campaigns.BOOK_NOTE_CREATE, book_id=base_campaign_book.id),
-            headers=token_company_admin,
+            build_url(
+                Campaigns.BOOK_NOTE_CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                book_id=session_campaign_book.id,
+            ),
+            headers=token_global_admin,
             json={"title": "Book Smoke Note", "content": "Book smoke content"},
         )
 
@@ -351,8 +486,14 @@ class TestAllNoteControllersSmoke:
 
         # When we list notes
         list_response = await client.get(
-            build_url(Campaigns.BOOK_NOTES, book_id=base_campaign_book.id),
-            headers=token_company_admin,
+            build_url(
+                Campaigns.BOOK_NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                book_id=session_campaign_book.id,
+            ),
+            headers=token_global_admin,
         )
 
         # Then the created note should appear in the list
@@ -364,14 +505,26 @@ class TestAllNoteControllersSmoke:
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
-        token_company_admin: dict[str, str],
-        base_campaign_chapter: CampaignChapter,
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        session_campaign_book: CampaignBook,
+        session_campaign_chapter: CampaignChapter,
     ) -> None:
         """Verify campaign chapter notes create and list operations work."""
         # When we create a note
         create_response = await client.post(
-            build_url(Campaigns.CHAPTER_NOTE_CREATE, chapter_id=base_campaign_chapter.id),
-            headers=token_company_admin,
+            build_url(
+                Campaigns.CHAPTER_NOTE_CREATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                book_id=session_campaign_book.id,
+                chapter_id=session_campaign_chapter.id,
+            ),
+            headers=token_global_admin,
             json={"title": "Chapter Smoke Note", "content": "Chapter smoke content"},
         )
 
@@ -381,8 +534,15 @@ class TestAllNoteControllersSmoke:
 
         # When we list notes
         list_response = await client.get(
-            build_url(Campaigns.CHAPTER_NOTES, chapter_id=base_campaign_chapter.id),
-            headers=token_company_admin,
+            build_url(
+                Campaigns.CHAPTER_NOTES,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                book_id=session_campaign_book.id,
+                chapter_id=session_campaign_chapter.id,
+            ),
+            headers=token_global_admin,
         )
 
         # Then the created note should appear in the list

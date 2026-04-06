@@ -7,14 +7,15 @@ from typing import TYPE_CHECKING
 import pytest
 from litestar.status_codes import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 
-from vapi.cli.lib.factories import DeveloperFactory
 from vapi.constants import AUTH_HEADER_KEY, IGNORE_RATE_LIMIT_HEADER_KEY
+from vapi.db.sql_models.developer import Developer
 from vapi.domain import urls as vapi_urls
+from vapi.domain.services.developer_svc import DeveloperService
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-    from vapi.db.models import Company
+    from vapi.db.sql_models.company import Company
 
 pytestmark = pytest.mark.anyio
 
@@ -138,12 +139,16 @@ async def test_no_auth(
 
 async def test_no_company_permission(
     client: AsyncClient,
-    base_company: Company,
+    session_company: Company,
 ) -> None:
     """Verify endpoints reject requests from developers without company access."""
-    developer = DeveloperFactory().build(is_archived=False, is_global_admin=False)
-    await developer.save()
-    api_key = await developer.generate_api_key()
+    # Create a Tortoise developer with no company permissions
+    developer = await Developer.create(
+        username="no-perm-dev",
+        email="no-perm@example.com",
+        is_global_admin=False,
+    )
+    api_key = await DeveloperService().generate_api_key(developer)
 
     for method, urls in test_data.items():
         for url in urls:
@@ -152,7 +157,7 @@ async def test_no_company_permission(
 
             response = await client.request(
                 method,
-                _format_url(url, company_id=str(base_company.id)),
+                _format_url(url, company_id=str(session_company.id)),
                 headers={AUTH_HEADER_KEY: api_key, IGNORE_RATE_LIMIT_HEADER_KEY: "true"},
             )
             assert response.status_code == HTTP_403_FORBIDDEN

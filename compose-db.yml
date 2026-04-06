@@ -10,10 +10,14 @@ services:
       - .dev/redis:/data
     attach: false # suppress logs to console
 
-  mongodb:
-    image: mongo:latest
+  postgres:
+    image: postgres:18
     ports:
-      - 27017:27017
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: valentina
+      POSTGRES_PASSWORD: valentina
+      POSTGRES_DB: valentina-noir
     volumes:
-      - .dev/mongodb:/data/db
+      - .dev/postgres:/var/lib/postgresql
     attach: false # suppress logs to console

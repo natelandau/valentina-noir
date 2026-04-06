@@ -1,55 +1,35 @@
 """Dictionary term synchronization service."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
 
-from vapi.db.models import (
-    DictionaryTerm,
-    Trait,
-    TraitSubcategory,
-    VampireClan,
-    WerewolfAuspice,
-    WerewolfTribe,
-)
-
+from vapi.cli.lib.sync_counts import SyncCounts
 from vapi.constants import DictionarySourceType
 
 if TYPE_CHECKING:
-    from beanie import PydanticObjectId
+    from uuid import UUID
 
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_sheet import Trait, TraitSubcategory
+from vapi.db.sql_models.dictionary import DictionaryTerm
 
 logger = logging.getLogger("vapi")
 
 
 class DictionaryService:
-    """Build and sync global dictionary terms from database entities."""
+    """Build and sync global dictionary terms from PostgreSQL entities."""
 
     def __init__(self) -> None:
-        self.created: int = 0
-        self.updated: int = 0
-        self._tribes: list[WerewolfTribe] = []
-        self._auspices: list[WerewolfAuspice] = []
-        self._tribes_by_id: dict[PydanticObjectId, str] = {}
-        self._auspices_by_id: dict[PydanticObjectId, str] = {}
+        self.counts = SyncCounts()
         self._existing_terms: dict[str, DictionaryTerm] = {}
-
-    @property
-    def total(self) -> int:
-        """Derive total from created + updated counts."""
-        return self.created + self.updated
 
     async def sync_all(self) -> None:
         """Build dictionary terms for all entity types, then log counts."""
-        # Build lookup maps for gift attribute name resolution and reuse for term sync
-        self._tribes = await WerewolfTribe.find().to_list()
-        self._auspices = await WerewolfAuspice.find().to_list()
-        self._tribes_by_id = {t.id: t.name for t in self._tribes}
-        self._auspices_by_id = {a.id: a.name for a in self._auspices}
-
-        # Bulk-fetch all existing global terms to avoid N+1 find_one queries in _upsert_term
-        all_terms = await DictionaryTerm.find(DictionaryTerm.source_type != None).to_list()
+        # Load only global seed terms (company_id IS NULL) to avoid collisions
+        # with company-scoped terms created via the API
+        all_terms = await DictionaryTerm.filter(company_id__isnull=True, source_type__isnull=False)
         self._existing_terms = {t.term: t for t in all_terms}
 
         await self._sync_vampire_clan_terms()
@@ -57,6 +37,8 @@ class DictionaryService:
         await self._sync_werewolf_tribe_terms()
         await self._sync_subcategory_terms()
         await self._sync_trait_terms()
+
+        self.counts.total = await DictionaryTerm.all().count()
         self._log_counts()
 
     async def _upsert_term(
@@ -66,7 +48,7 @@ class DictionaryService:
         definition: str | None = None,
         link: str | None = None,
         source_type: DictionarySourceType,
-        source_id: PydanticObjectId,
+        source_id: UUID,
     ) -> None:
         """Create or update a global dictionary term.
 
@@ -81,42 +63,55 @@ class DictionaryService:
             return
 
         normalized_term = term.lower().strip()
+        normalized_definition = definition.strip() if definition else None
+        normalized_link = link.strip() if link else None
+
         existing_term = self._existing_terms.get(normalized_term)
+        if not existing_term:
+            # Cache miss — check DB directly to handle name collisions across
+            # entity types (e.g., a subcategory and trait sharing the same name)
+            # where the dict cache silently drops one entry
+            existing_term = await DictionaryTerm.filter(
+                term=normalized_term, company_id__isnull=True
+            ).first()
+            if existing_term:
+                self._existing_terms[normalized_term] = existing_term
+
         if not existing_term:
             new_term = DictionaryTerm(
                 term=normalized_term,
-                definition=definition.strip() if definition else None,
-                link=link.strip() if link else None,
+                definition=normalized_definition,
+                link=normalized_link,
                 source_type=source_type,
                 source_id=source_id,
             )
-            await new_term.insert()
+            await new_term.save()
             self._existing_terms[normalized_term] = new_term
-            self.created += 1
+            self.counts.created += 1
         elif (
-            existing_term.definition != definition
-            or existing_term.link != link
+            existing_term.definition != normalized_definition
+            or existing_term.link != normalized_link
             or existing_term.source_type != source_type
             or existing_term.source_id != source_id
         ):
-            existing_term.definition = definition.strip() if definition else None
-            existing_term.link = link.strip() if link else None
+            existing_term.definition = normalized_definition
+            existing_term.link = normalized_link
             existing_term.source_type = source_type
             existing_term.source_id = source_id
             await existing_term.save()
-            self.updated += 1
+            self.counts.updated += 1
 
     async def _sync_vampire_clan_terms(self) -> None:
         """Create dictionary terms for all vampire clans."""
-        clans = await VampireClan.find().to_list()
+        clans = await VampireClan.all()
         for clan in clans:
-            definition = clan.description
-            if clan.bane:
-                definition += f"\n\n**Bane: {clan.bane.name.title()}**\n\n{clan.bane.description}"
-            if clan.variant_bane:
-                definition += f"\n\n**Variant Bane: {clan.variant_bane.name.title()}**\n\n{clan.variant_bane.description}"
-            if clan.compulsion:
-                definition += f"\n\n**Compulsion: {clan.compulsion.name.title()}**\n\n{clan.compulsion.description}"
+            definition = clan.description or ""
+            if clan.bane_name:
+                definition += f"\n\n**Bane: {clan.bane_name.title()}**\n\n{clan.bane_description}"
+            if clan.variant_bane_name:
+                definition += f"\n\n**Variant Bane: {clan.variant_bane_name.title()}**\n\n{clan.variant_bane_description}"
+            if clan.compulsion_name:
+                definition += f"\n\n**Compulsion: {clan.compulsion_name.title()}**\n\n{clan.compulsion_description}"
 
             await self._upsert_term(
                 clan.name,
@@ -128,7 +123,8 @@ class DictionaryService:
 
     async def _sync_werewolf_auspice_terms(self) -> None:
         """Create dictionary terms for all werewolf auspices."""
-        for auspice in self._auspices:
+        auspices = await WerewolfAuspice.all()
+        for auspice in auspices:
             await self._upsert_term(
                 auspice.name,
                 definition=auspice.description,
@@ -139,8 +135,9 @@ class DictionaryService:
 
     async def _sync_werewolf_tribe_terms(self) -> None:
         """Create dictionary terms for all werewolf tribes."""
-        for tribe in self._tribes:
-            definition = tribe.description
+        tribes = await WerewolfTribe.all()
+        for tribe in tribes:
+            definition = tribe.description or ""
             if tribe.renown:
                 definition += f"\n\n- **Renown:** {tribe.renown.value.title()}"
             if tribe.patron_spirit:
@@ -160,8 +157,7 @@ class DictionaryService:
 
     async def _sync_subcategory_terms(self) -> None:
         """Create dictionary terms for trait subcategories with descriptions."""
-        subcategories = await TraitSubcategory.find().to_list()
-
+        subcategories = await TraitSubcategory.all()
         for subcategory in subcategories:
             if not subcategory.description:
                 continue
@@ -178,34 +174,30 @@ class DictionaryService:
             )
 
     async def _sync_trait_terms(self) -> None:
-        """Create dictionary terms for all non-archived traits."""
-        traits = await Trait.find(Trait.is_archived == False).to_list()
+        """Create dictionary terms for all non-archived seed traits with descriptions."""
+        traits = await Trait.filter(is_archived=False, is_custom=False, description__isnull=False)
         for trait in traits:
-            if not trait.description:
-                continue
-
             definition = trait.description
             if trait.system:
                 definition += f"\n\n**System:**\n{trait.system}"
 
-            if definition or trait.link:
-                await self._upsert_term(
-                    trait.name,
-                    definition=definition,
-                    link=trait.link,
-                    source_type=DictionarySourceType.TRAIT,
-                    source_id=trait.id,
-                )
+            await self._upsert_term(
+                trait.name,
+                definition=definition,
+                link=trait.link,
+                source_type=DictionarySourceType.TRAIT,
+                source_id=trait.id,
+            )
 
     def _log_counts(self) -> None:
         """Log dictionary term sync counts."""
         logger.info(
-            "Dictionary terms",
+            "Bootstrapped PostgreSQL dictionary terms",
             extra={
-                "num_created": self.created,
-                "num_updated": self.updated,
-                "num_total": self.total,
+                "num_created": self.counts.created,
+                "num_updated": self.counts.updated,
+                "num_total": self.counts.total,
                 "component": "cli",
-                "command": "bootstrap",
+                "command": "seed",
             },
         )

@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from vapi.constants import DiceSize, RollResultType
-from vapi.db.models.diceroll import DiceRollResultSchema
 from vapi.domain.handlers.diceroll_handler import (
+    DiceRollResultSchema,
     _calculate_result_type,
     _count_dice_results,
     roll_dice,

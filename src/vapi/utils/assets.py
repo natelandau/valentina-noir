@@ -1,42 +1,15 @@
 """Asset utilities."""
 
-from __future__ import annotations
-
 import re
 import unicodedata
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from vapi.constants import AssetParentType, AssetType
-from vapi.db.models import Campaign, CampaignBook, CampaignChapter, Character, Company, User
-
-if TYPE_CHECKING:
-    from vapi.db.models.aws import S3Asset
-    from vapi.db.models.base import BaseDocument
+from vapi.constants import AssetType
 
 __all__ = (
-    "add_asset_to_parent",
     "determine_asset_type",
-    "determine_parent_type",
-    "remove_asset_from_parent",
     "sanitize_filename",
 )
-
-PARENT_MODEL_MAP: dict[AssetParentType, type[BaseDocument]] = {
-    AssetParentType.CHARACTER: Character,
-    AssetParentType.CAMPAIGN: Campaign,
-    AssetParentType.CAMPAIGN_BOOK: CampaignBook,
-    AssetParentType.CAMPAIGN_CHAPTER: CampaignChapter,
-    AssetParentType.USER: User,
-    AssetParentType.COMPANY: Company,
-}
-
-# Exhaustiveness check - fails fast if enum gains new values
-_expected: set[AssetParentType] = {pt for pt in AssetParentType if pt != AssetParentType.UNKNOWN}
-if _missing := _expected - set(PARENT_MODEL_MAP.keys()):  # pragma: no cover
-    msg = f"parent_model_map missing mappings: {_missing}"
-    raise RuntimeError(msg)
-del _expected, _missing
 
 
 def sanitize_filename(filename: str) -> str:
@@ -57,7 +30,6 @@ def sanitize_filename(filename: str) -> str:
     stem = path.stem
     ext = path.suffix.lstrip(".").lower()
 
-    # Transliterate Unicode → ASCII (é→e, ñ→n, etc.)
     stem = unicodedata.normalize("NFKD", stem).encode("ascii", errors="ignore").decode("ascii")
     stem = stem.lower()
     stem = re.sub(r"[\s_]+", "-", stem)
@@ -94,7 +66,6 @@ def determine_asset_type(mime_type: str) -> AssetType:  # noqa: PLR0911
         case "video":
             return AssetType.VIDEO
         case _:
-            # Handle document types by MIME suffix
             mime_lower = mime_type.lower()
             if any(
                 doc_type in mime_lower
@@ -118,61 +89,3 @@ def determine_asset_type(mime_type: str) -> AssetType:  # noqa: PLR0911
             ):
                 return AssetType.ARCHIVE
             return AssetType.OTHER
-
-
-def determine_parent_type(
-    *,
-    parent: BaseDocument | None = None,
-) -> AssetParentType:
-    """Determine parent type from parent object.
-
-    Args:
-        parent: Parent object.
-
-    Returns:
-        The corresponding AssetParentType
-    """
-    if not parent:
-        return AssetParentType.UNKNOWN
-
-    try:
-        return AssetParentType(parent.__class__.__name__.lower())
-    except ValueError:
-        return AssetParentType.UNKNOWN
-
-
-async def _get_asset_parent(asset: S3Asset) -> BaseDocument | None:
-    """Look up the parent document for an asset, or None if not applicable."""
-    if asset.parent_type == AssetParentType.UNKNOWN:
-        return None
-
-    model_class = PARENT_MODEL_MAP.get(asset.parent_type)
-    if model_class is None:  # pragma: no cover
-        return None
-
-    parent = await model_class.get(asset.parent_id)
-    return parent if parent and hasattr(parent, "asset_ids") else None
-
-
-async def add_asset_to_parent(asset: S3Asset) -> None:
-    """Add an asset to a parent document's list of assets.
-
-    Args:
-        asset: The asset to add.
-    """
-    parent = await _get_asset_parent(asset)
-    if parent and asset.id not in parent.asset_ids:
-        parent.asset_ids.append(asset.id)
-        await parent.save()
-
-
-async def remove_asset_from_parent(asset: S3Asset) -> None:
-    """Remove an asset from a parent document's list of assets.
-
-    Args:
-        asset: The asset to remove.
-    """
-    parent = await _get_asset_parent(asset)
-    if parent:
-        parent.asset_ids = [x for x in parent.asset_ids if x != asset.id]
-        await parent.save()

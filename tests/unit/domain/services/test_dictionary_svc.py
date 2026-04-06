@@ -2,216 +2,190 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
-from beanie import PydanticObjectId
+from uuid_utils import uuid7
 
 from vapi.constants import DictionarySourceType
-from vapi.db.models import Company, DictionaryTerm
 from vapi.domain.services import DictionaryService
 from vapi.lib.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.dictionary import DictionaryTerm
+
 pytestmark = pytest.mark.anyio
 
+# Unique synonym tag shared by all test-created terms to isolate them from
+# bootstrap seed data when counting results.
+_TEST_TAG = "zztestonly"
 
-class TestDictionaryService:
-    """Test the dictionary service."""
 
-    def test_verify_term_is_editable_false(self) -> None:
-        """Test the verify_term_is_editable method."""
-        dictionary_term = DictionaryTerm(
-            term="Foo",
-            definition="Foo is a bar.",
-            source_type="trait",
-            source_id=PydanticObjectId(),
-        )
-        with pytest.raises(
-            ValidationError,
-            match=r"You may not update dictionary terms that are not owned by your company",
-        ):
-            DictionaryService().verify_term_is_editable(
-                dictionary_term, company_id=PydanticObjectId()
-            )
+class TestVerifyTermIsEditable:
+    """Test the verify_term_is_editable method."""
 
-    def test_verify_term_is_editable_false_not_company(self) -> None:
-        """Test the verify_term_is_editable method."""
-        dictionary_term = DictionaryTerm(
-            term="Foo", definition="Foo is a bar.", company_id=PydanticObjectId()
-        )
-        with pytest.raises(
-            ValidationError,
-            match=r"You may not update dictionary terms that are not owned by your company",
-        ):
-            DictionaryService().verify_term_is_editable(
-                dictionary_term, company_id=PydanticObjectId()
-            )
-
-    def test_verify_term_is_editable_false_no_company_id(self) -> None:
-        """Verify term with no company_id is not editable."""
-        # Given a term with no company_id and no source_type
-        dictionary_term = DictionaryTerm(term="Foo", definition="Foo is a bar.")
-        # When we verify editability, Then it should raise
-        with pytest.raises(
-            ValidationError,
-            match=r"You may not update dictionary terms that are not owned by your company",
-        ):
-            DictionaryService().verify_term_is_editable(
-                dictionary_term, company_id=PydanticObjectId()
-            )
-
-    def test_verify_term_is_editable_true(self) -> None:
-        """Test the verify_term_is_editable method."""
-        company_id = PydanticObjectId()
-        dictionary_term = DictionaryTerm(
-            term="Foo",
-            definition="Foo is a bar.",
-            source_type=None,
-            company_id=company_id,
-        )
-        assert DictionaryService().verify_term_is_editable(dictionary_term, company_id)
-
-    async def test_list_all_dictionary_terms(
+    async def test_not_editable_when_source_type_set(
         self,
-        company_factory: Callable[[], Company],
-        debug: Callable[[Any], None],
+        company_factory: Callable[..., Company],
         dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
-        """Test the list_all_dictionary_terms method."""
-        await DictionaryTerm.delete_all()
+        """Verify term with source_type is not editable."""
         company = await company_factory()
+        term = await dictionary_term_factory(
+            company_id=company.id,
+            source_type=DictionarySourceType.TRAIT,
+            source_id=uuid7(),
+        )
+        with pytest.raises(
+            ValidationError,
+            match=r"You may not update dictionary terms that are not owned by your company",
+        ):
+            DictionaryService().verify_term_is_editable(term, company_id=company.id)
+
+    async def test_not_editable_when_wrong_company(
+        self,
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify term owned by different company is not editable."""
+        company_a = await company_factory()
+        company_b = await company_factory(name="Other Company", email="other@example.com")
+        term = await dictionary_term_factory(company_id=company_a.id)
+        with pytest.raises(
+            ValidationError,
+            match=r"You may not update dictionary terms that are not owned by your company",
+        ):
+            DictionaryService().verify_term_is_editable(term, company_id=company_b.id)
+
+    async def test_not_editable_when_no_company_id(
+        self,
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify global term (no company_id) is not editable."""
+        company = await company_factory()
+        term = await dictionary_term_factory(company_id=None)
+        with pytest.raises(
+            ValidationError,
+            match=r"You may not update dictionary terms that are not owned by your company",
+        ):
+            DictionaryService().verify_term_is_editable(term, company_id=company.id)
+
+    async def test_editable_when_owned_by_company(
+        self,
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify company-owned term without source_type is editable."""
+        company = await company_factory()
+        term = await dictionary_term_factory(company_id=company.id)
+        result = DictionaryService().verify_term_is_editable(term, company_id=company.id)
+        assert result is True
+
+
+class TestListAllDictionaryTerms:
+    """Test the list_all_dictionary_terms method."""
+
+    async def test_returns_company_and_global_terms(
+        self,
+        company_factory: Callable[..., Company],
+        dictionary_term_factory: Callable[..., DictionaryTerm],
+    ) -> None:
+        """Verify listing returns company-owned and global terms, excludes others."""
+        # Use _TEST_TAG as a shared synonym to isolate test terms from bootstrap data
+        company = await company_factory()
+        other_company = await company_factory(name="Other Company", email="other@example.com")
         company_term = await dictionary_term_factory(
-            term="Foo",
+            term="foo",
             definition="Foo is a bar.",
             company_id=company.id,
+            synonyms=[_TEST_TAG],
         )
         global_term = await dictionary_term_factory(
-            term="Bar",
+            term="bar",
             definition="Bar is a baz.",
+            company_id=None,
             source_type=DictionarySourceType.TRAIT,
-            source_id=PydanticObjectId(),
+            source_id=uuid7(),
+            synonyms=[_TEST_TAG],
         )
-        global_term.company_id = None
-        await global_term.save()
-        non_company_term = await dictionary_term_factory(
-            term="Baz",
+        await dictionary_term_factory(
+            term="baz",
             definition="Baz is a qux.",
-            company_id=PydanticObjectId(),
+            company_id=other_company.id,
+            synonyms=[_TEST_TAG],
         )
-        archived_term = await dictionary_term_factory(
-            term="Qux",
+        await dictionary_term_factory(
+            term="qux",
             definition="Qux is a quux.",
             company_id=company.id,
             is_archived=True,
+            synonyms=[_TEST_TAG],
         )
 
-        # When we list all dictionary terms
-        count, dictionary_terms = await DictionaryService().list_all_dictionary_terms(
-            company=company, limit=10, offset=0
+        # Filter by _TEST_TAG synonym to count only test-created terms
+        count, terms = await DictionaryService().list_all_dictionary_terms(
+            company_id=company.id, limit=10, offset=0, term=_TEST_TAG
         )
-        # Then we should get the correct count and dictionary terms
-        assert non_company_term.id not in [x.id for x in dictionary_terms]
-        assert archived_term.id not in [x.id for x in dictionary_terms]
-        assert global_term.id in [x.id for x in dictionary_terms]
-        assert company_term.id in [x.id for x in dictionary_terms]
 
+        term_ids = [str(t.id) for t in terms]
+        assert str(global_term.id) in term_ids
+        assert str(company_term.id) in term_ids
         assert count == 2
-        assert dictionary_terms == [global_term, company_term]
 
-    async def test_list_all_dictionary_terms_with_term(
+    async def test_search_by_term(
         self,
-        company_factory: Callable[[], Company],
-        debug: Callable[[Any], None],
+        company_factory: Callable[..., Company],
         dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
-        """Test the list_all_dictionary_terms method."""
-        await DictionaryTerm.delete_all()
+        """Verify search filters by term name or synonym."""
         company = await company_factory()
         company_term = await dictionary_term_factory(
-            term="Foo",
+            term="foo",
             definition="Foo is a bar.",
             company_id=company.id,
-            synonyms=["Bar"],
+            synonyms=["bar"],
         )
-        await dictionary_term_factory(
-            term="Baz",
-            definition="Baz is a qux.",
-            company_id=company.id,
-        )
+        await dictionary_term_factory(term="baz", definition="Baz is a qux.", company_id=company.id)
         global_term = await dictionary_term_factory(
-            term="Bar",
+            term="bar",
             definition="Bar is a baz.",
+            company_id=None,
             source_type=DictionarySourceType.TRAIT,
-            source_id=PydanticObjectId(),
-        )
-        await dictionary_term_factory(
-            term="Qux",
-            definition="Qux is a quux.",
-            source_type=DictionarySourceType.TRAIT,
-            source_id=PydanticObjectId(),
-        )
-        await dictionary_term_factory(
-            term="Baz",
-            definition="Baz is a qux.",
-            company_id=PydanticObjectId(),
+            source_id=uuid7(),
         )
 
-        # When we list all dictionary terms
-        count, dictionary_terms = await DictionaryService().list_all_dictionary_terms(
-            company=company, limit=10, offset=0, term="bar"
+        count, terms = await DictionaryService().list_all_dictionary_terms(
+            company_id=company.id, limit=10, offset=0, term="bar"
         )
-        # Then we should get the correct count and dictionary terms
-        assert dictionary_terms == [global_term, company_term]
+
+        term_ids = [str(t.id) for t in terms]
+        assert str(global_term.id) in term_ids
+        assert str(company_term.id) in term_ids
         assert count == 2
 
-    async def test_list_all_dictionary_terms_skip_and_limit(
+    async def test_pagination(
         self,
-        company_factory: Callable[[], Company],
-        debug: Callable[[Any], None],
+        company_factory: Callable[..., Company],
         dictionary_term_factory: Callable[..., DictionaryTerm],
     ) -> None:
-        """Test the list_all_dictionary_terms method."""
-        await DictionaryTerm.delete_all()
+        """Verify skip and limit work correctly."""
         company = await company_factory()
-        company_term_1 = await dictionary_term_factory(
-            term="Foo",
-            definition="Foo is a bar.",
-            company_id=company.id,
-            synonyms=["Bar"],
-        )
-        company_term_2 = await dictionary_term_factory(
-            term="Baz",
-            definition="Baz is a qux.",
-            company_id=company.id,
-            source_type=DictionarySourceType.TRAIT,
-            source_id=PydanticObjectId(),
-        )
+        # Use _TEST_TAG synonym to scope results to exactly these 2 test-created terms
         await dictionary_term_factory(
-            term="Bar",
-            definition="Bar is a baz.",
-            source_type=DictionarySourceType.TRAIT,
-            source_id=PydanticObjectId(),
+            term="alpha", definition="First.", company_id=company.id, synonyms=[_TEST_TAG]
         )
-        await dictionary_term_factory(
-            term="Qux",
-            definition="Qux is a quux.",
-            source_type=DictionarySourceType.TRAIT,
-            source_id=PydanticObjectId(),
-        )
-        await dictionary_term_factory(
-            term="Qux",
-            definition="Qux is a quux.",
-            company_id=company.id,
-            is_archived=True,
+        term_b = await dictionary_term_factory(
+            term="beta", definition="Second.", company_id=company.id, synonyms=[_TEST_TAG]
         )
 
-        # When we list all dictionary terms
-        count, dictionary_terms = await DictionaryService().list_all_dictionary_terms(
-            company=company, limit=2, offset=1
+        count, terms = await DictionaryService().list_all_dictionary_terms(
+            company_id=company.id, limit=1, offset=1, term=_TEST_TAG
         )
-        # Then we should get the correct count and dictionary terms
-        assert count == 4
-        assert dictionary_terms == [company_term_2, company_term_1]
+
+        assert count == 2
+        assert len(terms) == 1
+        assert str(terms[0].id) == str(term_b.id)

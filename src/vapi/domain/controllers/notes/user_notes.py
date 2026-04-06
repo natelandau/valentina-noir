@@ -1,17 +1,16 @@
 """User notes controller."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.db.models import Company, Note, User  # noqa: TC001
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination  # noqa: TC001
+from vapi.domain.paginator import OffsetPagination
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -47,7 +46,7 @@ class UserNoteController(BaseNoteController):
         user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[Note]:
+    ) -> OffsetPagination[dto.NoteResponse]:
         """List all user notes."""
         return await self._list_notes(user.id, limit, offset)
 
@@ -58,7 +57,7 @@ class UserNoteController(BaseNoteController):
         description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
-    async def get_user_note(self, *, note: Note) -> Note:
+    async def get_user_note(self, *, note: Note) -> dto.NoteResponse:
         """Get a user note by ID."""
         return await self._get_note(note)
 
@@ -67,10 +66,11 @@ class UserNoteController(BaseNoteController):
         summary="Create user note",
         operation_id="createUserNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        dto=dto.NotePostDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def create_user_note(self, *, company: Company, user: User, data: DTOData[Note]) -> Note:
+    async def create_user_note(
+        self, *, company: Company, user: User, data: dto.NoteCreate
+    ) -> dto.NoteResponse:
         """Create a user note."""
         return await self._create_note(company_id=company.id, parent_id=user.id, data=data)
 
@@ -79,10 +79,9 @@ class UserNoteController(BaseNoteController):
         summary="Update user note",
         operation_id="updateUserNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        dto=dto.NotePatchDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_user_note(self, note: Note, data: DTOData[Note]) -> Note:
+    async def update_user_note(self, note: Note, data: dto.NotePatch) -> dto.NoteResponse:
         """Update a user note by ID."""
         return await self._update_note(note, data)
 

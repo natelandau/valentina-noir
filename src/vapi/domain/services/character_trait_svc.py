@@ -1,31 +1,34 @@
 """Character trait services."""
 
-from __future__ import annotations
-
 import asyncio
 from datetime import timedelta
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, ClassVar, assert_never
+from uuid import UUID
 
-from beanie.operators import In
-from pydantic import ValidationError as PydanticValidationError
+from tortoise.transactions import in_transaction
 
 from vapi.constants import (
-    TRAIT_NAMES_FOR_WILLPOWER,
     CharacterClass,
     PermissionsFreeTraitChanges,
     TraitModifyCurrency,
     UserRole,
 )
-from vapi.db.models import Character, CharacterTrait, Trait, TraitCategory
+from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
+from vapi.db.sql_models.character_sheet import Trait, TraitCategory
+from vapi.db.sql_models.company import CompanySettings
 from vapi.domain.controllers.character_trait.dto import (
+    CHARACTER_TRAIT_PREFETCH,
     BulkAssignTraitFailure,
     BulkAssignTraitResponse,
     BulkAssignTraitSuccess,
     CharacterTraitAddConstant,
-    CharacterTraitCreateCustomDTO,
+    CharacterTraitCreateCustom,
+    CharacterTraitResponse,
+    TraitResponse,
     TraitValueOptionDetail,
     TraitValueOptionsResponse,
 )
+from vapi.domain.services.user_svc import UserXPService
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
@@ -33,14 +36,15 @@ from vapi.lib.exceptions import (
     ValidationError,
 )
 from vapi.utils.time import time_now
-from vapi.utils.validation import raise_from_pydantic_validation_error
-
-from .validation_svc import GetModelByIdValidationService
 
 if TYPE_CHECKING:
-    from beanie import PydanticObjectId
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.user import User
 
-    from vapi.db.models import Company, User
+# Derived-trait sync constants
+WILLPOWER_COMPONENTS = frozenset({"Composure", "Resolve", "Courage"})
+WILLPOWER_TRAIT = "Willpower"
+RENOWN_COMPONENTS = frozenset({"Honor", "Wisdom", "Glory"})
 
 
 class CharacterTraitService:
@@ -50,7 +54,7 @@ class CharacterTraitService:
     instead of relying on model hooks.
     """
 
-    _flaws_category_id: PydanticObjectId | None = None
+    _flaws_category_id: ClassVar[UUID | None] = None
 
     def _guard_is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
         """Check if increasing the trait value is safe.
@@ -63,8 +67,8 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be raised above max value.
         """
         new_value = character_trait.value + increase_by
-        if new_value > character_trait.trait.max_value:  # type: ignore [attr-defined]
-            msg = f"Trait can not be raised above max value of {character_trait.trait.max_value}"  # type: ignore [attr-defined]
+        if new_value > character_trait.trait.max_value:
+            msg = f"Trait can not be raised above max value of {character_trait.trait.max_value}"
             raise ValidationError(detail=msg)
 
     def _guard_is_safe_decrease(self, character_trait: CharacterTrait, decrease_by: int) -> None:
@@ -73,13 +77,16 @@ class CharacterTraitService:
         Args:
             character_trait: The trait to decrease.
             decrease_by: The amount to decrease the trait by.
+
+        Raises:
+            ValidationError: If the trait cannot be lowered below min value.
         """
         new_value = character_trait.value - decrease_by
-        if new_value < character_trait.trait.min_value:  # type: ignore [attr-defined]
-            msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"  # type: ignore [attr-defined]
+        if new_value < character_trait.trait.min_value:
+            msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"
             raise ValidationError(detail=msg)
 
-    def _guard_has_minimum_renown(self, trait: Trait, character: Character) -> None:
+    async def _guard_has_minimum_renown(self, trait: Trait, character: Character) -> None:
         """Check if the character meets the minimum renown required for a gift.
 
         Args:
@@ -89,65 +96,138 @@ class CharacterTraitService:
         Raises:
             ValidationError: If the character's renown is below the gift's minimum requirement.
         """
-        if trait.gift_attributes is None:
-            return
-        if trait.gift_attributes.minimum_renown is None:
+        if trait.gift_minimum_renown is None:
             return
 
-        total_renown = character.werewolf_attributes.total_renown
-        if total_renown < trait.gift_attributes.minimum_renown:
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        total_renown = werewolf_attrs.total_renown if werewolf_attrs else 0
+        if total_renown < trait.gift_minimum_renown:
             msg = (
                 f"Character's Renown ({total_renown}) does not meet the minimum "
-                f"required ({trait.gift_attributes.minimum_renown}) for gift '{trait.name}'"
+                f"required ({trait.gift_minimum_renown}) for gift '{trait.name}'"
             )
             raise ValidationError(
                 detail=msg,
                 invalid_parameters=[{"field": "trait_id", "message": msg}],
             )
 
-    def _cost_for_dot(self, character_trait: CharacterTrait, dot_value: int) -> int:
+    async def _guard_can_afford_new_trait(
+        self,
+        trait: Trait,
+        character: Character,
+        value: int,
+        currency: TraitModifyCurrency,
+    ) -> None:
+        """Check that the character can afford to add a new trait before creating it.
+
+        Computes the upgrade cost from 0 to `value` using the trait's cost fields and
+        verifies the character (or user) has enough currency. Flaw traits grant currency
+        instead of spending it, so the check is skipped for flaws.
+
+        Args:
+            trait: The trait definition being added.
+            character: The character receiving the trait.
+            value: The target value (number of dots).
+            currency: The currency being used (XP or STARTING_POINTS).
+
+        Raises:
+            NotEnoughXPError: If the user cannot afford the XP cost.
+            ValidationError: If the character cannot afford the starting points cost.
+        """
+        if await self._is_flaw_category(trait.category_id):  # type: ignore[attr-defined]
+            return
+
+        multiplier = trait.count_based_cost_multiplier
+        if multiplier is not None:
+            count = await self._count_category_traits(character.id, trait.category_id)  # type: ignore[attr-defined]
+            cost = (count + 1) * multiplier
+        else:
+            cost = 0
+            for dot in range(1, value + 1):
+                cost += self._cost_for_dot_value(trait.initial_cost, trait.upgrade_cost, dot)
+
+        if currency == TraitModifyCurrency.XP:
+            user_svc = UserXPService()
+            experience = await user_svc.get_or_create_campaign_experience(
+                character.user_player_id,  # type: ignore[attr-defined]
+                character.campaign_id,  # type: ignore[attr-defined]
+            )
+            if experience.xp_current < cost:
+                raise NotEnoughXPError
+        elif currency == TraitModifyCurrency.STARTING_POINTS and character.starting_points < cost:
+            raise ValidationError(detail="Not enough starting points")
+
+    @staticmethod
+    def _cost_for_dot_value(initial_cost: int, upgrade_cost: int, dot_value: int) -> int:
         """Return the cost for a single dot at the given value.
 
         Args:
-            character_trait: The trait (links must be fetched).
+            initial_cost: The cost for the first dot.
+            upgrade_cost: The per-dot multiplier for subsequent dots.
             dot_value: The dot position (1-based).
 
         Returns:
             The cost for that dot: initial_cost for dot 1, dot_value * upgrade_cost otherwise.
         """
         if dot_value == 1:
-            return character_trait.trait.initial_cost  # type: ignore [attr-defined]
-        return dot_value * character_trait.trait.upgrade_cost  # type: ignore [attr-defined]
+            return initial_cost
+        return dot_value * upgrade_cost
 
-    async def _count_category_traits(
-        self, character_id: PydanticObjectId, parent_category_id: PydanticObjectId
-    ) -> int:
+    def _cost_for_dot(self, character_trait: CharacterTrait, dot_value: int) -> int:
+        """Return the cost for a single dot at the given value.
+
+        Args:
+            character_trait: The trait (must have trait prefetched).
+            dot_value: The dot position (1-based).
+
+        Returns:
+            The cost for that dot: initial_cost for dot 1, dot_value * upgrade_cost otherwise.
+        """
+        return self._cost_for_dot_value(
+            character_trait.trait.initial_cost, character_trait.trait.upgrade_cost, dot_value
+        )
+
+    async def _count_category_traits(self, character_id: UUID, category_id: UUID) -> int:
         """Count how many active traits a character has in a given category.
 
         Args:
             character_id: The character to count traits for.
-            parent_category_id: The category to count traits in.
+            category_id: The category to count traits in.
 
         Returns:
             The number of traits with value > 0 in the category.
         """
-        # fetch_links=True is required because parent_category_id lives on the
-        # linked Trait document, not on CharacterTrait itself
-        return await CharacterTrait.find(
-            CharacterTrait.character_id == character_id,
-            CharacterTrait.trait.parent_category_id == parent_category_id,  # type: ignore [attr-defined]
-            CharacterTrait.value > 0,
-            fetch_links=True,
+        return await CharacterTrait.filter(
+            character_id=character_id,
+            trait__category_id=category_id,
+            value__gt=0,
         ).count()
+
+    async def _is_flaw_category(self, category_id: UUID) -> bool:
+        """Check if a category ID belongs to the "Flaws" category.
+
+        Uses a class-level cache for the "Flaws" TraitCategory ID to avoid repeated
+        database lookups.
+
+        Args:
+            category_id: The category ID to check.
+
+        Returns:
+            True if the category ID matches the "Flaws" category.
+        """
+        if CharacterTraitService._flaws_category_id is None:
+            flaws_category = await TraitCategory.filter(name="Flaws").first()
+            if flaws_category is None:
+                return False
+            CharacterTraitService._flaws_category_id = flaws_category.id
+
+        return category_id == CharacterTraitService._flaws_category_id
 
     async def _is_flaw_trait(self, character_trait: CharacterTrait) -> bool:
         """Check if the trait is a flaw based on its parent category.
 
         Flaw traits have reversed XP/starting points economy: adding a flaw grants
-        currency, removing a flaw costs currency. Links must be fetched before calling.
-
-        Uses a class-level cache for the "Flaws" TraitCategory ID to avoid repeated
-        database lookups.
+        currency, removing a flaw costs currency. Trait must be prefetched before calling.
 
         Args:
             character_trait: The character trait to check.
@@ -155,38 +235,34 @@ class CharacterTraitService:
         Returns:
             True if the trait belongs to the "Flaws" parent category.
         """
-        if CharacterTraitService._flaws_category_id is None:
-            flaws_category = await TraitCategory.find_one(TraitCategory.name == "Flaws")
-            if flaws_category is None:
-                return False
-            CharacterTraitService._flaws_category_id = flaws_category.id
+        return await self._is_flaw_category(character_trait.trait.category_id)  # type: ignore[attr-defined]
 
-        return character_trait.trait.parent_category_id == CharacterTraitService._flaws_category_id  # type: ignore [attr-defined]
+    def guard_user_can_manage_character(self, character: Character, user: "User") -> bool:
+        """Guard to check if the user is able to update traits on the given character.
 
-    def guard_user_can_manage_character(self, character: Character, user: User) -> bool:
-        """Guard to check if the user is able to update traits on the given character.  Users must be a storyteller or admin or the owner of the character.
+        Users must be a storyteller or admin or the owner of the character.
 
         Args:
             character: The character to check the permissions for.
             user: The user to check the permissions for.
 
         Returns:
-            True if the user is able to update traits on the given character, False otherwise.
+            True if the user is able to update traits on the given character.
 
         Raises:
-            PermissionDeniedError: If the user does not have permissions to update traits on the given character.
+            PermissionDeniedError: If the user does not have permissions to update traits.
         """
-        if character.user_player_id == user.id or user.role in [
+        if character.user_player_id == user.id or user.role in [  # type: ignore[attr-defined]
             UserRole.STORYTELLER,
             UserRole.ADMIN,
         ]:
             return True
         raise PermissionDeniedError(detail="User does not own this character")
 
-    def _guard_permissions_free_trait_changes(
-        self, company: Company, character: Character, user: User
+    async def _guard_permissions_free_trait_changes(
+        self, company: "Company", character: Character, user: "User"
     ) -> bool:
-        """Guard to check if the user has permissions to update traits without spending experience points.
+        """Guard to check if the user has permissions to update traits without spending XP.
 
         Args:
             company: The company to check the permissions for.
@@ -194,15 +270,19 @@ class CharacterTraitService:
             user: The user to check the permissions for.
 
         Returns:
-            True if the user has permissions to update traits without spending experience points, False otherwise.
+            True if the user has permissions to update traits without spending XP.
 
         Raises:
-            PermissionDeniedError: If the user does not have permissions to update traits without spending experience points.
+            PermissionDeniedError: If the user does not have permissions.
         """
         if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
             return True
 
-        match company.settings.permission_free_trait_changes:
+        settings = await CompanySettings.filter(company_id=company.id).first()
+        if settings is None:
+            raise PermissionDeniedError(detail="No rights to access this resource")
+
+        match settings.permission_free_trait_changes:
             case PermissionsFreeTraitChanges.UNRESTRICTED:
                 return True
             case PermissionsFreeTraitChanges.STORYTELLER:
@@ -211,7 +291,7 @@ class CharacterTraitService:
                 if character.date_created + timedelta(days=1) > time_now():
                     return True
             case _:
-                assert_never(company.settings.permission_free_trait_changes)
+                assert_never(settings.permission_free_trait_changes)
 
         raise PermissionDeniedError(detail="No rights to access this resource")
 
@@ -228,14 +308,13 @@ class CharacterTraitService:
             and values are the total cost to increase by that many dots.
         """
         upgrade_costs: dict[str, int] = {}
-        await character_trait.fetch_all_links()
-        max_increase = character_trait.trait.max_value - character_trait.value  # type: ignore [attr-defined]
+        max_increase = character_trait.trait.max_value - character_trait.value
 
         for num_dots in range(1, max_increase + 1):
             upgrade_costs[str(num_dots)] = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
         return upgrade_costs
 
@@ -254,20 +333,19 @@ class CharacterTraitService:
             and values are the total savings from decreasing by that many dots.
         """
         downgrade_savings: dict[str, int] = {}
-        await character_trait.fetch_all_links()
-        max_decrease = character_trait.value - character_trait.trait.min_value  # type: ignore [attr-defined]
+        max_decrease = character_trait.value - character_trait.trait.min_value
 
         for num_dots in range(1, max_decrease + 1):
             downgrade_savings[str(num_dots)] = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
 
         downgrade_savings["DELETE"] = await self._calculate_downgrade_savings(
             character_trait,
             character_trait.value,
-            character_id=character_trait.character_id,
+            character_id=character_trait.character_id,  # type: ignore[attr-defined]
         )
 
         return downgrade_savings
@@ -287,9 +365,10 @@ class CharacterTraitService:
         Raises:
             ValidationError: If the trait cannot be raised above max value.
         """
-        await character_trait.fetch_all_links()
         return await self._calculate_upgrade_cost(
-            character_trait, increase_by, character_id=character_trait.character_id
+            character_trait,
+            increase_by,
+            character_id=character_trait.character_id,  # type: ignore[attr-defined]
         )
 
     async def _calculate_upgrade_cost(
@@ -297,15 +376,15 @@ class CharacterTraitService:
         character_trait: CharacterTrait,
         increase_by: int,
         *,
-        character_id: PydanticObjectId,
+        character_id: UUID,
     ) -> int:
-        """Calculate upgrade cost assuming links are already fetched.
+        """Calculate upgrade cost assuming trait is already prefetched.
 
         For count-based traits, uses count-based pricing (Nth trait costs N * multiplier).
         For all other traits, uses the existing per-dot model.
 
         Args:
-            character_trait: The trait (links must be fetched).
+            character_trait: The trait (must have trait prefetched).
             increase_by: The number of dots to increase by.
             character_id: The character's ID (needed for count query).
 
@@ -315,15 +394,14 @@ class CharacterTraitService:
         Raises:
             ValidationError: If the trait would exceed max value.
         """
-        multiplier = character_trait.trait.count_based_cost_multiplier  # type: ignore [attr-defined]
+        multiplier = character_trait.trait.count_based_cost_multiplier
         if multiplier is not None:
-            # Count-based traits are binary (max_value=1), so increase_by is always 1
             if increase_by != 1:
                 msg = f"Count-based traits only support single-dot increases, got {increase_by}"
                 raise ValidationError(detail=msg)
             count = await self._count_category_traits(
                 character_id,
-                character_trait.trait.parent_category_id,  # type: ignore [attr-defined]
+                character_trait.trait.category_id,  # type: ignore[attr-defined]
             )
             return (count + 1) * multiplier
 
@@ -332,9 +410,9 @@ class CharacterTraitService:
 
         for _ in range(increase_by):
             new_trait_value += 1
-            if character_trait.trait.max_value < new_trait_value:  # type: ignore [attr-defined]
+            if character_trait.trait.max_value < new_trait_value:
                 msg = (
-                    f"Trait can not be raised above max value of {character_trait.trait.max_value}"  # type: ignore [attr-defined]
+                    f"Trait can not be raised above max value of {character_trait.trait.max_value}"
                 )
                 raise ValidationError(
                     invalid_parameters=[{"field": "increase amount", "message": msg}]
@@ -359,9 +437,10 @@ class CharacterTraitService:
         Raises:
             ValidationError: If the trait cannot be lowered below min value.
         """
-        await character_trait.fetch_all_links()
         return await self._calculate_downgrade_savings(
-            character_trait, decrease_by, character_id=character_trait.character_id
+            character_trait,
+            decrease_by,
+            character_id=character_trait.character_id,  # type: ignore[attr-defined]
         )
 
     async def _calculate_downgrade_savings(
@@ -369,15 +448,15 @@ class CharacterTraitService:
         character_trait: CharacterTrait,
         decrease_by: int,
         *,
-        character_id: PydanticObjectId,
+        character_id: UUID,
     ) -> int:
-        """Calculate downgrade savings assuming links are already fetched.
+        """Calculate downgrade savings assuming trait is already prefetched.
 
         For count-based traits, uses count-based pricing (Nth trait refunds N * multiplier).
         For all other traits, uses the existing per-dot model.
 
         Args:
-            character_trait: The trait (links must be fetched).
+            character_trait: The trait (must have trait prefetched).
             decrease_by: The number of dots to decrease by.
             character_id: The character's ID (needed for count query).
 
@@ -387,11 +466,11 @@ class CharacterTraitService:
         Raises:
             ValidationError: If the trait would go below zero.
         """
-        multiplier = character_trait.trait.count_based_cost_multiplier  # type: ignore [attr-defined]
+        multiplier = character_trait.trait.count_based_cost_multiplier
         if multiplier is not None:
             count = await self._count_category_traits(
                 character_id,
-                character_trait.trait.parent_category_id,  # type: ignore [attr-defined]
+                character_trait.trait.category_id,  # type: ignore[attr-defined]
             )
             return count * multiplier
 
@@ -409,89 +488,117 @@ class CharacterTraitService:
 
         return savings
 
-    async def update_character_willpower(self, character_trait: CharacterTrait) -> None:
-        """Update character willpower based on Composure + Resolve.
+    async def update_character_willpower(self, character: Character) -> None:
+        """Update character willpower based on Composure + Resolve (or Courage alone).
 
         Args:
-            character_trait: The trait that was just saved (should be Composure or Resolve).
+            character: The character whose willpower should be recalculated.
         """
-        await character_trait.fetch_all_links()
-        if character_trait.trait.name not in TRAIT_NAMES_FOR_WILLPOWER:  # type: ignore [attr-defined]
+        # Sum the willpower component traits for this character
+        component_traits = await CharacterTrait.filter(
+            character_id=character.id,
+            trait__name__in=list(WILLPOWER_COMPONENTS),
+        ).select_related("trait")
+
+        if not component_traits:
             return
 
-        if character_trait.trait.name in ("Composure", "Resolve"):  # type: ignore [attr-defined]
-            total_willpower_value = (
-                await CharacterTrait.find(
-                    CharacterTrait.character_id == character_trait.character_id,
-                    In(CharacterTrait.trait.name, ["Composure", "Resolve"]),  # type: ignore [attr-defined]
-                    fetch_links=True,
-                ).sum(CharacterTrait.value)
-                or 0
-            )
-        elif character_trait.trait.name == "Courage":  # type: ignore [attr-defined]
-            total_willpower_value = character_trait.value
+        # Determine which components are present
+        trait_map = {ct.trait.name: ct.value for ct in component_traits}
+
+        # Courage-based willpower (e.g., WtA)
+        if "Courage" in trait_map:
+            total_willpower_value = trait_map["Courage"]
+        # Composure + Resolve based willpower (e.g., VtM 5e)
+        elif "Composure" in trait_map or "Resolve" in trait_map:
+            total_willpower_value = trait_map.get("Composure", 0) + trait_map.get("Resolve", 0)
         else:
             return
 
-        character_willpower = await CharacterTrait.find_one(
-            CharacterTrait.character_id == character_trait.character_id,
-            CharacterTrait.trait.name == "Willpower",  # type: ignore [attr-defined]
-            fetch_links=True,
+        character_willpower = (
+            await CharacterTrait.filter(
+                character_id=character.id,
+                trait__name=WILLPOWER_TRAIT,
+            )
+            .select_related("trait")
+            .first()
         )
+
         if character_willpower:
             character_willpower.value = int(total_willpower_value)
-            await character_willpower.save()
+            await character_willpower.save(update_fields=["value", "date_modified"])
         else:
-            willpower_trait = await Trait.find_one(Trait.name == "Willpower")
-            character_willpower = CharacterTrait(
-                value=int(total_willpower_value),
-                character_id=character_trait.character_id,
+            willpower_trait = await Trait.filter(name=WILLPOWER_TRAIT, is_archived=False).first()
+            if willpower_trait is None:
+                return
+            character_willpower = await CharacterTrait.create(
+                character=character,
                 trait=willpower_trait,
+                value=int(total_willpower_value),
             )
-            await character_willpower.insert()
-            await self.after_save(character_willpower)
+            await self.after_save(character_willpower, character)
 
-    async def update_werewolf_total_renown(self, character_trait: CharacterTrait) -> None:
+    async def update_werewolf_total_renown(self, character: Character) -> None:
         """Update werewolf total renown based on Honor + Wisdom + Glory.
 
         Args:
-            character_trait: The trait that was just saved (should be Honor, Wisdom, or Glory).
+            character: The character whose renown should be recalculated.
         """
-        await character_trait.fetch_all_links()
-        if character_trait.trait.name not in ["Honor", "Wisdom", "Glory"]:  # type: ignore [attr-defined]
+        if character.character_class != CharacterClass.WEREWOLF:
             return
 
-        character = await Character.get(character_trait.character_id)
-        if not character or character.character_class != CharacterClass.WEREWOLF:
+        renown_traits = await CharacterTrait.filter(
+            character_id=character.id,
+            trait__name__in=list(RENOWN_COMPONENTS),
+        ).select_related("trait")
+
+        total_renown = sum(ct.value for ct in renown_traits) if renown_traits else 0
+
+        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
+        if werewolf_attrs is None:
             return
 
-        total_renown = await CharacterTrait.find(
-            CharacterTrait.character_id == character_trait.character_id,
-            In(CharacterTrait.trait.name, ["Honor", "Wisdom", "Glory"]),  # type: ignore [attr-defined]
-            fetch_links=True,
-        ).sum(CharacterTrait.value)
+        werewolf_attrs.total_renown = total_renown
+        await werewolf_attrs.save(update_fields=["total_renown", "date_modified"])
 
-        character.werewolf_attributes.total_renown = int(total_renown) or 0
-        await character.save()
-
-    async def after_save(self, character_trait: CharacterTrait) -> None:
+    async def after_save(self, character_trait: CharacterTrait, character: Character) -> None:  # noqa: ARG002
         """Perform all post-save operations for a trait.
 
         Args:
             character_trait: The trait that was saved.
+            character: The character that owns the trait.
         """
         await asyncio.gather(
-            self.update_character_willpower(character_trait),
-            self.update_werewolf_total_renown(character_trait),
+            self.update_character_willpower(character),
+            self.update_werewolf_total_renown(character),
         )
+
+    async def _refetch_character_trait(self, character_trait_id: UUID) -> CharacterTrait:
+        """Refetch a CharacterTrait with all relations prefetched for response serialization.
+
+        Args:
+            character_trait_id: The ID of the CharacterTrait to refetch.
+
+        Returns:
+            The CharacterTrait with prefetched relations.
+        """
+        result = (
+            await CharacterTrait.filter(id=character_trait_id)
+            .prefetch_related(*CHARACTER_TRAIT_PREFETCH)
+            .first()
+        )
+        if result is None:
+            msg = "CharacterTrait not found after save"
+            raise ValidationError(detail=msg)
+        return result
 
     async def add_constant_trait_to_character(
         self,
         *,
-        company: Company,
+        company: "Company",
         character: Character,
-        user: User,
-        trait_id: PydanticObjectId,
+        user: "User",
+        trait_id: UUID,
         value: int,
         currency: TraitModifyCurrency,
     ) -> CharacterTrait:
@@ -504,9 +611,6 @@ class CharacterTraitService:
             trait_id: The ID of the trait to add.
             value: The value to add to the trait.
             currency: The currency to use to add the trait.
-                NO_COST: No cost
-                XP: Spend experience points
-                STARTING_POINTS: Spend starting points
 
         Returns:
             The character trait that was added.
@@ -515,7 +619,10 @@ class CharacterTraitService:
             PermissionDeniedError: If the user does not have permissions to add the trait.
             ValidationError: If the trait cannot be added.
         """
-        trait = await GetModelByIdValidationService().get_trait_by_id(trait_id)
+        trait = await Trait.filter(id=trait_id, is_archived=False).first()
+        if trait is None:
+            msg = "Trait not found"
+            raise ValidationError(detail=msg)
 
         if value > trait.max_value:
             msg = f"Value must be less than or equal to {trait.max_value}"
@@ -531,25 +638,29 @@ class CharacterTraitService:
 
         # NO_COST allows storytellers to bypass renown requirements
         if currency != TraitModifyCurrency.NO_COST:
-            self._guard_has_minimum_renown(trait, character)
+            await self._guard_has_minimum_renown(trait, character)
 
-        # Idempotent operation - if the trait already exists, update the value
-        character_trait = await CharacterTrait.find_one(
-            CharacterTrait.character_id == character.id,
-            CharacterTrait.trait.id == trait_id,  # type: ignore [attr-defined]
-            fetch_links=True,
-        )
-        if character_trait:
+        # Check if the trait already exists on the character
+        existing = await CharacterTrait.filter(
+            character_id=character.id,
+            trait_id=trait_id,
+        ).first()
+        if existing:
             raise ConflictError(
                 detail=f"Trait named '{trait.name}' already exists on character. Use modify trait value instead."
             )
-        num_dots = value
 
-        character_trait = CharacterTrait(
-            character_id=character.id,
+        if currency != TraitModifyCurrency.NO_COST:
+            await self._guard_can_afford_new_trait(trait, character, value, currency)
+
+        character_trait = await CharacterTrait.create(
+            character=character,
             trait=trait,
             value=0,
         )
+        # Refetch with prefetched relations
+        character_trait = await self._refetch_character_trait(character_trait.id)
+        num_dots = value
 
         if currency == TraitModifyCurrency.NO_COST:
             return await self.increase_character_trait_value(
@@ -580,17 +691,15 @@ class CharacterTraitService:
     async def bulk_add_constant_traits_to_character(  # noqa: C901, PLR0912, PLR0915
         self,
         *,
-        company: Company,
+        company: "Company",
         character: Character,
-        user: User,
+        user: "User",
         items: list[CharacterTraitAddConstant],
     ) -> BulkAssignTraitResponse:
         """Assign multiple constant traits to a character with best-effort semantics.
 
         Batch-fetch all trait documents and existing character traits up front for
-        efficiency. Process each item individually, reusing existing currency methods.
-        Maintain running XP and starting points balances to prevent over-spending
-        across the batch. Flaw traits invert currency direction.
+        efficiency. Process each item individually with per-item transactions.
 
         Args:
             company: The company to check permissions for.
@@ -609,28 +718,31 @@ class CharacterTraitService:
 
         # Permission check once for the whole batch
         self.guard_user_can_manage_character(character, user)
-        self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(company, character, user)
 
         # Batch-fetch all Trait documents
         trait_ids = [item.trait_id for item in items]
-        all_traits = await Trait.find(In(Trait.id, trait_ids)).to_list()
-        trait_lookup: dict[PydanticObjectId, Trait] = {t.id: t for t in all_traits}
+        all_traits = await Trait.filter(id__in=trait_ids, is_archived=False)
+        trait_lookup: dict[UUID, Trait] = {t.id: t for t in all_traits}
 
         # Batch-fetch existing CharacterTraits for conflict detection
-        existing_cts = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id,
-            fetch_links=True,
-        ).to_list()
-        existing_trait_ids: set[PydanticObjectId] = {
-            ct.trait.id  # type: ignore [attr-defined]
+        existing_cts = await CharacterTrait.filter(
+            character_id=character.id,
+        ).select_related("trait")
+        existing_trait_ids: set[UUID] = {
+            ct.trait_id  # type: ignore[attr-defined]
             for ct in existing_cts
         }
 
         # Initialize running balances
-        target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
-        campaign_xp = await target_user.get_or_create_campaign_experience(character.campaign_id)
+        user_svc = UserXPService()
+        campaign_xp = await user_svc.get_or_create_campaign_experience(
+            character.user_player_id,  # type: ignore[attr-defined]
+            character.campaign_id,  # type: ignore[attr-defined]
+        )
         running_xp = campaign_xp.xp_current
         running_starting_points = character.starting_points
+
         for item in items:
             trait_id = item.trait_id
             value = item.value
@@ -674,106 +786,109 @@ class CharacterTraitService:
             # Validate minimum renown for gifts (NO_COST allows storyteller bypass)
             if currency != TraitModifyCurrency.NO_COST:
                 try:
-                    self._guard_has_minimum_renown(trait, character)
+                    await self._guard_has_minimum_renown(trait, character)
                 except ValidationError as exc:
                     failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=exc.detail))
                     continue
 
-            # Create the CharacterTrait with value=0 (currency methods handle increment)
-            character_trait = CharacterTrait(
-                character_id=character.id,
-                trait=trait,
-                value=0,
-            )
-            num_dots = value
-
             try:
-                if currency == TraitModifyCurrency.NO_COST:
-                    result_ct = await self.increase_character_trait_value(
-                        company=company,
-                        user=user,
+                async with in_transaction():
+                    # Create the CharacterTrait with value=0
+                    character_trait = await CharacterTrait.create(
                         character=character,
-                        character_trait=character_trait,
-                        num_dots=num_dots,
+                        trait=trait,
+                        value=0,
                     )
-                elif currency == TraitModifyCurrency.XP:
-                    # Pre-check running XP balance
-                    await character_trait.fetch_all_links()
-                    self._guard_is_safe_increase(character_trait, num_dots)
-                    cost = await self._calculate_upgrade_cost(
-                        character_trait,
-                        num_dots,
-                        character_id=character_trait.character_id,
-                    )
-                    is_flaw = await self._is_flaw_trait(character_trait)
+                    # Refetch with prefetched relations
+                    character_trait = await self._refetch_character_trait(character_trait.id)
+                    num_dots = value
 
-                    if not is_flaw and running_xp < cost:
-                        failed.append(
-                            BulkAssignTraitFailure(
-                                trait_id=trait_id,
-                                error="Not enough XP to add trait",
-                            )
+                    if currency == TraitModifyCurrency.NO_COST:
+                        result_ct = await self.increase_character_trait_value(
+                            company=company,
+                            user=user,
+                            character=character,
+                            character_trait=character_trait,
+                            num_dots=num_dots,
                         )
-                        continue
-
-                    result_ct = await self._apply_xp_change(
-                        character=character,
-                        user=user,
-                        character_trait=character_trait,
-                        num_dots=num_dots,
-                        is_increase=True,
-                    )
-
-                    # Adjust running balance only after successful apply
-                    if is_flaw:
-                        running_xp += cost
-                    else:
-                        running_xp -= cost
-
-                elif currency == TraitModifyCurrency.STARTING_POINTS:
-                    # Pre-check running starting points balance
-                    await character_trait.fetch_all_links()
-                    self._guard_is_safe_increase(character_trait, num_dots)
-                    cost = await self._calculate_upgrade_cost(
-                        character_trait,
-                        num_dots,
-                        character_id=character_trait.character_id,
-                    )
-                    is_flaw = await self._is_flaw_trait(character_trait)
-
-                    if not is_flaw and running_starting_points < cost:
-                        failed.append(
-                            BulkAssignTraitFailure(
-                                trait_id=trait_id,
-                                error="Not enough starting points to add trait",
-                            )
+                    elif currency == TraitModifyCurrency.XP:
+                        # Pre-check running XP balance
+                        self._guard_is_safe_increase(character_trait, num_dots)
+                        cost = await self._calculate_upgrade_cost(
+                            character_trait,
+                            num_dots,
+                            character_id=character_trait.character_id,  # type: ignore[attr-defined]
                         )
-                        continue
+                        is_flaw = await self._is_flaw_trait(character_trait)
 
-                    result_ct = await self._apply_starting_points_change(
-                        user=user,
-                        character=character,
-                        character_trait=character_trait,
-                        num_dots=num_dots,
-                        is_increase=True,
-                    )
+                        if not is_flaw and running_xp < cost:
+                            failed.append(
+                                BulkAssignTraitFailure(
+                                    trait_id=trait_id,
+                                    error="Not enough XP to add trait",
+                                )
+                            )
+                            continue
 
-                    # Adjust running balance only after successful apply
-                    if is_flaw:
-                        running_starting_points += cost
+                        result_ct = await self._apply_xp_change(
+                            character=character,
+                            user=user,
+                            character_trait=character_trait,
+                            num_dots=num_dots,
+                            is_increase=True,
+                        )
+
+                        # Adjust running balance only after successful apply
+                        if is_flaw:
+                            running_xp += cost
+                        else:
+                            running_xp -= cost
+
+                    elif currency == TraitModifyCurrency.STARTING_POINTS:
+                        # Pre-check running starting points balance
+                        self._guard_is_safe_increase(character_trait, num_dots)
+                        cost = await self._calculate_upgrade_cost(
+                            character_trait,
+                            num_dots,
+                            character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                        )
+                        is_flaw = await self._is_flaw_trait(character_trait)
+
+                        if not is_flaw and running_starting_points < cost:
+                            failed.append(
+                                BulkAssignTraitFailure(
+                                    trait_id=trait_id,
+                                    error="Not enough starting points to add trait",
+                                )
+                            )
+                            continue
+
+                        result_ct = await self._apply_starting_points_change(
+                            user=user,
+                            character=character,
+                            character_trait=character_trait,
+                            num_dots=num_dots,
+                            is_increase=True,
+                        )
+
+                        # Adjust running balance only after successful apply
+                        if is_flaw:
+                            running_starting_points += cost
+                        else:
+                            running_starting_points -= cost
                     else:
-                        running_starting_points -= cost
-                else:
-                    assert_never(currency)
+                        assert_never(currency)
 
-                succeeded.append(
-                    BulkAssignTraitSuccess(
-                        trait_id=trait_id,
-                        character_trait=result_ct,
+                    # Refetch for response serialization
+                    result_ct = await self._refetch_character_trait(result_ct.id)
+                    succeeded.append(
+                        BulkAssignTraitSuccess(
+                            trait_id=trait_id,
+                            character_trait=CharacterTraitResponse.from_model(result_ct),
+                        )
                     )
-                )
-                # Track the newly added trait to prevent duplicates within the batch
-                existing_trait_ids.add(trait_id)
+                    # Track the newly added trait to prevent duplicates within the batch
+                    existing_trait_ids.add(trait_id)
 
             except (ValidationError, ConflictError, PermissionDeniedError, NotEnoughXPError) as e:
                 failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=str(e)))
@@ -783,10 +898,10 @@ class CharacterTraitService:
     async def create_custom_trait(
         self,
         *,
-        company: Company,
+        company: "Company",
         character: Character,
-        user: User,
-        data: CharacterTraitCreateCustomDTO,
+        user: "User",
+        data: CharacterTraitCreateCustom,
     ) -> CharacterTrait:
         """Create a custom trait and add it to a character.
 
@@ -804,64 +919,77 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be created.
         """
         self.guard_user_can_manage_character(character, user)
-        self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(company, character, user)
 
-        existing = await CharacterTrait.find(
-            CharacterTrait.character_id == character.id,
-            CharacterTrait.trait.name == data.name.strip().title(),  # type: ignore [attr-defined]
-            fetch_links=True,
-        ).first_or_none()
+        normalized_name = data.name.strip().title()
+
+        existing = await CharacterTrait.filter(
+            character_id=character.id,
+            trait__name=normalized_name,
+        ).first()
         if existing:
             raise ConflictError(detail=f"Trait named '{data.name}' already exists on character")
 
-        existing_trait = await Trait.find_one(
-            Trait.name == data.name.strip().title(),
-            Trait.is_custom == False,
-            Trait.is_archived == False,
-        )
+        existing_trait = await Trait.filter(
+            name=normalized_name,
+            is_custom=False,
+            is_archived=False,
+        ).first()
         if existing_trait:
             raise ConflictError(
                 detail=f"Trait named '{data.name}' already exists. Custom traits must have a unique name."
             )
 
-        validation_svc = GetModelByIdValidationService()
-        parent_category = await validation_svc.get_trait_category_by_id(data.parent_category_id)
-        sheet_section = await validation_svc.get_sheet_section_by_id(
-            parent_category.parent_sheet_section_id
-        )
-
-        data.initial_cost = data.initial_cost or parent_category.initial_cost
-        data.upgrade_cost = data.upgrade_cost or parent_category.upgrade_cost
-
-        try:
-            custom_trait = Trait(
-                **data.model_dump(exclude_unset=True),
-                parent_category_name=parent_category.name,
-                custom_for_character_id=character.id,
-                sheet_section_id=sheet_section.id,
-                sheet_section_name=sheet_section.name,
-                is_custom=True,
+        parent_category = (
+            await TraitCategory.filter(
+                id=data.category_id,
+                is_archived=False,
             )
-            await custom_trait.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
-        character_trait = CharacterTrait(
-            character_id=character.id,
-            trait=custom_trait,
-            value=data.value or data.min_value,
+            .select_related("sheet_section")
+            .first()
         )
-        await character_trait.save()
+        if parent_category is None:
+            msg = "Trait category not found"
+            raise ValidationError(detail=msg)
 
-        await self.after_save(character_trait)
+        initial_cost = (
+            data.initial_cost if data.initial_cost is not None else parent_category.initial_cost
+        )
+        upgrade_cost = (
+            data.upgrade_cost if data.upgrade_cost is not None else parent_category.upgrade_cost
+        )
+
+        custom_trait = await Trait.create(
+            name=normalized_name,
+            description=data.description,
+            max_value=data.max_value,
+            min_value=data.min_value,
+            show_when_zero=data.show_when_zero,
+            initial_cost=initial_cost,
+            upgrade_cost=upgrade_cost,
+            custom_for_character_id=character.id,
+            category=parent_category,
+            sheet_section=parent_category.sheet_section,
+            is_custom=True,
+        )
+
+        character_trait = await CharacterTrait.create(
+            character=character,
+            trait=custom_trait,
+            value=data.value if data.value is not None else data.min_value,
+        )
+
+        # Refetch with prefetched relations
+        character_trait = await self._refetch_character_trait(character_trait.id)
+        await self.after_save(character_trait, character)
         return character_trait
 
     async def increase_character_trait_value(
         self,
         *,
-        company: Company,
+        company: "Company",
         character: Character,
-        user: User,
+        user: "User",
         character_trait: CharacterTrait,
         num_dots: int,
     ) -> CharacterTrait:
@@ -878,20 +1006,20 @@ class CharacterTraitService:
             The character trait that was increased.
         """
         self.guard_user_can_manage_character(character, user)
-        self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(company, character, user)
         self._guard_is_safe_increase(character_trait, num_dots)
 
         character_trait.value += num_dots
-        await character_trait.save()
-        await self.after_save(character_trait)
+        await character_trait.save(update_fields=["value", "date_modified"])
+        await self.after_save(character_trait, character)
         return character_trait
 
     async def decrease_character_trait_value(
         self,
         *,
-        company: Company,
+        company: "Company",
         character: Character,
-        user: User,
+        user: "User",
         character_trait: CharacterTrait,
         num_dots: int,
     ) -> CharacterTrait:
@@ -912,19 +1040,19 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be lowered below min value.
         """
         self.guard_user_can_manage_character(character, user)
-        self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(company, character, user)
         self._guard_is_safe_decrease(character_trait, num_dots)
 
         character_trait.value -= num_dots
-        await character_trait.save()
-        await self.after_save(character_trait)
+        await character_trait.save(update_fields=["value", "date_modified"])
+        await self.after_save(character_trait, character)
         return character_trait
 
     async def _apply_xp_change(
         self,
         *,
         character: Character,
-        user: User,
+        user: "User",
         character_trait: CharacterTrait,
         num_dots: int,
         is_increase: bool,
@@ -947,7 +1075,6 @@ class CharacterTraitService:
             The updated CharacterTrait.
         """
         self.guard_user_can_manage_character(character, user)
-        await character_trait.fetch_all_links()
 
         cost: int
         if is_increase:
@@ -955,7 +1082,7 @@ class CharacterTraitService:
             cost = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
         else:
             if not deleting_trait:
@@ -963,27 +1090,29 @@ class CharacterTraitService:
             cost = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
 
-        target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
+        user_svc = UserXPService()
+        user_player_id = character.user_player_id  # type: ignore[attr-defined]
+        campaign_id = character.campaign_id  # type: ignore[attr-defined]
         is_flaw = await self._is_flaw_trait(character_trait)
 
         # Flaw traits invert the currency direction
         if is_increase == is_flaw:
-            await target_user.add_xp(character.campaign_id, cost, update_total=False)
+            await user_svc.add_xp(user_player_id, campaign_id, cost, update_total=False)
         else:
-            await target_user.spend_xp(character.campaign_id, cost)
+            await user_svc.spend_xp(user_player_id, campaign_id, cost)
 
         character_trait.value += num_dots if is_increase else -num_dots
-        await character_trait.save()
-        await self.after_save(character_trait)
+        await character_trait.save(update_fields=["value", "date_modified"])
+        await self.after_save(character_trait, character)
         return character_trait
 
     async def _apply_starting_points_change(
         self,
         *,
-        user: User,
+        user: "User",
         character: Character,
         character_trait: CharacterTrait,
         num_dots: int,
@@ -1007,7 +1136,6 @@ class CharacterTraitService:
             The updated CharacterTrait.
         """
         self.guard_user_can_manage_character(character, user)
-        await character_trait.fetch_all_links()
 
         cost: int
         if is_increase:
@@ -1015,7 +1143,7 @@ class CharacterTraitService:
             cost = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
         else:
             if not deleting_trait:
@@ -1023,7 +1151,7 @@ class CharacterTraitService:
             cost = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
 
         is_flaw = await self._is_flaw_trait(character_trait)
@@ -1035,11 +1163,11 @@ class CharacterTraitService:
             if character.starting_points < cost:
                 raise ValidationError(detail="Not enough starting points")
             character.starting_points -= cost
-        await character.save()
+        await character.save(update_fields=["starting_points", "date_modified"])
 
         character_trait.value += num_dots if is_increase else -num_dots
-        await character_trait.save()
-        await self.after_save(character_trait)
+        await character_trait.save(update_fields=["value", "date_modified"])
+        await self.after_save(character_trait, character)
         return character_trait
 
     async def list_character_traits(
@@ -1048,7 +1176,7 @@ class CharacterTraitService:
         limit: int = 10,
         offset: int = 0,
         *,
-        parent_category_id: PydanticObjectId | None = None,
+        category_id: UUID | None = None,
         is_rollable: bool | None = None,
     ) -> tuple[int, list[CharacterTrait]]:
         """List all character traits.
@@ -1057,32 +1185,28 @@ class CharacterTraitService:
             character: The character to list the traits for.
             limit: The limit of traits to return.
             offset: The offset of the traits to return.
-            parent_category_id: The parent category id to filter the traits by.
+            category_id: The category id to filter the traits by.
             is_rollable: Whether to filter the traits by rollable traits.
 
         Returns:
             A tuple containing the total number of traits and the list of traits.
         """
-        filters = [CharacterTrait.character_id == character.id]
-        needs_link_filters = False
+        filters: dict[str, object] = {"character_id": character.id}
         if is_rollable is not None:
-            filters.append(CharacterTrait.trait.is_rollable == is_rollable)  # type: ignore [attr-defined]
-            needs_link_filters = True
+            filters["trait__is_rollable"] = is_rollable
+        if category_id is not None:
+            filters["trait__category_id"] = category_id
 
-        if parent_category_id:
-            filters.append(CharacterTrait.trait.parent_category_id == parent_category_id)  # type: ignore [attr-defined]
-            needs_link_filters = True
+        queryset = CharacterTrait.filter(**filters)
 
-        # Only use fetch_links on count when filters reference linked fields
         count, traits = await asyncio.gather(
-            CharacterTrait.find(*filters, fetch_links=needs_link_filters).count(),
-            CharacterTrait.find(*filters, fetch_links=True)
-            .sort(CharacterTrait.trait.parent_category_id)  # type: ignore [attr-defined]
-            .skip(offset)
-            .limit(limit)
-            .to_list(),
+            queryset.count(),
+            queryset.prefetch_related(*CHARACTER_TRAIT_PREFETCH)
+            .order_by("trait__category_id")
+            .offset(offset)
+            .limit(limit),
         )
-        return count, traits
+        return count, list(traits)
 
     async def get_value_options(
         self,
@@ -1100,13 +1224,14 @@ class CharacterTraitService:
             character_trait: The trait to get options for.
 
         Returns:
-            A TraitValueOptionsResponse containing current value, min/max bounds, current XP and starting points, and options for each possible target value.
+            A TraitValueOptionsResponse containing current value, min/max bounds,
+            current XP and starting points, and options for each possible target value.
         """
-        await character_trait.fetch_all_links()
-
-        target_user = await GetModelByIdValidationService().get_user_by_id(character.user_player_id)
-        campaign_experience = await target_user.get_or_create_campaign_experience(
-            character.campaign_id
+        user_svc = UserXPService()
+        user_player_id = character.user_player_id  # type: ignore[attr-defined]
+        campaign_id = character.campaign_id  # type: ignore[attr-defined]
+        campaign_experience = await user_svc.get_or_create_campaign_experience(
+            user_player_id, campaign_id
         )
 
         current_value = character_trait.value
@@ -1157,9 +1282,9 @@ class CharacterTraitService:
             )
 
         return TraitValueOptionsResponse(
-            name=character_trait.trait.name,  # type: ignore [attr-defined]
+            name=character_trait.trait.name,
             current_value=current_value,
-            trait=character_trait.trait,  # type: ignore [arg-type]
+            trait=TraitResponse.from_model(character_trait.trait),
             xp_current=xp_current,
             starting_points_current=starting_points_current,
             options=options,
@@ -1168,8 +1293,8 @@ class CharacterTraitService:
     async def modify_trait_value(  # noqa: PLR0911
         self,
         *,
-        company: Company,
-        user: User,
+        company: "Company",
+        user: "User",
         character: Character,
         character_trait: CharacterTrait,
         target_value: int,
@@ -1194,7 +1319,6 @@ class CharacterTraitService:
             ValidationError: If the target value is invalid or unaffordable.
             PermissionDeniedError: If the user lacks required permissions.
         """
-        await character_trait.fetch_all_links()
         current_value = character_trait.value
         num_dots = abs(target_value - current_value)
 
@@ -1257,8 +1381,8 @@ class CharacterTraitService:
     async def delete_trait(
         self,
         *,
-        company: Company,
-        user: User,
+        company: "Company",
+        user: "User",
         character: Character,
         character_trait: CharacterTrait,
         currency: TraitModifyCurrency | None = None,
@@ -1266,14 +1390,11 @@ class CharacterTraitService:
         """Delete a trait from a character.
 
         Args:
-            company: The company
+            company: The company.
             user: The user deleting the trait.
             character: The character to delete the trait from.
             character_trait: The trait to delete.
             currency: The currency to use to recoup the cost of the trait.
-
-        Returns:
-            The character trait that was deleted.
 
         Raises:
             PermissionDeniedError: If the user does not have permissions to delete the trait.
@@ -1292,6 +1413,6 @@ class CharacterTraitService:
                 deleting_trait=True,
             )
 
-        if character_trait.trait.is_custom:  # type: ignore [attr-defined]
-            await character_trait.trait.delete()  # type: ignore [attr-defined]
+        if character_trait.trait.is_custom:
+            await character_trait.trait.delete()
         await character_trait.delete()

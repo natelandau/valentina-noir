@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock
+from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import pytest
-from beanie import PydanticObjectId
 
-from vapi.db.models import Note
+from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.notes.base import BaseNoteController
+from vapi.domain.controllers.notes.dto import NoteCreate, NotePatch
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from vapi.db.models import Character, Company
 
 pytestmark = pytest.mark.anyio
 
@@ -74,17 +72,25 @@ class TestListNotes:
     """Test _list_notes method."""
 
     async def test_list_notes_returns_paginated_results(
-        self, base_character: Character, note_factory: Callable[..., Note]
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _list_notes returns paginated results."""
-        await Note.delete_all()
         # Given a controller and notes attached to a character
         controller = ConcreteNoteController(parent_name="character")
-        await note_factory(title="Note 1", content="Content 1", character_id=base_character.id)
-        await note_factory(title="Note 2", content="Content 2", character_id=base_character.id)
+        company = await company_factory()
+        character = await character_factory(company=company)
+        await note_factory(
+            title="Note 1", content="Content 1", character=character, company=company
+        )
+        await note_factory(
+            title="Note 2", content="Content 2", character=character, company=company
+        )
 
         # When we list notes
-        result = await controller._list_notes(base_character.id, limit=10, offset=0)
+        result = await controller._list_notes(character.id, limit=10, offset=0)
 
         # Then we get paginated results
         assert result.total == 2
@@ -93,23 +99,29 @@ class TestListNotes:
         assert result.offset == 0
 
     async def test_list_notes_excludes_archived(
-        self, base_character: Character, note_factory: Callable[..., Note]
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _list_notes excludes archived notes."""
-        await Note.delete_all()
         # Given a controller with both active and archived notes
         controller = ConcreteNoteController(parent_name="character")
-        await note_factory(title="Active Note", content="Content", character_id=base_character.id)
-
+        company = await company_factory()
+        character = await character_factory(company=company)
+        await note_factory(
+            title="Active Note", content="Content", character=character, company=company
+        )
         await note_factory(
             title="Archived Note",
             content="Content",
-            character_id=base_character.id,
+            character=character,
+            company=company,
             is_archived=True,
         )
 
         # When we list notes
-        result = await controller._list_notes(base_character.id, limit=10, offset=0)
+        result = await controller._list_notes(character.id, limit=10, offset=0)
 
         # Then only the active note is returned
         assert result.total == 1
@@ -117,24 +129,23 @@ class TestListNotes:
         assert result.items[0].title == "Active Note"
 
     async def test_list_notes_respects_limit_and_offset(
-        self, base_character: Character, note_factory: Callable[..., Note]
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _list_notes respects limit and offset parameters."""
-        await Note.delete_all()
         # Given a controller with multiple notes
         controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character = await character_factory(company=company)
         for i in range(5):
             await note_factory(
-                title=f"Note {i}", content=f"Content {i}", character_id=base_character.id
+                title=f"Note {i}", content=f"Content {i}", character=character, company=company
             )
-        await note_factory(
-            title="Archived Note",
-            content="Content",
-            parent_id=PydanticObjectId(),
-        )
 
         # When we list with limit=2 and offset=1
-        result = await controller._list_notes(parent_id=base_character.id, limit=2, offset=1)
+        result = await controller._list_notes(parent_id=character.id, limit=2, offset=1)
 
         # Then we get 2 items starting from offset 1
         assert result.total == 5
@@ -142,11 +153,11 @@ class TestListNotes:
         assert result.limit == 2
         assert result.offset == 1
 
-    async def test_list_notes_empty_results(self, base_character: Character) -> None:
+    async def test_list_notes_empty_results(self) -> None:
         """Verify _list_notes returns empty results when no notes exist."""
         # Given a controller with no notes for the parent
         controller = ConcreteNoteController(parent_name="character")
-        random_id = PydanticObjectId()
+        random_id = uuid4()
 
         # When we list notes for a parent with no notes
         result = await controller._list_notes(parent_id=random_id, limit=10, offset=0)
@@ -159,21 +170,25 @@ class TestListNotes:
 class TestGetNote:
     """Test _get_note method."""
 
-    async def test_get_note_returns_note(
-        self, base_character: Character, note_factory: Callable[..., Note]
+    async def test_get_note_returns_response(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
-        """Verify _get_note returns the provided note."""
+        """Verify _get_note returns a NoteResponse."""
         # Given a controller and a note
         controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character = await character_factory(company=company)
         note = await note_factory(
-            title="Test Note", content="Test Content", character_id=base_character.id
+            title="Test Note", content="Test Content", character=character, company=company
         )
 
         # When we get the note
         result = await controller._get_note(note)
 
-        # Then the same note is returned
-        assert result == note
+        # Then a response is returned with the correct data
         assert result.id == note.id
         assert result.title == "Test Note"
 
@@ -182,83 +197,50 @@ class TestCreateNote:
     """Test _create_note method."""
 
     async def test_create_note_saves_with_parent_ref(
-        self, base_character: Character, base_company: Company, mocker: Any
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
     ) -> None:
         """Verify _create_note saves note with correct parent reference."""
-        # Given a controller and mock DTOData
+        # Given a controller and create data
         controller = ConcreteNoteController(parent_name="character")
-
-        mock_note_data = MagicMock()
-        mock_note_data.model_dump.return_value = {
-            "title": "New Note",
-            "content": "New Content",
-            "character_id": base_character.id,
-            "company_id": base_company.id,
-        }
-
-        mock_dto_data = MagicMock()
-        mock_dto_data.create_instance.return_value = mock_note_data
+        company = await company_factory()
+        character = await character_factory(company=company)
+        data = NoteCreate(title="New Note", content="New Content")
 
         # When we create a note
         result = await controller._create_note(
-            company_id=base_company.id, parent_id=base_character.id, data=mock_dto_data
+            company_id=company.id, parent_id=character.id, data=data
         )
 
         # Then the note is saved with the correct parent reference
         assert result.title == "New Note"
         assert result.content == "New Content"
-        assert result.character_id == base_character.id
-        assert result.company_id == base_company.id
+        assert result.character_id == character.id
+        assert result.company_id == company.id
         assert result.id is not None
 
-        # Verify create_instance was called with the parent ref field
-        mock_dto_data.create_instance.assert_called_once()
-
-    async def test_create_note_clears_cache(
-        self, base_character: Character, base_company: Company, mocker: Any
+    async def test_create_note_persists_to_database(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
     ) -> None:
-        """Verify _create_note clears response cache."""
-        # Given a controller and mock data
+        """Verify _create_note persists the note in the database."""
+        # Given a controller and create data
         controller = ConcreteNoteController(parent_name="character")
-
-        mock_note_data = MagicMock()
-        mock_note_data.model_dump.return_value = {
-            "title": "Cache Test",
-            "content": "Content",
-            "character_id": base_character.id,
-            "company_id": base_company.id,
-        }
-
-        mock_dto_data = MagicMock()
-        mock_dto_data.create_instance.return_value = mock_note_data
+        company = await company_factory()
+        character = await character_factory(company=company)
+        data = NoteCreate(title="Persist Test", content="Content")
 
         # When we create a note
-        await controller._create_note(
-            company_id=base_company.id, parent_id=base_character.id, data=mock_dto_data
+        result = await controller._create_note(
+            company_id=company.id, parent_id=character.id, data=data
         )
 
-    async def test_create_note_adds_audit_log(
-        self, base_character: Character, base_company: Company, mocker: Any
-    ) -> None:
-        """Verify _create_note adds audit log entry."""
-        # Given a controller and mock data
-        controller = ConcreteNoteController(parent_name="character")
-
-        mock_note_data = MagicMock()
-        mock_note_data.model_dump.return_value = {
-            "title": "Audit Test",
-            "content": "Content",
-            "character_id": base_character.id,
-            "company_id": base_company.id,
-        }
-
-        mock_dto_data = MagicMock()
-        mock_dto_data.create_instance.return_value = mock_note_data
-
-        # When we create a note
-        await controller._create_note(
-            company_id=base_company.id, parent_id=base_character.id, data=mock_dto_data
-        )
+        # Then the note exists in the database
+        db_note = await Note.filter(id=result.id).first()
+        assert db_note is not None
+        assert db_note.title == "Persist Test"
 
 
 class TestUpdateNote:
@@ -266,101 +248,73 @@ class TestUpdateNote:
 
     async def test_update_note_saves_changes(
         self,
-        base_character: Character,
-        base_company: Company,
-        mocker: Any,
+        company_factory: Callable,
+        character_factory: Callable,
         note_factory: Callable[..., Note],
     ) -> None:
         """Verify _update_note saves updated note."""
         # Given a controller and an existing note
         controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character = await character_factory(company=company)
         note = await note_factory(
-            title="Original Title", content="Original Content", character_id=base_character.id
-        )
-
-        # Given mock DTOData that updates the note
-        updated_note = Note(
-            id=note.id,
-            title="Updated Title",
-            content="Updated Content",
-            character_id=base_character.id,
-            company_id=base_company.id,
-        )
-
-        mock_dto_data = MagicMock()
-        mock_dto_data.update_instance.return_value = updated_note
-
-        # Given mock patch_dto_data_internal_objects
-        mocker.patch(
-            "vapi.domain.controllers.notes.base.patch_dto_data_internal_objects",
-            new_callable=AsyncMock,
-            return_value=(note, mock_dto_data),
+            title="Original Title",
+            content="Original Content",
+            character=character,
+            company=company,
         )
 
         # When we update the note
-        result = await controller._update_note(note, mock_dto_data)
+        data = NotePatch(title="Updated Title", content="Updated Content")
+        result = await controller._update_note(note, data)
 
         # Then the updated note is returned
         assert result.title == "Updated Title"
         assert result.content == "Updated Content"
 
-        # Cleanup
-        await result.delete()
-
-    async def test_update_note_clears_cache(
-        self, base_character: Character, mocker: Any, note_factory: Callable[..., Note]
+    async def test_update_note_partial_update(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
-        """Verify _update_note clears response cache."""
+        """Verify _update_note handles partial updates with UNSET fields."""
         # Given a controller and an existing note
         controller = ConcreteNoteController(parent_name="character")
-        note = await note_factory(title="Test", content="Content", character_id=base_character.id)
-
-        # Given mock DTOData
-        mock_dto_data = MagicMock()
-        mock_dto_data.update_instance.return_value = note
-
-        mocker.patch(
-            "vapi.domain.controllers.notes.base.patch_dto_data_internal_objects",
-            new_callable=AsyncMock,
-            return_value=(note, mock_dto_data),
+        company = await company_factory()
+        character = await character_factory(company=company)
+        note = await note_factory(
+            title="Original Title",
+            content="Original Content",
+            character=character,
+            company=company,
         )
 
-        # When we update the note
-        await controller._update_note(note, mock_dto_data)
+        # When we update only the title
+        data = NotePatch(title="Updated Title")
+        result = await controller._update_note(note, data)
 
-    async def test_update_note_adds_audit_log(
-        self, base_character: Character, mocker: Any, note_factory: Callable[..., Note]
-    ) -> None:
-        """Verify _update_note adds audit log entry."""
-        # Given a controller and an existing note
-        controller = ConcreteNoteController(parent_name="character")
-        note = await note_factory(title="Test", content="Content", character_id=base_character.id)
-
-        # Given mock DTOData
-        mock_dto_data = MagicMock()
-        mock_dto_data.update_instance.return_value = note
-
-        mocker.patch(
-            "vapi.domain.controllers.notes.base.patch_dto_data_internal_objects",
-            new_callable=AsyncMock,
-            return_value=(note, mock_dto_data),
-        )
-
-        # When we update the note
-        await controller._update_note(note, mock_dto_data)
+        # Then only the title is updated
+        assert result.title == "Updated Title"
+        assert result.content == "Original Content"
 
 
 class TestDeleteNote:
     """Test _delete_note method."""
 
     async def test_delete_note_sets_archived_flag(
-        self, base_character: Character, mocker: Any, note_factory: Callable[..., Note]
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
     ) -> None:
         """Verify _delete_note sets is_archived flag to True."""
         # Given a controller and an active note
         controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character = await character_factory(company=company)
         note = await note_factory(
-            title="Delete Test", content="Content", character_id=base_character.id
+            title="Delete Test", content="Content", character=character, company=company
         )
         assert note.is_archived is False
 
@@ -368,5 +322,5 @@ class TestDeleteNote:
         await controller._delete_note(note)
 
         # Then the note is archived
-        await note.sync()
+        await note.refresh_from_db()
         assert note.is_archived is True

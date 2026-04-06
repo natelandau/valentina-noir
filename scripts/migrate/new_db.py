@@ -2,23 +2,19 @@
 
 import logging
 
-from pymongo import AsyncMongoClient
+from tortoise import Tortoise
 
-from vapi.config import settings
-from vapi.lib.database import init_database
+from vapi.lib.database import init_tortoise
 
 logger = logging.getLogger("migrate")
 
 
-async def connect_new_db() -> AsyncMongoClient:
-    """Connect to the new Valentina Noir database and initialize Beanie.
+async def connect_new_db() -> None:
+    """Initialize TortoiseORM for the new PostgreSQL database."""
+    await init_tortoise()
+    logger.info("Connected to new PostgreSQL database")
 
-    Returns:
-        The initialized AsyncMongoClient.
-    """
-    client = await init_database()
-    logger.info(
-        "Connected to new database: %s",
-        settings.mongo.database_name,
-    )
-    return client
+
+async def close_new_db() -> None:
+    """Close all TortoiseORM connections."""
+    await Tortoise.close_connections()

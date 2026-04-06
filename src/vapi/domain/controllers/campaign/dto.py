@@ -1,81 +1,158 @@
-"""Campaign schemas."""
+"""Campaign DTOs."""
 
-from typing import Annotated
+from datetime import datetime
+from typing import TYPE_CHECKING, Annotated
+from uuid import UUID
 
-from litestar.plugins.pydantic import PydanticDTO
-from pydantic import BaseModel, Field
+import msgspec
 
-from vapi.db.models import Campaign, CampaignBook, CampaignChapter
-from vapi.lib.dto import dto_config
-
-
-class PostCampaignDTO(PydanticDTO[Campaign]):
-    """Campaign post DTO."""
-
-    config = dto_config(exclude={"id", "date_created", "date_modified", "company_id", "asset_ids"})
+if TYPE_CHECKING:
+    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 
 
-class PatchCampaignDTO(PydanticDTO[Campaign]):
-    """Campaign patch DTO."""
-
-    config = dto_config(
-        partial=True, exclude={"id", "date_created", "date_modified", "company_id", "asset_ids"}
-    )
+# ---------------------------------------------------------------------------
+# Response Structs
+# ---------------------------------------------------------------------------
 
 
-class CampaignDTO(PydanticDTO[Campaign]):
-    """Campaign return DTO."""
+class CampaignResponse(msgspec.Struct):
+    """Response body for a campaign."""
 
-    config = dto_config()
+    id: UUID
+    name: str
+    description: str | None
+    desperation: int
+    danger: int
+    company_id: UUID
+    date_created: datetime
+    date_modified: datetime
 
-
-class PostBookDTO(PydanticDTO[CampaignBook]):
-    """Campaign book post DTO."""
-
-    config = dto_config(
-        exclude={"id", "date_created", "date_modified", "campaign_id", "number", "asset_ids"}
-    )
-
-
-class PatchBookDTO(PydanticDTO[CampaignBook]):
-    """Campaign book patch DTO."""
-
-    config = dto_config(
-        partial=True,
-        exclude={"id", "date_created", "date_modified", "campaign_id", "number", "asset_ids"},
-    )
-
-
-class BookDTO(PydanticDTO[CampaignBook]):
-    """Campaign book return DTO."""
-
-    config = dto_config()
+    @classmethod
+    def from_model(cls, m: "Campaign") -> "CampaignResponse":
+        """Convert a Tortoise Campaign to a response Struct."""
+        return cls(
+            id=m.id,
+            name=m.name,
+            description=m.description,
+            desperation=m.desperation,
+            danger=m.danger,
+            company_id=m.company_id,  # type: ignore[attr-defined]
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+        )
 
 
-class PostChapterDTO(PydanticDTO[CampaignChapter]):
-    """Campaign chapter post DTO."""
+class CampaignBookResponse(msgspec.Struct):
+    """Response body for a campaign book."""
 
-    config = dto_config(
-        exclude={"id", "date_created", "date_modified", "book_id", "number", "asset_ids"}
-    )
+    id: UUID
+    name: str
+    description: str | None
+    number: int
+    campaign_id: UUID
+    date_created: datetime
+    date_modified: datetime
+
+    @classmethod
+    def from_model(cls, m: "CampaignBook") -> "CampaignBookResponse":
+        """Convert a Tortoise CampaignBook to a response Struct."""
+        return cls(
+            id=m.id,
+            name=m.name,
+            description=m.description,
+            number=m.number,
+            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+        )
 
 
-class PatchChapterDTO(PydanticDTO[CampaignChapter]):
-    """Campaign chapter patch DTO."""
+class CampaignChapterResponse(msgspec.Struct):
+    """Response body for a campaign chapter."""
 
-    config = dto_config(
-        partial=True,
-        exclude={"id", "date_created", "date_modified", "book_id", "number", "asset_ids"},
-    )
+    id: UUID
+    name: str
+    description: str | None
+    number: int
+    book_id: UUID
+    date_created: datetime
+    date_modified: datetime
+
+    @classmethod
+    def from_model(cls, m: "CampaignChapter") -> "CampaignChapterResponse":
+        """Convert a Tortoise CampaignChapter to a response Struct."""
+        return cls(
+            id=m.id,
+            name=m.name,
+            description=m.description,
+            number=m.number,
+            book_id=m.book_id,  # type: ignore[attr-defined]
+            date_created=m.date_created,
+            date_modified=m.date_modified,
+        )
 
 
-class ChapterDTO(PydanticDTO[CampaignChapter]):
-    """Campaign chapter return DTO."""
+# ---------------------------------------------------------------------------
+# Request Structs
+# ---------------------------------------------------------------------------
 
-    config = dto_config()
+
+class CampaignCreate(msgspec.Struct):
+    """Request body for creating a campaign."""
+
+    name: str
+    description: str | None = None
+    desperation: int = 0
+    danger: int = 0
 
 
-class BookChapterNumberDTO(BaseModel):
-    """Book chapter number DTO."""
+class CampaignPatch(msgspec.Struct):
+    """Request body for partially updating a campaign.
 
-    number: Annotated[int, Field(ge=1)]
+    All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
+    """
+
+    name: str | msgspec.UnsetType = msgspec.UNSET
+    description: str | None | msgspec.UnsetType = msgspec.UNSET
+    desperation: int | msgspec.UnsetType = msgspec.UNSET
+    danger: int | msgspec.UnsetType = msgspec.UNSET
+
+
+class CampaignBookCreate(msgspec.Struct):
+    """Request body for creating a campaign book."""
+
+    name: str
+    description: str | None = None
+
+
+class CampaignBookPatch(msgspec.Struct):
+    """Request body for partially updating a campaign book.
+
+    All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
+    """
+
+    name: str | msgspec.UnsetType = msgspec.UNSET
+    description: str | None | msgspec.UnsetType = msgspec.UNSET
+
+
+class CampaignChapterCreate(msgspec.Struct):
+    """Request body for creating a campaign chapter."""
+
+    name: str
+    description: str | None = None
+
+
+class CampaignChapterPatch(msgspec.Struct):
+    """Request body for partially updating a campaign chapter.
+
+    All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
+    """
+
+    name: str | msgspec.UnsetType = msgspec.UNSET
+    description: str | None | msgspec.UnsetType = msgspec.UNSET
+
+
+class BookChapterNumber(msgspec.Struct):
+    """Request body for renumbering a book or chapter."""
+
+    number: Annotated[int, msgspec.Meta(ge=1)]

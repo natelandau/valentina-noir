@@ -1,6 +1,7 @@
 """Test Global Admin."""
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -10,141 +11,158 @@ from litestar.status_codes import (
     HTTP_204_NO_CONTENT,
 )
 
-from vapi.db.models import Developer
+from vapi.db.sql_models.developer import Developer
 from vapi.domain.urls import GlobalAdmin
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from httpx import AsyncClient
 
 pytestmark = pytest.mark.anyio
 
 
 async def test_admin_list_developers(
-    client: "AsyncClient",
+    client: AsyncClient,
     token_global_admin: dict[str, str],
-    base_developer_global_admin: "Developer",
-    developer_factory: Callable[[], Developer],
     build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
+    session_global_admin: Developer,
+    developer_factory: Callable[..., Developer],
 ) -> None:
     """Verify the admin can list Developers."""
-    for d in await Developer.find(Developer.is_global_admin == False).to_list():
-        await d.delete()
+    # Given a new developer exists alongside the global admin
+    new_developer = await developer_factory()
 
-    new_developer = await developer_factory(companies=[])
-
+    # When listing developers
     response = await client.get(build_url(GlobalAdmin.DEVELOPERS), headers=token_global_admin)
+
+    # Then the response is successful and contains at least the admin and the new developer
     assert response.status_code == HTTP_200_OK
-
     json_data = response.json()
-    assert len(json_data["items"]) == 2
-
-    assert str(new_developer.id) in [item["id"] for item in json_data["items"]]
+    returned_ids = [item["id"] for item in json_data["items"]]
+    assert str(new_developer.id) in returned_ids
+    assert str(session_global_admin.id) in returned_ids
 
 
 async def test_get_developer(
-    client: "AsyncClient",
+    client: AsyncClient,
     token_global_admin: dict[str, str],
-    base_developer_global_admin: "Developer",
     build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
+    session_global_admin: Developer,
 ) -> None:
-    """Verify the admin can get an Developer."""
+    """Verify the admin can get a Developer."""
+    # When retrieving the global admin developer
     response = await client.get(
-        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=base_developer_global_admin.id),
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=session_global_admin.id),
         headers=token_global_admin,
     )
+
+    # Then the response contains the developer data
     assert response.status_code == HTTP_200_OK
-    # debug(response.text)
-    assert response.json() == base_developer_global_admin.model_dump(
-        exclude={"is_archived", "archive_date", "api_key_fingerprint", "hashed_api_key"},
-        mode="json",
-    )
+    data = response.json()
+    assert data["id"] == str(session_global_admin.id)
+    assert data["username"] == session_global_admin.username
+    assert data["email"] == session_global_admin.email
+    assert data["is_global_admin"] == session_global_admin.is_global_admin
+    assert "companies" in data
+    assert isinstance(data["companies"], list)
 
 
 async def test_post_developer(
-    client: "AsyncClient",
+    client: AsyncClient,
     token_global_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
+    session_global_admin: Developer,
 ) -> None:
-    """Verify the admin can post an Developer."""
+    """Verify the admin can create a Developer."""
+    # When creating a new developer
     response = await client.post(
         build_url(GlobalAdmin.DEVELOPER_CREATE),
         headers=token_global_admin,
         json={"username": "test user", "email": "test@test.com", "is_global_admin": False},
     )
+
+    # Then the response is successful
     assert response.status_code == HTTP_201_CREATED
+    data = response.json()
+    assert data["username"] == "test-user"
+    assert data["email"] == "test@test.com"
+    assert not data["is_global_admin"]
+    assert data["companies"] == []
 
-    assert response.json()["username"] == "test-user"
-    assert response.json()["email"] == "test@test.com"
-    assert not response.json()["is_global_admin"]
-    assert response.json()["companies"] == []
-
-    db_developer = await Developer.get(response.json()["id"])
+    # And the developer exists in the database
+    db_developer = await Developer.get(id=data["id"])
     assert db_developer.username == "test-user"
     assert db_developer.email == "test@test.com"
     assert not db_developer.is_global_admin
-    assert db_developer.companies == []
 
 
 async def test_patch_developer(
-    client: "AsyncClient",
+    client: AsyncClient,
     token_global_admin: dict[str, str],
-    developer_factory: Callable[[], Developer],
     build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
+    session_global_admin: Developer,
+    developer_factory: Callable[..., Developer],
 ) -> None:
-    """Verify the admin can patch an Developer."""
+    """Verify the admin can patch a Developer."""
+    # Given a developer
     new_developer = await developer_factory(username="original")
 
+    # When patching the developer
     response = await client.patch(
         build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=new_developer.id),
         headers=token_global_admin,
         json={"username": "patched"},
     )
+
+    # Then the response has updated data
     assert response.status_code == HTTP_200_OK
     assert response.json()["username"] == "patched"
     assert response.json()["email"] == new_developer.email
     assert response.json()["is_global_admin"] == new_developer.is_global_admin
-    assert response.json()["companies"] == new_developer.model_dump(mode="json")["companies"]
 
-    db_developer = await Developer.get(new_developer.id)
+    # And the database is updated
+    db_developer = await Developer.get(id=new_developer.id)
     assert db_developer.username == "patched"
     assert db_developer.email == new_developer.email
     assert db_developer.is_global_admin == new_developer.is_global_admin
-    assert db_developer.companies == new_developer.companies
 
 
 async def test_delete_developer(
-    client: "AsyncClient",
+    client: AsyncClient,
     token_global_admin: dict[str, str],
-    developer_factory: Callable[[], Developer],
     build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
+    session_global_admin: Developer,
+    developer_factory: Callable[..., Developer],
 ) -> None:
-    """Verify the admin can delete an Developer."""
+    """Verify the admin can delete a Developer."""
+    # Given a developer
     new_developer = await developer_factory()
+
+    # When deleting the developer
     response = await client.delete(
         build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=new_developer.id),
         headers=token_global_admin,
     )
+
+    # Then the response indicates success
     assert response.status_code == HTTP_204_NO_CONTENT
 
-    db_developer = await Developer.get(new_developer.id)
+    # And the developer is archived in the database
+    db_developer = await Developer.get(id=new_developer.id)
     assert db_developer.is_archived
     assert db_developer.archive_date is not None
 
 
 async def test_new_api_key(
-    client: "AsyncClient",
+    client: AsyncClient,
     token_global_admin: dict[str, str],
-    developer_factory: Callable[[], Developer],
     build_url: Callable[[str, Any], str],
-    debug: Callable[[Any], None],
+    session_global_admin: Developer,
+    developer_factory: Callable[..., Developer],
 ) -> None:
-    """Verify the admin can generate a new API key for an Developer."""
-    # Given a developer
+    """Verify the admin can generate a new API key for a Developer."""
+    # Given a developer with an existing key
     new_developer = await developer_factory()
     original_hashed_api_key = new_developer.hashed_api_key
     original_api_key_fingerprint = new_developer.api_key_fingerprint
@@ -165,12 +183,14 @@ async def test_new_api_key(
     assert json_data["date_created"] is not None
     assert json_data["date_modified"] is not None
     assert json_data["is_global_admin"] == str(new_developer.is_global_admin)
-    assert json_data["companies"] == new_developer.model_dump(mode="json")["companies"]
 
-    db_developer = await Developer.get(new_developer.id)
+    # And the key is updated in the database
+    db_developer = await Developer.get(id=new_developer.id)
     assert db_developer.key_generated is not None
     assert db_developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ") == json_data["key_generated"]
     assert db_developer.hashed_api_key is not None
     assert db_developer.api_key_fingerprint is not None
     assert db_developer.hashed_api_key != original_hashed_api_key
     assert db_developer.api_key_fingerprint != original_api_key_fingerprint
+    assert "companies" in json_data
+    assert isinstance(json_data["companies"], list)

@@ -1,37 +1,76 @@
 """Company API."""
 
-from __future__ import annotations
-
 import logging
 from typing import Annotated
 
+import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.constants import CompanyPermission, UserRole
-from vapi.db.models import Company, Developer, User
-from vapi.db.models.developer import CompanyPermissions
+from vapi.constants import (
+    CompanyPermission,
+    PermissionManageCampaign,
+    PermissionsFreeTraitChanges,
+    PermissionsGrantXP,
+    UserRole,
+)
+from vapi.db.sql_models.company import Company, CompanySettings
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.handlers import CompanyArchiveHandler
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
-from vapi.domain.utils import patch_dto_data_internal_objects
-from vapi.lib.dto import COMMON_EXCLUDES
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
     developer_company_user_guard,
 )
 from vapi.openapi.tags import APITags
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import docs, dto
+from . import docs
+from .dto import (
+    CompanyCreate,
+    CompanyPatch,
+    CompanyPermissionRequest,
+    CompanyPermissionResponse,
+    CompanyResponse,
+    CompanySettingsPatch,
+    NewCompanyCreateResponse,
+    UserResponse,
+)
 
 logger = logging.getLogger("vapi")
+
+
+async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettingsPatch") -> None:
+    """Apply a partial settings patch to a CompanySettings instance and save.
+
+    Skips any field that is UNSET so partial updates don't overwrite unchanged values.
+
+    Args:
+        settings: The CompanySettings record to update in-place.
+        patch: The incoming patch data containing optional field overrides.
+
+    Raises:
+        tortoise.exceptions.ValidationError: If Tortoise rejects the updated settings values.
+    """
+    if not isinstance(patch.character_autogen_xp_cost, msgspec.UnsetType):
+        settings.character_autogen_xp_cost = patch.character_autogen_xp_cost
+    if not isinstance(patch.character_autogen_num_choices, msgspec.UnsetType):
+        settings.character_autogen_num_choices = patch.character_autogen_num_choices
+    if not isinstance(patch.permission_manage_campaign, msgspec.UnsetType):
+        settings.permission_manage_campaign = PermissionManageCampaign(
+            patch.permission_manage_campaign
+        )
+    if not isinstance(patch.permission_grant_xp, msgspec.UnsetType):
+        settings.permission_grant_xp = PermissionsGrantXP(patch.permission_grant_xp)
+    if not isinstance(patch.permission_free_trait_changes, msgspec.UnsetType):
+        settings.permission_free_trait_changes = PermissionsFreeTraitChanges(
+            patch.permission_free_trait_changes
+        )
+    await settings.save()
 
 
 class CompanyController(Controller):
@@ -42,7 +81,6 @@ class CompanyController(Controller):
         "company": Provide(deps.provide_company_by_id),
         "requesting_developer": Provide(deps.provide_developer_from_request),
     }
-    return_dto = dto.CompanyDTO
 
     @get(
         path=urls.Companies.LIST,
@@ -57,16 +95,20 @@ class CompanyController(Controller):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         requesting_developer: Developer,
-    ) -> OffsetPagination[Company]:
-        """List all companies."""
+    ) -> OffsetPagination[CompanyResponse]:
+        """List all companies visible to the requesting developer."""
         service = CompanyService()
         count, companies = await service.list_companies(
             requesting_developer=requesting_developer,
             limit=limit,
             offset=offset,
         )
-
-        return OffsetPagination(items=companies, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[CompanyResponse.from_model(c) for c in companies],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.Companies.DETAIL,
@@ -76,57 +118,56 @@ class CompanyController(Controller):
         guards=[developer_company_user_guard],
         cache=True,
     )
-    async def get_company(self, *, requesting_developer: Developer, company: Company) -> Company:
+    async def get_company(self, *, company: Company) -> CompanyResponse:
         """Retrieve a company by ID."""
-        service = CompanyService()
-        service.can_developer_access_company(developer=requesting_developer, company_id=company.id)
-        return company
+        return CompanyResponse.from_model(company)
 
     @post(
         path=urls.Companies.CREATE,
         summary="Create company",
         operation_id="createCompany",
         description=docs.CREATE_COMPANY_DESCRIPTION,
-        dto=dto.PostCompanyDTO,
         after_response=hooks.post_data_update_hook,
-        return_dto=None,
     )
     async def create_company(
-        self, requesting_developer: Developer, data: DTOData[Company]
-    ) -> dto.NewCompanyResponseDTO:
-        """Create a company."""
-        try:
-            company_data = data.create_instance()
-            company = Company(**company_data.model_dump(exclude_unset=True))
-            await company.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
+        self, requesting_developer: Developer, data: CompanyCreate
+    ) -> NewCompanyCreateResponse:
+        """Create a company with an admin user and owner permission for the requesting developer."""
+        company = await Company.create(
+            name=data.name,
+            description=data.description,
+            email=data.email,
+        )
 
-        company_permissions = CompanyPermissions(
-            company_id=company.id,
-            name=company.name,
+        settings_kwargs: dict = {}
+        if data.settings is not None:
+            settings_kwargs = {
+                "character_autogen_xp_cost": data.settings.character_autogen_xp_cost,
+                "character_autogen_num_choices": data.settings.character_autogen_num_choices,
+                "permission_manage_campaign": data.settings.permission_manage_campaign,
+                "permission_grant_xp": data.settings.permission_grant_xp,
+                "permission_free_trait_changes": data.settings.permission_free_trait_changes,
+            }
+        await CompanySettings.create(company=company, **settings_kwargs)
+
+        await DeveloperCompanyPermission.create(
+            developer_id=requesting_developer.id,
+            company=company,
             permission=CompanyPermission.OWNER,
         )
 
-        requesting_developer.companies.append(company_permissions)
-        await requesting_developer.save()
-
-        admin_user = User(
+        admin_user = await User.create(
             username=requesting_developer.username,
             email=requesting_developer.email,
             role=UserRole.ADMIN,
-            company_id=company.id,
+            company=company,
         )
-        await admin_user.save()
 
-        company.user_ids.append(admin_user.id)
-        await company.save()
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
 
-        return dto.NewCompanyResponseDTO(
-            company=company.model_dump(exclude=COMMON_EXCLUDES, mode="json"),
-            admin_user=admin_user.model_dump(
-                exclude=COMMON_EXCLUDES | {"discord_profile", "discord_oauth"}, mode="json"
-            ),
+        return NewCompanyCreateResponse(
+            company=CompanyResponse.from_model(company),
+            admin_user=UserResponse.from_model(admin_user),
         )
 
     @patch(
@@ -135,19 +176,32 @@ class CompanyController(Controller):
         operation_id="updateCompany",
         description=docs.UPDATE_COMPANY_DESCRIPTION,
         guards=[developer_company_admin_guard],
-        dto=dto.PatchCompanyDTO,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_company(self, company: Company, data: DTOData[Company]) -> Company:
-        """Update a company."""
-        try:
-            company, data = await patch_dto_data_internal_objects(original=company, data=data)
-            updated_company = data.update_instance(company)
-            await updated_company.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
+    async def update_company(self, company: Company, data: CompanyPatch) -> CompanyResponse:
+        """Update a company's fields, applying only the provided values."""
+        company_changed = False
+        if not isinstance(data.name, msgspec.UnsetType):
+            company.name = data.name
+            company_changed = True
+        if not isinstance(data.description, msgspec.UnsetType):
+            company.description = data.description
+            company_changed = True
+        if not isinstance(data.email, msgspec.UnsetType):
+            company.email = data.email
+            company_changed = True
 
-        return updated_company
+        if company_changed:
+            await company.save()
+
+        if not isinstance(data.settings, msgspec.UnsetType):
+            settings = await CompanySettings.filter(company=company).first()
+            if settings is not None:
+                await _apply_settings_patch(settings, data.settings)
+
+        # Re-fetch to ensure settings reflect any changes
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        return CompanyResponse.from_model(company)
 
     @delete(
         path=urls.Companies.DELETE,
@@ -158,8 +212,9 @@ class CompanyController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def delete_company(self, company: Company) -> None:
-        """Delete a company."""
-        await CompanyArchiveHandler(company=company).handle()
+        """Soft-delete a company by archiving it."""
+        company.is_archived = True
+        await company.save()
 
     @post(
         path=urls.Companies.DEVELOPER_ACCESS,
@@ -170,13 +225,17 @@ class CompanyController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def developer_company_permissions(
-        self, company: Company, requesting_developer: Developer, data: dto.CompanyPermissionsDTO
-    ) -> CompanyPermissions:
-        """Add, update, or revoke a developer's permission level for this company."""
+        self,
+        company: Company,
+        requesting_developer: Developer,
+        data: CompanyPermissionRequest,
+    ) -> CompanyPermissionResponse:
+        """Add, update, or revoke a developer's permission level for a company."""
         service = CompanyService()
-        return await service.control_company_permissions(
+        perm = await service.control_company_permissions(
             company=company,
             requesting_developer=requesting_developer,
             target_developer_id=data.developer_id,
             new_permission=data.permission,
         )
+        return CompanyPermissionResponse.from_model(perm)

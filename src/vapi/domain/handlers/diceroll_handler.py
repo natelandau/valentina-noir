@@ -3,10 +3,84 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha512
+
+from pydantic import BaseModel, computed_field
 
 from vapi.constants import DiceSize, RollResultType
-from vapi.db.models.diceroll import DiceRollResultSchema
 from vapi.utils.math import random_num
+from vapi.utils.strings import convert_int_to_emoji
+
+
+class HashedBaseModel(BaseModel):
+    """Add a __hash__ method to Pydantic models without requiring the frozen=True flag.
+
+    Allow nested objects within database documents to work correctly with
+    Litestar's PydanticDTO patch operations.
+    """
+
+    def __hash__(self) -> int:
+        """Hash the model."""
+        return int.from_bytes(
+            sha512(
+                f"{self.__class__.__qualname__}::{self.model_dump(mode='json')}".encode(
+                    "utf-8", errors="ignore"
+                )
+            ).digest()
+        )
+
+
+class DiceRollResultSchema(HashedBaseModel):
+    """Represent the result of a dice roll."""
+
+    total_result: int | None = None
+    total_result_type: RollResultType
+    total_result_humanized: str
+    total_dice_roll: list[int]
+    player_roll: list[int]
+    desperation_roll: list[int]
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def total_dice_roll_emoji(self) -> str:
+        """Get the result of the dice roll."""
+        return " ".join(convert_int_to_emoji(num=d) for d in sorted(self.total_dice_roll))
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def total_dice_roll_shortcode(self) -> str:
+        """Get the result of the dice roll."""
+        return " ".join(
+            convert_int_to_emoji(num=d, as_shortcode=True) for d in sorted(self.total_dice_roll)
+        )
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def player_roll_emoji(self) -> str:
+        """Get the result of the dice roll."""
+        return " ".join(convert_int_to_emoji(num=d) for d in sorted(self.player_roll))
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def player_roll_shortcode(self) -> str:
+        """Get the result of the dice roll."""
+        return " ".join(
+            convert_int_to_emoji(num=d, as_shortcode=True) for d in sorted(self.player_roll)
+        )
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def desperation_roll_emoji(self) -> str:
+        """Get the result of the dice roll."""
+        return " ".join(convert_int_to_emoji(num=d) for d in sorted(self.desperation_roll))
+
+    @computed_field  # type: ignore [prop-decorator]
+    @property
+    def desperation_roll_shortcode(self) -> str:
+        """Get the result of the dice roll."""
+        return " ".join(
+            convert_int_to_emoji(num=d, as_shortcode=True) for d in sorted(self.desperation_roll)
+        )
 
 
 @dataclass

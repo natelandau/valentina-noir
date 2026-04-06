@@ -1,31 +1,32 @@
-"""Services for controllers."""
-
-from __future__ import annotations
+"""Character business logic services."""
 
 import asyncio
 from typing import TYPE_CHECKING
 
-from beanie.operators import In
-
 from vapi.constants import CharacterClass, CharacterStatus
-from vapi.db.models import Character, CharacterTrait, Trait
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterTrait,
+    Specialty,
+    VampireAttributes,
+    WerewolfAttributes,
+)
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import Trait
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.time import time_now
 
-from .character_trait_svc import CharacterTraitService
-from .validation_svc import GetModelByIdValidationService
-
 if TYPE_CHECKING:
-    from beanie import PydanticObjectId
+    from uuid import UUID
 
-    from vapi.db.models.character import NameDescriptionSubDocument
     from vapi.domain.controllers.character.dto import CharacterTraitCreate
 
 
 class CharacterService:
-    """Service class for Character business logic.
+    """Encapsulate validation and attribute management for characters.
 
-    Encapsulates validation and attribute management operations that can be called explicitly from controllers instead of relying on model hooks.
+    Called explicitly from controllers instead of relying on model hooks.
     """
 
     def update_date_killed(self, character: Character) -> None:
@@ -40,7 +41,7 @@ class CharacterService:
             character.date_killed = None
 
     async def assign_vampire_clan_attributes(self, character: Character) -> None:
-        """Assign vampire clan attributes to the character.
+        """Validate and populate vampire clan attributes from the clan FK.
 
         Args:
             character: The character to assign attributes to.
@@ -48,7 +49,12 @@ class CharacterService:
         if character.character_class != CharacterClass.VAMPIRE:
             return
 
-        if not character.vampire_attributes or not character.vampire_attributes.clan_id:
+        # During create, vampire_attributes may not exist yet as a DB row.
+        # The controller passes clan_id; we need to look it up.
+        vampire_attrs = await VampireAttributes.filter(character=character).first()
+        clan_id: UUID | None = vampire_attrs.clan_id if vampire_attrs else None  # type: ignore[attr-defined]
+
+        if not clan_id:
             raise ValidationError(
                 detail="Vampire clan id is required",
                 invalid_parameters=[
@@ -56,28 +62,32 @@ class CharacterService:
                 ],
             )
 
-        clan = await GetModelByIdValidationService().get_vampire_clan_by_id(
-            character.vampire_attributes.clan_id
-        )
+        clan = await VampireClan.filter(id=clan_id, is_archived=False).first()
+        if not clan:
+            raise ValidationError(detail=f"Vampire clan {clan_id} not found")
 
-        updates: dict[str, str | NameDescriptionSubDocument | None] = {"clan_name": clan.name}
+        updates: dict[str, object] = {"clan": clan}
 
-        if not character.vampire_attributes.bane or character.vampire_attributes.bane not in [
-            clan.bane,
-            clan.variant_bane,
+        if not vampire_attrs.bane_name or vampire_attrs.bane_name not in [
+            clan.bane_name,
+            clan.variant_bane_name,
         ]:
-            updates["bane"] = clan.bane
+            updates["bane_name"] = clan.bane_name
+            updates["bane_description"] = clan.bane_description
 
         if (
-            not character.vampire_attributes.compulsion
-            or character.vampire_attributes.compulsion != clan.compulsion
+            not vampire_attrs.compulsion_name
+            or vampire_attrs.compulsion_name != clan.compulsion_name
         ):
-            updates["compulsion"] = clan.compulsion
+            updates["compulsion_name"] = clan.compulsion_name
+            updates["compulsion_description"] = clan.compulsion_description
 
-        character.vampire_attributes = character.vampire_attributes.model_copy(update=updates)
+        for key, value in updates.items():
+            setattr(vampire_attrs, key, value)
+        await vampire_attrs.save()
 
     async def assign_werewolf_attributes(self, character: Character) -> None:
-        """Validate and populate werewolf attributes from tribe and auspice.
+        """Validate and populate werewolf attributes from tribe and auspice FKs.
 
         Args:
             character: The character to validate.
@@ -88,10 +98,11 @@ class CharacterService:
         if character.character_class != CharacterClass.WEREWOLF:
             return
 
-        if (
-            not character.werewolf_attributes.tribe_id
-            or not character.werewolf_attributes.auspice_id
-        ):
+        werewolf_attrs = await WerewolfAttributes.filter(character=character).first()
+        tribe_id: UUID | None = werewolf_attrs.tribe_id if werewolf_attrs else None  # type: ignore[attr-defined]
+        auspice_id: UUID | None = werewolf_attrs.auspice_id if werewolf_attrs else None  # type: ignore[attr-defined]
+
+        if not tribe_id or not auspice_id:
             raise ValidationError(
                 invalid_parameters=[
                     {"field": "tribe_id", "message": "Both tribe and auspice IDs are required"},
@@ -100,17 +111,18 @@ class CharacterService:
             )
 
         tribe, auspice = await asyncio.gather(
-            GetModelByIdValidationService().get_werewolf_tribe_by_id(
-                character.werewolf_attributes.tribe_id
-            ),
-            GetModelByIdValidationService().get_werewolf_auspice_by_id(
-                character.werewolf_attributes.auspice_id
-            ),
+            WerewolfTribe.filter(id=tribe_id, is_archived=False).first(),
+            WerewolfAuspice.filter(id=auspice_id, is_archived=False).first(),
         )
 
-        character.werewolf_attributes = character.werewolf_attributes.model_copy(
-            update={"tribe_name": tribe.name, "auspice_name": auspice.name}
-        )
+        if not tribe:
+            raise ValidationError(detail=f"Werewolf tribe {tribe_id} not found")
+        if not auspice:
+            raise ValidationError(detail=f"Werewolf auspice {auspice_id} not found")
+
+        werewolf_attrs.tribe = tribe
+        werewolf_attrs.auspice = auspice
+        await werewolf_attrs.save()
 
     async def validate_unique_name(self, character: Character) -> None:
         """Validate that the character name is unique within the company.
@@ -121,15 +133,14 @@ class CharacterService:
         Raises:
             ValidationError: If another character with the same name exists.
         """
-        character_with_same_name = await Character.find(
-            Character.name_first == character.name_first,
-            Character.name_last == character.name_last,
-            Character.is_archived == False,
-            Character.id != character.id,
-            Character.company_id == character.company_id,
-        ).first_or_none()
+        qs = Character.filter(
+            name_first=character.name_first,
+            name_last=character.name_last,
+            is_archived=False,
+            company_id=character.company_id,  # type: ignore[attr-defined]
+        ).exclude(id=character.id)
 
-        if character_with_same_name:
+        if await qs.exists():
             msg = "Combination of name_first and name_last is not unique"
             raise ValidationError(
                 invalid_parameters=[
@@ -139,7 +150,7 @@ class CharacterService:
             )
 
     async def apply_concept_specialties(self, character: Character) -> None:
-        """Apply specialties from the character's concept.
+        """Sync specialties from the character's concept to the Specialty table.
 
         Args:
             character: The character to update.
@@ -147,13 +158,40 @@ class CharacterService:
         Raises:
             ValidationError: If concept_id is set but concept not found.
         """
-        if not character.concept_id:
+        concept_id: UUID | None = character.concept_id  # type: ignore[attr-defined]
+        if not concept_id:
             return
 
-        concept = await GetModelByIdValidationService().get_concept_by_id(character.concept_id)
+        concept = await CharacterConcept.filter(id=concept_id, is_archived=False).first()
+        if not concept:
+            raise ValidationError(detail=f"Concept {concept_id} not found")
 
-        if character.specialties != concept.specialties:
-            character.specialties = concept.specialties
+        # concept.specialties is a JSONField list of dicts: [{"name": ..., "type": ..., "description": ...}]
+        desired = {(s["name"], s["type"]) for s in concept.specialties}
+        existing = await Specialty.filter(character=character)
+
+        def _spec_key(spec: Specialty) -> tuple[str, str]:
+            return (spec.name, spec.type.value if hasattr(spec.type, "value") else spec.type)
+
+        existing_keys = {_spec_key(s) for s in existing}
+
+        stale_ids = [spec.id for spec in existing if _spec_key(spec) not in desired]
+        if stale_ids:
+            await Specialty.filter(id__in=stale_ids).delete()
+
+        # Bulk-create specialties that are new
+        new_specialties = [
+            Specialty(
+                character=character,
+                name=s["name"],
+                type=s["type"],
+                description=s.get("description", ""),
+            )
+            for s in concept.specialties
+            if (s["name"], s["type"]) not in existing_keys
+        ]
+        if new_specialties:
+            await Specialty.bulk_create(new_specialties)
 
     async def validate_class_attributes(self, character: Character) -> None:
         """Validate class-specific attributes (vampire, werewolf, etc.).
@@ -172,7 +210,8 @@ class CharacterService:
     async def prepare_for_save(self, character: Character) -> None:
         """Perform all pre-save validations and updates.
 
-        Call this method before saving a character to ensure all validations pass and derived fields are properly set.
+        Call before saving a character to ensure all validations pass and derived
+        fields are properly set.
 
         Args:
             character: The character to prepare.
@@ -185,9 +224,12 @@ class CharacterService:
         )
 
     async def character_create_trait_to_character_traits(
-        self, character: Character, trait_create_data: list[CharacterTraitCreate]
+        self, character: Character, trait_create_data: list["CharacterTraitCreate"]
     ) -> None:
-        """Create traits for a character.
+        """Create CharacterTrait rows for a newly created character.
+
+        After bulk creation, syncs derived traits (willpower, total_renown) so
+        the character's computed stats reflect the newly added traits.
 
         Args:
             character: The character to create traits for.
@@ -197,20 +239,41 @@ class CharacterService:
             ValidationError: If a trait is not found.
         """
         trait_ids = [t.trait_id for t in trait_create_data]
-        all_traits = await Trait.find(In(Trait.id, trait_ids)).to_list()
-        trait_lookup: dict[PydanticObjectId, Trait] = {t.id: t for t in all_traits}
+        all_traits = await Trait.filter(id__in=trait_ids)
+        trait_lookup: dict[UUID, Trait] = {t.id: t for t in all_traits}
 
-        character_trait_service = CharacterTraitService()
-
-        for trait in trait_create_data:
-            trait_obj = trait_lookup.get(trait.trait_id)
+        rows: list[CharacterTrait] = []
+        for trait_data in trait_create_data:
+            trait_obj = trait_lookup.get(trait_data.trait_id)
             if trait_obj is None:
-                raise ValidationError(detail=f"Trait {trait.trait_id} not found")
+                raise ValidationError(detail=f"Trait {trait_data.trait_id} not found")
 
-            character_trait = await CharacterTrait(
-                character_id=character.id,
-                trait=trait_obj,
-                value=trait.value,
-            ).insert()
+            rows.append(
+                CharacterTrait(
+                    character=character,
+                    trait=trait_obj,
+                    value=trait_data.value,
+                )
+            )
 
-            await character_trait_service.after_save(character_trait)
+        if rows:
+            await CharacterTrait.bulk_create(rows)
+
+            # Sync derived traits (willpower, total renown) now that all rows exist
+            from vapi.domain.services.character_trait_svc import CharacterTraitService
+
+            trait_svc = CharacterTraitService()
+            await trait_svc.after_save(rows[0], character)
+
+    async def archive_character(self, character: Character) -> None:
+        """Soft-delete a character.
+
+        Cascade wiring for child entities (inventory, traits, assets, notes) will be
+        added as each domain migrates in later sessions.
+
+        Args:
+            character: The character to archive.
+        """
+        character.is_archived = True
+        character.archive_date = time_now()
+        await character.save()

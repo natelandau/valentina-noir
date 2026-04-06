@@ -1,36 +1,26 @@
 """Unit tests for CharacterSheetService."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+from uuid import UUID
 
 import pytest
-from beanie.operators import In, NotIn
 
-from vapi.constants import CharacterClass
-from vapi.db.models import (
-    Character,
-    CharacterTrait,
-    CharSheetSection,
-    Trait,
-    TraitCategory,
-    WerewolfAuspice,
-    WerewolfTribe,
-)
+from vapi.db.sql_models.character_classes import WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.domain.services import CharacterSheetService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from beanie import PydanticObjectId
-
+    from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
+    from vapi.db.sql_models.company import Company
     from vapi.domain.controllers.character.dto import CharacterFullSheetDTO
 
 
 pytestmark = pytest.mark.anyio
 
 
-def _collect_all_available_trait_ids(result: CharacterFullSheetDTO) -> set[PydanticObjectId]:
+def _collect_all_available_trait_ids(result: "CharacterFullSheetDTO") -> set[UUID]:
     """Collect all trait IDs from available_traits across all categories and subcategories."""
     return {
         t.id
@@ -53,17 +43,22 @@ class TestCharacterSheetService:
         """Test the get_character_full_sheet method."""
 
         async def test_empty_character_returns_skeleton(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify a character with no traits returns the full skeleton for their class/version."""
             # Given a character with no traits
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the expected skeleton structure for the character's class/version
-            expected_section_count = await CharSheetSection.find(
-                CharSheetSection.is_archived == False,
-                CharSheetSection.character_classes == character.character_class,
-                CharSheetSection.game_versions == character.game_version,
+            char_class = character.character_class
+            game_ver = character.game_version
+            expected_section_count = await CharSheetSection.filter(
+                is_archived=False,
+                character_classes__contains=[char_class],
+                game_versions__contains=[game_ver],
             ).count()
 
             # When we get the full sheet
@@ -85,12 +80,15 @@ class TestCharacterSheetService:
                         assert sub.character_traits == []
 
         async def test_skeleton_matches_character_class(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify the skeleton only includes sections/categories for the character's class."""
             # Given a mortal and a vampire character
-            mortal = await character_factory(character_class=CharacterClass.MORTAL)
-            vampire = await character_factory(character_class=CharacterClass.VAMPIRE)
+            company = await company_factory()
+            mortal = await character_factory(character_class="MORTAL", company=company)
+            vampire = await character_factory(character_class="VAMPIRE", company=company)
 
             # When we get the full sheet for both
             service = CharacterSheetService()
@@ -102,38 +100,41 @@ class TestCharacterSheetService:
             vampire_section_names = {s.name for s in vampire_result.sections}
 
             # And the vampire sheet should include sections specific to vampires
-            vampire_only_sections = await CharSheetSection.find(
-                CharSheetSection.is_archived == False,
-                CharSheetSection.character_classes == CharacterClass.VAMPIRE,
-                CharSheetSection.game_versions == vampire.game_version,
-            ).to_list()
+            vampire_only_sections = await CharSheetSection.filter(
+                is_archived=False,
+                character_classes__contains=["VAMPIRE"],
+                game_versions__contains=[vampire.game_version],
+            )
             vampire_only_names = {
-                s.name
-                for s in vampire_only_sections
-                if CharacterClass.MORTAL not in s.character_classes
+                s.name for s in vampire_only_sections if "MORTAL" not in (s.character_classes or [])
             }
             for name in vampire_only_names:
                 assert name in vampire_section_names
                 assert name not in mortal_section_names
 
         async def test_skeleton_includes_empty_categories_and_subcategories(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify the skeleton includes categories and subcategories even without traits."""
             # Given a character with no traits
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the expected category count for one of the skeleton sections
-            skeleton_section = await CharSheetSection.find_one(
-                CharSheetSection.is_archived == False,
-                CharSheetSection.character_classes == character.character_class,
-                CharSheetSection.game_versions == character.game_version,
-            )
-            expected_category_count = await TraitCategory.find(
-                TraitCategory.is_archived == False,
-                TraitCategory.character_classes == character.character_class,
-                TraitCategory.game_versions == character.game_version,
-                TraitCategory.parent_sheet_section_id == skeleton_section.id,
+            char_class = character.character_class
+            game_ver = character.game_version
+            skeleton_section = await CharSheetSection.filter(
+                is_archived=False,
+                character_classes__contains=[char_class],
+                game_versions__contains=[game_ver],
+            ).first()
+            expected_category_count = await TraitCategory.filter(
+                is_archived=False,
+                character_classes__contains=[char_class],
+                game_versions__contains=[game_ver],
+                sheet_section_id=skeleton_section.id,
             ).count()
 
             # When we get the full sheet
@@ -146,21 +147,28 @@ class TestCharacterSheetService:
 
         async def test_traits_without_subcategory(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits without subcategories appear directly on the category."""
             # Given a character with a trait that has no subcategory
-            character = await character_factory(character_class=CharacterClass.MORTAL)
-            trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.trait_subcategory_id == None,
-                Trait.character_classes == CharacterClass.MORTAL,
-                Trait.game_versions == character.game_version,
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
+            trait = (
+                await Trait.filter(
+                    is_archived=False,
+                    subcategory_id__isnull=True,
+                    character_classes__contains=["MORTAL"],
+                    game_versions__contains=[character.game_version],
+                )
+                .prefetch_related("category", "subcategory", "sheet_section")
+                .first()
             )
-            assert trait.parent_category_name is not None
+            assert trait is not None
+            assert trait.category_name is not None
 
-            await character_trait_factory(character_id=character.id, trait=trait, value=3)
+            await character_trait_factory(character=character, trait=trait, value=3)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -169,10 +177,7 @@ class TestCharacterSheetService:
             # Then the trait appears directly on the category (not in a subcategory)
             assert len(result.sections) >= 1
             category = next(
-                c
-                for s in result.sections
-                for c in s.categories
-                if c.name == trait.parent_category_name
+                c for s in result.sections for c in s.categories if c.name == trait.category_name
             )
             assert len(category.character_traits) == 1
             assert category.character_traits[0].id is not None
@@ -182,22 +187,29 @@ class TestCharacterSheetService:
 
         async def test_traits_with_subcategory(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits with subcategories are nested under the correct subcategory."""
             # Given a character with a trait that belongs to a subcategory
-            character = await character_factory(character_class=CharacterClass.MORTAL)
-            trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.trait_subcategory_id != None,
-                Trait.character_classes == CharacterClass.MORTAL,
-                Trait.game_versions == character.game_version,
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
+            trait = (
+                await Trait.filter(
+                    is_archived=False,
+                    subcategory_id__not_isnull=True,
+                    character_classes__contains=["MORTAL"],
+                    game_versions__contains=[character.game_version],
+                )
+                .prefetch_related("category", "subcategory", "sheet_section")
+                .first()
             )
-            assert trait.parent_category_name is not None
-            assert trait.trait_subcategory_name is not None
+            assert trait is not None
+            assert trait.category_name is not None
+            assert trait.subcategory_name is not None
 
-            await character_trait_factory(character_id=character.id, trait=trait, value=2)
+            await character_trait_factory(character=character, trait=trait, value=2)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -206,14 +218,11 @@ class TestCharacterSheetService:
             # Then the trait appears inside the correct subcategory
             assert len(result.sections) >= 1
             category = next(
-                c
-                for s in result.sections
-                for c in s.categories
-                if c.name == trait.parent_category_name
+                c for s in result.sections for c in s.categories if c.name == trait.category_name
             )
             assert len(category.subcategories) >= 1
             subcategory = next(
-                sub for sub in category.subcategories if sub.name == trait.trait_subcategory_name
+                sub for sub in category.subcategories if sub.name == trait.subcategory_name
             )
             assert len(subcategory.character_traits) == 1
             assert subcategory.character_traits[0].id is not None
@@ -226,11 +235,13 @@ class TestCharacterSheetService:
 
         async def test_sections_sorted_by_order(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify skeleton sections are sorted by order."""
             # Given a character (no traits needed, skeleton is enough)
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -247,8 +258,9 @@ class TestCharacterSheetService:
 
         async def test_mixed_subcategory_and_direct_traits(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify a category can have both direct traits and subcategory traits.
 
@@ -259,30 +271,37 @@ class TestCharacterSheetService:
             include a category with both patterns, this test will run automatically.
             """
             # Given a trait with a subcategory
-            character = await character_factory(character_class=CharacterClass.MORTAL)
-            trait_with_sub = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.trait_subcategory_id != None,
-                Trait.character_classes == CharacterClass.MORTAL,
-                Trait.game_versions == character.game_version,
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
+            trait_with_sub = (
+                await Trait.filter(
+                    is_archived=False,
+                    subcategory_id__not_isnull=True,
+                    character_classes__contains=["MORTAL"],
+                    game_versions__contains=[character.game_version],
+                )
+                .prefetch_related("category", "subcategory", "sheet_section")
+                .first()
             )
             assert trait_with_sub is not None
 
             # And a trait without a subcategory in the same category
-            trait_without_sub = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.trait_subcategory_id == None,
-                Trait.parent_category_id == trait_with_sub.parent_category_id,
+            trait_without_sub = (
+                await Trait.filter(
+                    is_archived=False,
+                    subcategory_id__isnull=True,
+                    category_id=trait_with_sub.category_id,  # type: ignore[attr-defined]
+                )
+                .prefetch_related("category", "subcategory", "sheet_section")
+                .first()
             )
             if trait_without_sub is None:
                 pytest.skip(
                     "No traits without subcategory in the same category as a subcategory trait"
                 )
 
-            await character_trait_factory(character_id=character.id, trait=trait_with_sub, value=2)
-            await character_trait_factory(
-                character_id=character.id, trait=trait_without_sub, value=3
-            )
+            await character_trait_factory(character=character, trait=trait_with_sub, value=2)
+            await character_trait_factory(character=character, trait=trait_without_sub, value=3)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -293,7 +312,7 @@ class TestCharacterSheetService:
                 c
                 for s in result.sections
                 for c in s.categories
-                if c.name == trait_with_sub.parent_category_name
+                if c.name == trait_with_sub.category_name
             )
             assert len(category.character_traits) >= 1
             assert len(category.subcategories) >= 1
@@ -310,31 +329,36 @@ class TestCharacterSheetService:
 
         async def test_out_of_class_trait_backfills_parent_category(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify a trait from a category outside the character's class backfills that category."""
             # Given a mortal character
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the mortal skeleton categories for this game version
-            mortal_categories = await TraitCategory.find(
-                TraitCategory.is_archived == False,
-                TraitCategory.character_classes == CharacterClass.MORTAL,
-                TraitCategory.game_versions == character.game_version,
-            ).to_list()
+            mortal_categories = await TraitCategory.filter(
+                is_archived=False,
+                character_classes__contains=["MORTAL"],
+                game_versions__contains=[character.game_version],
+            )
             mortal_category_ids = {c.id for c in mortal_categories}
 
             # And a vampire-only trait whose category is not in the mortal skeleton
-            vampire_only_trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.game_versions == character.game_version,
-                NotIn(Trait.parent_category_id, list(mortal_category_ids)),
+            vampire_only_trait = (
+                await Trait.filter(
+                    is_archived=False,
+                    game_versions__contains=[character.game_version],
+                    category_id__not_in=list(mortal_category_ids),
+                )
+                .prefetch_related("category", "subcategory", "sheet_section")
+                .first()
             )
+
             # When we assign the out-of-class trait to the mortal
-            await character_trait_factory(
-                character_id=character.id, trait=vampire_only_trait, value=1
-            )
+            await character_trait_factory(character=character, trait=vampire_only_trait, value=1)
 
             # And get the full sheet
             service = CharacterSheetService()
@@ -342,7 +366,7 @@ class TestCharacterSheetService:
 
             # Then the backfilled category should appear in the sheet
             result_category_names = {c.name for s in result.sections for c in s.categories}
-            assert vampire_only_trait.parent_category_name in result_category_names
+            assert vampire_only_trait.category_name in result_category_names
 
             # And the trait should be present in the backfilled structure
             all_trait_ids = {
@@ -361,27 +385,33 @@ class TestCharacterSheetService:
 
         async def test_out_of_class_trait_does_not_duplicate_shared_sections(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits from another class that share a section don't create duplicates."""
             # Given a mortal character
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a trait from a different class that shares a section with the mortal skeleton
-            mortal_sections = await CharSheetSection.find(
-                CharSheetSection.is_archived == False,
-                CharSheetSection.character_classes == CharacterClass.MORTAL,
-                CharSheetSection.game_versions == character.game_version,
-            ).to_list()
+            mortal_sections = await CharSheetSection.filter(
+                is_archived=False,
+                character_classes__contains=["MORTAL"],
+                game_versions__contains=[character.game_version],
+            )
             mortal_section_ids = {s.id for s in mortal_sections}
 
-            shared_trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.game_versions == character.game_version,
-                In(Trait.sheet_section_id, list(mortal_section_ids)),
+            shared_trait = (
+                await Trait.filter(
+                    is_archived=False,
+                    game_versions__contains=[character.game_version],
+                    sheet_section_id__in=list(mortal_section_ids),
+                )
+                .prefetch_related("category", "subcategory", "sheet_section")
+                .first()
             )
-            await character_trait_factory(character_id=character.id, trait=shared_trait, value=2)
+            await character_trait_factory(character=character, trait=shared_trait, value=2)
 
             # When we get the full sheet
             service = CharacterSheetService()
@@ -392,11 +422,14 @@ class TestCharacterSheetService:
             assert len(section_names) == len(set(section_names))
 
         async def test_available_traits_empty_when_flag_off(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available_traits is empty on all categories and subcategories when flag is off."""
             # Given a character with no traits
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # When we get the full sheet without include_available_traits
             service = CharacterSheetService()
@@ -410,18 +443,21 @@ class TestCharacterSheetService:
                         assert sub.available_traits == []
 
         async def test_available_traits_populated_when_flag_on(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available_traits contains matching standard traits when flag is on."""
             # Given a character with no assigned traits
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And the total count of standard traits for this character's class/version
-            expected_trait_count = await Trait.find(
-                Trait.is_archived == False,
-                Trait.character_classes == character.character_class,
-                Trait.game_versions == character.game_version,
-                Trait.is_custom == False,
+            expected_trait_count = await Trait.filter(
+                is_archived=False,
+                character_classes__contains=[character.character_class],
+                game_versions__contains=[character.game_version],
+                is_custom=False,
             ).count()
 
             # When we get the full sheet with include_available_traits=True
@@ -442,20 +478,22 @@ class TestCharacterSheetService:
 
         async def test_assigned_traits_excluded_from_available(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify assigned traits do not appear in available_traits."""
             # Given a character with a specific trait assigned
-            character = await character_factory(character_class=CharacterClass.MORTAL)
-            trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.character_classes == CharacterClass.MORTAL,
-                Trait.game_versions == character.game_version,
-                Trait.is_custom == False,
-            )
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
+            trait = await Trait.filter(
+                is_archived=False,
+                character_classes__contains=["MORTAL"],
+                game_versions__contains=[character.game_version],
+                is_custom=False,
+            ).first()
             assert trait is not None
-            await character_trait_factory(character_id=character.id, trait=trait, value=2)
+            await character_trait_factory(character=character, trait=trait, value=2)
 
             # When we get the full sheet with available traits
             service = CharacterSheetService()
@@ -469,18 +507,20 @@ class TestCharacterSheetService:
 
         async def test_custom_traits_excluded_from_available(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            trait_factory: Callable[[dict[str, Any]], Trait],
+            character_factory: "Callable[..., Character]",
+            trait_factory: "Callable[..., Trait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify custom traits do not appear in available_traits."""
             # Given a character
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a custom trait exists for this character
             custom_trait = await trait_factory(
                 is_custom=True,
                 custom_for_character_id=character.id,
-                character_classes=[CharacterClass.MORTAL],
+                character_classes=["MORTAL"],
                 game_versions=[character.game_version],
             )
 
@@ -495,11 +535,14 @@ class TestCharacterSheetService:
             assert custom_trait.id not in all_available_ids
 
         async def test_available_traits_sorted_by_name(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available traits are sorted alphabetically by name."""
             # Given a character with no assigned traits
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # When we get the full sheet with available traits
             service = CharacterSheetService()
@@ -521,18 +564,22 @@ class TestCharacterSheetService:
                         )
 
         async def test_out_of_class_traits_excluded_from_available(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits from other character classes do not appear in available_traits."""
             # Given a mortal character
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a vampire-only trait exists
-            vampire_trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.character_classes == CharacterClass.VAMPIRE,
-                Trait.is_custom == False,
-            )
+            vampire_trait = await Trait.filter(
+                is_archived=False,
+                character_classes__contains=["VAMPIRE"],
+                is_custom=False,
+            ).first()
+
             # When we get the full sheet with available traits
             service = CharacterSheetService()
             result = await service.get_character_full_sheet(
@@ -541,23 +588,32 @@ class TestCharacterSheetService:
 
             # Then the vampire trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
-            if CharacterClass.MORTAL not in (vampire_trait.character_classes or []):
+            if "MORTAL" not in (vampire_trait.character_classes or []):
                 assert vampire_trait.id not in all_available_ids
 
         async def test_wrong_game_version_traits_excluded_from_available(
-            self, character_factory: Callable[[dict[str, Any]], Character]
+            self,
+            character_factory: "Callable[..., Character]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify traits from a different game version do not appear in available_traits."""
             # Given a character
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And a trait that exists only for a different game version
-            other_version_trait = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.is_custom == False,
-                Trait.character_classes == character.character_class,
-                NotIn(Trait.game_versions, [character.game_version]),
+            other_version_trait = (
+                await Trait.exclude(
+                    game_versions__contains=[character.game_version],
+                )
+                .filter(
+                    is_archived=False,
+                    is_custom=False,
+                    character_classes__contains=[character.character_class],
+                )
+                .first()
             )
+
             # When we get the full sheet with available traits
             service = CharacterSheetService()
             result = await service.get_character_full_sheet(
@@ -570,22 +626,24 @@ class TestCharacterSheetService:
 
         async def test_available_traits_empty_when_all_assigned(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
-            character_trait_factory: Callable[[dict[str, Any]], CharacterTrait],
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify available_traits is empty when all matching standard traits are assigned."""
             # Given a character
-            character = await character_factory(character_class=CharacterClass.MORTAL)
+            company = await company_factory()
+            character = await character_factory(character_class="MORTAL", company=company)
 
             # And all matching standard traits are assigned to the character
-            all_traits = await Trait.find(
-                Trait.is_archived == False,
-                Trait.character_classes == character.character_class,
-                Trait.game_versions == character.game_version,
-                Trait.is_custom == False,
-            ).to_list()
+            all_traits = await Trait.filter(
+                is_archived=False,
+                character_classes__contains=[character.character_class],
+                game_versions__contains=[character.game_version],
+                is_custom=False,
+            )
             for trait in all_traits:
-                await character_trait_factory(character_id=character.id, trait=trait, value=1)
+                await character_trait_factory(character=character, trait=trait, value=1)
 
             # When we get the full sheet with available traits
             service = CharacterSheetService()
@@ -606,43 +664,80 @@ class TestCharacterSheetService:
 
         async def test_werewolf_available_gifts_filtered_by_tribe_and_auspice(
             self,
-            character_factory: Callable[[dict[str, Any]], Character],
+            character_factory: "Callable[..., Character]",
+            werewolf_attributes_factory: "Callable[..., WerewolfAttributes]",
+            company_factory: "Callable[..., Company]",
         ) -> None:
             """Verify werewolf available gifts include only tribe, auspice, and native gifts."""
-            # Given a werewolf character (factory auto-assigns tribe and auspice)
-            character = await character_factory(character_class=CharacterClass.WEREWOLF)
+            # Given a tribe and auspice from bootstrap data
+            tribe = await WerewolfTribe.filter(is_archived=False).first()
+            auspice = await WerewolfAuspice.filter(is_archived=False).first()
+            assert tribe is not None
+            assert auspice is not None
+
+            # And a werewolf character with that tribe and auspice
+            company = await company_factory()
+            character = await character_factory(character_class="WEREWOLF", company=company)
+            werewolf_attrs = await werewolf_attributes_factory(
+                character=character,
+                tribe=tribe,
+                auspice=auspice,
+            )
+            # Re-fetch character with werewolf_attributes prefetched
+            character = (
+                await type(character)
+                .filter(id=character.id)
+                .prefetch_related(
+                    "concept",
+                    "vampire_attributes__clan",
+                    "werewolf_attributes__tribe",
+                    "werewolf_attributes__auspice",
+                    "mage_attributes",
+                    "hunter_attributes",
+                    "specialties",
+                )
+                .first()
+            )
             assert character.werewolf_attributes is not None
-            tribe_id = character.werewolf_attributes.tribe_id
-            auspice_id = character.werewolf_attributes.auspice_id
+            tribe_id = werewolf_attrs.tribe_id  # type: ignore[attr-defined]
+            auspice_id = werewolf_attrs.auspice_id  # type: ignore[attr-defined]
             assert tribe_id is not None
             assert auspice_id is not None
 
             # And there exist gift traits for a different tribe
-            other_tribe = await WerewolfTribe.find_one(
-                WerewolfTribe.is_archived == False,
-                WerewolfTribe.id != tribe_id,
+            other_tribe = (
+                await WerewolfTribe.filter(
+                    is_archived=False,
+                )
+                .exclude(id=tribe_id)
+                .first()
             )
+
             # Exclude gifts that also match the character's auspice
-            other_tribe_gift = await Trait.find_one(
-                Trait.is_archived == False,
-                Trait.gift_attributes != None,
-                Trait.gift_attributes.tribe_id == other_tribe.id,
-                Trait.gift_attributes.auspice_id != auspice_id,
-                Trait.gift_attributes.is_native_gift == False,
+            other_tribe_gift = (
+                await Trait.filter(
+                    is_archived=False,
+                    gift_tribe_id=other_tribe.id,
+                    gift_is_native=False,
+                )
+                .exclude(gift_auspice_id=auspice_id)
+                .first()
             )
+
             # And there exist gift traits for a different auspice
-            other_auspice = await WerewolfAuspice.find_one(
-                WerewolfAuspice.is_archived == False,
-                WerewolfAuspice.id != auspice_id,
+            other_auspice = (
+                await WerewolfAuspice.filter(is_archived=False).exclude(id=auspice_id).first()
             )
             other_auspice_gift = None
             if other_auspice is not None:
-                other_auspice_gift = await Trait.find_one(
-                    Trait.is_archived == False,
-                    Trait.gift_attributes != None,
-                    Trait.gift_attributes.auspice_id == other_auspice.id,
-                    Trait.gift_attributes.tribe_id != tribe_id,
-                    Trait.gift_attributes.is_native_gift == False,
+                other_auspice_gift = (
+                    await Trait.filter(
+                        is_archived=False,
+                        gift_auspice_id=other_auspice.id,
+                        gift_is_native=False,
+                    )
+                    .exclude(gift_tribe_id=tribe_id)
+                    .first()
                 )
 
             # When we get the full sheet with available traits

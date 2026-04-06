@@ -1,26 +1,23 @@
 """Dictionary controllers."""
 
-from __future__ import annotations
-
 from typing import Annotated
 
+import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.db.models import Company, DictionaryTerm
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DictionaryService
-from vapi.domain.utils import patch_dto_data_internal_objects
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import docs, dto
+from . import docs
+from .dto import DictionaryTermCreate, DictionaryTermPatch, DictionaryTermResponse
 
 
 class DictionaryTermController(Controller):
@@ -32,7 +29,6 @@ class DictionaryTermController(Controller):
         "dictionary_term": Provide(deps.provide_dictionary_term_by_id),
     }
     guards = [developer_company_user_guard]
-    return_dto = dto.DictionaryTermResponseDTO
 
     @get(
         path=urls.Dictionaries.LIST,
@@ -47,14 +43,14 @@ class DictionaryTermController(Controller):
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         term: Annotated[str, Parameter(description="Search for a term.")] | None = None,
-    ) -> OffsetPagination[DictionaryTerm]:
+    ) -> OffsetPagination[DictionaryTermResponse]:
         """List all dictionary terms."""
         service = DictionaryService()
         count, dictionary_terms = await service.list_all_dictionary_terms(
-            company=company, limit=limit, offset=offset, term=term
+            company_id=company.id, limit=limit, offset=offset, term=term
         )
         return OffsetPagination(
-            dictionary_terms,
+            items=[DictionaryTermResponse.from_model(t) for t in dictionary_terms],
             limit=limit,
             offset=offset,
             total=count,
@@ -67,56 +63,58 @@ class DictionaryTermController(Controller):
         description=docs.GET_DICTIONARY_TERM_DESCRIPTION,
         cache=True,
     )
-    async def get_dictionary_term(self, dictionary_term: DictionaryTerm) -> DictionaryTerm:
+    async def get_dictionary_term(self, dictionary_term: DictionaryTerm) -> DictionaryTermResponse:
         """Get a dictionary term by ID."""
-        return dictionary_term
+        return DictionaryTermResponse.from_model(dictionary_term)
 
     @post(
         path=urls.Dictionaries.CREATE,
         summary="Create dictionary term",
         operation_id="createDictionaryTerm",
         description=docs.CREATE_DICTIONARY_TERM_DESCRIPTION,
-        dto=dto.DictionaryTermPostDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def create_dictionary_term(
-        self, company: Company, data: DTOData[DictionaryTerm]
-    ) -> DictionaryTerm:
+        self, company: Company, data: DictionaryTermCreate
+    ) -> DictionaryTermResponse:
         """Create a dictionary term."""
-        try:
-            dictionary_term_data = data.create_instance(company_id=company.id)
-            dictionary_term = DictionaryTerm(**dictionary_term_data.model_dump(exclude_unset=True))
-            await dictionary_term.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
+        dictionary_term = DictionaryTerm(
+            term=data.term,
+            definition=data.definition,
+            link=data.link,
+            synonyms=data.synonyms,
+            company_id=company.id,
+        )
+        await dictionary_term.save()
 
-        return dictionary_term
+        return DictionaryTermResponse.from_model(dictionary_term)
 
     @patch(
         path=urls.Dictionaries.UPDATE,
         summary="Update dictionary term",
         operation_id="updateDictionaryTerm",
         description=docs.UPDATE_DICTIONARY_TERM_DESCRIPTION,
-        dto=dto.DictionaryTermPatchDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def update_dictionary_term(
-        self, company: Company, dictionary_term: DictionaryTerm, data: DTOData[DictionaryTerm]
-    ) -> DictionaryTerm:
+        self, company: Company, dictionary_term: DictionaryTerm, data: DictionaryTermPatch
+    ) -> DictionaryTermResponse:
         """Update a dictionary term by ID."""
         service = DictionaryService()
         service.verify_term_is_editable(dictionary_term, company_id=company.id)
 
-        dictionary_term, data = await patch_dto_data_internal_objects(
-            original=dictionary_term, data=data
-        )
-        try:
-            updated_dictionary_term = data.update_instance(dictionary_term)
-            await updated_dictionary_term.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
+        if not isinstance(data.term, msgspec.UnsetType):
+            dictionary_term.term = data.term
+        if not isinstance(data.definition, msgspec.UnsetType):
+            dictionary_term.definition = data.definition
+        if not isinstance(data.link, msgspec.UnsetType):
+            dictionary_term.link = data.link
+        if not isinstance(data.synonyms, msgspec.UnsetType):
+            dictionary_term.synonyms = data.synonyms
 
-        return updated_dictionary_term
+        await dictionary_term.save()
+
+        return DictionaryTermResponse.from_model(dictionary_term)
 
     @delete(
         path=urls.Dictionaries.DELETE,

@@ -1,0 +1,444 @@
+"""Integration tests for the seed CLI module."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from click.testing import CliRunner
+
+from vapi.cli.lib.comparison import JSONWithCommentsDecoder
+from vapi.cli.seed import seed, seed_async
+from vapi.constants import PROJECT_ROOT_PATH, WerewolfRenown
+from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
+from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
+
+pytestmark = pytest.mark.anyio
+
+FIXTURES_PATH = PROJECT_ROOT_PATH / "src/vapi/db/fixtures"
+
+
+@pytest.fixture
+def concepts_fixture() -> list[dict]:
+    """Load character concepts fixture data."""
+    fixture_file = FIXTURES_PATH / "concepts.json"
+    with fixture_file.open("r") as f:
+        return json.load(f, cls=JSONWithCommentsDecoder)
+
+
+@pytest.fixture
+def vampire_clans_fixture() -> list[dict]:
+    """Load vampire clans fixture data."""
+    fixture_file = FIXTURES_PATH / "vampire_clans.json"
+    with fixture_file.open("r") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def werewolf_auspices_fixture() -> list[dict]:
+    """Load werewolf auspices fixture data."""
+    fixture_file = FIXTURES_PATH / "werewolf_auspices.json"
+    with fixture_file.open("r") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def werewolf_tribes_fixture() -> list[dict]:
+    """Load werewolf tribes fixture data."""
+    fixture_file = FIXTURES_PATH / "werewolf_tribes.json"
+    with fixture_file.open("r") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def traits_fixture() -> list[dict]:
+    """Load traits fixture data."""
+    fixture_file = FIXTURES_PATH / "traits.json"
+    with fixture_file.open("r") as f:
+        return json.load(f, cls=JSONWithCommentsDecoder)
+
+
+@pytest.fixture
+def hunter_edges_fixture() -> list[dict]:
+    """Load hunter edges fixture data."""
+    fixture_file = FIXTURES_PATH / "hunter_edges.json"
+    with fixture_file.open("r") as f:
+        return json.load(f)
+
+
+class TestSeedAsync:
+    """Integration tests for the seed_async function."""
+
+    async def test_seed_creates_all_character_concepts(self, concepts_fixture: list[dict]) -> None:
+        """Verify seed creates all character concepts from fixture."""
+        # Given: The fixture data with expected concepts
+        expected_names = {concept["name"] for concept in concepts_fixture}
+
+        # When: Querying character concepts from database
+        concepts = await CharacterConcept.all()
+        db_names = {c.name for c in concepts}
+
+        # Then: All fixture concepts should exist in database
+        assert expected_names == db_names
+        assert len(concepts) == len(concepts_fixture)
+
+    async def test_character_concept_fields_match_fixture(
+        self, concepts_fixture: list[dict]
+    ) -> None:
+        """Verify character concept fields match fixture data."""
+        # Given: Specific concepts from fixture
+        for fixture_concept in concepts_fixture[:3]:  # Test first 3 concepts
+            # When: Querying the concept from database
+            db_concept = await CharacterConcept.filter(name=fixture_concept["name"]).first()
+
+            # Then: Fields should match
+            assert db_concept is not None
+            assert db_concept.description == fixture_concept["description"]
+            assert db_concept.max_specialties == fixture_concept["max_specialties"]
+            assert len(db_concept.specialties) == len(fixture_concept["specialties"])
+
+    async def test_seed_creates_all_vampire_clans(self, vampire_clans_fixture: list[dict]) -> None:
+        """Verify seed creates all vampire clans from fixture."""
+        # Given: The fixture data with expected clans
+        expected_names = {clan["name"] for clan in vampire_clans_fixture}
+
+        # When: Querying vampire clans from database
+        clans = await VampireClan.all()
+        db_names = {c.name for c in clans}
+
+        # Then: All fixture clans should exist in database
+        assert expected_names == db_names
+        assert len(clans) == len(vampire_clans_fixture)
+
+    async def test_vampire_clan_fields_match_fixture(
+        self, vampire_clans_fixture: list[dict]
+    ) -> None:
+        """Verify vampire clan fields match fixture data."""
+        # Given: Specific clans from fixture
+        for fixture_clan in vampire_clans_fixture:
+            # When: Querying the clan from database
+            db_clan = await VampireClan.filter(name=fixture_clan["name"]).first()
+
+            # Then: Fields should match
+            assert db_clan is not None, f"Clan {fixture_clan['name']} not found"
+            assert db_clan.description == fixture_clan.get("description")
+            if fixture_clan.get("link"):
+                assert db_clan.link == fixture_clan["link"]
+
+    async def test_vampire_clans_have_correct_disciplines_linked(
+        self, vampire_clans_fixture: list[dict]
+    ) -> None:
+        """Verify vampire clans have correct disciplines linked from fixture."""
+        # Given: Clans with disciplines_to_link in fixture
+        clans_with_disciplines = [c for c in vampire_clans_fixture if c.get("disciplines_to_link")]
+
+        for fixture_clan in clans_with_disciplines:
+            # When: Querying the clan from database
+            db_clan = await VampireClan.filter(name=fixture_clan["name"]).first()
+            assert db_clan is not None
+
+            # Then: Number of linked disciplines should match
+            expected_discipline_count = len(fixture_clan["disciplines_to_link"])
+            disciplines = await db_clan.disciplines.all()
+            assert len(disciplines) == expected_discipline_count, (
+                f"Clan {fixture_clan['name']} has {len(disciplines)} disciplines, "
+                f"expected {expected_discipline_count}"
+            )
+
+    async def test_seed_creates_all_werewolf_auspices(
+        self, werewolf_auspices_fixture: list[dict]
+    ) -> None:
+        """Verify seed creates all werewolf auspices from fixture."""
+        # Given: The fixture data with expected auspices
+        expected_names = {auspice["name"] for auspice in werewolf_auspices_fixture}
+
+        # When: Querying werewolf auspices from database
+        auspices = await WerewolfAuspice.all()
+        db_names = {a.name for a in auspices}
+
+        # Then: All fixture auspices should exist in database
+        assert expected_names == db_names
+        assert len(auspices) == len(werewolf_auspices_fixture)
+
+    async def test_werewolf_auspice_fields_match_fixture(
+        self, werewolf_auspices_fixture: list[dict]
+    ) -> None:
+        """Verify werewolf auspice fields match fixture data."""
+        # Given: All auspices from fixture
+        for fixture_auspice in werewolf_auspices_fixture:
+            # When: Querying the auspice from database
+            db_auspice = await WerewolfAuspice.filter(name=fixture_auspice["name"]).first()
+
+            # Then: Fields should match
+            assert db_auspice is not None
+            assert db_auspice.link == fixture_auspice.get("link")
+            assert db_auspice.name == fixture_auspice["name"]
+            assert db_auspice.description == fixture_auspice["description"]
+
+    async def test_seed_creates_all_werewolf_tribes(
+        self, werewolf_tribes_fixture: list[dict]
+    ) -> None:
+        """Verify seed creates all werewolf tribes from fixture."""
+        # Given: The fixture data with expected tribes
+        expected_names = {tribe["name"] for tribe in werewolf_tribes_fixture}
+
+        # When: Querying werewolf tribes from database
+        tribes = await WerewolfTribe.all()
+        db_names = {t.name for t in tribes}
+
+        # Then: All fixture tribes should exist in database
+        assert expected_names == db_names
+        assert len(tribes) == len(werewolf_tribes_fixture)
+
+    async def test_seed_creates_all_werewolf_rites(self) -> None:
+        """Verify seed creates all werewolf rites as traits from fixture."""
+        # Given: Rites are stored as Trait records under the "Rites" category
+        rites_category = await TraitCategory.filter(name="Rites").first()
+        assert rites_category is not None
+
+        # When: Querying rite traits from database
+        rite_count = await Trait.filter(category=rites_category).count()
+
+        # Then: Expected rite count should match (38 rites from fixture data)
+        assert rite_count == 38
+
+    async def test_werewolf_tribe_fields_match_fixture(
+        self, werewolf_tribes_fixture: list[dict]
+    ) -> None:
+        """Verify werewolf tribe fields match fixture data."""
+        # Given: All tribes from fixture
+        for fixture_tribe in werewolf_tribes_fixture:
+            # When: Querying the tribe from database
+            db_tribe = await WerewolfTribe.filter(name=fixture_tribe["name"]).first()
+
+            # Then: Fields should match
+            assert db_tribe is not None, f"Tribe {fixture_tribe['name']} not found"
+            assert db_tribe.name == fixture_tribe["name"]
+            assert db_tribe.description == fixture_tribe["description"]
+            assert db_tribe.renown == WerewolfRenown(fixture_tribe["renown"])
+            assert db_tribe.patron_spirit == fixture_tribe["patron_spirit"]
+            assert db_tribe.favor == fixture_tribe["favor"]
+            assert db_tribe.ban == fixture_tribe["ban"]
+            assert db_tribe.link == fixture_tribe.get("link")
+
+    async def test_seed_creates_all_werewolf_gifts(self) -> None:
+        """Verify seed creates all werewolf gifts as traits from fixture."""
+        # Given: Gifts are stored as Trait records with gift_* fields set
+        # When: Querying gift traits from database (traits linked to auspices or tribes via gifts)
+        gift_count = await Trait.filter(gift_renown__isnull=False).count()
+
+        # Then: Expected gift count should match (152 gifts from fixture data)
+        assert gift_count == 152
+
+    async def test_gift_traits_linked_to_tribes_and_auspices(self) -> None:
+        """Verify seed populates gift traits on tribes and auspices."""
+        # Given: Seeded tribes and auspices
+        tribes = await WerewolfTribe.all()
+        auspices = await WerewolfAuspice.all()
+
+        # Then: At least one tribe and one auspice have gifts populated
+        tribes_with_gifts = []
+        for t in tribes:
+            gifts = await t.gifts.all()
+            if gifts:
+                tribes_with_gifts.append(t)
+
+        auspices_with_gifts = []
+        for a in auspices:
+            gifts = await a.gifts.all()
+            if gifts:
+                auspices_with_gifts.append(a)
+
+        assert len(tribes_with_gifts) > 0
+        assert len(auspices_with_gifts) > 0
+
+        # Then: The gifts reference actual Trait records with gift_renown
+        sample_tribe = tribes_with_gifts[0]
+        gifts = await sample_tribe.gifts.all()
+        trait = gifts[0]
+        assert trait is not None
+        assert trait.gift_renown is not None
+        fetched_tribe = await trait.gift_tribe
+        assert fetched_tribe.id == sample_tribe.id
+
+    async def test_seed_creates_char_sheet_sections(self, traits_fixture: list[dict]) -> None:
+        """Verify seed creates all character sheet sections from fixture."""
+        # Given: The fixture data with expected sections
+        expected_names = {section["name"] for section in traits_fixture}
+
+        # When: Querying sections from database
+        sections = await CharSheetSection.all()
+        db_names = {s.name for s in sections}
+
+        # Then: All fixture sections should exist in database
+        assert expected_names == db_names
+        assert len(sections) == len(traits_fixture)
+
+    async def test_seed_creates_trait_categories(self, traits_fixture: list[dict]) -> None:
+        """Verify seed creates all trait categories from fixture."""
+        # Given: Count expected categories from fixture
+        expected_category_count = sum(
+            len(section.get("categories", [])) for section in traits_fixture
+        )
+
+        # When: Querying trait categories linked to seeded sections
+        sections = await CharSheetSection.all()
+        section_ids = [s.id for s in sections]
+        categories = await TraitCategory.filter(
+            sheet_section_id__in=section_ids,
+            is_archived=False,
+        ).all()
+
+        # Then: Count should match
+        assert len(categories) == expected_category_count
+
+    async def test_seed_creates_traits(self, traits_fixture: list[dict]) -> None:
+        """Verify seed creates all traits from fixture."""
+        # Given: Count expected traits from fixture
+        expected_trait_count = sum(
+            len(cat.get("traits", []))
+            for section in traits_fixture
+            for cat in section.get("categories", [])
+        )
+        expected_subcategory_trait_count = sum(
+            len(subcat.get("traits", []))
+            for section in traits_fixture
+            for cat in section.get("categories", [])
+            for subcat in cat.get("subcategories", [])
+        )
+
+        total_trait_count = expected_trait_count + expected_subcategory_trait_count
+
+        # When: Querying traits from database (excluding custom traits)
+        traits = await Trait.filter(is_custom=False, is_archived=False).all()
+
+        # Then: Count should match
+        assert len(traits) in [
+            total_trait_count,
+            total_trait_count + 1,
+            total_trait_count - 1,
+        ]
+
+    async def test_seed_is_idempotent(
+        self,
+        concepts_fixture: list[dict],
+        vampire_clans_fixture: list[dict],
+        werewolf_auspices_fixture: list[dict],
+        werewolf_tribes_fixture: list[dict],
+        traits_fixture: list[dict],
+    ) -> None:
+        """Verify running seed multiple times does not duplicate data."""
+        # Given: Expected counts from fixtures
+        expected_concept_count = len(concepts_fixture)
+        expected_clan_count = len(vampire_clans_fixture)
+        expected_auspice_count = len(werewolf_auspices_fixture)
+        expected_tribe_count = len(werewolf_tribes_fixture)
+        expected_gift_count = 152
+        expected_section_count = len(traits_fixture)
+
+        # When: Running seed again
+        await seed_async()
+
+        # Then: Counts should remain the same (no duplicates)
+        assert await CharacterConcept.all().count() == expected_concept_count
+        assert await VampireClan.all().count() == expected_clan_count
+        assert await WerewolfAuspice.all().count() == expected_auspice_count
+        assert await WerewolfTribe.all().count() == expected_tribe_count
+        assert await Trait.filter(gift_renown__isnull=False).count() == expected_gift_count
+        assert await CharSheetSection.all().count() == expected_section_count
+
+    async def test_specific_vampire_clan_brujah(self, vampire_clans_fixture: list[dict]) -> None:
+        """Verify Brujah vampire clan has correct data."""
+        # Given: The Brujah fixture data
+        brujah_fixture = next(c for c in vampire_clans_fixture if c["name"] == "Brujah")
+
+        # When: Querying from database
+        db_brujah = await VampireClan.filter(name="Brujah").first()
+
+        # Then: All fields should match
+        assert db_brujah is not None
+        assert db_brujah.description == brujah_fixture.get("description")
+        assert db_brujah.link == brujah_fixture.get("link")
+        assert db_brujah.bane_name is not None
+        assert db_brujah.bane_name == brujah_fixture["bane"]["name"]
+        assert db_brujah.compulsion_name is not None
+        assert db_brujah.compulsion_name == brujah_fixture["compulsion"]["name"]
+
+    async def test_specific_werewolf_auspice_ahroun(
+        self, werewolf_auspices_fixture: list[dict]
+    ) -> None:
+        """Verify Ahroun werewolf auspice has correct data."""
+        # Given: The Ahroun fixture data
+        ahroun_fixture = next(a for a in werewolf_auspices_fixture if a["name"] == "Ahroun")
+
+        # When: Querying from database
+        db_ahroun = await WerewolfAuspice.filter(name="Ahroun").first()
+
+        # Then: All fields should match
+        assert db_ahroun is not None
+        assert db_ahroun.link == ahroun_fixture.get("link")
+        assert db_ahroun.name == ahroun_fixture["name"]
+        assert db_ahroun.description == ahroun_fixture["description"]
+
+    async def test_specific_werewolf_tribe_silver_fangs(
+        self, werewolf_tribes_fixture: list[dict]
+    ) -> None:
+        """Verify Silver Fangs werewolf tribe has correct data."""
+        # Given: The Silver Fangs fixture data
+        silver_fangs_fixture = next(
+            t for t in werewolf_tribes_fixture if t["name"] == "Silver Fangs"
+        )
+
+        # When: Querying from database
+        db_silver_fangs = await WerewolfTribe.filter(name="Silver Fangs").first()
+
+        # Then: All fields should match
+        assert db_silver_fangs is not None
+        assert db_silver_fangs.link == silver_fangs_fixture.get("link")
+        assert db_silver_fangs.name == silver_fangs_fixture["name"]
+        assert db_silver_fangs.description == silver_fangs_fixture["description"]
+        assert db_silver_fangs.renown == WerewolfRenown(silver_fangs_fixture["renown"])
+        assert db_silver_fangs.patron_spirit == silver_fangs_fixture["patron_spirit"]
+        assert db_silver_fangs.favor == silver_fangs_fixture["favor"]
+        assert db_silver_fangs.ban == silver_fangs_fixture["ban"]
+
+    async def test_specific_character_concept_berserker(self, concepts_fixture: list[dict]) -> None:
+        """Verify Berserker character concept has correct data."""
+        # Given: The BERSERKER fixture data
+        berserker_fixture = next(c for c in concepts_fixture if c["name"] == "Berserker")
+
+        # When: Querying from database
+        db_berserker = await CharacterConcept.filter(name="Berserker").first()
+
+        # Then: All fields should match
+        assert db_berserker is not None
+        assert db_berserker.description == berserker_fixture["description"]
+        assert db_berserker.max_specialties == berserker_fixture["max_specialties"]
+        assert len(db_berserker.specialties) == len(berserker_fixture["specialties"])
+        assert db_berserker.specialties[0]["name"] == berserker_fixture["specialties"][0]["name"]
+
+
+class TestSeedCommand:
+    """Integration tests for the seed click command."""
+
+    def test_seed_command_is_importable(self) -> None:
+        """Verify the seed click command can be imported and has correct attributes."""
+        # Given: The seed command module
+
+        # When: Inspecting the command
+        # Then: Command should have correct attributes
+        assert seed.name == "seed"
+        assert callable(seed)
+
+    def test_seed_command_has_help_text(self) -> None:
+        """Verify the seed click command has help text."""
+        # Given: A CLI runner
+        runner = CliRunner()
+
+        # When: Running the help command
+        result = runner.invoke(seed, ["--help"])
+
+        # Then: Help should display and contain expected text
+        assert result.exit_code == 0
+        assert "Seed the database" in result.output

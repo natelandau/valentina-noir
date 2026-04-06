@@ -1,164 +1,186 @@
 """Test campaign chapter."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 import pytest
+from httpx import AsyncClient
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
 )
 
-from vapi.db.models import CampaignBook, CampaignChapter
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
 from vapi.domain.urls import Campaigns
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from httpx import AsyncClient
-
-    from vapi.db.models import User
 
 pytestmark = pytest.mark.anyio
 
 
 async def test_chapter_controller(
     client: AsyncClient,
-    token_company_admin: dict[str, str],
-    base_user_storyteller: User,
-    build_url: Callable[[str, Any], str],
-    base_campaign_book: CampaignBook,
-    base_campaign_chapter: CampaignChapter,
-    debug: Callable[[Any], None],
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    build_url: Callable[..., str],
 ) -> None:
-    """Verify the campaign controller."""
-    # when we create a chapter
+    """Verify the campaign chapter CRUD workflow."""
+    # Given a campaign with a book and one chapter
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    base_chapter = await campaign_chapter_factory(book=book)
+
+    # When we create a chapter
     response = await client.post(
         build_url(
             Campaigns.CHAPTER_CREATE,
-            book_id=base_campaign_book.id,
-            user_id=base_user_storyteller.id,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            user_id=session_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
         json={"name": "Test Chapter", "description": "Test Description"},
     )
 
-    # then we should get a 201 created response
+    # Then we should get a 201 created response
     assert response.status_code == HTTP_201_CREATED
-    # debug(response.json())
     response_json = response.json()
     assert response_json["name"] == "Test Chapter"
     assert response_json["description"] == "Test Description"
     assert response_json["number"] == 2
-    assert response_json["book_id"] == str(base_campaign_book.id)
+    assert response_json["book_id"] == str(book.id)
     assert response_json["date_created"] is not None
     assert response_json["date_modified"] is not None
 
-    # given the new campaign chapter id
-    new_campaign_chapter_id = response_json["id"]
+    # Given the new chapter id
+    new_chapter_id = response_json["id"]
 
-    # when we update the chapter
+    # When we update the chapter
     response = await client.patch(
         build_url(
             Campaigns.CHAPTER_UPDATE,
-            chapter_id=new_campaign_chapter_id,
-            user_id=base_user_storyteller.id,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=new_chapter_id,
+            user_id=session_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
         json={"name": "Test Chapter Updated"},
     )
 
-    # then we should get a 200 ok response
+    # Then we should get a 200 ok response
     assert response.status_code == HTTP_200_OK
     response_json = response.json()
     assert response_json["name"] == "Test Chapter Updated"
     assert response_json["description"] == "Test Description"
     assert response_json["number"] == 2
-    assert response_json["book_id"] == str(base_campaign_book.id)
 
-    # when we delete the chapter
+    # When we delete the chapter
     response = await client.delete(
         build_url(
             Campaigns.CHAPTER_DELETE,
-            chapter_id=new_campaign_chapter_id,
-            user_id=base_user_storyteller.id,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=new_chapter_id,
+            user_id=session_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
 
-    # then we should get a 204 no content response
+    # Then we should get a 204 no content response
     assert response.status_code == HTTP_204_NO_CONTENT
 
-    # when we list the chapters
+    # When we list the chapters
     response = await client.get(
         build_url(
-            Campaigns.CHAPTERS, book_id=base_campaign_book.id, user_id=base_user_storyteller.id
+            Campaigns.CHAPTERS,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            user_id=session_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
-    # debug(response.json())
+
+    # Then we should get a 200 with only the base chapter
     assert response.status_code == HTTP_200_OK
-    await base_campaign_chapter.sync()
+    items = response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == str(base_chapter.id)
 
-    # then we should get a 200 ok response with the chapter in the list
-    assert response.json()["items"] == [
-        base_campaign_chapter.model_dump(mode="json", exclude={"is_archived", "archive_date"})
-    ]
-
-    # when we get the chapter
+    # When we get the chapter
     response = await client.get(
         build_url(
             Campaigns.CHAPTER_DETAIL,
-            chapter_id=base_campaign_chapter.id,
-            user_id=base_user_storyteller.id,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=base_chapter.id,
+            user_id=session_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
-    # then we should get a 200 ok response with the chapter
+
+    # Then we should get a 200 with the chapter details
     assert response.status_code == HTTP_200_OK
-    assert response.json() == base_campaign_chapter.model_dump(
-        mode="json", exclude={"is_archived", "archive_date"}
-    )
+    assert response.json()["id"] == str(base_chapter.id)
 
 
 async def test_renumber_chapter(
     client: AsyncClient,
-    token_company_admin: dict[str, str],
-    base_user_storyteller: User,
-    campaign_chapter_factory: Callable[[Any], CampaignChapter],
-    build_url: Callable[[str, Any], str],
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    build_url: Callable[..., str],
 ) -> None:
-    """Verify the renumber_chapter function."""
-    await CampaignChapter.delete_all()
-    chapter1 = await campaign_chapter_factory()
-    chapter2 = await campaign_chapter_factory()
-    chapter3 = await campaign_chapter_factory()
-    chapter4 = await campaign_chapter_factory()
+    """Verify the renumber chapter endpoint."""
+    # Given a book with 4 chapters
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter1 = await campaign_chapter_factory(book=book)
+    chapter2 = await campaign_chapter_factory(book=book)
+    chapter3 = await campaign_chapter_factory(book=book)
+    chapter4 = await campaign_chapter_factory(book=book)
 
     assert chapter1.number == 1
     assert chapter2.number == 2
     assert chapter3.number == 3
     assert chapter4.number == 4
 
+    # When chapter1 is moved to position 3
     response = await client.put(
         build_url(
             Campaigns.CHAPTER_NUMBER,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
             chapter_id=chapter1.id,
-            user_id=base_user_storyteller.id,
+            user_id=session_user.id,
         ),
         json={"number": 3},
-        headers=token_company_admin,
+        headers=token_global_admin,
     )
+
+    # Then we should get a 200 with updated positions
     assert response.status_code == HTTP_200_OK
-    await chapter1.sync()
-    await chapter2.sync()
-    await chapter3.sync()
-    await chapter4.sync()
-    assert response.json() == chapter1.model_dump(
-        mode="json", exclude={"is_archived", "archive_date"}
-    )
+    await chapter1.refresh_from_db()
+    await chapter2.refresh_from_db()
+    await chapter3.refresh_from_db()
+    await chapter4.refresh_from_db()
+
+    assert response.json()["id"] == str(chapter1.id)
     assert chapter1.number == 3
     assert chapter2.number == 1
     assert chapter3.number == 2

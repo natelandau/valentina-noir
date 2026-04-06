@@ -1,25 +1,28 @@
 """Campaign chapter controller."""
 
-from __future__ import annotations
-
+import asyncio
 from typing import Annotated
 
+import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
-from pydantic import ValidationError as PydanticValidationError
 
-from vapi.db.models import CampaignBook, CampaignChapter
+from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
-from vapi.utils.validation import raise_from_pydantic_validation_error
 
-from . import docs, dto
+from . import docs
+from .dto import (
+    BookChapterNumber,
+    CampaignChapterCreate,
+    CampaignChapterPatch,
+    CampaignChapterResponse,
+)
 from .guards import user_can_manage_campaign
 
 
@@ -33,10 +36,9 @@ class CampaignChapterController(Controller):
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "chapter": Provide(deps.provide_campaign_chapter_by_id),
-        "note": Provide(deps.provide_note_by_id),
+        "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = dto.ChapterDTO
+    guards = [developer_company_user_guard]
 
     @get(
         path=urls.Campaigns.CHAPTERS,
@@ -51,17 +53,19 @@ class CampaignChapterController(Controller):
         book: CampaignBook,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[CampaignChapter]:
+    ) -> OffsetPagination[CampaignChapterResponse]:
         """List all chapters."""
-        query = {
-            "book_id": book.id,
-            "is_archived": False,
-        }
-        count = await CampaignChapter.find(query).count()
-        chapters = (
-            await CampaignChapter.find(query).skip(offset).limit(limit).sort("number").to_list()
+        qs = CampaignChapter.filter(book_id=book.id, is_archived=False)
+        count, chapters = await asyncio.gather(
+            qs.count(),
+            qs.order_by("number").offset(offset).limit(limit),
         )
-        return OffsetPagination(items=chapters, limit=limit, offset=offset, total=count)
+        return OffsetPagination(
+            items=[CampaignChapterResponse.from_model(ch) for ch in chapters],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.Campaigns.CHAPTER_DETAIL,
@@ -70,9 +74,9 @@ class CampaignChapterController(Controller):
         description=docs.GET_CHAPTER_DESCRIPTION,
         cache=True,
     )
-    async def get_chapter(self, *, chapter: CampaignChapter) -> CampaignChapter:
+    async def get_chapter(self, *, chapter: CampaignChapter) -> CampaignChapterResponse:
         """Get a chapter by ID."""
-        return chapter
+        return CampaignChapterResponse.from_model(chapter)
 
     @post(
         path=urls.Campaigns.CHAPTER_CREATE,
@@ -80,20 +84,21 @@ class CampaignChapterController(Controller):
         operation_id="createCampaignChapter",
         description=docs.CREATE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        dto=dto.PostChapterDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def create_chapter(
-        self, *, book: CampaignBook, data: DTOData[CampaignChapter]
-    ) -> CampaignChapter:
+        self, *, book: CampaignBook, data: CampaignChapterCreate
+    ) -> CampaignChapterResponse:
         """Create a chapter."""
         service = CampaignService()
         number = await service.get_next_chapter_number(book)
-
-        chapter_data = data.create_instance(book_id=book.id, number=number)
-        chapter = CampaignChapter(**chapter_data.model_dump(exclude_unset=True))
-        await chapter.save()
-        return chapter
+        chapter = await CampaignChapter.create(
+            name=data.name,
+            description=data.description,
+            book=book,
+            number=number,
+        )
+        return CampaignChapterResponse.from_model(chapter)
 
     @patch(
         path=urls.Campaigns.CHAPTER_UPDATE,
@@ -101,20 +106,18 @@ class CampaignChapterController(Controller):
         operation_id="updateCampaignChapter",
         description=docs.UPDATE_CHAPTER_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        dto=dto.PatchChapterDTO,
         after_response=hooks.post_data_update_hook,
     )
     async def update_chapter(
-        self, chapter: CampaignChapter, data: DTOData[CampaignChapter]
-    ) -> CampaignChapter:
+        self, chapter: CampaignChapter, data: CampaignChapterPatch
+    ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
-        updated_chapter = data.update_instance(chapter)
-        try:
-            await updated_chapter.save()
-        except PydanticValidationError as e:
-            raise_from_pydantic_validation_error(e)
-
-        return updated_chapter
+        if not isinstance(data.name, msgspec.UnsetType):
+            chapter.name = data.name
+        if not isinstance(data.description, msgspec.UnsetType):
+            chapter.description = data.description
+        await chapter.save()
+        return CampaignChapterResponse.from_model(chapter)
 
     @delete(
         path=urls.Campaigns.CHAPTER_DELETE,
@@ -138,10 +141,9 @@ class CampaignChapterController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def renumber_chapter(
-        self, chapter: CampaignChapter, data: dto.BookChapterNumberDTO
-    ) -> CampaignChapter:
+        self, chapter: CampaignChapter, data: BookChapterNumber
+    ) -> CampaignChapterResponse:
         """Renumber a chapter by ID."""
         service = CampaignService()
-        await service.renumber_chapters(chapter=chapter, new_number=data.number)
-
-        return chapter
+        chapter = await service.renumber_chapters(chapter=chapter, new_number=data.number)
+        return CampaignChapterResponse.from_model(chapter)

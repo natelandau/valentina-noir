@@ -1,17 +1,16 @@
 """Gameplay controllers."""
 
-from __future__ import annotations
-
 from typing import Annotated
+from uuid import UUID
 
-from beanie import PydanticObjectId  # noqa: TC002
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.dto import DTOData  # noqa: TC002
 from litestar.handlers import get, post
 from litestar.params import Parameter
 
-from vapi.db.models import Company, DiceRoll, User
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.diceroll import DiceRoll
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DiceRollService
@@ -31,7 +30,6 @@ class DiceRollController(Controller):
         "user": Provide(deps.provide_user_by_id_and_company),
     }
     guards = [developer_company_user_guard, user_not_unapproved_guard]
-    return_dto = dto.ReturnDTO
 
     @get(
         path=urls.DiceRolls.LIST,
@@ -44,28 +42,34 @@ class DiceRollController(Controller):
         company: Company,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-        userid: Annotated[PydanticObjectId, Parameter(description="Show dice rolls for this user.")]
-        | None = None,
+        userid: Annotated[
+            UUID | None, Parameter(description="Show dice rolls for this user.")
+        ] = None,
         characterid: Annotated[
-            PydanticObjectId, Parameter(description="Show dice rolls for this character.")
-        ]
-        | None = None,
+            UUID | None, Parameter(description="Show dice rolls for this character.")
+        ] = None,
         campaignid: Annotated[
-            PydanticObjectId, Parameter(description="Show dice rolls for this campaign.")
-        ]
-        | None = None,
-    ) -> OffsetPagination[DiceRoll]:
+            UUID | None, Parameter(description="Show dice rolls for this campaign.")
+        ] = None,
+    ) -> OffsetPagination[dto.DiceRollResponse]:
         """List all dice rolls."""
-        query = {"company_id": company.id, "is_archived": False}
+        filters: dict = {"company_id": company.id, "is_archived": False}
         if userid:
-            query["user_id"] = userid
+            filters["user_id"] = userid
         if characterid:
-            query["character_id"] = characterid
+            filters["character_id"] = characterid
         if campaignid:
-            query["campaign_id"] = campaignid
-        count = await DiceRoll.find(query).count()
-        dice_rolls = await DiceRoll.find(query).skip(offset).limit(limit).to_list()
-        return OffsetPagination(items=dice_rolls, limit=limit, offset=offset, total=count)
+            filters["campaign_id"] = campaignid
+
+        qs = DiceRoll.filter(**filters)
+        count = await qs.count()
+        dice_rolls = await qs.offset(offset).limit(limit).prefetch_related("roll_result", "traits")
+        return OffsetPagination(
+            items=[dto.DiceRollResponse.from_model(dr) for dr in dice_rolls],
+            limit=limit,
+            offset=offset,
+            total=count,
+        )
 
     @get(
         path=urls.DiceRolls.DETAIL,
@@ -73,33 +77,37 @@ class DiceRollController(Controller):
         operation_id="getDiceRoll",
         description=docs.GET_DICEROLL_DESCRIPTION,
     )
-    async def get_diceroll(self, company: Company, diceroll_id: PydanticObjectId) -> DiceRoll:
+    async def get_diceroll(self, company: Company, diceroll_id: UUID) -> dto.DiceRollResponse:
         """Get a dice roll by ID."""
-        dice_roll = await DiceRoll.find_one(
-            DiceRoll.id == diceroll_id,
-            DiceRoll.is_archived == False,
-            DiceRoll.company_id == company.id,
+        dice_roll = (
+            await DiceRoll.filter(
+                id=diceroll_id,
+                is_archived=False,
+                company_id=company.id,
+            )
+            .prefetch_related("roll_result", "traits")
+            .first()
         )
         if not dice_roll:
             raise NotFoundError(detail=f"Dice roll {diceroll_id} not found")
-        return dice_roll
+        return dto.DiceRollResponse.from_model(dice_roll)
 
     @post(
         path=urls.DiceRolls.CREATE,
         operation_id="createDiceRoll",
-        dto=dto.PostDTO,
         cache=False,
         summary="Roll dice",
         description=docs.CREATE_DICEROLL_DESCRIPTION,
     )
     async def create_diceroll(
-        self, company: Company, user: User, data: DTOData[DiceRoll]
-    ) -> DiceRoll:
+        self, company: Company, user: User, data: dto.DiceRollCreate
+    ) -> dto.DiceRollResponse:
         """Create a dice roll."""
-        dice_roll_data = data.create_instance(company_id=company.id, user_id=user.id)
-
         service = DiceRollService()
-        return await service.create_complete_dice_roll(dice_roll_data)
+        dice_roll = await service.create_complete_dice_roll(
+            data=data, company_id=company.id, user_id=user.id
+        )
+        return dto.DiceRollResponse.from_model(dice_roll)
 
     @post(
         path=urls.DiceRolls.QUICKROLL,
@@ -112,8 +120,9 @@ class DiceRollController(Controller):
         self,
         company: Company,
         user: User,
-        data: dto.QuickRollDTO,
-    ) -> DiceRoll:
+        data: dto.QuickRollRequest,
+    ) -> dto.DiceRollResponse:
         """Create a dice roll from a quick roll."""
         service = DiceRollService()
-        return await service.roll_quickroll(company=company, user=user, data=data)
+        dice_roll = await service.roll_quickroll(company=company, user=user, data=data)
+        return dto.DiceRollResponse.from_model(dice_roll)

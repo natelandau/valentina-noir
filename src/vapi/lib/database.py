@@ -1,90 +1,92 @@
-"""Database utilities."""
+"""Database configuration and initialization.
+
+PostgreSQL via TortoiseORM is the primary database.
+"""
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import TYPE_CHECKING
-
-from beanie import init_beanie
-from pymongo import AsyncMongoClient, MongoClient
-from pymongo.errors import ServerSelectionTimeoutError
+from typing import Any
 
 from vapi.config import settings
-from vapi.db.models import init_beanie_models
-
-if TYPE_CHECKING:
-    from pymongo.asynchronous.database import AsyncDatabase
 
 logger = logging.getLogger("vapi")
 
 
-__all__ = ("init_database", "setup_database", "test_db_connection")
+async def init_tortoise() -> None:
+    """Initialize TortoiseORM for use outside the Litestar application lifecycle.
+
+    Use this when Tortoise needs to be initialized standalone, such as in
+    background tasks or CLI commands that run without a running Litestar app.
+    """
+    from tortoise import Tortoise
+
+    await Tortoise.init(config=tortoise_config(), _enable_global_fallback=True)
 
 
-async def setup_database() -> AsyncMongoClient:
-    """Setup the database."""
-    while not test_db_connection():
-        print("DB: Connection failed. Retrying...")  # noqa: T201
-        await asyncio.sleep(1)
-    client = await init_database()
-    logger.info("Database setup complete", extra={"component": "database"})
-    return client
+def tortoise_config() -> dict[str, Any]:
+    """Build the TortoiseORM configuration dict from application settings.
+
+    Returns a config dict suitable for ``Tortoise.init(config=...)``. Uses the
+    credentials-based format so individual settings fields map directly without
+    URL construction.
+    """
+    return {
+        "connections": {
+            "default": {
+                "engine": "tortoise.backends.asyncpg",
+                "credentials": {
+                    "host": settings.postgres.host,
+                    "port": settings.postgres.port,
+                    "user": settings.postgres.user,
+                    "password": settings.postgres.password,
+                    "database": settings.postgres.database,
+                },
+            },
+        },
+        "apps": {
+            "models": {
+                "models": ["vapi.db.sql_models"],
+                "default_connection": "default",
+                "migrations": "vapi.db.migrations",
+            },
+        },
+    }
 
 
-def test_db_connection() -> bool:  # pragma: no cover
-    """Test the database connection using pymongo.
+def __getattr__(name: str) -> dict[str, Any]:
+    """Lazy module-level attribute for the `tortoise` CLI (e.g. `tortoise -c vapi.lib.database.TORTOISE_ORM`)."""
+    if name == "TORTOISE_ORM":
+        return tortoise_config()
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
-    This function attempts to establish a connection to the MongoDB database
-    using the configuration specified in ValentinaConfig. It uses a short
-    timeout to quickly determine if the connection can be established.
+
+async def test_db_connection() -> bool:  # pragma: no cover
+    """Test the PostgreSQL database connection.
+
+    Use a short timeout to quickly determine if the connection can be established.
 
     Returns:
-        bool: True if the connection is successful, False otherwise.
+        True if the connection is successful, False otherwise.
     """
-    msg = f"Testing connection to {settings.mongo.uri}..."
-    logger.debug(msg, extra={"component": "database"})
+    import asyncio
+
+    import asyncpg
 
     try:
-        client: MongoClient = MongoClient(settings.mongo.uri, serverSelectionTimeoutMS=1800)
-        client.server_info()
-        logger.debug("Connection successful", extra={"component": "database"})
-        client.close()
-    except ServerSelectionTimeoutError:
-        client.close()
+        conn = await asyncio.wait_for(
+            asyncpg.connect(
+                host=settings.postgres.host,
+                port=settings.postgres.port,
+                user=settings.postgres.user,
+                password=settings.postgres.password,
+                database=settings.postgres.database,
+            ),
+            timeout=2.0,
+        )
+        await conn.close()
+    except Exception:  # noqa: BLE001
         return False
     else:
         return True
-
-
-async def init_database(
-    client: AsyncMongoClient | None = None,
-    database: AsyncDatabase | None = None,
-) -> AsyncMongoClient:
-    """Initialize the MongoDB database connection and configure Beanie ODM for document models.
-
-    Connect to MongoDB using the provided client or create a new one with default configuration. Set up Beanie ODM with the application's document models for object-document mapping. Use an existing database instance or select one from the client based on configuration.
-
-    Args:
-        client (AsyncMongoClient | None): The existing database client to use. If None, create a new client with default settings. Defaults to None.
-        database (AsyncDatabase | None): Existing database instance to use. If None, select database from client using configured name. Defaults to None.
-
-    Returns:
-        AsyncMongoClient: The initialized database client.
-    """
-    if not client:
-        client = AsyncMongoClient(settings.mongo.uri, tz_aware=True, serverSelectionTimeoutMS=1800)
-
-    await init_beanie(
-        database=database if database is not None else client[settings.mongo.database_name],
-        document_models=init_beanie_models,
-    )
-    logger.debug(
-        "Models initialized",
-        extra={
-            "component": "database",
-            "database_name": settings.mongo.database_name,
-            "models": [model.__name__ for model in init_beanie_models],
-        },
-    )
-    return client
