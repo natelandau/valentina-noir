@@ -70,3 +70,5 @@ Who can grant experience is controlled by the `permission_grant_xp` company sett
 | `UNRESTRICTED` | Any user can grant XP to any user         |
 | `PLAYER`       | Users can only grant XP to themselves     |
 | `STORYTELLER`  | Only Storytellers and Admins can grant XP |
+
+Whether players can recoup XP by lowering a trait is controlled by the `permission_recoup_xp` company setting. By default, lowering trait values via the XP currency is blocked. See [Company Settings — XP Recoup](./company_settings.md#xp-recoup) for the full set of options.

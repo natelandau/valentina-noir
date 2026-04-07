@@ -84,7 +84,8 @@ The response includes both the company and an admin user account:
             "character_autogen_num_choices": 3,
             "permission_manage_campaign": "UNRESTRICTED",
             "permission_grant_xp": "UNRESTRICTED",
-            "permission_free_trait_changes": "UNRESTRICTED"
+            "permission_free_trait_changes": "UNRESTRICTED",
+            "permission_recoup_xp": "DENIED"
         }
     },
     "admin_user": {
