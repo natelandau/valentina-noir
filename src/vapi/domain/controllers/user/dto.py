@@ -1,6 +1,7 @@
 """User DTOs."""
 
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -11,6 +12,39 @@ from vapi.db.sql_models.quickroll import QuickRoll
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.user import CampaignExperience, User
+
+
+# ---------------------------------------------------------------------------
+# Include enum / prefetch map
+# ---------------------------------------------------------------------------
+
+
+class UserInclude(StrEnum):
+    """Child resources that can be embedded in a user detail response."""
+
+    QUICKROLLS = "quickrolls"
+    NOTES = "notes"
+    ASSETS = "assets"
+    CHARACTERS = "characters"
+
+
+# "assets" → owned_assets (attached-to, not uploaded-by). "characters" →
+# played_characters. Nested prefetches mirror CHARACTER_RESPONSE_PREFETCH so
+# CharacterResponse.from_model doesn't trigger N+1 lazy loads per character.
+USER_INCLUDE_PREFETCH_MAP: dict[UserInclude, list[str]] = {
+    UserInclude.QUICKROLLS: ["quick_rolls__traits"],
+    UserInclude.NOTES: ["notes"],
+    UserInclude.ASSETS: ["owned_assets"],
+    UserInclude.CHARACTERS: [
+        "played_characters__concept",
+        "played_characters__vampire_attributes__clan",
+        "played_characters__werewolf_attributes__tribe",
+        "played_characters__werewolf_attributes__auspice",
+        "played_characters__mage_attributes",
+        "played_characters__hunter_attributes",
+        "played_characters__specialties",
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +124,42 @@ class UserResponse(msgspec.Struct):
             discord_profile=m.discord_profile,
             campaign_experience=experiences,
         )
+
+
+class UserDetailResponse(UserResponse, omit_defaults=True):
+    """Response body for a single user with optional embedded children."""
+
+    quickrolls: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    characters: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+
+    @classmethod
+    def from_model(
+        cls,
+        m: "User",
+        includes: set[UserInclude] | None = None,
+    ) -> "UserDetailResponse":
+        """Convert a User to a detail response with optional children."""
+        # Lazy imports — module-level imports of other DTO modules would create circular imports.
+        from vapi.domain.controllers.character.dto import CharacterResponse
+        from vapi.domain.controllers.notes.dto import NoteResponse
+        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
+
+        includes = includes or set()
+        base = UserResponse.from_model(m)
+        fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
+
+        if UserInclude.QUICKROLLS in includes:
+            fields["quickrolls"] = [QuickRollResponse.from_model(q) for q in m.quick_rolls]
+        if UserInclude.NOTES in includes:
+            fields["notes"] = [NoteResponse.from_model(n) for n in m.notes]
+        if UserInclude.ASSETS in includes:
+            fields["assets"] = [S3AssetResponse.from_model(a) for a in m.owned_assets]
+        if UserInclude.CHARACTERS in includes:
+            fields["characters"] = [CharacterResponse.from_model(c) for c in m.played_characters]
+
+        return cls(**fields)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

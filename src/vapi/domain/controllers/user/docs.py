@@ -11,6 +11,13 @@ already exists before registration.
 
 GET_USER_DESCRIPTION = """\
 Retrieve detailed information about a specific user including their role and experience.
+
+Use the `include` query parameter to embed related child resources in the response. \
+Pass one or more of: `quickrolls`, `notes`, `assets`, `characters`. Example: \
+`?include=quickrolls&include=characters`. The `assets` value returns assets attached \
+to the user (not assets the user uploaded). The `characters` value returns only \
+characters the user plays. When omitted, child resources are not included and must \
+be fetched via their dedicated endpoints. Invalid values return a 400 error.
 """
 
 CREATE_USER_DESCRIPTION = """\

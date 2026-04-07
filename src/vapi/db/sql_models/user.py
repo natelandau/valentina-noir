@@ -52,6 +52,7 @@ class User(BaseModel):
     quick_rolls: fields.ReverseRelation[QuickRoll]
     chargen_sessions: fields.ReverseRelation[ChargenSession]
     uploaded_assets: fields.ReverseRelation[S3Asset]
+    owned_assets: fields.ReverseRelation[S3Asset]
     notes: fields.ReverseRelation[Note]
 
     class Meta:

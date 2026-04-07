@@ -8,6 +8,7 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
 )
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
@@ -185,3 +186,122 @@ async def test_renumber_chapter(
     assert chapter2.number == 1
     assert chapter3.number == 2
     assert chapter4.number == 4
+
+
+async def test_get_chapter_no_include_omits_children(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify getChapter without include param omits child resource keys."""
+    # Given a chapter
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+
+    # When we get the chapter without include
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+            user_id=session_user.id,
+        ),
+        headers=token_global_admin,
+    )
+
+    # Then the response has no child keys
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert data["id"] == str(chapter.id)
+    assert "notes" not in data
+    assert "assets" not in data
+
+
+async def test_get_chapter_include_all_children(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    note_factory,
+    s3asset_factory,
+    build_url: Callable[..., str],
+) -> None:
+    """Verify getChapter with all includes embeds notes and assets."""
+    # Given a chapter with one note and one asset
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+    note = await note_factory(company=session_company, chapter=chapter)
+    asset = await s3asset_factory(
+        company=session_company, chapter=chapter, uploaded_by=session_user
+    )
+
+    # When we include all child types
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+            user_id=session_user.id,
+        ),
+        headers=token_global_admin,
+        params={"include": ["notes", "assets"]},
+    )
+
+    # Then both child lists are present with the created items
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert len(data["notes"]) == 1
+    assert data["notes"][0]["id"] == str(note.id)
+    assert len(data["assets"]) == 1
+    assert data["assets"][0]["id"] == str(asset.id)
+
+
+async def test_get_chapter_include_invalid_value(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify invalid include value returns 400."""
+    # Given a chapter
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+
+    # When we pass an invalid include value
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+            user_id=session_user.id,
+        ),
+        headers=token_global_admin,
+        params={"include": ["bogus"]},
+    )
+
+    # Then we get a 400
+    assert response.status_code == HTTP_400_BAD_REQUEST

@@ -42,6 +42,11 @@ Books organize campaign content into distinct story arcs or sourcebook sections.
 
 GET_BOOK_DESCRIPTION = """\
 Retrieve detailed information about a specific book including its number and description.
+
+Use the `include` query parameter to embed related child resources in the response. \
+Pass one or more of: `chapters`, `notes`, `assets`. Example: \
+`?include=chapters&include=notes`. When omitted, child resources are not included \
+and must be fetched via their dedicated endpoints. Invalid values return a 400 error.
 """
 
 CREATE_BOOK_DESCRIPTION = """\
@@ -85,6 +90,11 @@ Chapters represent individual game sessions or story segments.
 
 GET_CHAPTER_DESCRIPTION = """\
 Retrieve detailed information about a specific chapter including its number and description.
+
+Use the `include` query parameter to embed related child resources in the response. \
+Pass one or more of: `notes`, `assets`. Example: `?include=notes&include=assets`. \
+When omitted, child resources are not included and must be fetched via their \
+dedicated endpoints. Invalid values return a 400 error.
 """
 
 CREATE_CHAPTER_DESCRIPTION = """\

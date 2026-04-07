@@ -13,15 +13,19 @@ from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import (
+    CHAPTER_INCLUDE_PREFETCH_MAP,
     BookChapterNumber,
     CampaignChapterCreate,
+    CampaignChapterDetailResponse,
     CampaignChapterPatch,
     CampaignChapterResponse,
+    ChapterInclude,
 )
 from .guards import user_can_manage_campaign
 
@@ -74,9 +78,15 @@ class CampaignChapterController(Controller):
         description=docs.GET_CHAPTER_DESCRIPTION,
         cache=True,
     )
-    async def get_chapter(self, *, chapter: CampaignChapter) -> CampaignChapterResponse:
-        """Get a chapter by ID."""
-        return CampaignChapterResponse.from_model(chapter)
+    async def get_chapter(
+        self,
+        *,
+        chapter: CampaignChapter,
+        include: list[ChapterInclude] | None = None,
+    ) -> CampaignChapterDetailResponse:
+        """Get a chapter by ID with optional embedded children."""
+        requested = await apply_includes(chapter, include, CHAPTER_INCLUDE_PREFETCH_MAP)
+        return CampaignChapterDetailResponse.from_model(chapter, requested)
 
     @post(
         path=urls.Campaigns.CHAPTER_CREATE,

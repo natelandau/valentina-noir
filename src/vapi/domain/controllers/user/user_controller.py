@@ -15,11 +15,23 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
+from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
-from .dto import UserApprove, UserCreate, UserDeny, UserMerge, UserPatch, UserRegister, UserResponse
+from .dto import (
+    USER_INCLUDE_PREFETCH_MAP,
+    UserApprove,
+    UserCreate,
+    UserDeny,
+    UserDetailResponse,
+    UserInclude,
+    UserMerge,
+    UserPatch,
+    UserRegister,
+    UserResponse,
+)
 
 
 class UserController(Controller):
@@ -74,9 +86,14 @@ class UserController(Controller):
         description=docs.GET_USER_DESCRIPTION,
         cache=True,
     )
-    async def get_user(self, user: User) -> UserResponse:
-        """Get a user by ID."""
-        return UserResponse.from_model(user)
+    async def get_user(
+        self,
+        user: User,
+        include: list[UserInclude] | None = None,
+    ) -> UserDetailResponse:
+        """Get a user by ID with optional embedded children."""
+        requested = await apply_includes(user, include, USER_INCLUDE_PREFETCH_MAP)
+        return UserDetailResponse.from_model(user, requested)
 
     @post(
         path=urls.Users.CREATE,

@@ -13,13 +13,17 @@ from vapi.db.sql_models.campaign import Campaign, CampaignBook
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import (
+    BOOK_INCLUDE_PREFETCH_MAP,
     BookChapterNumber,
+    BookInclude,
     CampaignBookCreate,
+    CampaignBookDetailResponse,
     CampaignBookPatch,
     CampaignBookResponse,
 )
@@ -73,9 +77,15 @@ class CampaignBookController(Controller):
         description=docs.GET_BOOK_DESCRIPTION,
         cache=True,
     )
-    async def get_book(self, *, book: CampaignBook) -> CampaignBookResponse:
-        """Get a book by ID."""
-        return CampaignBookResponse.from_model(book)
+    async def get_book(
+        self,
+        *,
+        book: CampaignBook,
+        include: list[BookInclude] | None = None,
+    ) -> CampaignBookDetailResponse:
+        """Get a book by ID with optional embedded children."""
+        requested = await apply_includes(book, include, BOOK_INCLUDE_PREFETCH_MAP)
+        return CampaignBookDetailResponse.from_model(book, requested)
 
     @post(
         path=urls.Campaigns.BOOK_CREATE,
