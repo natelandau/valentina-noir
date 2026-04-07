@@ -25,6 +25,9 @@ DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
+RECOUP_XP_SESSION_LENGTH: Final[int] = (
+    3600  # seconds (1 hour); used for WITHIN_SESSION recoup floor TTL
+)
 
 
 class BlueprintTraitOrderBy(StrEnum):
@@ -161,6 +164,14 @@ class SpecialtyType(StrEnum):
     PASSIVE = "PASSIVE"
     RITUAL = "RITUAL"
     SPELL = "SPELL"
+
+
+class PermissionsRecoupXP(StrEnum):
+    """Permissions for lowering a character trait value using the XP currency."""
+
+    UNRESTRICTED = "UNRESTRICTED"
+    DENIED = "DENIED"  # Default
+    WITHIN_SESSION = "WITHIN_SESSION"
 
 
 class TraitModifyCurrency(StrEnum):
