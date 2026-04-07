@@ -3,11 +3,13 @@
 from typing import Annotated
 from uuid import UUID
 
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, post, put
 from litestar.params import Parameter
 
+from vapi.config import settings
 from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.company import Company
@@ -193,6 +195,7 @@ class CharacterTraitController(Controller):
     )
     async def modify_value(
         self,
+        request: Request,
         company: Company,
         user: User,
         character: Character,
@@ -201,6 +204,7 @@ class CharacterTraitController(Controller):
     ) -> CharacterTraitResponse:
         """Modify a character trait to a target value."""
         service = CharacterTraitService()
+        recoup_store = request.app.stores.get(settings.stores.recoup_session_key)
         ct = await service.modify_trait_value(
             company=company,
             user=user,
@@ -208,6 +212,7 @@ class CharacterTraitController(Controller):
             character_trait=character_trait,
             target_value=data.target_value,
             currency=data.currency,
+            recoup_store=recoup_store,
         )
         return CharacterTraitResponse.from_model(ct)
 
@@ -220,6 +225,7 @@ class CharacterTraitController(Controller):
     )
     async def delete_character_trait(
         self,
+        request: Request,
         company: Company,
         user: User,
         character: Character,
@@ -232,10 +238,12 @@ class CharacterTraitController(Controller):
         """Delete a character trait."""
         service = CharacterTraitService()
         service.guard_user_can_manage_character(character=character, user=user)
+        recoup_store = request.app.stores.get(settings.stores.recoup_session_key)
         await service.delete_trait(
             company=company,
             user=user,
             character=character,
             character_trait=character_trait,
             currency=currency,
+            recoup_store=recoup_store,
         )

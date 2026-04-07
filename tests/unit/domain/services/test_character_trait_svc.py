@@ -1,15 +1,18 @@
 """Test the character trait service."""
 
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 from unittest.mock import ANY
 from uuid import UUID, uuid4
 
 import pytest
+from litestar.stores.memory import MemoryStore
 
 from vapi.constants import (
     CharacterClass,
     PermissionsFreeTraitChanges,
+    PermissionsRecoupXP,
     TraitModifyCurrency,
     UserRole,
 )
@@ -4279,3 +4282,289 @@ class TestGuardCanAffordNewTrait:
             await service._guard_can_afford_new_trait(
                 trait, character, value=2, currency=TraitModifyCurrency.XP
             )
+
+
+@pytest.fixture
+def memory_store() -> MemoryStore:
+    """Provide a fresh in-memory store for floor helper tests."""
+    return MemoryStore()
+
+
+class TestRecoupXPFloorHelpers:
+    """Tests for the WITHIN_SESSION floor helpers on CharacterTraitService."""
+
+    async def test_floor_key_format_is_namespaced_per_user_character_trait(
+        self, memory_store: MemoryStore
+    ) -> None:
+        # Given
+        svc = CharacterTraitService()
+        # When
+        key = svc._recoup_floor_key(
+            user_id="11111111-1111-1111-1111-111111111111",
+            character_id="22222222-2222-2222-2222-222222222222",
+            trait_id="33333333-3333-3333-3333-333333333333",
+        )
+        # Then
+        assert key == (
+            "recoup_floor:"
+            "11111111-1111-1111-1111-111111111111:"
+            "22222222-2222-2222-2222-222222222222:"
+            "33333333-3333-3333-3333-333333333333"
+        )
+
+    async def test_get_floor_returns_none_when_absent(self, memory_store: MemoryStore) -> None:
+        svc = CharacterTraitService()
+        result = await svc._get_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        assert result is None
+
+    async def test_set_floor_then_get_returns_value(self, memory_store: MemoryStore) -> None:
+        svc = CharacterTraitService()
+        await svc._set_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t", value=3
+        )
+        result = await svc._get_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        assert result == 3
+
+    async def test_set_floor_overwrite_preserves_value(self, memory_store: MemoryStore) -> None:
+        """Verify re-setting the floor with the same value leaves it intact."""
+        # Given an existing floor
+        svc = CharacterTraitService()
+        await svc._set_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t", value=2
+        )
+
+        # When re-writing the same value (which is how the gate refreshes the TTL)
+        await svc._set_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t", value=2
+        )
+
+        # Then the stored value is unchanged
+        result = await svc._get_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        assert result == 2
+
+
+class TestRecoupXPGate:
+    """Enforcement of permission_recoup_xp on modify_trait_value."""
+
+    @dataclass
+    class _Scenario:
+        svc: CharacterTraitService
+        store: MemoryStore
+        company: Company
+        user: User
+        character: Character
+        char_trait: CharacterTrait
+
+    @pytest.fixture
+    def make_scenario(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        campaign_experience_factory,
+    ):
+        """Return an async factory that builds the standard recoup-gate scaffold.
+
+        The gate's behavior depends on the company's permission_recoup_xp setting and
+        the trait's current value, so each test supplies its own variant; XP currency
+        tests also need a funded campaign experience, which can be skipped for tests
+        that only exercise NO_COST / STARTING_POINTS paths.
+        """
+
+        async def _make(
+            setting: PermissionsRecoupXP,
+            *,
+            starting_value: int = 3,
+            seed_xp: bool = False,
+            starting_points: int = 0,
+        ) -> TestRecoupXPGate._Scenario:
+            company = await company_factory(settings__permission_recoup_xp=setting)
+            user = await user_factory(company=company)
+            if seed_xp:
+                campaign = await campaign_factory(company=company)
+                character = await character_factory(
+                    company=company,
+                    user_player=user,
+                    campaign=campaign,
+                    starting_points=starting_points,
+                )
+                await campaign_experience_factory(
+                    user=user, campaign=campaign, xp_current=500, xp_total=500
+                )
+            else:
+                character = await character_factory(
+                    company=company, user_player=user, starting_points=starting_points
+                )
+            char_trait = await character_trait_factory(character=character, value=starting_value)
+            return TestRecoupXPGate._Scenario(
+                svc=CharacterTraitService(),
+                store=MemoryStore(),
+                company=company,
+                user=user,
+                character=character,
+                char_trait=char_trait,
+            )
+
+        return _make
+
+    async def _modify(
+        self,
+        s: "TestRecoupXPGate._Scenario",
+        *,
+        target_value: int,
+        currency: TraitModifyCurrency = TraitModifyCurrency.XP,
+    ) -> CharacterTrait:
+        return await s.svc.modify_trait_value(
+            company=s.company,
+            user=s.user,
+            character=s.character,
+            character_trait=s.char_trait,
+            target_value=target_value,
+            currency=currency,
+            recoup_store=s.store,
+        )
+
+    async def _floor(self, s: "TestRecoupXPGate._Scenario") -> int | None:
+        return await s.svc._get_recoup_floor(
+            store=s.store,
+            user_id=str(s.user.id),
+            character_id=str(s.character.id),
+            trait_id=str(s.char_trait.id),
+        )
+
+    async def test_denied_blocks_xp_decrease(self, make_scenario) -> None:
+        """Verify DENIED raises PermissionDeniedError on XP decrease."""
+        # Given a company with permission_recoup_xp=DENIED and a trait at value 3
+        s = await make_scenario(PermissionsRecoupXP.DENIED, starting_value=3)
+
+        # When lowering via XP
+        # Then it raises and the trait value is unchanged
+        with pytest.raises(PermissionDeniedError, match=r"recoup|DENIED"):
+            await self._modify(s, target_value=2)
+        await s.char_trait.refresh_from_db()
+        assert s.char_trait.value == 3
+
+    async def test_denied_allows_xp_raise(self, make_scenario) -> None:
+        """Verify DENIED allows XP raise."""
+        # Given DENIED and a funded character at value 2
+        s = await make_scenario(PermissionsRecoupXP.DENIED, starting_value=2, seed_xp=True)
+
+        # When raising via XP
+        result = await self._modify(s, target_value=3)
+
+        # Then the raise succeeds
+        assert result.value == 3
+
+    async def test_denied_allows_no_cost_decrease(self, make_scenario) -> None:
+        """Verify DENIED allows NO_COST decrease."""
+        # Given DENIED
+        s = await make_scenario(PermissionsRecoupXP.DENIED, starting_value=3)
+
+        # When lowering with NO_COST currency
+        result = await self._modify(s, target_value=2, currency=TraitModifyCurrency.NO_COST)
+
+        # Then the decrease succeeds
+        assert result.value == 2
+
+    async def test_denied_allows_starting_points_decrease(self, make_scenario) -> None:
+        """Verify DENIED allows STARTING_POINTS decrease."""
+        # Given DENIED and a character with starting points
+        s = await make_scenario(PermissionsRecoupXP.DENIED, starting_value=3, starting_points=10)
+
+        # When lowering with STARTING_POINTS currency
+        result = await self._modify(s, target_value=2, currency=TraitModifyCurrency.STARTING_POINTS)
+
+        # Then the decrease succeeds
+        assert result.value == 2
+
+    async def test_unrestricted_allows_xp_decrease(self, make_scenario) -> None:
+        """Verify UNRESTRICTED allows XP decrease."""
+        # Given UNRESTRICTED
+        s = await make_scenario(PermissionsRecoupXP.UNRESTRICTED, starting_value=3)
+
+        # When lowering via XP
+        result = await self._modify(s, target_value=2)
+
+        # Then the decrease succeeds
+        assert result.value == 2
+
+    async def test_within_session_lower_without_prior_raise_is_blocked(self, make_scenario) -> None:
+        """Verify WITHIN_SESSION blocks decrease with no active session floor."""
+        # Given WITHIN_SESSION with no prior raise (no floor stored)
+        s = await make_scenario(PermissionsRecoupXP.WITHIN_SESSION, starting_value=3)
+
+        # When lowering via XP
+        # Then it raises
+        with pytest.raises(PermissionDeniedError, match=r"WITHIN_SESSION|session"):
+            await self._modify(s, target_value=2)
+
+    async def test_within_session_raise_anchors_floor_at_pre_update_value(
+        self, make_scenario
+    ) -> None:
+        """Verify WITHIN_SESSION raise anchors floor at pre-update value."""
+        # Given WITHIN_SESSION and a funded character at value 2
+        s = await make_scenario(PermissionsRecoupXP.WITHIN_SESSION, starting_value=2, seed_xp=True)
+
+        # When raising to 4
+        await self._modify(s, target_value=4)
+
+        # Then the stored floor equals the pre-update value 2
+        assert await self._floor(s) == 2
+
+    async def test_within_session_subsequent_raise_does_not_overwrite_floor(
+        self, make_scenario
+    ) -> None:
+        """Verify WITHIN_SESSION subsequent raise preserves original floor."""
+        # Given WITHIN_SESSION with an initial raise from 2 -> 3 anchoring floor=2
+        s = await make_scenario(PermissionsRecoupXP.WITHIN_SESSION, starting_value=2, seed_xp=True)
+        await self._modify(s, target_value=3)
+
+        # When raising again from 3 -> 4
+        await self._modify(s, target_value=4)
+
+        # Then the floor remains 2
+        assert await self._floor(s) == 2
+
+    async def test_within_session_lower_to_floor_succeeds(self, make_scenario) -> None:
+        """Verify WITHIN_SESSION allows lowering to the floor."""
+        # Given an active session floor of 2 after raising 2 -> 4
+        s = await make_scenario(PermissionsRecoupXP.WITHIN_SESSION, starting_value=2, seed_xp=True)
+        await self._modify(s, target_value=4)
+
+        # When lowering back to the floor
+        result = await self._modify(s, target_value=2)
+
+        # Then the decrease succeeds
+        assert result.value == 2
+
+    async def test_within_session_lower_below_floor_blocked(self, make_scenario) -> None:
+        """Verify WITHIN_SESSION blocks lowering below the floor."""
+        # Given an active session floor of 2 after raising 2 -> 4
+        s = await make_scenario(PermissionsRecoupXP.WITHIN_SESSION, starting_value=2, seed_xp=True)
+        await self._modify(s, target_value=4)
+
+        # When lowering below the floor
+        # Then it raises
+        with pytest.raises(PermissionDeniedError, match=r"below 2|floor"):
+            await self._modify(s, target_value=1)
+
+    async def test_within_session_lower_with_no_cost_currency_bypasses_gate(
+        self, make_scenario
+    ) -> None:
+        """Verify WITHIN_SESSION gate is bypassed when currency is NO_COST."""
+        # Given WITHIN_SESSION with no prior raise
+        s = await make_scenario(PermissionsRecoupXP.WITHIN_SESSION, starting_value=3)
+
+        # When lowering with NO_COST currency
+        result = await self._modify(s, target_value=1, currency=TraitModifyCurrency.NO_COST)
+
+        # Then the decrease succeeds, bypassing the gate
+        assert result.value == 1

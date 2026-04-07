@@ -5,11 +5,14 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, ClassVar, assert_never
 from uuid import UUID
 
+from litestar.stores.base import Store
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
+    RECOUP_XP_SESSION_LENGTH,
     CharacterClass,
     PermissionsFreeTraitChanges,
+    PermissionsRecoupXP,
     TraitModifyCurrency,
     UserRole,
 )
@@ -536,6 +539,115 @@ class CharacterTraitService:
             msg = "CharacterTrait not found after save"
             raise ValidationError(detail=msg)
         return result
+
+    @staticmethod
+    def _recoup_floor_key(*, user_id: str, character_id: str, trait_id: str) -> str:
+        """Build the Redis key for a (user, character, trait) recoup floor."""
+        return f"recoup_floor:{user_id}:{character_id}:{trait_id}"
+
+    async def _get_recoup_floor(
+        self, *, store: Store, user_id: str, character_id: str, trait_id: str
+    ) -> int | None:
+        """Read the stored recoup floor for this trait, or None if absent or expired."""
+        key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
+        raw = await store.get(key)
+        if raw is None:
+            return None
+        return int(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+
+    async def _set_recoup_floor(
+        self,
+        *,
+        store: Store,
+        user_id: str,
+        character_id: str,
+        trait_id: str,
+        value: int,
+    ) -> None:
+        """Write a new floor value with the configured session TTL."""
+        key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
+        await store.set(key, str(value).encode("utf-8"), expires_in=RECOUP_XP_SESSION_LENGTH)
+
+    async def _enforce_recoup_xp_permission(  # noqa: PLR0913
+        self,
+        *,
+        company: "Company",
+        user: "User",
+        character: Character,
+        character_trait: CharacterTrait,
+        current_value: int,
+        target_value: int,
+        is_increase: bool,
+        store: Store,
+    ) -> None:
+        """Enforce the company's permission_recoup_xp setting for an XP-currency change."""
+        # company.settings is prefetched by the DI provider (provide_company_by_id).
+        setting = company.settings.permission_recoup_xp
+        user_id = str(user.id)
+        character_id = str(character.id)
+        trait_id = str(character_trait.id)
+
+        match setting:
+            case PermissionsRecoupXP.UNRESTRICTED:
+                return
+            case PermissionsRecoupXP.DENIED:
+                if not is_increase:
+                    msg = (
+                        "Lowering trait values is not permitted for this company. "
+                        "Current setting: DENIED."
+                    )
+                    raise PermissionDeniedError(detail=msg)
+                return
+            case PermissionsRecoupXP.WITHIN_SESSION:
+                if is_increase:
+                    existing_floor = await self._get_recoup_floor(
+                        store=store,
+                        user_id=user_id,
+                        character_id=character_id,
+                        trait_id=trait_id,
+                    )
+                    # On the first raise in a session, anchor the floor at the
+                    # pre-update value; on subsequent raises, re-write the same
+                    # floor to refresh its TTL.
+                    floor_to_write = current_value if existing_floor is None else existing_floor
+                    await self._set_recoup_floor(
+                        store=store,
+                        user_id=user_id,
+                        character_id=character_id,
+                        trait_id=trait_id,
+                        value=floor_to_write,
+                    )
+                    return
+
+                floor = await self._get_recoup_floor(
+                    store=store,
+                    user_id=user_id,
+                    character_id=character_id,
+                    trait_id=trait_id,
+                )
+                if floor is None:
+                    msg = (
+                        "Lowering trait values is not permitted for this company outside of "
+                        "an active edit session. Current setting: WITHIN_SESSION."
+                    )
+                    raise PermissionDeniedError(detail=msg)
+                if target_value < floor:
+                    msg = (
+                        f"Cannot lower this trait below {floor} (the value at the start of "
+                        "your current edit session). Current setting: WITHIN_SESSION."
+                    )
+                    raise PermissionDeniedError(detail=msg)
+                # Successful lower within the session refreshes the floor's TTL.
+                await self._set_recoup_floor(
+                    store=store,
+                    user_id=user_id,
+                    character_id=character_id,
+                    trait_id=trait_id,
+                    value=floor,
+                )
+                return
+            case _ as unreachable:
+                assert_never(unreachable)
 
     async def add_constant_trait_to_character(
         self,
@@ -1235,7 +1347,7 @@ class CharacterTraitService:
             options=options,
         )
 
-    async def modify_trait_value(  # noqa: PLR0911
+    async def modify_trait_value(  # noqa: PLR0911, PLR0913
         self,
         *,
         company: "Company",
@@ -1245,6 +1357,7 @@ class CharacterTraitService:
         target_value: int,
         currency: TraitModifyCurrency,
         deleting_trait: bool = False,
+        recoup_store: Store | None = None,
     ) -> CharacterTrait:
         """Modify a trait to a target value using the specified currency.
 
@@ -1256,13 +1369,16 @@ class CharacterTraitService:
             target_value: The desired target value for the trait.
             currency: The currency to use (NO_COST, XP, or STARTING_POINTS).
             deleting_trait: Whether the trait is being deleted.
+            recoup_store: Optional Redis store used to enforce permission_recoup_xp.
+                When None, the gate is skipped (callers without request context).
 
         Returns:
             The updated CharacterTrait.
 
         Raises:
             ValidationError: If the target value is invalid or unaffordable.
-            PermissionDeniedError: If the user lacks required permissions.
+            PermissionDeniedError: If the user lacks required permissions, including
+                recoup-XP enforcement.
         """
         current_value = character_trait.value
         num_dots = abs(target_value - current_value)
@@ -1271,6 +1387,19 @@ class CharacterTraitService:
             return character_trait
 
         is_increase = target_value > current_value
+
+        # XP-currency recoup gate. NO_COST and STARTING_POINTS bypass entirely.
+        if currency == TraitModifyCurrency.XP and recoup_store is not None:
+            await self._enforce_recoup_xp_permission(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                current_value=current_value,
+                target_value=target_value,
+                is_increase=is_increase,
+                store=recoup_store,
+            )
 
         if is_increase:
             if currency == TraitModifyCurrency.NO_COST:
@@ -1331,6 +1460,7 @@ class CharacterTraitService:
         character: Character,
         character_trait: CharacterTrait,
         currency: TraitModifyCurrency | None = None,
+        recoup_store: Store | None = None,
     ) -> None:
         """Delete a trait from a character.
 
@@ -1340,6 +1470,8 @@ class CharacterTraitService:
             character: The character to delete the trait from.
             character_trait: The trait to delete.
             currency: The currency to use to recoup the cost of the trait.
+            recoup_store: Optional Redis store used to enforce permission_recoup_xp.
+                When None, the gate is skipped (callers without request context).
 
         Raises:
             PermissionDeniedError: If the user does not have permissions to delete the trait.
@@ -1356,6 +1488,7 @@ class CharacterTraitService:
                 target_value=0,
                 currency=currency,
                 deleting_trait=True,
+                recoup_store=recoup_store,
             )
 
         if character_trait.trait.is_custom:

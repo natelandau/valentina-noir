@@ -14,6 +14,7 @@ from vapi.constants import (
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
+    PermissionsRecoupXP,
     UserRole,
 )
 from vapi.db.sql_models.company import Company, CompanySettings
@@ -70,6 +71,8 @@ async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettin
         settings.permission_free_trait_changes = PermissionsFreeTraitChanges(
             patch.permission_free_trait_changes
         )
+    if not isinstance(patch.permission_recoup_xp, msgspec.UnsetType):
+        settings.permission_recoup_xp = PermissionsRecoupXP(patch.permission_recoup_xp)
     await settings.save()
 
 
@@ -147,6 +150,7 @@ class CompanyController(Controller):
                 "permission_manage_campaign": data.settings.permission_manage_campaign,
                 "permission_grant_xp": data.settings.permission_grant_xp,
                 "permission_free_trait_changes": data.settings.permission_free_trait_changes,
+                "permission_recoup_xp": data.settings.permission_recoup_xp,
             }
         await CompanySettings.create(company=company, **settings_kwargs)
 

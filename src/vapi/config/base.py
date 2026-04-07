@@ -143,6 +143,7 @@ class StoresSettings(BaseModel):
     rate_limit_key: str = Field(default="rate_limit")
     user_role_key: str = Field(default="user_role")
     idempotency_key: str = Field(default="idempotency")
+    recoup_session_key: str = Field(default="recoup_session")
 
 
 class RateLimitPolicy(BaseModel):

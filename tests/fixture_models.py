@@ -49,6 +49,12 @@ async def company_factory():
     created: list[Company] = []
 
     async def _factory(**kwargs: Any) -> Company:
+        # Pull out settings__* kwargs for forwarding to CompanySettings
+        settings_kwargs: dict[str, Any] = {}
+        for key in list(kwargs.keys()):
+            if key.startswith("settings__"):
+                settings_kwargs[key.removeprefix("settings__")] = kwargs.pop(key)
+
         defaults: dict[str, Any] = {
             "name": "Test Company",
             "email": "test@example.com",
@@ -59,7 +65,14 @@ async def company_factory():
         # avoiding type-mismatch issues when comparing with term.company_id
         company = await Company.get(id=str(company.id))
         # Auto-create CompanySettings so services that query settings don't fail
-        await CompanySettings.get_or_create(company=company)
+        settings_obj, _ = await CompanySettings.get_or_create(company=company)
+        if settings_kwargs:
+            for k, v in settings_kwargs.items():
+                setattr(settings_obj, k, v)
+            await settings_obj.save()
+        # Match the DI provider (provide_company_by_id) which prefetches
+        # `settings` so services can access it via direct attribute lookup.
+        await company.fetch_related("settings")
         created.append(company)
         return company
 

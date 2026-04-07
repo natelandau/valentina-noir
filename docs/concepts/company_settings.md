@@ -64,3 +64,17 @@ Control when players update traits without spending experience points.
 !!! info "Storyteller Privileges"
 
     Storytellers and admins always modify trait values on any character without spending experience points, regardless of this setting.
+
+### XP Recoup
+
+Control whether players can lower a trait value (which would otherwise refund the XP difference).
+
+| Setting          | Behavior                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UNRESTRICTED`   | Players may lower any trait using the `XP` currency and recoup the difference                                                               |
+| `DENIED`         | Lowering a trait with the `XP` currency is blocked entirely (default)                                                                       |
+| `WITHIN_SESSION` | A player may lower a trait with the `XP` currency if they raised it within the past hour, but never below its value at the start of editing |
+
+This setting only applies to trait updates that specify the `XP` currency. Updates using `NO_COST` or `STARTING_POINTS` are never affected.
+
+The `WITHIN_SESSION` window is a sliding 1-hour activity window per (user, character, trait). The "start of editing" anchor is captured the first time the user touches a trait in a fresh window and is not updated by subsequent raises.

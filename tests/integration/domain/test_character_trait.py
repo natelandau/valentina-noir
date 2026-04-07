@@ -15,10 +15,10 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import TraitModifyCurrency, UserRole
+from vapi.constants import PermissionsRecoupXP, TraitModifyCurrency, UserRole
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
-from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import User
 from vapi.domain.services import CharacterTraitService
 from vapi.domain.services.user_svc import UserXPService
@@ -459,18 +459,26 @@ class TestDeleteCharacterTrait:
         await user_svc.add_xp(character_player_user.id, character.campaign_id, initial_xp)
 
         # When deleting the trait with XP currency
-        response = await client.delete(
-            build_url(
-                Characters.TRAIT_DELETE,
-                company_id=session_company.id,
-                user_id=character_player_user.id,
-                campaign_id=character.campaign_id,
-                character_id=character.id,
-                character_trait_id=character_trait.id,
-            ),
-            headers=token_global_admin,
-            params={"currency": "XP"},
-        )
+        # Allow recoup since the new default is DENIED but this test exercises the refund path
+        cs = await CompanySettings.get(company=session_company)
+        cs.permission_recoup_xp = PermissionsRecoupXP.UNRESTRICTED
+        await cs.save()
+        try:
+            response = await client.delete(
+                build_url(
+                    Characters.TRAIT_DELETE,
+                    company_id=session_company.id,
+                    user_id=character_player_user.id,
+                    campaign_id=character.campaign_id,
+                    character_id=character.id,
+                    character_trait_id=character_trait.id,
+                ),
+                headers=token_global_admin,
+                params={"currency": "XP"},
+            )
+        finally:
+            cs.permission_recoup_xp = PermissionsRecoupXP.DENIED
+            await cs.save()
 
         # Then the trait is deleted and XP is refunded
         assert response.status_code == HTTP_204_NO_CONTENT
@@ -774,18 +782,26 @@ class TestModifyTraitValue:
         await user_svc.add_xp(character_player_user.id, character.campaign_id, 100)
 
         # When refunding a trait value
-        response = await client.put(
-            build_url(
-                Characters.TRAIT_VALUE,
-                company_id=session_company.id,
-                user_id=character_player_user.id,
-                campaign_id=character.campaign_id,
-                character_id=character.id,
-                character_trait_id=character_trait.id,
-            ),
-            headers=token_global_admin,
-            json={"target_value": trait.max_value - 1, "currency": "XP"},
-        )
+        # Allow recoup since the new default is DENIED but this test exercises the refund path
+        cs = await CompanySettings.get(company=session_company)
+        cs.permission_recoup_xp = PermissionsRecoupXP.UNRESTRICTED
+        await cs.save()
+        try:
+            response = await client.put(
+                build_url(
+                    Characters.TRAIT_VALUE,
+                    company_id=session_company.id,
+                    user_id=character_player_user.id,
+                    campaign_id=character.campaign_id,
+                    character_id=character.id,
+                    character_trait_id=character_trait.id,
+                ),
+                headers=token_global_admin,
+                json={"target_value": trait.max_value - 1, "currency": "XP"},
+            )
+        finally:
+            cs.permission_recoup_xp = PermissionsRecoupXP.DENIED
+            await cs.save()
 
         # Then the response should succeed and XP should be refunded
         assert response.status_code == HTTP_200_OK

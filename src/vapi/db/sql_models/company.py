@@ -11,6 +11,7 @@ from vapi.constants import (
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
+    PermissionsRecoupXP,
 )
 from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import (
@@ -79,6 +80,9 @@ class CompanySettings(BaseModel):
     )
     permission_free_trait_changes = fields.CharEnumField(
         PermissionsFreeTraitChanges, default=PermissionsFreeTraitChanges.UNRESTRICTED
+    )
+    permission_recoup_xp = fields.CharEnumField(
+        PermissionsRecoupXP, default=PermissionsRecoupXP.DENIED
     )
 
     class Meta:

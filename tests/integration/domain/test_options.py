@@ -13,6 +13,7 @@ from vapi.constants import (
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
+    PermissionsRecoupXP,
     RollResultType,
     UserRole,
 )
@@ -47,7 +48,13 @@ async def test_get_company_options(
         "PermissionManageCampaign": [x.value for x in PermissionManageCampaign],
         "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
         "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
+        "PermissionsRecoupXP": [x.value for x in PermissionsRecoupXP],
     }
+    assert response.json()["companies"]["PermissionsRecoupXP"] == [
+        "UNRESTRICTED",
+        "DENIED",
+        "WITHIN_SESSION",
+    ]
     assert response.json()["users"] == {
         "UserRole": [x.value for x in UserRole],
     }
