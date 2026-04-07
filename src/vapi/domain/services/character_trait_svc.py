@@ -1482,6 +1482,7 @@ class CharacterTraitService:
         character: Character,
         character_trait: CharacterTrait,
         currency: TraitModifyCurrency | None = None,
+        recoup_store: Store | None = None,
     ) -> None:
         """Delete a trait from a character.
 
@@ -1491,6 +1492,8 @@ class CharacterTraitService:
             character: The character to delete the trait from.
             character_trait: The trait to delete.
             currency: The currency to use to recoup the cost of the trait.
+            recoup_store: Optional Redis store used to enforce permission_recoup_xp.
+                When None, the gate is skipped (callers without request context).
 
         Raises:
             PermissionDeniedError: If the user does not have permissions to delete the trait.
@@ -1507,6 +1510,7 @@ class CharacterTraitService:
                 target_value=0,
                 currency=currency,
                 deleting_trait=True,
+                recoup_store=recoup_store,
             )
 
         if character_trait.trait.is_custom:
