@@ -568,23 +568,6 @@ class CharacterTraitService:
         key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
         await store.set(key, str(value).encode("utf-8"), expires_in=RECOUP_XP_SESSION_LENGTH)
 
-    async def _refresh_recoup_floor_ttl(
-        self, *, store: Store, user_id: str, character_id: str, trait_id: str
-    ) -> None:
-        """Re-write the existing floor with a fresh TTL. No-op if absent."""
-        existing = await self._get_recoup_floor(
-            store=store, user_id=user_id, character_id=character_id, trait_id=trait_id
-        )
-        if existing is None:
-            return
-        await self._set_recoup_floor(
-            store=store,
-            user_id=user_id,
-            character_id=character_id,
-            trait_id=trait_id,
-            value=existing,
-        )
-
     async def _enforce_recoup_xp_permission(  # noqa: PLR0913
         self,
         *,
@@ -598,78 +581,73 @@ class CharacterTraitService:
         store: Store,
     ) -> None:
         """Enforce the company's permission_recoup_xp setting for an XP-currency change."""
-        # CompanySettings is a reverse FK relation; query it directly to avoid
-        # depending on whether the caller prefetched the relation.
-        settings_obj = await CompanySettings.get_or_none(company_id=company.id)
-        if settings_obj is None:
-            return
-        setting = settings_obj.permission_recoup_xp
-
-        if setting == PermissionsRecoupXP.UNRESTRICTED:
-            return
-
+        # company.settings is prefetched by the DI provider (provide_company_by_id).
+        setting = company.settings.permission_recoup_xp
         user_id = str(user.id)
         character_id = str(character.id)
         trait_id = str(character_trait.id)
 
-        if setting == PermissionsRecoupXP.DENIED:
-            if not is_increase:
-                msg = (
-                    "Lowering trait values is not permitted for this company. "
-                    "Current setting: DENIED."
-                )
-                raise PermissionDeniedError(detail=msg)
-            return
+        match setting:
+            case PermissionsRecoupXP.UNRESTRICTED:
+                return
+            case PermissionsRecoupXP.DENIED:
+                if not is_increase:
+                    msg = (
+                        "Lowering trait values is not permitted for this company. "
+                        "Current setting: DENIED."
+                    )
+                    raise PermissionDeniedError(detail=msg)
+                return
+            case PermissionsRecoupXP.WITHIN_SESSION:
+                if is_increase:
+                    existing_floor = await self._get_recoup_floor(
+                        store=store,
+                        user_id=user_id,
+                        character_id=character_id,
+                        trait_id=trait_id,
+                    )
+                    # On the first raise in a session, anchor the floor at the
+                    # pre-update value; on subsequent raises, re-write the same
+                    # floor to refresh its TTL.
+                    floor_to_write = current_value if existing_floor is None else existing_floor
+                    await self._set_recoup_floor(
+                        store=store,
+                        user_id=user_id,
+                        character_id=character_id,
+                        trait_id=trait_id,
+                        value=floor_to_write,
+                    )
+                    return
 
-        # WITHIN_SESSION
-        if is_increase:
-            existing_floor = await self._get_recoup_floor(
-                store=store,
-                user_id=user_id,
-                character_id=character_id,
-                trait_id=trait_id,
-            )
-            if existing_floor is None:
+                floor = await self._get_recoup_floor(
+                    store=store,
+                    user_id=user_id,
+                    character_id=character_id,
+                    trait_id=trait_id,
+                )
+                if floor is None:
+                    msg = (
+                        "Lowering trait values is not permitted for this company outside of "
+                        "an active edit session. Current setting: WITHIN_SESSION."
+                    )
+                    raise PermissionDeniedError(detail=msg)
+                if target_value < floor:
+                    msg = (
+                        f"Cannot lower this trait below {floor} (the value at the start of "
+                        "your current edit session). Current setting: WITHIN_SESSION."
+                    )
+                    raise PermissionDeniedError(detail=msg)
+                # Successful lower within the session refreshes the floor's TTL.
                 await self._set_recoup_floor(
                     store=store,
                     user_id=user_id,
                     character_id=character_id,
                     trait_id=trait_id,
-                    value=current_value,
+                    value=floor,
                 )
-            else:
-                await self._refresh_recoup_floor_ttl(
-                    store=store,
-                    user_id=user_id,
-                    character_id=character_id,
-                    trait_id=trait_id,
-                )
-            return
-
-        floor = await self._get_recoup_floor(
-            store=store,
-            user_id=user_id,
-            character_id=character_id,
-            trait_id=trait_id,
-        )
-        if floor is None:
-            msg = (
-                "Lowering trait values is not permitted for this company outside of "
-                "an active edit session. Current setting: WITHIN_SESSION."
-            )
-            raise PermissionDeniedError(detail=msg)
-        if target_value < floor:
-            msg = (
-                f"Cannot lower this trait below {floor} (the value at the start of "
-                "your current edit session). Current setting: WITHIN_SESSION."
-            )
-            raise PermissionDeniedError(detail=msg)
-        await self._refresh_recoup_floor_ttl(
-            store=store,
-            user_id=user_id,
-            character_id=character_id,
-            trait_id=trait_id,
-        )
+                return
+            case _ as unreachable:
+                assert_never(unreachable)
 
     async def add_constant_trait_to_character(
         self,

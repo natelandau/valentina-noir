@@ -70,6 +70,9 @@ async def company_factory():
             for k, v in settings_kwargs.items():
                 setattr(settings_obj, k, v)
             await settings_obj.save()
+        # Match the DI provider (provide_company_by_id) which prefetches
+        # `settings` so services can access it via direct attribute lookup.
+        await company.fetch_related("settings")
         created.append(company)
         return company
 
