@@ -18,10 +18,13 @@ from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import (
+    CHAPTER_INCLUDE_PREFETCH_MAP,
     BookChapterNumber,
     CampaignChapterCreate,
+    CampaignChapterDetailResponse,
     CampaignChapterPatch,
     CampaignChapterResponse,
+    ChapterInclude,
 )
 from .guards import user_can_manage_campaign
 
@@ -74,9 +77,20 @@ class CampaignChapterController(Controller):
         description=docs.GET_CHAPTER_DESCRIPTION,
         cache=True,
     )
-    async def get_chapter(self, *, chapter: CampaignChapter) -> CampaignChapterResponse:
-        """Get a chapter by ID."""
-        return CampaignChapterResponse.from_model(chapter)
+    async def get_chapter(
+        self,
+        *,
+        chapter: CampaignChapter,
+        include: list[ChapterInclude] | None = None,
+    ) -> CampaignChapterDetailResponse:
+        """Get a chapter by ID with optional embedded children."""
+        requested = set(include) if include else set()
+        prefetches: list[str] = []
+        for inc in requested:
+            prefetches.extend(CHAPTER_INCLUDE_PREFETCH_MAP[inc])
+        if prefetches:
+            await chapter.fetch_related(*prefetches)
+        return CampaignChapterDetailResponse.from_model(chapter, requested)
 
     @post(
         path=urls.Campaigns.CHAPTER_CREATE,
