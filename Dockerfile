@@ -26,8 +26,16 @@ RUN uv sync --locked --no-dev --no-cache
 FROM python:3.13-slim-trixie
 
 # Runtime-only system deps
+# Install PGDG apt repo to get postgresql-client-18 (Debian trixie ships v17,
+# which is incompatible with a Postgres 18 server used by the backup task)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates tini tzdata gosu libargon2-1 postgresql-client \
+    curl ca-certificates tini tzdata gosu libargon2-1 gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
 
 # Timezone
