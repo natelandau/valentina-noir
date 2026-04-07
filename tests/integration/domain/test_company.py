@@ -129,6 +129,7 @@ class TestCompanyCRUD:
                 "permission_manage_campaign": "STORYTELLER",
                 "permission_grant_xp": "STORYTELLER",
                 "permission_free_trait_changes": "STORYTELLER",
+                "permission_recoup_xp": "WITHIN_SESSION",
             },
         }
 
@@ -146,6 +147,7 @@ class TestCompanyCRUD:
         assert settings["permission_manage_campaign"] == "STORYTELLER"
         assert settings["permission_grant_xp"] == "STORYTELLER"
         assert settings["permission_free_trait_changes"] == "STORYTELLER"
+        assert settings["permission_recoup_xp"] == "WITHIN_SESSION"
 
     async def test_patch_company(
         self,
@@ -246,6 +248,7 @@ class TestCompanyCRUD:
                     "permission_manage_campaign": "STORYTELLER",
                     "permission_grant_xp": "STORYTELLER",
                     "permission_free_trait_changes": "WITHIN_24_HOURS",
+                    "permission_recoup_xp": "WITHIN_SESSION",
                 }
             },
         )
@@ -257,6 +260,7 @@ class TestCompanyCRUD:
         assert settings["permission_manage_campaign"] == "STORYTELLER"
         assert settings["permission_grant_xp"] == "STORYTELLER"
         assert settings["permission_free_trait_changes"] == "WITHIN_24_HOURS"
+        assert settings["permission_recoup_xp"] == "WITHIN_SESSION"
 
     async def test_patch_company_forbidden_without_admin(
         self,
