@@ -33,7 +33,7 @@ class UserInclude(StrEnum):
 #   - "assets"     → "owned_assets" (user is the subject, not the uploader)
 #   - "characters" → "played_characters" (primary user→character relation)
 USER_INCLUDE_PREFETCH_MAP: dict[UserInclude, list[str]] = {
-    UserInclude.QUICKROLLS: ["quick_rolls"],
+    UserInclude.QUICKROLLS: ["quick_rolls__traits"],
     UserInclude.NOTES: ["notes"],
     UserInclude.ASSETS: ["owned_assets"],
     UserInclude.CHARACTERS: ["played_characters"],

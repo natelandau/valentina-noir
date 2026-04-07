@@ -385,6 +385,158 @@ class TestUserController:
             # Then we get 404
             assert response.status_code == HTTP_404_NOT_FOUND
 
+        async def test_get_user_no_include_omits_children(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+        ) -> None:
+            """Verify getUser without include omits child resource keys."""
+            # Given an existing session user
+            # When we get the user without include
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+            )
+
+            # Then the response has no child keys
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert data["id"] == str(session_user.id)
+            assert "quickrolls" not in data
+            assert "notes" not in data
+            assert "assets" not in data
+            assert "characters" not in data
+
+        async def test_get_user_include_all_children(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            session_campaign: Campaign,
+            quickroll_factory: Callable[..., Any],
+            note_factory: Callable[..., Any],
+            s3asset_factory: Callable[..., Any],
+            character_factory: Callable[..., Any],
+        ) -> None:
+            """Verify getUser with all includes embeds each child list."""
+            # Given one of each child attached to the session user
+            quickroll = await quickroll_factory(user=session_user)
+            note = await note_factory(company=session_company, user=session_user)
+            asset = await s3asset_factory(
+                company=session_company,
+                user_parent=session_user,
+                uploaded_by=session_user,
+            )
+            character = await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+
+            # When we include all child types
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["quickrolls", "notes", "assets", "characters"]},
+            )
+
+            # Then each child list is present with the created item
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["quickrolls"]) == 1
+            assert data["quickrolls"][0]["id"] == str(quickroll.id)
+            assert len(data["notes"]) == 1
+            assert data["notes"][0]["id"] == str(note.id)
+            assert len(data["assets"]) == 1
+            assert data["assets"][0]["id"] == str(asset.id)
+            assert len(data["characters"]) == 1
+            assert data["characters"][0]["id"] == str(character.id)
+
+        async def test_get_user_include_characters_only_played(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            session_campaign: Campaign,
+            user_factory: Callable[..., User],
+            character_factory: Callable[..., Any],
+        ) -> None:
+            """Verify include=characters returns only played characters, not created."""
+            # Given two characters: one played by session user and one only created by them
+            other_user = await user_factory(company=session_company)
+            played = await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+            await character_factory(
+                company=session_company,
+                user_player=other_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+
+            # When we include characters
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["characters"]},
+            )
+
+            # Then only the played character is returned
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["characters"]) == 1
+            assert data["characters"][0]["id"] == str(played.id)
+
+        async def test_get_user_include_invalid_value(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+        ) -> None:
+            """Verify invalid include value returns 400."""
+            # When we pass an invalid include value
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["bogus"]},
+            )
+
+            # Then we get 400
+            assert response.status_code == HTTP_400_BAD_REQUEST
+
     class TestCreateUser:
         """Test CreateUser."""
 
