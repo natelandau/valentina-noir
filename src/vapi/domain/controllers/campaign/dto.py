@@ -26,6 +26,19 @@ BOOK_INCLUDE_PREFETCH_MAP: dict[BookInclude, list[str]] = {
 }
 
 
+class ChapterInclude(StrEnum):
+    """Child resources that can be embedded in a campaign chapter detail response."""
+
+    NOTES = "notes"
+    ASSETS = "assets"
+
+
+CHAPTER_INCLUDE_PREFETCH_MAP: dict[ChapterInclude, list[str]] = {
+    ChapterInclude.NOTES: ["notes"],
+    ChapterInclude.ASSETS: ["assets"],
+}
+
+
 # ---------------------------------------------------------------------------
 # Response Structs
 # ---------------------------------------------------------------------------
@@ -156,6 +169,34 @@ class CampaignChapterResponse(msgspec.Struct):
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
+
+
+class CampaignChapterDetailResponse(CampaignChapterResponse, omit_defaults=True):
+    """Response body for a single chapter with optional embedded children."""
+
+    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+
+    @classmethod
+    def from_model(
+        cls,
+        m: "CampaignChapter",
+        includes: set[ChapterInclude] | None = None,
+    ) -> "CampaignChapterDetailResponse":
+        """Convert a CampaignChapter to a detail response with optional children."""
+        from vapi.domain.controllers.notes.dto import NoteResponse
+        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
+
+        includes = includes or set()
+        base = CampaignChapterResponse.from_model(m)
+        fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
+
+        if ChapterInclude.NOTES in includes:
+            fields["notes"] = [NoteResponse.from_model(n) for n in m.notes]
+        if ChapterInclude.ASSETS in includes:
+            fields["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
+
+        return cls(**fields)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
