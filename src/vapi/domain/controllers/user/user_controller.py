@@ -19,7 +19,18 @@ from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
-from .dto import UserApprove, UserCreate, UserDeny, UserMerge, UserPatch, UserRegister, UserResponse
+from .dto import (
+    USER_INCLUDE_PREFETCH_MAP,
+    UserApprove,
+    UserCreate,
+    UserDeny,
+    UserDetailResponse,
+    UserInclude,
+    UserMerge,
+    UserPatch,
+    UserRegister,
+    UserResponse,
+)
 
 
 class UserController(Controller):
@@ -74,9 +85,19 @@ class UserController(Controller):
         description=docs.GET_USER_DESCRIPTION,
         cache=True,
     )
-    async def get_user(self, user: User) -> UserResponse:
-        """Get a user by ID."""
-        return UserResponse.from_model(user)
+    async def get_user(
+        self,
+        user: User,
+        include: list[UserInclude] | None = None,
+    ) -> UserDetailResponse:
+        """Get a user by ID with optional embedded children."""
+        requested = set(include) if include else set()
+        prefetches: list[str] = []
+        for inc in requested:
+            prefetches.extend(USER_INCLUDE_PREFETCH_MAP[inc])
+        if prefetches:
+            await user.fetch_related(*prefetches)
+        return UserDetailResponse.from_model(user, requested)
 
     @post(
         path=urls.Users.CREATE,
