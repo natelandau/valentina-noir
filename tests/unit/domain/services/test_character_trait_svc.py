@@ -11,6 +11,7 @@ from litestar.stores.memory import MemoryStore
 from vapi.constants import (
     CharacterClass,
     PermissionsFreeTraitChanges,
+    PermissionsRecoupXP,
     TraitModifyCurrency,
     UserRole,
 )
@@ -4341,3 +4342,335 @@ class TestRecoupXPFloorHelpers:
             store=memory_store, user_id="u", character_id="c", trait_id="t"
         )
         assert result == 2
+
+
+class TestRecoupXPGate:
+    """Enforcement of permission_recoup_xp on modify_trait_value."""
+
+    async def test_denied_blocks_xp_decrease(
+        self, company_factory, user_factory, character_factory, character_trait_factory
+    ) -> None:
+        """Verify DENIED raises PermissionDeniedError on XP decrease."""
+        # Given a company with permission_recoup_xp=DENIED
+        company = await company_factory(settings__permission_recoup_xp=PermissionsRecoupXP.DENIED)
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user)
+        char_trait = await character_trait_factory(character=character, value=3)
+        store = MemoryStore()
+        svc = CharacterTraitService()
+
+        # When/Then lowering via XP raises
+        with pytest.raises(PermissionDeniedError, match=r"recoup|DENIED"):
+            await svc.modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=char_trait,
+                target_value=2,
+                currency=TraitModifyCurrency.XP,
+                recoup_store=store,
+            )
+        await char_trait.refresh_from_db()
+        assert char_trait.value == 3
+
+    async def test_denied_allows_xp_raise(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        campaign_experience_factory,
+    ) -> None:
+        """Verify DENIED allows XP raise."""
+        company = await company_factory(settings__permission_recoup_xp=PermissionsRecoupXP.DENIED)
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=500, xp_total=500
+        )
+        char_trait = await character_trait_factory(character=character, value=2)
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=3,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=MemoryStore(),
+        )
+        assert result.value == 3
+
+    async def test_denied_allows_no_cost_decrease(
+        self, company_factory, user_factory, character_factory, character_trait_factory
+    ) -> None:
+        """Verify DENIED allows NO_COST decrease."""
+        company = await company_factory(settings__permission_recoup_xp=PermissionsRecoupXP.DENIED)
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user)
+        char_trait = await character_trait_factory(character=character, value=3)
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=2,
+            currency=TraitModifyCurrency.NO_COST,
+            recoup_store=MemoryStore(),
+        )
+        assert result.value == 2
+
+    async def test_denied_allows_starting_points_decrease(
+        self, company_factory, user_factory, character_factory, character_trait_factory
+    ) -> None:
+        """Verify DENIED allows STARTING_POINTS decrease."""
+        company = await company_factory(settings__permission_recoup_xp=PermissionsRecoupXP.DENIED)
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user, starting_points=10)
+        char_trait = await character_trait_factory(character=character, value=3)
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=2,
+            currency=TraitModifyCurrency.STARTING_POINTS,
+            recoup_store=MemoryStore(),
+        )
+        assert result.value == 2
+
+    async def test_unrestricted_allows_xp_decrease(
+        self, company_factory, user_factory, character_factory, character_trait_factory
+    ) -> None:
+        """Verify UNRESTRICTED allows XP decrease."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.UNRESTRICTED
+        )
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user)
+        char_trait = await character_trait_factory(character=character, value=3)
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=2,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=MemoryStore(),
+        )
+        assert result.value == 2
+
+    async def test_within_session_lower_without_prior_raise_is_blocked(
+        self, company_factory, user_factory, character_factory, character_trait_factory
+    ) -> None:
+        """Verify WITHIN_SESSION blocks decrease with no active session floor."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.WITHIN_SESSION
+        )
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user)
+        char_trait = await character_trait_factory(character=character, value=3)
+        with pytest.raises(PermissionDeniedError, match=r"WITHIN_SESSION|session"):
+            await CharacterTraitService().modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=char_trait,
+                target_value=2,
+                currency=TraitModifyCurrency.XP,
+                recoup_store=MemoryStore(),
+            )
+
+    async def test_within_session_raise_anchors_floor_at_pre_update_value(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        campaign_experience_factory,
+    ) -> None:
+        """Verify WITHIN_SESSION raise anchors floor at pre-update value."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.WITHIN_SESSION
+        )
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=500, xp_total=500
+        )
+        char_trait = await character_trait_factory(character=character, value=2)
+        store = MemoryStore()
+        svc = CharacterTraitService()
+        await svc.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=4,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=store,
+        )
+        floor = await svc._get_recoup_floor(
+            store=store,
+            user_id=str(user.id),
+            character_id=str(character.id),
+            trait_id=str(char_trait.id),
+        )
+        assert floor == 2
+
+    async def test_within_session_subsequent_raise_does_not_overwrite_floor(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        campaign_experience_factory,
+    ) -> None:
+        """Verify WITHIN_SESSION subsequent raise preserves original floor."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.WITHIN_SESSION
+        )
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=500, xp_total=500
+        )
+        char_trait = await character_trait_factory(character=character, value=2)
+        store = MemoryStore()
+        svc = CharacterTraitService()
+        await svc.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=3,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=store,
+        )
+        await svc.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=4,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=store,
+        )
+        floor = await svc._get_recoup_floor(
+            store=store,
+            user_id=str(user.id),
+            character_id=str(character.id),
+            trait_id=str(char_trait.id),
+        )
+        assert floor == 2
+
+    async def test_within_session_lower_to_floor_succeeds(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        campaign_experience_factory,
+    ) -> None:
+        """Verify WITHIN_SESSION allows lowering to the floor."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.WITHIN_SESSION
+        )
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=500, xp_total=500
+        )
+        char_trait = await character_trait_factory(character=character, value=2)
+        store = MemoryStore()
+        svc = CharacterTraitService()
+        await svc.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=4,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=store,
+        )
+        result = await svc.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=2,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=store,
+        )
+        assert result.value == 2
+
+    async def test_within_session_lower_below_floor_blocked(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        campaign_experience_factory,
+    ) -> None:
+        """Verify WITHIN_SESSION blocks lowering below the floor."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.WITHIN_SESSION
+        )
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=500, xp_total=500
+        )
+        char_trait = await character_trait_factory(character=character, value=2)
+        store = MemoryStore()
+        svc = CharacterTraitService()
+        await svc.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=4,
+            currency=TraitModifyCurrency.XP,
+            recoup_store=store,
+        )
+        with pytest.raises(PermissionDeniedError, match=r"below 2|floor"):
+            await svc.modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=char_trait,
+                target_value=1,
+                currency=TraitModifyCurrency.XP,
+                recoup_store=store,
+            )
+
+    async def test_within_session_lower_with_no_cost_currency_bypasses_gate(
+        self, company_factory, user_factory, character_factory, character_trait_factory
+    ) -> None:
+        """Verify WITHIN_SESSION gate is bypassed when currency is NO_COST."""
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.WITHIN_SESSION
+        )
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user)
+        char_trait = await character_trait_factory(character=character, value=3)
+        store = MemoryStore()
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=char_trait,
+            target_value=1,
+            currency=TraitModifyCurrency.NO_COST,
+            recoup_store=store,
+        )
+        assert result.value == 1
