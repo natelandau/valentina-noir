@@ -1,6 +1,7 @@
 """Campaign DTOs."""
 
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
@@ -8,6 +9,21 @@ import msgspec
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+
+
+class BookInclude(StrEnum):
+    """Child resources that can be embedded in a campaign book detail response."""
+
+    CHAPTERS = "chapters"
+    NOTES = "notes"
+    ASSETS = "assets"
+
+
+BOOK_INCLUDE_PREFETCH_MAP: dict[BookInclude, list[str]] = {
+    BookInclude.CHAPTERS: ["chapters"],
+    BookInclude.NOTES: ["notes"],
+    BookInclude.ASSETS: ["assets"],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +81,56 @@ class CampaignBookResponse(msgspec.Struct):
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
+
+
+class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
+    """Response body for a single campaign book with optional embedded children.
+
+    Inherits all fields from CampaignBookResponse and adds optional child lists.
+    When no includes are requested, the serialized JSON is identical to
+    CampaignBookResponse (child fields are omitted via omit_defaults).
+    """
+
+    # Optional children — omitted from JSON when not requested.
+    # Types use msgspec.Struct base because some concrete DTO modules can't be
+    # imported at module level without causing circular imports.
+    chapters: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+
+    @classmethod
+    def from_model(
+        cls,
+        m: "CampaignBook",
+        includes: set[BookInclude] | None = None,
+    ) -> "CampaignBookDetailResponse":
+        """Convert a Tortoise CampaignBook to a detail response.
+
+        Delegate base fields to CampaignBookResponse.from_model(), then conditionally
+        populate child lists based on the requested includes.
+
+        Args:
+            m: The CampaignBook model instance with relations prefetched.
+            includes: Set of BookInclude values indicating which children to embed.
+        """
+        # Lazy imports to avoid circular dependency: these controller dto modules
+        # import from deps.py which imports from this file at module level.
+        from vapi.domain.controllers.notes.dto import NoteResponse
+        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
+
+        includes = includes or set()
+        base = CampaignBookResponse.from_model(m)
+
+        # Build base field dict, then overlay optional children
+        fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
+        if BookInclude.CHAPTERS in includes:
+            fields["chapters"] = [CampaignChapterResponse.from_model(c) for c in m.chapters]
+        if BookInclude.NOTES in includes:
+            fields["notes"] = [NoteResponse.from_model(n) for n in m.notes]
+        if BookInclude.ASSETS in includes:
+            fields["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
+
+        return cls(**fields)  # type: ignore[arg-type]
 
 
 class CampaignChapterResponse(msgspec.Struct):
