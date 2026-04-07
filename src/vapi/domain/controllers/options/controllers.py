@@ -23,6 +23,7 @@ from vapi.constants import (
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
+    PermissionsRecoupXP,
     RollResultType,
     SpecialtyType,
     TraitModifyCurrency,
@@ -73,6 +74,7 @@ class OptionsController(Controller):
                 "PermissionManageCampaign": [x.value for x in PermissionManageCampaign],
                 "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
                 "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
+                "PermissionsRecoupXP": [x.value for x in PermissionsRecoupXP],
             },
             "characters": {
                 "AbilityFocus": [x.value for x in AbilityFocus],
