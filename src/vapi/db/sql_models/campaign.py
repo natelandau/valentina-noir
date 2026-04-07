@@ -10,6 +10,7 @@ from tortoise.validators import MaxValueValidator, MinLengthValidator, MinValueV
 from vapi.db.sql_models.base import BaseModel
 
 if TYPE_CHECKING:
+    from vapi.db.sql_models.aws import S3Asset
     from vapi.db.sql_models.character import Character
     from vapi.db.sql_models.chargen_session import ChargenSession
     from vapi.db.sql_models.company import Company
@@ -62,6 +63,7 @@ class CampaignBook(BaseModel):
     # Reverse relations
     chapters: fields.ReverseRelation[CampaignChapter]
     notes: fields.ReverseRelation[Note]
+    assets: fields.ReverseRelation[S3Asset]
 
     class Meta:
         """Tortoise ORM meta options."""
@@ -82,6 +84,7 @@ class CampaignChapter(BaseModel):
 
     # Reverse relations
     notes: fields.ReverseRelation[Note]
+    assets: fields.ReverseRelation[S3Asset]
 
     class Meta:
         """Tortoise ORM meta options."""

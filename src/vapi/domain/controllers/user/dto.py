@@ -128,7 +128,7 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
     characters: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
 
     @classmethod
-    def from_model(  # type: ignore[override]
+    def from_model(
         cls,
         m: "User",
         includes: set[UserInclude] | None = None,

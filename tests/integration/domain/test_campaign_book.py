@@ -233,9 +233,7 @@ async def test_get_book_include_all_children(
     book = await campaign_book_factory(campaign=campaign)
     chapter = await campaign_chapter_factory(book=book)
     note = await note_factory(company=session_company, book=book)
-    asset = await s3asset_factory(
-        company=session_company, book=book, uploaded_by=session_user
-    )
+    asset = await s3asset_factory(company=session_company, book=book, uploaded_by=session_user)
 
     # When we include all child types
     response = await client.get(
