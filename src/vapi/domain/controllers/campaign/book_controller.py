@@ -18,8 +18,11 @@ from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import (
+    BOOK_INCLUDE_PREFETCH_MAP,
     BookChapterNumber,
+    BookInclude,
     CampaignBookCreate,
+    CampaignBookDetailResponse,
     CampaignBookPatch,
     CampaignBookResponse,
 )
@@ -73,9 +76,20 @@ class CampaignBookController(Controller):
         description=docs.GET_BOOK_DESCRIPTION,
         cache=True,
     )
-    async def get_book(self, *, book: CampaignBook) -> CampaignBookResponse:
-        """Get a book by ID."""
-        return CampaignBookResponse.from_model(book)
+    async def get_book(
+        self,
+        *,
+        book: CampaignBook,
+        include: list[BookInclude] | None = None,
+    ) -> CampaignBookDetailResponse:
+        """Get a book by ID with optional embedded children."""
+        requested = set(include) if include else set()
+        prefetches: list[str] = []
+        for inc in requested:
+            prefetches.extend(BOOK_INCLUDE_PREFETCH_MAP[inc])
+        if prefetches:
+            await book.fetch_related(*prefetches)
+        return CampaignBookDetailResponse.from_model(book, requested)
 
     @post(
         path=urls.Campaigns.BOOK_CREATE,
