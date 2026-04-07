@@ -5,11 +5,14 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, ClassVar, assert_never
 from uuid import UUID
 
+from litestar.stores.base import Store
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
+    RECOUP_XP_SESSION_LENGTH,
     CharacterClass,
     PermissionsFreeTraitChanges,
+    PermissionsRecoupXP,  # noqa: F401  # used by upcoming gate logic in this branch
     TraitModifyCurrency,
     UserRole,
 )
@@ -536,6 +539,51 @@ class CharacterTraitService:
             msg = "CharacterTrait not found after save"
             raise ValidationError(detail=msg)
         return result
+
+    @staticmethod
+    def _recoup_floor_key(*, user_id: str, character_id: str, trait_id: str) -> str:
+        """Build the Redis key for a (user, character, trait) recoup floor."""
+        return f"recoup_floor:{user_id}:{character_id}:{trait_id}"
+
+    async def _get_recoup_floor(
+        self, *, store: Store, user_id: str, character_id: str, trait_id: str
+    ) -> int | None:
+        """Read the stored recoup floor for this trait, or None if absent or expired."""
+        key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
+        raw = await store.get(key)
+        if raw is None:
+            return None
+        return int(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+
+    async def _set_recoup_floor(
+        self,
+        *,
+        store: Store,
+        user_id: str,
+        character_id: str,
+        trait_id: str,
+        value: int,
+    ) -> None:
+        """Write a new floor value with the configured session TTL."""
+        key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
+        await store.set(key, str(value).encode("utf-8"), expires_in=RECOUP_XP_SESSION_LENGTH)
+
+    async def _refresh_recoup_floor_ttl(
+        self, *, store: Store, user_id: str, character_id: str, trait_id: str
+    ) -> None:
+        """Re-write the existing floor with a fresh TTL. No-op if absent."""
+        existing = await self._get_recoup_floor(
+            store=store, user_id=user_id, character_id=character_id, trait_id=trait_id
+        )
+        if existing is None:
+            return
+        await self._set_recoup_floor(
+            store=store,
+            user_id=user_id,
+            character_id=character_id,
+            trait_id=trait_id,
+            value=existing,
+        )
 
     async def add_constant_trait_to_character(
         self,

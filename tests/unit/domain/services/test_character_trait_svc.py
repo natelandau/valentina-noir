@@ -6,6 +6,7 @@ from unittest.mock import ANY
 from uuid import UUID, uuid4
 
 import pytest
+from litestar.stores.memory import MemoryStore
 
 from vapi.constants import (
     CharacterClass,
@@ -4279,3 +4280,64 @@ class TestGuardCanAffordNewTrait:
             await service._guard_can_afford_new_trait(
                 trait, character, value=2, currency=TraitModifyCurrency.XP
             )
+
+
+@pytest.fixture
+def memory_store() -> MemoryStore:
+    """Provide a fresh in-memory store for floor helper tests."""
+    return MemoryStore()
+
+
+class TestRecoupXPFloorHelpers:
+    """Tests for the WITHIN_SESSION floor helpers on CharacterTraitService."""
+
+    async def test_floor_key_format_is_namespaced_per_user_character_trait(
+        self, memory_store: MemoryStore
+    ) -> None:
+        # Given
+        svc = CharacterTraitService()
+        # When
+        key = svc._recoup_floor_key(
+            user_id="11111111-1111-1111-1111-111111111111",
+            character_id="22222222-2222-2222-2222-222222222222",
+            trait_id="33333333-3333-3333-3333-333333333333",
+        )
+        # Then
+        assert key == (
+            "recoup_floor:"
+            "11111111-1111-1111-1111-111111111111:"
+            "22222222-2222-2222-2222-222222222222:"
+            "33333333-3333-3333-3333-333333333333"
+        )
+
+    async def test_get_floor_returns_none_when_absent(self, memory_store: MemoryStore) -> None:
+        svc = CharacterTraitService()
+        result = await svc._get_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        assert result is None
+
+    async def test_set_floor_then_get_returns_value(self, memory_store: MemoryStore) -> None:
+        svc = CharacterTraitService()
+        await svc._set_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t", value=3
+        )
+        result = await svc._get_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        assert result == 3
+
+    async def test_refresh_floor_ttl_extends_expiry_without_changing_value(
+        self, memory_store: MemoryStore
+    ) -> None:
+        svc = CharacterTraitService()
+        await svc._set_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t", value=2
+        )
+        await svc._refresh_recoup_floor_ttl(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        result = await svc._get_recoup_floor(
+            store=memory_store, user_id="u", character_id="c", trait_id="t"
+        )
+        assert result == 2
