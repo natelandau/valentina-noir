@@ -28,15 +28,22 @@ class UserInclude(StrEnum):
     CHARACTERS = "characters"
 
 
-# Public include name → Tortoise reverse-relation names for prefetching.
-#   - "quickrolls" (public) → "quick_rolls"
-#   - "assets"     → "owned_assets" (user is the subject, not the uploader)
-#   - "characters" → "played_characters" (primary user→character relation)
+# "assets" → owned_assets (attached-to, not uploaded-by). "characters" →
+# played_characters. Nested prefetches mirror CHARACTER_RESPONSE_PREFETCH so
+# CharacterResponse.from_model doesn't trigger N+1 lazy loads per character.
 USER_INCLUDE_PREFETCH_MAP: dict[UserInclude, list[str]] = {
     UserInclude.QUICKROLLS: ["quick_rolls__traits"],
     UserInclude.NOTES: ["notes"],
     UserInclude.ASSETS: ["owned_assets"],
-    UserInclude.CHARACTERS: ["played_characters"],
+    UserInclude.CHARACTERS: [
+        "played_characters__concept",
+        "played_characters__vampire_attributes__clan",
+        "played_characters__werewolf_attributes__tribe",
+        "played_characters__werewolf_attributes__auspice",
+        "played_characters__mage_attributes",
+        "played_characters__hunter_attributes",
+        "played_characters__specialties",
+    ],
 }
 
 
