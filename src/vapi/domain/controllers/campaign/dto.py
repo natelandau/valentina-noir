@@ -97,16 +97,10 @@ class CampaignBookResponse(msgspec.Struct):
 
 
 class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
-    """Response body for a single campaign book with optional embedded children.
+    """Response body for a single campaign book with optional embedded children."""
 
-    Inherits all fields from CampaignBookResponse and adds optional child lists.
-    When no includes are requested, the serialized JSON is identical to
-    CampaignBookResponse (child fields are omitted via omit_defaults).
-    """
-
-    # Optional children — omitted from JSON when not requested.
-    # Types use msgspec.Struct base because some concrete DTO modules can't be
-    # imported at module level without causing circular imports.
+    # Child DTO modules can't be imported at module level without circular imports,
+    # so fields are typed as the msgspec.Struct base and narrowed at runtime.
     chapters: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
     notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
     assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
@@ -119,22 +113,15 @@ class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
     ) -> "CampaignBookDetailResponse":
         """Convert a Tortoise CampaignBook to a detail response.
 
-        Delegate base fields to CampaignBookResponse.from_model(), then conditionally
-        populate child lists based on the requested includes.
-
         Args:
             m: The CampaignBook model instance with relations prefetched.
             includes: Set of BookInclude values indicating which children to embed.
         """
-        # Lazy imports to avoid circular dependency: these controller dto modules
-        # import from deps.py which imports from this file at module level.
         from vapi.domain.controllers.notes.dto import NoteResponse
         from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
 
         includes = includes or set()
         base = CampaignBookResponse.from_model(m)
-
-        # Build base field dict, then overlay optional children
         fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
         if BookInclude.CHAPTERS in includes:
             fields["chapters"] = [CampaignChapterResponse.from_model(c) for c in m.chapters]

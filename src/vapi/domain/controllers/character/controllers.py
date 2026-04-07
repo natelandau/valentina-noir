@@ -25,6 +25,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService
+from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import (
     developer_company_user_guard,
     user_character_player_or_storyteller_guard,
@@ -139,14 +140,7 @@ class CharacterController(Controller):
         include: list[CharacterInclude] | None = None,
     ) -> CharacterDetailResponse:
         """Get a character by ID with optional embedded children."""
-        requested = set(include) if include else set()
-
-        prefetches: list[str] = []
-        for inc in requested:
-            prefetches.extend(INCLUDE_PREFETCH_MAP[inc])
-        if prefetches:
-            await character.fetch_related(*prefetches)
-
+        requested = await apply_includes(character, include, INCLUDE_PREFETCH_MAP)
         return CharacterDetailResponse.from_model(character, requested)
 
     @post(

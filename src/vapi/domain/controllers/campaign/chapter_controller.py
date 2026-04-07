@@ -13,6 +13,7 @@ from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -84,12 +85,7 @@ class CampaignChapterController(Controller):
         include: list[ChapterInclude] | None = None,
     ) -> CampaignChapterDetailResponse:
         """Get a chapter by ID with optional embedded children."""
-        requested = set(include) if include else set()
-        prefetches: list[str] = []
-        for inc in requested:
-            prefetches.extend(CHAPTER_INCLUDE_PREFETCH_MAP[inc])
-        if prefetches:
-            await chapter.fetch_related(*prefetches)
+        requested = await apply_includes(chapter, include, CHAPTER_INCLUDE_PREFETCH_MAP)
         return CampaignChapterDetailResponse.from_model(chapter, requested)
 
     @post(

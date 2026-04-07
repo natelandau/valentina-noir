@@ -15,6 +15,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
+from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -91,12 +92,7 @@ class UserController(Controller):
         include: list[UserInclude] | None = None,
     ) -> UserDetailResponse:
         """Get a user by ID with optional embedded children."""
-        requested = set(include) if include else set()
-        prefetches: list[str] = []
-        for inc in requested:
-            prefetches.extend(USER_INCLUDE_PREFETCH_MAP[inc])
-        if prefetches:
-            await user.fetch_related(*prefetches)
+        requested = await apply_includes(user, include, USER_INCLUDE_PREFETCH_MAP)
         return UserDetailResponse.from_model(user, requested)
 
     @post(
