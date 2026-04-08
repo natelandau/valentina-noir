@@ -8,6 +8,7 @@ from litestar.controller import Controller
 
 from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
 
 from . import dto
@@ -29,6 +30,12 @@ class BaseNoteController(Controller, ABC):
         """Return the FK field name (e.g., 'character_id')."""
         return f"{self.parent_name}_id"
 
+    def _assert_belongs_to_parent(self, note: Note, parent_id: UUID) -> None:
+        # Return 404 rather than 403 so callers cannot probe for note IDs that
+        # exist under a different parent.
+        if getattr(note, self.parent_ref_field) != parent_id or note.is_archived:
+            raise NotFoundError(detail="Note not found")
+
     async def _list_notes(
         self,
         parent_id: UUID,
@@ -47,8 +54,9 @@ class BaseNoteController(Controller, ABC):
             total=count,
         )
 
-    async def _get_note(self, note: Note) -> dto.NoteResponse:
-        """Get a single note by ID."""
+    async def _get_note(self, note: Note, parent_id: UUID) -> dto.NoteResponse:
+        """Get a single note, verifying it belongs to the parent in the URL path."""
+        self._assert_belongs_to_parent(note, parent_id)
         return dto.NoteResponse.from_model(note)
 
     async def _create_note(
@@ -70,9 +78,11 @@ class BaseNoteController(Controller, ABC):
     async def _update_note(
         self,
         note: Note,
+        parent_id: UUID,
         data: dto.NotePatch,
     ) -> dto.NoteResponse:
-        """Update an existing note."""
+        """Update an existing note, verifying it belongs to the parent in the URL path."""
+        self._assert_belongs_to_parent(note, parent_id)
         if not isinstance(data.title, msgspec.UnsetType):
             note.title = data.title
         if not isinstance(data.content, msgspec.UnsetType):
@@ -80,7 +90,8 @@ class BaseNoteController(Controller, ABC):
         await note.save()
         return dto.NoteResponse.from_model(note)
 
-    async def _delete_note(self, note: Note) -> None:
-        """Soft-delete a note by archiving it."""
+    async def _delete_note(self, note: Note, parent_id: UUID) -> None:
+        """Soft-delete a note, verifying it belongs to the parent in the URL path."""
+        self._assert_belongs_to_parent(note, parent_id)
         note.is_archived = True
         await note.save()
