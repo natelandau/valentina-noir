@@ -58,9 +58,9 @@ class CampaignBookNoteController(BaseNoteController):
         description=docs.GET_NOTE_DESCRIPTION,
         cache=True,
     )
-    async def get_book_note(self, *, note: Note) -> dto.NoteResponse:
+    async def get_book_note(self, *, book: CampaignBook, note: Note) -> dto.NoteResponse:
         """Get a book note by ID."""
-        return await self._get_note(note)
+        return await self._get_note(note, book.id)
 
     @post(
         path=urls.Campaigns.BOOK_NOTE_CREATE,
@@ -82,9 +82,11 @@ class CampaignBookNoteController(BaseNoteController):
         description=docs.UPDATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def update_book_note(self, note: Note, data: dto.NotePatch) -> dto.NoteResponse:
+    async def update_book_note(
+        self, book: CampaignBook, note: Note, data: dto.NotePatch
+    ) -> dto.NoteResponse:
         """Update a book note by ID."""
-        return await self._update_note(note, data)
+        return await self._update_note(note, book.id, data)
 
     @delete(
         path=urls.Campaigns.BOOK_NOTE_DELETE,
@@ -93,6 +95,6 @@ class CampaignBookNoteController(BaseNoteController):
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_book_note(self, *, note: Note) -> None:
+    async def delete_book_note(self, *, book: CampaignBook, note: Note) -> None:
         """Delete a book note by ID."""
-        await self._delete_note(note)
+        await self._delete_note(note, book.id)

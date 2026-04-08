@@ -10,6 +10,7 @@ import pytest
 from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.notes.base import BaseNoteController
 from vapi.domain.controllers.notes.dto import NoteCreate, NotePatch
+from vapi.lib.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -186,7 +187,7 @@ class TestGetNote:
         )
 
         # When we get the note
-        result = await controller._get_note(note)
+        result = await controller._get_note(note, character.id)
 
         # Then a response is returned with the correct data
         assert result.id == note.id
@@ -266,7 +267,7 @@ class TestUpdateNote:
 
         # When we update the note
         data = NotePatch(title="Updated Title", content="Updated Content")
-        result = await controller._update_note(note, data)
+        result = await controller._update_note(note, character.id, data)
 
         # Then the updated note is returned
         assert result.title == "Updated Title"
@@ -292,7 +293,7 @@ class TestUpdateNote:
 
         # When we update only the title
         data = NotePatch(title="Updated Title")
-        result = await controller._update_note(note, data)
+        result = await controller._update_note(note, character.id, data)
 
         # Then only the title is updated
         assert result.title == "Updated Title"
@@ -319,8 +320,98 @@ class TestDeleteNote:
         assert note.is_archived is False
 
         # When we delete the note
-        await controller._delete_note(note)
+        await controller._delete_note(note, character.id)
 
         # Then the note is archived
         await note.refresh_from_db()
         assert note.is_archived is True
+
+
+class TestParentScopingIDOR:
+    """Verify cross-parent access is blocked on get/update/delete."""
+
+    async def test_get_note_wrong_parent_raises_not_found(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
+    ) -> None:
+        """Verify _get_note rejects a note whose parent FK differs from the URL parent."""
+        # Given a note owned by character A, fetched via character B's URL
+        controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character_a = await character_factory(company=company)
+        character_b = await character_factory(company=company)
+        note = await note_factory(character=character_a, company=company)
+
+        # When we attempt to fetch the note under character B
+        # Then a NotFoundError is raised
+        with pytest.raises(NotFoundError):
+            await controller._get_note(note, character_b.id)
+
+    async def test_update_note_wrong_parent_raises_not_found(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
+    ) -> None:
+        """Verify _update_note rejects cross-parent access and does not mutate the note."""
+        # Given a note owned by character A
+        controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character_a = await character_factory(company=company)
+        character_b = await character_factory(company=company)
+        note = await note_factory(
+            title="Original", content="Original", character=character_a, company=company
+        )
+
+        # When we attempt to update under character B
+        # Then NotFoundError is raised and the note is unchanged
+        with pytest.raises(NotFoundError):
+            await controller._update_note(
+                note, character_b.id, NotePatch(title="Hacked", content="Hacked")
+            )
+        await note.refresh_from_db()
+        assert note.title == "Original"
+        assert note.content == "Original"
+
+    async def test_delete_note_wrong_parent_raises_not_found(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
+    ) -> None:
+        """Verify _delete_note rejects cross-parent access and does not archive the note."""
+        # Given a note owned by character A
+        controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character_a = await character_factory(company=company)
+        character_b = await character_factory(company=company)
+        note = await note_factory(character=character_a, company=company)
+
+        # When we attempt to delete under character B
+        # Then NotFoundError is raised and the note is not archived
+        with pytest.raises(NotFoundError):
+            await controller._delete_note(note, character_b.id)
+        await note.refresh_from_db()
+        assert note.is_archived is False
+
+    async def test_get_note_archived_raises_not_found(
+        self,
+        company_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable[..., Note],
+    ) -> None:
+        """Verify _get_note hides soft-deleted notes even when parent matches."""
+        # Given an archived note owned by character A
+        controller = ConcreteNoteController(parent_name="character")
+        company = await company_factory()
+        character = await character_factory(company=company)
+        note = await note_factory(character=character, company=company)
+        note.is_archived = True
+        await note.save()
+
+        # When we fetch the note with the correct parent
+        # Then NotFoundError is raised
+        with pytest.raises(NotFoundError):
+            await controller._get_note(note, character.id)
