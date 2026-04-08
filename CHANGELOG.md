@@ -1,3 +1,21 @@
+## v0.12.0 (2026-04-08)
+
+### Feat
+
+- **user**: harden user controller with role hierarchy, DEACTIVATED role, and last-admin protection (#103)
+- **rate-limit**: add per-route limits for abuse-prone endpoints (#102)
+- **company**: add permission_recoup_xp setting (#99)
+- add include query param to book, chapter, and user detail endpoints (#98)
+
+### Fix
+
+- **notes**: scope note access by parent to prevent IDOR (#101)
+- **docker**: install postgresql-client-18 from PGDG repo (#97)
+
+### Refactor
+
+- **company**: make CompanyResponse.settings non-optional (#100)
+
 ## v0.11.0 (2026-04-06)
 
 ### Feat
