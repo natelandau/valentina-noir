@@ -26,18 +26,24 @@ Create a new user within a company.
 The user is automatically added to the company's user list. The Discord profile is optional and is not used for authentication but is included for Discord bot integration.
 
 **Note:** Requires admin-level access to the company.
+
+**Authorization:** Requester must be ADMIN or STORYTELLER. Storytellers may only create users with roles PLAYER or STORYTELLER. Creating a user with initial role UNAPPROVED or DEACTIVATED is not permitted via this endpoint (use the register endpoint for the UNAPPROVED flow).
 """
 
 UPDATE_USER_DESCRIPTION = """\
 Modify a user's properties such as name, role, or profile information.
 
 Only include fields that need to be changed; omitted fields remain unchanged.
+
+**Authorization:** Non-role fields may be edited by the user themselves or by an ADMIN. Role changes always follow the role-assignment hierarchy: only ADMIN may assign or remove ADMIN or DEACTIVATED; only ADMIN may modify an ADMIN user's role; STORYTELLER may only assign STORYTELLER or PLAYER to non-admin targets. Attempting to demote, deactivate, or delete the company's last active ADMIN returns HTTP 409.
 """
 
 DELETE_USER_DESCRIPTION = """\
 Remove a user from the company.
 
 The user is removed from the company's user list and their data is archived.
+
+**Authorization:** ADMIN only. Deleting the last active ADMIN in a company returns HTTP 409.
 """
 
 # Experience Controller
@@ -105,6 +111,8 @@ Approve a pending user and assign them a role within the company.
 The target user must have the UNAPPROVED role. The assigned role must be PLAYER, STORYTELLER, or ADMIN.
 
 **Note:** Requires admin-level access.
+
+**Authorization:** ADMIN or STORYTELLER. The assigned role must be permitted by the role-assignment hierarchy — a STORYTELLER cannot approve a user directly to ADMIN.
 """
 
 DENY_USER_DESCRIPTION = """\

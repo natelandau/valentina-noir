@@ -144,6 +144,31 @@ Each user belongs to a [company](companies.md) and has a role that determines th
 | `PLAYER`      | Basic gameplay access - manage own characters  |
 | `STORYTELLER` | Campaign management - manage all characters    |
 | `ADMIN`       | Full user management and administrative access |
+| `DEACTIVATED` | The user cannot log in or perform any action. Their characters, owned assets, XP records, and notes remain intact in the system and continue to be manageable by other users. Distinct from archival/soft-delete. |
+
+### Role Assignment Hierarchy
+
+Roles can only be assigned or modified by users with sufficient authority. The hierarchy is as follows:
+
+- **ADMIN:** May assign any role (`ADMIN`, `STORYTELLER`, `PLAYER`, `DEACTIVATED`) to any user (except see Last-Admin Protection below)
+- **STORYTELLER:** May assign `STORYTELLER` or `PLAYER` to non-admin targets only; cannot assign or modify `ADMIN` or `DEACTIVATED` roles
+- **PLAYER / UNAPPROVED / DEACTIVATED:** Cannot change any role
+
+A user may not change their own role unless the role-assignment hierarchy would otherwise allow it (e.g., an `ADMIN` may still self-demote if other ADMINs exist).
+
+### Last-Admin Protection
+
+Any mutation that would leave a company with zero active `ADMIN` users returns HTTP 409 Conflict with the detail "Cannot remove the last admin from the company". This applies to:
+
+- Changing an ADMIN user's role to `STORYTELLER`, `PLAYER`, or `DEACTIVATED`
+- Deactivating the last ADMIN
+- Deleting the last ADMIN
+
+Only create or reactivate an ADMIN to bypass this protection.
+
+### Deactivation and Reactivation
+
+Deactivation is performed via `PATCH /api/v1/companies/{company_id}/users/{user_id}` with `role: "DEACTIVATED"`. Reactivation uses the same endpoint with any other valid role. Only `ADMIN` users may deactivate or reactivate other users. A user cannot deactivate themselves.
 
 ### The UNAPPROVED Role
 
@@ -157,6 +182,14 @@ Unapproved users:
 - Remain in this state until an admin approves or denies them
 
 See [User Approval Workflow](#user-approval-workflow) for how to manage unapproved users.
+
+### Self-Role-Edit
+
+A user may not change their own role via `PATCH` unless the role-assignment hierarchy would otherwise allow it. For example:
+
+- An `ADMIN` user may change their own role if other ADMINs exist (hierarchy allows self-demotion)
+- A `STORYTELLER` cannot change their own role to `ADMIN` (hierarchy forbids STORYTELLER→ADMIN assignment)
+- A `PLAYER` cannot change their own role (hierarchy forbids non-admin self-promotion)
 
 ### Role Capabilities
 
