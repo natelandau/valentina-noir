@@ -13,7 +13,12 @@ from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.utils import validate_trait_ids_from_mixed_sources
-from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import (
+    ConflictError,
+    NotEnoughXPError,
+    PermissionDeniedError,
+    ValidationError,
+)
 
 from .validation_svc import GetModelByIdValidationService
 
@@ -93,6 +98,33 @@ class UserService:
         }:
             raise PermissionDeniedError(
                 detail="Storytellers may only assign STORYTELLER or PLAYER roles",
+            )
+
+    async def _assert_not_last_admin(self, target_user: User) -> None:
+        """Block mutations that would leave a company with zero active admins.
+
+        No-op if the target is not currently ADMIN.
+
+        Raises:
+            ConflictError: If removing this user as admin would leave the company
+                with zero non-archived admins. Rendered as HTTP 409.
+        """
+        if target_user.role != UserRole.ADMIN:
+            return
+
+        remaining = (
+            await User.filter(
+                company_id=target_user.company_id,  # type: ignore[attr-defined]
+                role=UserRole.ADMIN,
+                is_archived=False,
+            )
+            .exclude(id=target_user.id)
+            .count()
+        )
+
+        if remaining == 0:
+            raise ConflictError(
+                detail="Cannot remove the last admin from the company",
             )
 
     async def validate_user_can_manage_user(
