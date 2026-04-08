@@ -10,6 +10,7 @@ from litestar.handlers import get, patch, post
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import DeveloperService
+from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 
@@ -45,6 +46,7 @@ class DeveloperController(Controller):
         operation_id="regenerateDeveloperMeApiKey",
         description=docs.REGENERATE_API_KEY_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"rate_limits": [DEVELOPER_KEY_ROTATION_LIMIT]},
     )
     async def new_api_key(self, *, developer: Developer, request: "Request") -> dict[str, str]:
         """Generate a new API key for a developer."""

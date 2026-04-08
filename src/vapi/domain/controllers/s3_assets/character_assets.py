@@ -17,6 +17,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import user_character_player_or_storyteller_guard
+from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -79,6 +80,7 @@ class CharacterAssetsController(BaseAssetsController):
         description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
+        opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
     async def handle_file_upload(
         self,

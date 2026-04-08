@@ -17,6 +17,7 @@ from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -210,6 +211,7 @@ class UserController(Controller):
         operation_id="registerUser",
         description=docs.REGISTER_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"rate_limits": [USER_REGISTRATION_LIMIT]},
     )
     async def register_user(self, data: UserRegister, company: Company) -> UserResponse:
         """Register a new user with the UNAPPROVED role."""
