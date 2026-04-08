@@ -51,6 +51,7 @@ def tortoise_config() -> dict[str, Any]:
                 "migrations": "vapi.db.migrations",
             },
         },
+        "use_tz": True,
     }
 
 
