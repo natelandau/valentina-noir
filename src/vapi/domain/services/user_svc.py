@@ -27,6 +27,21 @@ if TYPE_CHECKING:
 class UserService:
     """User service."""
 
+    async def _assert_requester_active(self, requesting_user_id: UUID) -> None:
+        """Reject requesters that cannot act on any endpoint.
+
+        Called from every user-surface mutation path because route guards
+        cannot inspect body-supplied requesting_user_id.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
+        """
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        if requesting_user.role == UserRole.UNAPPROVED:
+            raise PermissionDeniedError(detail="User has not been approved yet")
+        if requesting_user.role == UserRole.DEACTIVATED:
+            raise PermissionDeniedError(detail="User account is deactivated")
+
     async def validate_user_can_manage_user(
         self,
         requesting_user_id: UUID,
