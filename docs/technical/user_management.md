@@ -154,7 +154,7 @@ Roles can only be assigned or modified by users with sufficient authority. The h
 - **STORYTELLER:** May assign `STORYTELLER` or `PLAYER` to non-admin targets only; cannot assign or modify `ADMIN` or `DEACTIVATED` roles
 - **PLAYER / UNAPPROVED / DEACTIVATED:** Cannot change any role
 
-A user may not change their own role unless the role-assignment hierarchy would otherwise allow it (e.g., an `ADMIN` may still self-demote if other ADMINs exist).
+A user may not change their own role unless the role-assignment hierarchy would otherwise allow it (e.g., an `ADMIN` may still self-demote if other `ADMIN` users exist).
 
 ### Last-Admin Protection
 
@@ -187,7 +187,7 @@ See [User Approval Workflow](#user-approval-workflow) for how to manage unapprov
 
 A user may not change their own role via `PATCH` unless the role-assignment hierarchy would otherwise allow it. For example:
 
-- An `ADMIN` user may change their own role if other ADMINs exist (hierarchy allows self-demotion)
+- An `ADMIN` user may change their own role if other `ADMIN` users exist (hierarchy allows self-demotion)
 - A `STORYTELLER` cannot change their own role to `ADMIN` (hierarchy forbids STORYTELLER→ADMIN assignment)
 - A `PLAYER` cannot change their own role (hierarchy forbids non-admin self-promotion)
 
