@@ -32,11 +32,12 @@ if TYPE_CHECKING:
 class UserService:
     """User service."""
 
-    async def _assert_requester_active(self, requesting_user_id: UUID) -> None:
-        """Reject requesters that cannot act on any endpoint.
+    async def _assert_requester_active(self, requesting_user_id: UUID) -> User:
+        """Reject requesters that cannot act on any endpoint and return the fetched user.
 
         Called from every user-surface mutation path because route guards
-        cannot inspect body-supplied requesting_user_id.
+        cannot inspect body-supplied requesting_user_id. Returns the loaded User
+        so callers can reuse it (e.g. for role-matrix checks) without a second fetch.
 
         Raises:
             PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
@@ -46,6 +47,7 @@ class UserService:
             raise PermissionDeniedError(detail="User has not been approved yet")
         if requesting_user.role == UserRole.DEACTIVATED:
             raise PermissionDeniedError(detail="User account is deactivated")
+        return requesting_user
 
     async def _validate_role_assignment(
         self,
@@ -165,15 +167,12 @@ class UserService:
         Returns:
             The created user with campaign_experiences prefetched.
         """
-        await self._assert_requester_active(data.requesting_user_id)
+        requesting_user = await self._assert_requester_active(data.requesting_user_id)
         new_role = UserRole(data.role)
 
         if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
             raise ValidationError(detail=f"Cannot create a user with initial role {new_role.value}")
 
-        requesting_user = await GetModelByIdValidationService().get_user_by_id(
-            data.requesting_user_id
-        )
         # Synthetic unsaved target with role=PLAYER so the matrix evaluates
         # requester-vs-new_role without needing a real existing user.
         synthetic_target = User(role=UserRole.PLAYER, company_id=company.id)
@@ -309,12 +308,9 @@ class UserService:
         Returns:
             The updated user with campaign_experiences prefetched.
         """
-        await self._assert_requester_active(data.requesting_user_id)
+        requesting_user = await self._assert_requester_active(data.requesting_user_id)
 
         if not isinstance(data.role, msgspec.UnsetType):
-            requesting_user = await GetModelByIdValidationService().get_user_by_id(
-                data.requesting_user_id
-            )
             new_role = UserRole(data.role)
             await self._validate_role_assignment(
                 requesting_user=requesting_user,
@@ -382,8 +378,11 @@ class UserService:
             ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED/DEACTIVATED.
             PermissionDeniedError: If the requester is not authorized for the assignment.
         """
-        await self._assert_requester_active(requesting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+        requesting_user = await self._assert_requester_active(requesting_user_id)
+        if requesting_user.role != UserRole.ADMIN:
+            raise PermissionDeniedError(
+                detail="Requesting user is not authorized to manage this user",
+            )
 
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
@@ -391,7 +390,6 @@ class UserService:
         if role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
             raise ValidationError(detail=f"Cannot assign {role.value} role via approval")
 
-        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
         await self._validate_role_assignment(
             requesting_user=requesting_user,
             target_user=user,
