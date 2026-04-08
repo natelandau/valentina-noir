@@ -42,6 +42,59 @@ class UserService:
         if requesting_user.role == UserRole.DEACTIVATED:
             raise PermissionDeniedError(detail="User account is deactivated")
 
+    async def _validate_role_assignment(
+        self,
+        *,
+        requesting_user: User,
+        target_user: User,
+        new_role: UserRole,
+    ) -> None:
+        """Enforce the role-assignment authorization matrix.
+
+        Rules:
+        - UNAPPROVED is never a valid assignment target (use approve/deny/register flow).
+        - Only ADMIN may modify an ADMIN target's role.
+        - Only ADMIN may assign or remove DEACTIVATED.
+        - STORYTELLER may only assign STORYTELLER or PLAYER to non-admin targets.
+        - PLAYER / UNAPPROVED / DEACTIVATED requesters may not change any role.
+
+        Does not check the last-admin invariant — callers layer that check on top.
+
+        Raises:
+            PermissionDeniedError: If the requester is not authorized for this transition.
+            ValidationError: If the target role is UNAPPROVED.
+        """
+        if new_role == UserRole.UNAPPROVED:
+            raise ValidationError(detail="Cannot assign UNAPPROVED role")
+
+        requester_role = requesting_user.role
+
+        if requester_role not in {UserRole.ADMIN, UserRole.STORYTELLER}:
+            raise PermissionDeniedError(
+                detail="Requesting user is not authorized to change user roles",
+            )
+
+        if (
+            UserRole.DEACTIVATED in {new_role, target_user.role}
+            and requester_role != UserRole.ADMIN
+        ):
+            raise PermissionDeniedError(
+                detail="Only admins may deactivate or reactivate a user",
+            )
+
+        if target_user.role == UserRole.ADMIN and requester_role != UserRole.ADMIN:
+            raise PermissionDeniedError(
+                detail="Only admins may change an admin user's role",
+            )
+
+        if requester_role == UserRole.STORYTELLER and new_role not in {
+            UserRole.STORYTELLER,
+            UserRole.PLAYER,
+        }:
+            raise PermissionDeniedError(
+                detail="Storytellers may only assign STORYTELLER or PLAYER roles",
+            )
+
     async def validate_user_can_manage_user(
         self,
         requesting_user_id: UUID,
