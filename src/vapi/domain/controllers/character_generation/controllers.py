@@ -30,7 +30,7 @@ from vapi.domain.services.user_svc import UserXPService
 from vapi.lib.exceptions import ValidationError
 from vapi.lib.guards import (
     developer_company_user_guard,
-    user_not_unapproved_guard,
+    user_active_guard,
     user_storyteller_guard,
 )
 from vapi.openapi.tags import APITags
@@ -63,7 +63,7 @@ class CharacterGenerationController(Controller):
         "campaign": Provide(provide_campaign_by_id),
         "character": Provide(provide_character_by_id_and_company),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @post(
         path=urls.Characters.AUTOGENERATE,

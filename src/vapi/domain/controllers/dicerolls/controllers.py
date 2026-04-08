@@ -15,7 +15,7 @@ from vapi.domain import deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DiceRollService
 from vapi.lib.exceptions import NotFoundError
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -29,7 +29,7 @@ class DiceRollController(Controller):
         "company": Provide(deps.provide_company_by_id),
         "user": Provide(deps.provide_user_by_id_and_company),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.DiceRolls.LIST,

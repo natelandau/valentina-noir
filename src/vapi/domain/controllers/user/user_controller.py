@@ -16,7 +16,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
 from vapi.lib.detail_includes import apply_includes
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
 from vapi.openapi.tags import APITags
 
@@ -44,7 +44,7 @@ class UserController(Controller):
         "company": Provide(deps.provide_company_by_id),
         "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.Users.LIST,
@@ -178,6 +178,7 @@ class UserController(Controller):
         operation_id="approveUser",
         description=docs.APPROVE_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"allow_unapproved_user": True},
     )
     async def approve_user(self, user: User, data: UserApprove) -> UserResponse:
         """Approve an unapproved user and assign a role."""
@@ -195,6 +196,7 @@ class UserController(Controller):
         operation_id="denyUser",
         description=docs.DENY_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"allow_unapproved_user": True},
     )
     async def deny_user(self, user: User, company: Company, data: UserDeny) -> None:
         """Deny an unapproved user."""

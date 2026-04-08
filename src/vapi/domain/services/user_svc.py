@@ -13,7 +13,12 @@ from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.utils import validate_trait_ids_from_mixed_sources
-from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import (
+    ConflictError,
+    NotEnoughXPError,
+    PermissionDeniedError,
+    ValidationError,
+)
 
 from .validation_svc import GetModelByIdValidationService
 
@@ -26,6 +31,103 @@ if TYPE_CHECKING:
 
 class UserService:
     """User service."""
+
+    async def _assert_requester_active(self, requesting_user_id: UUID) -> User:
+        """Reject requesters that cannot act on any endpoint and return the fetched user.
+
+        Called from every user-surface mutation path because route guards
+        cannot inspect body-supplied requesting_user_id. Returns the loaded User
+        so callers can reuse it (e.g. for role-matrix checks) without a second fetch.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
+        """
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        if requesting_user.role == UserRole.UNAPPROVED:
+            raise PermissionDeniedError(detail="User has not been approved yet")
+        if requesting_user.role == UserRole.DEACTIVATED:
+            raise PermissionDeniedError(detail="User account is deactivated")
+        return requesting_user
+
+    async def _validate_role_assignment(
+        self,
+        *,
+        requesting_user: User,
+        target_user: User,
+        new_role: UserRole,
+    ) -> None:
+        """Enforce the role-assignment authorization matrix.
+
+        Rules:
+        - UNAPPROVED is never a valid assignment target (use approve/deny/register flow).
+        - Only ADMIN may modify an ADMIN target's role.
+        - Only ADMIN may assign or remove DEACTIVATED.
+        - STORYTELLER may only assign STORYTELLER or PLAYER to non-admin targets.
+        - PLAYER / UNAPPROVED / DEACTIVATED requesters may not change any role.
+
+        Does not check the last-admin invariant — callers layer that check on top.
+
+        Raises:
+            PermissionDeniedError: If the requester is not authorized for this transition.
+            ValidationError: If the target role is UNAPPROVED.
+        """
+        if new_role == UserRole.UNAPPROVED:
+            raise ValidationError(detail="Cannot assign UNAPPROVED role")
+
+        requester_role = requesting_user.role
+
+        if requester_role not in {UserRole.ADMIN, UserRole.STORYTELLER}:
+            raise PermissionDeniedError(
+                detail="Requesting user is not authorized to change user roles",
+            )
+
+        if (
+            UserRole.DEACTIVATED in {new_role, target_user.role}
+            and requester_role != UserRole.ADMIN
+        ):
+            raise PermissionDeniedError(
+                detail="Only admins may deactivate or reactivate a user",
+            )
+
+        if target_user.role == UserRole.ADMIN and requester_role != UserRole.ADMIN:
+            raise PermissionDeniedError(
+                detail="Only admins may change an admin user's role",
+            )
+
+        if requester_role == UserRole.STORYTELLER and new_role not in {
+            UserRole.STORYTELLER,
+            UserRole.PLAYER,
+        }:
+            raise PermissionDeniedError(
+                detail="Storytellers may only assign STORYTELLER or PLAYER roles",
+            )
+
+    async def _assert_not_last_admin(self, target_user: User) -> None:
+        """Block mutations that would leave a company with zero active admins.
+
+        No-op if the target is not currently ADMIN.
+
+        Raises:
+            ConflictError: If removing this user as admin would leave the company
+                with zero non-archived admins. Rendered as HTTP 409.
+        """
+        if target_user.role != UserRole.ADMIN:
+            return
+
+        remaining = (
+            await User.filter(
+                company_id=target_user.company_id,  # type: ignore[attr-defined]
+                role=UserRole.ADMIN,
+                is_archived=False,
+            )
+            .exclude(id=target_user.id)
+            .count()
+        )
+
+        if remaining == 0:
+            raise ConflictError(
+                detail="Cannot remove the last admin from the company",
+            )
 
     async def validate_user_can_manage_user(
         self,
@@ -54,6 +156,10 @@ class UserService:
     async def create_user(self, company: Company, data: UserCreate) -> User:
         """Create a user in a company.
 
+        The initial role is validated through the role-assignment matrix.
+        Creating a user with role UNAPPROVED (use register_user) or DEACTIVATED
+        (not a creation path) is forbidden.
+
         Args:
             company: The company to add the user to.
             data: The user creation data.
@@ -61,8 +167,19 @@ class UserService:
         Returns:
             The created user with campaign_experiences prefetched.
         """
-        await self.validate_user_can_manage_user(
-            requesting_user_id=data.requesting_user_id,
+        requesting_user = await self._assert_requester_active(data.requesting_user_id)
+        new_role = UserRole(data.role)
+
+        if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+            raise ValidationError(detail=f"Cannot create a user with initial role {new_role.value}")
+
+        # Synthetic unsaved target with role=PLAYER so the matrix evaluates
+        # requester-vs-new_role without needing a real existing user.
+        synthetic_target = User(role=UserRole.PLAYER, company_id=company.id)
+        await self._validate_role_assignment(
+            requesting_user=requesting_user,
+            target_user=synthetic_target,
+            new_role=new_role,
         )
 
         user = await User.create(
@@ -70,7 +187,7 @@ class UserService:
             name_last=data.name_last,
             username=data.username,
             email=data.email,
-            role=UserRole(data.role),
+            role=new_role,
             company=company,
             discord_profile=data.discord_profile,
             google_profile=data.google_profile,
@@ -131,6 +248,7 @@ class UserService:
         """
         from vapi.domain import deps
 
+        await self._assert_requester_active(requesting_user_id)
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
         if primary_user_id == secondary_user_id:
@@ -179,6 +297,10 @@ class UserService:
     async def update_user(self, user: User, data: UserPatch) -> User:
         """Update a user with partial data.
 
+        Role changes always route through the role-assignment matrix — even for
+        self-edits — which closes the prior self-PATCH escalation path. Non-role
+        fields continue to allow self-or-admin edits.
+
         Args:
             user: The user to update.
             data: The patch data with UNSET defaults for unsent fields.
@@ -186,6 +308,19 @@ class UserService:
         Returns:
             The updated user with campaign_experiences prefetched.
         """
+        requesting_user = await self._assert_requester_active(data.requesting_user_id)
+
+        if not isinstance(data.role, msgspec.UnsetType):
+            new_role = UserRole(data.role)
+            await self._validate_role_assignment(
+                requesting_user=requesting_user,
+                target_user=user,
+                new_role=new_role,
+            )
+            if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
+                await self._assert_not_last_admin(user)
+            user.role = new_role
+
         await self.validate_user_can_manage_user(
             requesting_user_id=data.requesting_user_id,
             user_to_manage_id=user.id,
@@ -199,8 +334,6 @@ class UserService:
             user.username = data.username
         if not isinstance(data.email, msgspec.UnsetType):
             user.email = data.email
-        if not isinstance(data.role, msgspec.UnsetType):
-            user.role = UserRole(data.role)
         if not isinstance(data.discord_profile, msgspec.UnsetType):
             user.discord_profile = data.discord_profile
         if not isinstance(data.google_profile, msgspec.UnsetType):
@@ -221,6 +354,8 @@ class UserService:
         """
         from vapi.domain.handlers.archive_handlers import archive_user_cascade
 
+        await self._assert_not_last_admin(user)
+
         user.is_archived = True
         await user.save()
         await archive_user_cascade(user.id)
@@ -240,16 +375,26 @@ class UserService:
             requesting_user_id: The ID of the admin performing the action.
 
         Raises:
-            ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED.
-            PermissionDeniedError: If the requesting user is not an admin.
+            ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED/DEACTIVATED.
+            PermissionDeniedError: If the requester is not authorized for the assignment.
         """
-        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+        requesting_user = await self._assert_requester_active(requesting_user_id)
+        if requesting_user.role != UserRole.ADMIN:
+            raise PermissionDeniedError(
+                detail="Requesting user is not authorized to manage this user",
+            )
 
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
 
-        if role == UserRole.UNAPPROVED:
-            raise ValidationError(detail="Cannot assign UNAPPROVED role")
+        if role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+            raise ValidationError(detail=f"Cannot assign {role.value} role via approval")
+
+        await self._validate_role_assignment(
+            requesting_user=requesting_user,
+            target_user=user,
+            new_role=role,
+        )
 
         user.role = role
         await user.save()
@@ -273,6 +418,7 @@ class UserService:
             ValidationError: If the user is not UNAPPROVED.
             PermissionDeniedError: If the requesting user is not an admin.
         """
+        await self._assert_requester_active(requesting_user_id)
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
         if user.role != UserRole.UNAPPROVED:
@@ -438,6 +584,7 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Add XP to a campaign experience with permission validation."""
+        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
             requesting_user_id=requesting_user_id,
@@ -455,6 +602,7 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Remove XP from a campaign experience with permission validation."""
+        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
             requesting_user_id=requesting_user_id,
@@ -472,6 +620,7 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Add cool points to a campaign experience with permission validation."""
+        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
             requesting_user_id=requesting_user_id,
