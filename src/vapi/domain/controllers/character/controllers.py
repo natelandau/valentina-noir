@@ -28,8 +28,8 @@ from vapi.domain.services import CharacterService, CharacterSheetService
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import (
     developer_company_user_guard,
+    user_active_guard,
     user_character_player_or_storyteller_guard,
-    user_not_unapproved_guard,
 )
 from vapi.openapi.tags import APITags
 
@@ -58,7 +58,7 @@ class CharacterController(Controller):
         "character": Provide(deps.provide_character_by_id_and_company),
         "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.Characters.LIST,

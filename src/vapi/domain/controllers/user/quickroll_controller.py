@@ -13,7 +13,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -28,7 +28,7 @@ class QuickRollController(Controller):
         "user": Provide(deps.provide_user_by_id_and_company),
         "quickroll": Provide(deps.provide_quickroll_by_id),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.Users.QUICKROLLS,

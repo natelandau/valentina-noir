@@ -18,7 +18,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterTraitService
 from vapi.lib.exceptions import ValidationError
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -43,7 +43,7 @@ class CharacterTraitController(Controller):
         "character_trait": Provide(deps.provide_character_trait_by_id),
         "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.Characters.TRAITS,

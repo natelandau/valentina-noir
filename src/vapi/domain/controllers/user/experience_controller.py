@@ -9,7 +9,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import UserXPService
-from vapi.lib.guards import developer_company_user_guard, user_not_unapproved_guard
+from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -25,7 +25,7 @@ class ExperienceController(Controller):
         "user": Provide(deps.provide_user_by_id_and_company),
         "campaign": Provide(deps.provide_campaign_by_id_for_experience),
     }
-    guards = [developer_company_user_guard, user_not_unapproved_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.Users.EXPERIENCE_CAMPAIGN,
