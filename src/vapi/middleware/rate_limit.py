@@ -32,7 +32,7 @@ from vapi.constants import (
 from vapi.lib.exceptions import TooManyRequestsError
 from vapi.utils.math import round_up
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("vapi")
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
