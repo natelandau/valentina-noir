@@ -56,3 +56,26 @@ async def test_role_assignment_matrix(
             await service._validate_role_assignment(
                 requesting_user=requester, target_user=target, new_role=new_role
             )
+
+
+async def test_player_cannot_self_escalate_to_admin(user_factory, company_factory):
+    """Regression: PATCH /users/{id} by a PLAYER setting own role=ADMIN must fail."""
+    from vapi.domain.controllers.user.dto import UserPatch
+
+    company = await company_factory()
+    player = await user_factory(role=UserRole.PLAYER, company=company)
+    patch = UserPatch(requesting_user_id=player.id, role="ADMIN")
+    with pytest.raises(PermissionDeniedError):
+        await UserService().update_user(user=player, data=patch)
+
+
+async def test_player_can_self_update_non_role_field(user_factory, company_factory):
+    """Verify non-role self-edits still work after role matrix is wired in."""
+    from vapi.domain.controllers.user.dto import UserPatch
+
+    company = await company_factory()
+    player = await user_factory(role=UserRole.PLAYER, company=company, name_first="Alice")
+    patch = UserPatch(requesting_user_id=player.id, name_first="Bob")
+    updated = await UserService().update_user(user=player, data=patch)
+    assert updated.name_first == "Bob"
+    assert updated.role == UserRole.PLAYER

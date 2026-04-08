@@ -279,6 +279,10 @@ class UserService:
     async def update_user(self, user: User, data: UserPatch) -> User:
         """Update a user with partial data.
 
+        Role changes always route through the role-assignment matrix — even for
+        self-edits — which closes the prior self-PATCH escalation path. Non-role
+        fields continue to allow self-or-admin edits.
+
         Args:
             user: The user to update.
             data: The patch data with UNSET defaults for unsent fields.
@@ -286,6 +290,22 @@ class UserService:
         Returns:
             The updated user with campaign_experiences prefetched.
         """
+        await self._assert_requester_active(data.requesting_user_id)
+
+        if not isinstance(data.role, msgspec.UnsetType):
+            requesting_user = await GetModelByIdValidationService().get_user_by_id(
+                data.requesting_user_id
+            )
+            new_role = UserRole(data.role)
+            await self._validate_role_assignment(
+                requesting_user=requesting_user,
+                target_user=user,
+                new_role=new_role,
+            )
+            if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
+                await self._assert_not_last_admin(user)
+            user.role = new_role
+
         await self.validate_user_can_manage_user(
             requesting_user_id=data.requesting_user_id,
             user_to_manage_id=user.id,
@@ -299,8 +319,6 @@ class UserService:
             user.username = data.username
         if not isinstance(data.email, msgspec.UnsetType):
             user.email = data.email
-        if not isinstance(data.role, msgspec.UnsetType):
-            user.role = UserRole(data.role)
         if not isinstance(data.discord_profile, msgspec.UnsetType):
             user.discord_profile = data.discord_profile
         if not isinstance(data.google_profile, msgspec.UnsetType):
