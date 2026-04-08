@@ -16,6 +16,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -75,6 +76,7 @@ class CampaignAssetsController(BaseAssetsController):
         operation_id="uploadCampaignAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
     async def handle_file_upload(
         self,

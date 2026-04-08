@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import math
 import time
 from itertools import chain
@@ -30,6 +31,8 @@ from vapi.constants import (
 )
 from vapi.lib.exceptions import TooManyRequestsError
 from vapi.utils.math import round_up
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -309,6 +312,17 @@ class RateLimitMiddleware(ASGIMiddleware):
 
             if limit_policy.set_429_headers:
                 kwargs["headers"] = bucket.build_headers()
+
+            # Log the rejection so operators can see which key hit which policy
+            # on which route. Uses the HMAC identifier, not the raw key.
+            logger.warning(
+                "rate_limit_rejected policy=%s identifier=%s path=%s method=%s retry_after=%s",
+                limit_policy.name,
+                request_identifier,
+                request.url.path,
+                request.method,
+                round_up(bucket.reset_after),
+            )
 
             detail = "You are being rate limited."
             raise TooManyRequestsError(
