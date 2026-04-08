@@ -91,17 +91,25 @@ async def global_admin_guard(connection: "ASGIConnection", _: "BaseRouteHandler"
         raise PermissionDeniedError(detail="No rights to access this resource")
 
 
-async def user_active_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
+async def user_active_guard(
+    connection: "ASGIConnection", route_handler: "BaseRouteHandler"
+) -> None:
     """Guard that rejects UNAPPROVED and DEACTIVATED users.
 
     Extract user_id from the URL path and reject the request if the user is
     unapproved or deactivated. Silently return when no user_id is present in
     the path, so the guard can be safely attached at controller scope for
     endpoints that don't carry a user_id path param.
+
+    Handlers that intentionally operate on UNAPPROVED users (e.g. approve, deny)
+    can opt out of the UNAPPROVED check by setting ``opt={"allow_unapproved_user": True}``
+    on the route decorator. The DEACTIVATED check is always enforced.
     """
     user_id_str = connection.path_params.get("user_id")
     if not user_id_str:
         return
+
+    allow_unapproved = bool(route_handler.opt.get("allow_unapproved_user", False))
 
     try:
         user_uuid = UUID(user_id_str)
@@ -112,7 +120,7 @@ async def user_active_guard(connection: "ASGIConnection", _: "BaseRouteHandler")
     if not user:
         raise NotFoundError(detail=f"User '{user_id_str}' not found")
 
-    if user.role == UserRole.UNAPPROVED:
+    if user.role == UserRole.UNAPPROVED and not allow_unapproved:
         raise PermissionDeniedError(detail="User has not been approved yet")
     if user.role == UserRole.DEACTIVATED:
         raise PermissionDeniedError(detail="User account is deactivated")

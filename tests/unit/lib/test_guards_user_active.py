@@ -26,6 +26,13 @@ def _mock_connection(mocker: MockerFixture, path_params: dict[str, str]) -> Magi
     return connection
 
 
+def _mock_handler(mocker: MockerFixture, opt: dict[str, object] | None = None) -> MagicMock:
+    """Create a mock route handler with the given opt dict."""
+    handler = mocker.MagicMock()
+    handler.opt = opt or {}
+    return handler
+
+
 def _patch_user(mocker: MockerFixture, user: MagicMock | None) -> None:
     """Patch User.filter(...).first() to return the given user."""
     mocker.patch(
@@ -43,7 +50,7 @@ async def test_user_active_guard_rejects_deactivated(mocker: MockerFixture) -> N
 
     # When/Then the guard raises
     with pytest.raises(PermissionDeniedError, match="deactivated"):
-        await user_active_guard(connection, mocker.MagicMock())
+        await user_active_guard(connection, _mock_handler(mocker))
 
 
 async def test_user_active_guard_rejects_unapproved(mocker: MockerFixture) -> None:
@@ -55,7 +62,34 @@ async def test_user_active_guard_rejects_unapproved(mocker: MockerFixture) -> No
 
     # When/Then the guard raises
     with pytest.raises(PermissionDeniedError, match="not been approved"):
-        await user_active_guard(connection, mocker.MagicMock())
+        await user_active_guard(connection, _mock_handler(mocker))
+
+
+async def test_user_active_guard_allows_unapproved_with_opt_flag(mocker: MockerFixture) -> None:
+    """Verify handlers with allow_unapproved_user opt flag can act on UNAPPROVED users."""
+    # Given an unapproved user and a handler that opts in to UNAPPROVED access
+    user = mocker.MagicMock(role=UserRole.UNAPPROVED)
+    _patch_user(mocker, user)
+    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    handler = _mock_handler(mocker, {"allow_unapproved_user": True})
+
+    # When calling the guard / Then no exception
+    await user_active_guard(connection, handler)
+
+
+async def test_user_active_guard_still_rejects_deactivated_with_opt_flag(
+    mocker: MockerFixture,
+) -> None:
+    """Verify allow_unapproved_user opt flag does not bypass the DEACTIVATED check."""
+    # Given a deactivated user and a handler that opts in to UNAPPROVED access
+    user = mocker.MagicMock(role=UserRole.DEACTIVATED)
+    _patch_user(mocker, user)
+    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    handler = _mock_handler(mocker, {"allow_unapproved_user": True})
+
+    # When/Then the guard still rejects
+    with pytest.raises(PermissionDeniedError, match="deactivated"):
+        await user_active_guard(connection, handler)
 
 
 async def test_user_active_guard_allows_player(mocker: MockerFixture) -> None:

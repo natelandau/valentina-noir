@@ -178,6 +178,7 @@ class UserController(Controller):
         operation_id="approveUser",
         description=docs.APPROVE_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"allow_unapproved_user": True},
     )
     async def approve_user(self, user: User, data: UserApprove) -> UserResponse:
         """Approve an unapproved user and assign a role."""
@@ -195,6 +196,7 @@ class UserController(Controller):
         operation_id="denyUser",
         description=docs.DENY_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={"allow_unapproved_user": True},
     )
     async def deny_user(self, user: User, company: Company, data: UserDeny) -> None:
         """Deny an unapproved user."""
