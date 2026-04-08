@@ -154,6 +154,10 @@ class UserService:
     async def create_user(self, company: Company, data: UserCreate) -> User:
         """Create a user in a company.
 
+        The initial role is validated through the role-assignment matrix.
+        Creating a user with role UNAPPROVED (use register_user) or DEACTIVATED
+        (not a creation path) is forbidden.
+
         Args:
             company: The company to add the user to.
             data: The user creation data.
@@ -161,8 +165,22 @@ class UserService:
         Returns:
             The created user with campaign_experiences prefetched.
         """
-        await self.validate_user_can_manage_user(
-            requesting_user_id=data.requesting_user_id,
+        await self._assert_requester_active(data.requesting_user_id)
+        new_role = UserRole(data.role)
+
+        if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+            raise ValidationError(detail=f"Cannot create a user with initial role {new_role.value}")
+
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(
+            data.requesting_user_id
+        )
+        # Synthetic unsaved target with role=PLAYER so the matrix evaluates
+        # requester-vs-new_role without needing a real existing user.
+        synthetic_target = User(role=UserRole.PLAYER, company_id=company.id)
+        await self._validate_role_assignment(
+            requesting_user=requesting_user,
+            target_user=synthetic_target,
+            new_role=new_role,
         )
 
         user = await User.create(
@@ -170,7 +188,7 @@ class UserService:
             name_last=data.name_last,
             username=data.username,
             email=data.email,
-            role=UserRole(data.role),
+            role=new_role,
             company=company,
             discord_profile=data.discord_profile,
             google_profile=data.google_profile,
@@ -231,6 +249,7 @@ class UserService:
         """
         from vapi.domain import deps
 
+        await self._assert_requester_active(requesting_user_id)
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
         if primary_user_id == secondary_user_id:
@@ -339,6 +358,8 @@ class UserService:
         """
         from vapi.domain.handlers.archive_handlers import archive_user_cascade
 
+        await self._assert_not_last_admin(user)
+
         user.is_archived = True
         await user.save()
         await archive_user_cascade(user.id)
@@ -358,16 +379,24 @@ class UserService:
             requesting_user_id: The ID of the admin performing the action.
 
         Raises:
-            ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED.
-            PermissionDeniedError: If the requesting user is not an admin.
+            ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED/DEACTIVATED.
+            PermissionDeniedError: If the requester is not authorized for the assignment.
         """
+        await self._assert_requester_active(requesting_user_id)
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
 
-        if role == UserRole.UNAPPROVED:
-            raise ValidationError(detail="Cannot assign UNAPPROVED role")
+        if role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+            raise ValidationError(detail=f"Cannot assign {role.value} role via approval")
+
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        await self._validate_role_assignment(
+            requesting_user=requesting_user,
+            target_user=user,
+            new_role=role,
+        )
 
         user.role = role
         await user.save()
@@ -391,6 +420,7 @@ class UserService:
             ValidationError: If the user is not UNAPPROVED.
             PermissionDeniedError: If the requesting user is not an admin.
         """
+        await self._assert_requester_active(requesting_user_id)
         await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
 
         if user.role != UserRole.UNAPPROVED:
@@ -556,6 +586,7 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Add XP to a campaign experience with permission validation."""
+        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
             requesting_user_id=requesting_user_id,
@@ -573,6 +604,7 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Remove XP from a campaign experience with permission validation."""
+        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
             requesting_user_id=requesting_user_id,
@@ -590,6 +622,7 @@ class UserXPService:
         amount: int,
     ) -> CampaignExperience:
         """Add cool points to a campaign experience with permission validation."""
+        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
             requesting_user_id=requesting_user_id,

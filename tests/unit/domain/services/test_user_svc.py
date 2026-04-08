@@ -132,7 +132,9 @@ class TestUserService:
             github_profile={"login": "testuser", "email": "test@github.com"},
             requesting_user_id=requesting_user.id,
         )
-        spy = mocker.spy(UserService, "validate_user_can_manage_user")
+        # create_user now routes authorization through _validate_role_assignment,
+        # not validate_user_can_manage_user, so we spy on the matrix helper instead.
+        spy = mocker.spy(UserService, "_validate_role_assignment")
 
         # When we create the user
         service = UserService()
