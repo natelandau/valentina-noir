@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import msgspec
-from tortoise.exceptions import NoValuesFetched
 
 from vapi.constants import CompanyPermission
 
@@ -50,20 +49,14 @@ class CompanyResponse(msgspec.Struct):
     description: str | None
     email: str
     resources_modified_at: datetime
-    settings: CompanySettingsResponse | None
+    settings: CompanySettingsResponse
 
     @classmethod
     def from_model(cls, m: "Company") -> "CompanyResponse":
         """Convert a Tortoise Company to a response Struct.
 
-        Attempts to include settings if they have been prefetched; falls back to None
-        when settings are not loaded to avoid triggering additional queries.
+        Requires the `settings` relation to be prefetched before calling.
         """
-        try:
-            settings = CompanySettingsResponse.from_model(m.settings)
-        except (AttributeError, NoValuesFetched):
-            settings = None
-
         return cls(
             id=m.id,
             date_created=m.date_created,
@@ -72,7 +65,7 @@ class CompanyResponse(msgspec.Struct):
             description=m.description,
             email=m.email,
             resources_modified_at=m.resources_modified_at,
-            settings=settings,
+            settings=CompanySettingsResponse.from_model(m.settings),
         )
 
 
