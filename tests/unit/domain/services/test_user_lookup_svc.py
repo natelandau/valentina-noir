@@ -39,74 +39,45 @@ class TestUserLookupService:
         company_names = {r.company_name for r in results}
         assert company_names == {"Company A", "Company B"}
 
-    async def test_lookup_by_discord_id(
-        self, company_factory, user_factory, developer_factory, developer_company_permission_factory
+    @pytest.mark.parametrize(
+        ("lookup_kwarg", "profile_field", "profile_id"),
+        [
+            ("discord_id", "discord_profile", "999888777"),
+            ("google_id", "google_profile", "google-abc-123"),
+            ("github_id", "github_profile", "gh-456"),
+        ],
+    )
+    async def test_lookup_by_oauth_id(
+        self,
+        company_factory,
+        user_factory,
+        developer_factory,
+        developer_company_permission_factory,
+        lookup_kwarg,
+        profile_field,
+        profile_id,
     ) -> None:
-        """Verify lookup by discord_id matches against discord_profile JSON."""
-        # Given a user with a discord profile
-        company = await company_factory(name="Discord Co", email="d@co.com")
+        """Verify lookup by OAuth provider ID matches against the correct profile JSON field."""
+        # Given a user with an OAuth profile
+        company = await company_factory(name="OAuth Co", email="oauth@co.com")
         developer = await developer_factory()
         await developer_company_permission_factory(
             developer=developer, company=company, permission=CompanyPermission.USER
         )
         await user_factory(
             company=company,
-            email="discord-user@example.com",
-            discord_profile={"id": "999888777", "username": "gamer"},
+            email="oauth-user@example.com",
+            **{profile_field: {"id": profile_id}},
         )
 
-        # When looking up by discord_id
-        results = await UserLookupService().lookup(developer=developer, discord_id="999888777")
+        # When looking up by OAuth ID
+        results = await UserLookupService().lookup(
+            developer=developer, **{lookup_kwarg: profile_id}
+        )
 
         # Then the user is found
         assert len(results) == 1
-        assert results[0].company_name == "Discord Co"
-
-    async def test_lookup_by_google_id(
-        self, company_factory, user_factory, developer_factory, developer_company_permission_factory
-    ) -> None:
-        """Verify lookup by google_id matches against google_profile JSON."""
-        # Given a user with a google profile
-        company = await company_factory(name="Google Co", email="g@co.com")
-        developer = await developer_factory()
-        await developer_company_permission_factory(
-            developer=developer, company=company, permission=CompanyPermission.USER
-        )
-        await user_factory(
-            company=company,
-            email="google-user@example.com",
-            google_profile={"id": "google-abc-123", "email": "google-user@gmail.com"},
-        )
-
-        # When looking up by google_id
-        results = await UserLookupService().lookup(developer=developer, google_id="google-abc-123")
-
-        # Then the user is found
-        assert len(results) == 1
-        assert results[0].company_name == "Google Co"
-
-    async def test_lookup_by_github_id(
-        self, company_factory, user_factory, developer_factory, developer_company_permission_factory
-    ) -> None:
-        """Verify lookup by github_id matches against github_profile JSON."""
-        # Given a user with a github profile
-        company = await company_factory(name="GitHub Co", email="gh@co.com")
-        developer = await developer_factory()
-        await developer_company_permission_factory(
-            developer=developer, company=company, permission=CompanyPermission.USER
-        )
-        await user_factory(
-            company=company,
-            email="github-user@example.com",
-            github_profile={"id": "gh-456", "login": "octocat"},
-        )
-
-        # When looking up by github_id
-        results = await UserLookupService().lookup(developer=developer, github_id="gh-456")
-
-        # Then the user is found
-        assert len(results) == 1
-        assert results[0].company_name == "GitHub Co"
+        assert results[0].company_name == "OAuth Co"
 
     async def test_lookup_excludes_revoked_companies(
         self, company_factory, user_factory, developer_factory, developer_company_permission_factory
@@ -161,47 +132,32 @@ class TestUserLookupService:
         # Then no results are returned
         assert results == []
 
-    async def test_lookup_includes_unapproved_users(
-        self, company_factory, user_factory, developer_factory, developer_company_permission_factory
+    @pytest.mark.parametrize("role", ["UNAPPROVED", "DEACTIVATED"])
+    async def test_lookup_includes_non_active_role(
+        self,
+        company_factory,
+        user_factory,
+        developer_factory,
+        developer_company_permission_factory,
+        role,
     ) -> None:
-        """Verify UNAPPROVED users are included in results."""
-        # Given an unapproved user
-        company = await company_factory(name="Unapproved Co", email="unap@co.com")
+        """Verify users with non-active roles are included in results."""
+        # Given a user with the specified role
+        company = await company_factory(name="Role Co", email="role@co.com")
         developer = await developer_factory()
         await developer_company_permission_factory(
             developer=developer, company=company, permission=CompanyPermission.USER
         )
-        await user_factory(company=company, email="unapproved@example.com", role="UNAPPROVED")
+        await user_factory(company=company, email=f"{role.lower()}@example.com", role=role)
 
         # When looking up by email
         results = await UserLookupService().lookup(
-            developer=developer, email="unapproved@example.com"
+            developer=developer, email=f"{role.lower()}@example.com"
         )
 
         # Then the user is found
         assert len(results) == 1
-        assert results[0].role == "UNAPPROVED"
-
-    async def test_lookup_includes_deactivated_users(
-        self, company_factory, user_factory, developer_factory, developer_company_permission_factory
-    ) -> None:
-        """Verify DEACTIVATED users are included in results."""
-        # Given a deactivated user
-        company = await company_factory(name="Deactivated Co", email="deact@co.com")
-        developer = await developer_factory()
-        await developer_company_permission_factory(
-            developer=developer, company=company, permission=CompanyPermission.USER
-        )
-        await user_factory(company=company, email="deactivated@example.com", role="DEACTIVATED")
-
-        # When looking up by email
-        results = await UserLookupService().lookup(
-            developer=developer, email="deactivated@example.com"
-        )
-
-        # Then the user is found
-        assert len(results) == 1
-        assert results[0].role == "DEACTIVATED"
+        assert results[0].role == role
 
     async def test_lookup_no_matches_returns_empty_list(self, developer_factory) -> None:
         """Verify no matches returns an empty list."""

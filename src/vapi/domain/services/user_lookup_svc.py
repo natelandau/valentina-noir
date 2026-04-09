@@ -69,21 +69,19 @@ class UserLookupService:
 
             qs = qs.filter(company_id__in=list(permitted_ids))
 
-        # Apply the identifier filter
         identifier_name, identifier_value = next(iter(provided.items()))
         if identifier_name == "email":
             qs = qs.filter(email=identifier_value)
-        elif identifier_name == "discord_id":
-            qs = qs.annotate(_discord_id=RawSQL("discord_profile->>'id'")).filter(
-                _discord_id=identifier_value
-            )
-        elif identifier_name == "google_id":
-            qs = qs.annotate(_google_id=RawSQL("google_profile->>'id'")).filter(
-                _google_id=identifier_value
-            )
-        elif identifier_name == "github_id":
-            qs = qs.annotate(_github_id=RawSQL("github_profile->>'id'")).filter(
-                _github_id=identifier_value
+        else:
+            oauth_json_fields = {
+                "discord_id": "discord_profile",
+                "google_id": "google_profile",
+                "github_id": "github_profile",
+            }
+            json_column = oauth_json_fields[identifier_name]
+            annotation_key = f"_{identifier_name}"
+            qs = qs.annotate(**{annotation_key: RawSQL(f"{json_column}->>'id'")}).filter(
+                **{annotation_key: identifier_value}
             )
 
         users = await qs.select_related("company")
@@ -93,7 +91,7 @@ class UserLookupService:
                 company_id=user.company.id,
                 company_name=user.company.name,
                 user_id=user.id,
-                role=user.role.value if hasattr(user.role, "value") else str(user.role),
+                role=user.role.value,
             )
             for user in users
         ]
