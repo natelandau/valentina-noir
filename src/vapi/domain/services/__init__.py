@@ -13,6 +13,7 @@ from .company_svc import CompanyService
 from .developer_svc import DeveloperService
 from .diceroll_svc import DiceRollService
 from .dictionary_svc import DictionaryService
+from .user_lookup_svc import UserLookupService
 from .user_svc import UserQuickRollService, UserService, UserXPService
 from .validation_svc import GetModelByIdValidationService
 
@@ -28,6 +29,7 @@ __all__ = (
     "DiceRollService",
     "DictionaryService",
     "GetModelByIdValidationService",
+    "UserLookupService",
     "UserQuickRollService",
     "UserService",
     "UserXPService",

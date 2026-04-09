@@ -3,7 +3,6 @@
 import pytest
 
 from vapi.constants import CompanyPermission
-from vapi.db.sql_models.developer import DeveloperCompanyPermission
 from vapi.domain.services.user_lookup_svc import UserLookupService
 from vapi.lib.exceptions import ValidationError
 
@@ -172,9 +171,7 @@ class TestUserLookupService:
         await developer_company_permission_factory(
             developer=developer, company=company, permission=CompanyPermission.USER
         )
-        await user_factory(
-            company=company, email="unapproved@example.com", role="UNAPPROVED"
-        )
+        await user_factory(company=company, email="unapproved@example.com", role="UNAPPROVED")
 
         # When looking up by email
         results = await UserLookupService().lookup(
@@ -195,9 +192,7 @@ class TestUserLookupService:
         await developer_company_permission_factory(
             developer=developer, company=company, permission=CompanyPermission.USER
         )
-        await user_factory(
-            company=company, email="deactivated@example.com", role="DEACTIVATED"
-        )
+        await user_factory(company=company, email="deactivated@example.com", role="DEACTIVATED")
 
         # When looking up by email
         results = await UserLookupService().lookup(
@@ -208,24 +203,18 @@ class TestUserLookupService:
         assert len(results) == 1
         assert results[0].role == "DEACTIVATED"
 
-    async def test_lookup_no_matches_returns_empty_list(
-        self, developer_factory
-    ) -> None:
+    async def test_lookup_no_matches_returns_empty_list(self, developer_factory) -> None:
         """Verify no matches returns an empty list."""
         # Given a developer with no matching users
         developer = await developer_factory()
 
         # When looking up a nonexistent email
-        results = await UserLookupService().lookup(
-            developer=developer, email="nobody@example.com"
-        )
+        results = await UserLookupService().lookup(developer=developer, email="nobody@example.com")
 
         # Then an empty list is returned
         assert results == []
 
-    async def test_lookup_no_identifiers_raises_validation_error(
-        self, developer_factory
-    ) -> None:
+    async def test_lookup_no_identifiers_raises_validation_error(self, developer_factory) -> None:
         """Verify providing no identifiers raises ValidationError."""
         # Given a developer
         developer = await developer_factory()
@@ -245,6 +234,4 @@ class TestUserLookupService:
         # When calling lookup with multiple identifiers
         # Then a ValidationError is raised
         with pytest.raises(ValidationError):
-            await UserLookupService().lookup(
-                developer=developer, email="a@b.com", discord_id="123"
-            )
+            await UserLookupService().lookup(developer=developer, email="a@b.com", discord_id="123")
