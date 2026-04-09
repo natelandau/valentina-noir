@@ -295,17 +295,22 @@ async def purge_db_expired_items(_: Context) -> None:
     handles its own imports, error handling, and logging so that a failure in one
     does not prevent the others from running.
     """
+    from tortoise import Tortoise
+
     from vapi.lib.database import init_tortoise
 
     logger.info("Start database cleanup.", extra=_LOG_EXTRA)
 
     await init_tortoise()
 
-    await _purge_archived_models()
-    await _purge_audit_logs()
-    await _purge_s3_assets()
-    await _purge_chargen_sessions()
-    await _purge_temporary_characters()
+    try:
+        await _purge_archived_models()
+        await _purge_audit_logs()
+        await _purge_s3_assets()
+        await _purge_chargen_sessions()
+        await _purge_temporary_characters()
+    finally:
+        await Tortoise.close_connections()
 
     logger.info(
         "Database cleanup completed.",
