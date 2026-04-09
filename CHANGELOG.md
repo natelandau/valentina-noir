@@ -1,3 +1,9 @@
+## v0.13.1 (2026-04-09)
+
+### Fix
+
+- **saq**: close Tortoise connections after scheduled purge task (#105)
+
 ## v0.13.0 (2026-04-09)
 
 ### Feat

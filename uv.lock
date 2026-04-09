@@ -1679,7 +1679,7 @@ wheels = [
 
 [[package]]
 name = "vapi"
-version = "0.13.0"
+version = "0.13.1"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio" },
