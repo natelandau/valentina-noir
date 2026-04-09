@@ -9,6 +9,7 @@ import msgspec
 from tortoise.exceptions import NoValuesFetched
 
 from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.utils.strings import get_discord_avatar_url
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.user import CampaignExperience, User
@@ -106,6 +107,17 @@ class UserResponse(msgspec.Struct):
             ]
         except (AttributeError, NoValuesFetched):
             experiences = []
+
+        if (
+            m.discord_profile
+            and "avatar_id" in m.discord_profile
+            and "discriminator" in m.discord_profile
+        ):
+            m.discord_profile["avatar_url"] = get_discord_avatar_url(
+                avatar_hash=m.discord_profile["avatar_id"],
+                discord_user_id=m.discord_profile["id"],
+                discriminator=m.discord_profile["discriminator"],
+            )
 
         return cls(
             id=m.id,
