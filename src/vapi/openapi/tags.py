@@ -106,6 +106,10 @@ class APITags:
     USERS_NOTES = TagMetadata(name="Users - Notes", description="User notes")
     USERS_ASSETS = TagMetadata(name="Users - Assets", description="User assets")
     USERS_QUICKROLLS = TagMetadata(name="Users - Quickrolls", description="User quickrolls")
+    USERS_LOOKUP = TagMetadata(
+        name="Users - Lookup",
+        description="Cross-company user discovery for login and registration flows",
+    )
 
     @classmethod
     def get_all_tags(cls) -> list[Tag]:
