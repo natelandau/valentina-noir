@@ -1,3 +1,9 @@
+## v0.13.0 (2026-04-09)
+
+### Feat
+
+- **user-lookup**: add cross-company user lookup endpoint (#104)
+
 ## v0.12.0 (2026-04-08)
 
 ### Feat
