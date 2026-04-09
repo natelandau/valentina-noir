@@ -108,6 +108,46 @@ def get_or_create_valentina_user(sso_user, company_id):
     return valentina_user_id
 ```
 
+### Cross-Company User Lookup
+
+When your application manages multiple companies, use the lookup endpoint to discover whether a person already has accounts across your companies. This is designed for login and registration flows.
+
+```shell
+GET /api/v1/users/lookup?email=player@example.com
+```
+
+Search by **exactly one** identifier:
+
+| Parameter    | Description                    |
+|-------------|--------------------------------|
+| `email`      | Exact match on user email     |
+| `discord_id` | Discord profile ID            |
+| `google_id`  | Google profile ID             |
+| `github_id`  | GitHub profile ID             |
+
+Response:
+
+```json
+[
+  {
+    "company_id": "550e8400-e29b-41d4-a716-446655440000",
+    "company_name": "Friday Night Games",
+    "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "role": "PLAYER"
+  },
+  {
+    "company_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "company_name": "Downtown LARP",
+    "user_id": "a3bb189e-8bf9-3888-9912-ace4e6543002",
+    "role": "STORYTELLER"
+  }
+]
+```
+
+Results are scoped to companies where your API key has access. Archived users are excluded. Unapproved and deactivated users are included so your client can display appropriate status messaging.
+
+Providing zero or multiple query parameters returns `400 Bad Request`.
+
 ### Merging Users
 
 When a duplicate UNAPPROVED user is created (e.g., a user authenticates via a new identity provider before you matched them to their existing account), merge the accounts:

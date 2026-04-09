@@ -32,6 +32,12 @@ class Developers:
     UPDATE = ME
 
 
+class UserLookup:
+    """Cross-company user lookup endpoints."""
+
+    LOOKUP = f"{URL_ROOT_PATH}/users/lookup"
+
+
 class Companies:
     """Company resource endpoints."""
 

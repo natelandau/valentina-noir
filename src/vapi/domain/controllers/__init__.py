@@ -39,6 +39,7 @@ from .user import (
     QuickRollController,
     UserController,
 )
+from .user_lookup.controllers import UserLookupController
 
 __all__ = (
     "BookAssetsController",
@@ -70,6 +71,7 @@ __all__ = (
     "SystemController",
     "UserAssetsController",
     "UserController",
+    "UserLookupController",
     "UserNoteController",
     "html_static_files_router",
 )
