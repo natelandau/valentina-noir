@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
-from unittest.mock import ANY
+from unittest.mock import ANY, AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -776,8 +776,12 @@ class TestChargenSessions:
             expires_at=time_now() - timedelta(hours=1)
         )
 
-        # When the scheduled task runs
-        await purge_db_expired_items({})
+        # When the scheduled task runs (mock init/close since Tortoise is already open)
+        with (
+            patch("vapi.lib.database.init_tortoise", new_callable=AsyncMock),
+            patch("tortoise.Tortoise.close_connections", new_callable=AsyncMock),
+        ):
+            await purge_db_expired_items({})
 
         # Then the session and its characters are deleted
         session = await ChargenSession.filter(id=session_id).first()

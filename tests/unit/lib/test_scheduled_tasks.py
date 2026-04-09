@@ -33,6 +33,7 @@ class TestPurgeDBExpiredItems:
         """Verify archived characters older than 30 days are purged by the cleanup task."""
         # Given: Mock DB init since connections are already open in tests
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         old_date = time_now() - timedelta(days=60)
 
@@ -67,6 +68,7 @@ class TestPurgeDBExpiredItems:
         """Verify audit log entries older than 30 days are purged by the cleanup task."""
         # Given: Mock DB init since connections are already open in tests
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         old_date = time_now() - timedelta(days=60)
 
@@ -117,6 +119,7 @@ class TestPurgeS3AssetsErrorIsolation:
         """Verify a failure deleting one S3 asset does not prevent deletion of subsequent assets."""
         # Given: Mock DB init since connections are already open in tests
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         old_date = time_now() - timedelta(days=60)
 
@@ -172,6 +175,7 @@ class TestPurgeTemporaryCharacters:
         """Verify temporary non-chargen characters modified more than 24 hours ago are deleted."""
         # Given: Mock DB init since connections are already open in tests
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         # Given a temporary non-chargen character modified more than 24 hours ago
         old_temp = await character_factory(
@@ -195,6 +199,7 @@ class TestPurgeTemporaryCharacters:
         """Verify temporary characters modified within the last 24 hours are not deleted."""
         # Given
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         # Given a temporary non-chargen character modified recently
         recent_temp = await character_factory(
@@ -216,6 +221,7 @@ class TestPurgeTemporaryCharacters:
         """Verify temporary characters with is_chargen=True are not deleted."""
         # Given
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         # Given a temporary chargen character modified more than 24 hours ago
         chargen_char = await character_factory(
@@ -239,6 +245,7 @@ class TestPurgeTemporaryCharacters:
         """Verify non-temporary characters are never deleted by the temporary purge."""
         # Given
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         # Given a regular character
         regular_char = await character_factory(
@@ -261,6 +268,7 @@ class TestPurgeTemporaryCharacters:
         """Verify CharacterTraits are cleaned up when a temporary character is purged."""
         # Given
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
 
         # Given a temporary character with a trait
         temp_char = await character_factory(
