@@ -1,19 +1,12 @@
 """Cross-company user lookup service."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from tortoise.expressions import RawSQL
 
 from vapi.constants import CompanyPermission
-from vapi.db.sql_models.developer import DeveloperCompanyPermission
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.user_lookup.dto import UserLookupResult
 from vapi.lib.exceptions import ValidationError
-
-if TYPE_CHECKING:
-    from vapi.db.sql_models.developer import Developer
 
 
 class UserLookupService:
