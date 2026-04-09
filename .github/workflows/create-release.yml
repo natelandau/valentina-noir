@@ -139,3 +139,18 @@ jobs:
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
                   outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Valentina Noir API
+
+
+    deploy-railway:
+        name: Deploy to Railway
+        needs: publish-container
+        runs-on: ubuntu-latest
+        if: github.event_name != 'pull_request'
+        steps:
+            - name: Install Railway CLI
+              run: npm install -g @railway/cli
+
+            - name: Trigger Railway redeploy
+              env:
+                  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+              run: railway redeploy -s ${{ secrets.RAILWAY_SERVICE_NAME }} -y
