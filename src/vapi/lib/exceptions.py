@@ -33,8 +33,11 @@ __all__ = (
     "PermissionDeniedError",
     "TooManyRequestsError",
     "ValidationError",
+    "does_not_exist_to_http_response",
     "http_error_to_http_response",
+    "integrity_error_to_http_response",
     "litestar_http_exc_to_http_response",
+    "operational_error_to_http_response",
     "tortoise_validation_to_http_response",
 )
 
@@ -339,6 +342,49 @@ def litestar_http_exc_to_http_response(
     return exc.to_response(request)
 
 
+def does_not_exist_to_http_response(
+    request: Request[Any, Any, Any],
+    exc: Exception,  # Litestar handler signature requires Exception; actual type is DoesNotExist
+) -> Response[dict[str, Any]]:
+    """Convert Tortoise ORM DoesNotExist to HTTP 404 response.
+
+    Bare ``.get()`` calls that bypass the ``_find_or_404`` dependency layer
+    raise ``tortoise.exceptions.DoesNotExist`` when no matching row exists.
+    This handler converts those into an RFC 9457 NotFoundError.
+
+    Args:
+        request: The incoming request object.
+        exc: The Tortoise ORM DoesNotExist exception.
+
+    Returns:
+        Response[dict[str, Any]]: A properly formatted HTTP 404 response.
+    """
+    app_exc = NotFoundError(detail=str(exc))
+    return app_exc.to_response(request)
+
+
+def integrity_error_to_http_response(
+    request: Request[Any, Any, Any],
+    exc: Exception,  # Litestar handler signature requires Exception; actual type is IntegrityError
+) -> Response[dict[str, Any]]:
+    """Convert Tortoise ORM IntegrityError to HTTP 409 response.
+
+    Database unique-constraint violations (duplicate email, etc.) surface as
+    ``tortoise.exceptions.IntegrityError``.  This handler converts those into
+    an RFC 9457 ConflictError so callers receive a structured problem-details
+    response instead of an unhandled 500.
+
+    Args:
+        request: The incoming request object.
+        exc: The Tortoise ORM IntegrityError.
+
+    Returns:
+        Response[dict[str, Any]]: A properly formatted HTTP 409 response.
+    """
+    app_exc = ConflictError(detail=str(exc))
+    return app_exc.to_response(request)
+
+
 def tortoise_validation_to_http_response(
     request: Request[Any, Any, Any],
     exc: Exception,  # Litestar handler signature requires Exception; actual type is TortoiseValidationError
@@ -358,4 +404,27 @@ def tortoise_validation_to_http_response(
         Response[dict[str, Any]]: A properly formatted HTTP 400 response.
     """
     app_exc = ValidationError(detail=str(exc))
+    return app_exc.to_response(request)
+
+
+def operational_error_to_http_response(
+    request: Request[Any, Any, Any],
+    exc: Exception,  # Litestar handler signature requires Exception; actual type is OperationalError
+) -> Response[dict[str, Any]]:
+    """Convert Tortoise ORM OperationalError to HTTP 500 response.
+
+    Catch-all for database operational errors (deadlocks, connection issues,
+    ``MultipleObjectsReturned``, etc.) that aren't handled by a more specific
+    handler. Returns a clean RFC 9457 InternalServerError without leaking
+    stack traces or DB internals.
+
+    Args:
+        request: The incoming request object.
+        exc: The Tortoise ORM OperationalError.
+
+    Returns:
+        Response[dict[str, Any]]: A properly formatted HTTP 500 response.
+    """
+    logger.exception("Unhandled Tortoise OperationalError: %s", exc)
+    app_exc = InternalServerError()
     return app_exc.to_response(request)

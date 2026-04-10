@@ -15,15 +15,20 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
     HTTP_409_CONFLICT,
+    HTTP_500_INTERNAL_SERVER_ERROR,
 )
+from tortoise.exceptions import DoesNotExist, OperationalError
 
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
+from vapi.db.sql_models.developer import Developer as DeveloperModel
 from vapi.domain.urls import Characters as CharacterURL
+from vapi.domain.urls import GlobalAdmin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from httpx import AsyncClient
+    from pytest_mock import MockerFixture
 
     from vapi.db.sql_models.campaign import Campaign
     from vapi.db.sql_models.character import Character, CharacterTrait
@@ -218,3 +223,107 @@ class TestErrorPipeline:
 
         # Verify invalid_parameters is present for validation errors
         assert "invalid_parameters" in response_data
+
+    async def test_integrity_error_returns_409(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_global_admin: Developer,
+        token_global_admin: dict[str, str],
+        developer_factory: Callable[..., Developer],
+    ) -> None:
+        """Verify IntegrityError from duplicate unique field returns proper HTTP 409 response."""
+        # Given a developer with a known email
+        existing = await developer_factory(email="duplicate@example.com")
+
+        # When creating another developer with the same email
+        response = await client.post(
+            build_url(GlobalAdmin.DEVELOPER_CREATE),
+            headers=token_global_admin,
+            json={
+                "username": "another-dev",
+                "email": existing.email,
+                "is_global_admin": False,
+            },
+        )
+
+        # Then the response should be HTTP 409 with RFC 9457 structure
+        assert response.status_code == HTTP_409_CONFLICT
+        response_data = response.json()
+
+        assert "status" in response_data
+        assert response_data["status"] == HTTP_409_CONFLICT
+        assert "title" in response_data
+        assert "detail" in response_data
+        assert "instance" in response_data
+
+    async def test_does_not_exist_returns_404(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_global_admin: Developer,
+        token_global_admin: dict[str, str],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify DoesNotExist from Tortoise ORM returns proper HTTP 404 response."""
+        # Given Developer.create raises DoesNotExist (simulating a .get() failure)
+        mocker.patch.object(
+            DeveloperModel, "create", side_effect=DoesNotExist("Developer not found")
+        )
+
+        # When creating a developer triggers the mocked exception
+        response = await client.post(
+            build_url(GlobalAdmin.DEVELOPER_CREATE),
+            headers=token_global_admin,
+            json={
+                "username": "ghost-dev",
+                "email": "ghost@example.com",
+                "is_global_admin": False,
+            },
+        )
+
+        # Then the response should be HTTP 404 with RFC 9457 structure
+        assert response.status_code == HTTP_404_NOT_FOUND
+        response_data = response.json()
+
+        assert "status" in response_data
+        assert response_data["status"] == HTTP_404_NOT_FOUND
+        assert "title" in response_data
+        assert "detail" in response_data
+        assert "instance" in response_data
+
+    async def test_operational_error_returns_500(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_global_admin: Developer,
+        token_global_admin: dict[str, str],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify OperationalError from Tortoise ORM returns clean HTTP 500 response."""
+        # Given Developer.create raises an OperationalError (simulating a DB failure)
+        mocker.patch.object(
+            DeveloperModel, "create", side_effect=OperationalError("deadlock detected")
+        )
+
+        # When creating a developer triggers the mocked exception
+        response = await client.post(
+            build_url(GlobalAdmin.DEVELOPER_CREATE),
+            headers=token_global_admin,
+            json={
+                "username": "unlucky-dev",
+                "email": "unlucky@example.com",
+                "is_global_admin": False,
+            },
+        )
+
+        # Then the response should be HTTP 500 with RFC 9457 structure and no stack trace
+        assert response.status_code == HTTP_500_INTERNAL_SERVER_ERROR
+        response_data = response.json()
+
+        assert "status" in response_data
+        assert response_data["status"] == HTTP_500_INTERNAL_SERVER_ERROR
+        assert "title" in response_data
+        assert "instance" in response_data
+        # The detail should be the generic message, not the raw DB error
+        assert "deadlock" not in response_data.get("detail", "").lower()
