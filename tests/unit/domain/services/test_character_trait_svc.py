@@ -4447,7 +4447,7 @@ class TestRecoupXPGate:
 
         # When lowering via XP
         # Then it raises and the trait value is unchanged
-        with pytest.raises(PermissionDeniedError, match=r"recoup|DENIED"):
+        with pytest.raises(PermissionDeniedError, match=r"not permitted"):
             await self._modify(s, target_value=2)
         await s.char_trait.refresh_from_db()
         assert s.char_trait.value == 3
@@ -4503,7 +4503,7 @@ class TestRecoupXPGate:
 
         # When lowering via XP
         # Then it raises
-        with pytest.raises(PermissionDeniedError, match=r"WITHIN_SESSION|session"):
+        with pytest.raises(PermissionDeniedError, match=r"not permitted"):
             await self._modify(s, target_value=2)
 
     async def test_within_session_raise_anchors_floor_at_pre_update_value(

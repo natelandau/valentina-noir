@@ -592,10 +592,7 @@ class CharacterTraitService:
                 return
             case PermissionsRecoupXP.DENIED:
                 if not is_increase:
-                    msg = (
-                        "Lowering trait values is not permitted for this company. "
-                        "Current setting: DENIED."
-                    )
+                    msg = "Lowering trait values is not permitted. "
                     raise PermissionDeniedError(detail=msg)
                 return
             case PermissionsRecoupXP.WITHIN_SESSION:
@@ -626,15 +623,12 @@ class CharacterTraitService:
                     trait_id=trait_id,
                 )
                 if floor is None:
-                    msg = (
-                        "Lowering trait values is not permitted for this company outside of "
-                        "an active edit session. Current setting: WITHIN_SESSION."
-                    )
+                    msg = "Lowering trait values is not permitted."
                     raise PermissionDeniedError(detail=msg)
                 if target_value < floor:
                     msg = (
                         f"Cannot lower this trait below {floor} (the value at the start of "
-                        "your current edit session). Current setting: WITHIN_SESSION."
+                        "your current edit session)"
                     )
                     raise PermissionDeniedError(detail=msg)
                 # Successful lower within the session refreshes the floor's TTL.
