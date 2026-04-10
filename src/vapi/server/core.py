@@ -52,12 +52,14 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from litestar.config.response_cache import ResponseCacheConfig
         from litestar.exceptions import HTTPException
         from litestar.stores.registry import StoreRegistry
+        from tortoise.exceptions import IntegrityError as TortoiseIntegrityError
         from tortoise.exceptions import ValidationError as TortoiseValidationError
 
         from vapi.domain import route_handlers
         from vapi.lib.exceptions import (
             HTTPError,
             http_error_to_http_response,
+            integrity_error_to_http_response,
             litestar_http_exc_to_http_response,
             tortoise_validation_to_http_response,
         )
@@ -127,6 +129,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.exception_handlers = {
             HTTPError: http_error_to_http_response,
             HTTPException: litestar_http_exc_to_http_response,
+            TortoiseIntegrityError: integrity_error_to_http_response,
             TortoiseValidationError: tortoise_validation_to_http_response,
         }
 

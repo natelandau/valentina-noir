@@ -34,6 +34,7 @@ __all__ = (
     "TooManyRequestsError",
     "ValidationError",
     "http_error_to_http_response",
+    "integrity_error_to_http_response",
     "litestar_http_exc_to_http_response",
     "tortoise_validation_to_http_response",
 )
@@ -337,6 +338,28 @@ def litestar_http_exc_to_http_response(
         )
 
     return exc.to_response(request)
+
+
+def integrity_error_to_http_response(
+    request: Request[Any, Any, Any],
+    exc: Exception,  # Litestar handler signature requires Exception; actual type is IntegrityError
+) -> Response[dict[str, Any]]:
+    """Convert Tortoise ORM IntegrityError to HTTP 409 response.
+
+    Database unique-constraint violations (duplicate email, etc.) surface as
+    ``tortoise.exceptions.IntegrityError``.  This handler converts those into
+    an RFC 9457 ConflictError so callers receive a structured problem-details
+    response instead of an unhandled 500.
+
+    Args:
+        request: The incoming request object.
+        exc: The Tortoise ORM IntegrityError.
+
+    Returns:
+        Response[dict[str, Any]]: A properly formatted HTTP 409 response.
+    """
+    app_exc = ConflictError(detail=str(exc))
+    return app_exc.to_response(request)
 
 
 def tortoise_validation_to_http_response(

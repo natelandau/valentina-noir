@@ -19,6 +19,7 @@ from litestar.status_codes import (
 
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.domain.urls import Characters as CharacterURL
+from vapi.domain.urls import GlobalAdmin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -218,3 +219,36 @@ class TestErrorPipeline:
 
         # Verify invalid_parameters is present for validation errors
         assert "invalid_parameters" in response_data
+
+    async def test_integrity_error_returns_409(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_global_admin: Developer,
+        token_global_admin: dict[str, str],
+        developer_factory: Callable[..., Developer],
+    ) -> None:
+        """Verify IntegrityError from duplicate unique field returns proper HTTP 409 response."""
+        # Given a developer with a known email
+        existing = await developer_factory(email="duplicate@example.com")
+
+        # When creating another developer with the same email
+        response = await client.post(
+            build_url(GlobalAdmin.DEVELOPER_CREATE),
+            headers=token_global_admin,
+            json={
+                "username": "another-dev",
+                "email": existing.email,
+                "is_global_admin": False,
+            },
+        )
+
+        # Then the response should be HTTP 409 with RFC 9457 structure
+        assert response.status_code == HTTP_409_CONFLICT
+        response_data = response.json()
+
+        assert "status" in response_data
+        assert response_data["status"] == HTTP_409_CONFLICT
+        assert "title" in response_data
+        assert "detail" in response_data
+        assert "instance" in response_data
