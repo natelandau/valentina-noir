@@ -1,3 +1,10 @@
+## v0.13.2 (2026-04-09)
+
+### Fix
+
+- **character**: prefetch gift_tribe and gift_auspice for full sheet (#107)
+- **user**: add discord avatar_url
+
 ## v0.13.1 (2026-04-09)
 
 ### Fix

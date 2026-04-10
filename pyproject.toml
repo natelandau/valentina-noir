@@ -25,7 +25,7 @@
     name = "vapi"
     readme = "README.md"
     requires-python = ">=3.13,<3.14"
-    version = "0.13.1"
+    version = "0.13.2"
 
     [project.scripts]
         app = "vapi.__main__:run_cli"
