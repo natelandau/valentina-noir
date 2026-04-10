@@ -1,3 +1,10 @@
+## v0.13.3 (2026-04-10)
+
+### Fix
+
+- **error-handling**: convert tortoise errors to RFC 9457 responses (#108)
+- **character-trait**: improve error messageas
+
 ## v0.13.2 (2026-04-09)
 
 ### Fix
