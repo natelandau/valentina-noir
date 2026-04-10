@@ -774,3 +774,69 @@ class TestCharacterSheetService:
                     or gift.gift_attributes.tribe_id == tribe_id
                     or gift.gift_attributes.auspice_id == auspice_id
                 ), f"Gift '{gift.name}' should not be available to this werewolf"
+
+        async def test_full_sheet_with_gift_trait_serializes_gift_attributes(
+            self,
+            character_factory: "Callable[..., Character]",
+            character_trait_factory: "Callable[..., CharacterTrait]",
+            werewolf_attributes_factory: "Callable[..., WerewolfAttributes]",
+            company_factory: "Callable[..., Company]",
+        ) -> None:
+            """Verify full sheet serializes gift attributes when a character has gift traits."""
+            # Given a tribe and auspice from bootstrap data
+            tribe = await WerewolfTribe.filter(is_archived=False).first()
+            auspice = await WerewolfAuspice.filter(is_archived=False).first()
+            assert tribe is not None
+            assert auspice is not None
+
+            # And a werewolf character with that tribe and auspice
+            company = await company_factory()
+            character = await character_factory(character_class="WEREWOLF", company=company)
+            await werewolf_attributes_factory(character=character, tribe=tribe, auspice=auspice)
+            character = (
+                await type(character)
+                .filter(id=character.id)
+                .prefetch_related(
+                    "concept",
+                    "vampire_attributes__clan",
+                    "werewolf_attributes__tribe",
+                    "werewolf_attributes__auspice",
+                    "mage_attributes",
+                    "hunter_attributes",
+                    "specialties",
+                )
+                .first()
+            )
+
+            # And a gift trait assigned to the character
+            gift_trait = await Trait.filter(
+                is_archived=False,
+                gift_renown__isnull=False,
+                gift_tribe_id=tribe.id,
+            ).first()
+            assert gift_trait is not None
+            await character_trait_factory(character=character, trait=gift_trait, value=1)
+
+            # When we build the full sheet
+            service = CharacterSheetService()
+            result = await service.get_character_full_sheet(
+                character, include_available_traits=False
+            )
+
+            # Then the character trait with gift attributes is present and correctly serialized
+            all_character_traits = [
+                ct
+                for section in result.sections
+                for category in section.categories
+                for ct in category.character_traits
+            ] + [
+                ct
+                for section in result.sections
+                for category in section.categories
+                for sub in category.subcategories
+                for ct in sub.character_traits
+            ]
+            gift_ct = [ct for ct in all_character_traits if ct.trait.id == gift_trait.id]
+            assert len(gift_ct) == 1
+            assert gift_ct[0].trait.gift_attributes is not None
+            assert gift_ct[0].trait.gift_attributes.tribe_id == tribe.id
