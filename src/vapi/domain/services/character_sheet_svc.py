@@ -67,7 +67,12 @@ class CharacterSheetService:
                 game_versions__contains=[game_ver],
             ).order_by("name"),
             CharacterTrait.filter(character_id=character.id).prefetch_related(
-                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+                "trait",
+                "trait__category",
+                "trait__subcategory",
+                "trait__sheet_section",
+                "trait__gift_tribe",
+                "trait__gift_auspice",
             ),
         ]
         if include_available_traits:
@@ -182,7 +187,12 @@ class CharacterSheetService:
             CharacterTrait.filter(
                 character_id=character.id, trait__category_id=category.id
             ).prefetch_related(
-                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+                "trait",
+                "trait__category",
+                "trait__subcategory",
+                "trait__sheet_section",
+                "trait__gift_tribe",
+                "trait__gift_auspice",
             ),
         ]
 
