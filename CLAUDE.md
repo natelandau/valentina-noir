@@ -60,6 +60,7 @@ duty dev-setup                # Initialize development environment
 - Dependency injection via Litestar's DI system
 - Async-first (all code uses async/await)
 - **Do not use `from __future__ import annotations`** in controller files, dependency provider files, or any file where types appear in Litestar handler signatures. Litestar resolves type hints at runtime — the future import breaks this and forces `# noqa: TC002` suppressions.
+- **Archived (soft-deleted) items must never appear in API responses** outside the global admin domain. All queries must filter `is_archived=False` — this includes list endpoints, detail-by-ID lookups (via `_find_or_404`), and child resources embedded via `active_prefetch`. Never add query parameters, include options, or any other mechanism that allows callers to request archived rows.
 
 ## Critical Files
 

@@ -36,7 +36,6 @@ from vapi.openapi.tags import APITags
 from . import docs
 from .dto import (
     CHARACTER_RESPONSE_PREFETCH,
-    INCLUDE_PREFETCH_MAP,
     CharacterCreate,
     CharacterDetailResponse,
     CharacterFullSheetDTO,
@@ -44,6 +43,7 @@ from .dto import (
     CharacterPatch,
     CharacterResponse,
     FullSheetTraitCategoryDTO,
+    get_character_include_prefetch_map,
 )
 
 
@@ -140,7 +140,7 @@ class CharacterController(Controller):
         include: list[CharacterInclude] | None = None,
     ) -> CharacterDetailResponse:
         """Get a character by ID with optional embedded children."""
-        requested = await apply_includes(character, include, INCLUDE_PREFETCH_MAP)
+        requested = await apply_includes(character, include, get_character_include_prefetch_map())
         return CharacterDetailResponse.from_model(character, requested)
 
     @post(

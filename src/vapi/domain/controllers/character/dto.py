@@ -2,10 +2,12 @@
 
 from datetime import datetime
 from enum import StrEnum
+from functools import cache
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 import msgspec
+from tortoise.queryset import Prefetch
 
 from vapi.constants import (
     CharacterClass,
@@ -15,12 +17,15 @@ from vapi.constants import (
     HunterEdgeType,
     SpecialtyType,
 )
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.character import CharacterInventory, CharacterTrait
+from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
+from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.character import (
         Character,
-        CharacterTrait,
         HunterAttributes,
         MageAttributes,
         VampireAttributes,
@@ -42,17 +47,29 @@ class CharacterInclude(StrEnum):
     ASSETS = "assets"
 
 
-INCLUDE_PREFETCH_MAP: dict[CharacterInclude, list[str]] = {
-    CharacterInclude.TRAITS: [
-        "traits__trait",
-        "traits__trait__category",
-        "traits__trait__subcategory",
-        "traits__trait__sheet_section",
-    ],
-    CharacterInclude.INVENTORY: ["inventory"],
-    CharacterInclude.NOTES: ["notes"],
-    CharacterInclude.ASSETS: ["assets"],
-}
+# Deferred via ``@cache`` because each ``Prefetch`` constructs a Tortoise
+# QuerySet which touches ``Model._meta.db`` — only populated after
+# ``Tortoise.init()`` runs at app startup.
+@cache
+def get_character_include_prefetch_map() -> dict[CharacterInclude, list[str | Prefetch]]:
+    """Return the prefetch map for character detail includes."""
+    return {
+        CharacterInclude.TRAITS: [
+            active_prefetch(
+                "traits",
+                CharacterTrait,
+                nested=[
+                    "trait",
+                    "trait__category",
+                    "trait__subcategory",
+                    "trait__sheet_section",
+                ],
+            ),
+        ],
+        CharacterInclude.INVENTORY: [active_prefetch("inventory", CharacterInventory)],
+        CharacterInclude.NOTES: [active_prefetch("notes", Note)],
+        CharacterInclude.ASSETS: [active_prefetch("assets", S3Asset)],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +214,6 @@ class CharacterResponse(msgspec.Struct):
     hunter_attributes: HunterAttributesResponse | None
     date_created: datetime
     date_modified: datetime
-    is_archived: bool
 
     @classmethod
     def from_model(cls, m: "Character") -> "CharacterResponse":
@@ -280,7 +296,6 @@ class CharacterResponse(msgspec.Struct):
             hunter_attributes=hunter_resp,
             date_created=m.date_created,
             date_modified=m.date_modified,
-            is_archived=m.is_archived,
         )
 
 

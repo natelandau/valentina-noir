@@ -259,6 +259,64 @@ async def test_get_book_include_all_children(
     assert data["assets"][0]["id"] == str(asset.id)
 
 
+async def test_get_book_include_excludes_archived_children(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory,
+    note_factory,
+    s3asset_factory,
+    build_url: Callable[..., str],
+) -> None:
+    """Verify getBook includes drop archived chapters, notes, and assets."""
+    # Given a book with one active and one archived of each child type
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+
+    active_chapter = await campaign_chapter_factory(book=book)
+    archived_chapter = await campaign_chapter_factory(book=book)
+    archived_chapter.is_archived = True
+    await archived_chapter.save()
+
+    active_note = await note_factory(company=session_company, book=book)
+    archived_note = await note_factory(company=session_company, book=book)
+    archived_note.is_archived = True
+    await archived_note.save()
+
+    active_asset = await s3asset_factory(
+        company=session_company, book=book, uploaded_by=session_user
+    )
+    archived_asset = await s3asset_factory(
+        company=session_company, book=book, uploaded_by=session_user
+    )
+    archived_asset.is_archived = True
+    await archived_asset.save()
+
+    # When we include every child type
+    response = await client.get(
+        build_url(
+            Campaigns.BOOK_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            user_id=session_user.id,
+        ),
+        headers=token_global_admin,
+        params={"include": ["chapters", "notes", "assets"]},
+    )
+
+    # Then each list contains only the active child
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert [c["id"] for c in data["chapters"]] == [str(active_chapter.id)]
+    assert [n["id"] for n in data["notes"]] == [str(active_note.id)]
+    assert [a["id"] for a in data["assets"]] == [str(active_asset.id)]
+
+
 async def test_get_book_include_invalid_value(
     client: AsyncClient,
     token_global_admin: dict[str, str],

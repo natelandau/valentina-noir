@@ -22,7 +22,6 @@ class InventoryItemResponse(msgspec.Struct):
     character_id: UUID
     date_created: datetime
     date_modified: datetime
-    is_archived: bool
 
     @classmethod
     def from_model(cls, m: "CharacterInventory") -> "InventoryItemResponse":
@@ -35,7 +34,6 @@ class InventoryItemResponse(msgspec.Struct):
             character_id=m.character_id,  # type: ignore[attr-defined]
             date_created=m.date_created,
             date_modified=m.date_modified,
-            is_archived=m.is_archived,
         )
 
 

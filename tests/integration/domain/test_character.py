@@ -706,6 +706,74 @@ class TestCharacterController:
         assert data["notes"] == []
         assert data["assets"] == []
 
+    async def test_get_character_include_excludes_archived_children(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_trait_factory,
+        character_inventory_factory,
+        note_factory,
+        s3asset_factory,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify getCharacter includes drop archived traits, inventory, notes, and assets."""
+        # Given a character with one active and one archived of each child type
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        active_trait = await character_trait_factory(character=character)
+        archived_trait = await character_trait_factory(character=character)
+        archived_trait.is_archived = True
+        await archived_trait.save()
+
+        active_item = await character_inventory_factory(character=character)
+        archived_item = await character_inventory_factory(character=character)
+        archived_item.is_archived = True
+        await archived_item.save()
+
+        active_note = await note_factory(company=session_company, character=character)
+        archived_note = await note_factory(company=session_company, character=character)
+        archived_note.is_archived = True
+        await archived_note.save()
+
+        active_asset = await s3asset_factory(
+            company=session_company, character=character, uploaded_by=session_user
+        )
+        archived_asset = await s3asset_factory(
+            company=session_company, character=character, uploaded_by=session_user
+        )
+        archived_asset.is_archived = True
+        await archived_asset.save()
+
+        # When we include every child type
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                campaign_id=session_campaign.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin,
+            params={"include": ["traits", "inventory", "notes", "assets"]},
+        )
+
+        # Then each list contains only the active child
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert [t["id"] for t in data["traits"]] == [str(active_trait.id)]
+        assert [i["id"] for i in data["inventory"]] == [str(active_item.id)]
+        assert [n["id"] for n in data["notes"]] == [str(active_note.id)]
+        assert [a["id"] for a in data["assets"]] == [str(active_asset.id)]
+
     async def test_get_character_include_invalid_value(
         self,
         client: AsyncClient,
