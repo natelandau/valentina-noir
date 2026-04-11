@@ -22,7 +22,6 @@ from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import (
-    USER_INCLUDE_PREFETCH_MAP,
     UserApprove,
     UserCreate,
     UserDeny,
@@ -32,6 +31,7 @@ from .dto import (
     UserPatch,
     UserRegister,
     UserResponse,
+    get_user_include_prefetch_map,
 )
 
 
@@ -93,7 +93,7 @@ class UserController(Controller):
         include: list[UserInclude] | None = None,
     ) -> UserDetailResponse:
         """Get a user by ID with optional embedded children."""
-        requested = await apply_includes(user, include, USER_INCLUDE_PREFETCH_MAP)
+        requested = await apply_includes(user, include, get_user_include_prefetch_map())
         return UserDetailResponse.from_model(user, requested)
 
     @post(

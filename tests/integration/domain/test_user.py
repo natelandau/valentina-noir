@@ -513,6 +513,161 @@ class TestUserController:
             assert len(data["characters"]) == 1
             assert data["characters"][0]["id"] == str(played.id)
 
+        async def test_get_user_include_characters_excludes_archived(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            session_campaign: Campaign,
+            character_factory: Callable[..., Any],
+        ) -> None:
+            """Verify include=characters excludes archived characters from the embedded list."""
+            # Given an active and an archived character played by the session user
+            active = await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+            archived = await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+            archived.is_archived = True
+            await archived.save()
+
+            # When we include characters
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["characters"]},
+            )
+
+            # Then only the active character is returned
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["characters"]) == 1
+            assert data["characters"][0]["id"] == str(active.id)
+
+        async def test_get_user_include_quickrolls_excludes_archived(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            quickroll_factory: Callable[..., Any],
+        ) -> None:
+            """Verify include=quickrolls excludes archived quick rolls from the embedded list."""
+            # Given an active and an archived quick roll on the session user
+            active = await quickroll_factory(user=session_user)
+            archived = await quickroll_factory(user=session_user)
+            archived.is_archived = True
+            await archived.save()
+
+            # When we include quickrolls
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["quickrolls"]},
+            )
+
+            # Then only the active quick roll is returned
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["quickrolls"]) == 1
+            assert data["quickrolls"][0]["id"] == str(active.id)
+
+        async def test_get_user_include_notes_excludes_archived(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            note_factory: Callable[..., Any],
+        ) -> None:
+            """Verify include=notes excludes archived notes from the embedded list."""
+            # Given an active and an archived note on the session user
+            active = await note_factory(company=session_company, user=session_user)
+            archived = await note_factory(company=session_company, user=session_user)
+            archived.is_archived = True
+            await archived.save()
+
+            # When we include notes
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["notes"]},
+            )
+
+            # Then only the active note is returned
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["notes"]) == 1
+            assert data["notes"][0]["id"] == str(active.id)
+
+        async def test_get_user_include_assets_excludes_archived(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            s3asset_factory: Callable[..., Any],
+        ) -> None:
+            """Verify include=assets excludes archived owned assets from the embedded list."""
+            # Given an active and an archived asset owned by the session user
+            active = await s3asset_factory(
+                company=session_company,
+                user_parent=session_user,
+                uploaded_by=session_user,
+            )
+            archived = await s3asset_factory(
+                company=session_company,
+                user_parent=session_user,
+                uploaded_by=session_user,
+            )
+            archived.is_archived = True
+            await archived.save()
+
+            # When we include assets
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["assets"]},
+            )
+
+            # Then only the active asset is returned
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["assets"]) == 1
+            assert data["assets"][0]["id"] == str(active.id)
+
         async def test_get_user_include_invalid_value(
             self,
             client: AsyncClient,

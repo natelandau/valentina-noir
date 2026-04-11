@@ -2,13 +2,20 @@
 
 from datetime import datetime
 from enum import StrEnum
+from functools import cache
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 import msgspec
 from tortoise.exceptions import NoValuesFetched
+from tortoise.queryset import Prefetch
 
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.character import Character
+from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
+from vapi.lib.detail_includes import active_prefetch
 from vapi.utils.strings import get_discord_avatar_url
 
 if TYPE_CHECKING:
@@ -30,22 +37,25 @@ class UserInclude(StrEnum):
 
 
 # "assets" → owned_assets (attached-to, not uploaded-by). "characters" →
-# played_characters. Nested prefetches mirror CHARACTER_RESPONSE_PREFETCH so
+# played_characters, which reuses CHARACTER_RESPONSE_PREFETCH so
 # CharacterResponse.from_model doesn't trigger N+1 lazy loads per character.
-USER_INCLUDE_PREFETCH_MAP: dict[UserInclude, list[str]] = {
-    UserInclude.QUICKROLLS: ["quick_rolls__traits"],
-    UserInclude.NOTES: ["notes"],
-    UserInclude.ASSETS: ["owned_assets"],
-    UserInclude.CHARACTERS: [
-        "played_characters__concept",
-        "played_characters__vampire_attributes__clan",
-        "played_characters__werewolf_attributes__tribe",
-        "played_characters__werewolf_attributes__auspice",
-        "played_characters__mage_attributes",
-        "played_characters__hunter_attributes",
-        "played_characters__specialties",
-    ],
-}
+#
+# Deferred via ``@cache`` because each ``Prefetch`` constructs a Tortoise
+# QuerySet which touches ``Model._meta.db`` — only populated after
+# ``Tortoise.init()`` runs at app startup.
+@cache
+def get_user_include_prefetch_map() -> dict[UserInclude, list[str | Prefetch]]:
+    """Return the prefetch map for user detail includes."""
+    return {
+        UserInclude.QUICKROLLS: [
+            active_prefetch("quick_rolls", QuickRoll, nested=["traits"]),
+        ],
+        UserInclude.NOTES: [active_prefetch("notes", Note)],
+        UserInclude.ASSETS: [active_prefetch("owned_assets", S3Asset)],
+        UserInclude.CHARACTERS: [
+            active_prefetch("played_characters", Character, nested=CHARACTER_RESPONSE_PREFETCH),
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------

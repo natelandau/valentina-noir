@@ -2,13 +2,20 @@
 
 from datetime import datetime
 from enum import StrEnum
+from functools import cache
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 import msgspec
+from tortoise.queryset import Prefetch
+
+from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.campaign import CampaignChapter
+from vapi.db.sql_models.notes import Note
+from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
-    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.campaign import Campaign, CampaignBook
 
 
 class BookInclude(StrEnum):
@@ -19,11 +26,17 @@ class BookInclude(StrEnum):
     ASSETS = "assets"
 
 
-BOOK_INCLUDE_PREFETCH_MAP: dict[BookInclude, list[str]] = {
-    BookInclude.CHAPTERS: ["chapters"],
-    BookInclude.NOTES: ["notes"],
-    BookInclude.ASSETS: ["assets"],
-}
+# Deferred via ``@cache`` because each ``Prefetch`` constructs a Tortoise
+# QuerySet which touches ``Model._meta.db`` — only populated after
+# ``Tortoise.init()`` runs at app startup.
+@cache
+def get_book_include_prefetch_map() -> dict[BookInclude, list[str | Prefetch]]:
+    """Return the prefetch map for campaign book detail includes."""
+    return {
+        BookInclude.CHAPTERS: [active_prefetch("chapters", CampaignChapter)],
+        BookInclude.NOTES: [active_prefetch("notes", Note)],
+        BookInclude.ASSETS: [active_prefetch("assets", S3Asset)],
+    }
 
 
 class ChapterInclude(StrEnum):
@@ -33,10 +46,13 @@ class ChapterInclude(StrEnum):
     ASSETS = "assets"
 
 
-CHAPTER_INCLUDE_PREFETCH_MAP: dict[ChapterInclude, list[str]] = {
-    ChapterInclude.NOTES: ["notes"],
-    ChapterInclude.ASSETS: ["assets"],
-}
+@cache
+def get_chapter_include_prefetch_map() -> dict[ChapterInclude, list[str | Prefetch]]:
+    """Return the prefetch map for campaign chapter detail includes."""
+    return {
+        ChapterInclude.NOTES: [active_prefetch("notes", Note)],
+        ChapterInclude.ASSETS: [active_prefetch("assets", S3Asset)],
+    }
 
 
 # ---------------------------------------------------------------------------

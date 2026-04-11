@@ -272,6 +272,60 @@ async def test_get_chapter_include_all_children(
     assert data["assets"][0]["id"] == str(asset.id)
 
 
+async def test_get_chapter_include_excludes_archived_children(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    note_factory,
+    s3asset_factory,
+    build_url: Callable[..., str],
+) -> None:
+    """Verify getChapter includes drop archived notes and assets."""
+    # Given a chapter with one active and one archived note and asset
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+
+    active_note = await note_factory(company=session_company, chapter=chapter)
+    archived_note = await note_factory(company=session_company, chapter=chapter)
+    archived_note.is_archived = True
+    await archived_note.save()
+
+    active_asset = await s3asset_factory(
+        company=session_company, chapter=chapter, uploaded_by=session_user
+    )
+    archived_asset = await s3asset_factory(
+        company=session_company, chapter=chapter, uploaded_by=session_user
+    )
+    archived_asset.is_archived = True
+    await archived_asset.save()
+
+    # When we include every child type
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+            user_id=session_user.id,
+        ),
+        headers=token_global_admin,
+        params={"include": ["notes", "assets"]},
+    )
+
+    # Then each list contains only the active child
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert [n["id"] for n in data["notes"]] == [str(active_note.id)]
+    assert [a["id"] for a in data["assets"]] == [str(active_asset.id)]
+
+
 async def test_get_chapter_include_invalid_value(
     client: AsyncClient,
     token_global_admin: dict[str, str],
