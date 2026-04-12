@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -25,6 +26,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
 from vapi.domain.services.company_svc import annotate_company_counts
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
     developer_company_admin_guard,
@@ -48,35 +50,42 @@ from .dto import (
 logger = logging.getLogger("vapi")
 
 
-async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettingsPatch") -> None:
-    """Apply a partial settings patch to a CompanySettings instance and save.
+async def _apply_settings_patch(
+    settings: CompanySettings, patch: "CompanySettingsPatch"
+) -> dict[str, dict[str, object]]:
+    """Apply a partial settings patch and return a diff of what changed.
 
     Skips any field that is UNSET so partial updates don't overwrite unchanged values.
+    Returns a dict of changed fields with dotted `settings.` prefix keys for audit logging.
 
     Args:
         settings: The CompanySettings record to update in-place.
         patch: The incoming patch data containing optional field overrides.
 
-    Raises:
-        tortoise.exceptions.ValidationError: If Tortoise rejects the updated settings values.
+    Returns:
+        dict[str, dict[str, object]]: A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed field.
     """
-    if not isinstance(patch.character_autogen_xp_cost, msgspec.UnsetType):
-        settings.character_autogen_xp_cost = patch.character_autogen_xp_cost
-    if not isinstance(patch.character_autogen_num_choices, msgspec.UnsetType):
-        settings.character_autogen_num_choices = patch.character_autogen_num_choices
-    if not isinstance(patch.permission_manage_campaign, msgspec.UnsetType):
-        settings.permission_manage_campaign = PermissionManageCampaign(
-            patch.permission_manage_campaign
-        )
-    if not isinstance(patch.permission_grant_xp, msgspec.UnsetType):
-        settings.permission_grant_xp = PermissionsGrantXP(patch.permission_grant_xp)
-    if not isinstance(patch.permission_free_trait_changes, msgspec.UnsetType):
-        settings.permission_free_trait_changes = PermissionsFreeTraitChanges(
-            patch.permission_free_trait_changes
-        )
-    if not isinstance(patch.permission_recoup_xp, msgspec.UnsetType):
-        settings.permission_recoup_xp = PermissionsRecoupXP(patch.permission_recoup_xp)
+    changes: dict[str, dict[str, object]] = {}
+
+    for field_name, enum_cls in (
+        ("character_autogen_xp_cost", None),
+        ("character_autogen_num_choices", None),
+        ("permission_manage_campaign", PermissionManageCampaign),
+        ("permission_grant_xp", PermissionsGrantXP),
+        ("permission_free_trait_changes", PermissionsFreeTraitChanges),
+        ("permission_recoup_xp", PermissionsRecoupXP),
+    ):
+        value = getattr(patch, field_name)
+        if isinstance(value, msgspec.UnsetType):
+            continue
+        new_value = enum_cls(value) if enum_cls else value
+        old = getattr(settings, field_name)
+        if old != new_value:
+            changes[f"settings.{field_name}"] = {"old": old, "new": new_value}
+            setattr(settings, field_name, new_value)
+
     await settings.save()
+    return changes
 
 
 class CompanyController(Controller):
@@ -192,26 +201,22 @@ class CompanyController(Controller):
         guards=[developer_company_admin_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_company(self, company: Company, data: CompanyPatch) -> CompanyResponse:
+    async def update_company(
+        self, company: Company, data: CompanyPatch, request: Request
+    ) -> CompanyResponse:
         """Update a company's fields, applying only the provided values."""
-        company_changed = False
-        if not isinstance(data.name, msgspec.UnsetType):
-            company.name = data.name
-            company_changed = True
-        if not isinstance(data.description, msgspec.UnsetType):
-            company.description = data.description
-            company_changed = True
-        if not isinstance(data.email, msgspec.UnsetType):
-            company.email = data.email
-            company_changed = True
+        changes = build_audit_changes(company, data, exclude=frozenset({"settings"}))
 
-        if company_changed:
+        if changes:
             await company.save()
 
         if not isinstance(data.settings, msgspec.UnsetType):
             settings = await CompanySettings.filter(company=company).first()
             if settings is not None:
-                await _apply_settings_patch(settings, data.settings)
+                settings_changes = await _apply_settings_patch(settings, data.settings)
+                changes.update(settings_changes)
+
+        request.state.audit_changes = changes
 
         company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
