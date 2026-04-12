@@ -85,4 +85,5 @@ class Migration(migrations.Migration):
             name='role',
             field=fields.CharEnumField(description='ADMIN: ADMIN\nSTORYTELLER: STORYTELLER\nPLAYER: PLAYER\nUNAPPROVED: UNAPPROVED\nDEACTIVATED: DEACTIVATED', enum_type=UserRole, max_length=11),
         ),
+        ops.RemoveField(model_name='AuditLog', name='name'),
     ]

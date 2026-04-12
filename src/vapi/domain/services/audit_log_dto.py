@@ -34,6 +34,7 @@ def _base_fields(m: AuditLog) -> dict[str, Any]:
         "chapter_id": m.chapter_id,  # type: ignore[attr-defined]
         "character_id": m.character_id,  # type: ignore[attr-defined]
         "request_id": m.request_id,
+        "summary": m.summary,
     }
 
 
@@ -55,6 +56,7 @@ class AuditLogResponse(msgspec.Struct):
     chapter_id: UUID | None
     character_id: UUID | None
     request_id: str | None
+    summary: str | None
 
     @classmethod
     def from_model(cls, m: AuditLog) -> "AuditLogResponse":
@@ -80,6 +82,7 @@ class AuditLogDetailResponse(msgspec.Struct):
     chapter_id: UUID | None
     character_id: UUID | None
     request_id: str | None
+    summary: str | None
     method: str
     url: str
     request_json: dict | None
@@ -88,8 +91,6 @@ class AuditLogDetailResponse(msgspec.Struct):
     query_params: dict | None
     operation_id: str | None
     handler_name: str | None
-    name: str | None
-    summary: str | None
 
     @classmethod
     def from_model(cls, m: AuditLog) -> "AuditLogDetailResponse":
@@ -104,6 +105,4 @@ class AuditLogDetailResponse(msgspec.Struct):
             query_params=m.query_params,
             operation_id=m.operation_id,
             handler_name=m.handler_name,
-            name=m.name,
-            summary=m.summary,
         )

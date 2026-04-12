@@ -24,7 +24,6 @@ class AuditLog(BaseModel):
     query fields (entity_type, operation, FK columns) for efficient filtering.
     """
 
-    name = fields.CharField(max_length=255, null=True)
     summary = fields.TextField(null=True)
     operation_id = fields.CharField(max_length=255, null=True)
     handler_name = fields.CharField(max_length=255, null=True)

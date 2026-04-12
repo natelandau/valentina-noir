@@ -111,6 +111,7 @@ Each audit log entry contains structured fields describing the change:
 | `chapter_id`       | `UUID|null`   | Related chapter                                 |
 | `character_id`     | `UUID|null`   | Related character                               |
 | `request_id`       | `string|null` | Request tracking ID for correlation             |
+| `summary`          | `string|null` | Endpoint summary                                |
 
 ## Request Details
 
@@ -132,8 +133,6 @@ This adds the following fields to each entry:
 | `query_params` | `object|null` | URL query parameters          |
 | `operation_id` | `string|null` | OpenAPI operation identifier  |
 | `handler_name` | `string|null` | Internal handler name         |
-| `name`         | `string|null` | Endpoint name                 |
-| `summary`      | `string|null` | Endpoint summary              |
 
 ## Examples
 

@@ -22,7 +22,7 @@ from vapi.domain.services.audit_log_svc import list_audit_logs
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
-from . import audit_log_docs as docs
+from . import docs
 
 
 class CompanyAuditLogController(Controller):

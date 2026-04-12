@@ -68,7 +68,6 @@ async def add_audit_log(request: Request) -> None:
         developer_id=request.user.id,
         handler=request.route_handler.__str__(),
         handler_name=request.route_handler.handler_name,
-        name=request.route_handler.name,
         summary=request.route_handler.summary,
         operation_id=request.route_handler.operation_id,
         method=request.method,
