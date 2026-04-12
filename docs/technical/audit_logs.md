@@ -84,7 +84,8 @@ Each audit log entry contains structured fields describing the change:
             "campaign_id": "eeee-ffff-0000-1111",
             "book_id": null,
             "chapter_id": null,
-            "character_id": "f9e8d7c6-b5a4-3210-fedc-ba0987654321"
+            "character_id": "f9e8d7c6-b5a4-3210-fedc-ba0987654321",
+            "request_id": "req-abc123"
         }
     ],
     "limit": 10,
@@ -109,6 +110,7 @@ Each audit log entry contains structured fields describing the change:
 | `book_id`          | `UUID|null`   | Related book                                    |
 | `chapter_id`       | `UUID|null`   | Related chapter                                 |
 | `character_id`     | `UUID|null`   | Related character                               |
+| `request_id`       | `string|null` | Request tracking ID for correlation             |
 
 ## Request Details
 
@@ -128,7 +130,6 @@ This adds the following fields to each entry:
 | `request_body` | `string|null` | Raw request body text         |
 | `path_params`  | `object|null` | URL path parameters           |
 | `query_params` | `object|null` | URL query parameters          |
-| `request_id`   | `string|null` | Request tracking ID           |
 | `operation_id` | `string|null` | OpenAPI operation identifier  |
 | `handler_name` | `string|null` | Internal handler name         |
 | `name`         | `string|null` | Endpoint name                 |

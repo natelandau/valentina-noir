@@ -63,6 +63,7 @@ async def test_list_company_audit_logs(
     assert "operation" in item
     assert "description" in item
     assert "company_id" in item
+    assert "request_id" in item
 
     # And raw request fields are NOT present by default
     assert "url" not in item

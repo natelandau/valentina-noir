@@ -32,6 +32,7 @@ class AuditLogResponse(msgspec.Struct):
     book_id: UUID | None
     chapter_id: UUID | None
     character_id: UUID | None
+    request_id: str | None
 
     @classmethod
     def from_model(cls, m: AuditLog) -> "AuditLogResponse":
@@ -51,6 +52,7 @@ class AuditLogResponse(msgspec.Struct):
             book_id=m.book_id,  # type: ignore[attr-defined]
             chapter_id=m.chapter_id,  # type: ignore[attr-defined]
             character_id=m.character_id,  # type: ignore[attr-defined]
+            request_id=m.request_id,
         )
 
 
