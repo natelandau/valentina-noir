@@ -1,8 +1,6 @@
 """Developer controllers."""
 
-from typing import TYPE_CHECKING
-
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, patch, post
@@ -10,15 +8,13 @@ from litestar.handlers import get, patch, post
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import DeveloperService
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import DeveloperPatch, DeveloperResponse
-
-if TYPE_CHECKING:
-    from litestar import Request
 
 
 class DeveloperController(Controller):
@@ -48,7 +44,7 @@ class DeveloperController(Controller):
         after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [DEVELOPER_KEY_ROTATION_LIMIT]},
     )
-    async def new_api_key(self, *, developer: Developer, request: "Request") -> dict[str, str]:
+    async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
         """Generate a new API key for a developer."""
         new_key = await DeveloperService().generate_api_key(developer)
 
@@ -69,19 +65,14 @@ class DeveloperController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_developer(
-        self, *, developer: Developer, data: DeveloperPatch
+        self, *, developer: Developer, data: DeveloperPatch, request: Request
     ) -> DeveloperResponse:
         """Update the current developer."""
-        if not isinstance(data.username, msgspec.UnsetType):
-            developer.username = data.username
-        if not isinstance(data.email, msgspec.UnsetType):
-            developer.email = data.email
-
+        changes = build_audit_changes(developer, data)
+        request.state.audit_changes = changes
         await developer.save()
 
-        # Re-fetch with prefetched relations so the response DTO has full data
         developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
         )
-
         return DeveloperResponse.from_model(developer)

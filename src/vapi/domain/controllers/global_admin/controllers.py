@@ -1,8 +1,8 @@
 """Global admin controllers."""
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -12,15 +12,13 @@ from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DeveloperService
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import global_admin_guard
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import AdminDeveloperPatch, DeveloperAdminResponse, DeveloperCreate
-
-if TYPE_CHECKING:
-    from litestar import Request
 
 
 class GlobalAdminController(Controller):
@@ -110,15 +108,11 @@ class GlobalAdminController(Controller):
         *,
         developer: Developer,
         data: AdminDeveloperPatch,
+        request: Request,
     ) -> DeveloperAdminResponse:
         """Update a Developer by ID."""
-        if not isinstance(data.username, msgspec.UnsetType):
-            developer.username = data.username
-        if not isinstance(data.email, msgspec.UnsetType):
-            developer.email = data.email
-        if not isinstance(data.is_global_admin, msgspec.UnsetType):
-            developer.is_global_admin = data.is_global_admin
-
+        changes = build_audit_changes(developer, data)
+        request.state.audit_changes = changes
         await developer.save()
 
         developer = (
@@ -133,7 +127,7 @@ class GlobalAdminController(Controller):
         description=docs.DELETE_DEVELOPER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_developer(self, *, developer: Developer, request: "Request") -> None:
+    async def delete_developer(self, *, developer: Developer, request: Request) -> None:
         """Delete a Developer by ID."""
         developer.is_archived = True
 
@@ -148,7 +142,7 @@ class GlobalAdminController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def new_api_key(
-        self, *, developer: Developer, request: "Request"
+        self, *, developer: Developer, request: Request
     ) -> dict[str, str | list[dict[str, str]]]:
         """Generate a new API key for a Developer."""
         new_key = await DeveloperService().generate_api_key(developer)
