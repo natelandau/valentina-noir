@@ -82,13 +82,11 @@ class GlobalAdminAuditLogController(Controller):
         if operation is not None:
             filters["operation"] = operation
 
-        includes = set(include) if include else set()
-
         return await list_audit_logs(
             filters=filters,
             limit=limit,
             offset=offset,
             date_from=date_from,
             date_to=date_to,
-            include_request_details=AuditLogInclude.REQUEST_DETAILS in includes,
+            include_request_details=bool(include and AuditLogInclude.REQUEST_DETAILS in include),
         )

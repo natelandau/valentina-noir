@@ -14,6 +14,7 @@ import pytest
 from uuid_utils import uuid7
 
 from vapi.constants import AssetType, DiceSize, RollResultType
+from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
@@ -792,3 +793,29 @@ async def s3asset_factory(company_factory: Any, user_factory: Any) -> Any:
     for asset in created:
         with contextlib.suppress(Exception):
             await asset.delete()
+
+
+@pytest.fixture
+async def audit_log_factory() -> Any:
+    """Return a factory that creates Tortoise AuditLog instances with cleanup."""
+    created: list[AuditLog] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> AuditLog:
+        nonlocal _counter
+        _counter += 1
+
+        defaults: dict[str, Any] = {
+            "method": "POST",
+            "url": f"/api/v1/test/{_counter}",
+        }
+        defaults.update(kwargs)
+        entry = await AuditLog.create(**defaults)
+        created.append(entry)
+        return entry
+
+    yield _factory
+
+    for entry in created:
+        with contextlib.suppress(Exception):
+            await entry.delete()

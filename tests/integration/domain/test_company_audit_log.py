@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from litestar.status_codes import HTTP_200_OK
 
-from vapi.db.sql_models.audit_log import AuditLog
 from vapi.domain.urls import Companies
 
 if TYPE_CHECKING:
@@ -27,12 +26,11 @@ async def test_list_company_audit_logs(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_owner: Developer,
+    audit_log_factory: Any,
 ) -> None:
     """Verify listing audit logs returns paginated results scoped to the company."""
     # Given an audit log entry exists for the company
-    await AuditLog.create(
-        method="POST",
-        url="/api/v1/test",
+    await audit_log_factory(
         developer=session_company_owner,
         company=session_company,
         entity_type="CAMPAIGN",
@@ -77,12 +75,12 @@ async def test_list_company_audit_logs_with_include(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_owner: Developer,
+    audit_log_factory: Any,
 ) -> None:
     """Verify include=request_details returns raw request forensics."""
     # Given an audit log entry exists for the company
-    await AuditLog.create(
+    await audit_log_factory(
         method="PATCH",
-        url="/api/v1/test",
         developer=session_company_owner,
         company=session_company,
         entity_type="USER",
@@ -114,21 +112,19 @@ async def test_list_company_audit_logs_with_filters(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_owner: Developer,
+    audit_log_factory: Any,
 ) -> None:
     """Verify entity_type and operation filters narrow results."""
     # Given audit log entries of different types exist
-    await AuditLog.create(
-        method="POST",
-        url="/api/v1/test",
+    await audit_log_factory(
         developer=session_company_owner,
         company=session_company,
         entity_type="CHARACTER",
         operation="CREATE",
         description="create character",
     )
-    await AuditLog.create(
+    await audit_log_factory(
         method="DELETE",
-        url="/api/v1/test",
         developer=session_company_owner,
         company=session_company,
         entity_type="CAMPAIGN",
@@ -156,13 +152,12 @@ async def test_list_company_audit_logs_pagination(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_owner: Developer,
+    audit_log_factory: Any,
 ) -> None:
     """Verify limit and offset parameters control pagination."""
     # Given multiple audit log entries exist
-    for i in range(3):
-        await AuditLog.create(
-            method="POST",
-            url=f"/api/v1/test/{i}",
+    for _i in range(3):
+        await audit_log_factory(
             developer=session_company_owner,
             company=session_company,
         )

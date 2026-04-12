@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from litestar.status_codes import HTTP_200_OK
 
-from vapi.db.sql_models.audit_log import AuditLog
 from vapi.domain.urls import GlobalAdmin
 
 if TYPE_CHECKING:
@@ -27,12 +26,11 @@ async def test_list_developer_audit_logs(
     build_url: Callable[[str, Any], str],
     session_global_admin: Developer,
     session_company: Company,
+    audit_log_factory: Any,
 ) -> None:
     """Verify global admin can list audit logs for a specific developer."""
     # Given an audit log entry exists for the global admin developer
-    await AuditLog.create(
-        method="POST",
-        url="/api/v1/test",
+    await audit_log_factory(
         developer=session_global_admin,
         company=session_company,
         entity_type="COMPANY",
@@ -67,12 +65,11 @@ async def test_list_developer_audit_logs_with_company_filter(
     build_url: Callable[[str, Any], str],
     session_global_admin: Developer,
     session_company: Company,
+    audit_log_factory: Any,
 ) -> None:
     """Verify company_id filter narrows results to a specific company."""
     # Given an audit log entry exists for the developer and company
-    await AuditLog.create(
-        method="POST",
-        url="/api/v1/test",
+    await audit_log_factory(
         developer=session_global_admin,
         company=session_company,
         entity_type="USER",
@@ -99,12 +96,12 @@ async def test_list_developer_audit_logs_with_include(
     build_url: Callable[[str, Any], str],
     session_global_admin: Developer,
     session_company: Company,
+    audit_log_factory: Any,
 ) -> None:
     """Verify include=request_details returns raw request forensics."""
     # Given an audit log entry exists
-    await AuditLog.create(
+    await audit_log_factory(
         method="PATCH",
-        url="/api/v1/test",
         developer=session_global_admin,
         company=session_company,
     )

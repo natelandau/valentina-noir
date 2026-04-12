@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 import msgspec
@@ -13,6 +14,27 @@ class AuditLogInclude(StrEnum):
     """Child data that can be embedded in an audit log response."""
 
     REQUEST_DETAILS = "request_details"
+
+
+def _base_fields(m: AuditLog) -> dict[str, Any]:
+    """Extract the shared structured fields from an AuditLog instance."""
+    return {
+        "id": m.id,
+        "date_created": m.date_created,
+        "entity_type": m.entity_type.value if m.entity_type else None,
+        "operation": m.operation.value if m.operation else None,
+        "target_entity_id": m.target_entity_id,
+        "description": m.description,
+        "changes": m.changes,
+        "company_id": m.company_id,  # type: ignore[attr-defined]
+        "acting_user_id": m.acting_user_id,  # type: ignore[attr-defined]
+        "user_id": m.user_id,  # type: ignore[attr-defined]
+        "campaign_id": m.campaign_id,  # type: ignore[attr-defined]
+        "book_id": m.book_id,  # type: ignore[attr-defined]
+        "chapter_id": m.chapter_id,  # type: ignore[attr-defined]
+        "character_id": m.character_id,  # type: ignore[attr-defined]
+        "request_id": m.request_id,
+    }
 
 
 class AuditLogResponse(msgspec.Struct):
@@ -37,23 +59,7 @@ class AuditLogResponse(msgspec.Struct):
     @classmethod
     def from_model(cls, m: AuditLog) -> "AuditLogResponse":
         """Convert a Tortoise AuditLog to a response Struct."""
-        return cls(
-            id=m.id,
-            date_created=m.date_created,
-            entity_type=m.entity_type.value if m.entity_type else None,
-            operation=m.operation.value if m.operation else None,
-            target_entity_id=m.target_entity_id,
-            description=m.description,
-            changes=m.changes,
-            company_id=m.company_id,  # type: ignore[attr-defined]
-            acting_user_id=m.acting_user_id,  # type: ignore[attr-defined]
-            user_id=m.user_id,  # type: ignore[attr-defined]
-            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
-            book_id=m.book_id,  # type: ignore[attr-defined]
-            chapter_id=m.chapter_id,  # type: ignore[attr-defined]
-            character_id=m.character_id,  # type: ignore[attr-defined]
-            request_id=m.request_id,
-        )
+        return cls(**_base_fields(m))
 
 
 class AuditLogDetailResponse(msgspec.Struct):
@@ -73,13 +79,13 @@ class AuditLogDetailResponse(msgspec.Struct):
     book_id: UUID | None
     chapter_id: UUID | None
     character_id: UUID | None
+    request_id: str | None
     method: str
     url: str
     request_json: dict | None
     request_body: str | None
     path_params: dict | None
     query_params: dict | None
-    request_id: str | None
     operation_id: str | None
     handler_name: str | None
     name: str | None
@@ -89,27 +95,13 @@ class AuditLogDetailResponse(msgspec.Struct):
     def from_model(cls, m: AuditLog) -> "AuditLogDetailResponse":
         """Convert a Tortoise AuditLog to a detail response Struct."""
         return cls(
-            id=m.id,
-            date_created=m.date_created,
-            entity_type=m.entity_type.value if m.entity_type else None,
-            operation=m.operation.value if m.operation else None,
-            target_entity_id=m.target_entity_id,
-            description=m.description,
-            changes=m.changes,
-            company_id=m.company_id,  # type: ignore[attr-defined]
-            acting_user_id=m.acting_user_id,  # type: ignore[attr-defined]
-            user_id=m.user_id,  # type: ignore[attr-defined]
-            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
-            book_id=m.book_id,  # type: ignore[attr-defined]
-            chapter_id=m.chapter_id,  # type: ignore[attr-defined]
-            character_id=m.character_id,  # type: ignore[attr-defined]
+            **_base_fields(m),
             method=m.method,
             url=m.url,
             request_json=m.request_json,
             request_body=m.request_body,
             path_params=m.path_params,
             query_params=m.query_params,
-            request_id=m.request_id,
             operation_id=m.operation_id,
             handler_name=m.handler_name,
             name=m.name,
