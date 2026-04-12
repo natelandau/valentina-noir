@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -12,6 +12,7 @@ from litestar.params import Parameter
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import (
     developer_company_user_guard,
     user_active_guard,
@@ -108,12 +109,12 @@ class CharacterInventoryController(Controller):
         *,
         inventory_item: CharacterInventory,
         data: InventoryItemPatch,
+        request: Request,
     ) -> InventoryItemResponse:
         """Update an inventory item."""
-        for field_name in ("name", "description", "type"):
-            value = getattr(data, field_name)
-            if not isinstance(value, msgspec.UnsetType):
-                setattr(inventory_item, field_name, value)
+        changes = build_audit_changes(inventory_item, data)
+
+        request.state.audit_changes = changes
         await inventory_item.save()
         return InventoryItemResponse.from_model(inventory_item)
 

@@ -1,12 +1,16 @@
 """Character business logic services."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import msgspec
 
 from vapi.constants import CharacterClass, CharacterStatus
 from vapi.db.sql_models.character import (
     Character,
     CharacterTrait,
+    HunterAttributes,
+    MageAttributes,
     Specialty,
     VampireAttributes,
     WerewolfAttributes,
@@ -14,13 +18,14 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from vapi.domain.controllers.character.dto import CharacterTraitCreate
+    from vapi.domain.controllers.character.dto import CharacterPatch, CharacterTraitCreate
 
 
 class CharacterService:
@@ -206,6 +211,50 @@ class CharacterService:
                 await self.assign_werewolf_attributes(character)
             case _:
                 pass
+
+    _NESTED_ATTRIBUTE_FIELDS: frozenset[str] = frozenset(
+        {"vampire_attributes", "werewolf_attributes", "mage_attributes", "hunter_attributes"}
+    )
+
+    async def apply_patch(
+        self, character: Character, data: "CharacterPatch"
+    ) -> dict[str, dict[str, object]]:
+        """Apply a partial update to a character and return a diff of what changed.
+
+        Handles scalar fields and nested class-specific attributes (vampire,
+        werewolf, mage, hunter). Creates the nested attribute row on first use
+        if it doesn't exist yet.
+
+        Args:
+            character: The character model instance to mutate in-place.
+            data: The patch DTO with UNSET defaults for omitted fields.
+
+        Returns:
+            Dict mapping changed field names to ``{"old": ..., "new": ...}`` diffs.
+            Empty dict if nothing changed. Nested attribute fields use dotted keys
+            (e.g., ``"vampire_attributes.clan_id"``).
+        """
+        changes = build_audit_changes(character, data, exclude=self._NESTED_ATTRIBUTE_FIELDS)
+
+        nested_configs: list[tuple[Any, Any, str]] = [
+            (data.vampire_attributes, VampireAttributes, "vampire_attributes."),
+            (data.werewolf_attributes, WerewolfAttributes, "werewolf_attributes."),
+            (data.mage_attributes, MageAttributes, "mage_attributes."),
+            (data.hunter_attributes, HunterAttributes, "hunter_attributes."),
+        ]
+
+        for attr_data, model_cls, prefix in nested_configs:
+            if isinstance(attr_data, msgspec.UnsetType):
+                continue
+
+            row = await model_cls.filter(character=character).first()
+            if not row:
+                row = await model_cls.create(character=character)
+
+            changes.update(build_audit_changes(row, attr_data, prefix=prefix))
+            await row.save()
+
+        return changes
 
     async def prepare_for_save(self, character: Character) -> None:
         """Perform all pre-save validations and updates.

@@ -4,7 +4,7 @@ import asyncio
 from typing import Annotated
 from uuid import UUID
 
-import msgspec
+from litestar import Request  # noqa: TC002
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -230,83 +230,19 @@ class CharacterController(Controller):
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_character(  # noqa: C901, PLR0912
+    async def update_character(
         self,
         character: Character,
         data: CharacterPatch,
+        request: "Request",
     ) -> CharacterResponse:
         """Update a character."""
-        # Apply scalar fields — only update fields that were explicitly sent
-        for field_name in (
-            "name_first",
-            "name_last",
-            "name_nick",
-            "type",
-            "status",
-            "age",
-            "biography",
-            "demeanor",
-            "nature",
-            "concept_id",
-            "is_temporary",
-            "user_player_id",
-        ):
-            value = getattr(data, field_name)
-            if not isinstance(value, msgspec.UnsetType):
-                setattr(character, field_name, value)
-
-        # Apply nested attribute updates, creating the row on first use if absent
-        if not isinstance(data.vampire_attributes, msgspec.UnsetType):
-            va = await VampireAttributes.filter(character=character).first()
-            if not va:
-                va = await VampireAttributes.create(character=character)
-            for field_name in (
-                "clan_id",
-                "generation",
-                "sire",
-                "bane_name",
-                "bane_description",
-                "compulsion_name",
-                "compulsion_description",
-            ):
-                value = getattr(data.vampire_attributes, field_name)
-                if not isinstance(value, msgspec.UnsetType):
-                    setattr(va, field_name, value)
-            await va.save()
-
-        if not isinstance(data.werewolf_attributes, msgspec.UnsetType):
-            wa = await WerewolfAttributes.filter(character=character).first()
-            if not wa:
-                wa = await WerewolfAttributes.create(character=character)
-            for field_name in ("tribe_id", "auspice_id", "pack_name"):
-                value = getattr(data.werewolf_attributes, field_name)
-                if not isinstance(value, msgspec.UnsetType):
-                    setattr(wa, field_name, value)
-            await wa.save()
-
-        if not isinstance(data.mage_attributes, msgspec.UnsetType):
-            ma = await MageAttributes.filter(character=character).first()
-            if not ma:
-                ma = await MageAttributes.create(character=character)
-            for field_name in ("sphere", "tradition"):
-                value = getattr(data.mage_attributes, field_name)
-                if not isinstance(value, msgspec.UnsetType):
-                    setattr(ma, field_name, value)
-            await ma.save()
-
-        if not isinstance(data.hunter_attributes, msgspec.UnsetType):
-            ha = await HunterAttributes.filter(character=character).first()
-            if not ha:
-                ha = await HunterAttributes.create(character=character)
-            for field_name in ("creed",):
-                value = getattr(data.hunter_attributes, field_name)
-                if not isinstance(value, msgspec.UnsetType):
-                    setattr(ha, field_name, value)
-            await ha.save()
-
         service = CharacterService()
+        changes = await service.apply_patch(character, data)
         await service.prepare_for_save(character)
         await character.save()
+
+        request.state.audit_changes = changes
 
         character = await (
             Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH).first()

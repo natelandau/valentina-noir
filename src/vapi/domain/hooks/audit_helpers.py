@@ -33,7 +33,11 @@ Adding new entity types:
 
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
+from enum import Enum
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from vapi.constants import AuditEntityType, AuditOperation
 
@@ -172,6 +176,33 @@ def _resolve_acting_user(
     return None
 
 
+def _jsonable(value: object) -> object:
+    """Convert a value to a JSON-serializable type."""
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return value
+    return str(value)
+
+
+def _serialize_changes(changes: dict[str, Any]) -> dict[str, Any]:
+    """Ensure all values in a changes dict are JSON-serializable.
+
+    Converts UUIDs to strings and enums to their values so the dict
+    can be stored in a JSONField without serialization errors.
+    """
+    return {
+        key: {"old": _jsonable(diff["old"]), "new": _jsonable(diff["new"])}
+        for key, diff in changes.items()
+    }
+
+
 def build_audit_entry(
     request: Request,
     request_json: dict[str, Any] | None,
@@ -211,6 +242,8 @@ def build_audit_entry(
         description = " ".join(parts) if parts else None
 
     changes: dict[str, Any] | None = getattr(request.state, "audit_changes", None)
+    if changes is not None:
+        changes = _serialize_changes(changes)
 
     return {
         "entity_type": entity_type,
