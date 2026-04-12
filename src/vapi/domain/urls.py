@@ -21,6 +21,7 @@ class GlobalAdmin:
     DEVELOPER_UPDATE = DEVELOPER_DETAIL
     DEVELOPER_DELETE = DEVELOPER_DETAIL
     DEVELOPER_NEW_KEY = f"{DEVELOPER_DETAIL}/new-key"
+    DEVELOPER_AUDIT_LOGS = f"{DEVELOPER_DETAIL}/audit-logs"
 
 
 class Developers:
@@ -49,6 +50,7 @@ class Companies:
     DELETE = DETAIL
     STATISTICS = f"{DETAIL}/statistics"
     DEVELOPER_ACCESS = f"{DETAIL}/access"
+    AUDIT_LOGS = f"{DETAIL}/audit-logs"
 
 
 class Users:
