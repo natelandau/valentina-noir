@@ -49,13 +49,19 @@ class CompanyResponse(msgspec.Struct):
     description: str | None
     email: str
     resources_modified_at: datetime
+    num_campaigns: int
+    num_player_characters: int
+    num_storyteller_characters: int
+    num_npc_characters: int
+    num_users: int
     settings: CompanySettingsResponse
 
     @classmethod
     def from_model(cls, m: "Company") -> "CompanyResponse":
         """Convert a Tortoise Company to a response Struct.
 
-        Requires the `settings` relation to be prefetched before calling.
+        Requires the `settings` relation to be prefetched and count annotations
+        to be present on the model instance before calling.
         """
         return cls(
             id=m.id,
@@ -65,6 +71,11 @@ class CompanyResponse(msgspec.Struct):
             description=m.description,
             email=m.email,
             resources_modified_at=m.resources_modified_at,
+            num_campaigns=m.num_campaigns,  # type: ignore[attr-defined]
+            num_player_characters=m.num_player_characters,  # type: ignore[attr-defined]
+            num_storyteller_characters=m.num_storyteller_characters,  # type: ignore[attr-defined]
+            num_npc_characters=m.num_npc_characters,  # type: ignore[attr-defined]
+            num_users=m.num_users,  # type: ignore[attr-defined]
             settings=CompanySettingsResponse.from_model(m.settings),
         )
 

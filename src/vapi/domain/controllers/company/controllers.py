@@ -2,6 +2,7 @@
 
 import logging
 from typing import Annotated
+from uuid import UUID
 
 import msgspec
 from litestar.controller import Controller
@@ -23,6 +24,8 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
+from vapi.domain.services.company_svc import annotate_company_counts
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
@@ -121,8 +124,13 @@ class CompanyController(Controller):
         guards=[developer_company_user_guard],
         cache=True,
     )
-    async def get_company(self, *, company: Company) -> CompanyResponse:
+    async def get_company(self, *, company_id: UUID) -> CompanyResponse:
         """Retrieve a company by ID."""
+        company = await annotate_company_counts(
+            Company.filter(id=company_id, is_archived=False).prefetch_related("settings")
+        ).first()
+        if not company:
+            raise NotFoundError(detail="Company not found")
         return CompanyResponse.from_model(company)
 
     @post(
@@ -167,7 +175,9 @@ class CompanyController(Controller):
             company=company,
         )
 
-        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        company = await annotate_company_counts(
+            Company.filter(id=company.id).prefetch_related("settings")
+        ).first()
 
         return NewCompanyCreateResponse(
             company=CompanyResponse.from_model(company),
@@ -203,8 +213,9 @@ class CompanyController(Controller):
             if settings is not None:
                 await _apply_settings_patch(settings, data.settings)
 
-        # Re-fetch to ensure settings reflect any changes
-        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        company = await annotate_company_counts(
+            Company.filter(id=company.id).prefetch_related("settings")
+        ).first()
         return CompanyResponse.from_model(company)
 
     @delete(

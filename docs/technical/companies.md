@@ -77,8 +77,12 @@ The response includes both the company and an admin user account:
         "name": "Test Company",
         "description": "Test Description",
         "email": "test@test.com",
-        "user_ids": ["697996c7659f4e107e3bc81b"], // (1)!
         "resources_modified_at": "2026-01-28T04:55:35Z",
+        "num_campaigns": 0,
+        "num_player_characters": 0,
+        "num_storyteller_characters": 0,
+        "num_npc_characters": 0,
+        "num_users": 1,
         "settings": {
             "character_autogen_xp_cost": 10,
             "character_autogen_num_choices": 3,
@@ -92,8 +96,8 @@ The response includes both the company and an admin user account:
         "id": "697996c7659f4e107e3bc81b",
         "date_created": "2026-01-28T04:55:35Z",
         "date_modified": "2026-01-28T04:55:35Z",
-        "name": "test developer", // (2)!
-        "email": "test@test.com", // (3)!
+        "name": "test developer",
+        "email": "test@test.com",
         "role": "ADMIN",
         "company_id": "697996c7659f4e107e3bc81a",
         "campaign_experience": [],
@@ -101,10 +105,6 @@ The response includes both the company and an admin user account:
     }
 }
 ```
-
-1. The created user account ID
-2. Your developer username
-3. Your developer email
 
 !!! info "Automatic User Creation"
 
@@ -126,14 +126,22 @@ Response:
         {
             "id": "abc123",
             "name": "My Gaming Group",
-            "date_created": "2025-01-15T10:30:00Z"
-            ...
+            "date_created": "2025-01-15T10:30:00Z",
+            "num_campaigns": 3,
+            "num_player_characters": 12,
+            "num_storyteller_characters": 2,
+            "num_npc_characters": 8,
+            "num_users": 5
         },
         {
             "id": "def456",
             "name": "Partner Organization",
-            "date_created": "2025-02-20T14:45:00Z"
-            ...
+            "date_created": "2025-02-20T14:45:00Z",
+            "num_campaigns": 1,
+            "num_player_characters": 4,
+            "num_storyteller_characters": 1,
+            "num_npc_characters": 3,
+            "num_users": 2
         }
     ],
     "limit": 10,
