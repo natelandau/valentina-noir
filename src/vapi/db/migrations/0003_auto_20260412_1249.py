@@ -76,6 +76,10 @@ class Migration(migrations.Migration):
             model_name='AuditLog',
             index=Index(fields=['company_id', 'date_created']),
         ),
+        ops.AddIndex(
+            model_name='AuditLog',
+            index=Index(fields=['developer_id', 'date_created']),
+        ),
         ops.AlterField(
             model_name='User',
             name='role',
