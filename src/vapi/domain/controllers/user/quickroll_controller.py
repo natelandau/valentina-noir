@@ -3,6 +3,7 @@
 from typing import Annotated
 
 import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -13,6 +14,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
@@ -97,20 +99,23 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
-        self, *, quickroll: QuickRoll, data: dto.QuickRollPatch
+        self, *, quickroll: QuickRoll, data: dto.QuickRollPatch, request: Request
     ) -> dto.QuickRollResponse:
         """Update a user quick roll by ID."""
-        if not isinstance(data.name, msgspec.UnsetType):
-            quickroll.name = data.name
-        if not isinstance(data.description, msgspec.UnsetType):
-            quickroll.description = data.description
+        changes = build_audit_changes(quickroll, data, exclude=frozenset({"trait_ids"}))
         await quickroll.save()
 
         if not isinstance(data.trait_ids, msgspec.UnsetType):
+            old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
             service = UserQuickRollService()
             traits = await service.validate_quickroll_traits(data.trait_ids)
             await quickroll.traits.clear()
             await quickroll.traits.add(*traits)
+            new_trait_ids = sorted(str(tid) for tid in data.trait_ids)
+            if old_trait_ids != new_trait_ids:
+                changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
+
+        request.state.audit_changes = changes
 
         # Re-fetch to populate M2M relation after potential changes
         quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
