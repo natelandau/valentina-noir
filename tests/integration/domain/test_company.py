@@ -38,15 +38,22 @@ class TestCompanyCRUD:
         session_company: Company,
         session_company_user: Developer,
     ) -> None:
-        """Verify listing companies returns paginated results."""
+        """Verify listing companies returns paginated results with resource counts."""
         # Given a company the developer has access to (created by mirror fixtures)
 
         # When we list companies
         response = await client.get(build_url(Companies.LIST), headers=token_company_user)
 
-        # Then the response contains the company
+        # Then the response contains the company with count fields
         assert response.status_code == HTTP_200_OK
-        assert len(response.json()["items"]) >= 1
+        items = response.json()["items"]
+        assert len(items) >= 1
+        first = items[0]
+        assert isinstance(first["num_campaigns"], int)
+        assert isinstance(first["num_player_characters"], int)
+        assert isinstance(first["num_storyteller_characters"], int)
+        assert isinstance(first["num_npc_characters"], int)
+        assert isinstance(first["num_users"], int)
 
     async def test_get_company(
         self,
@@ -56,16 +63,27 @@ class TestCompanyCRUD:
         session_company: Company,
         session_company_user: Developer,
     ) -> None:
-        """Verify getting a single company returns correct data."""
+        """Verify getting a single company returns correct data with resource counts."""
         # When we get the company
         response = await client.get(
             build_url(Companies.DETAIL, company_id=session_company.id),
             headers=token_company_user,
         )
 
-        # Then the response contains the company detail
+        # Then the response contains the company detail with count fields
         assert response.status_code == HTTP_200_OK
-        assert response.json()["id"] == str(session_company.id)
+        data = response.json()
+        assert data["id"] == str(session_company.id)
+        assert isinstance(data["num_campaigns"], int)
+        assert isinstance(data["num_player_characters"], int)
+        assert isinstance(data["num_storyteller_characters"], int)
+        assert isinstance(data["num_npc_characters"], int)
+        assert isinstance(data["num_users"], int)
+        assert data["num_campaigns"] >= 0
+        assert data["num_player_characters"] >= 0
+        assert data["num_storyteller_characters"] >= 0
+        assert data["num_npc_characters"] >= 0
+        assert data["num_users"] >= 0
 
     async def test_create_company(
         self,
@@ -94,6 +112,13 @@ class TestCompanyCRUD:
         assert data["admin_user"]["email"] == session_company_user.email
         assert data["admin_user"]["role"] == "ADMIN"
         assert data["admin_user"]["company_id"] == data["company"]["id"]
+
+        # Then the response includes resource counts
+        assert data["company"]["num_campaigns"] == 0
+        assert data["company"]["num_player_characters"] == 0
+        assert data["company"]["num_storyteller_characters"] == 0
+        assert data["company"]["num_npc_characters"] == 0
+        assert data["company"]["num_users"] == 1
 
         # Then the company is created in the database
         company_id = data["company"]["id"]
@@ -178,6 +203,10 @@ class TestCompanyCRUD:
         assert response.status_code == HTTP_200_OK
         assert response.json()["name"] == "patched"
         assert response.json()["id"] == str(new_company.id)
+
+        # Then the response includes resource count fields
+        assert isinstance(response.json()["num_campaigns"], int)
+        assert isinstance(response.json()["num_users"], int)
 
         # And the company is updated in the database
         await new_company.refresh_from_db()
