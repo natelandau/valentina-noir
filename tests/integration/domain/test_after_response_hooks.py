@@ -124,6 +124,15 @@ class TestAfterResponseHooks:
         }
         assert audit.path_params == {"company_id": str(session_company.id)}
 
+        # Structured fields
+        assert audit.entity_type is not None
+        assert audit.entity_type.value == "USER"
+        assert audit.operation is not None
+        assert audit.operation.value == "CREATE"
+        assert audit.company_id == session_company.id
+        assert audit.acting_user_id == requesting_user.id
+        assert audit.description is not None
+
         # Then: the Tortoise company resources_modified_at should be updated
         updated_company = await Company.get(id=session_company.id)
         assert updated_company.resources_modified_at > time_now() - timedelta(days=1)
