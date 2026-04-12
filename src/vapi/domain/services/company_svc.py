@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from vapi.constants import CompanyPermission
+from tortoise.expressions import Q
+from tortoise.functions import Count
+
+from vapi.constants import CharacterType, CompanyPermission
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
@@ -95,9 +98,28 @@ class CompanyService:
         if not requesting_developer.is_global_admin:
             qs = qs.filter(developer_permissions__developer_id=requesting_developer.id)
 
+        annotated_qs = qs.annotate(
+            num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False)),
+            num_player_characters=Count(
+                "characters",
+                _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
+            ),
+            num_storyteller_characters=Count(
+                "characters",
+                _filter=Q(
+                    characters__is_archived=False, characters__type=CharacterType.STORYTELLER
+                ),
+            ),
+            num_npc_characters=Count(
+                "characters",
+                _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
+            ),
+            num_users=Count("users", _filter=Q(users__is_archived=False)),
+        )
+
         count, companies = await asyncio.gather(
             qs.count(),
-            qs.order_by("name").offset(offset).limit(limit).prefetch_related("settings"),
+            annotated_qs.order_by("name").offset(offset).limit(limit).prefetch_related("settings"),
         )
         return count, list(companies)
 
