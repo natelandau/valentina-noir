@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post, put
@@ -13,6 +13,7 @@ from vapi.db.sql_models.campaign import Campaign, CampaignBook
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
@@ -118,13 +119,11 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_book(
-        self, book: CampaignBook, data: CampaignBookPatch
+        self, book: CampaignBook, data: CampaignBookPatch, request: Request
     ) -> CampaignBookResponse:
         """Update a book by ID."""
-        if not isinstance(data.name, msgspec.UnsetType):
-            book.name = data.name
-        if not isinstance(data.description, msgspec.UnsetType):
-            book.description = data.description
+        changes = build_audit_changes(book, data)
+        request.state.audit_changes = changes
         await book.save()
         return CampaignBookResponse.from_model(book)
 

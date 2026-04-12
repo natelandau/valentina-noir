@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -14,6 +14,7 @@ from vapi.db.sql_models.company import Company
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -104,16 +105,12 @@ class CampaignController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_campaign(self, campaign: Campaign, data: CampaignPatch) -> CampaignResponse:
+    async def update_campaign(
+        self, campaign: Campaign, data: CampaignPatch, request: Request
+    ) -> CampaignResponse:
         """Update a campaign by ID."""
-        if not isinstance(data.name, msgspec.UnsetType):
-            campaign.name = data.name
-        if not isinstance(data.description, msgspec.UnsetType):
-            campaign.description = data.description
-        if not isinstance(data.desperation, msgspec.UnsetType):
-            campaign.desperation = data.desperation
-        if not isinstance(data.danger, msgspec.UnsetType):
-            campaign.danger = data.danger
+        changes = build_audit_changes(campaign, data)
+        request.state.audit_changes = changes
         await campaign.save()
         return CampaignResponse.from_model(campaign)
 
