@@ -3,11 +3,12 @@
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 
 from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 
@@ -80,13 +81,12 @@ class BaseNoteController(Controller, ABC):
         note: Note,
         parent_id: UUID,
         data: dto.NotePatch,
+        request: Request,
     ) -> dto.NoteResponse:
         """Update an existing note, verifying it belongs to the parent in the URL path."""
         self._assert_belongs_to_parent(note, parent_id)
-        if not isinstance(data.title, msgspec.UnsetType):
-            note.title = data.title
-        if not isinstance(data.content, msgspec.UnsetType):
-            note.content = data.content
+        changes = build_audit_changes(note, data)
+        request.state.audit_changes = changes
         await note.save()
         return dto.NoteResponse.from_model(note)
 

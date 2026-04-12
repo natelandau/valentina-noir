@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -267,7 +268,8 @@ class TestUpdateNote:
 
         # When we update the note
         data = NotePatch(title="Updated Title", content="Updated Content")
-        result = await controller._update_note(note, character.id, data)
+        mock_request = MagicMock()
+        result = await controller._update_note(note, character.id, data, mock_request)
 
         # Then the updated note is returned
         assert result.title == "Updated Title"
@@ -293,7 +295,8 @@ class TestUpdateNote:
 
         # When we update only the title
         data = NotePatch(title="Updated Title")
-        result = await controller._update_note(note, character.id, data)
+        mock_request = MagicMock()
+        result = await controller._update_note(note, character.id, data, mock_request)
 
         # Then only the title is updated
         assert result.title == "Updated Title"
@@ -367,9 +370,10 @@ class TestParentScopingIDOR:
 
         # When we attempt to update under character B
         # Then NotFoundError is raised and the note is unchanged
+        mock_request = MagicMock()
         with pytest.raises(NotFoundError):
             await controller._update_note(
-                note, character_b.id, NotePatch(title="Hacked", content="Hacked")
+                note, character_b.id, NotePatch(title="Hacked", content="Hacked"), mock_request
             )
         await note.refresh_from_db()
         assert note.title == "Original"

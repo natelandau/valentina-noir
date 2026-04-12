@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+from litestar import Request
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
@@ -81,10 +82,10 @@ class CharacterNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def update_note(
-        self, character: Character, note: Note, data: dto.NotePatch
+        self, character: Character, note: Note, data: dto.NotePatch, request: Request
     ) -> dto.NoteResponse:
         """Update a note by ID."""
-        return await self._update_note(note, character.id, data)
+        return await self._update_note(note, character.id, data, request)
 
     @delete(
         path=urls.Characters.NOTE_DELETE,
