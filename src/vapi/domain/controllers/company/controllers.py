@@ -1,21 +1,16 @@
 """Company API."""
 
 import logging
-from typing import TYPE_CHECKING, Annotated
-
-if TYPE_CHECKING:
-    from tortoise.queryset import QuerySet
+from typing import Annotated
+from uuid import UUID
 
 import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
-from tortoise.expressions import Q
-from tortoise.functions import Count
 
 from vapi.constants import (
-    CharacterType,
     CompanyPermission,
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
@@ -29,6 +24,8 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
+from vapi.domain.services.company_svc import annotate_company_counts
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
@@ -82,26 +79,6 @@ async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettin
     await settings.save()
 
 
-def _annotate_company_counts(qs: "QuerySet[Company]") -> "QuerySet[Company]":
-    """Annotate a Company queryset with filtered resource counts."""
-    return qs.annotate(
-        num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False)),
-        num_player_characters=Count(
-            "characters",
-            _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
-        ),
-        num_storyteller_characters=Count(
-            "characters",
-            _filter=Q(characters__is_archived=False, characters__type=CharacterType.STORYTELLER),
-        ),
-        num_npc_characters=Count(
-            "characters",
-            _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
-        ),
-        num_users=Count("users", _filter=Q(users__is_archived=False)),
-    )
-
-
 class CompanyController(Controller):
     """Company controller."""
 
@@ -147,12 +124,14 @@ class CompanyController(Controller):
         guards=[developer_company_user_guard],
         cache=True,
     )
-    async def get_company(self, *, company: Company) -> CompanyResponse:
+    async def get_company(self, *, company_id: UUID) -> CompanyResponse:
         """Retrieve a company by ID."""
-        annotated = await _annotate_company_counts(
-            Company.filter(id=company.id, is_archived=False).prefetch_related("settings")
+        company = await annotate_company_counts(
+            Company.filter(id=company_id, is_archived=False).prefetch_related("settings")
         ).first()
-        return CompanyResponse.from_model(annotated)
+        if not company:
+            raise NotFoundError(detail="Company not found")
+        return CompanyResponse.from_model(company)
 
     @post(
         path=urls.Companies.CREATE,
@@ -196,7 +175,7 @@ class CompanyController(Controller):
             company=company,
         )
 
-        company = await _annotate_company_counts(
+        company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
         ).first()
 
@@ -234,8 +213,7 @@ class CompanyController(Controller):
             if settings is not None:
                 await _apply_settings_patch(settings, data.settings)
 
-        # Re-fetch to ensure settings reflect any changes
-        company = await _annotate_company_counts(
+        company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
         ).first()
         return CompanyResponse.from_model(company)

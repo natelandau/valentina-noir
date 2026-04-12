@@ -16,6 +16,29 @@ from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from tortoise.queryset import QuerySet
+
+
+def annotate_company_counts(qs: QuerySet[Company]) -> QuerySet[Company]:
+    """Annotate a Company queryset with filtered resource counts."""
+    return qs.annotate(
+        num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False)),
+        num_player_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
+        ),
+        num_storyteller_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.STORYTELLER),
+        ),
+        num_npc_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
+        ),
+        num_users=Count("users", _filter=Q(users__is_archived=False)),
+    )
+
+
 _PERMISSION_RANK: dict[CompanyPermission, int] = {
     CompanyPermission.USER: 1,
     CompanyPermission.ADMIN: 2,
@@ -98,28 +121,13 @@ class CompanyService:
         if not requesting_developer.is_global_admin:
             qs = qs.filter(developer_permissions__developer_id=requesting_developer.id)
 
-        annotated_qs = qs.annotate(
-            num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False)),
-            num_player_characters=Count(
-                "characters",
-                _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
-            ),
-            num_storyteller_characters=Count(
-                "characters",
-                _filter=Q(
-                    characters__is_archived=False, characters__type=CharacterType.STORYTELLER
-                ),
-            ),
-            num_npc_characters=Count(
-                "characters",
-                _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
-            ),
-            num_users=Count("users", _filter=Q(users__is_archived=False)),
-        )
-
         count, companies = await asyncio.gather(
             qs.count(),
-            annotated_qs.order_by("name").offset(offset).limit(limit).prefetch_related("settings"),
+            annotate_company_counts(qs)
+            .order_by("name")
+            .offset(offset)
+            .limit(limit)
+            .prefetch_related("settings"),
         )
         return count, list(companies)
 
