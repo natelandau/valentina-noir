@@ -10,10 +10,12 @@ from .character_blueprint.controllers import CharacterBlueprintSectionController
 from .character_generation.controllers import CharacterGenerationController
 from .character_inventory.controllers import CharacterInventoryController
 from .character_trait.controllers import CharacterTraitController
+from .company.audit_log import CompanyAuditLogController
 from .company.controllers import CompanyController
 from .developer.controllers import DeveloperController
 from .dicerolls.controllers import DiceRollController
 from .dictionary.controllers import DictionaryTermController
+from .global_admin.audit_log import GlobalAdminAuditLogController
 from .global_admin.controllers import GlobalAdminController
 from .notes import (
     CampaignBookNoteController,
@@ -58,11 +60,13 @@ __all__ = (
     "CharacterInventoryController",
     "CharacterNoteController",
     "CharacterTraitController",
+    "CompanyAuditLogController",
     "CompanyController",
     "DeveloperController",
     "DiceRollController",
     "DictionaryTermController",
     "ExperienceController",
+    "GlobalAdminAuditLogController",
     "GlobalAdminController",
     "OAuth2Controller",
     "OptionsController",
