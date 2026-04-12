@@ -1,15 +1,21 @@
 """Company API."""
 
 import logging
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
+
+if TYPE_CHECKING:
+    from tortoise.queryset import QuerySet
 
 import msgspec
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
+from tortoise.expressions import Q
+from tortoise.functions import Count
 
 from vapi.constants import (
+    CharacterType,
     CompanyPermission,
     PermissionManageCampaign,
     PermissionsFreeTraitChanges,
@@ -76,6 +82,26 @@ async def _apply_settings_patch(settings: CompanySettings, patch: "CompanySettin
     await settings.save()
 
 
+def _annotate_company_counts(qs: "QuerySet[Company]") -> "QuerySet[Company]":
+    """Annotate a Company queryset with filtered resource counts."""
+    return qs.annotate(
+        num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False)),
+        num_player_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
+        ),
+        num_storyteller_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.STORYTELLER),
+        ),
+        num_npc_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
+        ),
+        num_users=Count("users", _filter=Q(users__is_archived=False)),
+    )
+
+
 class CompanyController(Controller):
     """Company controller."""
 
@@ -123,7 +149,10 @@ class CompanyController(Controller):
     )
     async def get_company(self, *, company: Company) -> CompanyResponse:
         """Retrieve a company by ID."""
-        return CompanyResponse.from_model(company)
+        annotated = await _annotate_company_counts(
+            Company.filter(id=company.id, is_archived=False).prefetch_related("settings")
+        ).first()
+        return CompanyResponse.from_model(annotated)
 
     @post(
         path=urls.Companies.CREATE,
@@ -167,7 +196,9 @@ class CompanyController(Controller):
             company=company,
         )
 
-        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        company = await _annotate_company_counts(
+            Company.filter(id=company.id).prefetch_related("settings")
+        ).first()
 
         return NewCompanyCreateResponse(
             company=CompanyResponse.from_model(company),
@@ -204,7 +235,9 @@ class CompanyController(Controller):
                 await _apply_settings_patch(settings, data.settings)
 
         # Re-fetch to ensure settings reflect any changes
-        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        company = await _annotate_company_counts(
+            Company.filter(id=company.id).prefetch_related("settings")
+        ).first()
         return CompanyResponse.from_model(company)
 
     @delete(
