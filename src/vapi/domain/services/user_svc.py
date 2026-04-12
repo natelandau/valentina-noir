@@ -13,6 +13,7 @@ from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.utils import validate_trait_ids_from_mixed_sources
+from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
@@ -294,8 +295,10 @@ class UserService:
             if changed:
                 setattr(primary, attr, primary_profile)
 
-    async def update_user(self, user: User, data: UserPatch) -> User:
-        """Update a user with partial data.
+    async def update_user(
+        self, user: User, data: UserPatch
+    ) -> tuple[User, dict[str, dict[str, object]]]:
+        """Update a user with partial data and return a diff of what changed.
 
         Role changes always route through the role-assignment matrix — even for
         self-edits — which closes the prior self-PATCH escalation path. Non-role
@@ -306,11 +309,13 @@ class UserService:
             data: The patch data with UNSET defaults for unsent fields.
 
         Returns:
-            The updated user with campaign_experiences prefetched.
+            Tuple of (updated user with campaign_experiences prefetched, changes dict).
         """
         requesting_user = await self._assert_requester_active(data.requesting_user_id)
 
+        role_change: dict[str, dict[str, object]] = {}
         if not isinstance(data.role, msgspec.UnsetType):
+            old_role = user.role
             new_role = UserRole(data.role)
             await self._validate_role_assignment(
                 requesting_user=requesting_user,
@@ -319,6 +324,8 @@ class UserService:
             )
             if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
                 await self._assert_not_last_admin(user)
+            if old_role != new_role:
+                role_change["role"] = {"old": old_role, "new": new_role}
             user.role = new_role
 
         await self.validate_user_can_manage_user(
@@ -326,24 +333,12 @@ class UserService:
             user_to_manage_id=user.id,
         )
 
-        if not isinstance(data.name_first, msgspec.UnsetType):
-            user.name_first = data.name_first
-        if not isinstance(data.name_last, msgspec.UnsetType):
-            user.name_last = data.name_last
-        if not isinstance(data.username, msgspec.UnsetType):
-            user.username = data.username
-        if not isinstance(data.email, msgspec.UnsetType):
-            user.email = data.email
-        if not isinstance(data.discord_profile, msgspec.UnsetType):
-            user.discord_profile = data.discord_profile
-        if not isinstance(data.google_profile, msgspec.UnsetType):
-            user.google_profile = data.google_profile
-        if not isinstance(data.github_profile, msgspec.UnsetType):
-            user.github_profile = data.github_profile
+        changes = build_audit_changes(user, data, exclude=frozenset({"requesting_user_id", "role"}))
+        changes.update(role_change)
 
         await user.save()
         await user.fetch_related("campaign_experiences")
-        return user
+        return user, changes
 
     async def remove_and_archive_user(self, *, user: User, company: Company) -> None:  # noqa: ARG002
         """Archive a user and cascade archival to related data.

@@ -4,6 +4,7 @@ import asyncio
 from typing import Annotated
 from uuid import UUID
 
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -118,10 +119,11 @@ class UserController(Controller):
         guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_user(self, user: User, data: UserPatch) -> UserResponse:
+    async def update_user(self, user: User, data: UserPatch, request: Request) -> UserResponse:
         """Update a user by ID."""
         service = UserService()
-        user = await service.update_user(user=user, data=data)
+        user, changes = await service.update_user(user=user, data=data)
+        request.state.audit_changes = changes
         return UserResponse.from_model(user)
 
     @delete(
