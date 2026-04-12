@@ -29,6 +29,7 @@
         ] },
         { "Technical Details" = [
             "technical/index.md",
+            { "Audit Logs" = "technical/audit_logs.md" },
             { "Authentication" = "technical/authentication.md" },
             { "Companies" = "technical/companies.md" },
             { "Error Handling" = "technical/errors.md" },
