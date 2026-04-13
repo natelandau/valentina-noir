@@ -240,7 +240,7 @@ class CharacterController(Controller):
     ) -> CharacterResponse:
         """Update a character."""
         service = CharacterService()
-        changes = await service.apply_patch(character, data)
+        changes = await service.apply_character_patch(character, data)
         await service.prepare_for_save(character)
         await character.save()
 

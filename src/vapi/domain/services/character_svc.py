@@ -18,8 +18,8 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import ValidationError
+from vapi.lib.patch import apply_patch
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -216,7 +216,7 @@ class CharacterService:
         {"vampire_attributes", "werewolf_attributes", "mage_attributes", "hunter_attributes"}
     )
 
-    async def apply_patch(
+    async def apply_character_patch(
         self, character: Character, data: "CharacterPatch"
     ) -> dict[str, dict[str, object]]:
         """Apply a partial update to a character and return a diff of what changed.
@@ -234,7 +234,7 @@ class CharacterService:
             Empty dict if nothing changed. Nested attribute fields use dotted keys
             (e.g., ``"vampire_attributes.clan_id"``).
         """
-        changes = build_audit_changes(character, data, exclude=self._NESTED_ATTRIBUTE_FIELDS)
+        changes = apply_patch(character, data, exclude=self._NESTED_ATTRIBUTE_FIELDS)
 
         nested_configs: list[tuple[Any, Any, str]] = [
             (data.vampire_attributes, VampireAttributes, "vampire_attributes."),
@@ -251,7 +251,7 @@ class CharacterService:
             if not row:
                 row = await model_cls.create(character=character)
 
-            changes.update(build_audit_changes(row, attr_data, prefix=prefix))
+            changes.update(apply_patch(row, attr_data, prefix=prefix))
             await row.save()
 
         return changes

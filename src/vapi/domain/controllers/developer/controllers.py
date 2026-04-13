@@ -8,7 +8,7 @@ from litestar.handlers import get, patch, post
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import DeveloperService
-from vapi.lib.audit_changes import build_audit_changes
+from vapi.lib.patch import apply_patch
 from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
 from vapi.lib.stores import delete_authentication_cache_for_api_key
 from vapi.openapi.tags import APITags
@@ -69,7 +69,7 @@ class DeveloperController(Controller):
         self, *, developer: Developer, data: DeveloperPatch, request: Request
     ) -> DeveloperResponse:
         """Update the current developer."""
-        changes = build_audit_changes(developer, data)
+        changes = apply_patch(developer, data)
         request.state.audit_changes = changes
         request.state.audit_description = f"Update developer '{developer.username}'"
         await developer.save()

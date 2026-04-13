@@ -1,10 +1,10 @@
-"""Unit tests for vapi.lib.audit_changes.build_audit_changes."""
+"""Unit tests for vapi.lib.patch.apply_patch."""
 
 from __future__ import annotations
 
 import msgspec
 
-from vapi.lib.audit_changes import build_audit_changes
+from vapi.lib.patch import apply_patch
 
 
 class _Target:
@@ -31,7 +31,7 @@ class _PatchWithExtra(msgspec.Struct):
 
 
 class TestBuildChanges:
-    """Test the build_audit_changes utility."""
+    """Test the apply_patch utility."""
 
     def test_applies_changed_fields(self) -> None:
         """Verify changed fields are applied and returned in the diff."""
@@ -39,7 +39,7 @@ class TestBuildChanges:
         target = _Target(name="Old", description="Desc", count=1)
 
         # When patching name and count
-        changes = build_audit_changes(target, _Patch(name="New", count=5))
+        changes = apply_patch(target, _Patch(name="New", count=5))
 
         # Then the target is updated
         assert target.name == "New"
@@ -58,7 +58,7 @@ class TestBuildChanges:
         target = _Target(name="Same", description=None, count=0)
 
         # When patching to the same values
-        changes = build_audit_changes(target, _Patch(name="Same", count=0))
+        changes = apply_patch(target, _Patch(name="Same", count=0))
 
         # Then no changes are recorded
         assert changes == {}
@@ -69,7 +69,7 @@ class TestBuildChanges:
         target = _Target(name="Keep", description="Keep", count=1)
 
         # When patching only name (others are UNSET)
-        changes = build_audit_changes(target, _Patch(name="Changed"))
+        changes = apply_patch(target, _Patch(name="Changed"))
 
         # Then only name is changed
         assert target.name == "Changed"
@@ -83,7 +83,7 @@ class TestBuildChanges:
         target = _Target(name="Keep", description="Keep", count=1)
 
         # When applying an empty patch
-        changes = build_audit_changes(target, _Patch())
+        changes = apply_patch(target, _Patch())
 
         # Then nothing changes
         assert changes == {}
@@ -95,7 +95,7 @@ class TestBuildChanges:
         target = _Target(name="X", description="Has desc", count=0)
 
         # When patching description to None
-        changes = build_audit_changes(target, _Patch(description=None))
+        changes = apply_patch(target, _Patch(description=None))
 
         # Then the diff is recorded
         assert target.description is None
@@ -107,7 +107,7 @@ class TestBuildChanges:
         target = _Target(name="Old", description=None, count=0)
 
         # When patching with a prefix
-        changes = build_audit_changes(target, _Patch(name="New"), prefix="nested.")
+        changes = apply_patch(target, _Patch(name="New"), prefix="nested.")
 
         # Then the key uses the prefix
         assert changes == {"nested.name": {"old": "Old", "new": "New"}}
@@ -118,7 +118,7 @@ class TestBuildChanges:
         target = _Target(name="Old", description="Old", count=0)
 
         # When patching with name excluded
-        changes = build_audit_changes(
+        changes = apply_patch(
             target,
             _Patch(name="New", description="New"),
             exclude=frozenset({"name"}),
@@ -135,7 +135,7 @@ class TestBuildChanges:
         target = _Target(name="Old")
 
         # When patching with a field the target doesn't have
-        changes = build_audit_changes(target, _PatchWithExtra(name="New", nonexistent_field="X"))
+        changes = apply_patch(target, _PatchWithExtra(name="New", nonexistent_field="X"))
 
         # Then the valid field is applied and the missing one is skipped
         assert target.name == "New"
@@ -148,7 +148,7 @@ class TestBuildChanges:
         target = _Target(name="Old", description="Old", count=0)
 
         # When using both prefix and exclude
-        changes = build_audit_changes(
+        changes = apply_patch(
             target,
             _Patch(name="New", description="New", count=99),
             prefix="item.",

@@ -14,8 +14,8 @@ from vapi.db.sql_models.company import Company
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -111,7 +111,7 @@ class CampaignController(Controller):
         self, campaign: Campaign, data: CampaignPatch, request: Request
     ) -> CampaignResponse:
         """Update a campaign by ID."""
-        changes = build_audit_changes(campaign, data)
+        changes = apply_patch(campaign, data)
         request.state.audit_changes = changes
         request.state.audit_description = f"Update campaign '{campaign.name}'"
         await campaign.save()

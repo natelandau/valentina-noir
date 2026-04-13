@@ -13,9 +13,9 @@ from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -124,7 +124,7 @@ class CampaignChapterController(Controller):
         self, chapter: CampaignChapter, data: CampaignChapterPatch, request: Request
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
-        changes = build_audit_changes(chapter, data)
+        changes = apply_patch(chapter, data)
         request.state.audit_changes = changes
         request.state.audit_description = f"Update chapter '{chapter.number}: {chapter.name}'"
         await chapter.save()

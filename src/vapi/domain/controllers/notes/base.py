@@ -8,9 +8,9 @@ from litestar.controller import Controller
 
 from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
+from vapi.lib.patch import apply_patch
 
 from . import dto
 
@@ -87,7 +87,7 @@ class BaseNoteController(Controller, ABC):
     ) -> dto.NoteResponse:
         """Update an existing note, verifying it belongs to the parent in the URL path."""
         self._assert_belongs_to_parent(note, parent_id)
-        changes = build_audit_changes(note, data)
+        changes = apply_patch(note, data)
         request.state.audit_changes = changes
         request.state.audit_description = f"Update note '{note.title}'"
         await note.save()

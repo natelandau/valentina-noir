@@ -12,12 +12,12 @@ from litestar.params import Parameter
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import (
     developer_company_user_guard,
     user_active_guard,
     user_character_player_or_storyteller_guard,
 )
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -113,7 +113,7 @@ class CharacterInventoryController(Controller):
         request: Request,
     ) -> InventoryItemResponse:
         """Update an inventory item."""
-        changes = build_audit_changes(inventory_item, data)
+        changes = apply_patch(inventory_item, data)
 
         request.state.audit_changes = changes
         request.state.audit_description = f"Update inventory item '{inventory_item.name}'"

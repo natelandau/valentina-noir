@@ -13,13 +13,13 @@ from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.utils import validate_trait_ids_from_mixed_sources
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
     PermissionDeniedError,
     ValidationError,
 )
+from vapi.lib.patch import apply_patch
 
 from .validation_svc import GetModelByIdValidationService
 
@@ -333,7 +333,7 @@ class UserService:
             user_to_manage_id=user.id,
         )
 
-        changes = build_audit_changes(user, data, exclude=frozenset({"requesting_user_id", "role"}))
+        changes = apply_patch(user, data, exclude=frozenset({"requesting_user_id", "role"}))
         changes.update(role_change)
 
         await user.save()

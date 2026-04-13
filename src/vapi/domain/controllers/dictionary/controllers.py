@@ -13,8 +13,8 @@ from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DictionaryService
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -109,7 +109,7 @@ class DictionaryTermController(Controller):
         service = DictionaryService()
         service.verify_term_is_editable(dictionary_term, company_id=company.id)
 
-        changes = build_audit_changes(dictionary_term, data)
+        changes = apply_patch(dictionary_term, data)
         request.state.audit_changes = changes
         request.state.audit_description = f"Update dictionary term '{dictionary_term.term}'"
         await dictionary_term.save()

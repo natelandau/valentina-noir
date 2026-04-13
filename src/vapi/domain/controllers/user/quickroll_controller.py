@@ -14,8 +14,8 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -103,7 +103,7 @@ class QuickRollController(Controller):
         self, *, request: Request, quickroll: QuickRoll, data: dto.QuickRollPatch
     ) -> dto.QuickRollResponse:
         """Update a user quick roll by ID."""
-        changes = build_audit_changes(quickroll, data, exclude=frozenset({"trait_ids"}))
+        changes = apply_patch(quickroll, data, exclude=frozenset({"trait_ids"}))
         await quickroll.save()
 
         if not isinstance(data.trait_ids, msgspec.UnsetType):

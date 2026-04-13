@@ -26,13 +26,13 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
 from vapi.domain.services.company_svc import annotate_company_counts
-from vapi.lib.audit_changes import build_audit_changes
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
     developer_company_admin_guard,
     developer_company_owner_guard,
     developer_company_user_guard,
 )
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -206,7 +206,7 @@ class CompanyController(Controller):
         self, request: Request, company: Company, data: CompanyPatch
     ) -> CompanyResponse:
         """Update a company's fields, applying only the provided values."""
-        changes = build_audit_changes(company, data, exclude=frozenset({"settings"}))
+        changes = apply_patch(company, data, exclude=frozenset({"settings"}))
 
         if changes:
             await company.save()
