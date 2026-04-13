@@ -39,7 +39,7 @@ def _base_fields(m: AuditLog) -> dict[str, Any]:
 
 
 class AuditLogResponse(msgspec.Struct):
-    """End-user focused audit log entry — structured fields only."""
+    """End-user focused audit log entry - structured fields only."""
 
     id: UUID
     date_created: datetime
@@ -65,7 +65,7 @@ class AuditLogResponse(msgspec.Struct):
 
 
 class AuditLogDetailResponse(msgspec.Struct):
-    """Internal/forensics focused audit log entry — includes raw request data."""
+    """Internal/forensics focused audit log entry - includes raw request data."""
 
     id: UUID
     date_created: datetime

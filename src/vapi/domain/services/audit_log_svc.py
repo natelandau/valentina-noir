@@ -1,4 +1,4 @@
-"""Audit log query service — shared by company and global admin controllers."""
+"""Audit log query service - shared by company and global admin controllers."""
 
 import asyncio
 from datetime import datetime

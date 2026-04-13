@@ -21,11 +21,11 @@ def apply_patch(
 
     Iterate the patch's fields, skip any that are UNSET (not sent in the
     request), excluded, or absent on the target. For each remaining field,
-    compare old vs new — if different, mutate the target via ``setattr`` and
+    compare old vs new - if different, mutate the target via ``setattr`` and
     record the change.
 
     Only compares at one level of depth. If a field value is a dict and a key
-    inside it changed, the entire old and new dicts are recorded — individual
+    inside it changed, the entire old and new dicts are recorded - individual
     keys within the dict are not diffed.
 
     Args:
