@@ -150,7 +150,7 @@ class CompanyController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_company(
-        self, requesting_developer: Developer, data: CompanyCreate
+        self, request: Request, requesting_developer: Developer, data: CompanyCreate
     ) -> NewCompanyCreateResponse:
         """Create a company with an admin user and owner permission for the requesting developer."""
         company = await Company.create(
@@ -187,6 +187,7 @@ class CompanyController(Controller):
         company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
         ).first()
+        request.state.audit_description = f"Create company '{company.name}'"
 
         return NewCompanyCreateResponse(
             company=CompanyResponse.from_model(company),
@@ -202,7 +203,7 @@ class CompanyController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_company(
-        self, company: Company, data: CompanyPatch, request: Request
+        self, request: Request, company: Company, data: CompanyPatch
     ) -> CompanyResponse:
         """Update a company's fields, applying only the provided values."""
         changes = build_audit_changes(company, data, exclude=frozenset({"settings"}))
@@ -221,6 +222,7 @@ class CompanyController(Controller):
         company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
         ).first()
+        request.state.audit_description = f"Update company '{company.name}'"
         return CompanyResponse.from_model(company)
 
     @delete(
@@ -231,10 +233,11 @@ class CompanyController(Controller):
         guards=[developer_company_owner_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_company(self, company: Company) -> None:
+    async def delete_company(self, request: Request, company: Company) -> None:
         """Soft-delete a company by archiving it."""
         company.is_archived = True
         await company.save()
+        request.state.audit_description = f"Delete company '{company.name}'"
 
     @post(
         path=urls.Companies.DEVELOPER_ACCESS,
@@ -246,6 +249,7 @@ class CompanyController(Controller):
     )
     async def developer_company_permissions(
         self,
+        request: Request,
         company: Company,
         requesting_developer: Developer,
         data: CompanyPermissionRequest,
@@ -258,4 +262,5 @@ class CompanyController(Controller):
             target_developer_id=data.developer_id,
             new_permission=data.permission,
         )
+        request.state.audit_description = f"Grant {data.permission.value} permission to developer {data.developer_id} for company '{company.name}'"
         return CompanyPermissionResponse.from_model(perm)

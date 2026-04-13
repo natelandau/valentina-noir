@@ -49,6 +49,7 @@ class DeveloperController(Controller):
         new_key = await DeveloperService().generate_api_key(developer)
 
         await delete_authentication_cache_for_api_key(request)
+        request.state.audit_description = f"Regenerate API key for developer '{developer.username}'"
         return {
             "id": str(developer.id),
             "username": developer.username,
@@ -70,6 +71,7 @@ class DeveloperController(Controller):
         """Update the current developer."""
         changes = build_audit_changes(developer, data)
         request.state.audit_changes = changes
+        request.state.audit_description = f"Update developer '{developer.username}'"
         await developer.save()
 
         developer = (

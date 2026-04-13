@@ -4,7 +4,7 @@ import asyncio
 from typing import Annotated
 from uuid import UUID
 
-from litestar import Request  # noqa: TC002
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -156,6 +156,7 @@ class CharacterController(Controller):
         user: User,
         campaign: Campaign,
         data: CharacterCreate,
+        request: Request,
     ) -> CharacterResponse:
         """Create a new character."""
         character = await Character.create(
@@ -220,6 +221,7 @@ class CharacterController(Controller):
             Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH).first()
         )
 
+        request.state.audit_description = f"Create character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
         return CharacterResponse.from_model(character)
 
     @patch(
@@ -248,6 +250,7 @@ class CharacterController(Controller):
             Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH).first()
         )
 
+        request.state.audit_description = f"Update character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
         return CharacterResponse.from_model(character)
 
     @delete(
@@ -258,10 +261,11 @@ class CharacterController(Controller):
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_character(self, character: Character) -> None:
+    async def delete_character(self, character: Character, request: Request) -> None:
         """Delete a character."""
         service = CharacterService()
         await service.archive_character(character)
+        request.state.audit_description = f"Delete character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
 
     @get(
         path=urls.Characters.FULL_SHEET,

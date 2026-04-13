@@ -211,8 +211,9 @@ class TestCreateNote:
         data = NoteCreate(title="New Note", content="New Content")
 
         # When we create a note
+        mock_request = MagicMock()
         result = await controller._create_note(
-            company_id=company.id, parent_id=character.id, data=data
+            mock_request, company_id=company.id, parent_id=character.id, data=data
         )
 
         # Then the note is saved with the correct parent reference
@@ -235,8 +236,9 @@ class TestCreateNote:
         data = NoteCreate(title="Persist Test", content="Content")
 
         # When we create a note
+        mock_request = MagicMock()
         result = await controller._create_note(
-            company_id=company.id, parent_id=character.id, data=data
+            mock_request, company_id=company.id, parent_id=character.id, data=data
         )
 
         # Then the note exists in the database
@@ -323,7 +325,8 @@ class TestDeleteNote:
         assert note.is_archived is False
 
         # When we delete the note
-        await controller._delete_note(note, character.id)
+        mock_request = MagicMock()
+        await controller._delete_note(note, character.id, mock_request)
 
         # Then the note is archived
         await note.refresh_from_db()
@@ -395,8 +398,9 @@ class TestParentScopingIDOR:
 
         # When we attempt to delete under character B
         # Then NotFoundError is raised and the note is not archived
+        mock_request = MagicMock()
         with pytest.raises(NotFoundError):
-            await controller._delete_note(note, character_b.id)
+            await controller._delete_note(note, character_b.id, mock_request)
         await note.refresh_from_db()
         assert note.is_archived is False
 

@@ -69,10 +69,12 @@ class CharacterNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def create_note(
-        self, *, company: Company, character: Character, data: dto.NoteCreate
+        self, *, request: Request, company: Company, character: Character, data: dto.NoteCreate
     ) -> dto.NoteResponse:
         """Create a new note."""
-        return await self._create_note(company_id=company.id, parent_id=character.id, data=data)
+        return await self._create_note(
+            request=request, company_id=company.id, parent_id=character.id, data=data
+        )
 
     @patch(
         path=urls.Characters.NOTE_UPDATE,
@@ -85,7 +87,9 @@ class CharacterNoteController(BaseNoteController):
         self, character: Character, note: Note, data: dto.NotePatch, request: Request
     ) -> dto.NoteResponse:
         """Update a note by ID."""
-        return await self._update_note(note, character.id, data, request)
+        return await self._update_note(
+            note=note, parent_id=character.id, data=data, request=request
+        )
 
     @delete(
         path=urls.Characters.NOTE_DELETE,
@@ -94,6 +98,6 @@ class CharacterNoteController(BaseNoteController):
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_note(self, character: Character, note: Note) -> None:
+    async def delete_note(self, request: Request, character: Character, note: Note) -> None:
         """Delete a note by ID."""
-        await self._delete_note(note, character.id)
+        await self._delete_note(request=request, note=note, parent_id=character.id)

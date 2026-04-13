@@ -86,6 +86,7 @@ class CampaignController(Controller):
         *,
         company: Company,
         data: CampaignCreate,
+        request: Request,
     ) -> CampaignResponse:
         """Create a campaign."""
         campaign = await Campaign.create(
@@ -95,6 +96,7 @@ class CampaignController(Controller):
             danger=data.danger,
             company=company,
         )
+        request.state.audit_description = f"Create campaign '{campaign.name}'"
         return CampaignResponse.from_model(campaign)
 
     @patch(
@@ -111,6 +113,7 @@ class CampaignController(Controller):
         """Update a campaign by ID."""
         changes = build_audit_changes(campaign, data)
         request.state.audit_changes = changes
+        request.state.audit_description = f"Update campaign '{campaign.name}'"
         await campaign.save()
         return CampaignResponse.from_model(campaign)
 
@@ -122,7 +125,8 @@ class CampaignController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_campaign(self, campaign: Campaign) -> None:
+    async def delete_campaign(self, campaign: Campaign, request: Request) -> None:
         """Delete a campaign by ID."""
         service = CampaignService()
         await service.archive_campaign(campaign)
+        request.state.audit_description = f"Delete campaign '{campaign.name}'"

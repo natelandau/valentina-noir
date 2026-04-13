@@ -62,6 +62,7 @@ class BaseNoteController(Controller, ABC):
 
     async def _create_note(
         self,
+        request: Request,
         company_id: UUID,
         parent_id: UUID,
         data: dto.NoteCreate,
@@ -74,6 +75,7 @@ class BaseNoteController(Controller, ABC):
             self.parent_ref_field: parent_id,
         }
         note = await Note.create(**create_kwargs)  # type: ignore[arg-type]
+        request.state.audit_description = f"Create note '{note.title}'"
         return dto.NoteResponse.from_model(note)
 
     async def _update_note(
@@ -87,11 +89,13 @@ class BaseNoteController(Controller, ABC):
         self._assert_belongs_to_parent(note, parent_id)
         changes = build_audit_changes(note, data)
         request.state.audit_changes = changes
+        request.state.audit_description = f"Update note '{note.title}'"
         await note.save()
         return dto.NoteResponse.from_model(note)
 
-    async def _delete_note(self, note: Note, parent_id: UUID) -> None:
+    async def _delete_note(self, note: Note, parent_id: UUID, request: Request) -> None:
         """Soft-delete a note, verifying it belongs to the parent in the URL path."""
         self._assert_belongs_to_parent(note, parent_id)
         note.is_archived = True
         await note.save()
+        request.state.audit_description = f"Delete note '{note.title}'"

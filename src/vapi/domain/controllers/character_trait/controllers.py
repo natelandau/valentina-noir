@@ -101,6 +101,7 @@ class CharacterTraitController(Controller):
         user: User,
         character: Character,
         data: CharacterTraitAddConstant,
+        request: Request,
     ) -> CharacterTraitResponse:
         """Add a trait to a character."""
         service = CharacterTraitService()
@@ -112,6 +113,7 @@ class CharacterTraitController(Controller):
             value=data.value,
             currency=data.currency,
         )
+        request.state.audit_description = f"Assign trait '{ct.trait.name}' at value {ct.value} to character '{character.name_first} {character.name_last}'"
         return CharacterTraitResponse.from_model(ct)
 
     @post(
@@ -128,6 +130,7 @@ class CharacterTraitController(Controller):
         user: User,
         character: Character,
         data: list[CharacterTraitAddConstant],
+        request: Request,
     ) -> BulkAssignTraitResponse:
         """Assign multiple traits to a character in a single request."""
         if len(data) > MAX_BULK_TRAIT_ASSIGN:
@@ -135,6 +138,7 @@ class CharacterTraitController(Controller):
             raise ValidationError(detail=msg)
 
         service = CharacterTraitService()
+        request.state.audit_description = f"Bulk assign {len(data)} traits to character '{character.name_first} {character.name_last}'"
         return await service.bulk_add_constant_traits_to_character(
             company=company,
             user=user,
@@ -155,6 +159,7 @@ class CharacterTraitController(Controller):
         user: User,
         character: Character,
         data: CharacterTraitCreateCustom,
+        request: Request,
     ) -> CharacterTraitResponse:
         """Create a custom trait."""
         service = CharacterTraitService()
@@ -164,6 +169,7 @@ class CharacterTraitController(Controller):
             character=character,
             data=data,
         )
+        request.state.audit_description = f"Create custom trait '{ct.trait.name}' at value {ct.value} for character '{character.name_first} {character.name_last}'"
         return CharacterTraitResponse.from_model(ct)
 
     @get(
@@ -214,6 +220,7 @@ class CharacterTraitController(Controller):
             currency=data.currency,
             recoup_store=recoup_store,
         )
+        request.state.audit_description = f"Modify trait '{ct.trait.name}' to {ct.value} for character '{character.name_first} {character.name_last}'"
         return CharacterTraitResponse.from_model(ct)
 
     @delete(
@@ -239,6 +246,7 @@ class CharacterTraitController(Controller):
         service = CharacterTraitService()
         service.guard_user_can_manage_character(character=character, user=user)
         recoup_store = request.app.stores.get(settings.stores.recoup_session_key)
+        request.state.audit_description = f"Delete trait '{character_trait.trait.name}' from character '{character.name_first} {character.name_last}'"
         await service.delete_trait(
             company=company,
             user=user,

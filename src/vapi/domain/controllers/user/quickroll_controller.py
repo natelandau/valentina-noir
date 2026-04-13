@@ -75,7 +75,7 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_user_quickroll(
-        self, *, user: User, data: dto.QuickRollCreate
+        self, *, request: Request, user: User, data: dto.QuickRollCreate
     ) -> dto.QuickRollResponse:
         """Create a user quick roll."""
         service = UserQuickRollService()
@@ -89,6 +89,7 @@ class QuickRollController(Controller):
         await quickroll.traits.add(*traits)
         # Re-fetch to populate M2M relation after add
         quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
+        request.state.audit_description = f"Create quick roll '{quickroll.name}'"
         return dto.QuickRollResponse.from_model(quickroll)
 
     @patch(
@@ -99,7 +100,7 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
-        self, *, quickroll: QuickRoll, data: dto.QuickRollPatch, request: Request
+        self, *, request: Request, quickroll: QuickRoll, data: dto.QuickRollPatch
     ) -> dto.QuickRollResponse:
         """Update a user quick roll by ID."""
         changes = build_audit_changes(quickroll, data, exclude=frozenset({"trait_ids"}))
@@ -119,6 +120,7 @@ class QuickRollController(Controller):
 
         # Re-fetch to populate M2M relation after potential changes
         quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
+        request.state.audit_description = f"Update quick roll '{quickroll.name}'"
         return dto.QuickRollResponse.from_model(quickroll)
 
     @delete(
@@ -128,7 +130,8 @@ class QuickRollController(Controller):
         description=docs.DELETE_QUICKROLL_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_user_quickroll(self, *, quickroll: QuickRoll) -> None:
+    async def delete_user_quickroll(self, *, request: Request, quickroll: QuickRoll) -> None:
         """Delete a user quick roll by ID."""
         quickroll.is_archived = True
         await quickroll.save()
+        request.state.audit_description = f"Delete quick roll '{quickroll.name}'"

@@ -70,10 +70,12 @@ class UserNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def create_user_note(
-        self, *, company: Company, user: User, data: dto.NoteCreate
+        self, *, request: Request, company: Company, user: User, data: dto.NoteCreate
     ) -> dto.NoteResponse:
         """Create a user note."""
-        return await self._create_note(company_id=company.id, parent_id=user.id, data=data)
+        return await self._create_note(
+            request=request, company_id=company.id, parent_id=user.id, data=data
+        )
 
     @patch(
         path=urls.Users.NOTE_UPDATE,
@@ -83,10 +85,10 @@ class UserNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def update_user_note(
-        self, user: User, note: Note, data: dto.NotePatch, request: Request
+        self, request: Request, user: User, note: Note, data: dto.NotePatch
     ) -> dto.NoteResponse:
         """Update a user note by ID."""
-        return await self._update_note(note, user.id, data, request)
+        return await self._update_note(request=request, note=note, parent_id=user.id, data=data)
 
     @delete(
         path=urls.Users.NOTE_DELETE,
@@ -95,6 +97,6 @@ class UserNoteController(BaseNoteController):
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_user_note(self, *, user: User, note: Note) -> None:
+    async def delete_user_note(self, *, request: Request, user: User, note: Note) -> None:
         """Delete a user note by ID."""
-        await self._delete_note(note, user.id)
+        await self._delete_note(request=request, note=note, parent_id=user.id)

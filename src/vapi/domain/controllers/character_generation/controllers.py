@@ -4,6 +4,7 @@ import logging
 from datetime import timedelta
 from uuid import UUID
 
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
@@ -79,6 +80,7 @@ class CharacterGenerationController(Controller):
         user: User,
         campaign: Campaign,
         data: CreateAutogenerateRequest,
+        request: Request,
     ) -> CharacterResponse:
         """Create a new character."""
         validation_service = GetModelByIdValidationService()
@@ -127,6 +129,7 @@ class CharacterGenerationController(Controller):
             .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
             .first()
         )
+        request.state.audit_description = f"Autogenerate {new_character.type.value.lower()} character '{new_character.name_first} {new_character.name_last} ({new_character.character_class.value.lower()})'"
 
         return CharacterResponse.from_model(new_character)
 
@@ -193,6 +196,7 @@ class CharacterGenerationController(Controller):
         self,
         company: Company,
         data: ChargenSessionFinalizeRequest,
+        request: Request,
     ) -> CharacterResponse:
         """Finalize character selection from a chargen session and cleanup unselected options."""
         session = (
@@ -238,6 +242,8 @@ class CharacterGenerationController(Controller):
             .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
             .first()
         )
+
+        request.state.audit_description = f"Finalize chargen session {session.id} and promote character '{selected_character.name_first} {selected_character.name_last} ({selected_character.character_class.value.lower()})'"
 
         return CharacterResponse.from_model(selected_character)
 

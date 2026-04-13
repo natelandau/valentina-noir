@@ -182,7 +182,7 @@ class UserController(Controller):
         after_response=hooks.post_data_update_hook,
         opt={"allow_unapproved_user": True},
     )
-    async def approve_user(self, user: User, data: UserApprove) -> UserResponse:
+    async def approve_user(self, request: Request, user: User, data: UserApprove) -> UserResponse:
         """Approve an unapproved user and assign a role."""
         service = UserService()
         user = await service.approve_user(
@@ -190,6 +190,7 @@ class UserController(Controller):
             role=UserRole(data.role),
             requesting_user_id=data.requesting_user_id,
         )
+        request.state.audit_description = f"Approve user '{user.username}'"
         return UserResponse.from_model(user)
 
     @post(
@@ -200,9 +201,12 @@ class UserController(Controller):
         after_response=hooks.post_data_update_hook,
         opt={"allow_unapproved_user": True},
     )
-    async def deny_user(self, user: User, company: Company, data: UserDeny) -> None:
+    async def deny_user(
+        self, request: Request, user: User, company: Company, data: UserDeny
+    ) -> None:
         """Deny an unapproved user."""
         service = UserService()
+        request.state.audit_description = f"Deny user '{user.username}'"
         await service.deny_user(
             user=user,
             company=company,
@@ -217,10 +221,13 @@ class UserController(Controller):
         after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [USER_REGISTRATION_LIMIT]},
     )
-    async def register_user(self, data: UserRegister, company: Company) -> UserResponse:
+    async def register_user(
+        self, request: Request, data: UserRegister, company: Company
+    ) -> UserResponse:
         """Register a new user with the UNAPPROVED role."""
         service = UserService()
         user = await service.register_user(company=company, data=data)
+        request.state.audit_description = f"Register user '{user.username}'"
         return UserResponse.from_model(user)
 
     @post(
@@ -230,13 +237,16 @@ class UserController(Controller):
         description=docs.MERGE_USERS_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def merge_users(self, data: UserMerge, company: Company) -> UserResponse:
+    async def merge_users(
+        self, request: Request, data: UserMerge, company: Company
+    ) -> UserResponse:
         """Merge an UNAPPROVED user into an existing primary user."""
         service = UserService()
-        user = await service.merge_users(
+        primary_user = await service.merge_users(
             primary_user_id=data.primary_user_id,
             secondary_user_id=data.secondary_user_id,
             company=company,
             requesting_user_id=data.requesting_user_id,
         )
-        return UserResponse.from_model(user)
+        request.state.audit_description = f"Merge user into '{primary_user.username}'"
+        return UserResponse.from_model(primary_user)

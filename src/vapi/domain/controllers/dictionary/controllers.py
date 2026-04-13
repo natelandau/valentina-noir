@@ -76,7 +76,7 @@ class DictionaryTermController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_dictionary_term(
-        self, company: Company, data: DictionaryTermCreate
+        self, request: Request, company: Company, data: DictionaryTermCreate
     ) -> DictionaryTermResponse:
         """Create a dictionary term."""
         dictionary_term = DictionaryTerm(
@@ -88,6 +88,7 @@ class DictionaryTermController(Controller):
         )
         await dictionary_term.save()
 
+        request.state.audit_description = f"Create dictionary term '{dictionary_term.term}'"
         return DictionaryTermResponse.from_model(dictionary_term)
 
     @patch(
@@ -99,10 +100,10 @@ class DictionaryTermController(Controller):
     )
     async def update_dictionary_term(
         self,
+        request: Request,
         company: Company,
         dictionary_term: DictionaryTerm,
         data: DictionaryTermPatch,
-        request: Request,
     ) -> DictionaryTermResponse:
         """Update a dictionary term by ID."""
         service = DictionaryService()
@@ -110,6 +111,7 @@ class DictionaryTermController(Controller):
 
         changes = build_audit_changes(dictionary_term, data)
         request.state.audit_changes = changes
+        request.state.audit_description = f"Update dictionary term '{dictionary_term.term}'"
         await dictionary_term.save()
 
         return DictionaryTermResponse.from_model(dictionary_term)
@@ -122,7 +124,7 @@ class DictionaryTermController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def delete_dictionary_term(
-        self, company: Company, dictionary_term: DictionaryTerm
+        self, request: Request, company: Company, dictionary_term: DictionaryTerm
     ) -> None:
         """Delete a dictionary term by ID."""
         service = DictionaryService()
@@ -130,3 +132,4 @@ class DictionaryTermController(Controller):
 
         dictionary_term.is_archived = True
         await dictionary_term.save()
+        request.state.audit_description = f"Delete dictionary term '{dictionary_term.term}'"

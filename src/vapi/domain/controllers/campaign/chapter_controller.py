@@ -98,7 +98,7 @@ class CampaignChapterController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_chapter(
-        self, *, book: CampaignBook, data: CampaignChapterCreate
+        self, *, book: CampaignBook, data: CampaignChapterCreate, request: Request
     ) -> CampaignChapterResponse:
         """Create a chapter."""
         service = CampaignService()
@@ -109,6 +109,7 @@ class CampaignChapterController(Controller):
             book=book,
             number=number,
         )
+        request.state.audit_description = f"Create chapter '{chapter.number}: {chapter.name}' for book '{book.number}: {book.name}'"
         return CampaignChapterResponse.from_model(chapter)
 
     @patch(
@@ -125,6 +126,7 @@ class CampaignChapterController(Controller):
         """Update a chapter by ID."""
         changes = build_audit_changes(chapter, data)
         request.state.audit_changes = changes
+        request.state.audit_description = f"Update chapter '{chapter.number}: {chapter.name}'"
         await chapter.save()
         return CampaignChapterResponse.from_model(chapter)
 
@@ -136,10 +138,11 @@ class CampaignChapterController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_chapter(self, chapter: CampaignChapter) -> None:
+    async def delete_chapter(self, chapter: CampaignChapter, request: Request) -> None:
         """Delete a chapter by ID."""
         service = CampaignService()
         await service.delete_chapter_and_renumber(chapter)
+        request.state.audit_description = f"Delete chapter '{chapter.number}: {chapter.name}'"
 
     @put(
         path=urls.Campaigns.CHAPTER_NUMBER,
@@ -150,9 +153,15 @@ class CampaignChapterController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def renumber_chapter(
-        self, chapter: CampaignChapter, data: BookChapterNumber
+        self, chapter: CampaignChapter, data: BookChapterNumber, request: Request
     ) -> CampaignChapterResponse:
         """Renumber a chapter by ID."""
+        old_number = chapter.number
         service = CampaignService()
         chapter = await service.renumber_chapters(chapter=chapter, new_number=data.number)
+        if old_number != data.number:
+            request.state.audit_changes = {"number": {"old": old_number, "new": data.number}}
+        request.state.audit_description = (
+            f"Renumber chapter '{chapter.name}' from {old_number} to {data.number}"
+        )
         return CampaignChapterResponse.from_model(chapter)

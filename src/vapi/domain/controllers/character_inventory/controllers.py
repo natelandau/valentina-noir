@@ -85,7 +85,7 @@ class CharacterInventoryController(Controller):
         guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
-        self, *, character: Character, data: InventoryItemCreate
+        self, *, character: Character, data: InventoryItemCreate, request: Request
     ) -> InventoryItemResponse:
         """Create an inventory item."""
         item = await CharacterInventory.create(
@@ -94,6 +94,7 @@ class CharacterInventoryController(Controller):
             description=data.description,
             type=data.type,
         )
+        request.state.audit_description = f"Create inventory item '{item.name}'"
         return InventoryItemResponse.from_model(item)
 
     @patch(
@@ -115,6 +116,7 @@ class CharacterInventoryController(Controller):
         changes = build_audit_changes(inventory_item, data)
 
         request.state.audit_changes = changes
+        request.state.audit_description = f"Update inventory item '{inventory_item.name}'"
         await inventory_item.save()
         return InventoryItemResponse.from_model(inventory_item)
 
@@ -126,7 +128,10 @@ class CharacterInventoryController(Controller):
         after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
-    async def delete_inventory_item(self, *, inventory_item: CharacterInventory) -> None:
+    async def delete_inventory_item(
+        self, *, inventory_item: CharacterInventory, request: Request
+    ) -> None:
         """Delete an inventory item."""
         inventory_item.is_archived = True
         await inventory_item.save()
+        request.state.audit_description = f"Delete inventory item '{inventory_item.name}'"
