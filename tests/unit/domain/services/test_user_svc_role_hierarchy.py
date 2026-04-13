@@ -76,6 +76,6 @@ async def test_player_can_self_update_non_role_field(user_factory, company_facto
     company = await company_factory()
     player = await user_factory(role=UserRole.PLAYER, company=company, name_first="Alice")
     patch = UserPatch(requesting_user_id=player.id, name_first="Bob")
-    updated = await UserService().update_user(user=player, data=patch)
+    updated, _changes = await UserService().update_user(user=player, data=patch)
     assert updated.name_first == "Bob"
     assert updated.role == UserRole.PLAYER

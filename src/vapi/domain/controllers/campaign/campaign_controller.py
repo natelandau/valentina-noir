@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -15,6 +15,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -85,6 +86,7 @@ class CampaignController(Controller):
         *,
         company: Company,
         data: CampaignCreate,
+        request: Request,
     ) -> CampaignResponse:
         """Create a campaign."""
         campaign = await Campaign.create(
@@ -94,6 +96,7 @@ class CampaignController(Controller):
             danger=data.danger,
             company=company,
         )
+        request.state.audit_description = f"Create campaign '{campaign.name}'"
         return CampaignResponse.from_model(campaign)
 
     @patch(
@@ -104,16 +107,13 @@ class CampaignController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_campaign(self, campaign: Campaign, data: CampaignPatch) -> CampaignResponse:
+    async def update_campaign(
+        self, campaign: Campaign, data: CampaignPatch, request: Request
+    ) -> CampaignResponse:
         """Update a campaign by ID."""
-        if not isinstance(data.name, msgspec.UnsetType):
-            campaign.name = data.name
-        if not isinstance(data.description, msgspec.UnsetType):
-            campaign.description = data.description
-        if not isinstance(data.desperation, msgspec.UnsetType):
-            campaign.desperation = data.desperation
-        if not isinstance(data.danger, msgspec.UnsetType):
-            campaign.danger = data.danger
+        changes = apply_patch(campaign, data)
+        request.state.audit_changes = changes
+        request.state.audit_description = f"Update campaign '{campaign.name}'"
         await campaign.save()
         return CampaignResponse.from_model(campaign)
 
@@ -125,7 +125,8 @@ class CampaignController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_campaign(self, campaign: Campaign) -> None:
+    async def delete_campaign(self, campaign: Campaign, request: Request) -> None:
         """Delete a campaign by ID."""
         service = CampaignService()
         await service.archive_campaign(campaign)
+        request.state.audit_description = f"Delete campaign '{campaign.name}'"

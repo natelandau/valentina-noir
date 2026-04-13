@@ -3,6 +3,7 @@
 from typing import Annotated
 
 import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -14,6 +15,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -73,7 +75,7 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_user_quickroll(
-        self, *, user: User, data: dto.QuickRollCreate
+        self, *, request: Request, user: User, data: dto.QuickRollCreate
     ) -> dto.QuickRollResponse:
         """Create a user quick roll."""
         service = UserQuickRollService()
@@ -87,6 +89,7 @@ class QuickRollController(Controller):
         await quickroll.traits.add(*traits)
         # Re-fetch to populate M2M relation after add
         quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
+        request.state.audit_description = f"Create quick roll '{quickroll.name}'"
         return dto.QuickRollResponse.from_model(quickroll)
 
     @patch(
@@ -97,23 +100,27 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
-        self, *, quickroll: QuickRoll, data: dto.QuickRollPatch
+        self, *, request: Request, quickroll: QuickRoll, data: dto.QuickRollPatch
     ) -> dto.QuickRollResponse:
         """Update a user quick roll by ID."""
-        if not isinstance(data.name, msgspec.UnsetType):
-            quickroll.name = data.name
-        if not isinstance(data.description, msgspec.UnsetType):
-            quickroll.description = data.description
+        changes = apply_patch(quickroll, data, exclude=frozenset({"trait_ids"}))
         await quickroll.save()
 
         if not isinstance(data.trait_ids, msgspec.UnsetType):
+            old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
             service = UserQuickRollService()
             traits = await service.validate_quickroll_traits(data.trait_ids)
             await quickroll.traits.clear()
             await quickroll.traits.add(*traits)
+            new_trait_ids = sorted(str(tid) for tid in data.trait_ids)
+            if old_trait_ids != new_trait_ids:
+                changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
+
+        request.state.audit_changes = changes
 
         # Re-fetch to populate M2M relation after potential changes
         quickroll = await QuickRoll.get(id=quickroll.id).prefetch_related("traits")
+        request.state.audit_description = f"Update quick roll '{quickroll.name}'"
         return dto.QuickRollResponse.from_model(quickroll)
 
     @delete(
@@ -123,7 +130,8 @@ class QuickRollController(Controller):
         description=docs.DELETE_QUICKROLL_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_user_quickroll(self, *, quickroll: QuickRoll) -> None:
+    async def delete_user_quickroll(self, *, request: Request, quickroll: QuickRoll) -> None:
         """Delete a user quick roll by ID."""
         quickroll.is_archived = True
         await quickroll.save()
+        request.state.audit_description = f"Delete quick roll '{quickroll.name}'"

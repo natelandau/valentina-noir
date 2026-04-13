@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post, put
@@ -15,6 +15,7 @@ from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -96,7 +97,7 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_book(
-        self, *, campaign: Campaign, data: CampaignBookCreate
+        self, *, campaign: Campaign, data: CampaignBookCreate, request: Request
     ) -> CampaignBookResponse:
         """Create a book."""
         service = CampaignService()
@@ -106,6 +107,9 @@ class CampaignBookController(Controller):
             description=data.description,
             campaign=campaign,
             number=number,
+        )
+        request.state.audit_description = (
+            f"Create book '{book.number}: {book.name}' for campaign '{campaign.name}'"
         )
         return CampaignBookResponse.from_model(book)
 
@@ -118,13 +122,12 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_book(
-        self, book: CampaignBook, data: CampaignBookPatch
+        self, book: CampaignBook, data: CampaignBookPatch, request: Request
     ) -> CampaignBookResponse:
         """Update a book by ID."""
-        if not isinstance(data.name, msgspec.UnsetType):
-            book.name = data.name
-        if not isinstance(data.description, msgspec.UnsetType):
-            book.description = data.description
+        changes = apply_patch(book, data)
+        request.state.audit_changes = changes
+        request.state.audit_description = f"Update book '{book.number}: {book.name}'"
         await book.save()
         return CampaignBookResponse.from_model(book)
 
@@ -136,10 +139,11 @@ class CampaignBookController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_book(self, book: CampaignBook) -> None:
+    async def delete_book(self, book: CampaignBook, request: Request) -> None:
         """Delete a book by ID."""
         service = CampaignService()
         await service.delete_book_and_renumber(book)
+        request.state.audit_description = f"Delete book '{book.number}: {book.name}'"
 
     @put(
         path=urls.Campaigns.BOOK_NUMBER,
@@ -150,9 +154,15 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def renumber_book(
-        self, book: CampaignBook, data: BookChapterNumber
+        self, book: CampaignBook, data: BookChapterNumber, request: Request
     ) -> CampaignBookResponse:
         """Renumber a book by ID."""
+        old_number = book.number
         service = CampaignService()
         book = await service.renumber_books(book=book, new_number=data.number)
+        if old_number != data.number:
+            request.state.audit_changes = {"number": {"old": old_number, "new": data.number}}
+        request.state.audit_description = (
+            f"Renumber book '{book.name}' from {old_number} to {data.number}"
+        )
         return CampaignBookResponse.from_model(book)

@@ -3,13 +3,14 @@
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 
 from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
+from vapi.lib.patch import apply_patch
 
 from . import dto
 
@@ -61,6 +62,7 @@ class BaseNoteController(Controller, ABC):
 
     async def _create_note(
         self,
+        request: Request,
         company_id: UUID,
         parent_id: UUID,
         data: dto.NoteCreate,
@@ -73,6 +75,7 @@ class BaseNoteController(Controller, ABC):
             self.parent_ref_field: parent_id,
         }
         note = await Note.create(**create_kwargs)  # type: ignore[arg-type]
+        request.state.audit_description = f"Create note '{note.title}'"
         return dto.NoteResponse.from_model(note)
 
     async def _update_note(
@@ -80,18 +83,19 @@ class BaseNoteController(Controller, ABC):
         note: Note,
         parent_id: UUID,
         data: dto.NotePatch,
+        request: Request,
     ) -> dto.NoteResponse:
         """Update an existing note, verifying it belongs to the parent in the URL path."""
         self._assert_belongs_to_parent(note, parent_id)
-        if not isinstance(data.title, msgspec.UnsetType):
-            note.title = data.title
-        if not isinstance(data.content, msgspec.UnsetType):
-            note.content = data.content
+        changes = apply_patch(note, data)
+        request.state.audit_changes = changes
+        request.state.audit_description = f"Update note '{note.title}'"
         await note.save()
         return dto.NoteResponse.from_model(note)
 
-    async def _delete_note(self, note: Note, parent_id: UUID) -> None:
+    async def _delete_note(self, note: Note, parent_id: UUID, request: Request) -> None:
         """Soft-delete a note, verifying it belongs to the parent in the URL path."""
         self._assert_belongs_to_parent(note, parent_id)
         note.is_archived = True
         await note.save()
+        request.state.audit_description = f"Delete note '{note.title}'"

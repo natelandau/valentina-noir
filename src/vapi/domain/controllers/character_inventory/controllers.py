@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -17,6 +17,7 @@ from vapi.lib.guards import (
     user_active_guard,
     user_character_player_or_storyteller_guard,
 )
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -84,7 +85,7 @@ class CharacterInventoryController(Controller):
         guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
-        self, *, character: Character, data: InventoryItemCreate
+        self, *, character: Character, data: InventoryItemCreate, request: Request
     ) -> InventoryItemResponse:
         """Create an inventory item."""
         item = await CharacterInventory.create(
@@ -93,6 +94,7 @@ class CharacterInventoryController(Controller):
             description=data.description,
             type=data.type,
         )
+        request.state.audit_description = f"Create inventory item '{item.name}'"
         return InventoryItemResponse.from_model(item)
 
     @patch(
@@ -108,12 +110,13 @@ class CharacterInventoryController(Controller):
         *,
         inventory_item: CharacterInventory,
         data: InventoryItemPatch,
+        request: Request,
     ) -> InventoryItemResponse:
         """Update an inventory item."""
-        for field_name in ("name", "description", "type"):
-            value = getattr(data, field_name)
-            if not isinstance(value, msgspec.UnsetType):
-                setattr(inventory_item, field_name, value)
+        changes = apply_patch(inventory_item, data)
+
+        request.state.audit_changes = changes
+        request.state.audit_description = f"Update inventory item '{inventory_item.name}'"
         await inventory_item.save()
         return InventoryItemResponse.from_model(inventory_item)
 
@@ -125,7 +128,10 @@ class CharacterInventoryController(Controller):
         after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
-    async def delete_inventory_item(self, *, inventory_item: CharacterInventory) -> None:
+    async def delete_inventory_item(
+        self, *, inventory_item: CharacterInventory, request: Request
+    ) -> None:
         """Delete an inventory item."""
         inventory_item.is_archived = True
         await inventory_item.save()
+        request.state.audit_description = f"Delete inventory item '{inventory_item.name}'"

@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+from litestar import Request
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
@@ -71,10 +72,12 @@ class CampaignChapterNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def create_chapter_note(
-        self, *, company: Company, chapter: CampaignChapter, data: dto.NoteCreate
+        self, *, request: Request, company: Company, chapter: CampaignChapter, data: dto.NoteCreate
     ) -> dto.NoteResponse:
         """Create a chapter note."""
-        return await self._create_note(company_id=company.id, parent_id=chapter.id, data=data)
+        return await self._create_note(
+            request=request, company_id=company.id, parent_id=chapter.id, data=data
+        )
 
     @patch(
         path=urls.Campaigns.CHAPTER_NOTE_UPDATE,
@@ -84,10 +87,10 @@ class CampaignChapterNoteController(BaseNoteController):
         after_response=hooks.post_data_update_hook,
     )
     async def update_chapter_note(
-        self, chapter: CampaignChapter, note: Note, data: dto.NotePatch
+        self, request: Request, chapter: CampaignChapter, note: Note, data: dto.NotePatch
     ) -> dto.NoteResponse:
         """Update a chapter note by ID."""
-        return await self._update_note(note, chapter.id, data)
+        return await self._update_note(request=request, note=note, parent_id=chapter.id, data=data)
 
     @delete(
         path=urls.Campaigns.CHAPTER_NOTE_DELETE,
@@ -96,6 +99,8 @@ class CampaignChapterNoteController(BaseNoteController):
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_chapter_note(self, *, chapter: CampaignChapter, note: Note) -> None:
+    async def delete_chapter_note(
+        self, *, request: Request, chapter: CampaignChapter, note: Note
+    ) -> None:
         """Delete a chapter note by ID."""
-        await self._delete_note(note, chapter.id)
+        await self._delete_note(request=request, note=note, parent_id=chapter.id)

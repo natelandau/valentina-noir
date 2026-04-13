@@ -187,7 +187,7 @@ class TestUserService:
 
         # When we update the user
         service = UserService()
-        updated_user = await service.update_user(user=target_user, data=data)
+        updated_user, _changes = await service.update_user(user=target_user, data=data)
 
         # Then the user is updated with new values and unchanged fields preserved
         assert updated_user.name_first == "update"

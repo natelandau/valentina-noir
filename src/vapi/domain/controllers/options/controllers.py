@@ -10,6 +10,8 @@ from litestar.handlers import get
 from vapi.config import settings
 from vapi.constants import (
     AssetType,
+    AuditEntityType,
+    AuditOperation,
     BlueprintTraitOrderBy,
     CharacterClass,
     CharacterStatus,
@@ -125,5 +127,9 @@ class OptionsController(Controller):
             },
             "assets": {
                 "AssetType": [x.value for x in AssetType],
+            },
+            "audit_logs": {
+                "AuditEntityType": [x.value for x in AuditEntityType],
+                "AuditOperation": [x.value for x in AuditOperation],
             },
         }

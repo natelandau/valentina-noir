@@ -1,5 +1,6 @@
 """Experience controller."""
 
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
@@ -50,7 +51,7 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def add_xp_to_campaign_experience(
-        self, company: Company, user: User, data: ExperienceAddRemove
+        self, request: Request, company: Company, user: User, data: ExperienceAddRemove
     ) -> CampaignExperienceResponse:
         """Add XP to campaign experience by user ID and campaign ID."""
         service = UserXPService()
@@ -61,6 +62,7 @@ class ExperienceController(Controller):
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
+        request.state.audit_description = f"Add {data.amount} XP for '{user.username}'"
         return CampaignExperienceResponse.from_model(experience)
 
     @post(
@@ -71,7 +73,7 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def remove_xp_from_campaign_experience(
-        self, company: Company, user: User, data: ExperienceAddRemove
+        self, request: Request, company: Company, user: User, data: ExperienceAddRemove
     ) -> CampaignExperienceResponse:
         """Remove XP from campaign experience by user ID and campaign ID."""
         service = UserXPService()
@@ -82,6 +84,7 @@ class ExperienceController(Controller):
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
+        request.state.audit_description = f"Remove {data.amount} XP for '{user.username}'"
         return CampaignExperienceResponse.from_model(experience)
 
     @post(
@@ -92,7 +95,7 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def add_cp_to_campaign_experience(
-        self, company: Company, user: User, data: ExperienceAddRemove
+        self, request: Request, company: Company, user: User, data: ExperienceAddRemove
     ) -> CampaignExperienceResponse:
         """Add CP to campaign experience by user ID and campaign ID."""
         service = UserXPService()
@@ -103,4 +106,5 @@ class ExperienceController(Controller):
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
+        request.state.audit_description = f"Add {data.amount} CP for '{user.username}'"
         return CampaignExperienceResponse.from_model(experience)

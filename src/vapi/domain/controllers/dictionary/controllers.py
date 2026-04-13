@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-import msgspec
+from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
@@ -14,6 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DictionaryService
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -75,7 +76,7 @@ class DictionaryTermController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_dictionary_term(
-        self, company: Company, data: DictionaryTermCreate
+        self, request: Request, company: Company, data: DictionaryTermCreate
     ) -> DictionaryTermResponse:
         """Create a dictionary term."""
         dictionary_term = DictionaryTerm(
@@ -87,6 +88,7 @@ class DictionaryTermController(Controller):
         )
         await dictionary_term.save()
 
+        request.state.audit_description = f"Create dictionary term '{dictionary_term.term}'"
         return DictionaryTermResponse.from_model(dictionary_term)
 
     @patch(
@@ -97,21 +99,19 @@ class DictionaryTermController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_dictionary_term(
-        self, company: Company, dictionary_term: DictionaryTerm, data: DictionaryTermPatch
+        self,
+        request: Request,
+        company: Company,
+        dictionary_term: DictionaryTerm,
+        data: DictionaryTermPatch,
     ) -> DictionaryTermResponse:
         """Update a dictionary term by ID."""
         service = DictionaryService()
         service.verify_term_is_editable(dictionary_term, company_id=company.id)
 
-        if not isinstance(data.term, msgspec.UnsetType):
-            dictionary_term.term = data.term
-        if not isinstance(data.definition, msgspec.UnsetType):
-            dictionary_term.definition = data.definition
-        if not isinstance(data.link, msgspec.UnsetType):
-            dictionary_term.link = data.link
-        if not isinstance(data.synonyms, msgspec.UnsetType):
-            dictionary_term.synonyms = data.synonyms
-
+        changes = apply_patch(dictionary_term, data)
+        request.state.audit_changes = changes
+        request.state.audit_description = f"Update dictionary term '{dictionary_term.term}'"
         await dictionary_term.save()
 
         return DictionaryTermResponse.from_model(dictionary_term)
@@ -124,7 +124,7 @@ class DictionaryTermController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def delete_dictionary_term(
-        self, company: Company, dictionary_term: DictionaryTerm
+        self, request: Request, company: Company, dictionary_term: DictionaryTerm
     ) -> None:
         """Delete a dictionary term by ID."""
         service = DictionaryService()
@@ -132,3 +132,4 @@ class DictionaryTermController(Controller):
 
         dictionary_term.is_archived = True
         await dictionary_term.save()
+        request.state.audit_description = f"Delete dictionary term '{dictionary_term.term}'"

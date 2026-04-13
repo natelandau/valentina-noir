@@ -228,3 +228,31 @@ class AssetType(StrEnum):
     DOCUMENT = "document"
     ARCHIVE = "archive"
     OTHER = "other"
+
+
+class AuditOperation(StrEnum):
+    """Audit log operation type."""
+
+    CREATE = "CREATE"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+
+
+class AuditEntityType(StrEnum):
+    """Audit log entity type."""
+
+    ASSET = "ASSET"
+    BOOK = "BOOK"
+    CAMPAIGN = "CAMPAIGN"
+    CHAPTER = "CHAPTER"
+    CHARACTER = "CHARACTER"
+    CHARACTER_INVENTORY = "CHARACTER_INVENTORY"
+    CHARACTER_TRAIT = "CHARACTER_TRAIT"
+    CHARGEN_SESSION = "CHARGEN_SESSION"
+    COMPANY = "COMPANY"
+    DEVELOPER = "DEVELOPER"
+    DICTIONARY_TERM = "DICTIONARY_TERM"
+    EXPERIENCE = "EXPERIENCE"
+    NOTE = "NOTE"
+    QUICKROLL = "QUICKROLL"
+    USER = "USER"
