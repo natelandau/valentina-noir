@@ -1,3 +1,15 @@
+## v0.14.0 (2026-04-12)
+
+### Feat
+
+- **audit**: add structured audit log fields and API endpoints (#111)
+- **company**: add resource counts to company responses (#110)
+
+### Fix
+
+- **includes**: exclude archived children from detail responses (#109)
+- fix is_archived
+
 ## v0.13.3 (2026-04-10)
 
 ### Fix
