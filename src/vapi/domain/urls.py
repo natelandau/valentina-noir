@@ -106,7 +106,7 @@ class Users:
 class Campaigns:
     """Campaign resource endpoints."""
 
-    BASE = f"{Users.DETAIL}/campaigns"
+    BASE = f"{Companies.DETAIL}/campaigns"
     LIST = BASE
     DETAIL = f"{BASE}/{{campaign_id:str}}"
     CREATE = BASE
@@ -173,7 +173,7 @@ class Campaigns:
 class Characters:
     """Character resource endpoints - all character-related URLs in one place."""
 
-    BASE = f"{Campaigns.DETAIL}/characters"
+    BASE = f"{Companies.DETAIL}/characters"
     LIST = BASE
     CREATE = BASE
     DETAIL = f"{BASE}/{{character_id:str}}"
@@ -266,7 +266,7 @@ class Dictionaries:
 class DiceRolls:
     """Gameplay and dice rolling endpoints."""
 
-    BASE = f"{Users.DETAIL}/dicerolls"
+    BASE = f"{Companies.DETAIL}/dicerolls"
     LIST = BASE
     CREATE = BASE
     DETAIL = f"{BASE}/{{diceroll_id:str}}"
