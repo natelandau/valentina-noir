@@ -1383,7 +1383,7 @@ class TestCharacterCreate:
         )
         assert response.status_code == HTTP_400_BAD_REQUEST
 
-    async def test_invalid_user_player(
+    async def test_create_character_with_explicit_user_player(
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
@@ -1394,11 +1394,11 @@ class TestCharacterCreate:
         token_global_admin: dict[str, str],
         on_behalf_of_header: dict[str, str],
     ) -> None:
-        """Verify 404 when creating a character with an archived user."""
-        # Given an archived user
-        archived_user = await user_factory(company=session_company, is_archived=True)
+        """Verify creating a character with an explicit user_player_id succeeds."""
+        # Given another user in the company
+        other_user = await user_factory(company=session_company)
 
-        # When we try to create a character for the archived user
+        # When we create a character with an explicit user_player_id
         response = await client.post(
             build_url(
                 CharacterURL.CREATE,
@@ -1407,17 +1407,18 @@ class TestCharacterCreate:
             headers=token_global_admin | on_behalf_of_header,
             params={"campaign_id": str(session_campaign.id)},
             json={
-                "name_first": "Test invalid user player",
+                "name_first": "Test explicit player",
                 "name_last": "Character",
                 "character_class": "MORTAL",
                 "game_version": "V5",
                 "type": "PLAYER",
-                "user_player_id": str(archived_user.id),
+                "user_player_id": str(other_user.id),
             },
         )
 
-        # Then we get a 404 because the guard rejects archived users
-        assert response.status_code == HTTP_404_NOT_FOUND
+        # Then the character is created with the specified user_player_id
+        assert response.status_code == HTTP_201_CREATED
+        assert response.json()["user_player_id"] == str(other_user.id)
 
     async def test_create_character_with_everything(
         self,

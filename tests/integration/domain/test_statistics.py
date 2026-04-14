@@ -264,6 +264,7 @@ class TestUserStatistics:
             build_url(
                 Users.STATISTICS,
                 company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
         )
@@ -304,6 +305,7 @@ class TestUserStatistics:
             build_url(
                 Users.STATISTICS,
                 company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
         )
@@ -360,6 +362,7 @@ class TestUserStatistics:
             build_url(
                 Users.STATISTICS,
                 company_id=session_company.id,
+                user_id=session_user.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
             params={"num_top_traits": 1},

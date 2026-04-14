@@ -19,10 +19,15 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-def _mock_connection(mocker: MockerFixture, path_params: dict[str, str]) -> MagicMock:
-    """Create a mock ASGIConnection with the given path params."""
+def _mock_connection(
+    mocker: MockerFixture,
+    path_params: dict[str, str],
+    headers: dict[str, str] | None = None,
+) -> MagicMock:
+    """Create a mock ASGIConnection with the given path params and headers."""
     connection = mocker.MagicMock()
     connection.path_params = path_params
+    connection.headers = headers or {}
     return connection
 
 
@@ -44,9 +49,10 @@ def _patch_user(mocker: MockerFixture, user: MagicMock | None) -> None:
 async def test_user_active_guard_rejects_deactivated(mocker: MockerFixture) -> None:
     """Verify DEACTIVATED user is rejected with deactivated message."""
     # Given a deactivated user
+    user_id = str(uuid4())
     user = mocker.MagicMock(role=UserRole.DEACTIVATED)
     _patch_user(mocker, user)
-    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    connection = _mock_connection(mocker, {}, headers={"On-Behalf-Of": user_id})
 
     # When/Then the guard raises
     with pytest.raises(PermissionDeniedError, match="deactivated"):
@@ -56,9 +62,10 @@ async def test_user_active_guard_rejects_deactivated(mocker: MockerFixture) -> N
 async def test_user_active_guard_rejects_unapproved(mocker: MockerFixture) -> None:
     """Verify UNAPPROVED user is rejected with not been approved message."""
     # Given an unapproved user
+    user_id = str(uuid4())
     user = mocker.MagicMock(role=UserRole.UNAPPROVED)
     _patch_user(mocker, user)
-    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    connection = _mock_connection(mocker, {}, headers={"On-Behalf-Of": user_id})
 
     # When/Then the guard raises
     with pytest.raises(PermissionDeniedError, match="not been approved"):
@@ -68,9 +75,10 @@ async def test_user_active_guard_rejects_unapproved(mocker: MockerFixture) -> No
 async def test_user_active_guard_allows_unapproved_with_opt_flag(mocker: MockerFixture) -> None:
     """Verify handlers with allow_unapproved_user opt flag can act on UNAPPROVED users."""
     # Given an unapproved user and a handler that opts in to UNAPPROVED access
+    user_id = str(uuid4())
     user = mocker.MagicMock(role=UserRole.UNAPPROVED)
     _patch_user(mocker, user)
-    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    connection = _mock_connection(mocker, {}, headers={"On-Behalf-Of": user_id})
     handler = _mock_handler(mocker, {"allow_unapproved_user": True})
 
     # When calling the guard / Then no exception
@@ -82,9 +90,10 @@ async def test_user_active_guard_still_rejects_deactivated_with_opt_flag(
 ) -> None:
     """Verify allow_unapproved_user opt flag does not bypass the DEACTIVATED check."""
     # Given a deactivated user and a handler that opts in to UNAPPROVED access
+    user_id = str(uuid4())
     user = mocker.MagicMock(role=UserRole.DEACTIVATED)
     _patch_user(mocker, user)
-    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    connection = _mock_connection(mocker, {}, headers={"On-Behalf-Of": user_id})
     handler = _mock_handler(mocker, {"allow_unapproved_user": True})
 
     # When/Then the guard still rejects
@@ -95,9 +104,10 @@ async def test_user_active_guard_still_rejects_deactivated_with_opt_flag(
 async def test_user_active_guard_allows_player(mocker: MockerFixture) -> None:
     """Verify PLAYER user passes the guard."""
     # Given a player user
+    user_id = str(uuid4())
     user = mocker.MagicMock(role=UserRole.PLAYER)
     _patch_user(mocker, user)
-    connection = _mock_connection(mocker, {"user_id": str(uuid4())})
+    connection = _mock_connection(mocker, {}, headers={"On-Behalf-Of": user_id})
 
     # When calling the guard / Then no exception
     await user_active_guard(connection, mocker.MagicMock())
@@ -129,7 +139,9 @@ async def test_character_guard_rejects_deactivated_owner(mocker: MockerFixture) 
         return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=user)),
     )
     connection = _mock_connection(
-        mocker, {"character_id": str(character_id), "user_id": str(user_id)}
+        mocker,
+        {"character_id": str(character_id)},
+        headers={"On-Behalf-Of": str(user_id)},
     )
 
     # When/Then the guard raises

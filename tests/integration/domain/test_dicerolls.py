@@ -36,7 +36,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -46,7 +45,7 @@ class TestDiceRoll:
         """Verify listing dice rolls returns empty when none exist."""
         response = await client.get(
             build_url(DiceRolls.LIST, company_id=session_company.id),
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {"items": [], "limit": 10, "offset": 0, "total": 0}
@@ -55,7 +54,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -70,7 +68,7 @@ class TestDiceRoll:
         # When we list dice rolls
         response = await client.get(
             build_url(DiceRolls.LIST, company_id=session_company.id),
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then we get results
@@ -84,7 +82,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -103,7 +100,7 @@ class TestDiceRoll:
                 company_id=session_company.id,
                 diceroll_id=dice_roll.id,
             ),
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then we get the correct roll
@@ -114,7 +111,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -129,7 +125,7 @@ class TestDiceRoll:
                 company_id=session_company.id,
                 diceroll_id=dice_roll_id,
             ),
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
         assert response.status_code == HTTP_404_NOT_FOUND
         assert response.json()["detail"] == f"Dice roll {dice_roll_id} not found"
@@ -138,7 +134,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -165,7 +160,7 @@ class TestDiceRoll:
                 DiceRolls.CREATE,
                 company_id=session_company.id,
             ),
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             json={
                 "difficulty": 6,
                 "dice_size": 10,
@@ -197,7 +192,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -228,7 +222,7 @@ class TestDiceRoll:
         # When filtering by character
         response = await client.get(
             base_url,
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             params={"characterid": str(character.id)},
         )
         assert response.status_code == HTTP_200_OK
@@ -238,7 +232,7 @@ class TestDiceRoll:
         # When filtering by campaign
         response = await client.get(
             base_url,
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             params={"campaignid": str(session_campaign.id)},
         )
         assert response.status_code == HTTP_200_OK
@@ -248,7 +242,7 @@ class TestDiceRoll:
         # When filtering by user
         response = await client.get(
             base_url,
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             params={"userid": str(session_user.id)},
         )
         assert response.status_code == HTTP_200_OK
@@ -259,7 +253,6 @@ class TestDiceRoll:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
-        on_behalf_of_header: dict[str, str],
         build_url: Callable[[str, Any], str],
         session_company: Company,
         session_global_admin: Developer,
@@ -297,7 +290,7 @@ class TestDiceRoll:
                 DiceRolls.QUICKROLL,
                 company_id=session_company.id,
             ),
-            headers=token_global_admin | on_behalf_of_header,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             json={
                 "quickroll_id": str(quickroll.id),
                 "character_id": str(character.id),

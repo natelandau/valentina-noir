@@ -623,12 +623,14 @@ class TestUserXPService:
         if expected_result:
             await service._validate_user_can_grant_xp(
                 company=company,
+                acting_user_id=requesting_user.id,
                 target_user_id=target_user.id,
             )
         else:
             with pytest.raises(PermissionDeniedError):
                 await service._validate_user_can_grant_xp(
                     company=company,
+                    acting_user_id=requesting_user.id,
                     target_user_id=target_user.id,
                 )
 

@@ -96,11 +96,11 @@ class TestDeactivation:
         session_campaign: Campaign,
         user_factory: Callable[..., User],
     ) -> None:
-        """Verify the guard blocks any endpoint that targets a deactivated user via user_id."""
+        """Verify the guard blocks a deactivated user acting via On-Behalf-Of header."""
         # Given a DEACTIVATED user
         deactivated = await user_factory(company=session_company, role="DEACTIVATED")
 
-        # When we hit an endpoint with the deactivated user as the user_id path param
+        # When we hit an endpoint with the deactivated user as the acting user
         response = await client.get(
             build_url(
                 UsersURL.EXPERIENCE_CAMPAIGN,
@@ -108,7 +108,7 @@ class TestDeactivation:
                 company_id=session_company.id,
                 campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(deactivated.id)},
         )
 
         # Then the guard rejects with 403 and a "deactivated" message

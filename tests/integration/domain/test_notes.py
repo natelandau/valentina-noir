@@ -379,6 +379,7 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.NOTE_CREATE,
                 company_id=session_company.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
             json={"title": "Campaign Smoke Note", "content": "Campaign smoke content"},
@@ -393,6 +394,7 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.NOTES,
                 company_id=session_company.id,
+                campaign_id=session_campaign.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
         )
@@ -461,6 +463,7 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.BOOK_NOTE_CREATE,
                 company_id=session_company.id,
+                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
@@ -476,6 +479,7 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.BOOK_NOTES,
                 company_id=session_company.id,
+                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
@@ -505,6 +509,7 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.CHAPTER_NOTE_CREATE,
                 company_id=session_company.id,
+                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
                 chapter_id=session_campaign_chapter.id,
             ),
@@ -521,6 +526,7 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.CHAPTER_NOTES,
                 company_id=session_company.id,
+                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
                 chapter_id=session_campaign_chapter.id,
             ),
