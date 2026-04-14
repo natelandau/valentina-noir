@@ -1,5 +1,6 @@
 """Character Generation API."""
 
+import asyncio
 import logging
 from datetime import timedelta
 from typing import Annotated
@@ -92,23 +93,18 @@ class CharacterGenerationController(Controller):
             raise NotFoundError(detail="Campaign not found")
 
         validation_service = GetModelByIdValidationService()
-        concept = (
-            await validation_service.get_concept_by_id(data.concept_id) if data.concept_id else None
-        )
-        vampire_clan = (
-            await validation_service.get_vampire_clan_by_id(data.vampire_clan_id)
-            if data.vampire_clan_id
-            else None
-        )
-        werewolf_tribe = (
-            await validation_service.get_werewolf_tribe_by_id(data.werewolf_tribe_id)
-            if data.werewolf_tribe_id
-            else None
-        )
-        werewolf_auspice = (
-            await validation_service.get_werewolf_auspice_by_id(data.werewolf_auspice_id)
-            if data.werewolf_auspice_id
-            else None
+
+        # Resolve optional reference data in parallel since lookups are independent
+        async def _resolve_optional(coro_fn, val):  # noqa: ANN001, ANN202
+            return await coro_fn(val) if val else None
+
+        concept, vampire_clan, werewolf_tribe, werewolf_auspice = await asyncio.gather(
+            _resolve_optional(validation_service.get_concept_by_id, data.concept_id),
+            _resolve_optional(validation_service.get_vampire_clan_by_id, data.vampire_clan_id),
+            _resolve_optional(validation_service.get_werewolf_tribe_by_id, data.werewolf_tribe_id),
+            _resolve_optional(
+                validation_service.get_werewolf_auspice_by_id, data.werewolf_auspice_id
+            ),
         )
 
         chargen = CharacterAutogenerationHandler(
@@ -244,10 +240,10 @@ class CharacterGenerationController(Controller):
         await service.prepare_for_save(selected_character)
         await selected_character.save()
 
-        # Delete unselected characters
-        for char in session.characters:
-            if char.id != selected_character.id:
-                await char.delete()
+        # Bulk-delete unselected characters in a single query
+        unselected_ids = [c.id for c in session.characters if c.id != selected_character.id]
+        if unselected_ids:
+            await Character.filter(id__in=unselected_ids).delete()
 
         # Delete the session
         await session.delete()
