@@ -90,6 +90,87 @@ class TestCharacterList:
         assert response.status_code == HTTP_200_OK
         assert response.json()["items"] == []
 
+    async def test_list_characters_without_campaign_id_returns_all(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_user: User,
+        session_campaign: Campaign,
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify listing characters without campaign_id returns characters from all campaigns."""
+        # Given characters in two different campaigns
+        second_campaign = await campaign_factory(company=session_company)
+        char_campaign_1 = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        char_campaign_2 = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=second_campaign,
+        )
+
+        # When we list characters without specifying campaign_id
+        response = await client.get(
+            build_url(CharacterURL.LIST, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then characters from both campaigns are returned
+        assert response.status_code == HTTP_200_OK
+        returned_ids = {item["id"] for item in response.json()["items"]}
+        assert str(char_campaign_1.id) in returned_ids
+        assert str(char_campaign_2.id) in returned_ids
+
+    async def test_list_characters_with_campaign_id_filters(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_user: User,
+        session_campaign: Campaign,
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify listing characters with campaign_id only returns characters in that campaign."""
+        # Given characters in two different campaigns
+        second_campaign = await campaign_factory(company=session_company)
+        char_campaign_1 = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        char_campaign_2 = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=second_campaign,
+        )
+
+        # When we list characters filtered by the first campaign
+        response = await client.get(
+            build_url(CharacterURL.LIST, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
+        )
+
+        # Then only the first campaign's character is returned
+        assert response.status_code == HTTP_200_OK
+        returned_ids = {item["id"] for item in response.json()["items"]}
+        assert str(char_campaign_1.id) in returned_ids
+        assert str(char_campaign_2.id) not in returned_ids
+
     async def test_list_characters_with_results_no_filters(
         self,
         client: AsyncClient,
