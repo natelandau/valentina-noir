@@ -30,7 +30,7 @@ class CampaignAssetsController(BaseAssetsController):
     tags = [APITags.CAMPAIGNS_ASSETS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "asset": Provide(deps.provide_s3_asset_by_id),
     }
@@ -82,14 +82,14 @@ class CampaignAssetsController(BaseAssetsController):
         self,
         company: Company,
         campaign: Campaign,
-        user: User,
+        acting_user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> dto.S3AssetResponse:
         """Upload a campaign asset."""
         return await self._create_asset(
             parent_id=campaign.id,
             company_id=company.id,
-            upload_user_id=user.id,
+            upload_user_id=acting_user.id,
             data=data,
         )
 
