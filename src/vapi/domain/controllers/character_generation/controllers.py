@@ -20,10 +20,10 @@ from vapi.db.sql_models import (
 from vapi.domain import hooks, urls
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
 from vapi.domain.deps import (
+    provide_acting_user,
     provide_campaign_by_id,
     provide_character_by_id_and_company,
     provide_company_by_id,
-    provide_target_user,
 )
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
@@ -60,7 +60,7 @@ class CharacterGenerationController(Controller):
     tags = [APITags.CHARACTERS_AUTOGEN.name]
     dependencies = {
         "company": Provide(provide_company_by_id),
-        "user": Provide(provide_target_user),
+        "acting_user": Provide(provide_acting_user),
         "campaign": Provide(provide_campaign_by_id),
         "character": Provide(provide_character_by_id_and_company),
     }
@@ -77,7 +77,7 @@ class CharacterGenerationController(Controller):
     async def autogenerate_character_all_random(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         campaign: Campaign,
         data: CreateAutogenerateRequest,
         request: Request,
@@ -105,7 +105,7 @@ class CharacterGenerationController(Controller):
 
         chargen = CharacterAutogenerationHandler(
             company=company,
-            user=user,
+            user=acting_user,
             campaign=campaign,
         )
         new_character = await chargen.generate_character(
@@ -143,7 +143,7 @@ class CharacterGenerationController(Controller):
     async def start_chargen(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         campaign: Campaign,
     ) -> ChargenSessionResponse:
         """Generate multiple character options."""
@@ -152,9 +152,11 @@ class CharacterGenerationController(Controller):
 
         xp_cost = settings.character_autogen_xp_cost or 0
         if xp_cost > 0:
-            await UserXPService().spend_xp(user.id, campaign.id, xp_cost)
+            await UserXPService().spend_xp(acting_user.id, campaign.id, xp_cost)
 
-        chargen = CharacterAutogenerationHandler(company=company, user=user, campaign=campaign)
+        chargen = CharacterAutogenerationHandler(
+            company=company, user=acting_user, campaign=campaign
+        )
         service = CharacterService()
         characters: list[Character] = []
         for _ in range(num_choices):
@@ -168,7 +170,7 @@ class CharacterGenerationController(Controller):
             characters.append(character)
 
         session = await ChargenSession.create(
-            user=user,
+            user=acting_user,
             company=company,
             campaign=campaign,
             expires_at=time_now() + timedelta(hours=24),
@@ -256,12 +258,12 @@ class CharacterGenerationController(Controller):
     async def list_chargen_sessions(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
     ) -> list[ChargenSessionResponse]:
         """List all active chargen sessions for this user."""
         sessions = await ChargenSession.filter(
             company=company,
-            user=user,
+            user=acting_user,
             expires_at__gt=time_now(),
         ).prefetch_related(*CHARGEN_SESSION_PREFETCH)
 

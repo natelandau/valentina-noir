@@ -53,7 +53,7 @@ class CharacterController(Controller):
     tags = [APITags.CHARACTERS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "character": Provide(deps.provide_character_by_id_and_company),
         "developer": Provide(deps.provide_developer_from_request),
@@ -153,7 +153,7 @@ class CharacterController(Controller):
     async def create_character(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         campaign: Campaign,
         data: CharacterCreate,
         request: Request,
@@ -173,8 +173,8 @@ class CharacterController(Controller):
             concept_id=data.concept_id,
             company=company,
             campaign=campaign,
-            user_creator=user,
-            user_player_id=data.user_player_id or user.id,
+            user_creator=acting_user,
+            user_player_id=data.user_player_id or acting_user.id,
         )
 
         # Create OneToOne attribute rows for class-specific data
