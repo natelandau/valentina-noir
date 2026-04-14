@@ -201,9 +201,11 @@ async def provide_dictionary_term_by_id(
 
 
 async def provide_target_user(user_id: UUID, company: Company) -> User:
-    """Provide a User by ID, scoped to a company.
+    """Resolve user_id from the path — the user being acted on.
 
-    Prefetches campaign_experiences for UserResponse.from_model().
+    Only used by User domain controllers where user_id is in the URL path
+    identifying the target resource. Prefetches campaign_experiences for
+    UserResponse.from_model().
     """
     return await _find_or_404(
         User,
