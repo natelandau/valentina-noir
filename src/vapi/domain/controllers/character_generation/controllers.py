@@ -23,7 +23,7 @@ from vapi.domain.deps import (
     provide_campaign_by_id,
     provide_character_by_id_and_company,
     provide_company_by_id,
-    provide_user_by_id_and_company,
+    provide_target_user,
 )
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
@@ -60,7 +60,7 @@ class CharacterGenerationController(Controller):
     tags = [APITags.CHARACTERS_AUTOGEN.name]
     dependencies = {
         "company": Provide(provide_company_by_id),
-        "user": Provide(provide_user_by_id_and_company),
+        "user": Provide(provide_target_user),
         "campaign": Provide(provide_campaign_by_id),
         "character": Provide(provide_character_by_id_and_company),
     }

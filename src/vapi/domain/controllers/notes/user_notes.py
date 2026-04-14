@@ -24,7 +24,7 @@ class UserNoteController(BaseNoteController):
     tags = [APITags.USERS_NOTES.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "user": Provide(deps.provide_target_user),
         "developer": Provide(deps.provide_developer_from_request),
         "note": Provide(deps.provide_note_by_id),
     }

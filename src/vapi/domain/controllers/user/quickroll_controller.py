@@ -27,7 +27,7 @@ class QuickRollController(Controller):
     tags = [APITags.USERS_QUICKROLLS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "user": Provide(deps.provide_target_user),
         "quickroll": Provide(deps.provide_quickroll_by_id),
     }
     guards = [developer_company_user_guard, user_active_guard]

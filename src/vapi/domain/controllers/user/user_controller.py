@@ -41,7 +41,7 @@ class UserController(Controller):
 
     tags = [APITags.USERS.name]
     dependencies = {
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "user": Provide(deps.provide_target_user),
         "company": Provide(deps.provide_company_by_id),
         "developer": Provide(deps.provide_developer_from_request),
     }

@@ -10,6 +10,7 @@ from uuid import UUID
 from tortoise.expressions import Q
 from tortoise.models import Model
 
+from vapi.constants import ON_BEHALF_OF_HEADER_KEY
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character, CharacterInventory, CharacterTrait
@@ -29,7 +30,7 @@ from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
-from vapi.lib.exceptions import NotFoundError
+from vapi.lib.exceptions import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -199,7 +200,7 @@ async def provide_dictionary_term_by_id(
     )
 
 
-async def provide_user_by_id_and_company(user_id: UUID, company: Company) -> User:
+async def provide_target_user(user_id: UUID, company: Company) -> User:
     """Provide a User by ID, scoped to a company.
 
     Prefetches campaign_experiences for UserResponse.from_model().
@@ -211,6 +212,61 @@ async def provide_user_by_id_and_company(user_id: UUID, company: Company) -> Use
         doc_id=user_id,
         prefetch=["campaign_experiences"],
     )
+
+
+async def provide_acting_user(request: "Request", company: Company) -> User:
+    """Resolve the On-Behalf-Of header to a User within the given company.
+
+    Check request.state.acting_user first (stashed by guards to avoid duplicate
+    queries). If not cached, read the On-Behalf-Of header, validate it, load
+    the user scoped to the company, and stash the result on request.state.
+
+    Args:
+        request: The Litestar request object.
+        company: The company resolved from the path.
+
+    Raises:
+        ValidationError: If the header is missing or not a valid UUID.
+        NotFoundError: If the user does not exist, is archived, or is not in the company.
+    """
+    cached: User | None = getattr(request.state, "acting_user", None)
+    if cached is not None:
+        return cached
+
+    header_value = request.headers.get(ON_BEHALF_OF_HEADER_KEY)
+    if not header_value:
+        raise ValidationError(
+            detail=f"{ON_BEHALF_OF_HEADER_KEY} header is required",
+            invalid_parameters=[
+                {"field": ON_BEHALF_OF_HEADER_KEY, "message": "Header is required"},
+            ],
+        )
+
+    try:
+        user_id = UUID(header_value)
+    except ValueError as e:
+        raise ValidationError(
+            detail=f"{ON_BEHALF_OF_HEADER_KEY} header must be a valid UUID",
+            invalid_parameters=[
+                {"field": ON_BEHALF_OF_HEADER_KEY, "message": "Must be a valid UUID"},
+            ],
+        ) from e
+
+    user = (
+        await User.filter(
+            id=user_id,
+            company_id=company.id,
+            is_archived=False,
+        )
+        .prefetch_related("campaign_experiences")
+        .first()
+    )
+
+    if not user:
+        raise NotFoundError(detail="Acting user not found")
+
+    request.state.acting_user = user
+    return user
 
 
 async def provide_user_by_id(user_id: UUID) -> User:

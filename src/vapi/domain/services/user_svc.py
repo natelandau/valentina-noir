@@ -256,8 +256,8 @@ class UserService:
             raise ValidationError(detail="Cannot merge a user with themselves")
 
         primary_user, secondary_user = await asyncio.gather(
-            deps.provide_user_by_id_and_company(user_id=primary_user_id, company=company),
-            deps.provide_user_by_id_and_company(user_id=secondary_user_id, company=company),
+            deps.provide_target_user(user_id=primary_user_id, company=company),
+            deps.provide_target_user(user_id=secondary_user_id, company=company),
         )
 
         if secondary_user.role != UserRole.UNAPPROVED:

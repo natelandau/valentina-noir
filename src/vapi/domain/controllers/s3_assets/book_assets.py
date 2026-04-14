@@ -30,7 +30,7 @@ class BookAssetsController(BaseAssetsController):
     tags = [APITags.CAMPAIGN_BOOK_ASSETS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "user": Provide(deps.provide_target_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "asset": Provide(deps.provide_s3_asset_by_id),
