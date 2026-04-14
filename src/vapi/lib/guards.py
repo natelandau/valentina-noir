@@ -96,16 +96,18 @@ async def user_active_guard(
 ) -> None:
     """Guard that rejects UNAPPROVED and DEACTIVATED users.
 
-    Extract user_id from the URL path and reject the request if the user is
-    unapproved or deactivated. Silently return when no user_id is present in
-    the path, so the guard can be safely attached at controller scope for
-    endpoints that don't carry a user_id path param.
+    Read the acting user from the On-Behalf-Of header and reject the request
+    if the user is unapproved or deactivated. Silently return when no header
+    is present, so the guard can be safely attached at controller scope for
+    endpoints that don't carry an acting user.
 
     Handlers that intentionally operate on UNAPPROVED users (e.g. approve, deny)
     can opt out of the UNAPPROVED check by setting ``opt={"allow_unapproved_user": True}``
     on the route decorator. The DEACTIVATED check is always enforced.
     """
-    user_id_str = connection.path_params.get("user_id")
+    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
+
+    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
     if not user_id_str:
         return
 
@@ -125,15 +127,19 @@ async def user_active_guard(
     if user.role == UserRole.DEACTIVATED:
         raise PermissionDeniedError(detail="User account is deactivated")
 
+    connection.scope.setdefault("state", {})["acting_user"] = user
+
 
 async def user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
     """Guard that requires STORYTELLER or ADMIN role.
 
-    Extracts user_id from the URL path, queries the Tortoise User table,
-    and raises PermissionDeniedError if the user does not have STORYTELLER
-    or ADMIN role.
+    Read the acting user from the On-Behalf-Of header, query the Tortoise
+    User table, and raise PermissionDeniedError if the user does not have
+    STORYTELLER or ADMIN role.
     """
-    user_id_str = connection.path_params.get("user_id")
+    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
+
+    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
     if not user_id_str:
         raise PermissionDeniedError(detail="User ID is required")
 
@@ -149,16 +155,19 @@ async def user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHand
     if user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
         raise PermissionDeniedError(detail="User must be a storyteller or admin")
 
+    connection.scope.setdefault("state", {})["acting_user"] = user
+
 
 async def user_character_player_or_storyteller_guard(
     connection: "ASGIConnection", _: "BaseRouteHandler"
 ) -> None:
     """Guard requiring character player or storyteller/admin role.
 
-    Extracts character_id from the URL path, queries the Tortoise Character table,
-    and raises PermissionDeniedError unless the requesting user is the character's
-    player or has STORYTELLER/ADMIN role.
+    Read the acting user from the On-Behalf-Of header and character_id from
+    path params. Raise PermissionDeniedError unless the acting user is the
+    character's player or has STORYTELLER/ADMIN role.
     """
+    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
     from vapi.db.sql_models.character import Character
 
     character_id_str = connection.path_params.get("character_id")
@@ -175,7 +184,7 @@ async def user_character_player_or_storyteller_guard(
     except ValueError as e:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
 
-    user_id_str = connection.path_params.get("user_id")
+    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
     if not user_id_str:
         raise PermissionDeniedError(detail="User ID is required")
 
@@ -203,3 +212,5 @@ async def user_character_player_or_storyteller_guard(
         and character.user_player_id != user.id  # type: ignore[attr-defined]
     ):
         raise PermissionDeniedError(detail="No rights to access this resource")
+
+    connection.scope.setdefault("state", {})["acting_user"] = user
