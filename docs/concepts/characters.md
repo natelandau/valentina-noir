@@ -112,7 +112,7 @@ The process for manually creating a character is as follows:
 4. Create the character with the list of traits and optional `concept_id`.
 
 ```shell
-POST /api/v1/companies/{company_id}/characters
+POST /api/v1/companies/{company_id}/characters?campaign_id={campaign_id}
 ```
 
 **Request body:**
