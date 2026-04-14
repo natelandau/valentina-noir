@@ -112,7 +112,7 @@ The process for manually creating a character is as follows:
 4. Create the character with the list of traits and optional `concept_id`.
 
 ```shell
-POST /api/v1/companies/{company_id}/characters?campaign_id={campaign_id}
+POST /api/v1/companies/{company_id}/characters
 ```
 
 **Request body:**
@@ -123,6 +123,7 @@ POST /api/v1/companies/{company_id}/characters?campaign_id={campaign_id}
     "name_last": "Doe",
     "character_class": "MORTAL",
     "game_version": "V5",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440000",
     "type": "PLAYER",
     "concept_id": "69679d6b92e8772cd93d8187",
     "traits": [

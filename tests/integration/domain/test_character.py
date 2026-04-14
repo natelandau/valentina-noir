@@ -930,7 +930,6 @@ class TestVampireAttributes:
                 company_id=session_company.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
@@ -938,6 +937,7 @@ class TestVampireAttributes:
                 "character_class": "VAMPIRE",
                 "game_version": "V5",
                 "type": "PLAYER",
+                "campaign_id": str(session_campaign.id),
                 "vampire_attributes": {
                     "clan_id": str(vampire_clan.id),
                 },
@@ -1151,13 +1151,13 @@ class TestWerewolfAttributes:
                 company_id=session_company.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
                 "character_class": "WEREWOLF",
                 "game_version": "V5",
                 "type": "PLAYER",
+                "campaign_id": str(session_campaign.id),
                 "werewolf_attributes": {
                     "tribe_id": str(werewolf_tribe.id),
                     "auspice_id": str(werewolf_auspice.id),
@@ -1313,13 +1313,13 @@ class TestCharacterCreate:
                 company_id=session_company.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
                 "character_class": "MORTAL",
                 "game_version": "V5",
                 "type": "PLAYER",
+                "campaign_id": str(session_campaign.id),
                 "traits": trait_create_data,
             },
         )
@@ -1369,6 +1369,7 @@ class TestCharacterCreate:
             "biography": "Test biography",
             "demeanor": "Test demeanor",
             "nature": "Test nature",
+            "campaign_id": str(session_campaign.id),
         }
         base_json_data = {**correct_json_data, **json_data}
 
@@ -1378,7 +1379,6 @@ class TestCharacterCreate:
                 company_id=session_company.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            params={"campaign_id": str(session_campaign.id)},
             json=base_json_data,
         )
         assert response.status_code == HTTP_400_BAD_REQUEST
@@ -1405,13 +1405,13 @@ class TestCharacterCreate:
                 company_id=session_company.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test explicit player",
                 "name_last": "Character",
                 "character_class": "MORTAL",
                 "game_version": "V5",
                 "type": "PLAYER",
+                "campaign_id": str(session_campaign.id),
                 "user_player_id": str(other_user.id),
             },
         )
@@ -1455,7 +1455,6 @@ class TestCharacterCreate:
                 company_id=session_company.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
@@ -1467,6 +1466,7 @@ class TestCharacterCreate:
                 "character_class": "VAMPIRE",
                 "game_version": "V5",
                 "type": "PLAYER",
+                "campaign_id": str(session_campaign.id),
                 "traits": trait_create_data,
                 "vampire_attributes": {
                     "clan_id": str(vampire_clan.id),

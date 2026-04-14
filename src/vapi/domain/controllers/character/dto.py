@@ -394,6 +394,7 @@ class CharacterCreate(msgspec.Struct):
     name_last: str
     character_class: CharacterClass
     game_version: GameVersion
+    campaign_id: UUID
     name_nick: str | None = None
     type: CharacterType = CharacterType.PLAYER
     age: int | None = None

@@ -68,9 +68,9 @@ class CharacterController(Controller):
     async def list_characters(  # noqa: PLR0913
         self,
         company: Company,
-        campaign_id: Annotated[UUID, Parameter(description="Filter by campaign.")],
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
+        campaign_id: Annotated[UUID, Parameter(description="Filter by campaign.")] | None = None,
         user_player_id: Annotated[
             UUID, Parameter(description="Show characters played by this user.")
         ]
@@ -97,10 +97,11 @@ class CharacterController(Controller):
         filters: dict[str, object] = {
             "company_id": company.id,
             "is_archived": False,
-            "campaign_id": campaign_id,
             "is_temporary": is_temporary,
         }
 
+        if campaign_id:
+            filters["campaign_id"] = campaign_id
         if user_player_id:
             filters["user_player_id"] = user_player_id
         if user_creator_id:
@@ -152,7 +153,6 @@ class CharacterController(Controller):
         self,
         company: Company,
         acting_user: User,
-        campaign_id: Annotated[UUID, Parameter(description="Campaign to create the character in.")],
         data: CharacterCreate,
         request: Request,
     ) -> CharacterResponse:
@@ -170,7 +170,7 @@ class CharacterController(Controller):
             nature=data.nature,
             concept_id=data.concept_id,
             company=company,
-            campaign_id=campaign_id,
+            campaign_id=data.campaign_id,
             user_creator=acting_user,
             user_player_id=data.user_player_id or acting_user.id,
         )
