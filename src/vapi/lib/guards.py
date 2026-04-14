@@ -28,6 +28,49 @@ __all__ = (
 )
 
 
+async def _resolve_acting_user_from_header(
+    connection: "ASGIConnection",
+    *,
+    required: bool = True,
+) -> User | None:
+    """Read the On-Behalf-Of header, parse the UUID, and load the user.
+
+    Stashes the loaded user on ``connection.scope["state"]["acting_user"]`` for
+    downstream DI providers to reuse without a duplicate query.
+
+    Args:
+        connection: The ASGI connection.
+        required: If True, raise PermissionDeniedError when the header is missing.
+            If False, return None silently.
+
+    Returns:
+        The loaded User, or None when the header is absent and required=False.
+
+    Raises:
+        PermissionDeniedError: If the header is required but missing.
+        NotFoundError: If the UUID is invalid or the user doesn't exist.
+    """
+    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
+
+    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
+    if not user_id_str:
+        if required:
+            raise PermissionDeniedError(detail="On-Behalf-Of header is required")
+        return None
+
+    try:
+        user_uuid = UUID(user_id_str)
+    except ValueError as e:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
+
+    user = await User.filter(id=user_uuid, is_archived=False).first()
+    if not user:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found")
+
+    connection.scope.setdefault("state", {})["acting_user"] = user
+    return user
+
+
 async def _check_developer_company_permission(
     connection: "ASGIConnection",
     *,
@@ -105,29 +148,16 @@ async def user_active_guard(
     can opt out of the UNAPPROVED check by setting ``opt={"allow_unapproved_user": True}``
     on the route decorator. The DEACTIVATED check is always enforced.
     """
-    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
-
-    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
-    if not user_id_str:
+    user = await _resolve_acting_user_from_header(connection, required=False)
+    if not user:
         return
 
     allow_unapproved = bool(route_handler.opt.get("allow_unapproved_user", False))
-
-    try:
-        user_uuid = UUID(user_id_str)
-    except ValueError as e:
-        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
-
-    user = await User.filter(id=user_uuid, is_archived=False).first()
-    if not user:
-        raise NotFoundError(detail=f"User '{user_id_str}' not found")
 
     if user.role == UserRole.UNAPPROVED and not allow_unapproved:
         raise PermissionDeniedError(detail="User has not been approved yet")
     if user.role == UserRole.DEACTIVATED:
         raise PermissionDeniedError(detail="User account is deactivated")
-
-    connection.scope.setdefault("state", {})["acting_user"] = user
 
 
 async def user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
@@ -137,25 +167,10 @@ async def user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHand
     User table, and raise PermissionDeniedError if the user does not have
     STORYTELLER or ADMIN role.
     """
-    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
-
-    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
-    if not user_id_str:
-        raise PermissionDeniedError(detail="User ID is required")
-
-    try:
-        user_uuid = UUID(user_id_str)
-    except ValueError as e:
-        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
-
-    user = await User.filter(id=user_uuid, is_archived=False).first()
-    if not user:
-        raise NotFoundError(detail=f"User '{user_id_str}' not found")
+    user = await _resolve_acting_user_from_header(connection)
 
     if user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
         raise PermissionDeniedError(detail="User must be a storyteller or admin")
-
-    connection.scope.setdefault("state", {})["acting_user"] = user
 
 
 async def user_character_player_or_storyteller_guard(
@@ -167,7 +182,6 @@ async def user_character_player_or_storyteller_guard(
     path params. Raise PermissionDeniedError unless the acting user is the
     character's player or has STORYTELLER/ADMIN role.
     """
-    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
     from vapi.db.sql_models.character import Character
 
     character_id_str = connection.path_params.get("character_id")
@@ -184,25 +198,14 @@ async def user_character_player_or_storyteller_guard(
     except ValueError as e:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
 
-    user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
-    if not user_id_str:
-        raise PermissionDeniedError(detail="User ID is required")
+    # Fetch character and acting user in parallel since they are independent lookups
+    character_coro = Character.filter(id=character_uuid, is_archived=False).first()
+    user_coro = _resolve_acting_user_from_header(connection)
 
-    try:
-        user_uuid = UUID(user_id_str)
-    except ValueError as e:
-        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
-
-    # Fetch character and user in parallel since they are independent lookups
-    character, user = await asyncio.gather(
-        Character.filter(id=character_uuid, is_archived=False).first(),
-        User.filter(id=user_uuid, is_archived=False).first(),
-    )
+    character, user = await asyncio.gather(character_coro, user_coro)
 
     if not character:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
-    if not user:
-        raise NotFoundError(detail=f"User '{user_id_str}' not found")
 
     if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
         raise PermissionDeniedError(detail="No rights to access this resource")
@@ -212,5 +215,3 @@ async def user_character_player_or_storyteller_guard(
         and character.user_player_id != user.id  # type: ignore[attr-defined]
     ):
         raise PermissionDeniedError(detail="No rights to access this resource")
-
-    connection.scope.setdefault("state", {})["acting_user"] = user
