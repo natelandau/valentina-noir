@@ -12,7 +12,7 @@ The API enforces game rules based on user roles. For example, only storytellers 
 
 !!! warning "Your Responsibility"
 
-    **Valentina Noir doesn't authenticate end-users directly.** Your application authenticates users through your own system (OAuth, passwords, etc.), then makes API calls on their behalf using the `user_id` in the request path. The API trusts your application's assertion of which user is making the request.
+    **Valentina Noir doesn't authenticate end-users directly.** Your application authenticates users through your own system (OAuth, passwords, etc.), then makes API calls on their behalf using the [`On-Behalf-Of` header](authentication.md#the-on-behalf-of-header). The API trusts your application's assertion of which user is making the request.
 
 ## Cross-Client Access
 
@@ -79,10 +79,9 @@ def get_or_create_valentina_user(sso_user, company_id):
         valentina_user_id = existing_users[0]["id"]
         requests.patch(
             f"{API_URL}/companies/{company_id}/users/{valentina_user_id}",
-            headers=HEADERS,
+            headers={**HEADERS, "On-Behalf-Of": valentina_user_id},
             json={
                 "google_profile": {"email": sso_user.email, "username": sso_user.name},
-                "requesting_user_id": valentina_user_id,
             },
         )
     else:
@@ -152,15 +151,18 @@ Providing zero or multiple query parameters returns `400 Bad Request`.
 
 When a duplicate UNAPPROVED user is created (e.g., a user authenticates via a new identity provider before you matched them to their existing account), merge the accounts:
 
-```shell
-POST /api/v1/companies/{company_id}/users/merge
+```yaml
+POST /api/v1/companies/{company_id}/users/merge HTTP/1.1
+---
+Host: api.valentina-noir.com
+X-API-KEY: your-api-key
+On-Behalf-Of: admin_user_id
 ```
 
 ```json
 {
     "primary_user_id": "existing_user_id",
-    "secondary_user_id": "unapproved_duplicate_id",
-    "requesting_user_id": "admin_user_id"
+    "secondary_user_id": "unapproved_duplicate_id"
 }
 ```
 
@@ -317,11 +319,15 @@ flowchart LR
 
 Retrieve all users awaiting approval within a company. Only admins can access this endpoint.
 
-```shell
-GET /api/v1/companies/{company_id}/users/unapproved?requesting_user_id={admin_user_id}
+```yaml
+GET /api/v1/companies/{company_id}/users/unapproved HTTP/1.1
+---
+Host: api.valentina-noir.com
+X-API-KEY: your-api-key
+On-Behalf-Of: admin_user_id
 ```
 
-The `requesting_user_id` query parameter identifies the admin making the request. The response uses standard [pagination](pagination.md):
+The `On-Behalf-Of` header identifies the admin making the request. The response uses standard [pagination](pagination.md):
 
 ```json
 {
@@ -344,14 +350,17 @@ The `requesting_user_id` query parameter identifies the admin making the request
 
 Approve a pending user and assign them a role. The role must be `PLAYER`, `STORYTELLER`, or `ADMIN` — you can't approve a user back to `UNAPPROVED`.
 
-```shell
-POST /api/v1/companies/{company_id}/users/{user_id}/approve
+```yaml
+POST /api/v1/companies/{company_id}/users/{user_id}/approve HTTP/1.1
+---
+Host: api.valentina-noir.com
+X-API-KEY: your-api-key
+On-Behalf-Of: admin_user_id
 ```
 
 ```json
 {
-    "role": "PLAYER",
-    "requesting_user_id": "admin_user_id"
+    "role": "PLAYER"
 }
 ```
 
@@ -361,15 +370,15 @@ The response returns the updated user object with the new role.
 
 Deny a pending user to remove them from the company. The user is archived (soft-deleted) and no longer appears in user listings.
 
-```shell
-POST /api/v1/companies/{company_id}/users/{user_id}/deny
+```yaml
+POST /api/v1/companies/{company_id}/users/{user_id}/deny HTTP/1.1
+---
+Host: api.valentina-noir.com
+X-API-KEY: your-api-key
+On-Behalf-Of: admin_user_id
 ```
 
-```json
-{
-    "requesting_user_id": "admin_user_id"
-}
-```
+This endpoint doesn't take a request body.
 
 > **Note:** Denied users are archived, not permanently deleted. They won't appear in queries but their data is preserved.
 
@@ -393,26 +402,23 @@ response = requests.post(
         "google_profile": {
             "email": "newplayer@gmail.com",
         },
-    }
+    },
 )
 new_user = response.json()
 
 # Step 2: List pending users (admin reviews)
+admin_headers = {**HEADERS, "On-Behalf-Of": admin_user_id}
 response = requests.get(
     f"{API_URL}/companies/{company_id}/users/unapproved",
-    headers=HEADERS,
-    params={"requesting_user_id": admin_user_id},
+    headers=admin_headers,
 )
 pending_users = response.json()["items"]
 
 # Step 3: Approve the user with a role
 response = requests.post(
     f"{API_URL}/companies/{company_id}/users/{new_user['id']}/approve",
-    headers=HEADERS,
-    json={
-        "role": "PLAYER",
-        "requesting_user_id": admin_user_id,
-    }
+    headers=admin_headers,
+    json={"role": "PLAYER"},
 )
 approved_user = response.json()
 # approved_user["role"] is now "PLAYER"

@@ -32,11 +32,12 @@ flowchart LR
 Add the `Idempotency-Key` header to any `POST`, `PUT`, or `PATCH` request:
 
 ```yaml
-POST /api/v1/companies/{company_id}/users/{user_id}/campaigns HTTP/1.1
+POST /api/v1/companies/{company_id}/campaigns HTTP/1.1
 ---
 Host: api.valentina-noir.com
 Content-Type: application/json
 X-API-KEY: your-api-key
+On-Behalf-Of: user-uuid-here
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 
 {
@@ -93,13 +94,14 @@ def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3
 
     for attempt in range(max_retries):
         response = requests.post(
-            f"https://api.valentina-noir.com/api/v1/companies/{company_id}/users/{user_id}/campaigns",
+            f"https://api.valentina-noir.com/api/v1/companies/{company_id}/campaigns",
             headers={
                 "X-API-KEY": api_key,
+                "On-Behalf-Of": user_id,
                 "Idempotency-Key": idempotency_key,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            json=data
+            json=data,
         )
 
         if response.status_code < 500:
@@ -118,11 +120,12 @@ async function createCampaign(apiKey, companyId, userId, data) {
     const idempotencyKey = crypto.randomUUID();
 
     const response = await fetch(
-        `https://api.valentina-noir.com/api/v1/companies/${companyId}/users/${userId}/campaigns`,
+        `https://api.valentina-noir.com/api/v1/companies/${companyId}/campaigns`,
         {
             method: "POST",
             headers: {
                 "X-API-KEY": apiKey,
+                "On-Behalf-Of": userId,
                 "Idempotency-Key": idempotencyKey,
                 "Content-Type": "application/json",
             },

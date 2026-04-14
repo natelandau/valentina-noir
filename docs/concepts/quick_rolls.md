@@ -82,7 +82,7 @@ Quick rolls are soft-deleted (archived) and no longer appear in listings.
 Execute a saved quick roll against a character to roll dice:
 
 ```shell
-POST /api/v1/companies/{company_id}/users/{user_id}/dicerolls/quickroll
+POST /api/v1/companies/{company_id}/dicerolls/quickroll
 ```
 
 ```json
