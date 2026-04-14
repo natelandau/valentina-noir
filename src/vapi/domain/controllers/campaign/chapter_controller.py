@@ -37,7 +37,7 @@ class CampaignChapterController(Controller):
     tags = [APITags.CAMPAIGN_CHAPTERS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "chapter": Provide(deps.provide_campaign_chapter_by_id),
