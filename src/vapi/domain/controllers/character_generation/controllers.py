@@ -94,7 +94,6 @@ class CharacterGenerationController(Controller):
 
         validation_service = GetModelByIdValidationService()
 
-        # Resolve optional reference data in parallel since lookups are independent
         async def _resolve_optional(coro_fn, val):  # noqa: ANN001, ANN202
             return await coro_fn(val) if val else None
 
@@ -127,7 +126,6 @@ class CharacterGenerationController(Controller):
         await service.prepare_for_save(new_character)
         await new_character.save()
 
-        # Re-fetch with prefetch for DTO conversion
         new_character = (
             await Character.filter(id=new_character.id)
             .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
@@ -188,7 +186,6 @@ class CharacterGenerationController(Controller):
         )
         await session.characters.add(*characters)
 
-        # Re-fetch with prefetch for DTO conversion
         session = (
             await ChargenSession.filter(id=session.id)
             .prefetch_related(*CHARGEN_SESSION_PREFETCH)
@@ -233,22 +230,18 @@ class CharacterGenerationController(Controller):
                 ]
             )
 
-        # Promote selected character
         selected_character.is_temporary = False
         selected_character.is_chargen = False
         service = CharacterService()
         await service.prepare_for_save(selected_character)
         await selected_character.save()
 
-        # Bulk-delete unselected characters in a single query
         unselected_ids = [c.id for c in session.characters if c.id != selected_character.id]
         if unselected_ids:
             await Character.filter(id__in=unselected_ids).delete()
 
-        # Delete the session
         await session.delete()
 
-        # Re-fetch with prefetch for DTO conversion
         selected_character = (
             await Character.filter(id=selected_character.id)
             .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
