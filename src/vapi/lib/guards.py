@@ -8,7 +8,7 @@ import asyncio
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from vapi.constants import CompanyPermission, UserRole
+from vapi.constants import ON_BEHALF_OF_HEADER_KEY, CompanyPermission, UserRole
 from vapi.db.sql_models.developer import DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
@@ -50,8 +50,6 @@ async def _resolve_acting_user_from_header(
         PermissionDeniedError: If the header is required but missing.
         NotFoundError: If the UUID is invalid or the user doesn't exist.
     """
-    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
-
     user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
     if not user_id_str:
         if required:

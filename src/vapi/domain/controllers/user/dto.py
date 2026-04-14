@@ -41,7 +41,7 @@ class UserInclude(StrEnum):
 # CharacterResponse.from_model doesn't trigger N+1 lazy loads per character.
 #
 # Deferred via ``@cache`` because each ``Prefetch`` constructs a Tortoise
-# QuerySet which touches ``Model._meta.db`` — only populated after
+# QuerySet which touches ``Model._meta.db`` - only populated after
 # ``Tortoise.init()`` runs at app startup.
 @cache
 def get_user_include_prefetch_map() -> dict[UserInclude, list[str | Prefetch]]:
@@ -163,7 +163,7 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
         includes: set[UserInclude] | None = None,
     ) -> "UserDetailResponse":
         """Convert a User to a detail response with optional children."""
-        # Lazy imports — module-level imports of other DTO modules would create circular imports.
+        # Lazy imports - module-level imports of other DTO modules would create circular imports.
         from vapi.domain.controllers.character.dto import CharacterResponse
         from vapi.domain.controllers.notes.dto import NoteResponse
         from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
