@@ -22,7 +22,8 @@ class StatisticsController(Controller):
     tags = [APITags.STATISTICS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_target_user),
+        "target_user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "campaign": Provide(deps.provide_campaign_by_id),
     }
@@ -49,10 +50,12 @@ class StatisticsController(Controller):
         operation_id="getUserStatistics",
         description=docs.GET_USER_STATISTICS_DESCRIPTION,
     )
-    async def get_user_statistics(self, user: User, num_top_traits: int = 5) -> dto.RollStatistics:
+    async def get_user_statistics(
+        self, target_user: User, num_top_traits: int = 5
+    ) -> dto.RollStatistics:
         """Get user roll statistics."""
         return await lib.calculate_roll_statistics(
-            {"user_id": user.id, "is_archived": False, "dice_size": DiceSize.D10},
+            {"user_id": target_user.id, "is_archived": False, "dice_size": DiceSize.D10},
             num_top_traits=num_top_traits,
         )
 

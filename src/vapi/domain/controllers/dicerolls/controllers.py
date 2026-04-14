@@ -27,7 +27,7 @@ class DiceRollController(Controller):
     tags = [APITags.GAMEPLAY.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
     }
     guards = [developer_company_user_guard, user_active_guard]
 
@@ -100,12 +100,12 @@ class DiceRollController(Controller):
         description=docs.CREATE_DICEROLL_DESCRIPTION,
     )
     async def create_diceroll(
-        self, company: Company, user: User, data: dto.DiceRollCreate
+        self, company: Company, acting_user: User, data: dto.DiceRollCreate
     ) -> dto.DiceRollResponse:
         """Create a dice roll."""
         service = DiceRollService()
         dice_roll = await service.create_complete_dice_roll(
-            data=data, company_id=company.id, user_id=user.id
+            data=data, company_id=company.id, user_id=acting_user.id
         )
         return dto.DiceRollResponse.from_model(dice_roll)
 
@@ -119,10 +119,10 @@ class DiceRollController(Controller):
     async def create_from_quickroll(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         data: dto.QuickRollRequest,
     ) -> dto.DiceRollResponse:
         """Create a dice roll from a quick roll."""
         service = DiceRollService()
-        dice_roll = await service.roll_quickroll(company=company, user=user, data=data)
+        dice_roll = await service.roll_quickroll(company=company, user=acting_user, data=data)
         return dto.DiceRollResponse.from_model(dice_roll)
