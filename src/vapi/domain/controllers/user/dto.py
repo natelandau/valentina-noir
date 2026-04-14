@@ -195,7 +195,6 @@ class UserCreate(msgspec.Struct):
     username: str
     email: str
     role: str
-    requesting_user_id: UUID
     name_first: str | None = None
     name_last: str | None = None
     discord_profile: dict | None = None
@@ -209,7 +208,6 @@ class UserPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    requesting_user_id: UUID
     name_first: str | None | msgspec.UnsetType = msgspec.UNSET
     name_last: str | None | msgspec.UnsetType = msgspec.UNSET
     username: str | msgspec.UnsetType = msgspec.UNSET
@@ -224,13 +222,6 @@ class UserApprove(msgspec.Struct):
     """Request body for approving an unapproved user."""
 
     role: str
-    requesting_user_id: UUID
-
-
-class UserDeny(msgspec.Struct):
-    """Request body for denying an unapproved user."""
-
-    requesting_user_id: UUID
 
 
 class UserRegister(msgspec.Struct):
@@ -250,7 +241,6 @@ class UserMerge(msgspec.Struct):
 
     primary_user_id: UUID
     secondary_user_id: UUID
-    requesting_user_id: UUID
 
 
 class ExperienceAddRemove(msgspec.Struct):
@@ -258,7 +248,6 @@ class ExperienceAddRemove(msgspec.Struct):
 
     amount: int
     campaign_id: UUID
-    requesting_user_id: UUID
 
 
 # ---------------------------------------------------------------------------
