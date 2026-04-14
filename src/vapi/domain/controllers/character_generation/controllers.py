@@ -2,12 +2,14 @@
 
 import logging
 from datetime import timedelta
+from typing import Annotated
 from uuid import UUID
 
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
+from litestar.params import Parameter
 
 from vapi.constants import CharacterType
 from vapi.db.sql_models import (
@@ -27,7 +29,7 @@ from vapi.domain.deps import (
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.domain.services.user_svc import UserXPService
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
     developer_company_user_guard,
     user_active_guard,
@@ -76,16 +78,18 @@ class CharacterGenerationController(Controller):
         self,
         company: Company,
         acting_user: User,
-        campaign_id: UUID,
+        campaign_id: Annotated[
+            UUID, Parameter(description="Campaign to generate the character in.")
+        ],
         data: CreateAutogenerateRequest,
         request: Request,
     ) -> CharacterResponse:
         """Create a new character."""
-        campaign = await Campaign.filter(id=campaign_id, company=company, is_archived=False).first()
+        campaign = await Campaign.filter(
+            id=campaign_id, company_id=company.id, is_archived=False
+        ).first()
         if not campaign:
-            raise ValidationError(
-                invalid_parameters=[{"field": "campaign_id", "message": "Campaign not found"}]
-            )
+            raise NotFoundError(detail="Campaign not found")
 
         validation_service = GetModelByIdValidationService()
         concept = (
@@ -148,14 +152,14 @@ class CharacterGenerationController(Controller):
         self,
         company: Company,
         acting_user: User,
-        campaign_id: UUID,
+        campaign_id: Annotated[UUID, Parameter(description="Campaign to generate characters for.")],
     ) -> ChargenSessionResponse:
         """Generate multiple character options."""
-        campaign = await Campaign.filter(id=campaign_id, company=company, is_archived=False).first()
+        campaign = await Campaign.filter(
+            id=campaign_id, company_id=company.id, is_archived=False
+        ).first()
         if not campaign:
-            raise ValidationError(
-                invalid_parameters=[{"field": "campaign_id", "message": "Campaign not found"}]
-            )
+            raise NotFoundError(detail="Campaign not found")
 
         settings = company.settings
         num_choices = settings.character_autogen_num_choices or 1
