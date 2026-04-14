@@ -20,10 +20,9 @@ async def test_create_user_rejects_storyteller_creating_admin(user_factory, comp
         username="new",
         email="new@example.com",
         role="ADMIN",
-        requesting_user_id=storyteller.id,
     )
     with pytest.raises(PermissionDeniedError):
-        await UserService().create_user(company=company, data=data)
+        await UserService().create_user(company=company, data=data, acting_user_id=storyteller.id)
 
 
 async def test_create_user_forbids_deactivated_initial_role(user_factory, company_factory):
@@ -34,10 +33,9 @@ async def test_create_user_forbids_deactivated_initial_role(user_factory, compan
         username="new",
         email="new@example.com",
         role="DEACTIVATED",
-        requesting_user_id=admin.id,
     )
     with pytest.raises(ValidationError):
-        await UserService().create_user(company=company, data=data)
+        await UserService().create_user(company=company, data=data, acting_user_id=admin.id)
 
 
 async def test_create_user_forbids_unapproved_initial_role(user_factory, company_factory):
@@ -48,10 +46,9 @@ async def test_create_user_forbids_unapproved_initial_role(user_factory, company
         username="new",
         email="new@example.com",
         role="UNAPPROVED",
-        requesting_user_id=admin.id,
     )
     with pytest.raises(ValidationError):
-        await UserService().create_user(company=company, data=data)
+        await UserService().create_user(company=company, data=data, acting_user_id=admin.id)
 
 
 async def test_approve_user_storyteller_cannot_assign_admin(user_factory, company_factory):
@@ -63,7 +60,7 @@ async def test_approve_user_storyteller_cannot_assign_admin(user_factory, compan
         await UserService().approve_user(
             user=target,
             role=UserRole.ADMIN,
-            requesting_user_id=storyteller.id,
+            acting_user_id=storyteller.id,
         )
 
 
@@ -95,7 +92,7 @@ async def test_xp_grant_rejects_deactivated_requester(
     with pytest.raises(PermissionDeniedError):
         await UserXPService().add_xp_to_campaign_experience(
             company=company,
-            requesting_user_id=requester.id,
+            acting_user_id=requester.id,
             target_user=target,
             campaign_id=campaign.id,
             amount=5,

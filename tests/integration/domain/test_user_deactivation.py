@@ -48,10 +48,9 @@ class TestDeactivation:
         # When the admin patches the player's role to DEACTIVATED
         response = await client.patch(
             build_url(UsersURL.UPDATE, user_id=player.id, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
             json={
                 "role": UserRole.DEACTIVATED.value,
-                "requesting_user_id": str(session_user_admin.id),
             },
         )
 
@@ -78,10 +77,9 @@ class TestDeactivation:
         # When the storyteller attempts to deactivate the player
         response = await client.patch(
             build_url(UsersURL.UPDATE, user_id=player.id, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user_storyteller.id)},
             json={
                 "role": UserRole.DEACTIVATED.value,
-                "requesting_user_id": str(session_user_storyteller.id),
             },
         )
 
@@ -127,7 +125,7 @@ class TestDeactivation:
         session_campaign: Campaign,
         user_factory: Callable[..., User],
     ) -> None:
-        """Verify the service layer rejects a deactivated user as requesting_user_id."""
+        """Verify the service layer rejects a deactivated user as acting user."""
         # Given an active PLAYER target and a DEACTIVATED requester
         target = await user_factory(company=session_company, role="PLAYER")
         deactivated = await user_factory(company=session_company, role="DEACTIVATED")
@@ -135,10 +133,9 @@ class TestDeactivation:
         # When the deactivated user attempts to grant XP to the target
         response = await client.post(
             build_url(UsersURL.XP_ADD, user_id=target.id, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(deactivated.id)},
             json={
                 "amount": 10,
-                "requesting_user_id": str(deactivated.id),
                 "campaign_id": str(session_campaign.id),
             },
         )
@@ -171,10 +168,9 @@ class TestDeactivation:
         # When the admin deactivates the player
         response = await client.patch(
             build_url(UsersURL.UPDATE, user_id=player.id, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
             json={
                 "role": UserRole.DEACTIVATED.value,
-                "requesting_user_id": str(session_user_admin.id),
             },
         )
 
@@ -203,10 +199,9 @@ class TestDeactivation:
         # When the solo admin tries to deactivate themselves
         response = await client.patch(
             build_url(UsersURL.UPDATE, user_id=solo_admin.id, company_id=company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(solo_admin.id)},
             json={
                 "role": UserRole.DEACTIVATED.value,
-                "requesting_user_id": str(solo_admin.id),
             },
         )
 
@@ -230,8 +225,7 @@ class TestDeactivation:
         # When the solo admin tries to delete themselves
         response = await client.delete(
             build_url(UsersURL.DELETE, user_id=solo_admin.id, company_id=company.id),
-            headers=token_global_admin,
-            params={"requesting_user_id": str(solo_admin.id)},
+            headers=token_global_admin | {"On-Behalf-Of": str(solo_admin.id)},
         )
 
         # Then the request is rejected with 409
@@ -256,10 +250,9 @@ class TestDeactivation:
         # When the player attempts to patch their own role to ADMIN
         response = await client.patch(
             build_url(UsersURL.UPDATE, user_id=player.id, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(player.id)},
             json={
                 "role": UserRole.ADMIN.value,
-                "requesting_user_id": str(player.id),
             },
         )
 

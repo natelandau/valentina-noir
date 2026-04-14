@@ -42,6 +42,7 @@ class TestFetchingCharacterTraits:
         character_trait_factory: Callable[..., CharacterTrait],
         trait_factory: Callable[..., Trait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify listing character traits filtered by parent category ID."""
         character = await character_factory(
@@ -61,11 +62,9 @@ class TestFetchingCharacterTraits:
             build_url(
                 Characters.TRAITS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"category_id": str(trait_categories[0].id)},
         )
         assert response.status_code == HTTP_200_OK
@@ -88,6 +87,7 @@ class TestFetchingCharacterTraits:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getting a single character trait by ID."""
         character = await character_factory(
@@ -103,12 +103,10 @@ class TestFetchingCharacterTraits:
             build_url(
                 Characters.TRAIT_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json()["id"] == str(character_trait.id)
@@ -127,6 +125,7 @@ class TestFetchingCharacterTraits:
         session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getting a non-existent character trait returns 404."""
         character = await character_factory(
@@ -139,12 +138,10 @@ class TestFetchingCharacterTraits:
             build_url(
                 Characters.TRAIT_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=uuid4(),
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_404_NOT_FOUND
         assert response.json()["detail"] == "Character trait not found"
@@ -164,6 +161,7 @@ class TestAddConstantTraitToCharacter:
         character_factory: Callable[..., Character],
         mocker: Any,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify adding a constant trait to a character."""
         character = await character_factory(
@@ -185,11 +183,9 @@ class TestAddConstantTraitToCharacter:
             build_url(
                 Characters.TRAIT_ASSIGN,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "trait_id": str(trait.id),
                 "value": 1,
@@ -234,6 +230,7 @@ class TestAssignTraitAffordability:
         session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify assigning a trait with XP fails when the user has no experience."""
         # Given a character whose player has 0 XP
@@ -254,11 +251,9 @@ class TestAssignTraitAffordability:
             build_url(
                 Characters.TRAIT_ASSIGN,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "trait_id": str(trait.id),
                 "value": 1,
@@ -288,6 +283,7 @@ class TestCustomTraits:
         session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify that creating a custom trait works."""
         character = await character_factory(
@@ -312,11 +308,9 @@ class TestCustomTraits:
             build_url(
                 Characters.TRAIT_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json=custom_trait_data,
         )
         assert response.status_code == HTTP_201_CREATED
@@ -356,6 +350,7 @@ class TestDeleteCharacterTrait:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify that deleting a character trait works."""
         character = await character_factory(
@@ -372,12 +367,10 @@ class TestDeleteCharacterTrait:
             build_url(
                 Characters.TRAIT_DELETE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_204_NO_CONTENT
         assert not await CharacterTrait.filter(id=character_trait.id).exists()
@@ -396,6 +389,7 @@ class TestDeleteCharacterTrait:
         character_trait_factory: Callable[..., CharacterTrait],
         trait_factory: Callable[..., Trait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify that deleting a custom character trait also deletes the trait."""
         character = await character_factory(
@@ -415,12 +409,10 @@ class TestDeleteCharacterTrait:
             build_url(
                 Characters.TRAIT_DELETE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_204_NO_CONTENT
         assert not await CharacterTrait.filter(id=character_trait.id).exists()
@@ -468,12 +460,10 @@ class TestDeleteCharacterTrait:
                 build_url(
                     Characters.TRAIT_DELETE,
                     company_id=session_company.id,
-                    user_id=character_player_user.id,
-                    campaign_id=character.campaign_id,
                     character_id=character.id,
                     character_trait_id=character_trait.id,
                 ),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(character_player_user.id)},
                 params={"currency": "XP"},
             )
         finally:
@@ -528,12 +518,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
             json={"target_value": 1, "currency": "NO_COST"},
         )
 
@@ -583,12 +571,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
             json={"target_value": trait.max_value - 1, "currency": "NO_COST"},
         )
 
@@ -634,12 +620,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=character_player_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(character_player_user.id)},
             json={"target_value": 1, "currency": "XP"},
         )
 
@@ -689,12 +673,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=storyteller_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(storyteller_user.id)},
             json={"target_value": 1, "currency": "XP"},
         )
 
@@ -739,12 +721,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=player_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(player_user.id)},
             json={"target_value": 1, "currency": "XP"},
         )
 
@@ -791,12 +771,10 @@ class TestModifyTraitValue:
                 build_url(
                     Characters.TRAIT_VALUE,
                     company_id=session_company.id,
-                    user_id=character_player_user.id,
-                    campaign_id=character.campaign_id,
                     character_id=character.id,
                     character_trait_id=character_trait.id,
                 ),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(character_player_user.id)},
                 json={"target_value": trait.max_value - 1, "currency": "XP"},
             )
         finally:
@@ -824,6 +802,7 @@ class TestModifyTraitValue:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify purchasing a trait value increase with starting points."""
         # Given a character with starting points
@@ -842,12 +821,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"target_value": 1, "currency": "STARTING_POINTS"},
         )
 
@@ -869,6 +846,7 @@ class TestModifyTraitValue:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify refunding a trait value decrease with starting points."""
         # Given a character with a trait at max value
@@ -889,12 +867,10 @@ class TestModifyTraitValue:
             build_url(
                 Characters.TRAIT_VALUE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"target_value": trait.max_value - 1, "currency": "STARTING_POINTS"},
         )
 
@@ -920,6 +896,7 @@ class TestGetValueOptions:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getting value options returns correct structure."""
         # Given a character with XP and starting points
@@ -943,12 +920,10 @@ class TestGetValueOptions:
             build_url(
                 Characters.TRAIT_VALUE_OPTIONS,
                 company_id=session_company.id,
-                user_id=character_player_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 character_trait_id=character_trait.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response should contain the correct structure
@@ -988,6 +963,7 @@ class TestBulkAssignTraitsToCharacter:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify bulk assign returns succeeded and failed lists with mixed outcomes."""
         # Given a character with one existing trait
@@ -1010,11 +986,9 @@ class TestBulkAssignTraitsToCharacter:
             build_url(
                 Characters.TRAIT_BULK_ASSIGN,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json=[
                 {
                     "trait_id": str(valid_trait_1.id),
@@ -1063,6 +1037,7 @@ class TestBulkAssignTraitsToCharacter:
         session_campaign: Any,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify request with more than 200 items returns 400."""
         # Given a batch of 201 items (using a fake trait_id repeated)
@@ -1083,11 +1058,9 @@ class TestBulkAssignTraitsToCharacter:
             build_url(
                 Characters.TRAIT_BULK_ASSIGN,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json=items,
         )
 

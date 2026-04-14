@@ -64,9 +64,9 @@ async def test_player_cannot_self_escalate_to_admin(user_factory, company_factor
 
     company = await company_factory()
     player = await user_factory(role=UserRole.PLAYER, company=company)
-    patch = UserPatch(requesting_user_id=player.id, role="ADMIN")
+    patch = UserPatch(role="ADMIN")
     with pytest.raises(PermissionDeniedError):
-        await UserService().update_user(user=player, data=patch)
+        await UserService().update_user(user=player, data=patch, acting_user_id=player.id)
 
 
 async def test_player_can_self_update_non_role_field(user_factory, company_factory):
@@ -75,7 +75,9 @@ async def test_player_can_self_update_non_role_field(user_factory, company_facto
 
     company = await company_factory()
     player = await user_factory(role=UserRole.PLAYER, company=company, name_first="Alice")
-    patch = UserPatch(requesting_user_id=player.id, name_first="Bob")
-    updated, _changes = await UserService().update_user(user=player, data=patch)
+    patch = UserPatch(name_first="Bob")
+    updated, _changes = await UserService().update_user(
+        user=player, data=patch, acting_user_id=player.id
+    )
     assert updated.name_first == "Bob"
     assert updated.role == UserRole.PLAYER

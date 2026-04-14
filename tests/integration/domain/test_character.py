@@ -73,6 +73,7 @@ class TestCharacterList:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify listing characters returns empty when none exist."""
         # When we list characters
@@ -80,10 +81,9 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
         )
 
         # Then we get an empty list
@@ -101,6 +101,7 @@ class TestCharacterList:
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify listing characters returns all non-archived, non-temporary characters."""
         # Given multiple characters with various statuses/types
@@ -159,10 +160,9 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
         )
 
         # Then we get the four non-archived, non-temporary characters
@@ -187,6 +187,7 @@ class TestCharacterList:
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify filtering by user_player_id returns only that user's characters."""
         # Given characters owned by different users
@@ -209,11 +210,9 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
-            params={"user_player_id": str(second_user.id)},
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id), "user_player_id": str(second_user.id)},
         )
 
         # Then only the second user's character is returned
@@ -233,6 +232,7 @@ class TestCharacterList:
         user_factory: Callable[..., User],
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify filtering by user_creator_id returns only characters created by that user."""
         # Given characters created by different users
@@ -255,11 +255,12 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
-            params={"user_creator_id": str(second_user.id)},
+            headers=token_global_admin | on_behalf_of_header,
+            params={
+                "campaign_id": str(session_campaign.id),
+                "user_creator_id": str(second_user.id),
+            },
         )
 
         # Then only the character created by second_user is returned
@@ -278,6 +279,7 @@ class TestCharacterList:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify filtering by character_type returns only matching characters."""
         # Given a player character and a storyteller character
@@ -301,11 +303,12 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
-            params={"character_type": CharacterType.STORYTELLER.value},
+            headers=token_global_admin | on_behalf_of_header,
+            params={
+                "campaign_id": str(session_campaign.id),
+                "character_type": CharacterType.STORYTELLER.value,
+            },
         )
 
         # Then only the storyteller character is returned
@@ -324,6 +327,7 @@ class TestCharacterList:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify filtering by character_class returns only matching characters."""
         # Given a vampire and a mortal character
@@ -347,11 +351,12 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
-            params={"character_class": CharacterClass.VAMPIRE.value},
+            headers=token_global_admin | on_behalf_of_header,
+            params={
+                "campaign_id": str(session_campaign.id),
+                "character_class": CharacterClass.VAMPIRE.value,
+            },
         )
 
         # Then only the vampire character is returned
@@ -370,6 +375,7 @@ class TestCharacterList:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify filtering by status returns only matching characters."""
         # Given an alive and a dead character
@@ -392,11 +398,9 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
-            params={"status": CharacterStatus.DEAD.value},
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id), "status": CharacterStatus.DEAD.value},
         )
 
         # Then only the dead character is returned
@@ -415,6 +419,7 @@ class TestCharacterList:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify filtering by is_temporary returns only temporary characters."""
         # Given a normal and a temporary character
@@ -437,11 +442,9 @@ class TestCharacterList:
             build_url(
                 CharacterURL.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            params={"is_temporary": True},
-            headers=token_global_admin,
+            params={"campaign_id": str(session_campaign.id), "is_temporary": True},
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then only the temporary character is returned
@@ -464,6 +467,7 @@ class TestCharacterController:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getting a character by ID."""
         # Given a character
@@ -479,11 +483,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we get the character data
@@ -503,6 +505,7 @@ class TestCharacterController:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify 404 when getting a character that does not exist."""
         # Given a non-existent character ID
@@ -513,11 +516,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=fake_id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we get a 404
@@ -534,6 +535,7 @@ class TestCharacterController:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getCharacter without include param omits child resource keys."""
         # Given a character
@@ -549,11 +551,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response has base fields but no child keys
@@ -576,6 +576,7 @@ class TestCharacterController:
         character_factory: Callable[..., Character],
         character_trait_factory,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getCharacter with include=traits embeds traits and omits other children."""
         # Given a character with a trait
@@ -592,11 +593,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"include": ["traits"]},
         )
 
@@ -624,6 +623,7 @@ class TestCharacterController:
         note_factory,
         s3asset_factory,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getCharacter with all includes embeds all four child lists."""
         # Given a character with one of each child type
@@ -645,11 +645,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"include": ["traits", "inventory", "notes", "assets"]},
         )
 
@@ -675,6 +673,7 @@ class TestCharacterController:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify included children with no data return empty lists, not absent keys."""
         # Given a character with no children
@@ -690,11 +689,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"include": ["traits", "inventory", "notes", "assets"]},
         )
 
@@ -720,6 +717,7 @@ class TestCharacterController:
         note_factory,
         s3asset_factory,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify getCharacter includes drop archived traits, inventory, notes, and assets."""
         # Given a character with one active and one archived of each child type
@@ -758,11 +756,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"include": ["traits", "inventory", "notes", "assets"]},
         )
 
@@ -784,6 +780,7 @@ class TestCharacterController:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify invalid include value returns 400."""
         # Given a character
@@ -799,11 +796,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"include": ["bogus"]},
         )
 
@@ -820,6 +815,7 @@ class TestCharacterController:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify patching a character updates the specified fields."""
         # Given a character
@@ -836,11 +832,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name_first": "Updated name",
                 "status": "DEAD",
@@ -870,6 +864,7 @@ class TestCharacterController:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify deleting a character archives it."""
         # Given a character
@@ -885,11 +880,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DELETE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we get 204
@@ -904,11 +897,9 @@ class TestCharacterController:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_404_NOT_FOUND
 
@@ -925,6 +916,7 @@ class TestVampireAttributes:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating a vampire character populates clan attributes."""
         # Given a vampire clan from seed data
@@ -936,10 +928,9 @@ class TestVampireAttributes:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
@@ -977,6 +968,7 @@ class TestVampireAttributes:
         character_factory: Callable[..., Character],
         vampire_attributes_factory: Callable[..., VampireAttributes],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify updating a vampire character's sire and generation."""
         # Given a vampire character with clan attributes
@@ -996,11 +988,9 @@ class TestVampireAttributes:
             build_url(
                 CharacterURL.UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name_first": "Updated name",
                 "vampire_attributes": {"sire": "Updated Sire", "generation": 22},
@@ -1027,6 +1017,7 @@ class TestVampireAttributes:
         character_factory: Callable[..., Character],
         vampire_attributes_factory: Callable[..., VampireAttributes],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify updating a vampire character's clan replaces clan-derived attributes."""
         # Given a vampire character with a clan
@@ -1058,11 +1049,9 @@ class TestVampireAttributes:
             build_url(
                 CharacterURL.UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"vampire_attributes": {"clan_id": str(new_clan.id)}},
         )
 
@@ -1089,6 +1078,7 @@ class TestVampireAttributes:
         character_factory: Callable[..., Character],
         vampire_attributes_factory: Callable[..., VampireAttributes],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify updating a vampire character's bane sends the correct response."""
         # Given a vampire character with clan attributes
@@ -1115,11 +1105,9 @@ class TestVampireAttributes:
             build_url(
                 CharacterURL.UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "vampire_attributes": {
                     "bane_name": original_clan.variant_bane_name,
@@ -1147,6 +1135,7 @@ class TestWerewolfAttributes:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating a werewolf character populates tribe and auspice attributes."""
         # Given seed data
@@ -1160,10 +1149,9 @@ class TestWerewolfAttributes:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
@@ -1198,6 +1186,7 @@ class TestWerewolfAttributes:
         character_factory: Callable[..., Character],
         werewolf_attributes_factory: Callable[..., WerewolfAttributes],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify updating a werewolf character's tribe."""
         # Given a werewolf character
@@ -1223,11 +1212,9 @@ class TestWerewolfAttributes:
             build_url(
                 CharacterURL.UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name_first": "Updated name",
                 "werewolf_attributes": {"tribe_id": str(new_tribe.id)},
@@ -1253,6 +1240,7 @@ class TestWerewolfAttributes:
         character_factory: Callable[..., Character],
         werewolf_attributes_factory: Callable[..., WerewolfAttributes],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify patching werewolf tribe updates tribe but preserves auspice."""
         # Given a werewolf character with full attributes
@@ -1276,11 +1264,9 @@ class TestWerewolfAttributes:
             build_url(
                 CharacterURL.UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "werewolf_attributes": {"tribe_id": str(new_tribe.id)},
             },
@@ -1308,6 +1294,7 @@ class TestCharacterCreate:
         session_campaign: Campaign,
         trait_factory: Callable[..., Trait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating a character with traits."""
         # Given traits from the Abilities section
@@ -1324,10 +1311,9 @@ class TestCharacterCreate:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
@@ -1371,6 +1357,7 @@ class TestCharacterCreate:
         session_campaign: Campaign,
         json_data: dict[str, str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify 400 when creating a character with invalid parameters."""
         correct_json_data = {
@@ -1389,10 +1376,9 @@ class TestCharacterCreate:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
             json=base_json_data,
         )
         assert response.status_code == HTTP_400_BAD_REQUEST
@@ -1406,6 +1392,7 @@ class TestCharacterCreate:
         user_factory: Callable[..., User],
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify 404 when creating a character with an archived user."""
         # Given an archived user
@@ -1416,16 +1403,16 @@ class TestCharacterCreate:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=archived_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test invalid user player",
                 "name_last": "Character",
                 "character_class": "MORTAL",
                 "game_version": "V5",
                 "type": "PLAYER",
+                "user_player_id": str(archived_user.id),
             },
         )
 
@@ -1443,6 +1430,7 @@ class TestCharacterCreate:
         user_factory: Callable[..., User],
         character_concept_factory: Callable[..., CharacterConcept],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating a character with all optional fields."""
         # Given a second user to be the player, a concept, and a vampire clan
@@ -1464,10 +1452,9 @@ class TestCharacterCreate:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
+            params={"campaign_id": str(session_campaign.id)},
             json={
                 "name_first": "Test",
                 "name_last": "Character",
@@ -1530,6 +1517,7 @@ class TestCharacterFullSheet:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify the full sheet endpoint returns the character with organized sections."""
         # Given a character with traits
@@ -1552,11 +1540,9 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response is successful
@@ -1594,6 +1580,7 @@ class TestCharacterFullSheet:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify the full sheet endpoint includes available traits when flag is set."""
         # Given a character with one assigned trait
@@ -1617,13 +1604,11 @@ class TestCharacterFullSheet:
         url = build_url(
             CharacterURL.FULL_SHEET,
             company_id=session_company.id,
-            user_id=session_user.id,
-            campaign_id=session_campaign.id,
             character_id=character.id,
         )
         response = await client.get(
             f"{url}?include_available_traits=true",
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response is successful
@@ -1661,6 +1646,7 @@ class TestCharacterFullSheet:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify available_traits is empty when include_available_traits is not set."""
         # Given a character
@@ -1676,11 +1662,9 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then all available_traits lists are empty
@@ -1703,6 +1687,7 @@ class TestCharacterFullSheet:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify the category slice endpoint returns a single category with traits."""
         # Given a trait without a subcategory
@@ -1721,12 +1706,10 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(trait_no_sub.category_id),  # type: ignore[attr-defined]
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response is successful
@@ -1754,6 +1737,7 @@ class TestCharacterFullSheet:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify the category slice includes available traits when requested."""
         # Given a trait assigned to the character
@@ -1774,13 +1758,11 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(trait.category_id),  # type: ignore[attr-defined]
             ),
             params={"include_available_traits": True},
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response is successful
@@ -1806,6 +1788,7 @@ class TestCharacterFullSheet:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify available traits are empty when not requested."""
         # Given a character and a category
@@ -1823,12 +1806,10 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(category.id),
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then available traits lists are all empty
@@ -1848,6 +1829,7 @@ class TestCharacterFullSheet:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify 404 when category does not exist."""
         # Given a character and a non-existent category ID
@@ -1864,12 +1846,10 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(fake_id),
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we get a 404
@@ -1885,6 +1865,7 @@ class TestCharacterFullSheet:
         session_campaign: Campaign,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify an empty category returns the skeleton structure."""
         # Given a character and a category with show_when_empty=True
@@ -1902,12 +1883,10 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(category.id),
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response includes the category structure
@@ -1929,6 +1908,7 @@ class TestCharacterFullSheet:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify out-of-class category returns traits granted by storyteller."""
         # Given a character
@@ -1961,12 +1941,10 @@ class TestCharacterFullSheet:
             build_url(
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 category_id=str(trait.category_id),  # type: ignore[attr-defined]
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response is successful and includes the out-of-class trait

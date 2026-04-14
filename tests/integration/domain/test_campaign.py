@@ -28,6 +28,7 @@ class TestListCampaigns:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin,
         session_user: User,
@@ -43,9 +44,8 @@ class TestListCampaigns:
             build_url(
                 Campaigns.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 200 with the campaign in the list
@@ -66,6 +66,7 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin,
         session_user: User,
@@ -82,9 +83,8 @@ class TestGetCampaign:
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
                 company_id=session_company.id,
-                user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 200 with the campaign details
@@ -96,6 +96,7 @@ class TestGetCampaign:
         self,
         client: AsyncClient,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin,
         session_user: User,
@@ -114,9 +115,8 @@ class TestGetCampaign:
                 Campaigns.DETAIL,
                 campaign_id=campaign.id,
                 company_id=session_company.id,
-                user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 404
@@ -169,9 +169,8 @@ class TestCreateCampaign:
             build_url(
                 Campaigns.CREATE,
                 company_id=session_company.id,
-                user_id=user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
             json={"name": "Test Campaign", "description": "Test Description", "danger": 1},
         )
 
@@ -245,9 +244,8 @@ class TestUpdateCampaign:
                 Campaigns.UPDATE,
                 company_id=session_company.id,
                 campaign_id=campaign.id,
-                user_id=user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
             json={
                 "name": "Test Campaign Updated",
                 "description": "Test Description Updated",
@@ -320,9 +318,8 @@ class TestDeleteCampaign:
                 Campaigns.DELETE,
                 company_id=session_company.id,
                 campaign_id=campaign.id,
-                user_id=user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
         )
 
         # Then we should get the expected status code

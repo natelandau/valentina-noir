@@ -121,6 +121,7 @@ class TestExperienceController:
         session_user: User,
         user_factory: Callable[..., User],
         token_company_user: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify adding XP updates campaign experience correctly."""
         # Given a user
@@ -130,10 +131,9 @@ class TestExperienceController:
         # When we add XP
         response = await client.post(
             build_url(UsersURL.XP_ADD, user_id=user.id, company_id=session_company.id),
-            headers=token_company_user,
+            headers=token_company_user | on_behalf_of_header,
             json={
                 "amount": 100,
-                "requesting_user_id": str(session_user.id),
                 "campaign_id": str(session_campaign.id),
             },
         )
@@ -159,6 +159,7 @@ class TestExperienceController:
         session_user: User,
         user_factory: Callable[..., User],
         token_company_user: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify adding cool points updates campaign experience correctly."""
         # Given a user
@@ -168,10 +169,9 @@ class TestExperienceController:
         # When we add CP
         response = await client.post(
             build_url(UsersURL.CP_ADD, user_id=user.id, company_id=session_company.id),
-            headers=token_company_user,
+            headers=token_company_user | on_behalf_of_header,
             json={
                 "amount": 1,
-                "requesting_user_id": str(session_user.id),
                 "campaign_id": str(session_campaign.id),
             },
         )
@@ -198,6 +198,7 @@ class TestExperienceController:
         user_factory: Callable[..., User],
         campaign_experience_factory: Callable[..., CampaignExperience],
         token_company_user: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify removing XP updates campaign experience correctly."""
         # Given a user with existing experience
@@ -213,10 +214,9 @@ class TestExperienceController:
         # When we remove XP
         response = await client.post(
             build_url(UsersURL.XP_REMOVE, user_id=user.id, company_id=session_company.id),
-            headers=token_company_user,
+            headers=token_company_user | on_behalf_of_header,
             json={
                 "amount": 6,
-                "requesting_user_id": str(session_user.id),
                 "campaign_id": str(session_campaign.id),
             },
         )
@@ -708,7 +708,7 @@ class TestUserController:
             # When we create a user
             response = await client.post(
                 build_url(UsersURL.CREATE, company_id=session_company.id),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
                 json={
                     "name_first": "Test",
                     "name_last": "User",
@@ -716,7 +716,6 @@ class TestUserController:
                     "email": "test@test.com",
                     "role": "ADMIN",
                     "discord_profile": {"username": "discord_username"},
-                    "requesting_user_id": str(session_user_admin.id),
                 },
             )
 
@@ -752,7 +751,7 @@ class TestUserController:
             # When we update the user
             response = await client.patch(
                 build_url(UsersURL.UPDATE, user_id=user.id, company_id=session_company.id),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
                 json={
                     "name_first": "Test",
                     "name_last": "User",
@@ -760,7 +759,6 @@ class TestUserController:
                     "email": "test@test.com",
                     "role": "ADMIN",
                     "discord_profile": {"username": "discord_username"},
-                    "requesting_user_id": str(user.id),
                 },
             )
 
@@ -797,8 +795,7 @@ class TestUserController:
             # When we delete the user
             response = await client.delete(
                 build_url(UsersURL.DELETE, user_id=user.id, company_id=session_company.id),
-                headers=token_global_admin,
-                params={"requesting_user_id": str(user.id)},
+                headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
             )
 
             # Then the user is deleted
@@ -1079,8 +1076,7 @@ class TestUnapprovedUserController:
             # When we list unapproved users
             response = await client.get(
                 build_url(UsersURL.UNAPPROVED_LIST, company_id=session_company.id),
-                headers=token_global_admin,
-                params={"requesting_user_id": str(session_user_admin.id)},
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
             )
 
             # Then we get an empty paginated response
@@ -1105,8 +1101,7 @@ class TestUnapprovedUserController:
             # When we list unapproved users
             response = await client.get(
                 build_url(UsersURL.UNAPPROVED_LIST, company_id=session_company.id),
-                headers=token_global_admin,
-                params={"requesting_user_id": str(session_user_admin.id)},
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
             )
 
             # Then we get only the unapproved, non-archived user
@@ -1140,10 +1135,9 @@ class TestUnapprovedUserController:
                     user_id=unapproved_user.id,
                     company_id=session_company.id,
                 ),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
                 json={
                     "role": UserRole.PLAYER.value,
-                    "requesting_user_id": str(session_user_admin.id),
                 },
             )
 
@@ -1176,10 +1170,9 @@ class TestUnapprovedUserController:
                     user_id=player_user.id,
                     company_id=session_company.id,
                 ),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
                 json={
                     "role": UserRole.STORYTELLER.value,
-                    "requesting_user_id": str(session_user_admin.id),
                 },
             )
 
@@ -1210,10 +1203,7 @@ class TestUnapprovedUserController:
                     user_id=unapproved_user.id,
                     company_id=session_company.id,
                 ),
-                headers=token_global_admin,
-                json={
-                    "requesting_user_id": str(session_user_admin.id),
-                },
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
             )
 
             # Then the response is successful
@@ -1244,10 +1234,7 @@ class TestUnapprovedUserController:
                     user_id=player_user.id,
                     company_id=session_company.id,
                 ),
-                headers=token_global_admin,
-                json={
-                    "requesting_user_id": str(session_user_admin.id),
-                },
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
             )
 
             # Then we get a validation error
@@ -1345,11 +1332,10 @@ class TestUserRegistration:
             # When we merge the users
             response = await client.post(
                 build_url(UsersURL.MERGE, company_id=session_company.id),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(admin_user.id)},
                 json={
                     "primary_user_id": str(primary_user.id),
                     "secondary_user_id": str(secondary_user.id),
-                    "requesting_user_id": str(admin_user.id),
                 },
             )
 
@@ -1381,11 +1367,10 @@ class TestUserRegistration:
             # When we attempt to merge
             response = await client.post(
                 build_url(UsersURL.MERGE, company_id=session_company.id),
-                headers=token_global_admin,
+                headers=token_global_admin | {"On-Behalf-Of": str(admin_user.id)},
                 json={
                     "primary_user_id": str(primary_user.id),
                     "secondary_user_id": str(secondary_user.id),
-                    "requesting_user_id": str(admin_user.id),
                 },
             )
 

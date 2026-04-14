@@ -22,6 +22,7 @@ pytestmark = pytest.mark.anyio
 async def test_chapter_controller(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -43,9 +44,8 @@ async def test_chapter_controller(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         json={"name": "Test Chapter", "description": "Test Description"},
     )
 
@@ -70,9 +70,8 @@ async def test_chapter_controller(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=new_chapter_id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         json={"name": "Test Chapter Updated"},
     )
 
@@ -91,9 +90,8 @@ async def test_chapter_controller(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=new_chapter_id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 204 no content response
@@ -106,9 +104,8 @@ async def test_chapter_controller(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 200 with only the base chapter
@@ -125,9 +122,8 @@ async def test_chapter_controller(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=base_chapter.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 200 with the chapter details
@@ -138,6 +134,7 @@ async def test_chapter_controller(
 async def test_renumber_chapter(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -168,10 +165,9 @@ async def test_renumber_chapter(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=chapter1.id,
-            user_id=session_user.id,
         ),
         json={"number": 3},
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 200 with updated positions
@@ -191,6 +187,7 @@ async def test_renumber_chapter(
 async def test_get_chapter_no_include_omits_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -213,9 +210,8 @@ async def test_get_chapter_no_include_omits_children(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=chapter.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then the response has no child keys
@@ -229,6 +225,7 @@ async def test_get_chapter_no_include_omits_children(
 async def test_get_chapter_include_all_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -257,9 +254,8 @@ async def test_get_chapter_include_all_children(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=chapter.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         params={"include": ["notes", "assets"]},
     )
 
@@ -275,6 +271,7 @@ async def test_get_chapter_include_all_children(
 async def test_get_chapter_include_excludes_archived_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -313,9 +310,8 @@ async def test_get_chapter_include_excludes_archived_children(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=chapter.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         params={"include": ["notes", "assets"]},
     )
 
@@ -329,6 +325,7 @@ async def test_get_chapter_include_excludes_archived_children(
 async def test_get_chapter_include_invalid_value(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -351,9 +348,8 @@ async def test_get_chapter_include_invalid_value(
             campaign_id=campaign.id,
             book_id=book.id,
             chapter_id=chapter.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         params={"include": ["bogus"]},
     )
 

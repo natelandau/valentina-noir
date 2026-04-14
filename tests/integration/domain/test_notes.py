@@ -36,6 +36,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -55,11 +56,9 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTES,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         assert response.status_code == HTTP_200_OK
@@ -70,6 +69,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -103,11 +103,9 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTES,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         assert response.status_code == HTTP_200_OK
@@ -119,6 +117,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -142,12 +141,10 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTE_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 note_id=note.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         assert response.status_code == HTTP_200_OK
@@ -159,6 +156,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -178,12 +176,10 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTE_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 note_id=uuid4(),
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         assert response.status_code == HTTP_404_NOT_FOUND
@@ -194,6 +190,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -213,11 +210,9 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTE_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "New Note", "content": "New Content"},
         )
 
@@ -233,6 +228,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -259,12 +255,10 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTE_UPDATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 note_id=note.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "Updated Title", "content": "Updated Content"},
         )
 
@@ -277,6 +271,7 @@ class TestCharacterNotes:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -303,12 +298,10 @@ class TestCharacterNotes:
             build_url(
                 Characters.NOTE_DELETE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
                 note_id=note.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         assert response.status_code == HTTP_204_NO_CONTENT
@@ -324,6 +317,7 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -343,11 +337,9 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Characters.NOTE_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "Smoke Test Note", "content": "Smoke test content"},
         )
 
@@ -360,11 +352,9 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Characters.NOTES,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the created note should appear in the list
@@ -377,6 +367,7 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -388,10 +379,8 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.NOTE_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "Campaign Smoke Note", "content": "Campaign smoke content"},
         )
 
@@ -404,10 +393,8 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.NOTES,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the created note should appear in the list
@@ -420,6 +407,7 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -432,7 +420,7 @@ class TestAllNoteControllersSmoke:
                 company_id=session_company.id,
                 user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "User Smoke Note", "content": "User smoke content"},
         )
 
@@ -447,7 +435,7 @@ class TestAllNoteControllersSmoke:
                 company_id=session_company.id,
                 user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the created note should appear in the list
@@ -460,6 +448,7 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -472,11 +461,9 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.BOOK_NOTE_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "Book Smoke Note", "content": "Book smoke content"},
         )
 
@@ -489,11 +476,9 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.BOOK_NOTES,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the created note should appear in the list
@@ -506,6 +491,7 @@ class TestAllNoteControllersSmoke:
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
         session_user: User,
@@ -519,12 +505,10 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.CHAPTER_NOTE_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
                 chapter_id=session_campaign_chapter.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"title": "Chapter Smoke Note", "content": "Chapter smoke content"},
         )
 
@@ -537,12 +521,10 @@ class TestAllNoteControllersSmoke:
             build_url(
                 Campaigns.CHAPTER_NOTES,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 book_id=session_campaign_book.id,
                 chapter_id=session_campaign_chapter.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the created note should appear in the list

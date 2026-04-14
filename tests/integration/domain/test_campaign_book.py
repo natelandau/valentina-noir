@@ -22,6 +22,7 @@ pytestmark = pytest.mark.anyio
 async def test_book_controller(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -40,9 +41,8 @@ async def test_book_controller(
             Campaigns.BOOK_CREATE,
             company_id=session_company.id,
             campaign_id=campaign.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         json={"name": "Test Book", "description": "Test Description"},
     )
 
@@ -66,9 +66,8 @@ async def test_book_controller(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=new_book_id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         json={"name": "Test Book Updated"},
     )
 
@@ -86,9 +85,8 @@ async def test_book_controller(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=new_book_id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 204 no content response
@@ -100,9 +98,8 @@ async def test_book_controller(
             Campaigns.BOOKS,
             company_id=session_company.id,
             campaign_id=campaign.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 200 with only the base book
@@ -118,9 +115,8 @@ async def test_book_controller(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=base_book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 200 with the book details
@@ -131,6 +127,7 @@ async def test_book_controller(
 async def test_renumber_book(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -158,10 +155,9 @@ async def test_renumber_book(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book1.id,
-            user_id=session_user.id,
         ),
         json={"number": 3},
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then we should get a 200 with updated positions
@@ -181,6 +177,7 @@ async def test_renumber_book(
 async def test_get_book_no_include_omits_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -200,9 +197,8 @@ async def test_get_book_no_include_omits_children(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
     )
 
     # Then the response has no child keys
@@ -217,6 +213,7 @@ async def test_get_book_no_include_omits_children(
 async def test_get_book_include_all_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -242,9 +239,8 @@ async def test_get_book_include_all_children(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         params={"include": ["chapters", "notes", "assets"]},
     )
 
@@ -262,6 +258,7 @@ async def test_get_book_include_all_children(
 async def test_get_book_include_excludes_archived_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -303,9 +300,8 @@ async def test_get_book_include_excludes_archived_children(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         params={"include": ["chapters", "notes", "assets"]},
     )
 
@@ -320,6 +316,7 @@ async def test_get_book_include_excludes_archived_children(
 async def test_get_book_include_invalid_value(
     client: AsyncClient,
     token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
     session_company: Company,
     session_global_admin,
     session_user: User,
@@ -339,9 +336,8 @@ async def test_get_book_include_invalid_value(
             company_id=session_company.id,
             campaign_id=campaign.id,
             book_id=book.id,
-            user_id=session_user.id,
         ),
-        headers=token_global_admin,
+        headers=token_global_admin | on_behalf_of_header,
         params={"include": ["bogus"]},
     )
 
