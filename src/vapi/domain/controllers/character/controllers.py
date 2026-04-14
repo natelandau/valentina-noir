@@ -11,7 +11,6 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
-from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import (
     Character,
     HunterAttributes,
@@ -54,7 +53,6 @@ class CharacterController(Controller):
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
         "acting_user": Provide(deps.provide_acting_user),
-        "campaign": Provide(deps.provide_campaign_by_id),
         "character": Provide(deps.provide_character_by_id_and_company),
         "developer": Provide(deps.provide_developer_from_request),
     }
@@ -70,7 +68,7 @@ class CharacterController(Controller):
     async def list_characters(  # noqa: PLR0913
         self,
         company: Company,
-        campaign: Campaign,
+        campaign_id: Annotated[UUID, Parameter(description="Filter by campaign.")],
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         user_player_id: Annotated[
@@ -99,7 +97,7 @@ class CharacterController(Controller):
         filters: dict[str, object] = {
             "company_id": company.id,
             "is_archived": False,
-            "campaign_id": campaign.id,
+            "campaign_id": campaign_id,
             "is_temporary": is_temporary,
         }
 
@@ -154,7 +152,7 @@ class CharacterController(Controller):
         self,
         company: Company,
         acting_user: User,
-        campaign: Campaign,
+        campaign_id: Annotated[UUID, Parameter(description="Campaign to create the character in.")],
         data: CharacterCreate,
         request: Request,
     ) -> CharacterResponse:
@@ -172,7 +170,7 @@ class CharacterController(Controller):
             nature=data.nature,
             concept_id=data.concept_id,
             company=company,
-            campaign=campaign,
+            campaign_id=campaign_id,
             user_creator=acting_user,
             user_player_id=data.user_player_id or acting_user.id,
         )

@@ -21,7 +21,6 @@ from vapi.domain import hooks, urls
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
 from vapi.domain.deps import (
     provide_acting_user,
-    provide_campaign_by_id,
     provide_character_by_id_and_company,
     provide_company_by_id,
 )
@@ -61,7 +60,6 @@ class CharacterGenerationController(Controller):
     dependencies = {
         "company": Provide(provide_company_by_id),
         "acting_user": Provide(provide_acting_user),
-        "campaign": Provide(provide_campaign_by_id),
         "character": Provide(provide_character_by_id_and_company),
     }
     guards = [developer_company_user_guard, user_active_guard]
@@ -78,11 +76,17 @@ class CharacterGenerationController(Controller):
         self,
         company: Company,
         acting_user: User,
-        campaign: Campaign,
+        campaign_id: UUID,
         data: CreateAutogenerateRequest,
         request: Request,
     ) -> CharacterResponse:
         """Create a new character."""
+        campaign = await Campaign.filter(id=campaign_id, company=company, is_archived=False).first()
+        if not campaign:
+            raise ValidationError(
+                invalid_parameters=[{"field": "campaign_id", "message": "Campaign not found"}]
+            )
+
         validation_service = GetModelByIdValidationService()
         concept = (
             await validation_service.get_concept_by_id(data.concept_id) if data.concept_id else None
@@ -144,9 +148,15 @@ class CharacterGenerationController(Controller):
         self,
         company: Company,
         acting_user: User,
-        campaign: Campaign,
+        campaign_id: UUID,
     ) -> ChargenSessionResponse:
         """Generate multiple character options."""
+        campaign = await Campaign.filter(id=campaign_id, company=company, is_archived=False).first()
+        if not campaign:
+            raise ValidationError(
+                invalid_parameters=[{"field": "campaign_id", "message": "Campaign not found"}]
+            )
+
         settings = company.settings
         num_choices = settings.character_autogen_num_choices or 1
 
