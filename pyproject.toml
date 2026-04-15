@@ -3,7 +3,6 @@
     dependencies = [
         "asyncio>=4.0.0",
         "boto3>=1.42.89",
-        "faker>=40.13.0",
         "httpx-oauth>=0.16.1",
         "litestar-granian>=0.14.2",
         "litestar-saq>=0.7.1",
@@ -15,8 +14,6 @@
         "pydantic[email]>=2.13.1,<3.0.0",
         "python-json-logger>=4.1.0",
         "rich>=15.0.0",
-        "ruamel-yaml>=0.19.1",
-        "semver>=3.0.4",
         "tortoise-orm[asyncpg]>=1.1.7",
         "uuid-utils>=0.14.1",
     ]
