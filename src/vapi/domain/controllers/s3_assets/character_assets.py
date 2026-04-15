@@ -103,7 +103,8 @@ class CharacterAssetsController(BaseAssetsController):
         operation_id="deleteCharacterAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_character_player_or_storyteller_guard],
     )
-    async def delete_character_asset(self, asset: S3Asset) -> None:
+    async def delete_character_asset(self, asset: S3Asset, acting_user: User) -> None:  # noqa: ARG002
         """Delete a character asset."""
         await self._delete_asset(asset=asset)

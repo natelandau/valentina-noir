@@ -234,6 +234,7 @@ class CharacterController(Controller):
         self,
         character: Character,
         data: CharacterPatch,
+        acting_user: User,  # noqa: ARG002
         request: "Request",
     ) -> CharacterResponse:
         """Update a character."""
@@ -259,7 +260,12 @@ class CharacterController(Controller):
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_character(self, character: Character, request: Request) -> None:
+    async def delete_character(
+        self,
+        character: Character,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
+    ) -> None:
         """Delete a character."""
         service = CharacterService()
         await service.archive_character(character)

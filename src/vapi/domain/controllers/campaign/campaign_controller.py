@@ -11,6 +11,7 @@ from litestar.params import Parameter
 
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
@@ -86,6 +87,7 @@ class CampaignController(Controller):
         *,
         company: Company,
         data: CampaignCreate,
+        acting_user: User,  # noqa: ARG002
         request: Request,
     ) -> CampaignResponse:
         """Create a campaign."""
@@ -108,7 +110,11 @@ class CampaignController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_campaign(
-        self, campaign: Campaign, data: CampaignPatch, request: Request
+        self,
+        campaign: Campaign,
+        data: CampaignPatch,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignResponse:
         """Update a campaign by ID."""
         changes = apply_patch(campaign, data)
@@ -125,7 +131,12 @@ class CampaignController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_campaign(self, campaign: Campaign, request: Request) -> None:
+    async def delete_campaign(
+        self,
+        campaign: Campaign,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
+    ) -> None:
         """Delete a campaign by ID."""
         service = CampaignService()
         await service.archive_campaign(campaign)

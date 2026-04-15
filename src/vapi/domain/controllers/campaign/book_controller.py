@@ -10,6 +10,7 @@ from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
@@ -97,7 +98,12 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_book(
-        self, *, campaign: Campaign, data: CampaignBookCreate, request: Request
+        self,
+        *,
+        campaign: Campaign,
+        data: CampaignBookCreate,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignBookResponse:
         """Create a book."""
         service = CampaignService()
@@ -122,7 +128,11 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_book(
-        self, book: CampaignBook, data: CampaignBookPatch, request: Request
+        self,
+        book: CampaignBook,
+        data: CampaignBookPatch,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignBookResponse:
         """Update a book by ID."""
         changes = apply_patch(book, data)
@@ -139,7 +149,12 @@ class CampaignBookController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_book(self, book: CampaignBook, request: Request) -> None:
+    async def delete_book(
+        self,
+        book: CampaignBook,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
+    ) -> None:
         """Delete a book by ID."""
         service = CampaignService()
         await service.delete_book_and_renumber(book)
@@ -154,7 +169,11 @@ class CampaignBookController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def renumber_book(
-        self, book: CampaignBook, data: BookChapterNumber, request: Request
+        self,
+        book: CampaignBook,
+        data: BookChapterNumber,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignBookResponse:
         """Renumber a book by ID."""
         old_number = book.number
