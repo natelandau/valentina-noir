@@ -4,9 +4,10 @@ Each provider resolves a Tortoise ORM model instance from request parameters
 (path IDs, auth context) and raises NotFoundError when the resource does not exist.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
+from litestar.params import Parameter
 from tortoise.expressions import Q
 from tortoise.models import Model
 
@@ -216,36 +217,38 @@ async def provide_target_user(user_id: UUID, company: Company) -> User:
     )
 
 
-async def provide_acting_user(request: "Request", company: Company) -> User:
+async def provide_acting_user(
+    request: "Request",
+    company: Company,
+    on_behalf_of: Annotated[
+        str,
+        Parameter(
+            header=ON_BEHALF_OF_HEADER_KEY,
+            description="UUID of the end-user performing the action. Required for all user-scoped endpoints.",
+        ),
+    ],
+) -> User:
     """Resolve the On-Behalf-Of header to a User within the given company.
 
     Check request.state.acting_user first (stashed by guards to avoid duplicate
-    queries). If not cached, read the On-Behalf-Of header, validate it, load
-    the user scoped to the company, and stash the result on request.state.
+    queries). If not cached, validate the header value, load the user scoped to
+    the company, and stash the result on request.state.
 
     Args:
         request: The Litestar request object.
         company: The company resolved from the path.
+        on_behalf_of: The On-Behalf-Of header value (extracted by Litestar).
 
     Raises:
-        ValidationError: If the header is missing or not a valid UUID.
+        ValidationError: If the header is not a valid UUID.
         NotFoundError: If the user does not exist, is archived, or is not in the company.
     """
     cached: User | None = getattr(request.state, "acting_user", None)
     if cached is not None:
         return cached
 
-    header_value = request.headers.get(ON_BEHALF_OF_HEADER_KEY)
-    if not header_value:
-        raise ValidationError(
-            detail=f"{ON_BEHALF_OF_HEADER_KEY} header is required",
-            invalid_parameters=[
-                {"field": ON_BEHALF_OF_HEADER_KEY, "message": "Header is required"},
-            ],
-        )
-
     try:
-        user_id = UUID(header_value)
+        user_id = UUID(on_behalf_of)
     except ValueError as e:
         raise ValidationError(
             detail=f"{ON_BEHALF_OF_HEADER_KEY} header must be a valid UUID",

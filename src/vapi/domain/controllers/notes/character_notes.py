@@ -24,7 +24,6 @@ class CharacterNoteController(BaseNoteController):
     tags = [APITags.CHARACTERS_NOTES.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "note": Provide(deps.provide_note_by_id),
     }

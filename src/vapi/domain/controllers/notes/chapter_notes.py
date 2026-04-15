@@ -24,7 +24,6 @@ class CampaignChapterNoteController(BaseNoteController):
     tags = [APITags.CAMPAIGN_CHAPTER_NOTES.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "chapter": Provide(deps.provide_campaign_chapter_by_id),

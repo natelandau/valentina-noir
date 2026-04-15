@@ -24,7 +24,7 @@ from litestar.openapi.spec import (
 
 from vapi import __version__
 from vapi.config import settings
-from vapi.constants import AUTH_HEADER_KEY, ON_BEHALF_OF_HEADER_KEY
+from vapi.constants import AUTH_HEADER_KEY
 
 from .tags import APITags
 
@@ -69,9 +69,6 @@ def create_openapi_config() -> OpenAPIConfig:
         components=Components(
             headers={
                 AUTH_HEADER_KEY: OpenAPIHeader(description="API Key for authentication"),
-                ON_BEHALF_OF_HEADER_KEY: OpenAPIHeader(
-                    description="UUID of the end-user performing the action. Required for all user-scoped endpoints."
-                ),
             },
             security_schemes={
                 "API Key": SecurityScheme(

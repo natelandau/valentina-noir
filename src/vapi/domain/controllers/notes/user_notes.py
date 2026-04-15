@@ -25,7 +25,6 @@ class UserNoteController(BaseNoteController):
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
         "target_user": Provide(deps.provide_target_user),
-        "acting_user": Provide(deps.provide_acting_user),
         "developer": Provide(deps.provide_developer_from_request),
         "note": Provide(deps.provide_note_by_id),
     }
