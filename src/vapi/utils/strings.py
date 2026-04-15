@@ -6,8 +6,18 @@ import random
 import re
 import string
 import unicodedata
+from typing import TYPE_CHECKING
 
-__all__ = ("convert_int_to_emoji", "get_discord_avatar_url", "random_string", "slugify")
+if TYPE_CHECKING:
+    from datetime import timedelta
+
+__all__ = (
+    "convert_int_to_emoji",
+    "format_uptime",
+    "get_discord_avatar_url",
+    "random_string",
+    "slugify",
+)
 
 _EMOJI_MAP: tuple[tuple[str, str], ...] = (
     (":zero:", "0️⃣"),
@@ -86,6 +96,25 @@ def random_string(length: int) -> str:
         >>> assert len(random_string(10)) == 10
     """
     return "".join(random.choice(string.ascii_letters) for _ in range(length))
+
+
+def format_uptime(delta: timedelta) -> str:
+    """Format a timedelta as a human-readable duration string.
+
+    Produce a compact representation like ``"2d 14h 32m 5s"`` suitable for
+    health-check responses.
+
+    Args:
+        delta: The duration to format.
+
+    Returns:
+        str: Formatted string in the form ``"Xd Xh Xm Xs"``.
+    """
+    total_seconds = int(delta.total_seconds())
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{days}d {hours}h {minutes}m {seconds}s"
 
 
 def get_discord_avatar_url(
