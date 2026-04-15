@@ -1,3 +1,16 @@
+## v0.15.0 (2026-04-15)
+
+### Feat
+
+- **health**: add uptime and dependency latency to health endpoint (#115)
+- **guards**: enforce ownership check on quickroll mutating endpoints (#114)
+- **guards**: enforce campaign guard on asset endpoints (#113)
+- replace embedded user IDs with On-Behalf-Of header (#112)
+
+### Refactor
+
+- **chargen**: replace faker with curated name lists (#116)
+
 ## v0.14.0 (2026-04-12)
 
 ### Feat
