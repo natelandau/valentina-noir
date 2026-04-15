@@ -2,8 +2,9 @@
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, TypeVar
 from uuid import UUID
 
 from litestar import Request
@@ -94,7 +95,11 @@ class CharacterGenerationController(Controller):
 
         validation_service = GetModelByIdValidationService()
 
-        async def _resolve_optional(coro_fn, val):  # noqa: ANN001, ANN202
+        _T = TypeVar("_T")
+
+        async def _resolve_optional(
+            coro_fn: Callable[[UUID], Awaitable[_T]], val: UUID | None
+        ) -> _T | None:
             return await coro_fn(val) if val else None
 
         concept, vampire_clan, werewolf_tribe, werewolf_auspice = await asyncio.gather(
