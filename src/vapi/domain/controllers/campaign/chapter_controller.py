@@ -15,7 +15,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.lib.detail_includes import apply_includes
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_can_manage_campaign
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
@@ -29,7 +29,6 @@ from .dto import (
     ChapterInclude,
     get_chapter_include_prefetch_map,
 )
-from .guards import user_can_manage_campaign
 
 
 class CampaignChapterController(Controller):

@@ -16,6 +16,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.guards import user_can_manage_campaign
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
@@ -76,6 +77,7 @@ class CampaignAssetsController(BaseAssetsController):
         operation_id="uploadCampaignAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
     async def handle_file_upload(
@@ -99,7 +101,8 @@ class CampaignAssetsController(BaseAssetsController):
         operation_id="deleteCampaignAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
-    async def delete_campaign_asset(self, asset: S3Asset) -> None:
+    async def delete_campaign_asset(self, asset: S3Asset, acting_user: User) -> None:  # noqa: ARG002
         """Delete a campaign asset."""
         await self._delete_asset(asset=asset)

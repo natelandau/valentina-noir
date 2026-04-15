@@ -15,13 +15,12 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import developer_company_user_guard, user_can_manage_campaign
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import CampaignCreate, CampaignPatch, CampaignResponse
-from .guards import user_can_manage_campaign
 
 
 class CampaignController(Controller):

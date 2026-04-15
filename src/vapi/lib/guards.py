@@ -5,13 +5,19 @@ allowing access to protected endpoints.
 """
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 from uuid import UUID
 
-from vapi.constants import ON_BEHALF_OF_HEADER_KEY, CompanyPermission, UserRole
+from vapi.constants import (
+    ON_BEHALF_OF_HEADER_KEY,
+    CompanyPermission,
+    PermissionManageCampaign,
+    UserRole,
+)
+from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
-from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -23,6 +29,7 @@ __all__ = (
     "developer_company_user_guard",
     "global_admin_guard",
     "user_active_guard",
+    "user_can_manage_campaign",
     "user_character_player_or_storyteller_guard",
     "user_storyteller_guard",
 )
@@ -50,6 +57,13 @@ async def _resolve_acting_user_from_header(
         PermissionDeniedError: If the header is required but missing.
         NotFoundError: If the UUID is invalid or the user doesn't exist.
     """
+    # Return the stashed user if a prior guard already resolved it
+    state = connection.scope.get("state")
+    if isinstance(state, dict):
+        stashed = state.get("acting_user")
+        if isinstance(stashed, User):
+            return stashed
+
     user_id_str = connection.headers.get(ON_BEHALF_OF_HEADER_KEY)
     if not user_id_str:
         if required:
@@ -213,3 +227,34 @@ async def user_character_player_or_storyteller_guard(
         and character.user_player_id != user.id  # type: ignore[attr-defined]
     ):
         raise PermissionDeniedError(detail="No rights to access this resource")
+
+
+async def user_can_manage_campaign(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
+    """Guard to check if the acting user can manage the campaign.
+
+    Check the company's ``permission_manage_campaign`` setting and verify the
+    acting user's role satisfies it.  Used on mutating campaign, book, chapter,
+    and related asset endpoints.
+    """
+    company_id = connection.path_params.get("company_id")
+    if not company_id:
+        raise ClientError(detail="Company ID is required")
+
+    company, user = await asyncio.gather(
+        Company.filter(id=company_id, is_archived=False).prefetch_related("settings").first(),
+        _resolve_acting_user_from_header(connection),
+    )
+    if not company:
+        raise NotFoundError(detail=f"Company '{company_id}' not found")
+
+    match company.settings.permission_manage_campaign:
+        case PermissionManageCampaign.UNRESTRICTED:
+            return
+
+        case PermissionManageCampaign.STORYTELLER:
+            if user.role in {UserRole.STORYTELLER, UserRole.ADMIN}:
+                return
+        case _:  # pragma: no cover
+            assert_never(company.settings.permission_manage_campaign)
+
+    raise PermissionDeniedError(detail="No rights to access this resource")
