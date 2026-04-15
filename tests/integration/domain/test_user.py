@@ -935,7 +935,7 @@ class TestQuickRollController:
                 company_id=session_company.id,
                 user_id=session_user.id,
             ),
-            headers=token_company_user,
+            headers=token_company_user | {"On-Behalf-Of": str(session_user.id)},
             json={"name": "Quick Roll 1", "trait_ids": [str(trait.id)]},
         )
         assert response.status_code == HTTP_201_CREATED
@@ -972,7 +972,7 @@ class TestQuickRollController:
                 user_id=session_user.id,
                 quickroll_id=quickroll.id,
             ),
-            headers=token_company_user,
+            headers=token_company_user | {"On-Behalf-Of": str(session_user.id)},
             json={"name": "Updated Quick Roll"},
         )
 
@@ -1011,7 +1011,7 @@ class TestQuickRollController:
                 user_id=session_user.id,
                 quickroll_id=quickroll.id,
             ),
-            headers=token_company_user,
+            headers=token_company_user | {"On-Behalf-Of": str(session_user.id)},
             json={
                 "description": "Updated description",
                 "trait_ids": replacement_ids,
@@ -1046,7 +1046,7 @@ class TestQuickRollController:
                 user_id=session_user.id,
                 quickroll_id=quickroll.id,
             ),
-            headers=token_company_user,
+            headers=token_company_user | {"On-Behalf-Of": str(session_user.id)},
         )
 
         assert response.status_code == HTTP_204_NO_CONTENT
