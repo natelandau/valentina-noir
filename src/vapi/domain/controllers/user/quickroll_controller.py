@@ -13,7 +13,7 @@ from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import UserQuickRollService
+from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
@@ -76,9 +76,13 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_user_quickroll(
-        self, *, request: Request, target_user: User, data: dto.QuickRollCreate
+        self, *, request: Request, target_user: User, acting_user: User, data: dto.QuickRollCreate
     ) -> dto.QuickRollResponse:
         """Create a user quick roll."""
+        await UserService().validate_user_can_manage_user(
+            requesting_user_id=acting_user.id,
+            user_to_manage_id=target_user.id,
+        )
         service = UserQuickRollService()
         traits = await service.validate_quickroll_traits(data.trait_ids)
 
@@ -101,9 +105,19 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
-        self, *, request: Request, quickroll: QuickRoll, data: dto.QuickRollPatch
+        self,
+        *,
+        request: Request,
+        target_user: User,
+        acting_user: User,
+        quickroll: QuickRoll,
+        data: dto.QuickRollPatch,
     ) -> dto.QuickRollResponse:
         """Update a user quick roll by ID."""
+        await UserService().validate_user_can_manage_user(
+            requesting_user_id=acting_user.id,
+            user_to_manage_id=target_user.id,
+        )
         changes = apply_patch(quickroll, data, exclude=frozenset({"trait_ids"}))
         await quickroll.save()
 
@@ -131,8 +145,14 @@ class QuickRollController(Controller):
         description=docs.DELETE_QUICKROLL_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_user_quickroll(self, *, request: Request, quickroll: QuickRoll) -> None:
+    async def delete_user_quickroll(
+        self, *, request: Request, target_user: User, acting_user: User, quickroll: QuickRoll
+    ) -> None:
         """Delete a user quick roll by ID."""
+        await UserService().validate_user_can_manage_user(
+            requesting_user_id=acting_user.id,
+            user_to_manage_id=target_user.id,
+        )
         quickroll.is_archived = True
         await quickroll.save()
         request.state.audit_description = f"Delete quick roll '{quickroll.name}'"

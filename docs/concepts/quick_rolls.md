@@ -36,6 +36,8 @@ Quick roll endpoints are nested under a user:
 /api/v1/companies/{company_id}/users/{user_id}/quickrolls
 ```
 
+Any company member can **read** quick rolls (list and detail). **Creating, updating, and deleting** quick rolls requires the [`On-Behalf-Of`](../technical/authentication.md#the-on-behalf-of-header) header, and the acting user must be the owner of the quick rolls or a company admin.
+
 ### Creating a Quick Roll
 
 Use trait IDs from the [character blueprint](./character_blueprint.md) to define the dice pool. The API validates that all trait IDs reference existing traits.
