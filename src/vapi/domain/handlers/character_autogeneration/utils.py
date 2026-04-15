@@ -5,28 +5,21 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, assert_never
 
-from faker import Faker
-
 from vapi.constants import CharacterClass
 from vapi.db.sql_models.character import Character
 from vapi.utils.math import roll_percentile
 
 from .constants import MORTAL_CLASS_PERCENTILE, AutoGenExperienceLevel
+from .names import FIRST_NAMES, LAST_NAMES
 
 if TYPE_CHECKING:
     from uuid import UUID
 
-fake = Faker()
-
 
 async def generate_unique_name(company_id: UUID) -> tuple[str, str]:
     """Generate a unique name for a character."""
-    name_first = fake.first_name()
-    while len(name_first) < 3:  # noqa: PLR2004
-        name_first = fake.first_name()
-    name_last = fake.last_name()
-    while len(name_last) < 3:  # noqa: PLR2004
-        name_last = fake.last_name()
+    name_first = random.choice(FIRST_NAMES)
+    name_last = random.choice(LAST_NAMES)
 
     character_with_same_name = await Character.filter(
         name_first=name_first,

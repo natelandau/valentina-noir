@@ -3,7 +3,6 @@
     dependencies = [
         "asyncio>=4.0.0",
         "boto3>=1.42.89",
-        "faker>=40.13.0",
         "httpx-oauth>=0.16.1",
         "litestar-granian>=0.14.2",
         "litestar-saq>=0.7.1",
