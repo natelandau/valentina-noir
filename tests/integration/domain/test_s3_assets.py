@@ -80,10 +80,9 @@ async def test_list_assets(
         build_url(
             Characters.ASSETS,
             company_id=session_company.id,
-            user_id=session_user.id,
             character_id=character.id,
         ),
-        headers=token_company_admin,
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
         params={"asset_type": AssetType.IMAGE.value},
     )
     # debug(response.json())
@@ -124,7 +123,7 @@ async def test_get_asset(
             user_id=session_user.id,
             asset_id=asset.id,
         ),
-        headers=token_company_admin,
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
     )
     # debug(response.json())
 
@@ -168,7 +167,7 @@ async def test_get_asset_not_parent(
             chapter_id=session_campaign_chapter.id,
             asset_id=asset.id,
         ),
-        headers=token_company_admin,
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
     )
 
     # Then: Response is 404
@@ -192,9 +191,8 @@ async def test_upload_image(
             Campaigns.ASSET_UPLOAD,
             company_id=session_company.id,
             campaign_id=session_campaign.id,
-            user_id=session_user.id,
         ),
-        headers=token_company_admin,
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
         files={"upload": ("somefile.txt", b"world")},
     )
     # debug(response.json())
@@ -252,12 +250,11 @@ async def test_delete_image(
         build_url(
             Campaigns.BOOK_ASSET_DELETE,
             company_id=session_company.id,
-            user_id=session_user.id,
             campaign_id=session_campaign.id,
             book_id=session_campaign_book.id,
             asset_id=asset.id,
         ),
-        headers=token_company_admin,
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
     )
 
     # Then: Response is successful

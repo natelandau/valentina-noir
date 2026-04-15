@@ -11,7 +11,6 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
-from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import (
     Character,
     HunterAttributes,
@@ -53,8 +52,7 @@ class CharacterController(Controller):
     tags = [APITags.CHARACTERS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
-        "campaign": Provide(deps.provide_campaign_by_id),
+        "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "developer": Provide(deps.provide_developer_from_request),
     }
@@ -70,9 +68,9 @@ class CharacterController(Controller):
     async def list_characters(  # noqa: PLR0913
         self,
         company: Company,
-        campaign: Campaign,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
+        campaign_id: Annotated[UUID, Parameter(description="Filter by campaign.")] | None = None,
         user_player_id: Annotated[
             UUID, Parameter(description="Show characters played by this user.")
         ]
@@ -99,10 +97,11 @@ class CharacterController(Controller):
         filters: dict[str, object] = {
             "company_id": company.id,
             "is_archived": False,
-            "campaign_id": campaign.id,
             "is_temporary": is_temporary,
         }
 
+        if campaign_id:
+            filters["campaign_id"] = campaign_id
         if user_player_id:
             filters["user_player_id"] = user_player_id
         if user_creator_id:
@@ -153,8 +152,7 @@ class CharacterController(Controller):
     async def create_character(
         self,
         company: Company,
-        user: User,
-        campaign: Campaign,
+        acting_user: User,
         data: CharacterCreate,
         request: Request,
     ) -> CharacterResponse:
@@ -172,9 +170,9 @@ class CharacterController(Controller):
             nature=data.nature,
             concept_id=data.concept_id,
             company=company,
-            campaign=campaign,
-            user_creator=user,
-            user_player_id=data.user_player_id or user.id,
+            campaign_id=data.campaign_id,
+            user_creator=acting_user,
+            user_player_id=data.user_player_id or acting_user.id,
         )
 
         # Create OneToOne attribute rows for class-specific data
@@ -236,6 +234,7 @@ class CharacterController(Controller):
         self,
         character: Character,
         data: CharacterPatch,
+        acting_user: User,  # noqa: ARG002
         request: "Request",
     ) -> CharacterResponse:
         """Update a character."""
@@ -261,7 +260,12 @@ class CharacterController(Controller):
         guards=[user_character_player_or_storyteller_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_character(self, character: Character, request: Request) -> None:
+    async def delete_character(
+        self,
+        character: Character,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
+    ) -> None:
         """Delete a character."""
         service = CharacterService()
         await service.archive_character(character)

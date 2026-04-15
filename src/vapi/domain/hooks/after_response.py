@@ -62,7 +62,7 @@ async def add_audit_log(request: Request) -> None:
     request_body, request_json = await _parse_request_body(request)
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 
-    structured = build_audit_entry(request, request_json)
+    structured = build_audit_entry(request)
 
     await AuditLog.create(
         developer_id=request.user.id,

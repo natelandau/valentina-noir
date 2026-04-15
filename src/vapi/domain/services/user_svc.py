@@ -154,7 +154,7 @@ class UserService:
                 detail="Requesting user is not authorized to manage this user",
             )
 
-    async def create_user(self, company: Company, data: UserCreate) -> User:
+    async def create_user(self, company: Company, data: UserCreate, acting_user_id: UUID) -> User:
         """Create a user in a company.
 
         The initial role is validated through the role-assignment matrix.
@@ -164,11 +164,12 @@ class UserService:
         Args:
             company: The company to add the user to.
             data: The user creation data.
+            acting_user_id: The ID of the user performing the action.
 
         Returns:
             The created user with campaign_experiences prefetched.
         """
-        requesting_user = await self._assert_requester_active(data.requesting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
         new_role = UserRole(data.role)
 
         if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
@@ -230,7 +231,7 @@ class UserService:
         primary_user_id: UUID,
         secondary_user_id: UUID,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
     ) -> User:
         """Merge an UNAPPROVED secondary user into an existing primary user.
 
@@ -241,7 +242,7 @@ class UserService:
             primary_user_id: The ID of the user account that survives.
             secondary_user_id: The ID of the UNAPPROVED user whose profile info is absorbed.
             company: The company both users belong to.
-            requesting_user_id: The admin performing the merge.
+            acting_user_id: The admin performing the merge.
 
         Raises:
             ValidationError: If the secondary user is not UNAPPROVED or users are the same.
@@ -249,15 +250,15 @@ class UserService:
         """
         from vapi.domain import deps
 
-        await self._assert_requester_active(requesting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+        await self._assert_requester_active(acting_user_id)
+        await self.validate_user_can_manage_user(requesting_user_id=acting_user_id)
 
         if primary_user_id == secondary_user_id:
             raise ValidationError(detail="Cannot merge a user with themselves")
 
         primary_user, secondary_user = await asyncio.gather(
-            deps.provide_user_by_id_and_company(user_id=primary_user_id, company=company),
-            deps.provide_user_by_id_and_company(user_id=secondary_user_id, company=company),
+            deps.provide_target_user(user_id=primary_user_id, company=company),
+            deps.provide_target_user(user_id=secondary_user_id, company=company),
         )
 
         if secondary_user.role != UserRole.UNAPPROVED:
@@ -296,7 +297,7 @@ class UserService:
                 setattr(primary, attr, primary_profile)
 
     async def update_user(
-        self, user: User, data: UserPatch
+        self, user: User, data: UserPatch, acting_user_id: UUID
     ) -> tuple[User, dict[str, dict[str, object]]]:
         """Update a user with partial data and return a diff of what changed.
 
@@ -307,11 +308,12 @@ class UserService:
         Args:
             user: The user to update.
             data: The patch data with UNSET defaults for unsent fields.
+            acting_user_id: The ID of the user performing the action.
 
         Returns:
             Tuple of (updated user with campaign_experiences prefetched, changes dict).
         """
-        requesting_user = await self._assert_requester_active(data.requesting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
 
         role_change: dict[str, dict[str, object]] = {}
         if not isinstance(data.role, msgspec.UnsetType):
@@ -329,11 +331,11 @@ class UserService:
             user.role = new_role
 
         await self.validate_user_can_manage_user(
-            requesting_user_id=data.requesting_user_id,
+            requesting_user_id=acting_user_id,
             user_to_manage_id=user.id,
         )
 
-        changes = apply_patch(user, data, exclude=frozenset({"requesting_user_id", "role"}))
+        changes = apply_patch(user, data, exclude=frozenset({"role"}))
         changes.update(role_change)
 
         await user.save()
@@ -360,20 +362,20 @@ class UserService:
         *,
         user: User,
         role: UserRole,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
     ) -> User:
         """Approve an unapproved user and assign a role.
 
         Args:
             user: The unapproved user to approve.
             role: The role to assign.
-            requesting_user_id: The ID of the admin performing the action.
+            acting_user_id: The ID of the admin performing the action.
 
         Raises:
             ValidationError: If the user is not UNAPPROVED or the role is UNAPPROVED/DEACTIVATED.
             PermissionDeniedError: If the requester is not authorized for the assignment.
         """
-        requesting_user = await self._assert_requester_active(requesting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
         if requesting_user.role != UserRole.ADMIN:
             raise PermissionDeniedError(
                 detail="Requesting user is not authorized to manage this user",
@@ -400,21 +402,21 @@ class UserService:
         *,
         user: User,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
     ) -> None:
         """Deny an unapproved user and archive them.
 
         Args:
             user: The unapproved user to deny.
             company: The company the user belongs to.
-            requesting_user_id: The ID of the admin performing the action.
+            acting_user_id: The ID of the admin performing the action.
 
         Raises:
             ValidationError: If the user is not UNAPPROVED.
             PermissionDeniedError: If the requesting user is not an admin.
         """
-        await self._assert_requester_active(requesting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+        await self._assert_requester_active(acting_user_id)
+        await self.validate_user_can_manage_user(requesting_user_id=acting_user_id)
 
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
@@ -540,7 +542,7 @@ class UserXPService:
     async def _validate_user_can_grant_xp(
         self,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
         target_user_id: UUID,
     ) -> None:
         """Validate if the user can grant XP.
@@ -548,7 +550,7 @@ class UserXPService:
         Raises:
             PermissionDeniedError: If the user is not authorized to grant XP.
         """
-        requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        requesting_user = await GetModelByIdValidationService().get_user_by_id(acting_user_id)
         if (
             company.settings.permission_grant_xp == PermissionsGrantXP.UNRESTRICTED
             or requesting_user.role
@@ -573,16 +575,16 @@ class UserXPService:
         self,
         *,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
         target_user: User,
         campaign_id: UUID,
         amount: int,
     ) -> CampaignExperience:
         """Add XP to a campaign experience with permission validation."""
-        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
+        await UserService()._assert_requester_active(acting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
-            requesting_user_id=requesting_user_id,
+            acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
         return await self.add_xp(target_user.id, campaign_id, amount)
@@ -591,16 +593,16 @@ class UserXPService:
         self,
         *,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
         target_user: User,
         campaign_id: UUID,
         amount: int,
     ) -> CampaignExperience:
         """Remove XP from a campaign experience with permission validation."""
-        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
+        await UserService()._assert_requester_active(acting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
-            requesting_user_id=requesting_user_id,
+            acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
         return await self.spend_xp(target_user.id, campaign_id, amount)
@@ -609,16 +611,16 @@ class UserXPService:
         self,
         *,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user_id: UUID,
         target_user: User,
         campaign_id: UUID,
         amount: int,
     ) -> CampaignExperience:
         """Add cool points to a campaign experience with permission validation."""
-        await UserService()._assert_requester_active(requesting_user_id)  # noqa: SLF001
+        await UserService()._assert_requester_active(acting_user_id)  # noqa: SLF001
         await self._validate_user_can_grant_xp(
             company=company,
-            requesting_user_id=requesting_user_id,
+            acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
         return await self.add_cp(target_user.id, campaign_id, amount)

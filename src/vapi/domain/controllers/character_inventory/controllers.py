@@ -10,6 +10,7 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
 from vapi.db.sql_models.character import Character, CharacterInventory
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import (
@@ -30,7 +31,7 @@ class CharacterInventoryController(Controller):
     tags = [APITags.CHARACTERS_INVENTORY.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "inventory_item": Provide(deps.provide_inventory_item_by_id),
         "developer": Provide(deps.provide_developer_from_request),
@@ -85,7 +86,12 @@ class CharacterInventoryController(Controller):
         guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
-        self, *, character: Character, data: InventoryItemCreate, request: Request
+        self,
+        *,
+        character: Character,
+        data: InventoryItemCreate,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> InventoryItemResponse:
         """Create an inventory item."""
         item = await CharacterInventory.create(
@@ -110,6 +116,7 @@ class CharacterInventoryController(Controller):
         *,
         inventory_item: CharacterInventory,
         data: InventoryItemPatch,
+        acting_user: User,  # noqa: ARG002
         request: Request,
     ) -> InventoryItemResponse:
         """Update an inventory item."""
@@ -129,7 +136,11 @@ class CharacterInventoryController(Controller):
         guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_inventory_item(
-        self, *, inventory_item: CharacterInventory, request: Request
+        self,
+        *,
+        inventory_item: CharacterInventory,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> None:
         """Delete an inventory item."""
         inventory_item.is_archived = True

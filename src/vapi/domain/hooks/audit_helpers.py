@@ -5,7 +5,7 @@ This module contains the core logic for populating structured audit log fields
 objects. It is designed to be testable independently of the HTTP lifecycle.
 
 Architecture:
-    build_audit_entry(request, request_json) -> dict
+    build_audit_entry(request) -> dict
         Inspects path_params, HTTP method, and operation_id to produce a dict of
         field values ready for AuditLog.create(). Called by post_data_update_hook.
 
@@ -164,14 +164,29 @@ def _resolve_entity_and_fks(
 
 
 def _resolve_acting_user(
+    request: Request,
     path_params: dict[str, str],
-    request_json: dict[str, Any] | None,
 ) -> str | None:
-    """Derive the acting user ID from request body or path params."""
-    if request_json and "requesting_user_id" in request_json:
-        return str(request_json["requesting_user_id"])
+    """Derive the acting user ID from request state, header, or path params.
+
+    Priority:
+    1. request.state.acting_user (stashed by guards/provider)
+    2. On-Behalf-Of header
+    3. user_id path param (fallback for user-domain endpoints)
+    """
+    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
+
+    acting_user = getattr(request.state, "acting_user", None)
+    if acting_user is not None:
+        return str(acting_user.id)
+
+    header_value = request.headers.get(ON_BEHALF_OF_HEADER_KEY)
+    if header_value:
+        return header_value
+
     if "user_id" in path_params:
         return path_params["user_id"]
+
     return None
 
 
@@ -204,7 +219,6 @@ def _serialize_changes(changes: dict[str, Any]) -> dict[str, Any]:
 
 def build_audit_entry(
     request: Request,
-    request_json: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Build a dict of structured audit log field values from a request.
 
@@ -214,7 +228,6 @@ def build_audit_entry(
 
     Args:
         request: The Litestar request object.
-        request_json: Pre-parsed JSON body (or None).
 
     Returns:
         Dict of field name to value, ready to be unpacked into AuditLog.create().
@@ -229,7 +242,7 @@ def build_audit_entry(
     entity_type, target_entity_id, fk_values = _resolve_entity_and_fks(
         path_params, method, operation_id
     )
-    acting_user_id = _resolve_acting_user(path_params, request_json)
+    acting_user_id = _resolve_acting_user(request, path_params)
 
     description: str | None = getattr(request.state, "audit_description", None)
     if description is None:

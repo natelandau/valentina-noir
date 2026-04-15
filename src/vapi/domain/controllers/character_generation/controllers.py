@@ -1,13 +1,17 @@
 """Character Generation API."""
 
+import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
+from typing import Annotated, TypeVar
 from uuid import UUID
 
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
+from litestar.params import Parameter
 
 from vapi.constants import CharacterType
 from vapi.db.sql_models import (
@@ -20,15 +24,14 @@ from vapi.db.sql_models import (
 from vapi.domain import hooks, urls
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
 from vapi.domain.deps import (
-    provide_campaign_by_id,
+    provide_acting_user,
     provide_character_by_id_and_company,
     provide_company_by_id,
-    provide_user_by_id_and_company,
 )
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.domain.services.user_svc import UserXPService
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
     developer_company_user_guard,
     user_active_guard,
@@ -60,8 +63,7 @@ class CharacterGenerationController(Controller):
     tags = [APITags.CHARACTERS_AUTOGEN.name]
     dependencies = {
         "company": Provide(provide_company_by_id),
-        "user": Provide(provide_user_by_id_and_company),
-        "campaign": Provide(provide_campaign_by_id),
+        "acting_user": Provide(provide_acting_user),
         "character": Provide(provide_character_by_id_and_company),
     }
     guards = [developer_company_user_guard, user_active_guard]
@@ -77,35 +79,41 @@ class CharacterGenerationController(Controller):
     async def autogenerate_character_all_random(
         self,
         company: Company,
-        user: User,
-        campaign: Campaign,
+        acting_user: User,
+        campaign_id: Annotated[
+            UUID, Parameter(description="Campaign to generate the character in.")
+        ],
         data: CreateAutogenerateRequest,
         request: Request,
     ) -> CharacterResponse:
         """Create a new character."""
+        campaign = await Campaign.filter(
+            id=campaign_id, company_id=company.id, is_archived=False
+        ).first()
+        if not campaign:
+            raise NotFoundError(detail="Campaign not found")
+
         validation_service = GetModelByIdValidationService()
-        concept = (
-            await validation_service.get_concept_by_id(data.concept_id) if data.concept_id else None
-        )
-        vampire_clan = (
-            await validation_service.get_vampire_clan_by_id(data.vampire_clan_id)
-            if data.vampire_clan_id
-            else None
-        )
-        werewolf_tribe = (
-            await validation_service.get_werewolf_tribe_by_id(data.werewolf_tribe_id)
-            if data.werewolf_tribe_id
-            else None
-        )
-        werewolf_auspice = (
-            await validation_service.get_werewolf_auspice_by_id(data.werewolf_auspice_id)
-            if data.werewolf_auspice_id
-            else None
+
+        _T = TypeVar("_T")
+
+        async def _resolve_optional(
+            coro_fn: Callable[[UUID], Awaitable[_T]], val: UUID | None
+        ) -> _T | None:
+            return await coro_fn(val) if val else None
+
+        concept, vampire_clan, werewolf_tribe, werewolf_auspice = await asyncio.gather(
+            _resolve_optional(validation_service.get_concept_by_id, data.concept_id),
+            _resolve_optional(validation_service.get_vampire_clan_by_id, data.vampire_clan_id),
+            _resolve_optional(validation_service.get_werewolf_tribe_by_id, data.werewolf_tribe_id),
+            _resolve_optional(
+                validation_service.get_werewolf_auspice_by_id, data.werewolf_auspice_id
+            ),
         )
 
         chargen = CharacterAutogenerationHandler(
             company=company,
-            user=user,
+            user=acting_user,
             campaign=campaign,
         )
         new_character = await chargen.generate_character(
@@ -123,7 +131,6 @@ class CharacterGenerationController(Controller):
         await service.prepare_for_save(new_character)
         await new_character.save()
 
-        # Re-fetch with prefetch for DTO conversion
         new_character = (
             await Character.filter(id=new_character.id)
             .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
@@ -143,18 +150,26 @@ class CharacterGenerationController(Controller):
     async def start_chargen(
         self,
         company: Company,
-        user: User,
-        campaign: Campaign,
+        acting_user: User,
+        campaign_id: Annotated[UUID, Parameter(description="Campaign to generate characters for.")],
     ) -> ChargenSessionResponse:
         """Generate multiple character options."""
+        campaign = await Campaign.filter(
+            id=campaign_id, company_id=company.id, is_archived=False
+        ).first()
+        if not campaign:
+            raise NotFoundError(detail="Campaign not found")
+
         settings = company.settings
         num_choices = settings.character_autogen_num_choices or 1
 
         xp_cost = settings.character_autogen_xp_cost or 0
         if xp_cost > 0:
-            await UserXPService().spend_xp(user.id, campaign.id, xp_cost)
+            await UserXPService().spend_xp(acting_user.id, campaign.id, xp_cost)
 
-        chargen = CharacterAutogenerationHandler(company=company, user=user, campaign=campaign)
+        chargen = CharacterAutogenerationHandler(
+            company=company, user=acting_user, campaign=campaign
+        )
         service = CharacterService()
         characters: list[Character] = []
         for _ in range(num_choices):
@@ -168,7 +183,7 @@ class CharacterGenerationController(Controller):
             characters.append(character)
 
         session = await ChargenSession.create(
-            user=user,
+            user=acting_user,
             company=company,
             campaign=campaign,
             expires_at=time_now() + timedelta(hours=24),
@@ -176,7 +191,6 @@ class CharacterGenerationController(Controller):
         )
         await session.characters.add(*characters)
 
-        # Re-fetch with prefetch for DTO conversion
         session = (
             await ChargenSession.filter(id=session.id)
             .prefetch_related(*CHARGEN_SESSION_PREFETCH)
@@ -221,22 +235,18 @@ class CharacterGenerationController(Controller):
                 ]
             )
 
-        # Promote selected character
         selected_character.is_temporary = False
         selected_character.is_chargen = False
         service = CharacterService()
         await service.prepare_for_save(selected_character)
         await selected_character.save()
 
-        # Delete unselected characters
-        for char in session.characters:
-            if char.id != selected_character.id:
-                await char.delete()
+        unselected_ids = [c.id for c in session.characters if c.id != selected_character.id]
+        if unselected_ids:
+            await Character.filter(id__in=unselected_ids).delete()
 
-        # Delete the session
         await session.delete()
 
-        # Re-fetch with prefetch for DTO conversion
         selected_character = (
             await Character.filter(id=selected_character.id)
             .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
@@ -256,12 +266,12 @@ class CharacterGenerationController(Controller):
     async def list_chargen_sessions(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
     ) -> list[ChargenSessionResponse]:
         """List all active chargen sessions for this user."""
         sessions = await ChargenSession.filter(
             company=company,
-            user=user,
+            user=acting_user,
             expires_at__gt=time_now(),
         ).prefetch_related(*CHARGEN_SESSION_PREFETCH)
 

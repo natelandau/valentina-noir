@@ -40,11 +40,12 @@ All resource endpoints nest under a company to ensure proper scoping.
 
 ```
 /api/v1/companies/{company_id}/users
-/api/v1/companies/{company_id}/users/{user_id}/campaigns
-/api/v1/companies/{company_id}/users/{user_id}/campaigns/{campaign_id}/characters
+/api/v1/companies/{company_id}/campaigns
+/api/v1/companies/{company_id}/characters
+/api/v1/companies/{company_id}/dicerolls
 ```
 
-This hierarchical structure scopes every request to a specific company.
+This flat structure scopes every request to a specific company. The [`On-Behalf-Of` header](authentication.md#the-on-behalf-of-header) identifies which user is performing the action, rather than nesting resources under a user path.
 
 ### Child Data Last Updated
 

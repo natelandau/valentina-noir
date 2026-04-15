@@ -13,16 +13,18 @@ from vapi.domain.hooks.audit_helpers import build_audit_entry
 def _make_request(
     method: str = "POST",
     path_params: dict[str, str] | None = None,
-    request_json: dict[str, Any] | None = None,
     operation_id: str | None = None,
     audit_description: str | None = None,
     audit_changes: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    acting_user: Any | None = None,
 ) -> MagicMock:
     """Build a mock Litestar Request with the fields build_audit_entry reads."""
     request = MagicMock()
     request.method = method
     request.path_params = path_params or {}
     request.route_handler.operation_id = operation_id
+    request.headers = headers or {}
 
     state = MagicMock()
     state.audit_description = audit_description
@@ -32,9 +34,12 @@ def _make_request(
         del state.audit_description
     if audit_changes is None:
         del state.audit_changes
+    if acting_user is None:
+        del state.acting_user
+    else:
+        state.acting_user = acting_user
     request.state = state
 
-    request._parsed_json = request_json
     return request
 
 
@@ -52,7 +57,7 @@ class TestResolveOperation:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the operation is CREATE
         assert result["operation"] == AuditOperation.CREATE
@@ -68,7 +73,7 @@ class TestResolveOperation:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the operation is UPDATE
         assert result["operation"] == AuditOperation.UPDATE
@@ -84,7 +89,7 @@ class TestResolveOperation:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the operation is UPDATE
         assert result["operation"] == AuditOperation.UPDATE
@@ -100,7 +105,7 @@ class TestResolveOperation:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the operation is DELETE
         assert result["operation"] == AuditOperation.DELETE
@@ -120,7 +125,7 @@ class TestResolveEntityType:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the entity type is COMPANY and FKs are populated
         assert result["entity_type"] == AuditEntityType.COMPANY
@@ -148,7 +153,7 @@ class TestResolveEntityType:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the entity type is CHARACTER_TRAIT and all ancestor FKs are populated
         assert result["entity_type"] == AuditEntityType.CHARACTER_TRAIT
@@ -169,7 +174,7 @@ class TestResolveEntityType:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the entity type is USER, not COMPANY
         assert result["entity_type"] == AuditEntityType.USER
@@ -178,9 +183,9 @@ class TestResolveEntityType:
 class TestActingUserResolution:
     """Test acting user ID resolution."""
 
-    def test_requesting_user_id_from_body(self) -> None:
-        """Verify requesting_user_id in body takes precedence over path user_id."""
-        # Given a request with user_id in the path and requesting_user_id in the body
+    def test_on_behalf_of_header_used_as_acting_user(self) -> None:
+        """Verify On-Behalf-Of header takes precedence over path user_id."""
+        # Given a request with user_id in the path and an On-Behalf-Of header
         company_id = str(uuid4())
         target_user_id = str(uuid4())
         acting_user_id = str(uuid4())
@@ -188,17 +193,41 @@ class TestActingUserResolution:
             method="POST",
             path_params={"company_id": company_id, "user_id": target_user_id},
             operation_id="createUser",
+            headers={"On-Behalf-Of": acting_user_id},
         )
 
-        # When building the audit entry with the body containing requesting_user_id
-        result = build_audit_entry(request, request_json={"requesting_user_id": acting_user_id})
+        # When building the audit entry
+        result = build_audit_entry(request)
 
-        # Then the acting_user_id comes from the body, not the path
+        # Then the acting_user_id comes from the header, not the path
         assert result["acting_user_id"] == acting_user_id
 
-    def test_fallback_to_path_user_id(self) -> None:
-        """Verify path user_id used as acting_user when no requesting_user_id in body."""
-        # Given a request with user_id in the path and no requesting_user_id in the body
+    def test_request_state_acting_user_takes_highest_priority(self) -> None:
+        """Verify request.state.acting_user takes priority over header and path params."""
+        # Given a request with acting_user on state, an On-Behalf-Of header, and user_id in path
+        company_id = str(uuid4())
+        path_user_id = str(uuid4())
+        header_user_id = str(uuid4())
+        state_user_id = str(uuid4())
+        cached_user = MagicMock()
+        cached_user.id = state_user_id
+        request = _make_request(
+            method="PUT",
+            path_params={"company_id": company_id, "user_id": path_user_id},
+            operation_id="updateUser",
+            headers={"On-Behalf-Of": header_user_id},
+            acting_user=cached_user,
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then the acting_user_id comes from request.state, not the header or path
+        assert result["acting_user_id"] == state_user_id
+
+    def test_path_user_id_used_as_acting_user(self) -> None:
+        """Verify path user_id used as acting_user when no header and no cached user."""
+        # Given a request with user_id in the path, no On-Behalf-Of header, and no cached user
         company_id = str(uuid4())
         user_id = str(uuid4())
         campaign_id = str(uuid4())
@@ -213,14 +242,14 @@ class TestActingUserResolution:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the acting_user_id falls back to the path user_id
         assert result["acting_user_id"] == user_id
 
     def test_no_acting_user_for_developer_ops(self) -> None:
         """Verify acting_user_id is None for developer-level operations."""
-        # Given a developer-level request with no user_id in path or body
+        # Given a developer-level request with no user_id in path, no header, and no cached user
         company_id = str(uuid4())
         request = _make_request(
             method="POST",
@@ -229,7 +258,7 @@ class TestActingUserResolution:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then there is no acting user
         assert result["acting_user_id"] is None
@@ -250,7 +279,7 @@ class TestRequestStateOverrides:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the custom description is used instead of auto-generated
         assert result["description"] == "Custom description for this update"
@@ -268,7 +297,7 @@ class TestRequestStateOverrides:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the changes dict is passed through
         assert result["changes"] == changes
@@ -284,7 +313,7 @@ class TestRequestStateOverrides:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then changes is None
         assert result["changes"] is None
@@ -312,7 +341,7 @@ class TestAncestorFKPopulation:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then all ancestor FK columns are populated
         assert result["company_id"] == company_id
@@ -344,7 +373,7 @@ class TestAncestorFKPopulation:
         )
 
         # When building the audit entry
-        result = build_audit_entry(request, request_json=None)
+        result = build_audit_entry(request)
 
         # Then the entity type is NOTE and the full ancestor chain is populated
         assert result["company_id"] == company_id

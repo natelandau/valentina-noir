@@ -243,6 +243,34 @@ async def session_user_admin(session_company: Company) -> User:
     return await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
 
 
+@pytest.fixture(scope="session")
+async def session_acting_user(session_company: Company) -> User:
+    """Create a default acting user (ADMIN) for the On-Behalf-Of header.
+
+    Session-scoped: created once and preserved across per-test cleanup.
+    Most integration tests use this as the default acting user. Tests
+    that need specific roles create their own users via factories.
+    """
+    user = await User.create(
+        username="test-acting-user",
+        email="acting-user@example.com",
+        role="ADMIN",
+        company=session_company,
+    )
+    register_session_id('"user"', str(user.id))
+    return await User.filter(id=user.id).prefetch_related("campaign_experiences").first()
+
+
+@pytest.fixture(scope="session")
+def on_behalf_of_header(session_acting_user: User) -> dict[str, str]:
+    """Return the On-Behalf-Of header for the default acting user.
+
+    Merge with auth token headers in tests:
+        headers = token_company_user | on_behalf_of_header
+    """
+    return {"On-Behalf-Of": str(session_acting_user.id)}
+
+
 # ---------------------------------------------------------------------------
 # Campaign fixtures
 # ---------------------------------------------------------------------------

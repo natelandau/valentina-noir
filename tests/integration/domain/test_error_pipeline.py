@@ -51,6 +51,7 @@ class TestErrorPipeline:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ValidationError from service layer returns proper HTTP 400 response with invalid_parameters."""
@@ -59,10 +60,8 @@ class TestErrorPipeline:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name_first": "ErrorPipelineTest",
                 "name_last": "Vampire",
@@ -99,6 +98,7 @@ class TestErrorPipeline:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify NotFoundError returns proper HTTP 404 response."""
@@ -108,11 +108,9 @@ class TestErrorPipeline:
             build_url(
                 CharacterURL.DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=non_existent_id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then the response should be HTTP 404 with RFC 7807 structure
@@ -137,6 +135,7 @@ class TestErrorPipeline:
         character_factory: Callable[..., Character],
         character_trait_factory: Callable[..., CharacterTrait],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify ConflictError returns proper HTTP 409 response."""
@@ -155,11 +154,9 @@ class TestErrorPipeline:
             build_url(
                 CharacterURL.TRAIT_CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name": trait.name,
                 "description": "Test Description",
@@ -190,6 +187,7 @@ class TestErrorPipeline:
         session_user: User,
         session_campaign: Campaign,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         debug: Callable[[Any], None],
     ) -> None:
         """Verify Tortoise ValidationError is converted to proper HTTP 400 response."""
@@ -198,10 +196,8 @@ class TestErrorPipeline:
             build_url(
                 CharacterURL.CREATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name_first": "a",  # Too short — rejected by MinLengthValidator(3)
                 "name_last": "Test",
@@ -230,6 +226,7 @@ class TestErrorPipeline:
         build_url: Callable[[str, Any], str],
         session_global_admin: Developer,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         developer_factory: Callable[..., Developer],
     ) -> None:
         """Verify IntegrityError from duplicate unique field returns proper HTTP 409 response."""
@@ -239,7 +236,7 @@ class TestErrorPipeline:
         # When creating another developer with the same email
         response = await client.post(
             build_url(GlobalAdmin.DEVELOPER_CREATE),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "username": "another-dev",
                 "email": existing.email,
@@ -263,6 +260,7 @@ class TestErrorPipeline:
         build_url: Callable[[str, Any], str],
         session_global_admin: Developer,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         mocker: MockerFixture,
     ) -> None:
         """Verify DoesNotExist from Tortoise ORM returns proper HTTP 404 response."""
@@ -274,7 +272,7 @@ class TestErrorPipeline:
         # When creating a developer triggers the mocked exception
         response = await client.post(
             build_url(GlobalAdmin.DEVELOPER_CREATE),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "username": "ghost-dev",
                 "email": "ghost@example.com",
@@ -298,6 +296,7 @@ class TestErrorPipeline:
         build_url: Callable[[str, Any], str],
         session_global_admin: Developer,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         mocker: MockerFixture,
     ) -> None:
         """Verify OperationalError from Tortoise ORM returns clean HTTP 500 response."""
@@ -309,7 +308,7 @@ class TestErrorPipeline:
         # When creating a developer triggers the mocked exception
         response = await client.post(
             build_url(GlobalAdmin.DEVELOPER_CREATE),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "username": "unlucky-dev",
                 "email": "unlucky@example.com",

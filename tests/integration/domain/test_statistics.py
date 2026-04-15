@@ -118,6 +118,7 @@ class TestCompanyStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -127,7 +128,7 @@ class TestCompanyStatistics:
         """Verify company statistics returns zeros when no rolls exist."""
         response = await client.get(
             build_url(Companies.STATISTICS, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {
@@ -149,6 +150,7 @@ class TestCompanyStatistics:
     async def test_get_company_statistics(
         self,
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         session_company: Company,
@@ -163,7 +165,7 @@ class TestCompanyStatistics:
 
         response = await client.get(
             build_url(Companies.STATISTICS, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {
@@ -202,6 +204,7 @@ class TestCompanyStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -215,7 +218,7 @@ class TestCompanyStatistics:
 
         response = await client.get(
             build_url(Companies.STATISTICS, company_id=session_company.id),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"num_top_traits": 1},
         )
         assert response.status_code == HTTP_200_OK
@@ -249,6 +252,7 @@ class TestUserStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -262,7 +266,7 @@ class TestUserStatistics:
                 company_id=session_company.id,
                 user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {
@@ -285,6 +289,7 @@ class TestUserStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -302,7 +307,7 @@ class TestUserStatistics:
                 company_id=session_company.id,
                 user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {
@@ -341,6 +346,7 @@ class TestUserStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -358,7 +364,7 @@ class TestUserStatistics:
                 company_id=session_company.id,
                 user_id=session_user.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"num_top_traits": 1},
         )
         assert response.status_code == HTTP_200_OK
@@ -392,6 +398,7 @@ class TestCharacterStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -411,11 +418,9 @@ class TestCharacterStatistics:
             build_url(
                 Characters.STATISTICS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {
@@ -438,6 +443,7 @@ class TestCharacterStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -461,11 +467,9 @@ class TestCharacterStatistics:
             build_url(
                 Characters.STATISTICS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character_id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_200_OK
         assert response.json() == {
@@ -504,6 +508,7 @@ class TestCharacterStatistics:
         self,
         build_url: Callable[[str, Any], str],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
         client: AsyncClient,
         session_company: Company,
         session_global_admin: Developer,
@@ -524,11 +529,9 @@ class TestCharacterStatistics:
             build_url(
                 Characters.STATISTICS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 character_id=character_id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             params={"num_top_traits": 1},
         )
         assert response.status_code == HTTP_200_OK

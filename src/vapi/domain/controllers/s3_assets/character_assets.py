@@ -31,7 +31,7 @@ class CharacterAssetsController(BaseAssetsController):
     tags = [APITags.CHARACTERS_ASSETS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "asset": Provide(deps.provide_s3_asset_by_id),
     }
@@ -86,14 +86,14 @@ class CharacterAssetsController(BaseAssetsController):
         self,
         company: Company,
         character: Character,
-        user: User,
+        acting_user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> dto.S3AssetResponse:
         """Upload a character asset."""
         return await self._create_asset(
             parent_id=character.id,
             company_id=company.id,
-            upload_user_id=user.id,
+            upload_user_id=acting_user.id,
             data=data,
         )
 
@@ -103,7 +103,8 @@ class CharacterAssetsController(BaseAssetsController):
         operation_id="deleteCharacterAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_character_player_or_storyteller_guard],
     )
-    async def delete_character_asset(self, asset: S3Asset) -> None:
+    async def delete_character_asset(self, asset: S3Asset, acting_user: User) -> None:  # noqa: ARG002
         """Delete a character asset."""
         await self._delete_asset(asset=asset)

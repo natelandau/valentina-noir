@@ -8,28 +8,22 @@ from litestar.handlers.base import BaseRouteHandler
 
 from vapi.constants import PermissionManageCampaign, UserRole
 from vapi.db.sql_models.company import Company
-from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError
+from vapi.lib.guards import _resolve_acting_user_from_header
 
 
 async def user_can_manage_campaign(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """Guard to check if the user can manage the campaign."""
+    """Guard to check if the acting user can manage the campaign."""
     company_id = connection.path_params.get("company_id", None)
     if not company_id:
         raise ClientError(detail="Company ID is required")
 
-    user_id = connection.path_params.get("user_id")
-    if not user_id:
-        raise ClientError(detail="User ID is required")
-
     company, user = await asyncio.gather(
         Company.filter(id=company_id, is_archived=False).prefetch_related("settings").first(),
-        User.get_or_none(id=user_id),
+        _resolve_acting_user_from_header(connection),
     )
     if not company:
         raise NotFoundError(detail=f"Company '{company_id}' not found")
-    if not user:
-        raise ClientError(detail=f"User '{user_id}' not found on this server.")
 
     match company.settings.permission_manage_campaign:
         case PermissionManageCampaign.UNRESTRICTED:

@@ -35,12 +35,12 @@ class TestIdempotencyMiddleware:
             **token_company_admin,
             IDEMPOTENCY_KEY_HEADER: idempotency_key,
             IGNORE_RATE_LIMIT_HEADER_KEY: "true",
+            "On-Behalf-Of": str(session_user_storyteller.id),
         }
         request_body = {"name": "Test Campaign Idempotent", "description": "Test"}
         url = build_url(
             Campaigns.CREATE,
             company_id=session_company.id,
-            user_id=session_user_storyteller.id,
         )
 
         # When making a POST request
@@ -73,11 +73,11 @@ class TestIdempotencyMiddleware:
             **token_company_admin,
             IDEMPOTENCY_KEY_HEADER: idempotency_key,
             IGNORE_RATE_LIMIT_HEADER_KEY: "true",
+            "On-Behalf-Of": str(session_user_storyteller.id),
         }
         url = build_url(
             Campaigns.CREATE,
             company_id=session_company.id,
-            user_id=session_user_storyteller.id,
         )
 
         # When making a POST request with a body
@@ -111,11 +111,11 @@ class TestIdempotencyMiddleware:
         headers = {
             **token_company_admin,
             IGNORE_RATE_LIMIT_HEADER_KEY: "true",
+            "On-Behalf-Of": str(session_user_storyteller.id),
         }
         url = build_url(
             Campaigns.CREATE,
             company_id=session_company.id,
-            user_id=session_user_storyteller.id,
         )
 
         # When making a POST request
@@ -162,7 +162,6 @@ class TestIdempotencyMiddleware:
             build_url(
                 Campaigns.LIST,
                 company_id=session_company.id,
-                user_id=session_user.id,
             ),
             headers=headers,
         )

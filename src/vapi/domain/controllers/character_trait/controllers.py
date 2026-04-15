@@ -38,7 +38,7 @@ class CharacterTraitController(Controller):
     tags = [APITags.CHARACTERS_TRAITS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "character_trait": Provide(deps.provide_character_trait_by_id),
         "developer": Provide(deps.provide_developer_from_request),
@@ -98,7 +98,7 @@ class CharacterTraitController(Controller):
     async def assign_trait_to_character(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         character: Character,
         data: CharacterTraitAddConstant,
         request: Request,
@@ -107,7 +107,7 @@ class CharacterTraitController(Controller):
         service = CharacterTraitService()
         ct = await service.add_constant_trait_to_character(
             company=company,
-            user=user,
+            user=acting_user,
             character=character,
             trait_id=data.trait_id,
             value=data.value,
@@ -127,7 +127,7 @@ class CharacterTraitController(Controller):
     async def bulk_assign_traits_to_character(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         character: Character,
         data: list[CharacterTraitAddConstant],
         request: Request,
@@ -141,7 +141,7 @@ class CharacterTraitController(Controller):
         request.state.audit_description = f"Bulk assign {len(data)} traits to character '{character.name_first} {character.name_last}'"
         return await service.bulk_add_constant_traits_to_character(
             company=company,
-            user=user,
+            user=acting_user,
             character=character,
             items=data,
         )
@@ -156,7 +156,7 @@ class CharacterTraitController(Controller):
     async def create_custom_trait(
         self,
         company: Company,
-        user: User,
+        acting_user: User,
         character: Character,
         data: CharacterTraitCreateCustom,
         request: Request,
@@ -165,7 +165,7 @@ class CharacterTraitController(Controller):
         service = CharacterTraitService()
         ct = await service.create_custom_trait(
             company=company,
-            user=user,
+            user=acting_user,
             character=character,
             data=data,
         )
@@ -203,7 +203,7 @@ class CharacterTraitController(Controller):
         self,
         request: Request,
         company: Company,
-        user: User,
+        acting_user: User,
         character: Character,
         character_trait: CharacterTrait,
         data: TraitModifyRequest,
@@ -213,7 +213,7 @@ class CharacterTraitController(Controller):
         recoup_store = request.app.stores.get(settings.stores.recoup_session_key)
         ct = await service.modify_trait_value(
             company=company,
-            user=user,
+            user=acting_user,
             character=character,
             character_trait=character_trait,
             target_value=data.target_value,
@@ -234,7 +234,7 @@ class CharacterTraitController(Controller):
         self,
         request: Request,
         company: Company,
-        user: User,
+        acting_user: User,
         character: Character,
         character_trait: CharacterTrait,
         currency: Annotated[
@@ -244,12 +244,12 @@ class CharacterTraitController(Controller):
     ) -> None:
         """Delete a character trait."""
         service = CharacterTraitService()
-        service.guard_user_can_manage_character(character=character, user=user)
+        service.guard_user_can_manage_character(character=character, user=acting_user)
         recoup_store = request.app.stores.get(settings.stores.recoup_session_key)
         request.state.audit_description = f"Delete trait '{character_trait.trait.name}' from character '{character.name_first} {character.name_last}'"
         await service.delete_trait(
             company=company,
-            user=user,
+            user=acting_user,
             character=character,
             character_trait=character_trait,
             currency=currency,

@@ -30,7 +30,7 @@ class BookAssetsController(BaseAssetsController):
     tags = [APITags.CAMPAIGN_BOOK_ASSETS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "asset": Provide(deps.provide_s3_asset_by_id),
@@ -83,14 +83,14 @@ class BookAssetsController(BaseAssetsController):
         self,
         company: Company,
         book: CampaignBook,
-        user: User,
+        acting_user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> dto.S3AssetResponse:
         """Upload a book asset."""
         return await self._create_asset(
             parent_id=book.id,
             company_id=company.id,
-            upload_user_id=user.id,
+            upload_user_id=acting_user.id,
             data=data,
         )
 

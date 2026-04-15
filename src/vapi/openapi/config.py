@@ -67,7 +67,9 @@ def create_openapi_config() -> OpenAPIConfig:
         ],
         path="/docs",
         components=Components(
-            headers={AUTH_HEADER_KEY: OpenAPIHeader(description="API Key for authentication")},
+            headers={
+                AUTH_HEADER_KEY: OpenAPIHeader(description="API Key for authentication"),
+            },
             security_schemes={
                 "API Key": SecurityScheme(
                     security_scheme_in="header",

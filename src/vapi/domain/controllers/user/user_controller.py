@@ -2,7 +2,6 @@
 
 import asyncio
 from typing import Annotated
-from uuid import UUID
 
 from litestar import Request
 from litestar.controller import Controller
@@ -25,7 +24,6 @@ from . import docs
 from .dto import (
     UserApprove,
     UserCreate,
-    UserDeny,
     UserDetailResponse,
     UserInclude,
     UserMerge,
@@ -41,8 +39,9 @@ class UserController(Controller):
 
     tags = [APITags.USERS.name]
     dependencies = {
-        "user": Provide(deps.provide_user_by_id_and_company),
         "company": Provide(deps.provide_company_by_id),
+        "target_user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "developer": Provide(deps.provide_developer_from_request),
     }
     guards = [developer_company_user_guard, user_active_guard]
@@ -90,12 +89,12 @@ class UserController(Controller):
     )
     async def get_user(
         self,
-        user: User,
+        target_user: User,
         include: list[UserInclude] | None = None,
     ) -> UserDetailResponse:
         """Get a user by ID with optional embedded children."""
-        requested = await apply_includes(user, include, get_user_include_prefetch_map())
-        return UserDetailResponse.from_model(user, requested)
+        requested = await apply_includes(target_user, include, get_user_include_prefetch_map())
+        return UserDetailResponse.from_model(target_user, requested)
 
     @post(
         path=urls.Users.CREATE,
@@ -105,10 +104,12 @@ class UserController(Controller):
         guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def create_user(self, data: UserCreate, company: Company) -> UserResponse:
+    async def create_user(
+        self, data: UserCreate, company: Company, acting_user: User
+    ) -> UserResponse:
         """Create a new user."""
         service = UserService()
-        user = await service.create_user(company=company, data=data)
+        user = await service.create_user(company=company, data=data, acting_user_id=acting_user.id)
         return UserResponse.from_model(user)
 
     @patch(
@@ -119,12 +120,16 @@ class UserController(Controller):
         guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def update_user(self, user: User, data: UserPatch, request: Request) -> UserResponse:
+    async def update_user(
+        self, target_user: User, data: UserPatch, acting_user: User, request: Request
+    ) -> UserResponse:
         """Update a user by ID."""
         service = UserService()
-        user, changes = await service.update_user(user=user, data=data)
+        target_user, changes = await service.update_user(
+            user=target_user, data=data, acting_user_id=acting_user.id
+        )
         request.state.audit_changes = changes
-        return UserResponse.from_model(user)
+        return UserResponse.from_model(target_user)
 
     @delete(
         path=urls.Users.DELETE,
@@ -134,14 +139,14 @@ class UserController(Controller):
         guards=[developer_company_user_guard],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_user(self, user: User, company: Company, requesting_user_id: UUID) -> None:
+    async def delete_user(self, target_user: User, company: Company, acting_user: User) -> None:
         """Delete a user by ID."""
         service = UserService()
         await service.validate_user_can_manage_user(
-            user_to_manage_id=user.id,
-            requesting_user_id=requesting_user_id,
+            user_to_manage_id=target_user.id,
+            requesting_user_id=acting_user.id,
         )
-        await service.remove_and_archive_user(user=user, company=company)
+        await service.remove_and_archive_user(user=target_user, company=company)
 
     @get(
         path=urls.Users.UNAPPROVED_LIST,
@@ -153,13 +158,13 @@ class UserController(Controller):
     async def list_unapproved_users(
         self,
         company: Company,
-        requesting_user_id: UUID,
+        acting_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[UserResponse]:
         """Retrieve unapproved users within a company."""
         service = UserService()
-        await service.validate_user_can_manage_user(requesting_user_id=requesting_user_id)
+        await service.validate_user_can_manage_user(requesting_user_id=acting_user.id)
 
         qs = User.filter(company_id=company.id, is_archived=False, role=UserRole.UNAPPROVED)
         count, users = await asyncio.gather(
@@ -182,16 +187,18 @@ class UserController(Controller):
         after_response=hooks.post_data_update_hook,
         opt={"allow_unapproved_user": True},
     )
-    async def approve_user(self, request: Request, user: User, data: UserApprove) -> UserResponse:
+    async def approve_user(
+        self, request: Request, target_user: User, data: UserApprove, acting_user: User
+    ) -> UserResponse:
         """Approve an unapproved user and assign a role."""
         service = UserService()
-        user = await service.approve_user(
-            user=user,
+        target_user = await service.approve_user(
+            user=target_user,
             role=UserRole(data.role),
-            requesting_user_id=data.requesting_user_id,
+            acting_user_id=acting_user.id,
         )
-        request.state.audit_description = f"Approve user '{user.username}'"
-        return UserResponse.from_model(user)
+        request.state.audit_description = f"Approve user '{target_user.username}'"
+        return UserResponse.from_model(target_user)
 
     @post(
         path=urls.Users.DENY,
@@ -202,15 +209,15 @@ class UserController(Controller):
         opt={"allow_unapproved_user": True},
     )
     async def deny_user(
-        self, request: Request, user: User, company: Company, data: UserDeny
+        self, request: Request, target_user: User, company: Company, acting_user: User
     ) -> None:
         """Deny an unapproved user."""
         service = UserService()
-        request.state.audit_description = f"Deny user '{user.username}'"
+        request.state.audit_description = f"Deny user '{target_user.username}'"
         await service.deny_user(
-            user=user,
+            user=target_user,
             company=company,
-            requesting_user_id=data.requesting_user_id,
+            acting_user_id=acting_user.id,
         )
 
     @post(
@@ -238,7 +245,7 @@ class UserController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def merge_users(
-        self, request: Request, data: UserMerge, company: Company
+        self, request: Request, data: UserMerge, company: Company, acting_user: User
     ) -> UserResponse:
         """Merge an UNAPPROVED user into an existing primary user."""
         service = UserService()
@@ -246,7 +253,7 @@ class UserController(Controller):
             primary_user_id=data.primary_user_id,
             secondary_user_id=data.secondary_user_id,
             company=company,
-            requesting_user_id=data.requesting_user_id,
+            acting_user_id=acting_user.id,
         )
         request.state.audit_description = f"Merge user into '{primary_user.username}'"
         return UserResponse.from_model(primary_user)

@@ -19,10 +19,16 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-def _mock_connection(mocker: MockerFixture, path_params: dict[str, str]) -> MagicMock:
-    """Create a mock ASGIConnection with the given path params."""
+def _mock_connection(
+    mocker: MockerFixture,
+    path_params: dict[str, str],
+    headers: dict[str, str] | None = None,
+) -> MagicMock:
+    """Create a mock ASGIConnection with the given path params and headers."""
     connection = mocker.MagicMock()
     connection.path_params = path_params
+    connection.headers = headers or {}
+    connection.scope = {}
     return connection
 
 
@@ -31,27 +37,39 @@ def _mock_handler(mocker: MockerFixture) -> MagicMock:
     return mocker.MagicMock()
 
 
+def _mock_user_filter(mocker: MockerFixture, *, return_user: MagicMock | None) -> None:
+    """Patch the User.filter call in _resolve_acting_user_from_header."""
+    mocker.patch(
+        "vapi.lib.guards.User.filter",
+        return_value=mocker.AsyncMock(first=mocker.AsyncMock(return_value=return_user)),
+    )
+
+
 class TestUserCanManageCampaignValidation:
     """Test input validation for user_can_manage_campaign guard."""
 
     async def test_missing_company_id_raises_client_error(self, mocker: MockerFixture) -> None:
         """Verify missing company_id raises ClientError."""
         # Given a connection without company_id
-        connection = _mock_connection(mocker, path_params={"user_id": str(uuid4())})
+        connection = _mock_connection(
+            mocker, path_params={}, headers={"On-Behalf-Of": str(uuid4())}
+        )
 
         # When calling the guard
         # Then it raises ClientError
         with pytest.raises(ClientError, match="Company ID is required"):
             await user_can_manage_campaign(connection, _mock_handler(mocker))
 
-    async def test_missing_user_id_raises_client_error(self, mocker: MockerFixture) -> None:
-        """Verify missing user_id raises ClientError."""
-        # Given a connection without user_id
+    async def test_missing_on_behalf_of_header_raises_permission_denied(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify missing On-Behalf-Of header raises PermissionDeniedError."""
+        # Given a connection without On-Behalf-Of header
         connection = _mock_connection(mocker, path_params={"company_id": str(uuid4())})
 
         # When calling the guard
-        # Then it raises ClientError
-        with pytest.raises(ClientError, match="User ID is required"):
+        # Then it raises PermissionDeniedError
+        with pytest.raises(PermissionDeniedError, match="On-Behalf-Of header is required"):
             await user_can_manage_campaign(connection, _mock_handler(mocker))
 
 
@@ -60,10 +78,12 @@ class TestUserCanManageCampaignLookup:
 
     async def test_company_not_found_raises_not_found_error(self, mocker: MockerFixture) -> None:
         """Verify non-existent company raises NotFoundError."""
-        # Given valid path params but company doesn't exist
+        # Given valid params but company doesn't exist
         company_id = str(uuid4())
         connection = _mock_connection(
-            mocker, path_params={"company_id": company_id, "user_id": str(uuid4())}
+            mocker,
+            path_params={"company_id": company_id},
+            headers={"On-Behalf-Of": str(uuid4())},
         )
         mocker.patch(
             "vapi.domain.controllers.campaign.guards.Company.filter",
@@ -73,23 +93,22 @@ class TestUserCanManageCampaignLookup:
                 )
             ),
         )
-        mocker.patch(
-            "vapi.domain.controllers.campaign.guards.User.get_or_none",
-            new=mocker.AsyncMock(return_value=mocker.MagicMock()),
-        )
+        _mock_user_filter(mocker, return_user=mocker.MagicMock())
 
         # When calling the guard
         # Then it raises NotFoundError
         with pytest.raises(NotFoundError, match=company_id):
             await user_can_manage_campaign(connection, _mock_handler(mocker))
 
-    async def test_user_not_found_raises_client_error(self, mocker: MockerFixture) -> None:
-        """Verify non-existent user raises ClientError."""
-        # Given valid path params but user doesn't exist
+    async def test_user_not_found_raises_not_found_error(self, mocker: MockerFixture) -> None:
+        """Verify non-existent user raises NotFoundError."""
+        # Given valid params but user doesn't exist
         user_id = str(uuid4())
         mock_company = mocker.MagicMock()
         connection = _mock_connection(
-            mocker, path_params={"company_id": str(uuid4()), "user_id": user_id}
+            mocker,
+            path_params={"company_id": str(uuid4())},
+            headers={"On-Behalf-Of": user_id},
         )
         mocker.patch(
             "vapi.domain.controllers.campaign.guards.Company.filter",
@@ -99,14 +118,11 @@ class TestUserCanManageCampaignLookup:
                 )
             ),
         )
-        mocker.patch(
-            "vapi.domain.controllers.campaign.guards.User.get_or_none",
-            new=mocker.AsyncMock(return_value=None),
-        )
+        _mock_user_filter(mocker, return_user=None)
 
         # When calling the guard
-        # Then it raises ClientError
-        with pytest.raises(ClientError, match=user_id):
+        # Then it raises NotFoundError
+        with pytest.raises(NotFoundError, match=user_id):
             await user_can_manage_campaign(connection, _mock_handler(mocker))
 
 
@@ -116,7 +132,7 @@ def _setup_db_mocks(
     permission: PermissionManageCampaign,
     user_role: UserRole,
 ) -> tuple[MagicMock, MagicMock]:
-    """Patch Company.filter and User.get_or_none, returning (mock_company, mock_user)."""
+    """Patch Company.filter and User.filter, returning (mock_company, mock_user)."""
     mock_settings = mocker.MagicMock()
     mock_settings.permission_manage_campaign = permission
 
@@ -134,10 +150,7 @@ def _setup_db_mocks(
             )
         ),
     )
-    mocker.patch(
-        "vapi.domain.controllers.campaign.guards.User.get_or_none",
-        new=mocker.AsyncMock(return_value=mock_user),
-    )
+    _mock_user_filter(mocker, return_user=mock_user)
     return mock_company, mock_user
 
 
@@ -151,7 +164,9 @@ class TestUserCanManageCampaignUnrestricted:
         """Verify UNRESTRICTED permission allows all user roles."""
         # Given a company with UNRESTRICTED permission and a user with the given role
         connection = _mock_connection(
-            mocker, path_params={"company_id": str(uuid4()), "user_id": str(uuid4())}
+            mocker,
+            path_params={"company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(uuid4())},
         )
         _setup_db_mocks(mocker, permission=PermissionManageCampaign.UNRESTRICTED, user_role=role)
 
@@ -170,7 +185,9 @@ class TestUserCanManageCampaignStoryteller:
         """Verify STORYTELLER permission allows storyteller and admin roles."""
         # Given a company with STORYTELLER permission and a privileged user
         connection = _mock_connection(
-            mocker, path_params={"company_id": str(uuid4()), "user_id": str(uuid4())}
+            mocker,
+            path_params={"company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(uuid4())},
         )
         _setup_db_mocks(mocker, permission=PermissionManageCampaign.STORYTELLER, user_role=role)
 
@@ -185,7 +202,9 @@ class TestUserCanManageCampaignStoryteller:
         """Verify STORYTELLER permission denies player and unapproved roles."""
         # Given a company with STORYTELLER permission and an unprivileged user
         connection = _mock_connection(
-            mocker, path_params={"company_id": str(uuid4()), "user_id": str(uuid4())}
+            mocker,
+            path_params={"company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(uuid4())},
         )
         _setup_db_mocks(mocker, permission=PermissionManageCampaign.STORYTELLER, user_role=role)
 

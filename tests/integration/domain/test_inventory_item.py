@@ -33,6 +33,7 @@ class TestInventoryItem:
         character_factory: Callable[..., Character],
         character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify listing inventory items returns only non-archived items."""
         # Given a character with one active and one archived inventory item
@@ -52,11 +53,9 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 200 with only the non-archived item
@@ -81,6 +80,7 @@ class TestInventoryItem:
         character_factory: Callable[..., Character],
         character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify retrieving a single inventory item by ID returns correct data."""
         # Given a character with an inventory item
@@ -94,12 +94,10 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_DETAIL,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 inventory_item_id=item.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 200 with the item details
@@ -120,6 +118,7 @@ class TestInventoryItem:
         character_factory: Callable[..., Character],
         character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify that requesting an archived inventory item returns 404."""
         # Given a character with an archived inventory item
@@ -136,12 +135,10 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_DETAIL,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 inventory_item_id=item.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 404
@@ -156,6 +153,7 @@ class TestInventoryItem:
         session_global_admin,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating an inventory item persists it with the correct data."""
         # Given a character
@@ -166,11 +164,9 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_CREATE,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name": "Test Item",
                 "type": "OTHER",
@@ -203,6 +199,7 @@ class TestInventoryItem:
         session_global_admin,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating an inventory item with an invalid type returns 400."""
         # Given a character
@@ -213,11 +210,9 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_CREATE,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={
                 "name": "Test Item",
                 "type": "SOMETHING_INVALID",
@@ -238,6 +233,7 @@ class TestInventoryItem:
         session_global_admin,
         character_factory: Callable[..., Character],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify creating an inventory item without required fields returns 400."""
         # Given a character
@@ -248,11 +244,9 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_CREATE,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={},
         )
 
@@ -271,6 +265,7 @@ class TestInventoryItem:
         character_factory: Callable[..., Character],
         character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify updating an inventory item persists the changed fields."""
         # Given a character with an inventory item
@@ -287,12 +282,10 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_UPDATE,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 inventory_item_id=item.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
             json={"description": "Updated Description"},
         )
 
@@ -319,6 +312,7 @@ class TestInventoryItem:
         character_factory: Callable[..., Character],
         character_inventory_factory: Callable[..., CharacterInventory],
         token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify deleting an inventory item archives it rather than removing it."""
         # Given a character with an inventory item
@@ -332,12 +326,10 @@ class TestInventoryItem:
             build_url(
                 Characters.INVENTORY_DELETE,
                 company_id=session_company.id,
-                user_id=character.user_player_id,
-                campaign_id=character.campaign_id,
                 character_id=character.id,
                 inventory_item_id=item.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | on_behalf_of_header,
         )
 
         # Then we should get a 204 and the item should be archived

@@ -68,10 +68,9 @@ class TestAutogenerateCharacter:
             build_url(
                 CharacterURL.AUTOGENERATE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
             json={"character_type": CharacterType.PLAYER.name},
         )
         assert response.status_code == HTTP_403_FORBIDDEN
@@ -103,10 +102,9 @@ class TestAutogenerateCharacter:
             build_url(
                 CharacterURL.AUTOGENERATE,
                 company_id=session_company.id,
-                user_id=session_user_storyteller.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user_storyteller.id)},
+            params={"campaign_id": str(session_campaign.id)},
             json={
                 "character_type": CharacterType.PLAYER.name,
                 "character_class": CharacterClass.MORTAL.name,
@@ -175,10 +173,9 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         # debug(response.json())
 
@@ -213,10 +210,9 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         # debug(response.json())
 
@@ -244,10 +240,9 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         chargen_session_id = response.json()["id"]
         characters = response.json()["characters"]
@@ -259,10 +254,8 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             json={"session_id": chargen_session_id, "selected_character_id": selected_character_id},
         )
         # debug(response.json())
@@ -301,10 +294,9 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         characters = response.json()["characters"]
         assert len(characters) == 3
@@ -315,10 +307,8 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             json={
                 "session_id": "invalid-session-id",
                 "selected_character_id": selected_character_id,
@@ -349,10 +339,9 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         chargen_session_id = response.json()["id"]
         characters = response.json()["characters"]
@@ -363,10 +352,8 @@ class TestCharacterChargen:
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             json={
                 "session_id": chargen_session_id,
                 "selected_character_id": str(uuid4()),
@@ -401,10 +388,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
         session_id = start_response.json()["id"]
@@ -414,10 +400,8 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_SESSIONS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then the session appears with characters populated
@@ -449,10 +433,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
         session_id = start_response.json()["id"]
@@ -467,10 +450,8 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_SESSIONS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then the expired session is not included
@@ -500,10 +481,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
 
@@ -522,10 +502,8 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_SESSIONS,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then only base_user's session appears, not the fake user's session
@@ -556,10 +534,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
         session_id = start_response.json()["id"]
@@ -569,11 +546,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_SESSION_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 session_id=session_id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then the session is returned with characters
@@ -598,11 +573,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_SESSION_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 session_id=str(uuid4()),
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then we get a 400 error
@@ -628,10 +601,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
         session_id = start_response.json()["id"]
@@ -646,11 +618,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_SESSION_DETAIL,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
                 session_id=session_id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
         )
 
         # Then we get a 400 error
@@ -678,10 +648,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
 
         # Then a ChargenSession document exists
@@ -713,10 +682,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
         session_id = start_response.json()["id"]
@@ -728,10 +696,8 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_FINALIZE,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
             json={"session_id": session_id, "selected_character_id": selected_character_id},
         )
         assert response.status_code == HTTP_201_CREATED
@@ -762,10 +728,9 @@ class TestChargenSessions:
             build_url(
                 CharacterURL.CHARGEN_START,
                 company_id=session_company.id,
-                user_id=session_user.id,
-                campaign_id=session_campaign.id,
             ),
-            headers=token_global_admin,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
         )
         assert start_response.status_code == HTTP_201_CREATED
         session_id = start_response.json()["id"]

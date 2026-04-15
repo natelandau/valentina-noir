@@ -27,7 +27,8 @@ class QuickRollController(Controller):
     tags = [APITags.USERS_QUICKROLLS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "target_user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "quickroll": Provide(deps.provide_quickroll_by_id),
     }
     guards = [developer_company_user_guard, user_active_guard]
@@ -41,12 +42,12 @@ class QuickRollController(Controller):
     )
     async def list_user_quickrolls(
         self,
-        user: User,
+        target_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[dto.QuickRollResponse]:
         """List all user quick rolls."""
-        qs = QuickRoll.filter(user=user, is_archived=False).order_by("name")
+        qs = QuickRoll.filter(user=target_user, is_archived=False).order_by("name")
         count = await qs.count()
         quickrolls = await qs.offset(offset).limit(limit).prefetch_related("traits")
         return OffsetPagination(
@@ -75,14 +76,14 @@ class QuickRollController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_user_quickroll(
-        self, *, request: Request, user: User, data: dto.QuickRollCreate
+        self, *, request: Request, target_user: User, data: dto.QuickRollCreate
     ) -> dto.QuickRollResponse:
         """Create a user quick roll."""
         service = UserQuickRollService()
         traits = await service.validate_quickroll_traits(data.trait_ids)
 
         quickroll = await QuickRoll.create(
-            user=user,
+            user=target_user,
             name=data.name,
             description=data.description,
         )

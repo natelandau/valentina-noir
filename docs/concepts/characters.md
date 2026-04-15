@@ -112,7 +112,7 @@ The process for manually creating a character is as follows:
 4. Create the character with the list of traits and optional `concept_id`.
 
 ```shell
-POST /api/v1/companies/{company_id}/campaigns/{campaign_id}/characters
+POST /api/v1/companies/{company_id}/characters
 ```
 
 **Request body:**
@@ -123,6 +123,7 @@ POST /api/v1/companies/{company_id}/campaigns/{campaign_id}/characters
     "name_last": "Doe",
     "character_class": "MORTAL",
     "game_version": "V5",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440000",
     "type": "PLAYER",
     "concept_id": "69679d6b92e8772cd93d8187",
     "traits": [
@@ -143,7 +144,7 @@ POST /api/v1/companies/{company_id}/campaigns/{campaign_id}/characters
 Retrieve a single character by ID.
 
 ```shell
-GET /api/v1/companies/{company_id}/users/{user_id}/campaigns/{campaign_id}/characters/{character_id}
+GET /api/v1/companies/{company_id}/characters/{character_id}
 ```
 
 The response includes the character's core properties, class-specific attributes, and specialties. By default, it doesn't include related collections like traits, inventory, notes, or assets. To embed those in a single request, use the `include` query parameter.
@@ -215,7 +216,7 @@ When a requested collection is empty, the response contains an empty array (`[]`
 The full character sheet endpoint returns a character's complete trait data in a single request, organized in the same hierarchy as a physical character sheet. Use this endpoint to render a character sheet for gameplay without assembling the hierarchy client-side.
 
 ```shell
-GET /api/v1/companies/{company_id}/users/{user_id}/campaigns/{campaign_id}/characters/{character_id}/full-sheet
+GET /api/v1/companies/{company_id}/characters/{character_id}/full-sheet
 ```
 
 The response contains two top-level fields:

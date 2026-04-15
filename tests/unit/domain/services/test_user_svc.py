@@ -130,7 +130,6 @@ class TestUserService:
             discord_profile={"global_name": "global name"},
             google_profile={"email": "test@gmail.com", "username": "Test User"},
             github_profile={"login": "testuser", "email": "test@github.com"},
-            requesting_user_id=requesting_user.id,
         )
         # create_user now routes authorization through _validate_role_assignment,
         # not validate_user_can_manage_user, so we spy on the matrix helper instead.
@@ -138,7 +137,9 @@ class TestUserService:
 
         # When we create the user
         service = UserService()
-        new_user = await service.create_user(company=company, data=data)
+        new_user = await service.create_user(
+            company=company, data=data, acting_user_id=requesting_user.id
+        )
 
         # Then the user is created with correct attributes
         assert new_user.name_first == "Test"
@@ -182,12 +183,13 @@ class TestUserService:
             discord_profile={"global_name": "global name updated"},
             google_profile={"username": "Updated Google User"},
             github_profile={"username": "Updated GitHub User"},
-            requesting_user_id=target_user.id,
         )
 
         # When we update the user
         service = UserService()
-        updated_user, _changes = await service.update_user(user=target_user, data=data)
+        updated_user, _changes = await service.update_user(
+            user=target_user, data=data, acting_user_id=target_user.id
+        )
 
         # Then the user is updated with new values and unchanged fields preserved
         assert updated_user.name_first == "update"
@@ -218,7 +220,7 @@ class TestUserService:
         result = await service.approve_user(
             user=unapproved_user,
             role=UserRole.PLAYER,
-            requesting_user_id=admin_user.id,
+            acting_user_id=admin_user.id,
         )
 
         # Then the user role is updated
@@ -243,7 +245,7 @@ class TestUserService:
             await service.approve_user(
                 user=player_user,
                 role=UserRole.PLAYER,
-                requesting_user_id=admin_user.id,
+                acting_user_id=admin_user.id,
             )
 
     async def test_approve_user_to_unapproved_role(
@@ -265,7 +267,7 @@ class TestUserService:
             await service.approve_user(
                 user=unapproved_user,
                 role=UserRole.UNAPPROVED,
-                requesting_user_id=admin_user.id,
+                acting_user_id=admin_user.id,
             )
 
     async def test_approve_user_non_admin_requesting(
@@ -287,7 +289,7 @@ class TestUserService:
             await service.approve_user(
                 user=unapproved_user,
                 role=UserRole.PLAYER,
-                requesting_user_id=player_user.id,
+                acting_user_id=player_user.id,
             )
 
     async def test_deny_user_success(
@@ -307,7 +309,7 @@ class TestUserService:
         await service.deny_user(
             user=unapproved_user,
             company=company,
-            requesting_user_id=admin_user.id,
+            acting_user_id=admin_user.id,
         )
 
         # Then the user is archived
@@ -333,7 +335,7 @@ class TestUserService:
             await service.deny_user(
                 user=player_user,
                 company=company,
-                requesting_user_id=admin_user.id,
+                acting_user_id=admin_user.id,
             )
 
     async def test_deny_user_non_admin_requesting(
@@ -355,7 +357,7 @@ class TestUserService:
             await service.deny_user(
                 user=unapproved_user,
                 company=company,
-                requesting_user_id=player_user.id,
+                acting_user_id=player_user.id,
             )
 
     async def test_register_user_success(
@@ -418,7 +420,7 @@ class TestUserService:
             primary_user_id=primary_user.id,
             secondary_user_id=secondary_user.id,
             company=company,
-            requesting_user_id=admin_user.id,
+            acting_user_id=admin_user.id,
         )
 
         # Then the primary user has the secondary's profile info
@@ -451,7 +453,7 @@ class TestUserService:
                 primary_user_id=primary_user.id,
                 secondary_user_id=secondary_user.id,
                 company=company,
-                requesting_user_id=admin_user.id,
+                acting_user_id=admin_user.id,
             )
 
     async def test_merge_users_same_user(
@@ -474,7 +476,7 @@ class TestUserService:
                 primary_user_id=user.id,
                 secondary_user_id=user.id,
                 company=company,
-                requesting_user_id=admin_user.id,
+                acting_user_id=admin_user.id,
             )
 
     async def test_merge_users_non_admin_rejected(
@@ -498,7 +500,7 @@ class TestUserService:
                 primary_user_id=primary_user.id,
                 secondary_user_id=secondary_user.id,
                 company=company,
-                requesting_user_id=player_user.id,
+                acting_user_id=player_user.id,
             )
 
     async def test_absorb_profiles_does_not_overwrite(
@@ -621,14 +623,14 @@ class TestUserXPService:
         if expected_result:
             await service._validate_user_can_grant_xp(
                 company=company,
-                requesting_user_id=requesting_user.id,
+                acting_user_id=requesting_user.id,
                 target_user_id=target_user.id,
             )
         else:
             with pytest.raises(PermissionDeniedError):
                 await service._validate_user_can_grant_xp(
                     company=company,
-                    requesting_user_id=requesting_user.id,
+                    acting_user_id=requesting_user.id,
                     target_user_id=target_user.id,
                 )
 
@@ -655,7 +657,7 @@ class TestUserXPService:
         service = UserXPService()
         campaign_experience = await service.add_xp_to_campaign_experience(
             company=company,
-            requesting_user_id=requesting_user.id,
+            acting_user_id=requesting_user.id,
             target_user=target_user,
             campaign_id=campaign.id,
             amount=10,
@@ -715,7 +717,7 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_xp_to_campaign_experience(
                 company=company,
-                requesting_user_id=uuid7(),
+                acting_user_id=uuid7(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=10,
@@ -743,7 +745,7 @@ class TestUserXPService:
         service = UserXPService()
         campaign_experience = await service.add_cp_to_campaign_experience(
             company=company,
-            requesting_user_id=requesting_user.id,
+            acting_user_id=requesting_user.id,
             target_user=target_user,
             campaign_id=campaign.id,
             amount=1,
@@ -780,7 +782,7 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_cp_to_campaign_experience(
                 company=company,
-                requesting_user_id=uuid7(),
+                acting_user_id=uuid7(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=1,
@@ -809,7 +811,7 @@ class TestUserXPService:
         service = UserXPService()
         campaign_experience = await service.remove_xp_from_campaign_experience(
             company=company,
-            requesting_user_id=requesting_user.id,
+            acting_user_id=requesting_user.id,
             target_user=target_user,
             campaign_id=campaign.id,
             amount=5,
@@ -841,7 +843,7 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                requesting_user_id=uuid7(),
+                acting_user_id=uuid7(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=5,
@@ -871,7 +873,7 @@ class TestUserXPService:
         with pytest.raises(NotEnoughXPError):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                requesting_user_id=target_user.id,
+                acting_user_id=target_user.id,
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=5,

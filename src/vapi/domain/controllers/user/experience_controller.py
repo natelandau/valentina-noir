@@ -23,7 +23,8 @@ class ExperienceController(Controller):
     tags = [APITags.EXPERIENCE.name, APITags.USERS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "target_user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id_for_experience),
     }
     guards = [developer_company_user_guard, user_active_guard]
@@ -36,11 +37,11 @@ class ExperienceController(Controller):
         cache=True,
     )
     async def get_campaign_experience(
-        self, user: User, campaign: Campaign
+        self, target_user: User, campaign: Campaign
     ) -> CampaignExperienceResponse:
         """Get campaign experience by user ID and campaign ID."""
         service = UserXPService()
-        experience = await service.get_or_create_campaign_experience(user.id, campaign.id)
+        experience = await service.get_or_create_campaign_experience(target_user.id, campaign.id)
         return CampaignExperienceResponse.from_model(experience)
 
     @post(
@@ -51,18 +52,23 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def add_xp_to_campaign_experience(
-        self, request: Request, company: Company, user: User, data: ExperienceAddRemove
+        self,
+        request: Request,
+        company: Company,
+        target_user: User,
+        acting_user: User,
+        data: ExperienceAddRemove,
     ) -> CampaignExperienceResponse:
         """Add XP to campaign experience by user ID and campaign ID."""
         service = UserXPService()
         experience = await service.add_xp_to_campaign_experience(
             company=company,
-            requesting_user_id=data.requesting_user_id,
-            target_user=user,
+            acting_user_id=acting_user.id,
+            target_user=target_user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
-        request.state.audit_description = f"Add {data.amount} XP for '{user.username}'"
+        request.state.audit_description = f"Add {data.amount} XP for '{target_user.username}'"
         return CampaignExperienceResponse.from_model(experience)
 
     @post(
@@ -73,18 +79,23 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def remove_xp_from_campaign_experience(
-        self, request: Request, company: Company, user: User, data: ExperienceAddRemove
+        self,
+        request: Request,
+        company: Company,
+        target_user: User,
+        acting_user: User,
+        data: ExperienceAddRemove,
     ) -> CampaignExperienceResponse:
         """Remove XP from campaign experience by user ID and campaign ID."""
         service = UserXPService()
         experience = await service.remove_xp_from_campaign_experience(
             company=company,
-            requesting_user_id=data.requesting_user_id,
-            target_user=user,
+            acting_user_id=acting_user.id,
+            target_user=target_user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
-        request.state.audit_description = f"Remove {data.amount} XP for '{user.username}'"
+        request.state.audit_description = f"Remove {data.amount} XP for '{target_user.username}'"
         return CampaignExperienceResponse.from_model(experience)
 
     @post(
@@ -95,16 +106,21 @@ class ExperienceController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def add_cp_to_campaign_experience(
-        self, request: Request, company: Company, user: User, data: ExperienceAddRemove
+        self,
+        request: Request,
+        company: Company,
+        target_user: User,
+        acting_user: User,
+        data: ExperienceAddRemove,
     ) -> CampaignExperienceResponse:
         """Add CP to campaign experience by user ID and campaign ID."""
         service = UserXPService()
         experience = await service.add_cp_to_campaign_experience(
             company=company,
-            requesting_user_id=data.requesting_user_id,
-            target_user=user,
+            acting_user_id=acting_user.id,
+            target_user=target_user,
             campaign_id=data.campaign_id,
             amount=data.amount,
         )
-        request.state.audit_description = f"Add {data.amount} CP for '{user.username}'"
+        request.state.audit_description = f"Add {data.amount} CP for '{target_user.username}'"
         return CampaignExperienceResponse.from_model(experience)

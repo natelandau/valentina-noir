@@ -29,7 +29,8 @@ class UserAssetsController(BaseAssetsController):
     tags = [APITags.USERS_ASSETS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "target_user": Provide(deps.provide_target_user),
+        "acting_user": Provide(deps.provide_acting_user),
         "asset": Provide(deps.provide_s3_asset_by_id),
     }
 
@@ -42,7 +43,7 @@ class UserAssetsController(BaseAssetsController):
     )
     async def list_user_assets(
         self,
-        user: User,
+        target_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         asset_type: Annotated[
@@ -51,7 +52,7 @@ class UserAssetsController(BaseAssetsController):
     ) -> OffsetPagination[dto.S3AssetResponse]:
         """List all user assets."""
         return await self._list_assets(
-            parent_id=user.id,
+            parent_id=target_user.id,
             asset_type=asset_type,
             limit=limit,
             offset=offset,
@@ -64,9 +65,9 @@ class UserAssetsController(BaseAssetsController):
         description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
-    async def get_user_asset(self, user: User, asset: S3Asset) -> dto.S3AssetResponse:
+    async def get_user_asset(self, target_user: User, asset: S3Asset) -> dto.S3AssetResponse:
         """Get a user asset."""
-        return await self._get_asset(asset, parent_id=user.id)
+        return await self._get_asset(asset, parent_id=target_user.id)
 
     @post(
         path=urls.Users.ASSET_UPLOAD,
@@ -79,14 +80,15 @@ class UserAssetsController(BaseAssetsController):
     async def handle_file_upload(
         self,
         company: Company,
-        user: User,
+        target_user: User,
+        acting_user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> dto.S3AssetResponse:
         """Upload a user asset."""
         return await self._create_asset(
-            parent_id=user.id,
+            parent_id=target_user.id,
             company_id=company.id,
-            upload_user_id=user.id,
+            upload_user_id=acting_user.id,
             data=data,
         )
 

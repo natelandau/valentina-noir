@@ -83,7 +83,7 @@ class TestAfterResponseHooks:
         requesting_user = await user_factory(company=session_company, role="ADMIN")
         response = await client.post(
             build_url(UsersURL.CREATE, company_id=session_company.id),
-            headers=token_company_owner,
+            headers=token_company_owner | {"On-Behalf-Of": str(requesting_user.id)},
             json={
                 "name_first": "Test",
                 "name_last": "User",
@@ -91,7 +91,6 @@ class TestAfterResponseHooks:
                 "email": "test@test.com",
                 "role": "ADMIN",
                 "discord_profile": {"username": "discord_username"},
-                "requesting_user_id": str(requesting_user.id),
             },
         )
         assert response.status_code == HTTP_201_CREATED
@@ -120,7 +119,6 @@ class TestAfterResponseHooks:
             "email": "test@test.com",
             "role": "ADMIN",
             "discord_profile": {"username": "discord_username"},
-            "requesting_user_id": str(requesting_user.id),
         }
         assert audit.path_params == {"company_id": str(session_company.id)}
 

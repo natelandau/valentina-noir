@@ -10,6 +10,7 @@ from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
 
 from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
@@ -37,7 +38,7 @@ class CampaignChapterController(Controller):
     tags = [APITags.CAMPAIGN_CHAPTERS.name]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
-        "user": Provide(deps.provide_user_by_id_and_company),
+        "acting_user": Provide(deps.provide_acting_user),
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "chapter": Provide(deps.provide_campaign_chapter_by_id),
@@ -98,7 +99,12 @@ class CampaignChapterController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def create_chapter(
-        self, *, book: CampaignBook, data: CampaignChapterCreate, request: Request
+        self,
+        *,
+        book: CampaignBook,
+        data: CampaignChapterCreate,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignChapterResponse:
         """Create a chapter."""
         service = CampaignService()
@@ -121,7 +127,11 @@ class CampaignChapterController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def update_chapter(
-        self, chapter: CampaignChapter, data: CampaignChapterPatch, request: Request
+        self,
+        chapter: CampaignChapter,
+        data: CampaignChapterPatch,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
         changes = apply_patch(chapter, data)
@@ -138,7 +148,12 @@ class CampaignChapterController(Controller):
         guards=[user_can_manage_campaign],
         after_response=hooks.post_data_update_hook,
     )
-    async def delete_chapter(self, chapter: CampaignChapter, request: Request) -> None:
+    async def delete_chapter(
+        self,
+        chapter: CampaignChapter,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
+    ) -> None:
         """Delete a chapter by ID."""
         service = CampaignService()
         await service.delete_chapter_and_renumber(chapter)
@@ -153,7 +168,11 @@ class CampaignChapterController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def renumber_chapter(
-        self, chapter: CampaignChapter, data: BookChapterNumber, request: Request
+        self,
+        chapter: CampaignChapter,
+        data: BookChapterNumber,
+        acting_user: User,  # noqa: ARG002
+        request: Request,
     ) -> CampaignChapterResponse:
         """Renumber a chapter by ID."""
         old_number = chapter.number
