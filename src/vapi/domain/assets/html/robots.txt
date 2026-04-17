@@ -4,7 +4,6 @@ Disallow: /
 User-agent: AdsBot-Google
 Disallow: /
 
-
 # Block all known AI crawlers and assistants
 # from using content for training AI models.
 # Source: https://robotstxt.com/ai
@@ -58,6 +57,33 @@ User-Agent: Cotoyogi
 User-Agent: aiHitBot
 User-Agent: Factset_spyderbot
 User-Agent: FirecrawlAgent
+User-Agent: bedrockbot
+User-Agent: DeepSeekBot
+User-Agent: GoogleAgent-Mariner
+User-Agent: Gemini-Deep-Research
+User-Agent: Google-NotebookLM
+User-Agent: Google-Agent
+User-Agent: GoogleAgent-URLContext
+User-Agent: Google-Firebase
+User-Agent: MistralAI-User
+User-Agent: SemrushBot-FT
+User-Agent: SemrushBot-ESI
+User-Agent: AddSearchBot
+User-Agent: bigsur.ai
+User-Agent: Brightbot
+User-Agent: Crawlspace
+User-Agent: EchoboxBot
+User-Agent: FriendlyCrawler
+User-Agent: LinerBot
+User-Agent: Panscient
+User-Agent: Panscient.com
+User-Agent: Poseidon Research Crawler
+User-Agent: SBIntuitionsBot
+User-Agent: TerraCotta
+User-Agent: Thinkbot
+User-Agent: Yak
+User-Agent: YandexAdditional
+User-Agent: YandexAdditionalBot
 Disallow: /
 DisallowAITraining: /
 
