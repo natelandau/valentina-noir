@@ -35,7 +35,11 @@ class TestApplySettingsPatchScalars:
         settings = await CompanySettings.filter(company=company).first()
 
         # When patching scalar fields to new values
-        patch = CompanySettingsPatch(character_autogen_xp_cost=20, character_autogen_num_choices=5)
+        patch = CompanySettingsPatch(
+            character_autogen_xp_cost=20,
+            character_autogen_num_choices=5,
+            character_autogen_starting_points=25,
+        )
         changes = await _apply_settings_patch(settings, patch)
 
         # Then changes are returned with dotted prefix keys
@@ -45,10 +49,37 @@ class TestApplySettingsPatchScalars:
         assert "settings.character_autogen_num_choices" in changes
         assert changes["settings.character_autogen_num_choices"]["old"] == 3
         assert changes["settings.character_autogen_num_choices"]["new"] == 5
+        assert "settings.character_autogen_starting_points" in changes
+        assert changes["settings.character_autogen_starting_points"]["old"] == 0
+        assert changes["settings.character_autogen_starting_points"]["new"] == 25
 
         # And the model is updated in-place
         assert settings.character_autogen_xp_cost == 20
         assert settings.character_autogen_num_choices == 5
+        assert settings.character_autogen_starting_points == 25
+
+
+class TestApplySettingsPatchStartingPoints:
+    """Test character_autogen_starting_points change tracking."""
+
+    async def test_starting_points_only_change(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify patching only starting_points records the diff and updates the model."""
+        # Given a company with default settings (starting_points=0)
+        company = await company_factory()
+        settings = await CompanySettings.filter(company=company).first()
+
+        # When patching only starting_points
+        patch = CompanySettingsPatch(character_autogen_starting_points=50)
+        changes = await _apply_settings_patch(settings, patch)
+
+        # Then the diff contains only the starting_points change
+        assert list(changes.keys()) == ["settings.character_autogen_starting_points"]
+        assert changes["settings.character_autogen_starting_points"]["old"] == 0
+        assert changes["settings.character_autogen_starting_points"]["new"] == 50
+        assert settings.character_autogen_starting_points == 50
 
 
 class TestApplySettingsPatchEnums:
@@ -98,6 +129,7 @@ class TestApplySettingsPatchNoOp:
         patch = CompanySettingsPatch(
             character_autogen_xp_cost=10,
             character_autogen_num_choices=3,
+            character_autogen_starting_points=0,
         )
         changes = await _apply_settings_patch(settings, patch)
 

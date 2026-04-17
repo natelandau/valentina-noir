@@ -70,6 +70,7 @@ async def _apply_settings_patch(
     for field_name, enum_cls in (
         ("character_autogen_xp_cost", None),
         ("character_autogen_num_choices", None),
+        ("character_autogen_starting_points", None),
         ("permission_manage_campaign", PermissionManageCampaign),
         ("permission_grant_xp", PermissionsGrantXP),
         ("permission_free_trait_changes", PermissionsFreeTraitChanges),
@@ -164,6 +165,7 @@ class CompanyController(Controller):
             settings_kwargs = {
                 "character_autogen_xp_cost": data.settings.character_autogen_xp_cost,
                 "character_autogen_num_choices": data.settings.character_autogen_num_choices,
+                "character_autogen_starting_points": data.settings.character_autogen_starting_points,
                 "permission_manage_campaign": data.settings.permission_manage_campaign,
                 "permission_grant_xp": data.settings.permission_grant_xp,
                 "permission_free_trait_changes": data.settings.permission_free_trait_changes,

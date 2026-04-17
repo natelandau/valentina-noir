@@ -237,6 +237,8 @@ class CharacterGenerationController(Controller):
 
         selected_character.is_temporary = False
         selected_character.is_chargen = False
+        selected_character.starting_points = company.settings.character_autogen_starting_points
+
         service = CharacterService()
         await service.prepare_for_save(selected_character)
         await selected_character.save()

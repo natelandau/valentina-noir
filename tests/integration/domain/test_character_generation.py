@@ -231,9 +231,10 @@ class TestCharacterChargen:
         session_campaign: Campaign,
     ) -> None:
         """Verify finalize chargen endpoint."""
-        # Given a chargen session with 3 characters
+        # Given a chargen session with 3 characters and a configured starting_points budget
         await CompanySettings.filter(company=session_company).update(
-            character_autogen_num_choices=3
+            character_autogen_num_choices=3,
+            character_autogen_starting_points=42,
         )
         await UserXPService().add_xp(session_user.id, session_campaign.id, 100)
         response = await client.post(
@@ -273,6 +274,8 @@ class TestCharacterChargen:
                 assert c.is_temporary is False
                 assert c.is_chargen is False
                 assert c.is_archived is False
+                # And the selected character inherits the company's starting_points setting
+                assert c.starting_points == 42
 
     async def test_finalize_chargen_invalid_session_id(
         self,
