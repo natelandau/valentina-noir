@@ -9,6 +9,7 @@ from tortoise.validators import MaxValueValidator, MinLengthValidator, MinValueV
 from vapi.db.sql_models.validators import (
     validate_character_classes,
     validate_company_settings_num_choices,
+    validate_company_settings_starting_points,
     validate_company_settings_xp_cost,
     validate_email_format,
     validate_game_versions,
@@ -97,6 +98,29 @@ class TestCompanySettingsValidators:
         # When/Then validation raises ValueError referencing the field name
         with pytest.raises(TortoiseValidationError, match="character_autogen_num_choices"):
             validate_company_settings_num_choices(value)
+
+    @pytest.mark.parametrize("value", [0, 1, 50, 99, 100])
+    def test_validate_starting_points_valid(self, value: int) -> None:
+        """Verify valid starting points values pass validation."""
+        # When validating a valid value
+        # Then no exception is raised
+        validate_company_settings_starting_points(value)
+
+    @pytest.mark.parametrize("value", [-1, -100, 101, 999])
+    def test_validate_starting_points_invalid(self, value: int) -> None:
+        """Verify out-of-range starting points values raise ValidationError."""
+        # When/Then validation raises ValidationError referencing the field name
+        with pytest.raises(TortoiseValidationError, match="character_autogen_starting_points"):
+            validate_company_settings_starting_points(value)
+
+    def test_validate_starting_points_error_message_includes_value(self) -> None:
+        """Verify the error message surfaces the offending value to aid debugging."""
+        # Given an out-of-range value
+        value = 150
+
+        # When/Then the raised error names the offending value
+        with pytest.raises(TortoiseValidationError, match="got 150"):
+            validate_company_settings_starting_points(value)
 
 
 class TestMinLengthValidator:

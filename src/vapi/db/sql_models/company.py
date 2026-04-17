@@ -16,6 +16,7 @@ from vapi.constants import (
 from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import (
     validate_company_settings_num_choices,
+    validate_company_settings_starting_points,
     validate_company_settings_xp_cost,
     validate_email_format,
 )
@@ -71,6 +72,9 @@ class CompanySettings(BaseModel):
     )
     character_autogen_num_choices = fields.IntField(
         default=3, validators=[validate_company_settings_num_choices]
+    )
+    character_autogen_starting_points = fields.IntField(
+        default=0, validators=[validate_company_settings_starting_points]
     )
     permission_manage_campaign = fields.CharEnumField(
         PermissionManageCampaign, default=PermissionManageCampaign.UNRESTRICTED

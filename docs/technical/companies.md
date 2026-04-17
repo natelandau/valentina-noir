@@ -22,10 +22,10 @@ This isolation enables multiple independent gaming groups to use Valentina Noir 
 
 Each developer API key has permissions assigned per company. These permissions control **company governance** — who can manage the company and grant access to other developers. Any developer with access to a company can use the full API for that company's resources (users, characters, campaigns, etc.).
 
-| Permission | Access Level                                                                       |
-| ---------- | ---------------------------------------------------------------------------------- |
-| `USER`     | Full access to all company resources (users, characters, campaigns)                |
-| `ADMIN`    | All `USER` capabilities, plus manage company settings                              |
+| Permission | Access Level                                                                        |
+| ---------- | ----------------------------------------------------------------------------------- |
+| `USER`     | Full access to all company resources (users, characters, campaigns)                 |
+| `ADMIN`    | All `USER` capabilities, plus manage company settings                               |
 | `OWNER`    | All `ADMIN` capabilities, plus grant/revoke developer access and delete the company |
 
 For details on how these differ from end-user roles, see [Developer vs. User Permissions](authentication.md#developer-vs-user-permissions).
@@ -87,6 +87,7 @@ The response includes both the company and an admin user account:
         "settings": {
             "character_autogen_xp_cost": 10,
             "character_autogen_num_choices": 3,
+            "character_autogen_starting_points": 0,
             "permission_manage_campaign": "UNRESTRICTED",
             "permission_grant_xp": "UNRESTRICTED",
             "permission_free_trait_changes": "UNRESTRICTED",

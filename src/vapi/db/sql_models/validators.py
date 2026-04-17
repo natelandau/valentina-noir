@@ -8,8 +8,14 @@ from tortoise.exceptions import ValidationError
 
 from vapi.constants import CharacterClass, GameVersion
 
+_NUM_CHOICES_MAX: int = 10
+_NUM_CHOICES_MIN: int = 1
+_STARTING_POINTS_MAX: int = 100
+_STARTING_POINTS_MIN: int = 0
 _VALID_CHARACTER_CLASSES: frozenset[str] = frozenset(e.value for e in CharacterClass)
 _VALID_GAME_VERSIONS: frozenset[str] = frozenset(e.value for e in GameVersion)
+_XP_COST_MAX: int = 100
+_XP_COST_MIN: int = 0
 
 
 def _validate_enum_list(value: list[str], valid: frozenset[str], label: str) -> None:
@@ -59,10 +65,21 @@ def validate_game_versions(value: list[str]) -> None:
     _validate_enum_list(value, _VALID_GAME_VERSIONS, "game version")
 
 
-_XP_COST_MIN: int = 0
-_XP_COST_MAX: int = 100
-_NUM_CHOICES_MIN: int = 1
-_NUM_CHOICES_MAX: int = 10
+def validate_company_settings_starting_points(value: int) -> None:
+    """Validate that character_autogen_starting_points is within the allowed range of 0-100.
+
+    Use as a Tortoise ORM field validator to enforce business rules on starting points
+    at save time, regardless of the code path that writes the field.
+
+    Args:
+        value: The starting points integer to validate.
+
+    Raises:
+        ValidationError: If value is outside the range 0-100.
+    """
+    if not (_STARTING_POINTS_MIN <= value <= _STARTING_POINTS_MAX):
+        msg = f"character_autogen_starting_points must be between {_STARTING_POINTS_MIN} and {_STARTING_POINTS_MAX}, got {value}"
+        raise ValidationError(msg)
 
 
 def validate_company_settings_xp_cost(value: int) -> None:
