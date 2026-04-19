@@ -1,3 +1,14 @@
+## v0.16.0 (2026-04-19)
+
+### Feat
+
+- **company**: add starting points for autogen to company settings (#117)
+
+### Fix
+
+- **company**: use db_default for starting points migration
+- increase list of disallowed bots
+
 ## v0.15.0 (2026-04-15)
 
 ### Feat

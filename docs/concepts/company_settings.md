@@ -51,7 +51,7 @@ Set how many characters the autogeneration engine creates for user selection.
 
 ### Starting Points
 
-Set the starting points to grant to a character when it is created. Players may spend starting points to increase or add traits to the character without spending experience points.
+Set the starting points to grant to an auto-generated character when it is created. Players may spend starting points to increase or add traits to the character without spending experience points.
 
 - Default: `0`
 - Range: 0-100 starting points per character
