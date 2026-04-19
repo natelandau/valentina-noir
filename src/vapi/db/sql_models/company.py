@@ -74,7 +74,7 @@ class CompanySettings(BaseModel):
         default=3, validators=[validate_company_settings_num_choices]
     )
     character_autogen_starting_points = fields.IntField(
-        default=0, validators=[validate_company_settings_starting_points]
+        default=0, db_default=0, validators=[validate_company_settings_starting_points]
     )
     permission_manage_campaign = fields.CharEnumField(
         PermissionManageCampaign, default=PermissionManageCampaign.UNRESTRICTED

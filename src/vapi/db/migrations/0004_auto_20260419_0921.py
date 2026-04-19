@@ -11,6 +11,6 @@ class Migration(migrations.Migration):
         ops.AddField(
             model_name='CompanySettings',
             name='character_autogen_starting_points',
-            field=fields.IntField(default=0),
+            field=fields.IntField(default=0, db_default=0),
         ),
     ]
