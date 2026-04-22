@@ -14,9 +14,10 @@
         "pydantic[email]>=2.13.1,<3.0.0",
         "python-json-logger>=4.1.0",
         "rich>=15.0.0",
+        "titlecase>=2.4.1",
         "tortoise-orm[asyncpg]>=1.1.7",
         "uuid-utils>=0.14.1",
-    ]
+]
     description = "Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games."
     license = { file = "LICENSE" }
     name = "vapi"

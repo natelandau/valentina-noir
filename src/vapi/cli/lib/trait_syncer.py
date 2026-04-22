@@ -187,7 +187,7 @@ class TraitSyncer:
         Returns:
             Tuple of (trait instance, created flag, updated flag).
         """
-        trait_name = fixture_trait["name"].strip().title()
+        trait_name = fixture_trait["name"].strip()
 
         # Extract gift attributes if present
         gift_defaults: dict[str, Any] = {}
@@ -227,13 +227,21 @@ class TraitSyncer:
             **gift_defaults,
         }
 
-        lookup: dict[str, Any] = {"name": trait_name, "category": category}
+        # Case-insensitive lookup so fixture casing variants match the signal-normalized stored name
+        lookup_filter: dict[str, Any] = {"name__iexact": trait_name, "category": category}
         if subcategory:
-            lookup["subcategory"] = subcategory
+            lookup_filter["subcategory"] = subcategory
 
-        trait, created = await Trait.get_or_create(defaults=defaults, **lookup)
+        trait = await Trait.filter(**lookup_filter).first()
+        created = False
         updated = False
-        if not created and needs_update(trait, defaults):
+        if trait is None:
+            create_kwargs: dict[str, Any] = {"name": trait_name, "category": category, **defaults}
+            if subcategory:
+                create_kwargs["subcategory"] = subcategory
+            trait = await Trait.create(**create_kwargs)
+            created = True
+        elif needs_update(trait, defaults):
             await trait.update_from_dict(defaults).save()
             updated = True
         return trait, created, updated
@@ -374,7 +382,8 @@ def _build_gift_fixture_map(
         fixture_data: The parsed traits.json data. If None, reads from disk.
 
     Returns:
-        Dict mapping title-cased trait names to their gift_attributes dicts.
+        Dict mapping lowercased trait names to their gift_attributes dicts. Callers must
+        lowercase the DB trait name before lookup to match the signal-normalized storage.
     """
     if fixture_data is None:
         fixture_path = FIXTURES_PATH / "traits.json"
@@ -387,10 +396,10 @@ def _build_gift_fixture_map(
             for subcategory in category.get("subcategories", []):
                 for trait in subcategory.get("traits", []):
                     if ga := trait.get("gift_attributes"):
-                        result[trait["name"].strip().title()] = dict(ga)
+                        result[trait["name"].strip().lower()] = dict(ga)
             for trait in category.get("traits", []):
                 if ga := trait.get("gift_attributes"):
-                    result[trait["name"].strip().title()] = dict(ga)
+                    result[trait["name"].strip().lower()] = dict(ga)
     return result
 
 
@@ -444,7 +453,7 @@ async def resolve_gift_trait_references(
 
     modified_traits: list[Trait] = []
     for trait in gift_traits:
-        fixture_ga = gift_fixture_map.get(trait.name)
+        fixture_ga = gift_fixture_map.get(trait.name.lower())
         if not fixture_ga:
             continue
 
