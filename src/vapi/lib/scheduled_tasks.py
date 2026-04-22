@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from vapi.config.base import BackupSettings, settings
+from vapi.constants import AUDIT_LOG_RETENTION_DAYS
 from vapi.domain.services import AWSS3Service
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
 from vapi.utils.time import time_now
@@ -78,13 +79,13 @@ async def _purge_archived_models() -> None:
 
 
 async def _purge_audit_logs() -> None:
-    """Purge audit log entries older than 30 days."""
+    """Purge audit log entries older than the configured retention window."""
     from vapi.db.sql_models.audit_log import AuditLog
 
-    cutoff_date = time_now() - timedelta(days=30)
+    cutoff_date = time_now() - timedelta(days=AUDIT_LOG_RETENTION_DAYS)
 
     try:
-        deleted = await AuditLog.filter(date_modified__lt=cutoff_date).delete()
+        deleted = await AuditLog.filter(date_created__lt=cutoff_date).delete()
         logger.info(
             "Purge old AuditLogs.",
             extra={**_LOG_EXTRA, "num_purged": deleted},
