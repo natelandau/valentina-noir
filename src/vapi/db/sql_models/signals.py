@@ -11,8 +11,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from titlecase import titlecase
 from tortoise.signals import pre_save
 
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.developer import Developer
 from vapi.db.sql_models.dictionary import DictionaryTerm
@@ -73,4 +75,37 @@ async def normalize_trait_name(
     update_fields: Iterable[str] | None,  # noqa: ARG001
 ) -> None:
     """Normalize trait name to title case before saving."""
-    instance.name = instance.name.title()
+    instance.name = titlecase(instance.name)
+
+
+@pre_save(Campaign)
+async def normalize_campaign_name(
+    sender: type[Campaign],  # noqa: ARG001
+    instance: Campaign,
+    using_db: BaseDBAsyncClient | None,  # noqa: ARG001
+    update_fields: Iterable[str] | None,  # noqa: ARG001
+) -> None:
+    """Normalize campaign name to title case before saving."""
+    instance.name = titlecase(instance.name)
+
+
+@pre_save(CampaignBook)
+async def normalize_campaign_book_name(
+    sender: type[CampaignBook],  # noqa: ARG001
+    instance: CampaignBook,
+    using_db: BaseDBAsyncClient | None,  # noqa: ARG001
+    update_fields: Iterable[str] | None,  # noqa: ARG001
+) -> None:
+    """Normalize campaign book name to title case before saving."""
+    instance.name = titlecase(instance.name)
+
+
+@pre_save(CampaignChapter)
+async def normalize_campaign_chapter_name(
+    sender: type[CampaignChapter],  # noqa: ARG001
+    instance: CampaignChapter,
+    using_db: BaseDBAsyncClient | None,  # noqa: ARG001
+    update_fields: Iterable[str] | None,  # noqa: ARG001
+) -> None:
+    """Normalize campaign chapter name to title case before saving."""
+    instance.name = titlecase(instance.name)

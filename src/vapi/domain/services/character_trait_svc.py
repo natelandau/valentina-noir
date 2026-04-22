@@ -972,17 +972,17 @@ class CharacterTraitService:
         self.guard_user_can_manage_character(character, user)
         await self._guard_permissions_free_trait_changes(company, character, user)
 
-        normalized_name = data.name.strip().title()
+        cleaned_name = data.name.strip()
 
         existing = await CharacterTrait.filter(
             character_id=character.id,
-            trait__name=normalized_name,
+            trait__name__iexact=cleaned_name,
         ).first()
         if existing:
             raise ConflictError(detail=f"Trait named '{data.name}' already exists on character")
 
         existing_trait = await Trait.filter(
-            name=normalized_name,
+            name__iexact=cleaned_name,
             is_custom=False,
             is_archived=False,
         ).first()
@@ -1011,7 +1011,7 @@ class CharacterTraitService:
         )
 
         custom_trait = await Trait.create(
-            name=normalized_name,
+            name=cleaned_name,
             description=data.description,
             max_value=data.max_value,
             min_value=data.min_value,

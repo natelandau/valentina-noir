@@ -1545,6 +1545,12 @@ wheels = [
 ]
 
 [[package]]
+name = "titlecase"
+version = "2.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/17/04d2d3e30e2bc5a3eefa1060b08e3fb628510440f938eaecabbe08976a26/titlecase-2.4.1.tar.gz", hash = "sha256:7d83a277ccbbda11a2944e78a63e5ccaf3d32f828c594312e4862f9a07f635f5", size = 14434, upload-time = "2023-09-23T05:03:46.389Z" }
+
+[[package]]
 name = "tomli-w"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1678,6 +1684,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-json-logger" },
     { name = "rich" },
+    { name = "titlecase" },
     { name = "tortoise-orm", extra = ["asyncpg"] },
     { name = "uuid-utils" },
 ]
@@ -1725,6 +1732,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.13.1,<3.0.0" },
     { name = "python-json-logger", specifier = ">=4.1.0" },
     { name = "rich", specifier = ">=15.0.0" },
+    { name = "titlecase", specifier = ">=2.4.1" },
     { name = "tortoise-orm", extras = ["asyncpg"], specifier = ">=1.1.7" },
     { name = "uuid-utils", specifier = ">=0.14.1" },
 ]
