@@ -11,7 +11,7 @@ from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.domain.services import AWSS3Service
-from vapi.lib.scheduled_tasks import purge_db_expired_items
+from vapi.lib.scheduled_tasks import _purge_audit_logs, purge_db_expired_items
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -60,50 +60,63 @@ class TestPurgeDBExpiredItems:
         # Then old archived characters are deleted
         assert await Character.filter(id=character_old_archived.id).first() is None
 
-    async def test_purge_db_expired_audit_logs(
+
+class TestPurgeAuditLogs:
+    """Tests for the _purge_audit_logs helper."""
+
+    async def test_purge_audit_log_older_than_365_days(
         self,
         developer_factory: Callable[..., Any],
-        mocker: MockerFixture,
+        audit_log_factory: Callable[..., Any],
     ) -> None:
-        """Verify audit log entries older than 30 days are purged by the cleanup task."""
-        # Given: Mock DB init since connections are already open in tests
-        mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
-        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
-
-        old_date = time_now() - timedelta(days=60)
-
+        """Verify audit log entries created more than 365 days ago are deleted."""
+        # Given an audit log whose date_created is past the 365-day retention cutoff
         developer = await developer_factory()
-        audit_log_old = await AuditLog.create(
-            developer=developer,
-            handler="test_handler",
-            handler_name="test_handler_name",
-            name="test_name",
-            method="GET",
-            url="https://test.com",
-        )
-        audit_log_new = await AuditLog.create(
-            developer=developer,
-            handler="test_handler",
-            handler_name="test_handler_name",
-            name="test_name",
-            method="GET",
-            url="https://test.com",
-        )
+        old_log = await audit_log_factory(developer=developer)
+        old_date = time_now() - timedelta(days=400)
+        await AuditLog.filter(id=old_log.id).update(date_created=old_date)
 
-        # Bypass auto_now to set old date_modified directly
-        await AuditLog.filter(id=audit_log_old.id).update(date_modified=old_date)
+        # When we run the purge
+        await _purge_audit_logs()
 
-        # When we run the task
-        await purge_db_expired_items({})
+        # Then the old audit log is deleted
+        assert await AuditLog.filter(id=old_log.id).first() is None
 
-        # Then old audit logs are deleted
-        assert await AuditLog.filter(id=audit_log_old.id).first() is None
+    async def test_keep_audit_log_within_365_days(
+        self,
+        developer_factory: Callable[..., Any],
+        audit_log_factory: Callable[..., Any],
+    ) -> None:
+        """Verify audit log entries created within the 365-day window are not deleted."""
+        # Given an audit log created within the retention window
+        developer = await developer_factory()
+        recent_log = await audit_log_factory(developer=developer)
+        within_window = time_now() - timedelta(days=300)
+        await AuditLog.filter(id=recent_log.id).update(date_created=within_window)
 
-        # Then recent audit logs are not deleted
-        assert await AuditLog.filter(id=audit_log_new.id).first() is not None
+        # When we run the purge
+        await _purge_audit_logs()
 
-        # Cleanup
-        await AuditLog.filter(id=audit_log_new.id).delete()
+        # Then the recent audit log is not deleted
+        assert await AuditLog.filter(id=recent_log.id).first() is not None
+
+    async def test_purge_audit_log_uses_date_created_not_date_modified(
+        self,
+        developer_factory: Callable[..., Any],
+        audit_log_factory: Callable[..., Any],
+    ) -> None:
+        """Verify retention is based on date_created, so an old date_modified alone does not trigger deletion."""
+        # Given an audit log whose date_modified is ancient but date_created is recent
+        developer = await developer_factory()
+        log = await audit_log_factory(developer=developer)
+        ancient = time_now() - timedelta(days=400)
+        await AuditLog.filter(id=log.id).update(date_modified=ancient)
+
+        # When we run the purge
+        await _purge_audit_logs()
+
+        # Then the log is kept because the filter uses date_created, not date_modified
+        assert await AuditLog.filter(id=log.id).first() is not None
 
 
 class TestPurgeS3AssetsErrorIsolation:

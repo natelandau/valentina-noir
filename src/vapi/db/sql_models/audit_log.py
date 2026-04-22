@@ -97,4 +97,5 @@ class AuditLog(BaseModel):
             ("company_id", "entity_type"),
             ("company_id", "date_created"),
             ("developer_id", "date_created"),
+            ("date_created",),
         ]
