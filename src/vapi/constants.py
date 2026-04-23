@@ -19,6 +19,7 @@ MAX_DESPERATION: Final[int] = 5
 IGNORE_RATE_LIMIT_HEADER_KEY: Final[str] = "X-Testing-Ignore-Rate-Limit"
 IDEMPOTENCY_KEY_HEADER: Final[str] = "Idempotency-Key"
 IDEMPOTENCY_TTL_SECONDS: Final[int] = 3600  # 1 hour
+IDEMPOTENCY_MAX_CACHED_BODY_BYTES: Final[int] = 1024 * 1024  # 1 MB
 AUDIT_LOG_RETENTION_DAYS: Final[int] = 365
 REQUEST_ID_HEADER: Final[str] = "X-Request-Id"
 REQUEST_ID_STATE_KEY: Final[str] = "request_id"
