@@ -61,7 +61,7 @@ class DiceRollController(Controller):
         if campaignid:
             filters["campaign_id"] = campaignid
 
-        qs = DiceRoll.filter(**filters)
+        qs = DiceRoll.filter(**filters).order_by("-id")
         count = await qs.count()
         dice_rolls = await qs.offset(offset).limit(limit).prefetch_related("roll_result", "traits")
         return OffsetPagination(
