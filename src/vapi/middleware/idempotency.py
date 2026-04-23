@@ -24,11 +24,18 @@ from litestar.serialization import decode_json, encode_json
 from msgspec import Struct
 
 from vapi.config import settings
-from vapi.constants import AUTH_HEADER_KEY, IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_TTL_SECONDS
+from vapi.constants import (
+    AUTH_HEADER_KEY,
+    IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
+    IDEMPOTENCY_TTL_SECONDS,
+)
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import ConflictError
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from litestar import Request
     from litestar.types import ASGIApp, Message, Receive, Scope, Send
     from litestar.types.asgi_types import (
@@ -45,11 +52,11 @@ __all__ = ("IdempotencyMiddleware", "idempotency_middleware")
 class CachedResponse(Struct, frozen=True):
     """Store cached response data for idempotency.
 
-    Args:
-        status_code (int): HTTP status code of the cached response.
-        body (str): Base64-encoded response body.
-        headers (list[tuple[str, str]]): Response headers as key-value pairs.
-        request_body_hash (str): SHA256 hash of the original request body.
+    Attributes:
+        status_code: HTTP status code of the cached response.
+        body: Base64-encoded response body.
+        headers: Response headers as key-value pairs.
+        request_body_hash: SHA256 hash of the original request body.
     """
 
     status_code: int
@@ -241,7 +248,8 @@ class IdempotencyMiddleware(ASGIMiddleware):
             cached (CachedResponse): The cached response data.
         """
         body = base64.b64decode(cached.body)
-        headers = [(k.encode(), v.encode()) for k, v in cached.headers]
+        # ASGI spec transports headers as latin-1 bytes
+        headers = [(k.encode("latin-1"), v.encode("latin-1")) for k, v in cached.headers]
 
         await send(
             cast(
@@ -266,7 +274,7 @@ class ResponseCapture:
     __slots__ = (
         "_body_parts",
         "_cache_key",
-        "_headers",
+        "_raw_headers",
         "_request_body_hash",
         "_send",
         "_status_code",
@@ -279,7 +287,7 @@ class ResponseCapture:
         self._cache_key = cache_key
         self._request_body_hash = request_body_hash
         self._status_code: int = 200
-        self._headers: list[tuple[str, str]] = []
+        self._raw_headers: Iterable[tuple[bytes, bytes]] = []
         self._body_parts: list[bytes] = []
 
     async def __call__(self, message: Message) -> None:
@@ -290,14 +298,7 @@ class ResponseCapture:
         """
         if message["type"] == "http.response.start":
             self._status_code = message.get("status", 200)
-            raw_headers = message.get("headers", [])
-            self._headers = [
-                (
-                    k.decode() if isinstance(k, bytes) else k,
-                    v.decode() if isinstance(v, bytes) else v,
-                )
-                for k, v in raw_headers
-            ]
+            self._raw_headers = message.get("headers", [])
 
         elif message["type"] == "http.response.body":
             body = message.get("body", b"")
@@ -312,15 +313,39 @@ class ResponseCapture:
 
     async def _cache_response(self) -> None:
         """Cache the captured response data."""
-        # Only cache successful responses (2xx)
+        # Caching errors would let a bad request's failure persist for the TTL; clients retrying
+        # after fixing a validation error would keep hitting the stale failure
         if not (200 <= self._status_code < 300):  # noqa: PLR2004
             return
 
+        # Skip caching oversized responses to bound Redis memory and avoid buffering large
+        # payloads (base64 adds ~33%) for every unique idempotency key. A retrying client
+        # re-executes the handler, same as a normal cache miss
         full_body = b"".join(self._body_parts)
+        if len(full_body) > IDEMPOTENCY_MAX_CACHED_BODY_BYTES:
+            logger.warning(
+                "Idempotency response exceeds cache size limit; skipping cache write",
+                extra={
+                    "cache_key": self._cache_key,
+                    "body_bytes": len(full_body),
+                    "limit_bytes": IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
+                },
+            )
+            return
+
+        # ASGI spec encodes header bytes as latin-1 (RFC 7230); decode on cache-write only so
+        # non-cached responses (4xx/5xx) don't pay the decode cost
+        headers = [
+            (
+                k.decode("latin-1") if isinstance(k, bytes) else k,
+                v.decode("latin-1") if isinstance(v, bytes) else v,
+            )
+            for k, v in self._raw_headers
+        ]
         cached = CachedResponse(
             status_code=self._status_code,
             body=base64.b64encode(full_body).decode("ascii"),
-            headers=self._headers,
+            headers=headers,
             request_body_hash=self._request_body_hash,
         )
         await self._store.set(

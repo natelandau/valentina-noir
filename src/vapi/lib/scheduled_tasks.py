@@ -27,10 +27,12 @@ from vapi.utils.time import time_now
 logger = logging.getLogger("vapi")
 
 _LOG_EXTRA = {"component": "saq", "task": "purge_db_expired_items"}
+_ARCHIVED_RETENTION_DAYS = 30
+_TEMPORARY_CHARACTER_RETENTION_HOURS = 24
 
 
 async def _purge_archived_models() -> None:
-    """Purge archived records older than 30 days across all tracked models.
+    """Purge archived records older than the retention window across all tracked models.
 
     S3Asset is excluded here because _purge_s3_assets handles it separately,
     ensuring each asset's backing object is deleted from AWS before removing
@@ -46,7 +48,7 @@ async def _purge_archived_models() -> None:
     from vapi.db.sql_models.quickroll import QuickRoll
     from vapi.db.sql_models.user import User
 
-    cutoff_date = time_now() - timedelta(days=30)
+    cutoff_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS)
 
     # Order child-first to respect FK dependencies
     for model in [
@@ -95,33 +97,46 @@ async def _purge_audit_logs() -> None:
 
 
 async def _purge_s3_assets() -> None:
-    """Purge archived S3 assets older than 30 days."""
+    """Purge archived S3 assets older than the retention window."""
     from vapi.db.sql_models.aws import S3Asset
 
-    cutoff_date = time_now() - timedelta(days=30)
+    cutoff_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS)
+
+    try:
+        aws_service = AWSS3Service()
+    except MissingConfigurationError:
+        logger.warning(
+            "AWS credentials not configured, skipping S3Asset purge.",
+            extra=_LOG_EXTRA,
+        )
+        return
 
     try:
         assets = await S3Asset.filter(is_archived=True, date_modified__lt=cutoff_date)
-
-        aws_service = AWSS3Service()
-        purged = 0
-        for asset in assets:
-            try:
-                await aws_service.delete_asset(asset)
-                purged += 1
-            except Exception:
-                logger.exception(
-                    "Failed to purge S3Asset %s.",
-                    asset.id,
-                    extra=_LOG_EXTRA,
-                )
-
-        logger.info(
-            "Purge old S3Assets.",
-            extra={**_LOG_EXTRA, "num_purged": purged},
-        )
     except Exception:
         logger.exception("Failed to purge S3Assets.", extra=_LOG_EXTRA)
+        return
+
+    results = await asyncio.gather(
+        *(aws_service.delete_asset(asset) for asset in assets),
+        return_exceptions=True,
+    )
+    failed = 0
+    for asset, result in zip(assets, results, strict=True):
+        if isinstance(result, BaseException):
+            failed += 1
+            logger.exception(
+                "Failed to purge S3Asset %s.",
+                asset.id,
+                exc_info=result,
+                extra=_LOG_EXTRA,
+            )
+    purged = len(assets) - failed
+
+    logger.info(
+        "Purge old S3Assets.",
+        extra={**_LOG_EXTRA, "num_purged": purged},
+    )
 
 
 async def _purge_chargen_sessions() -> None:
@@ -132,64 +147,57 @@ async def _purge_chargen_sessions() -> None:
         expired_sessions = await ChargenSession.filter(expires_at__lt=time_now()).prefetch_related(
             "characters"
         )
-
-        for session in expired_sessions:
-            for character in session.characters:
-                try:
-                    await character.delete()
-                except Exception:
-                    logger.exception(
-                        "Failed to delete character %s from session %s.",
-                        character.id,
-                        session.id,
-                        extra=_LOG_EXTRA,
-                    )
-            await session.delete()
-
-        logger.info(
-            "Purge expired ChargenSessions.",
-            extra={**_LOG_EXTRA, "num_purged": len(expired_sessions)},
-        )
     except Exception:
-        logger.exception(
-            "Failed to purge ChargenSessions.",
-            extra=_LOG_EXTRA,
+        logger.exception("Failed to purge ChargenSessions.", extra=_LOG_EXTRA)
+        return
+
+    for session in expired_sessions:
+        char_results = await asyncio.gather(
+            *(character.delete() for character in session.characters),
+            return_exceptions=True,
         )
+        for character, result in zip(session.characters, char_results, strict=True):
+            if isinstance(result, BaseException):
+                logger.exception(
+                    "Failed to delete character %s from session %s.",
+                    character.id,
+                    session.id,
+                    exc_info=result,
+                    extra=_LOG_EXTRA,
+                )
+        try:
+            await session.delete()
+        except Exception:
+            logger.exception(
+                "Failed to delete ChargenSession %s.",
+                session.id,
+                extra=_LOG_EXTRA,
+            )
+
+    logger.info(
+        "Purge expired ChargenSessions.",
+        extra={**_LOG_EXTRA, "num_purged": len(expired_sessions)},
+    )
 
 
 async def _purge_temporary_characters() -> None:
     """Purge temporary non-chargen characters not modified in the last 24 hours."""
     from vapi.db.sql_models.character import Character
 
-    cutoff_date = time_now() - timedelta(hours=24)
+    cutoff_date = time_now() - timedelta(hours=_TEMPORARY_CHARACTER_RETENTION_HOURS)
 
     try:
-        characters = await Character.filter(
+        deleted = await Character.filter(
             is_chargen=False,
             is_temporary=True,
             date_modified__lt=cutoff_date,
-        )
-        purged = 0
-        for character in characters:
-            try:
-                await character.delete()
-                purged += 1
-            except Exception:
-                logger.exception(
-                    "Failed to delete temporary Character %s.",
-                    character.id,
-                    extra=_LOG_EXTRA,
-                )
-
+        ).delete()
         logger.info(
             "Purge expired temporary Characters.",
-            extra={**_LOG_EXTRA, "num_purged": purged},
+            extra={**_LOG_EXTRA, "num_purged": deleted},
         )
     except Exception:
-        logger.exception(
-            "Failed to purge temporary Characters.",
-            extra=_LOG_EXTRA,
-        )
+        logger.exception("Failed to purge temporary Characters.", extra=_LOG_EXTRA)
 
 
 def _parse_dated_keys(keys: list[str]) -> list[tuple[date, str]]:
@@ -258,11 +266,8 @@ def _compute_backups_to_delete(keys: list[str], backup_settings: BackupSettings)
         return []
 
     keep: set[str] = set()
-
-    # Daily: keep the most recent N
     keep.update(key for _, key in dated[: backup_settings.retain_daily])
 
-    # Weekly: oldest backup from each of the N most recent ISO weeks
     if backup_settings.retain_weekly > 0:
         keep |= _keep_oldest_per_bucket(
             dated,
@@ -270,7 +275,6 @@ def _compute_backups_to_delete(keys: list[str], backup_settings: BackupSettings)
             backup_settings.retain_weekly,
         )
 
-    # Monthly: oldest backup from each of the N most recent months
     if backup_settings.retain_monthly > 0:
         keep |= _keep_oldest_per_bucket(
             dated,
@@ -278,7 +282,6 @@ def _compute_backups_to_delete(keys: list[str], backup_settings: BackupSettings)
             backup_settings.retain_monthly,
         )
 
-    # Yearly: oldest backup from each of the N most recent years
     if backup_settings.retain_yearly > 0:
         keep |= _keep_oldest_per_bucket(
             dated,
@@ -378,7 +381,8 @@ async def backup_database(_: Context) -> None:
             )
             return
 
-        file_size = await asyncio.to_thread(lambda: Path(tmp_path).stat().st_size)
+        stat_result = await asyncio.to_thread(Path(tmp_path).stat)
+        file_size = stat_result.st_size
         logger.info(
             "Database dump complete.",
             extra={**_BACKUP_LOG_EXTRA, "file_size_bytes": file_size},

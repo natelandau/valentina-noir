@@ -38,7 +38,7 @@ async def apply_includes[E: StrEnum](
     to the response DTO's ``from_model`` so it can embed the right children.
 
     Plain strings go through ``Model.fetch_related``. ``Prefetch`` objects
-    can't — Tortoise only accepts relation-name strings there — so they're
+    can't - Tortoise only accepts relation-name strings there - so they're
     resolved via a fresh PK-scoped QuerySet and hydrated back onto the
     existing ``obj`` using Tortoise's internal ``_set_result_for_query`` hook
     (there is no public setter for ``ReverseRelation`` / ``ManyToManyRelation``
@@ -61,7 +61,7 @@ async def apply_includes[E: StrEnum](
         refreshed = await type(obj).filter(pk=obj.pk).prefetch_related(*prefetch_objects).first()
         if refreshed is None:
             msg = (
-                f"Failed to reload {type(obj).__name__}(pk={obj.pk!r}) for Prefetch hydration — "
+                f"Failed to reload {type(obj).__name__}(pk={obj.pk!r}) for Prefetch hydration - "
                 "row vanished mid-request"
             )
             raise RuntimeError(msg)

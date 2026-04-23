@@ -1,5 +1,6 @@
 """Log configuration."""
 
+import ast
 import json
 import logging
 import re
@@ -9,6 +10,7 @@ from typing import Any, ClassVar
 
 from litestar.logging.config import LoggingConfig
 from litestar.middleware.logging import LoggingMiddlewareConfig
+from pythonjsonlogger.core import RESERVED_ATTRS
 from pythonjsonlogger.json import JsonFormatter
 
 from vapi.config import settings
@@ -29,46 +31,35 @@ BINARY_CONTENT_PATTERN = re.compile(
 )
 MULTIPART_BOUNDARY_PATTERN = re.compile(r"------\w+\s*", re.MULTILINE)
 
+_KV_VALUE_PATTERN = (
+    r"(?:\{(?:[^{}]|\{[^{}]*\})*\})"
+    r"|(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\])"
+    r'|(?:"[^"]*")'
+    r"|(?:'[^']*')"
+    r"|(?:[^,\s]+)"
+)
+_STRUCTURED_KV_RE = re.compile(rf"(\w+)=({_KV_VALUE_PATTERN})")
+_STRUCTURED_KV_STRIP_RE = re.compile(rf"\s*\w+=(?:{_KV_VALUE_PATTERN})")
+
 
 def _sanitize_binary_body(message: str) -> str:
-    """Remove binary content from message, keeping metadata."""
-    sanitized = BINARY_CONTENT_PATTERN.sub(r"\1 [binary content omitted]", message)
-
-    return MULTIPART_BOUNDARY_PATTERN.sub("", sanitized)
+    """Strip binary payload bodies and multipart boundaries from a log message, keeping metadata."""
+    # Cheap substring guards avoid running catastrophic-backtracking-prone regex on every log line
+    if "Content-Type:" in message:
+        message = BINARY_CONTENT_PATTERN.sub(r"\1 [binary content omitted]", message)
+    if "------" in message:
+        message = MULTIPART_BOUNDARY_PATTERN.sub("", message)
+    return message
 
 
 class BaseFormatter(logging.Formatter):
     """Base formatter with shared functionality for binary sanitization and extra fields."""
 
-    _DEFAULT_KEYS: ClassVar[set[str]] = {
-        "args",
-        "asctime",
-        "created",
-        "exc_info",
-        "exc_text",
-        "filename",
-        "funcName",
-        "levelname",
-        "levelno",
-        "lineno",
-        "message",
-        "module",
-        "msecs",
-        "msg",
-        "name",
-        "pathname",
-        "process",
-        "processName",
-        "relativeCreated",
-        "stack_info",
-        "taskName",
-        "thread",
-        "threadName",
-    }
+    _RESERVED_KEYS: ClassVar[frozenset[str]] = frozenset(RESERVED_ATTRS)
 
     def _get_extra_fields(self, record: logging.LogRecord) -> dict[str, Any]:
         """Extract extra fields from log record that are not standard logging attributes."""
-        return {k: v for k, v in record.__dict__.items() if k not in self._DEFAULT_KEYS}
+        return {k: v for k, v in record.__dict__.items() if k not in self._RESERVED_KEYS}
 
     def _sanitize_and_format(self, record: logging.LogRecord) -> str:
         """Sanitize the record message and format using the parent formatter.
@@ -84,11 +75,10 @@ class BaseFormatter(logging.Formatter):
         """
         original_msg = record.msg
         record.msg = _sanitize_binary_body(str(record.msg))
-
-        output = super().format(record)
-
-        record.msg = original_msg
-        return output
+        try:
+            return super().format(record)
+        finally:
+            record.msg = original_msg
 
     def _append_extras(self, output: str, record: logging.LogRecord) -> str:
         """Append extra fields to the formatted output.
@@ -140,24 +130,23 @@ class ColorFormatter(BaseFormatter):
         """Sanitize and format record using level-specific colored formatter."""
         formatter = self._FORMATS.get(record.levelno, self._FORMATS[logging.DEBUG])
 
+        original_msg = record.msg
+        original_exc_text = record.exc_text
         if record.exc_info:
             text = formatter.formatException(record.exc_info)
             record.exc_text = f"\x1b[31m{text}\x1b[0m"
-
-        original_msg = record.msg
         record.msg = _sanitize_binary_body(str(record.msg))
 
-        output = formatter.format(record)
-
-        record.msg = original_msg
-        return output
+        try:
+            return formatter.format(record)
+        finally:
+            record.msg = original_msg
+            record.exc_text = original_exc_text
 
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record with colors."""
         output = self._sanitize_and_format(record)
-        output = self._append_extras(output, record)
-        record.exc_text = None
-        return output
+        return self._append_extras(output, record)
 
 
 class LitestarJsonFormatter(JsonFormatter):
@@ -187,42 +176,40 @@ class LitestarJsonFormatter(JsonFormatter):
         - key="..."  (quoted strings)
         - key=value  (unquoted values)
         """
-        pattern = r'(\w+)=((?:\{(?:[^{}]|\{[^{}]*\})*\})|(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\])|(?:"[^"]*")|(?:\'[^\']*\')|(?:[^,\s]+))'
-        return {key: self.parse_value(value) for key, value in re.findall(pattern, message)}
+        # Cheap guard: skip regex walk on every log line that can't possibly contain a kv pair
+        if "=" not in message:
+            return {}
+        return {key: self.parse_value(value) for key, value in _STRUCTURED_KV_RE.findall(message)}
 
     def _handle_numbers(self, value: str) -> int | float | None:
-        """Handle numbers."""
-        if value.replace(".", "", 1).replace("-", "", 1).replace("+", "", 1).isdigit():
+        """Parse a numeric string into int or float, returning None if not numeric."""
+        try:
+            return int(value)
+        except ValueError:
             try:
-                if "." in value:
-                    return float(value)
-                return int(value)
+                return float(value)
             except ValueError:
-                pass
+                return None
 
-        return None
-
-    def _handle_arrays(self, value: str) -> list | None:
-        """Handle JSON objects and arrays, including Python-repr syntax."""
-        if (value.startswith("{") and value.endswith("}")) or (
-            value.startswith("[") and value.endswith("]")
+    def _handle_arrays(self, value: str) -> list | dict | None:
+        """Parse a JSON object/array, falling back to Python literal syntax."""
+        if not (
+            (value.startswith("{") and value.endswith("}"))
+            or (value.startswith("[") and value.endswith("]"))
         ):
+            return None
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            # ast.literal_eval handles Python-repr output (single quotes, None/True/False) safely
             try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                try:
-                    # Fall back to Python-repr → JSON conversion
-                    json_value = value.replace("'", '"')
-                    json_value = json_value.replace("None", "null")
-                    json_value = json_value.replace("True", "true")
-                    json_value = json_value.replace("False", "false")
-                    return json.loads(json_value)
-                except json.JSONDecodeError:
-                    pass
-        return None
+                parsed = ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                return None
+            return parsed if isinstance(parsed, list | dict) else None
 
     def _handle_quoted_strings(self, value: str) -> str | None:
-        """Handle quoted strings."""
+        """Strip matching outer quotes from a quoted string, or return None if not quoted."""
         if len(value) >= 2 and (  # noqa: PLR2004
             (value.startswith('"') and value.endswith('"'))
             or (value.startswith("'") and value.endswith("'"))
@@ -261,15 +248,9 @@ class LitestarJsonFormatter(JsonFormatter):
 
     def clean_message(self, message: str) -> str:
         """Remove extracted key=value pairs from message, leaving non-extracted text intact."""
-        pattern = r'\s*\w+=((?:\{(?:[^{}]|\{[^{}]*\})*\})|(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\])|(?:"[^"]*")|(?:\'[^\']*\')|(?:[^,\s]+))'
-        cleaned = re.sub(pattern, "", message)
-
+        cleaned = _STRUCTURED_KV_STRIP_RE.sub("", message)
         cleaned = re.sub(r",\s*,", ",", cleaned)
-        cleaned = re.sub(r",\s*$", "", cleaned)
-        cleaned = re.sub(r"^\s*,", "", cleaned)
-        cleaned = re.sub(r"\s+", " ", cleaned)
-        cleaned = cleaned.strip(", ").rstrip(":")
-
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,").rstrip(":")
         return cleaned or message
 
 
