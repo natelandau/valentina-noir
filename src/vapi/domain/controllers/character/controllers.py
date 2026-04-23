@@ -113,7 +113,7 @@ class CharacterController(Controller):
         if status:
             filters["status"] = status
 
-        qs = Character.filter(**filters)
+        qs = Character.filter(**filters).order_by("name_first", "name_last", "id")
         count, characters = await asyncio.gather(
             qs.count(),
             qs.offset(offset).limit(limit).prefetch_related(*CHARACTER_RESPONSE_PREFETCH),

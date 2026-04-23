@@ -52,7 +52,9 @@ class CharacterInventoryController(Controller):
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[InventoryItemResponse]:
         """List all inventory items."""
-        qs = CharacterInventory.filter(character_id=character.id, is_archived=False)
+        qs = CharacterInventory.filter(character_id=character.id, is_archived=False).order_by(
+            "name", "id"
+        )
         count, items = await asyncio.gather(
             qs.count(),
             qs.offset(offset).limit(limit),

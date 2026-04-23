@@ -67,6 +67,7 @@ class UserController(Controller):
             qs = qs.filter(role=user_role)
         if email:
             qs = qs.filter(email=email)
+        qs = qs.order_by("username", "id")
 
         count, users = await asyncio.gather(
             qs.count(),
@@ -166,7 +167,9 @@ class UserController(Controller):
         service = UserService()
         await service.validate_user_can_manage_user(requesting_user_id=acting_user.id)
 
-        qs = User.filter(company_id=company.id, is_archived=False, role=UserRole.UNAPPROVED)
+        qs = User.filter(
+            company_id=company.id, is_archived=False, role=UserRole.UNAPPROVED
+        ).order_by("username", "id")
         count, users = await asyncio.gather(
             qs.count(),
             qs.offset(offset).limit(limit).prefetch_related("campaign_experiences"),

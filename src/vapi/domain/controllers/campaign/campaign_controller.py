@@ -50,7 +50,7 @@ class CampaignController(Controller):
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[CampaignResponse]:
         """List all campaigns."""
-        qs = Campaign.filter(company_id=company.id, is_archived=False)
+        qs = Campaign.filter(company_id=company.id, is_archived=False).order_by("name", "id")
         count, campaigns = await asyncio.gather(
             qs.count(),
             qs.offset(offset).limit(limit),
