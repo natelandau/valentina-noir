@@ -31,6 +31,3 @@ api-changes.md
 # Worktrees
 .worktrees/
 
-# Migration script
-scripts/migrate/.env.old
-scripts/migrate/s3_assets.log
