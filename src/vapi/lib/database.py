@@ -6,6 +6,7 @@ PostgreSQL via TortoiseORM is the primary database.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import asyncpg
@@ -63,6 +64,16 @@ def __getattr__(name: str) -> dict[str, Any]:
         return tortoise_config()
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
+
+
+def pg_subprocess_env() -> dict[str, str]:
+    """Return the environment for invoking ``pg_dump`` / ``pg_restore`` subprocesses.
+
+    Inherits the parent environment so the subprocess can find PATH, locale
+    data, and shared libs, then overlays ``PGPASSWORD`` so libpq can
+    authenticate without needing a ``.pgpass`` file.
+    """
+    return {**os.environ, "PGPASSWORD": settings.postgres.password}
 
 
 async def drop_and_recreate_database() -> None:

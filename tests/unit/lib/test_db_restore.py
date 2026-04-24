@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+from contextlib import nullcontext
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
@@ -21,6 +23,14 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
+def _mock_tempfile(mocker: MockerFixture, path: Path) -> None:
+    """Patch NamedTemporaryFile to yield an object whose ``.name`` equals ``str(path)``."""
+    mocker.patch(
+        "vapi.lib.db_restore.NamedTemporaryFile",
+        return_value=nullcontext(SimpleNamespace(name=str(path))),
+    )
+
+
 class TestResolveSource:
     """Tests for source resolution (S3 vs local file)."""
 
@@ -35,7 +45,7 @@ class TestResolveSource:
         service = DatabaseRestoreService()
 
         # When resolving the source
-        resolved_path, should_cleanup = await service._resolve_source(LocalFileSource(path=dump))
+        resolved_path, should_cleanup = await service.resolve_source(LocalFileSource(path=dump))
 
         # Then the path is returned and cleanup is disabled
         assert resolved_path == dump
@@ -60,15 +70,12 @@ class TestResolveSource:
         mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
 
         # Given a tempfile target
-        mocker.patch(
-            "vapi.lib.db_restore.NamedTemporaryFile",
-            return_value=_FakeTempFile(tmp_path / "latest.dump"),
-        )
+        _mock_tempfile(mocker, tmp_path / "latest.dump")
 
         service = DatabaseRestoreService()
 
         # When resolving the source with no explicit key
-        resolved_path, should_cleanup = await service._resolve_source(S3Source(key=None))
+        resolved_path, should_cleanup = await service.resolve_source(S3Source(key=None))
 
         # Then the latest key was downloaded
         mock_aws.list_keys.assert_awaited_once_with(prefix="db_backups/")
@@ -88,15 +95,12 @@ class TestResolveSource:
         mock_aws = mocker.MagicMock()
         mock_aws.download_file = mocker.AsyncMock()
         mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
-        mocker.patch(
-            "vapi.lib.db_restore.NamedTemporaryFile",
-            return_value=_FakeTempFile(tmp_path / "specific.dump"),
-        )
+        _mock_tempfile(mocker, tmp_path / "specific.dump")
 
         service = DatabaseRestoreService()
 
         # When resolving with an explicit key
-        await service._resolve_source(S3Source(key="db_backups/2026-04-01.dump"))
+        await service.resolve_source(S3Source(key="db_backups/2026-04-01.dump"))
 
         # Then list_keys was NOT called
         mock_aws.list_keys.assert_not_called()
@@ -119,7 +123,7 @@ class TestResolveSource:
         # When resolving latest-key source against an empty prefix
         # Then DatabaseRestoreError is raised with a clear message
         with pytest.raises(DatabaseRestoreError, match="No backups found"):
-            await service._resolve_source(S3Source(key=None))
+            await service.resolve_source(S3Source(key=None))
 
     async def test_s3_source_surfaces_missing_config_as_restore_error(
         self,
@@ -137,22 +141,7 @@ class TestResolveSource:
         # When resolving an S3 source
         # Then a DatabaseRestoreError is raised with a --file hint
         with pytest.raises(DatabaseRestoreError, match="--file"):
-            await service._resolve_source(S3Source(key=None))
-
-
-class _FakeTempFile:
-    """Minimal stand-in for NamedTemporaryFile returning a fixed path."""
-
-    def __init__(self, path: Path) -> None:
-        self.name = str(path)
-        self._path = path
-
-    def __enter__(self) -> _FakeTempFile:  # noqa: PYI034
-        return self
-
-    def __exit__(self, *_: object) -> None:
-        # NamedTemporaryFile in our code uses delete=False, so no cleanup here
-        return None
+            await service.resolve_source(S3Source(key=None))
 
 
 class TestRun:
@@ -202,10 +191,7 @@ class TestRun:
         mock_aws.list_keys = AsyncMock(return_value=["db_backups/2026-04-15.dump"])
         mock_aws.download_file = AsyncMock()
         mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
-        mocker.patch(
-            "vapi.lib.db_restore.NamedTemporaryFile",
-            return_value=_FakeTempFile(dump),
-        )
+        _mock_tempfile(mocker, dump)
 
         mocker.patch("vapi.lib.db_restore.drop_and_recreate_database", new=AsyncMock())
         mock_process = AsyncMock()
@@ -238,10 +224,7 @@ class TestRun:
         mock_aws.list_keys = AsyncMock(return_value=["db_backups/2026-04-15.dump"])
         mock_aws.download_file = AsyncMock()
         mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
-        mocker.patch(
-            "vapi.lib.db_restore.NamedTemporaryFile",
-            return_value=_FakeTempFile(dump),
-        )
+        _mock_tempfile(mocker, dump)
 
         mocker.patch("vapi.lib.db_restore.drop_and_recreate_database", new=AsyncMock())
         mock_process = AsyncMock()

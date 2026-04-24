@@ -27,7 +27,7 @@ console = Console()
 
 _RESTORE_HELP = (
     "Restore the database from a pg_dump backup. This DROPS and RECREATES "
-    "the database — existing data is destroyed. By default, pulls the most "
+    "the database - existing data is destroyed. By default, pulls the most "
     "recent backup from S3 (the db_backups/ prefix used by the scheduled "
     "backup task).\n\n"
     "After restoring an older backup, run `app migrate` separately to bring "

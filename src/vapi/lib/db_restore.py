@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from vapi.config import settings
+from vapi.constants import BACKUP_S3_PREFIX
 from vapi.domain.services.aws_service import AWSS3Service
-from vapi.lib.database import drop_and_recreate_database
+from vapi.lib.database import drop_and_recreate_database, pg_subprocess_env
 from vapi.lib.exceptions import (
     AWSS3Error,
     DatabaseRestoreError,
@@ -21,13 +21,12 @@ from vapi.lib.exceptions import (
 logger = logging.getLogger("vapi")
 
 _LOG_EXTRA = {"component": "db_restore"}
-_BACKUP_PREFIX = "db_backups/"
 _CREDS_HINT = (
     "AWS credentials not configured. "
     "Use --file to restore from a local dump, or set VAPI_AWS_* in your environment."
 )
 _EMPTY_PREFIX_HINT = (
-    f"No backups found in S3 under {_BACKUP_PREFIX}. Run the backup task or provide --file."
+    f"No backups found in S3 under {BACKUP_S3_PREFIX}. Run the backup task or provide --file."
 )
 
 
@@ -51,7 +50,7 @@ RestoreSource = LocalFileSource | S3Source
 class DatabaseRestoreService:
     """Restore a PostgreSQL database from a ``pg_dump -Fc`` backup."""
 
-    async def _resolve_source(self, source: RestoreSource) -> tuple[Path, bool]:
+    async def resolve_source(self, source: RestoreSource) -> tuple[Path, bool]:
         """Resolve a RestoreSource to a local dump path.
 
         Args:
@@ -71,7 +70,7 @@ class DatabaseRestoreService:
             raise DatabaseRestoreError(_CREDS_HINT) from e
 
         if source.key is None:
-            keys = await aws.list_keys(prefix=_BACKUP_PREFIX)
+            keys = await aws.list_keys(prefix=BACKUP_S3_PREFIX)
             if not keys:
                 raise DatabaseRestoreError(_EMPTY_PREFIX_HINT)
             selected_key = max(keys)
@@ -88,7 +87,6 @@ class DatabaseRestoreService:
         try:
             await aws.download_file(key=selected_key, dest_path=dest_path)
         except AWSS3Error as e:
-            # Clean up the empty temp file we created before re-raising.
             msg = f"Failed to download backup: {e}"
             dest_path.unlink(missing_ok=True)  # noqa: ASYNC240
             raise DatabaseRestoreError(msg) from e
@@ -107,7 +105,7 @@ class DatabaseRestoreService:
             DatabaseRestoreError: If dump download, drop/recreate, or
                 pg_restore fails.
         """
-        dump_path, should_cleanup = await self._resolve_source(source)
+        dump_path, should_cleanup = await self.resolve_source(source)
 
         try:
             logger.info(
@@ -134,7 +132,7 @@ class DatabaseRestoreService:
                 "--no-owner",
                 "--no-privileges",
                 str(dump_path),
-                env={**os.environ, "PGPASSWORD": pg.password},
+                env=pg_subprocess_env(),
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
             )

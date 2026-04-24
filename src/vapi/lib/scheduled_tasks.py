@@ -7,7 +7,6 @@ mind that the tasks are run in a separate process from the main application.
 import asyncio
 import contextlib
 import logging
-import os
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -19,8 +18,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from vapi.config.base import BackupSettings, settings
-from vapi.constants import AUDIT_LOG_RETENTION_DAYS
+from vapi.constants import AUDIT_LOG_RETENTION_DAYS, BACKUP_S3_PREFIX
 from vapi.domain.services import AWSS3Service
+from vapi.lib.database import pg_subprocess_env
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
 from vapi.utils.time import time_now
 
@@ -323,7 +323,6 @@ async def purge_db_expired_items(_: Context) -> None:
 
 
 _BACKUP_LOG_EXTRA = {"component": "saq", "task": "backup_database"}
-_BACKUP_PREFIX = "db_backups"
 
 
 async def backup_database(_: Context) -> None:
@@ -353,7 +352,6 @@ async def backup_database(_: Context) -> None:
         with NamedTemporaryFile(suffix=".dump", delete=False) as tmp_file:
             tmp_path = tmp_file.name
 
-        # Inherit the parent environment so pg_dump can find PATH, locale data, and shared libs
         process = await asyncio.create_subprocess_exec(
             "pg_dump",
             "-Fc",
@@ -367,7 +365,7 @@ async def backup_database(_: Context) -> None:
             settings.postgres.database,
             "-f",
             tmp_path,
-            env={**os.environ, "PGPASSWORD": settings.postgres.password},
+            env=pg_subprocess_env(),
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -388,7 +386,7 @@ async def backup_database(_: Context) -> None:
             extra={**_BACKUP_LOG_EXTRA, "file_size_bytes": file_size},
         )
 
-        s3_key = f"{_BACKUP_PREFIX}/{time_now().strftime('%Y-%m-%d')}.dump"
+        s3_key = f"{BACKUP_S3_PREFIX}{time_now().strftime('%Y-%m-%d')}.dump"
 
         try:
             await aws_service.upload_file(
@@ -403,7 +401,7 @@ async def backup_database(_: Context) -> None:
         logger.info("Backup uploaded to S3.", extra={**_BACKUP_LOG_EXTRA, "s3_key": s3_key})
 
         try:
-            all_keys = await aws_service.list_keys(prefix=f"{_BACKUP_PREFIX}/")
+            all_keys = await aws_service.list_keys(prefix=BACKUP_S3_PREFIX)
         except AWSS3Error:
             logger.exception("Failed to list backups during pruning.", extra=_BACKUP_LOG_EXTRA)
             return
