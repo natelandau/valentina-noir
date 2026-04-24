@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from vapi.config import settings
 from vapi.domain.services.aws_service import AWSS3Service
+from vapi.lib.database import drop_and_recreate_database
 from vapi.lib.exceptions import (
     AWSS3Error,
     DatabaseRestoreError,
@@ -90,3 +94,62 @@ class DatabaseRestoreService:
             raise DatabaseRestoreError(msg) from e
 
         return dest_path, True
+
+    async def run(self, source: RestoreSource) -> None:
+        """Restore the database from the given dump source.
+
+        The database is dropped and recreated, then ``pg_restore`` loads the
+        dump into the empty database. Temp files created by this call (S3
+        downloads) are cleaned up; a caller-provided local file is never
+        deleted.
+
+        Raises:
+            DatabaseRestoreError: If dump download, drop/recreate, or
+                pg_restore fails.
+        """
+        dump_path, should_cleanup = await self._resolve_source(source)
+
+        try:
+            logger.info(
+                "Dropping and recreating target database.",
+                extra={**_LOG_EXTRA, "database": settings.postgres.database},
+            )
+            await drop_and_recreate_database()
+
+            pg = settings.postgres
+            logger.info(
+                "Running pg_restore.",
+                extra={**_LOG_EXTRA, "dump_path": str(dump_path)},
+            )
+            process = await asyncio.create_subprocess_exec(
+                "pg_restore",
+                "-h",
+                pg.host,
+                "-p",
+                str(pg.port),
+                "-U",
+                pg.user,
+                "-d",
+                pg.database,
+                "--no-owner",
+                "--no-privileges",
+                str(dump_path),
+                env={**os.environ, "PGPASSWORD": pg.password},
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _stdout, stderr = await process.communicate()
+
+            if process.returncode != 0:
+                stderr_text = stderr.decode().strip()
+                logger.error(
+                    "pg_restore failed.",
+                    extra={**_LOG_EXTRA, "stderr": stderr_text},
+                )
+                msg = f"pg_restore exited with code {process.returncode}: {stderr_text}"
+                raise DatabaseRestoreError(msg)
+
+            logger.info("Database restore complete.", extra=_LOG_EXTRA)
+        finally:
+            if should_cleanup:
+                dump_path.unlink(missing_ok=True)

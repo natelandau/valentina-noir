@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -149,3 +150,139 @@ class _FakeTempFile:
     def __exit__(self, *_: object) -> None:
         # NamedTemporaryFile in our code uses delete=False, so no cleanup here
         return None
+
+
+class TestRun:
+    """Tests for DatabaseRestoreService.run end-to-end orchestration."""
+
+    async def test_run_with_local_file_does_not_delete_user_file(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify restoring from --file never deletes the user-provided dump."""
+        # Given an existing local dump file
+        dump = tmp_path / "user.dump"
+        dump.write_bytes(b"dump")
+
+        # Given pg_restore succeeds and drop_and_recreate is stubbed
+        mock_drop = mocker.patch("vapi.lib.db_restore.drop_and_recreate_database", new=AsyncMock())
+        mock_process = AsyncMock()
+        mock_process.communicate.return_value = (b"", b"")
+        mock_process.returncode = 0
+        mocker.patch(
+            "vapi.lib.db_restore.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        )
+
+        service = DatabaseRestoreService()
+
+        # When restoring
+        await service.run(source=LocalFileSource(path=dump))
+
+        # Then drop_and_recreate_database was called
+        mock_drop.assert_awaited_once()
+        # And the user's file is still on disk
+        assert dump.exists()
+
+    async def test_run_with_s3_source_deletes_temp_file_on_success(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify a downloaded temp dump is deleted after a successful restore."""
+        # Given an AWSS3Service that "downloads" into tmp
+        dump = tmp_path / "download.dump"
+        dump.write_bytes(b"dump")
+
+        mock_aws = mocker.MagicMock()
+        mock_aws.list_keys = AsyncMock(return_value=["db_backups/2026-04-15.dump"])
+        mock_aws.download_file = AsyncMock()
+        mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
+        mocker.patch(
+            "vapi.lib.db_restore.NamedTemporaryFile",
+            return_value=_FakeTempFile(dump),
+        )
+
+        mocker.patch("vapi.lib.db_restore.drop_and_recreate_database", new=AsyncMock())
+        mock_process = AsyncMock()
+        mock_process.communicate.return_value = (b"", b"")
+        mock_process.returncode = 0
+        mocker.patch(
+            "vapi.lib.db_restore.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        )
+
+        service = DatabaseRestoreService()
+
+        # When restoring from S3 latest
+        await service.run(source=S3Source(key=None))
+
+        # Then the temp dump was unlinked
+        assert not dump.exists()
+
+    async def test_run_deletes_temp_file_even_on_pg_restore_failure(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify the temp dump is cleaned up even when pg_restore fails."""
+        # Given a downloaded temp dump and a failing pg_restore
+        dump = tmp_path / "download.dump"
+        dump.write_bytes(b"dump")
+
+        mock_aws = mocker.MagicMock()
+        mock_aws.list_keys = AsyncMock(return_value=["db_backups/2026-04-15.dump"])
+        mock_aws.download_file = AsyncMock()
+        mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
+        mocker.patch(
+            "vapi.lib.db_restore.NamedTemporaryFile",
+            return_value=_FakeTempFile(dump),
+        )
+
+        mocker.patch("vapi.lib.db_restore.drop_and_recreate_database", new=AsyncMock())
+        mock_process = AsyncMock()
+        mock_process.communicate.return_value = (b"", b"pg_restore: error: broken")
+        mock_process.returncode = 1
+        mocker.patch(
+            "vapi.lib.db_restore.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        )
+
+        service = DatabaseRestoreService()
+
+        # When restoring and pg_restore fails
+        # Then DatabaseRestoreError is raised AND the temp file is still cleaned up
+        with pytest.raises(DatabaseRestoreError, match="pg_restore"):
+            await service.run(source=S3Source(key=None))
+        assert not dump.exists()
+
+    async def test_run_invokes_pg_restore_with_expected_args(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify pg_restore is called with the configured host/port/user/db and the dump path."""
+        # Given a local dump and mocks for subprocess / drop
+        dump = tmp_path / "user.dump"
+        dump.write_bytes(b"dump")
+        mocker.patch("vapi.lib.db_restore.drop_and_recreate_database", new=AsyncMock())
+        mock_process = AsyncMock()
+        mock_process.communicate.return_value = (b"", b"")
+        mock_process.returncode = 0
+        mock_exec = mocker.patch(
+            "vapi.lib.db_restore.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        )
+
+        service = DatabaseRestoreService()
+
+        # When restoring
+        await service.run(source=LocalFileSource(path=dump))
+
+        # Then pg_restore was called with the expected positional args
+        args, _kwargs = mock_exec.call_args
+        assert args[0] == "pg_restore"
+        assert "--no-owner" in args
+        assert "--no-privileges" in args
+        assert str(dump) in args
