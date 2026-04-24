@@ -39,6 +39,22 @@ jobs:
               shell: bash
               run: docker info
 
+            - name: Install postgresql-client-18 from PGDG
+              shell: bash
+              # Ubuntu runners ship postgresql-client-16, but the project targets
+              # Postgres 18 (see Dockerfile). pg_dump refuses to dump a server
+              # newer than itself, so the backup/restore tests need matching tools.
+              run: |
+                  sudo install -d /usr/share/postgresql-common/pgdg
+                  sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+                      -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+                  codename="$(lsb_release -cs)"
+                  echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${codename}-pgdg main" \
+                      | sudo tee /etc/apt/sources.list.d/pgdg.list
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends postgresql-client-18
+                  pg_dump --version
+
             - name: Run tests
               shell: bash
               run: |
