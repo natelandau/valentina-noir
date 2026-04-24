@@ -104,6 +104,28 @@ class AWSS3Service:
             msg = "Failed to upload file to AWS S3"
             raise AWSS3Error(detail=msg) from e
 
+    async def download_file(self, key: str, dest_path: Path) -> None:
+        """Download an S3 object to a local file.
+
+        Use this for large objects (e.g., database dumps) so the download is
+        streamed to disk via boto3 rather than loaded entirely into memory.
+
+        Args:
+            key: The full S3 object key (e.g., "db_backups/2026-04-15.dump").
+            dest_path: Local path to write the file to. The parent directory
+                must already exist.
+        """
+        try:
+            await asyncio.to_thread(
+                self.s3.download_file,
+                self.bucket_name,
+                key,
+                str(dest_path),
+            )
+        except ClientError as e:
+            msg = "Failed to download file from AWS S3"
+            raise AWSS3Error(detail=msg) from e
+
     async def list_keys(self, prefix: str) -> list[str]:
         """List all object keys under a prefix.
 
