@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import asyncpg
+
 from vapi.config import settings
 
 logger = logging.getLogger("vapi")
@@ -63,6 +65,31 @@ def __getattr__(name: str) -> dict[str, Any]:
     raise AttributeError(msg)
 
 
+async def drop_and_recreate_database() -> None:
+    """Drop and recreate the configured PostgreSQL database.
+
+    Connect to the ``postgres`` maintenance database to execute DROP/CREATE,
+    since you cannot drop a database while connected to it. Terminate any
+    lingering connections before the DROP so it does not block.
+    """
+    pg = settings.postgres
+    conn = await asyncpg.connect(
+        host=pg.host,
+        port=pg.port,
+        user=pg.user,
+        password=pg.password,
+        database="postgres",
+    )
+    try:
+        # Terminate existing connections before DROP to prevent blocking
+        terminate_sql = f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{pg.database}' AND pid <> pg_backend_pid()"  # noqa: S608
+        await conn.execute(terminate_sql)
+        await conn.execute(f'DROP DATABASE IF EXISTS "{pg.database}"')
+        await conn.execute(f'CREATE DATABASE "{pg.database}" OWNER {pg.user}')
+    finally:
+        await conn.close()
+
+
 async def test_db_connection() -> bool:  # pragma: no cover
     """Test the PostgreSQL database connection.
 
@@ -72,8 +99,6 @@ async def test_db_connection() -> bool:  # pragma: no cover
         True if the connection is successful, False otherwise.
     """
     import asyncio
-
-    import asyncpg
 
     try:
         conn = await asyncio.wait_for(
