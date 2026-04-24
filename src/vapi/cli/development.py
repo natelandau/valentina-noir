@@ -11,7 +11,7 @@ from rich.prompt import Confirm
 from tortoise import Tortoise
 
 from vapi.config import settings
-from vapi.lib.database import init_tortoise
+from vapi.lib.database import drop_and_recreate_database, init_tortoise
 
 from .lib.population import PopulationService
 from .seed import seed_async
@@ -25,32 +25,6 @@ def development_group() -> None:
     """Development CLI."""
 
 
-async def _purge_pg_async() -> None:
-    """Drop and recreate the entire PostgreSQL database.
-
-    Connects to the ``postgres`` maintenance database to execute DROP/CREATE,
-    since you cannot drop a database while connected to it.
-    """
-    import asyncpg
-
-    pg = settings.postgres
-    conn = await asyncpg.connect(
-        host=pg.host,
-        port=pg.port,
-        user=pg.user,
-        password=pg.password,
-        database="postgres",
-    )
-    try:
-        # Terminate existing connections so the DROP succeeds
-        terminate_sql = f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{pg.database}' AND pid <> pg_backend_pid()"  # noqa: S608
-        await conn.execute(terminate_sql)
-        await conn.execute(f'DROP DATABASE IF EXISTS "{pg.database}"')
-        await conn.execute(f'CREATE DATABASE "{pg.database}" OWNER {pg.user}')
-    finally:
-        await conn.close()
-
-
 @development_group.command(name="purgedb", help="Purge the database")
 def purge_db() -> None:
     """Purge the database."""
@@ -62,7 +36,7 @@ def purge_db() -> None:
         click.echo("Aborting...")
         return
 
-    asyncio.run(_purge_pg_async())
+    asyncio.run(drop_and_recreate_database())
     click.echo("Database purged")
 
 
@@ -106,7 +80,7 @@ def populate_db(
     async def populate_db_async() -> None:
         """Populate the database."""
         # First purge the database
-        await _purge_pg_async()
+        await drop_and_recreate_database()
 
         # Then seed and populate
         await init_tortoise()

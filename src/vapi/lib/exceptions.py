@@ -22,6 +22,7 @@ __all__ = (
     "AWSS3Error",
     "ClientError",
     "ConflictError",
+    "DatabaseRestoreError",
     "HTTPError",
     "ImproperlyConfiguredError",
     "InternalServerError",
@@ -52,6 +53,14 @@ class MissingConfigurationError(ApplicationError):
     """Missing configuration.
 
     This exception is raised when a needed configuration variable is missing.
+    """
+
+
+class DatabaseRestoreError(ApplicationError):
+    """Raised when a database restore operation fails.
+
+    This covers missing dump files, empty S3 prefixes, pg_restore failures,
+    and any other unrecoverable restore error.
     """
 
 

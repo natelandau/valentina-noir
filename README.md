@@ -62,11 +62,47 @@ Valentina Noir can automatically back up the PostgreSQL database to S3 on a dail
 
 **Retention policy:** Every backup is a daily backup. At prune time, the retention logic selects which backups to keep: the N most recent for daily, and the oldest backup from each week/month/year for the other tiers. A single backup can satisfy multiple tiers. Backups not covered by any tier are deleted.
 
-**Restoring a backup:**
+### Restoring from a backup
+
+The scheduled backup task (see `src/vapi/lib/scheduled_tasks.py`) uploads a
+daily `pg_dump -Fc` file to S3 under `db_backups/`. The `app restore` command
+replaces the current database with one of these backups.
 
 ```bash
-pg_restore -h <host> -p <port> -U <user> -d <database> --clean --if-exists <backup-file>.dump
+# Restore the most recent S3 backup (default)
+uv run app restore
+
+# Restore a specific backup from S3
+uv run app restore --s3-path db_backups/2026-04-15.dump
+
+# Restore from a local .dump file
+uv run app restore --file /path/to/backup.dump
+
+# Skip the confirmation prompt (used by scripts / docker entrypoint)
+uv run app restore --yes
 ```
+
+**Two-step flow for older backups.** A restore loads the schema and data that
+were in the dump file. If the backup predates the current code, follow up with
+a migration:
+
+```bash
+uv run app restore
+uv run app migrate
+```
+
+**Running in Docker.** Set `VAPI_DOCKER_RESTORE=true` in the container
+environment to pull the most recent S3 backup on startup, before migrations
+run. Typically pair it with `VAPI_DOCKER_MIGRATE=true` so the schema is also
+brought up to date:
+
+```
+VAPI_DOCKER_RESTORE=true
+VAPI_DOCKER_MIGRATE=true
+```
+
+`app restore` reuses `VAPI_AWS_*` credentials. If those are not set and `--file`
+is not provided, the command exits with an error.
 
 ## Getting Started Developing Valentina Noir
 

@@ -28,6 +28,7 @@ DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
+BACKUP_S3_PREFIX: Final[str] = "db_backups/"
 RECOUP_XP_SESSION_LENGTH: Final[int] = (
     3600  # seconds (1 hour); used for WITHIN_SESSION recoup floor TTL
 )

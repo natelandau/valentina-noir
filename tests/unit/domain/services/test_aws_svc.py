@@ -22,6 +22,7 @@ from vapi.lib.exceptions import AWSS3Error
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from pytest_mock import MockerFixture
 
@@ -547,6 +548,64 @@ class TestDeleteKey:
         service = AWSS3Service()
         with pytest.raises(AWSS3Error):
             await service.delete_key(key="db_backups/2026-04-06.dump")
+
+
+class TestDownloadFile:
+    """Tests for AWSS3Service.download_file."""
+
+    @pytest.fixture
+    def aws_credentials(self) -> object:
+        """Populate AWS settings for the duration of a test, then restore."""
+        original_key = settings.aws.access_key_id
+        original_secret = settings.aws.secret_access_key
+        original_bucket = settings.aws.s3_bucket_name
+        settings.aws.access_key_id = "test-key"
+        settings.aws.secret_access_key = "test-secret"  # noqa: S105
+        settings.aws.s3_bucket_name = "test-bucket"
+        yield
+        settings.aws.access_key_id = original_key
+        settings.aws.secret_access_key = original_secret
+        settings.aws.s3_bucket_name = original_bucket
+
+    async def test_download_file_streams_via_boto(
+        self,
+        aws_credentials: object,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify download_file calls boto3 download_file with the expected args."""
+        # Given an AWSS3Service with a mocked boto3 client
+        service = AWSS3Service()
+        mock_download = mocker.patch.object(service.s3, "download_file")
+        dest = tmp_path / "out.dump"
+
+        # When downloading a key
+        await service.download_file(key="db_backups/2026-04-15.dump", dest_path=dest)
+
+        # Then boto3.download_file was called with (Bucket, Key, Filename)
+        mock_download.assert_called_once_with(
+            "test-bucket", "db_backups/2026-04-15.dump", str(dest)
+        )
+
+    async def test_download_file_wraps_client_error(
+        self,
+        aws_credentials: object,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify download_file raises AWSS3Error when boto3 raises ClientError."""
+        # Given an AWSS3Service whose download raises a ClientError
+        service = AWSS3Service()
+        error = ClientError({"Error": {"Code": "NoSuchKey", "Message": "gone"}}, "GetObject")
+        mocker.patch.object(service.s3, "download_file", side_effect=error)
+
+        # When downloading
+        # Then AWSS3Error is raised with the underlying ClientError as cause
+        with pytest.raises(AWSS3Error):
+            await service.download_file(
+                key="db_backups/missing.dump",
+                dest_path=tmp_path / "out.dump",
+            )
 
 
 class TestDeleteAsset:
