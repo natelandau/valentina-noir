@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
+from vapi.config.base import settings
 from vapi.lib.db_restore import DatabaseRestoreService, LocalFileSource, S3Source
 from vapi.lib.exceptions import DatabaseRestoreError, MissingConfigurationError
 
@@ -286,3 +289,59 @@ class TestRun:
         assert "--no-owner" in args
         assert "--no-privileges" in args
         assert str(dump) in args
+
+
+class TestRunIntegration:
+    """End-to-end test: dump a real Postgres, then restore it."""
+
+    @pytest.mark.serial
+    async def test_restore_from_pg_dump_file_roundtrip(
+        self,
+        tmp_path: Path,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify DatabaseRestoreService can restore a pg_dump -Fc file produced from the live DB."""
+        # Given a dump of the current test database
+        from tortoise import Tortoise
+
+        pg = settings.postgres
+        dump_file = tmp_path / "roundtrip.dump"
+
+        proc = await asyncio.create_subprocess_exec(
+            "pg_dump",
+            "-Fc",
+            "-h",
+            pg.host,
+            "-p",
+            str(pg.port),
+            "-U",
+            pg.user,
+            "-d",
+            pg.database,
+            "-f",
+            str(dump_file),
+            env={**os.environ, "PGPASSWORD": pg.password},
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _stdout, stderr = await proc.communicate()
+        assert proc.returncode == 0, stderr.decode()
+        assert dump_file.stat().st_size > 0
+
+        # Close Tortoise connections so drop_and_recreate_database can drop the DB
+        await Tortoise.close_connections()
+
+        # When restoring from the dump file
+        try:
+            service = DatabaseRestoreService()
+            await service.run(source=LocalFileSource(path=dump_file))
+        finally:
+            # Reinitialize Tortoise so subsequent tests / fixtures see a working connection
+            from vapi.lib.database import init_tortoise
+
+            await init_tortoise()
+
+        # Then a basic query against the restored DB succeeds
+        conn = Tortoise.get_connection("default")
+        _, rows = await conn.execute_query("SELECT 1 AS ok")
+        assert rows[0]["ok"] == 1
