@@ -25,6 +25,16 @@ fi
 # Set ownership of app directory (non-recursive to avoid touching bind mounts)
 chown "${PUID}:${PGID}" /app
 
+# Optional: restore the database from the most recent S3 backup.
+# This drops and recreates the database before anything else runs, so any
+# subsequent migrate / seed steps operate on the restored database. Typically
+# set VAPI_DOCKER_MIGRATE=true alongside this so the schema is brought up to
+# date with the current code.
+if [[ "${VAPI_DOCKER_RESTORE:-}" == "true" ]]; then
+    printf "VAPI_DOCKER_RESTORE is set to true - restoring database from most recent S3 backup\n"
+    gosu appuser app restore --yes
+fi
+
 # Optional: run database migrations
 if [[ "${VAPI_DOCKER_MIGRATE:-}" == "true" ]]; then
     printf "VAPI_DOCKER_MIGRATE is set to true - running migrations\n"
