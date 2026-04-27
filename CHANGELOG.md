@@ -1,3 +1,20 @@
+## v0.17.0 (2026-04-27)
+
+### Feat
+
+- add app restore command (#121)
+- **audit-log**: retain audit logs for 365 days (#119)
+
+### Fix
+
+- **controllers**: stabilize default sort on list endpoints
+- **dicerolls**: stabilize list endpoint order
+- **signals**: use titlecase for name normalization (#118)
+
+### Refactor
+
+- apply code-review fixes across lib and middleware (#120)
+
 ## v0.16.0 (2026-04-19)
 
 ### Feat

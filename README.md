@@ -22,15 +22,16 @@ The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The contai
 
 These variables are used by the container entrypoint and are also available in `.env.example`.
 
-| Variable                       | Default | Description                                                  |
-| ------------------------------ | ------- | ------------------------------------------------------------ |
-| `PUID`                         | `1000`  | UID for the application user inside the container            |
-| `PGID`                         | `1000`  | GID for the application user inside the container            |
-| `VAPI_DOCKER_MIGRATE`          | `false` | Set to `true` to run database migrations on startup          |
-| `VAPI_DOCKER_SEED`             | `false` | Set to `true` to seed reference data on startup              |
-| `VAPI_APIUSER_USERNAME`        |         | Username for a developer account created on startup          |
-| `VAPI_APIUSER_EMAIL`           |         | Email for the developer account                              |
-| `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer |
+| Variable                       | Default | Description                                                                                                                                                                           |
+| ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUID`                         | `1000`  | UID for the application user inside the container                                                                                                                                     |
+| `PGID`                         | `1000`  | GID for the application user inside the container                                                                                                                                     |
+| `VAPI_DOCKER_MIGRATE`          | `false` | Set to `true` to run database migrations on startup                                                                                                                                   |
+| `VAPI_DOCKER_SEED`             | `false` | Set to `true` to seed reference data on startup                                                                                                                                       |
+| `VAPI_APIUSER_USERNAME`        |         | Username for a developer account created on startup                                                                                                                                   |
+| `VAPI_APIUSER_EMAIL`           |         | Email for the developer account                                                                                                                                                       |
+| `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer                                                                                                                          |
+| `VAPI_DOCKER_RESTORE`          | `false` | Set to `true` to restore the database from the most recent S3 backup on startup. Don't forget to set `VAPI_DOCKER_MIGRATE=true` to bring the schema up to date with the current code. |
 
 Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues. Find your UID and GID with:
 
@@ -46,19 +47,20 @@ All application configuration variables from `.env.example` are also supported a
 Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket.
 
 **Requirements:**
+
 - `pg_dump` must be available in the environment (included in the Docker image)
 - AWS credentials and S3 bucket must be configured (the same `VAPI_AWS__*` variables used for asset storage)
 
 **Enable backups** by setting `VAPI_BACKUP__ENABLED=true`. Backups are disabled by default.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `VAPI_BACKUP__ENABLED` | `false` | Enable automatic database backups |
-| `VAPI_BACKUP__CRON` | `0 3 * * *` | Cron schedule (default: 3 AM daily) |
-| `VAPI_BACKUP__RETAIN_DAILY` | `7` | Number of daily backups to keep |
-| `VAPI_BACKUP__RETAIN_WEEKLY` | `4` | Weekly backups to keep (oldest per ISO week) |
-| `VAPI_BACKUP__RETAIN_MONTHLY` | `6` | Monthly backups to keep (oldest per month) |
-| `VAPI_BACKUP__RETAIN_YEARLY` | `2` | Yearly backups to keep (oldest per year) |
+| Variable                      | Default     | Description                                  |
+| ----------------------------- | ----------- | -------------------------------------------- |
+| `VAPI_BACKUP__ENABLED`        | `false`     | Enable automatic database backups            |
+| `VAPI_BACKUP__CRON`           | `0 3 * * *` | Cron schedule (default: 3 AM daily)          |
+| `VAPI_BACKUP__RETAIN_DAILY`   | `7`         | Number of daily backups to keep              |
+| `VAPI_BACKUP__RETAIN_WEEKLY`  | `4`         | Weekly backups to keep (oldest per ISO week) |
+| `VAPI_BACKUP__RETAIN_MONTHLY` | `6`         | Monthly backups to keep (oldest per month)   |
+| `VAPI_BACKUP__RETAIN_YEARLY`  | `2`         | Yearly backups to keep (oldest per year)     |
 
 **Retention policy:** Every backup is a daily backup. At prune time, the retention logic selects which backups to keep: the N most recent for daily, and the oldest backup from each week/month/year for the other tiers. A single backup can satisfy multiple tiers. Backups not covered by any tier are deleted.
 
