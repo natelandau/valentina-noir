@@ -8,6 +8,7 @@ from litestar.di import Provide
 from litestar.handlers import get, post
 from litestar.params import Parameter
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.user import User
@@ -51,6 +52,10 @@ class DiceRollController(Controller):
         campaignid: Annotated[
             UUID | None, Parameter(description="Show dice rolls for this campaign.")
         ] = None,
+        character_type: Annotated[
+            CharacterType | None,
+            Parameter(description="Show dice rolls for characters of this type."),
+        ] = None,
     ) -> OffsetPagination[dto.DiceRollResponse]:
         """List all dice rolls."""
         filters: dict = {"company_id": company.id, "is_archived": False}
@@ -60,6 +65,8 @@ class DiceRollController(Controller):
             filters["character_id"] = characterid
         if campaignid:
             filters["campaign_id"] = campaignid
+        if character_type:
+            filters["character__type"] = character_type
 
         qs = DiceRoll.filter(**filters).order_by("-id")
         count = await qs.count()
