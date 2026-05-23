@@ -5,11 +5,9 @@ default_stages: [pre-commit, manual]
 fail_fast: true
 repos:
   - repo: "https://github.com/commitizen-tools/commitizen"
-    rev: v4.13.10
+    rev: v4.16.2
     hooks:
       - id: commitizen
-      - id: commitizen-branch
-        stages: [pre-push]
 
   - repo: "https://github.com/pre-commit/pygrep-hooks"
     rev: v1.10.0
@@ -65,14 +63,14 @@ repos:
         entry: yamllint --strict --config-file .yamllint.yml
 
   - repo: "https://github.com/astral-sh/ruff-pre-commit"
-    rev: v0.15.10
+    rev: v0.15.14
     hooks:
       - id: ruff-check
       - id: ruff-format
         args: [--check]
 
   - repo: "https://github.com/adhtruong/mirrors-typos"
-    rev: v1.45.1
+    rev: v1.46.2
     hooks:
       - id: typos
         args: ["--force-exclude"]
@@ -84,7 +82,7 @@ repos:
       - id: gitleaks
 
   - repo: "https://github.com/python-jsonschema/check-jsonschema"
-    rev: 0.37.1
+    rev: 0.37.2
     hooks:
       - id: check-github-workflows
         args: ["--verbose"]
@@ -127,3 +125,17 @@ repos:
           uv\.lock|
           pyproject\.toml
           )
+
+      # Workaround until commitizen fixes its commitizen-branch hook (see commitizen #1923).
+      # The upstream hook's args contain the literal "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF",
+      # but no client (pre-commit, prek) substitutes those placeholders, and `cz check` doesn't
+      # expand them either, so git receives them verbatim and fails with "ambiguous argument".
+      # Wrapping the call in `bash -c` forces the shell to expand the env vars prek/pre-commit
+      # do set. Remove this block once commitizen ships a fix upstream.
+      - id: commitizen-branch
+        name: commitizen check branch
+        entry: bash -c 'uv run --quiet cz check --rev-range "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
