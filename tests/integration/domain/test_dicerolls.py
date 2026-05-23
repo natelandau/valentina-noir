@@ -249,6 +249,177 @@ class TestDiceRoll:
         # All 3 dice rolls belong to this user
         assert response.json()["total"] == 3
 
+    async def test_dice_roll_controller_list_filter_character_type(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
+        debug: Callable[[Any], None],
+    ) -> None:
+        """Verify filtering dice rolls by character_type returns only matching rolls."""
+        # Given a player-character roll and a storyteller-character roll
+        player_character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            type="PLAYER",
+        )
+        storyteller_character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            type="STORYTELLER",
+        )
+        player_roll = await diceroll_factory(
+            company=session_company, user=session_user, character=player_character
+        )
+        await diceroll_factory(
+            company=session_company, user=session_user, character=storyteller_character
+        )
+
+        # When filtering by character_type=PLAYER
+        response = await client.get(
+            build_url(DiceRolls.LIST, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"character_type": "PLAYER"},
+        )
+
+        # Then only the player-character roll is returned
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["total"] == 1
+        assert response.json()["items"][0]["id"] == str(player_roll.id)
+
+    async def test_dice_roll_controller_list_filter_character_type_excludes_null_character(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
+        debug: Callable[[Any], None],
+    ) -> None:
+        """Verify character_type filter excludes rolls with no character attached."""
+        # Given a player-character roll and a roll with no character
+        player_character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            type="PLAYER",
+        )
+        player_roll = await diceroll_factory(
+            company=session_company, user=session_user, character=player_character
+        )
+        await diceroll_factory(company=session_company, user=session_user, character=None)
+
+        base_url = build_url(DiceRolls.LIST, company_id=session_company.id)
+
+        # When filtering by character_type=PLAYER
+        filtered = await client.get(
+            base_url,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"character_type": "PLAYER"},
+        )
+
+        # Then only the player-character roll is returned (null-character roll excluded)
+        assert filtered.status_code == HTTP_200_OK
+        assert filtered.json()["total"] == 1
+        assert filtered.json()["items"][0]["id"] == str(player_roll.id)
+
+        # When listing without the character_type filter
+        unfiltered = await client.get(
+            base_url,
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+        )
+
+        # Then both rolls are returned
+        assert unfiltered.status_code == HTTP_200_OK
+        assert unfiltered.json()["total"] == 2
+
+    async def test_dice_roll_controller_list_filter_character_type_composes_with_campaign(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
+        debug: Callable[[Any], None],
+    ) -> None:
+        """Verify character_type and campaignid filters combine with AND semantics."""
+        # Given two campaigns, each with a PLAYER and a STORYTELLER character + rolls
+        other_campaign = await campaign_factory(company=session_company)
+        player_in_session = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            type="PLAYER",
+        )
+        storyteller_in_session = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            type="STORYTELLER",
+        )
+        player_in_other = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=other_campaign,
+            type="PLAYER",
+        )
+        target_roll = await diceroll_factory(
+            company=session_company,
+            user=session_user,
+            character=player_in_session,
+            campaign=session_campaign,
+        )
+        await diceroll_factory(
+            company=session_company,
+            user=session_user,
+            character=storyteller_in_session,
+            campaign=session_campaign,
+        )
+        await diceroll_factory(
+            company=session_company,
+            user=session_user,
+            character=player_in_other,
+            campaign=other_campaign,
+        )
+
+        # When filtering by campaign + character_type
+        response = await client.get(
+            build_url(DiceRolls.LIST, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={
+                "campaignid": str(session_campaign.id),
+                "character_type": "PLAYER",
+            },
+        )
+
+        # Then only the PLAYER roll in the session campaign is returned
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["total"] == 1
+        assert response.json()["items"][0]["id"] == str(target_roll.id)
+
     async def test_create_diceroll_from_quickroll(
         self,
         client: AsyncClient,

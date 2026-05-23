@@ -19,7 +19,7 @@ updates:
     schedule:
       interval: monthly
     commit-message:
-      prefix: "chore"
+      prefix: "build"
       prefix-development: "build"
       include: scope
     versioning-strategy: increase
