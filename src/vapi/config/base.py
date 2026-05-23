@@ -206,6 +206,7 @@ class LoggingSettings(BaseModel):
             return None
         return Path(v) if isinstance(v, str) else v
 
+    json_console: bool = Field(default=False)
     time_in_console: bool = Field(default=True)
     saq_level: LogLevel = Field(default=LogLevel.INFO)
     asgi_server_level: LogLevel = Field(default=LogLevel.INFO)

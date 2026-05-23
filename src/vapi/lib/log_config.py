@@ -264,7 +264,11 @@ def get_logging_config() -> LoggingConfig:
     handlers: dict[str, dict[str, Any]] = {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "color" if _is_tty() else "standard",
+            "formatter": "json"
+            if settings.log.json_console
+            else "color"
+            if _is_tty()
+            else "standard",
         },
     }
     if settings.log.file_path:
