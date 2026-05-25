@@ -261,18 +261,14 @@ class TestCharacterSheetService:
             character_factory: "Callable[..., Character]",
             character_trait_factory: "Callable[..., CharacterTrait]",
             company_factory: "Callable[..., Company]",
+            trait_factory: "Callable[..., Trait]",
         ) -> None:
-            """Verify a category can have both direct traits and subcategory traits.
-
-            NOTE: This test skips when no category in the fixture data contains both
-            direct traits (no subcategory) and subcategory traits. Currently every
-            category is uniform - either all traits are direct or all are organized
-            into subcategories. If the fixture data in traits.json is updated to
-            include a category with both patterns, this test will run automatically.
-            """
-            # Given a trait with a subcategory
+            """Verify a category can have both direct traits and subcategory traits."""
+            # Given a mortal character
             company = await company_factory()
             character = await character_factory(character_class="MORTAL", company=company)
+
+            # And a seeded trait that has a subcategory in the mortal skeleton
             trait_with_sub = (
                 await Trait.filter(
                     is_archived=False,
@@ -285,20 +281,17 @@ class TestCharacterSheetService:
             )
             assert trait_with_sub is not None
 
-            # And a trait without a subcategory in the same category
-            trait_without_sub = (
-                await Trait.filter(
-                    is_archived=False,
-                    subcategory_id__isnull=True,
-                    category_id=trait_with_sub.category_id,  # type: ignore[attr-defined]
-                )
-                .prefetch_related("category", "subcategory", "sheet_section")
-                .first()
+            # And a direct trait (no subcategory) in that same category. Seed data keeps every
+            # category uniform, so construct the mixed case rather than skipping when absent.
+            trait_without_sub = await trait_factory(
+                name="Mixed Category Direct Trait",
+                category_id=trait_with_sub.category_id,  # type: ignore[attr-defined]
+                character_classes=["MORTAL"],
+                game_versions=[character.game_version],
             )
-            if trait_without_sub is None:
-                pytest.skip(
-                    "No traits without subcategory in the same category as a subcategory trait"
-                )
+            # Re-fetch so the id normalizes from uuid_utils.UUID to stdlib UUID, matching the
+            # ids read back from the sheet (otherwise the equality checks below never match).
+            trait_without_sub = await Trait.get(id=str(trait_without_sub.id))
 
             await character_trait_factory(character=character, trait=trait_with_sub, value=2)
             await character_trait_factory(character=character, trait=trait_without_sub, value=3)
