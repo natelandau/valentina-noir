@@ -3,8 +3,10 @@
 from pathlib import Path
 
 from litestar import MediaType, Router, get
-from litestar.response import Response
+from litestar.response import Redirect, Response
 from litestar.static_files import create_static_files_router
+
+from vapi.constants import DOCS_URL
 
 __all__ = ("static_router",)
 
@@ -13,17 +15,19 @@ __all__ = ("static_router",)
 CONTENT_DIR = Path(__file__).parent / "content"
 PUBLIC_DIR = Path(__file__).parent / "public"
 
-# Read at import: these ship with the package and never change at runtime, so serving them
-# from memory avoids a filesystem read on every request and sidesteps the File-response
-# default of Content-Disposition: attachment (which would make browsers download index.html).
-_INDEX_HTML = (CONTENT_DIR / "index.html").read_text(encoding="utf-8")
+# Read at import: robots.txt ships with the package and never changes at runtime, so serving
+# it from memory avoids a filesystem read on every request.
 _ROBOTS_TXT = (CONTENT_DIR / "robots.txt").read_text(encoding="utf-8")
 
 
 @get("/", include_in_schema=False, opt={"exclude_from_auth": True}, sync_to_thread=False)
-def homepage() -> Response[str]:
-    """Serve the branded landing page that points visitors to the documentation."""
-    return Response(content=_INDEX_HTML, media_type=MediaType.HTML)
+def homepage() -> Redirect:
+    """Redirect visitors at the bare domain to the documentation site.
+
+    Uses a temporary (302) redirect so `/` can be repurposed later without browsers having
+    cached a permanent redirect.
+    """
+    return Redirect(DOCS_URL, status_code=302)
 
 
 @get("/robots.txt", include_in_schema=False, opt={"exclude_from_auth": True}, sync_to_thread=False)

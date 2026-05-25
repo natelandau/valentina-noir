@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from vapi.constants import DOCS_URL
 from vapi.domain.controllers.static.static_files import PUBLIC_DIR
 
 pytestmark = pytest.mark.anyio
@@ -13,16 +14,15 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 
-async def test_homepage_serves_branded_index(client: AsyncClient) -> None:
-    """Verify the root path serves the branded HTML landing page."""
+async def test_homepage_redirects_to_docs(client: AsyncClient) -> None:
+    """Verify the root path issues a temporary redirect to the documentation site."""
     # Given a running app
     # When the root path is requested
     response = await client.get("/")
 
-    # Then it returns the branded HTML page
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/html")
-    assert "Valentina Noir" in response.text
+    # Then it returns a 302 redirect to the docs site
+    assert response.status_code == 302
+    assert response.headers["location"] == DOCS_URL
 
 
 async def test_robots_txt_served(client: AsyncClient) -> None:
