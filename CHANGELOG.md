@@ -1,3 +1,18 @@
+## v0.19.0 (2026-05-25)
+
+### Feat
+
+- **admin**: add global-admin server log endpoints (#128)
+
+### Fix
+
+- **docs**: fix bad link
+- **config**: add option for console json log output
+
+### Refactor
+
+- **static**: scope static file serving (#127)
+
 ## v0.18.0 (2026-05-23)
 
 ### Feat
