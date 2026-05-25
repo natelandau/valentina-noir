@@ -79,6 +79,9 @@ class ServerLogService:
 
         The caller is responsible for deleting the returned file once it has been
         streamed to the client.
+
+        Raises:
+            ConflictError: If file logging is disabled or no log files exist on disk.
         """
         files = self._existing_files()
         if not files:
@@ -87,7 +90,11 @@ class ServerLogService:
         tmp = NamedTemporaryFile(suffix=".zip", delete=False)  # noqa: SIM115
         tmp.close()
         archive_path = Path(tmp.name)
-        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for path in files:
-                archive.write(path, arcname=path.name)
+        try:
+            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                for path in files:
+                    archive.write(path, arcname=path.name)
+        except Exception:
+            archive_path.unlink(missing_ok=True)
+            raise
         return archive_path

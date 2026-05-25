@@ -111,6 +111,7 @@ def test_build_archive_zips_active_and_rotated_files(
     try:
         with zipfile.ZipFile(archive_path) as archive:
             assert sorted(archive.namelist()) == ["app.log", "app.log.1"]
+            assert archive.read("app.log").decode() == _line("INFO", "current")
     finally:
         archive_path.unlink(missing_ok=True)
 
