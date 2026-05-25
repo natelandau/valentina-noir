@@ -18,7 +18,9 @@ def _line(level: str, message: str) -> str:
     )
 
 
-def test_tail_entries_filters_by_minimum_level(tmp_path: Path, monkeypatch) -> None:
+def test_tail_entries_filters_by_minimum_level(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Verify only entries at or above the requested level are returned."""
     # Given a log file with mixed levels
     log_file = tmp_path / "app.log"
@@ -34,7 +36,9 @@ def test_tail_entries_filters_by_minimum_level(tmp_path: Path, monkeypatch) -> N
     assert [e.message for e in entries] == ["e"]
 
 
-def test_tail_entries_respects_limit_and_newest_first(tmp_path: Path, monkeypatch) -> None:
+def test_tail_entries_respects_limit_and_newest_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Verify the limit caps results and the newest entries come first."""
     # Given a log file with three INFO lines in chronological order
     log_file = tmp_path / "app.log"
@@ -48,7 +52,9 @@ def test_tail_entries_respects_limit_and_newest_first(tmp_path: Path, monkeypatc
     assert [e.message for e in entries] == ["3", "2"]
 
 
-def test_tail_entries_unparseable_line_always_included(tmp_path: Path, monkeypatch) -> None:
+def test_tail_entries_unparseable_line_always_included(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Verify malformed lines are surfaced as raw regardless of the level filter."""
     # Given a log file containing a non-JSON line
     log_file = tmp_path / "app.log"
@@ -63,7 +69,9 @@ def test_tail_entries_unparseable_line_always_included(tmp_path: Path, monkeypat
     assert raws == ["not json"]
 
 
-def test_tail_entries_missing_file_returns_empty(tmp_path: Path, monkeypatch) -> None:
+def test_tail_entries_missing_file_returns_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Verify a configured-but-absent log file yields no entries."""
     # Given a configured path that does not exist on disk
     monkeypatch.setattr(settings.log, "file_path", tmp_path / "absent.log")
@@ -75,7 +83,7 @@ def test_tail_entries_missing_file_returns_empty(tmp_path: Path, monkeypatch) ->
     assert entries == []
 
 
-def test_tail_entries_no_file_path_raises_conflict(monkeypatch) -> None:
+def test_tail_entries_no_file_path_raises_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify tailing without file logging configured raises ConflictError."""
     # Given file logging is disabled
     monkeypatch.setattr(settings.log, "file_path", None)

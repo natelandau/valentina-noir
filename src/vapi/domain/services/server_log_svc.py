@@ -27,7 +27,7 @@ class ServerLogService:
         """Resolve the configured active log file path or signal it is disabled."""
         if settings.log.file_path is None:
             raise ConflictError(detail="File logging is not enabled.")
-        return Path(settings.log.file_path).expanduser().resolve()
+        return settings.log.file_path.expanduser().resolve()
 
     @staticmethod
     def _meets_threshold(level: str | None, threshold: int) -> bool:
