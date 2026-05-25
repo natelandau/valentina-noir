@@ -49,6 +49,6 @@ class LogEntry(msgspec.Struct):
             level=data.get("level"),
             name=data.get("name"),
             message=data.get("message"),
-            exception=data.get("exception"),
+            exception=data.get("exception") or None,
             extra=extra,
         )

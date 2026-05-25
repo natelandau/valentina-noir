@@ -28,8 +28,23 @@ def test_log_entry_from_line_parses_known_and_extra_fields() -> None:
     assert entry.timestamp == "2026-05-25T10:00:00Z"
     assert entry.name == "vapi"
     assert entry.message == "something happened"
+    assert entry.exception is None
     assert entry.raw is None
     assert entry.extra == {"request_id": "abc-123", "status": 503}
+
+
+def test_log_entry_from_line_non_dict_json_returns_raw() -> None:
+    """Verify a JSON value that is not an object is preserved as raw."""
+    # Given a line that is valid JSON but not an object
+    line = '"just a string"'
+
+    # When parsing the line
+    entry = LogEntry.from_line(line)
+
+    # Then the raw text is preserved and parsed fields are None
+    assert entry.raw == '"just a string"'
+    assert entry.level is None
+    assert entry.extra == {}
 
 
 def test_log_entry_from_line_unparseable_returns_raw() -> None:
