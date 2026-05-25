@@ -19,7 +19,7 @@ from vapi.domain.services.server_log_svc import ServerLogService
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
-from . import server_logs_docs as docs
+from . import docs
 
 
 def _unlink_archive(path: Path) -> None:

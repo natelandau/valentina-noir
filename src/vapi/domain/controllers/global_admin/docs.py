@@ -31,3 +31,38 @@ Generate a new API key for a developer. Their current key will be immediately in
 
 Requires global admin privileges.
 """
+
+LIST_DEVELOPER_AUDIT_LOGS_DESCRIPTION = """\
+Retrieve a paginated list of audit log entries for a specific developer.
+
+Returns all API mutations performed by the developer's API key, sorted by most \
+recent first. Use query parameters to filter by company, user, campaign, character, \
+entity type, operation, or date range.
+
+Pass `include=request_details` to embed raw request forensics (URL, request body, \
+path/query params) in each entry.
+
+Requires global admin privileges.
+"""
+
+
+TAIL_LOGS_DESCRIPTION = """\
+Return the most recent application log entries, filtered by minimum level.
+
+Reads the active log file and returns up to `limit` entries (newest first) whose \
+level is at or above `level`. When `level` is omitted it defaults to the server's \
+configured log level. Each entry is parsed from its JSON line into structured \
+fields; lines that cannot be parsed are returned with their raw text.
+
+Returns 409 if file logging is not enabled. Requires global admin privileges.
+"""
+
+DOWNLOAD_LOGS_DESCRIPTION = """\
+Download a zip archive of the application's log files.
+
+Bundles the active log file together with any rotated backups into a single zip \
+download.
+
+Returns 409 if file logging is not enabled or no log files exist on disk. \
+Requires global admin privileges.
+"""
