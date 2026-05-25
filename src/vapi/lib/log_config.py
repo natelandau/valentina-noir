@@ -278,7 +278,8 @@ def get_logging_config() -> LoggingConfig:
         handlers["app_file"] = {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": base_log_path,
-            "mode": "w",
+            # Append so log history survives restarts; size-based rotation still caps growth
+            "mode": "a",
             "maxBytes": 32 * 1024 * 1024,  # 32 MiB
             "backupCount": 2,
             "encoding": "utf-8",

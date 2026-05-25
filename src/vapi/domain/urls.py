@@ -22,6 +22,8 @@ class GlobalAdmin:
     DEVELOPER_DELETE = DEVELOPER_DETAIL
     DEVELOPER_NEW_KEY = f"{DEVELOPER_DETAIL}/new-key"
     DEVELOPER_AUDIT_LOGS = f"{DEVELOPER_DETAIL}/audit-logs"
+    LOGS = f"{BASE}/logs"
+    LOGS_DOWNLOAD = f"{LOGS}/download"
 
 
 class Developers:
