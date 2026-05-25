@@ -1,5 +1,6 @@
 """Global admin server log controllers."""
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -46,7 +47,9 @@ class GlobalAdminServerLogsController(Controller):
     ) -> list[LogEntry]:
         """Return the most recent log entries at or above the given level."""
         effective_level = level if level is not None else settings.log.level
-        return ServerLogService().tail_entries(level=effective_level, limit=limit)
+        return await asyncio.to_thread(
+            ServerLogService().tail_entries, level=effective_level, limit=limit
+        )
 
     @get(
         path=urls.GlobalAdmin.LOGS_DOWNLOAD,
@@ -57,7 +60,7 @@ class GlobalAdminServerLogsController(Controller):
     )
     async def download_logs(self) -> File:
         """Stream a zip archive of the active and rotated log files."""
-        archive_path = ServerLogService().build_archive()
+        archive_path = await asyncio.to_thread(ServerLogService().build_archive)
         timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
         return File(
             path=archive_path,

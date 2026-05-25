@@ -112,7 +112,7 @@ Return the most recent application log entries, newest first.
 ```json
 [
     {
-        "timestamp": "2026-05-25T12:00:00.123Z",
+        "timestamp": "2026-05-25T12:00:00Z",
         "level": "INFO",
         "name": "vapi.server",
         "message": "Request completed",

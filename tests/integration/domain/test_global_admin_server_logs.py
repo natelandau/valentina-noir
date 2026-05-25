@@ -86,6 +86,21 @@ async def test_tail_logs_forbidden_for_non_admin(
     assert response.status_code == HTTP_403_FORBIDDEN
 
 
+async def test_download_logs_forbidden_for_non_admin(
+    client: AsyncClient,
+    token_company_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+) -> None:
+    """Verify a non-global-admin caller cannot download logs."""
+    # Given a non-global-admin token
+
+    # When downloading the logs
+    response = await client.get(build_url(GlobalAdmin.LOGS_DOWNLOAD), headers=token_company_admin)
+
+    # Then access is forbidden
+    assert response.status_code == HTTP_403_FORBIDDEN
+
+
 async def test_download_logs_returns_zip(
     client: AsyncClient,
     token_global_admin: dict[str, str],
