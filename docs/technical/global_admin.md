@@ -72,7 +72,7 @@ Soft-delete a developer account. Their API key is invalidated immediately.
 POST /api/v1/admin/developers/{developer_id}/new-key
 ```
 
-Generate a new API key for a developer. Their current key is invalidated immediately. Save the returned key — it will not be displayed again.
+Generate a new API key for a developer. Their current key is invalidated immediately. Save the returned key, as it will not be displayed again.
 
 ### Developer audit logs
 
@@ -80,7 +80,7 @@ Generate a new API key for a developer. Their current key is invalidated immedia
 GET /api/v1/admin/developers/{developer_id}/audit-logs
 ```
 
-Retrieve a [paginated](pagination.md) list of audit log entries for a specific developer — all API mutations performed by that developer's API key, sorted by most recent first.
+Retrieve a [paginated](pagination.md) list of audit log entries for a specific developer. This covers all API mutations performed by that developer's API key, sorted by most recent first.
 
 Accepts the same filtering query parameters as the [company audit log endpoint](audit_logs.md#filtering): `company_id`, `acting_user_id`, `user_id`, `campaign_id`, `book_id`, `chapter_id`, `character_id`, `entity_type`, `operation`, `date_from`, and `date_to`.
 
@@ -107,7 +107,7 @@ Return the most recent application log entries, newest first.
 | `level`   | `string` | Minimum log level to include. One of `TRACE`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. Defaults to the server's configured log level. |
 | `limit`   | `integer` | Maximum entries to return (1-500, default 100). |
 
-**Response:** `200 OK`, `application/json` — a JSON array of log entry objects.
+**Response:** `200 OK`, `application/json`, a JSON array of log entry objects.
 
 ```json
 [
