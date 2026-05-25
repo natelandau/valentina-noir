@@ -47,7 +47,7 @@ def test_log_entry_from_line_non_dict_json_returns_raw() -> None:
     assert entry.extra == {}
 
 
-def test_log_entry_from_line_unparseable_returns_raw() -> None:
+def test_log_entry_from_line_unparsable_returns_raw() -> None:
     """Verify a non-JSON line is preserved in the raw field with no parsed values."""
     # Given a line that is not valid JSON
     line = "this is not json"

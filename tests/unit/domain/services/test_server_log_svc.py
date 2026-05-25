@@ -53,7 +53,7 @@ def test_tail_entries_respects_limit_and_newest_first(
     assert [e.message for e in entries] == ["3", "2"]
 
 
-def test_tail_entries_unparseable_line_always_included(
+def test_tail_entries_unparsable_line_always_included(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Verify malformed lines are surfaced as raw regardless of the level filter."""

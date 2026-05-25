@@ -42,7 +42,7 @@ class ServerLogService:
         """Return up to `limit` recent entries at or above `level`, newest first.
 
         Reads only the active log file, since the most recent entries live there.
-        Unparseable lines are always included so corruption is visible to admins.
+        Unparsable lines are always included so corruption is visible to admins.
 
         Args:
             level: The minimum log level to include in results.
