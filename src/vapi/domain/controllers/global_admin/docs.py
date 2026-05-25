@@ -49,12 +49,15 @@ Requires global admin privileges.
 TAIL_LOGS_DESCRIPTION = """\
 Return the most recent application log entries, filtered by minimum level.
 
-Reads the active log file and returns up to `limit` entries (newest first) whose \
-level is at or above `level`. When `level` is omitted it defaults to the server's \
-configured log level. Each entry is parsed from its JSON line into structured \
-fields; lines that cannot be parsed are returned with their raw text.
+Reads the active log file and returns the newest matching entries whose level is at \
+or above `level`. When `level` is omitted it defaults to the server's configured log \
+level. `limit` bounds the number of level-matched entries; unparsable lines and \
+entries whose level is unrecognized are surfaced in addition (newest first) so \
+corruption and unranked levels are never hidden.
 
-Returns 409 if file logging is not enabled. Requires global admin privileges.
+Returns an empty array when file logging is enabled but the log file holds no \
+matching entries yet. Returns 409 if file logging is not enabled. Requires global \
+admin privileges.
 """
 
 DOWNLOAD_LOGS_DESCRIPTION = """\

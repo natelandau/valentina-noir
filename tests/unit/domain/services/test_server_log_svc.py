@@ -136,3 +136,73 @@ def test_build_archive_no_file_path_raises_conflict(monkeypatch: pytest.MonkeyPa
     # When building the archive, Then a ConflictError is raised
     with pytest.raises(ConflictError):
         ServerLogService().build_archive()
+
+
+def test_tail_entries_does_not_crash_on_non_string_level(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify a numeric level value is surfaced instead of crashing the tail."""
+    # Given a log line whose level is numeric (the formatter can emit this)
+    log_file = tmp_path / "app.log"
+    log_file.write_text(json.dumps({"level": 42, "message": "weird"}))
+    monkeypatch.setattr(settings.log, "file_path", log_file)
+
+    # When tailing
+    entries = ServerLogService().tail_entries(level=LogLevel.INFO, limit=100)
+
+    # Then the entry is surfaced as an unknown-level entry rather than raising
+    assert [e.message for e in entries] == ["weird"]
+
+
+def test_tail_entries_includes_unknown_level_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify entries with an unrecognized level name are surfaced, not dropped."""
+    # Given a log line with a custom level name not in the rank table
+    log_file = tmp_path / "app.log"
+    log_file.write_text(json.dumps({"level": "NOTICE", "message": "heads up"}))
+    monkeypatch.setattr(settings.log, "file_path", log_file)
+
+    # When tailing at a high threshold
+    entries = ServerLogService().tail_entries(level=LogLevel.ERROR, limit=100)
+
+    # Then the unknown-level entry is still returned
+    assert [e.message for e in entries] == ["heads up"]
+
+
+def test_tail_entries_raw_lines_do_not_evict_matched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify unparsable lines do not consume the matched-entry limit budget."""
+    # Given two ERROR entries followed by three unparsable lines
+    log_file = tmp_path / "app.log"
+    log_file.write_text(
+        "\n".join([_line("ERROR", "e1"), _line("ERROR", "e2"), "junk1", "junk2", "junk3"])
+    )
+    monkeypatch.setattr(settings.log, "file_path", log_file)
+
+    # When tailing at ERROR with a limit of 2
+    entries = ServerLogService().tail_entries(level=LogLevel.ERROR, limit=2)
+
+    # Then both ERROR entries survive (raw lines did not evict them from the limit)
+    messages = [e.message for e in entries if e.message is not None]
+    raws = [e.raw for e in entries if e.raw is not None]
+    assert "e1" in messages
+    assert "e2" in messages
+    assert len(raws) >= 1
+
+
+def test_tail_entries_replaces_invalid_utf8_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify a non-UTF-8 byte does not crash the tail."""
+    # Given a log file containing an invalid UTF-8 byte sequence
+    log_file = tmp_path / "app.log"
+    log_file.write_bytes(b"\xff\xfe not utf8\n" + _line("ERROR", "ok").encode())
+    monkeypatch.setattr(settings.log, "file_path", log_file)
+
+    # When tailing
+    entries = ServerLogService().tail_entries(level=LogLevel.ERROR, limit=100)
+
+    # Then the request succeeds and the valid ERROR entry is present
+    assert any(e.message == "ok" for e in entries)

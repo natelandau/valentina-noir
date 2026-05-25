@@ -60,3 +60,30 @@ def test_log_entry_from_line_unparsable_returns_raw() -> None:
     assert entry.level is None
     assert entry.message is None
     assert entry.extra == {}
+
+
+def test_log_entry_from_line_coerces_non_string_known_fields() -> None:
+    """Verify non-string values in known fields are coerced to strings."""
+    # Given a JSON line whose level and name are numeric (the formatter can emit this
+    # when a logged message contains a `key=<number>` token)
+    line = json.dumps({"level": 42, "name": 7, "message": "x"})
+
+    # When parsing the line
+    entry = LogEntry.from_line(line)
+
+    # Then the known fields are coerced to str, preserving the str|None contract
+    assert entry.level == "42"
+    assert entry.name == "7"
+    assert entry.message == "x"
+
+
+def test_log_entry_from_line_coerces_non_string_exception() -> None:
+    """Verify a non-string exception value is coerced to a string."""
+    # Given a JSON line whose exception field is a list
+    line = json.dumps({"level": "ERROR", "exception": ["frame1", "frame2"]})
+
+    # When parsing the line
+    entry = LogEntry.from_line(line)
+
+    # Then exception is a string, not a list
+    assert isinstance(entry.exception, str)

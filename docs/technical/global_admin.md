@@ -98,14 +98,16 @@ Inspect and download the application's on-disk log files. Both endpoints return 
 GET /api/v1/admin/logs
 ```
 
-Return the most recent application log entries, newest first.
+Return the most recent application log entries, newest first. Reads only the active log file.
 
 **Query parameters:**
 
 | Parameter | Type     | Description |
 | --------- | -------- | ----------- |
 | `level`   | `string` | Minimum log level to include. One of `TRACE`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. Defaults to the server's configured log level. |
-| `limit`   | `integer` | Maximum entries to return (1-500, default 100). |
+| `limit`   | `integer` | Maximum number of level-matched entries to return (1-500, default 100). |
+
+Unparsable lines and entries whose level is not one of the recognized levels are surfaced in addition to the matched entries (on a separate `limit`-sized budget), so corruption and unranked levels are never silently dropped. An empty array is returned when file logging is enabled but no matching entries exist yet.
 
 **Response:** `200 OK`, `application/json`, a JSON array of log entry objects.
 

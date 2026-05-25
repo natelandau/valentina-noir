@@ -140,3 +140,24 @@ async def test_download_logs_conflict_when_no_files(
 
     # Then the response is a 409 conflict
     assert response.status_code == HTTP_409_CONFLICT
+
+
+async def test_tail_logs_does_not_crash_on_non_string_level(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify a numeric level in a log line does not 500 the endpoint."""
+    # Given a log file containing a line whose level is numeric
+    log_file = tmp_path / "app.log"
+    log_file.write_text(json.dumps({"level": 42, "message": "weird"}))
+    monkeypatch.setattr(settings.log, "file_path", log_file)
+
+    # When tailing
+    response = await client.get(build_url(GlobalAdmin.LOGS), headers=token_global_admin)
+
+    # Then the endpoint returns 200 and surfaces the entry rather than crashing
+    assert response.status_code == HTTP_200_OK
+    assert any(item["message"] == "weird" for item in response.json())

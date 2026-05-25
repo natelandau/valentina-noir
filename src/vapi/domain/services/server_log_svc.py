@@ -32,6 +32,11 @@ class ServerLogService:
         return settings.log.file_path.expanduser().resolve()
 
     @staticmethod
+    def _is_known_level(level: str | None) -> bool:
+        """Return True when the entry's level maps to a known rank."""
+        return level is not None and level.upper() in _LEVEL_RANK
+
+    @staticmethod
     def _meets_threshold(level: str | None, threshold: int) -> bool:
         """Return True when a parsed entry's level meets the minimum rank."""
         if level is None:
@@ -39,14 +44,17 @@ class ServerLogService:
         return _LEVEL_RANK.get(level.upper(), 0) >= threshold
 
     def tail_entries(self, *, level: LogLevel, limit: int) -> list[LogEntry]:
-        """Return up to `limit` recent entries at or above `level`, newest first.
+        """Return recent log entries at or above `level`, newest first.
 
         Reads only the active log file, since the most recent entries live there.
-        Unparsable lines are always included so corruption is visible to admins.
+        `limit` bounds the level-matched entries. Unparsable lines and entries
+        whose level is unrecognized are surfaced on a separate `limit`-sized budget,
+        so corruption and unranked levels are never silently dropped and never crowd
+        matched results out of the limit window.
 
         Args:
-            level: The minimum log level to include in results.
-            limit: The maximum number of entries to return.
+            level: The minimum log level to include in matched results.
+            limit: The maximum number of matched entries to return.
 
         Returns:
             list[LogEntry]: Recent log entries in reverse-chronological order.
@@ -56,17 +64,22 @@ class ServerLogService:
             return []
 
         threshold = _LEVEL_RANK.get(level.value, 0)
-        matched: deque[LogEntry] = deque(maxlen=limit)
-        with base.open("r", encoding="utf-8") as handle:
-            for raw_line in handle:
+        matched: deque[tuple[int, LogEntry]] = deque(maxlen=limit)
+        always_include: deque[tuple[int, LogEntry]] = deque(maxlen=limit)
+        # errors="replace" keeps a stray non-UTF-8 byte from crashing the whole tail
+        with base.open("r", encoding="utf-8", errors="replace") as handle:
+            for index, raw_line in enumerate(handle):
                 line = raw_line.strip()
                 if not line:
                     continue
                 entry = LogEntry.from_line(line)
-                if entry.raw is not None or self._meets_threshold(entry.level, threshold):
-                    matched.append(entry)
+                if entry.raw is not None or not self._is_known_level(entry.level):
+                    always_include.append((index, entry))
+                elif self._meets_threshold(entry.level, threshold):
+                    matched.append((index, entry))
 
-        return list(reversed(matched))
+        combined = sorted([*matched, *always_include], key=lambda item: item[0], reverse=True)
+        return [entry for _, entry in combined]
 
     def _existing_files(self) -> list[Path]:
         """Return the active log file plus any rotated backups that exist on disk."""

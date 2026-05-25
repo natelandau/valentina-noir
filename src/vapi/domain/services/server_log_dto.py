@@ -9,6 +9,17 @@ import msgspec
 _KNOWN_KEYS = frozenset({"level", "timestamp", "message", "name", "exception"})
 
 
+def _as_str(value: Any) -> str | None:
+    """Coerce a JSON value to a string, preserving None.
+
+    The standard fields are not guaranteed to be strings on disk: a logged
+    message containing `level=42` makes the JSON formatter emit a numeric
+    `level`. Coercing keeps the `str | None` response contract and prevents a
+    non-string `level` from crashing `.upper()` during tail filtering.
+    """
+    return None if value is None else str(value)
+
+
 class LogEntry(msgspec.Struct):
     """A single application log line parsed from its JSON representation."""
 
@@ -44,11 +55,12 @@ class LogEntry(msgspec.Struct):
             return cls(raw=line)
 
         extra = {k: v for k, v in data.items() if k not in _KNOWN_KEYS}
+        exception = data.get("exception")
         return cls(
-            timestamp=data.get("timestamp"),
-            level=data.get("level"),
-            name=data.get("name"),
-            message=data.get("message"),
-            exception=data.get("exception") or None,
+            timestamp=_as_str(data.get("timestamp")),
+            level=_as_str(data.get("level")),
+            name=_as_str(data.get("name")),
+            message=_as_str(data.get("message")),
+            exception=str(exception) if exception else None,
             extra=extra,
         )

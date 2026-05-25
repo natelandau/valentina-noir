@@ -61,11 +61,17 @@ class GlobalAdminServerLogsController(Controller):
     async def download_logs(self) -> File:
         """Stream a zip archive of the active and rotated log files."""
         archive_path = await asyncio.to_thread(ServerLogService().build_archive)
-        timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
-        return File(
-            path=archive_path,
-            filename=f"vapi-logs-{timestamp}.zip",
-            media_type="application/zip",
-            content_disposition_type="attachment",
-            background=BackgroundTask(_unlink_archive, archive_path),
-        )
+        # Clean up the temp archive if building the response fails before the
+        # BackgroundTask is registered to do it post-stream.
+        try:
+            timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+            return File(
+                path=archive_path,
+                filename=f"vapi-logs-{timestamp}.zip",
+                media_type="application/zip",
+                content_disposition_type="attachment",
+                background=BackgroundTask(_unlink_archive, archive_path),
+            )
+        except Exception:
+            archive_path.unlink(missing_ok=True)
+            raise
