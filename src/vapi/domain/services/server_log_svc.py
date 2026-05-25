@@ -71,6 +71,7 @@ class ServerLogService:
     def _existing_files(self) -> list[Path]:
         """Return the active log file plus any rotated backups that exist on disk."""
         base = self._base_path()
+        # Backups .1 and .2 mirror RotatingFileHandler(backupCount=2) in lib/log_config.py
         candidates = [base, *(base.with_name(f"{base.name}.{i}") for i in (1, 2))]
         return [path for path in candidates if path.exists()]
 
