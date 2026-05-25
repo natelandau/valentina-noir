@@ -36,7 +36,7 @@ from .controllers import (
     UserController,
     UserLookupController,
     UserNoteController,
-    html_static_files_router,
+    static_router,
 )
 
 __all__ = (
@@ -73,7 +73,7 @@ __all__ = (
     "UserController",
     "UserLookupController",
     "UserNoteController",
-    "html_static_files_router",
+    "static_router",
 )
 
 route_handlers: list[type[Controller] | Router] = [
@@ -110,5 +110,5 @@ route_handlers: list[type[Controller] | Router] = [
     UserController,
     UserLookupController,
     UserNoteController,
-    html_static_files_router,
+    static_router,
 ]

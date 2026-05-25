@@ -33,7 +33,7 @@ from .s3_assets import (
     CharacterAssetsController,
     UserAssetsController,
 )
-from .static import html_static_files_router
+from .static import static_router
 from .statistics.controllers import StatisticsController
 from .system.controllers import SystemController
 from .user import (
@@ -77,5 +77,5 @@ __all__ = (
     "UserController",
     "UserLookupController",
     "UserNoteController",
-    "html_static_files_router",
+    "static_router",
 )

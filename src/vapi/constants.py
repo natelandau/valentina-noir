@@ -9,6 +9,7 @@ MODULE_ROOT_PATH: Final[Path] = Path(__file__).parent.absolute()
 ENVAR_PREFIX: Final[str] = "VAPI_"
 MAX_NUM_DICE: Final[int] = 100  # maximum number of dice that can be rolled in a pool
 URL_ROOT_PATH: Final[str] = "/api/v1"
+DOCS_URL: Final[str] = "https://docs.valentina-noir.com"
 AUTH_HEADER_KEY: Final[str] = "X-API-KEY"
 ON_BEHALF_OF_HEADER_KEY: Final[str] = "On-Behalf-Of"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"

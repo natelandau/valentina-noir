@@ -24,14 +24,14 @@ from litestar.openapi.spec import (
 
 from vapi import __version__
 from vapi.config import settings
-from vapi.constants import AUTH_HEADER_KEY
+from vapi.constants import AUTH_HEADER_KEY, DOCS_URL
 
 from .tags import APITags
 
-API_DESCRIPTION = dedent("""\
+API_DESCRIPTION = dedent(f"""\
         Welcome to the detailed API documentation for Valentina Noir where each endpoint is documented in detail.
 
-        > [!IMPORTANT] **IMPORTANT:** Before you start developing, be sure to **[read the overview documentation](https://docs.valentina-noir.com)** to understand the core concepts and features of the API.
+        > [!IMPORTANT] **IMPORTANT:** Before you start developing, be sure to **[read the overview documentation]({DOCS_URL})** to understand the core concepts and features of the API.
 """)
 
 
@@ -81,7 +81,7 @@ def create_openapi_config() -> OpenAPIConfig:
             },
         ),
         external_docs=ExternalDocumentation(
-            url="https://docs.valentina-noir.com",
+            url=DOCS_URL,
             description="Documentation",
         ),
         tags=APITags.get_all_tags(),
