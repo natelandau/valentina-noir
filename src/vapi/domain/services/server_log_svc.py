@@ -1,7 +1,9 @@
 """Read and package the application's on-disk log files for global admins."""
 
+import zipfile
 from collections import deque
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from vapi.config import settings
 from vapi.constants import LogLevel
@@ -65,3 +67,27 @@ class ServerLogService:
                     matched.append(entry)
 
         return list(reversed(matched))
+
+    def _existing_files(self) -> list[Path]:
+        """Return the active log file plus any rotated backups that exist on disk."""
+        base = self._base_path()
+        candidates = [base, *(base.with_name(f"{base.name}.{i}") for i in (1, 2))]
+        return [path for path in candidates if path.exists()]
+
+    def build_archive(self) -> Path:
+        """Zip the active and rotated log files into a temp file and return its path.
+
+        The caller is responsible for deleting the returned file once it has been
+        streamed to the client.
+        """
+        files = self._existing_files()
+        if not files:
+            raise ConflictError(detail="No log files found on disk.")
+
+        tmp = NamedTemporaryFile(suffix=".zip", delete=False)  # noqa: SIM115
+        tmp.close()
+        archive_path = Path(tmp.name)
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in files:
+                archive.write(path, arcname=path.name)
+        return archive_path
