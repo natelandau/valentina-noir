@@ -139,6 +139,15 @@ Notes on the scope-derived fields:
 - `error_type` and `error_detail` carry the class and message of a handled error (e.g. `ConflictError` / `already exists`). They are present only on requests that returned a handled error, and they replace the separate error log line that handled errors previously emitted.
 - `invalid_parameters` carries the field-level detail of a validation error (`[{"field": ..., "message": ...}]`). It is present only on validation errors that have field detail, so it never appears as an empty list.
 
+### Unhandled exceptions
+
+A handled error becomes a clean response and is captured entirely in the combined entry above. An *unhandled* exception (a bug, e.g. a `KeyError`) is different: it produces two lines. `VAPI_LOG__LOG_EXCEPTIONS` (default `always`) controls this.
+
+- A dedicated **`Uncaught exception`** line at ERROR with the full traceback in the `exception` field, plus the `request_id` and `developer_id` so it correlates with the combined entry.
+- The combined request entry itself, at ERROR (the response is a 500), with `error_type` set to the exception class.
+
+Expected client errors (the 4xx classes) are excluded from this traceback logging, so only genuine faults produce a stack trace.
+
 Enabling `request_headers` or `request_body` can log sensitive values. Header and cookie obfuscation is controlled by `VAPI_LOG__OBFUSCATE_HEADERS` and `VAPI_LOG__OBFUSCATE_COOKIES`. Note that `request_headers` logs the raw `Cookie` header unless `Cookie` is added to the obfuscate list.
 
 ## Contributing

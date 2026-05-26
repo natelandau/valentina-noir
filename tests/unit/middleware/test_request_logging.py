@@ -17,6 +17,7 @@ from vapi.lib.exceptions import (
     ValidationError,
     http_error_to_http_response,
 )
+from vapi.lib.log_config import log_uncaught_exception
 from vapi.middleware.request_id import request_id_middleware
 from vapi.middleware.request_logging import (
     CombinedLoggingMiddlewareConfig,
@@ -223,10 +224,13 @@ def _capture_request(config: CombinedLoggingMiddlewareConfig, **request_kwargs) 
 
 
 def _capture_records(
-    app: Litestar, make_request: Callable[[TestClient], object]
+    app: Litestar,
+    make_request: Callable[[TestClient], object],
+    *,
+    raise_server_exceptions: bool = True,
 ) -> list[logging.LogRecord]:
     handler = _CaptureHandler()
-    with TestClient(app=app) as client:
+    with TestClient(app=app, raise_server_exceptions=raise_server_exceptions) as client:
         logger = logging.getLogger("litestar")
         original_level = logger.level
         logger.addHandler(handler)
@@ -391,6 +395,46 @@ def test_validation_error_folds_invalid_parameters_into_entry() -> None:
     assert "error_type=ValidationError" in entries[0].getMessage()
     assert "invalid_parameters=[" in entries[0].getMessage()
     assert "too long" in entries[0].getMessage()
+
+
+def test_unhandled_exception_logs_traceback_and_marks_combined_entry() -> None:
+    """Verify an unhandled exception logs a correlated traceback line and an ERROR combined entry."""
+    # Given an app whose handler raises an unhandled exception, with exception logging on
+    config = CombinedLoggingMiddlewareConfig(log_fields=["path", "status_code", "error_type"])
+
+    @get("/boom")
+    async def boom() -> None:
+        """Raise an unhandled exception."""
+        msg = "boom"
+        raise KeyError(msg)
+
+    app = Litestar(
+        route_handlers=[boom],
+        middleware=[request_id_middleware, config.middleware],
+        logging_config=LoggingConfig(
+            log_exceptions="always",
+            exception_logging_handler=log_uncaught_exception,
+            loggers={"litestar": {"level": "INFO", "handlers": [], "propagate": True}},
+        ),
+    )
+
+    # When the endpoint raises (server returns a 500 rather than re-raising into the test)
+    records = _capture_records(
+        app, lambda client: client.get("/boom"), raise_server_exceptions=False
+    )
+
+    # Then a traceback line is logged at ERROR with the exception and the request id
+    traceback_lines = [r for r in records if r.getMessage() == "Uncaught exception"]
+    assert len(traceback_lines) == 1
+    assert traceback_lines[0].levelno == logging.ERROR
+    assert traceback_lines[0].exc_info is not None
+    assert getattr(traceback_lines[0], "request_id", "").startswith("req_")
+
+    # And the single combined entry is ERROR (500) and carries the stashed error_type
+    entries = [r for r in records if "path=/boom" in r.getMessage()]
+    assert len(entries) == 1
+    assert entries[0].levelno == logging.ERROR
+    assert "error_type=KeyError" in entries[0].getMessage()
 
 
 def test_combined_entry_level_independent_of_configured_fields() -> None:

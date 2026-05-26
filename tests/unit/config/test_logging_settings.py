@@ -45,6 +45,15 @@ def test_default_log_fields_include_request_and_developer_id() -> None:
     assert "developer_id" in settings.log_fields
 
 
+def test_default_log_exceptions_is_always() -> None:
+    """Verify uncaught exceptions are logged in every environment, not only under debug."""
+    # Given default logging settings
+    # When LoggingSettings is constructed with defaults
+    settings = LoggingSettings()
+    # Then exception logging is always on (not gated on app.debug)
+    assert settings.log_exceptions == "always"
+
+
 def test_default_log_fields_include_error_facets() -> None:
     """Verify error_type and error_detail are logged by default so failures explain themselves."""
     # Given no explicit log_fields configuration

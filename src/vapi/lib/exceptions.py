@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
@@ -47,8 +46,6 @@ __all__ = (
     "operational_error_to_http_response",
     "tortoise_validation_to_http_response",
 )
-
-logger = logging.getLogger("litestar")
 
 
 class ApplicationError(Exception):
@@ -439,14 +436,15 @@ def tortoise_validation_to_http_response(
 
 def operational_error_to_http_response(
     request: Request[Any, Any, Any],
-    exc: Exception,  # Litestar handler signature requires Exception; actual type is OperationalError
+    exc: Exception,  # noqa: ARG001  # Litestar handler signature requires Exception
 ) -> Response[dict[str, Any]]:
     """Convert Tortoise ORM OperationalError to HTTP 500 response.
 
     Catch-all for database operational errors (deadlocks, connection issues,
     ``MultipleObjectsReturned``, etc.) that aren't handled by a more specific
     handler. Returns a clean RFC 9457 InternalServerError without leaking
-    stack traces or DB internals.
+    stack traces or DB internals. The traceback is logged centrally by the
+    uncaught-exception handler, so this no longer logs it directly.
 
     Args:
         request: The incoming request object.
@@ -455,6 +453,5 @@ def operational_error_to_http_response(
     Returns:
         Response[dict[str, Any]]: A properly formatted HTTP 500 response.
     """
-    logger.exception("Unhandled Tortoise OperationalError: %s", exc)
     app_exc = InternalServerError()
     return app_exc.to_response(request)
