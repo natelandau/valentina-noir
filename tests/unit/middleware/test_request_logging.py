@@ -1,9 +1,11 @@
 """Tests for the combined request/response logging middleware and its config."""
 
 import logging
+from collections.abc import AsyncGenerator, Callable
 
-from litestar import Litestar, post
+from litestar import Litestar, get, post
 from litestar.logging import LoggingConfig
+from litestar.response import Stream
 from litestar.testing import TestClient
 
 from vapi.constants import LOG_FIELD_ROUTING, LOG_FIELDS_CATALOG
@@ -102,18 +104,24 @@ def _build_app(config: CombinedLoggingMiddlewareConfig) -> Litestar:
     )
 
 
-def _capture_request(config: CombinedLoggingMiddlewareConfig, **request_kwargs) -> list[str]:
-    app = _build_app(config)
+def _capture(app: Litestar, make_request: Callable[[TestClient], object]) -> list[str]:
     handler = _CaptureHandler()
     with TestClient(app=app) as client:
         logger = logging.getLogger("litestar")
+        original_level = logger.level
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
         try:
-            client.post("/echo", **request_kwargs)
+            make_request(client)
         finally:
+            # Restore the prior level so capturing here does not leak global logger state to later tests
             logger.removeHandler(handler)
+            logger.setLevel(original_level)
     return [record.getMessage() for record in handler.records]
+
+
+def _capture_request(config: CombinedLoggingMiddlewareConfig, **request_kwargs) -> list[str]:
+    return _capture(_build_app(config), lambda client: client.post("/echo", **request_kwargs))
 
 
 def test_single_combined_entry_per_request() -> None:
@@ -172,3 +180,33 @@ def test_empty_log_fields_emits_no_entry() -> None:
     messages = _capture_request(config, json={"x": 1})
     # Then the middleware emits no combined entry
     assert not any("HTTP Request" in message for message in messages)
+
+
+def test_streaming_response_logs_single_entry() -> None:
+    """Verify a multi-chunk streaming response produces exactly one combined entry."""
+    # Given an app whose route streams several body chunks
+    config = CombinedLoggingMiddlewareConfig(log_fields=["path", "status_code", "duration_ms"])
+
+    async def _chunks() -> AsyncGenerator[bytes]:
+        for part in (b"alpha", b"beta", b"gamma"):
+            yield part
+
+    @get("/stream")
+    async def stream() -> Stream:
+        """Return a streaming response of several chunks."""
+        return Stream(_chunks())
+
+    app = Litestar(
+        route_handlers=[stream],
+        middleware=[config.middleware],
+        logging_config=LoggingConfig(
+            loggers={"litestar": {"level": "INFO", "handlers": [], "propagate": True}}
+        ),
+    )
+
+    # When the streamed response completes
+    messages = _capture(app, lambda client: client.get("/stream"))
+
+    # Then exactly one entry is emitted despite the multiple body chunks
+    entries = [message for message in messages if "path=/stream" in message]
+    assert len(entries) == 1

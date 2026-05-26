@@ -83,8 +83,10 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
                 connection_state.log_context[HTTP_RESPONSE_START] = message
             elif message["type"] == HTTP_RESPONSE_BODY:
                 connection_state.log_context[HTTP_RESPONSE_BODY] = message
-                self._log_combined(scope=scope, request_values=request_values, start=start)
+                # Log once, on the final body chunk, so a streamed (multi-chunk) response
+                # produces a single combined entry rather than one entry per chunk
                 if not message.get("more_body"):
+                    self._log_combined(scope=scope, request_values=request_values, start=start)
                     connection_state.log_context.clear()
             await send(message)
 
