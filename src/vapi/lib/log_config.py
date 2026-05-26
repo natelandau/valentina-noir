@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 from litestar.logging.config import LoggingConfig
-from litestar.middleware.logging import LoggingMiddlewareConfig
 
 from vapi.config import settings
 from vapi.lib.exceptions import (
@@ -19,6 +18,7 @@ from vapi.lib.exceptions import (
     ValidationError,
 )
 from vapi.lib.log_formatters import ColorFormatter, LitestarJsonFormatter, StandardFormatter
+from vapi.middleware.request_logging import CombinedLoggingMiddlewareConfig
 
 
 def get_logging_config() -> LoggingConfig:
@@ -133,9 +133,8 @@ def get_logging_config() -> LoggingConfig:
     )
 
 
-middleware_logging_config = LoggingMiddlewareConfig(
-    request_log_fields=settings.log.request_log_fields,  # type: ignore [arg-type]
-    response_log_fields=settings.log.response_log_fields,  # type: ignore [arg-type]
+middleware_logging_config = CombinedLoggingMiddlewareConfig(
+    log_fields=settings.log.log_fields,
     response_headers_to_obfuscate=settings.log.obfuscate_headers,
     response_cookies_to_obfuscate=settings.log.obfuscate_cookies,
     request_cookies_to_obfuscate=settings.log.obfuscate_cookies,
