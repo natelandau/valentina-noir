@@ -3,6 +3,9 @@
 import logging
 from types import SimpleNamespace
 
+from tortoise.exceptions import DoesNotExist, IntegrityError, OperationalError
+from tortoise.exceptions import ValidationError as TortoiseValidationError
+
 from vapi.lib.exceptions import ConflictError, NotFoundError
 from vapi.lib.log_config import get_logging_config, log_uncaught_exception
 
@@ -28,6 +31,19 @@ def test_value_error_is_not_suppressed() -> None:
     assert ConflictError in config.disable_stack_trace
     assert NotFoundError in config.disable_stack_trace
     assert 404 in config.disable_stack_trace
+
+
+def test_tortoise_client_errors_are_suppressed_but_operational_is_not() -> None:
+    """Verify Tortoise exceptions converted to routine 4xx don't log tracebacks, but 5xx do."""
+    # Given the application logging config
+    config = get_logging_config()
+    # When inspecting the stack-trace suppression set
+    # Then the Tortoise exceptions converted to client 4xx are suppressed
+    assert DoesNotExist in config.disable_stack_trace
+    assert IntegrityError in config.disable_stack_trace
+    assert TortoiseValidationError in config.disable_stack_trace
+    # And OperationalError (converted to a 500) still logs a traceback
+    assert OperationalError not in config.disable_stack_trace
 
 
 def _raise_key_error() -> None:

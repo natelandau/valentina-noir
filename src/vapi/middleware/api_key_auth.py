@@ -17,6 +17,7 @@ from vapi.db.sql_models.developer import Developer
 from vapi.domain.services.developer_svc import DeveloperService
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import NotAuthorizedError
+from vapi.utils.authentication import log_auth_failure
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -43,6 +44,7 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
         """Authenticate a request by API key stored in the header."""
         auth_header = connection.headers.get(AUTH_HEADER_KEY)
         if not auth_header:
+            log_auth_failure(connection, "missing API key")
             raise NotAuthorizedError(detail="API key not provided")
 
         fingerprint = hmac_sha256_hex(data=auth_header)
@@ -75,6 +77,7 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
                 )
                 return AuthenticationResult(user=cached_dev, auth=auth_header)
 
+        log_auth_failure(connection, "invalid API key")
         raise NotAuthorizedError(detail="Unauthorized API key")
 
 

@@ -34,7 +34,7 @@ MULTIPART_BOUNDARY_PATTERN = re.compile(r"------\w+\s*", re.MULTILINE)
 _KV_VALUE_PATTERN = (
     r"(?:\{(?:[^{}]|\{[^{}]*\})*\})"
     r"|(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\])"
-    r'|(?:"[^"]*")'
+    r'|(?:"(?:[^"\\]|\\.)*")'
     r"|(?:'[^']*')"
     r"|(?:[^,\s]+)"
 )
@@ -101,10 +101,10 @@ class StructuredMessageParser:
 
     def _handle_quoted_strings(self, value: str) -> str | None:
         """Strip matching outer quotes from a quoted string, or return None if not quoted."""
-        if len(value) >= 2 and (  # noqa: PLR2004
-            (value.startswith('"') and value.endswith('"'))
-            or (value.startswith("'") and value.endswith("'"))
-        ):
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):  # noqa: PLR2004
+            # Reverse the writer's backslash-escaping of embedded quotes/backslashes
+            return re.sub(r"\\(.)", r"\1", value[1:-1])
+        if len(value) >= 2 and value.startswith("'") and value.endswith("'"):  # noqa: PLR2004
             return value[1:-1]
         return None
 

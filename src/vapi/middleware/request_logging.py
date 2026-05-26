@@ -51,10 +51,13 @@ def _render_value(value: Any) -> str:
 
     The JSON formatter re-parses ``key=value`` pairs out of the message, and its parser
     stops an unquoted value at the first space or comma. Quote string values containing
-    either so multi-word fields like ``error_detail`` survive the round trip intact.
+    either so multi-word fields like ``error_detail`` survive the round trip intact, and
+    backslash-escape embedded quotes/backslashes so a value like a DB constraint name in
+    double quotes is not truncated at the first inner quote.
     """
     if isinstance(value, str) and (" " in value or "," in value):
-        return f'"{value}"'
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
     return str(value)
 
 
@@ -167,28 +170,41 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             }
 
         connection_state = ScopeState.from_scope(scope)
+        status_code = 200
 
         async def send_wrapper(message: Message) -> None:
+            nonlocal status_code
             if message["type"] == HTTP_RESPONSE_START:
                 connection_state.log_context[HTTP_RESPONSE_START] = message
+                # Capture the status here rather than re-reading it later, so the entry's
+                # severity does not depend on the parent leaving the start message in place
+                status_code = message.get("status", 200)
             elif message["type"] == HTTP_RESPONSE_BODY:
                 connection_state.log_context[HTTP_RESPONSE_BODY] = message
                 # Log once, on the final body chunk, so a streamed (multi-chunk) response
                 # produces a single combined entry rather than one entry per chunk
                 if not message.get("more_body"):
-                    self._log_combined(scope=scope, request_values=request_values, start=start)
+                    self._log_combined(
+                        scope=scope,
+                        request_values=request_values,
+                        start=start,
+                        status_code=status_code,
+                    )
                     connection_state.log_context.clear()
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
 
-    def _log_combined(self, scope: Scope, request_values: dict[str, Any], start: float) -> None:
+    def _log_combined(
+        self, scope: Scope, request_values: dict[str, Any], start: float, status_code: int
+    ) -> None:
         """Merge request data, response data, and duration into one ordered log entry.
 
         Args:
             scope: The ASGI connection scope.
             request_values: Request fields already extracted and renamed by side.
             start: ``perf_counter`` value captured when the request arrived.
+            status_code: The response status, used to pick the entry's log level.
         """
         merged: dict[str, Any] = dict(request_values)
 
@@ -216,11 +232,7 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             if name in merged:
                 values[name] = merged[name]
 
-        # Read the status straight from the response message so the entry's severity
-        # tracks the outcome even when status_code is not a configured log field
-        response_start = ScopeState.from_scope(scope).log_context.get(HTTP_RESPONSE_START) or {}
-        level = _level_for_status(response_start.get("status", 200))
-        self.log_message(values=values, level=level)
+        self.log_message(values=values, level=_level_for_status(status_code))
 
     def log_message(self, values: dict[str, Any], level: int = logging.INFO) -> None:
         """Log the combined entry at ``level`` instead of the parent's hardcoded INFO.
@@ -230,8 +242,9 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             level: The ``logging`` level to emit at, derived from the response status.
         """
         message = values.pop("message")
-        # Dispatch by method name: the Logger protocol exposes info/warning/error but not log()
-        log = getattr(self.logger, _LEVEL_METHODS[level])
+        # Dispatch by method name: the Logger protocol exposes info/warning/error but not log().
+        # Fall back to info for any level outside the map rather than raising mid-response.
+        log = getattr(self.logger, _LEVEL_METHODS.get(level, "info"))
         if self.is_struct_logger:
             log(message, **values)
         else:

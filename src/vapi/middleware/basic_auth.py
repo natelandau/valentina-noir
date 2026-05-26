@@ -15,6 +15,7 @@ from litestar.middleware.authentication import (
 )
 
 from vapi.config import settings
+from vapi.utils.authentication import log_auth_failure
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -61,6 +62,9 @@ class BasicAuthMiddleware(AbstractAuthenticationMiddleware):
         password_matches = secrets.compare_digest(password, valid_password)
 
         if not (username_matches and password_matches) or not valid_username:
+            # Log only genuine credential failures, not the initial no-header 401 challenge
+            # (which fires on every normal browser auth handshake and would be pure noise).
+            log_auth_failure(connection, "invalid basic-auth credentials")
             raise NotAuthorizedException(
                 detail="Invalid credentials",
                 headers={"WWW-Authenticate": 'Basic realm="SAQ Admin"'},

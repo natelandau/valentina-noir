@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from litestar.logging.config import LoggingConfig
+from tortoise.exceptions import DoesNotExist as TortoiseDoesNotExist
+from tortoise.exceptions import IntegrityError as TortoiseIntegrityError
+from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from vapi.config import settings
 from vapi.constants import ERROR_TYPE_STATE_KEY, REQUEST_ID_STATE_KEY
@@ -87,7 +90,10 @@ def get_logging_config() -> LoggingConfig:
         exception_logging_handler=log_uncaught_exception,
         # These are expected client errors handled into clean responses and surfaced in the
         # combined request entry; suppress their tracebacks. Genuine bugs (ValueError,
-        # KeyError, etc.) are intentionally absent so they log with a full traceback.
+        # KeyError, etc.) are intentionally absent so they log with a full traceback. The
+        # Tortoise classes are the raw exceptions our handlers convert to 4xx (DoesNotExist
+        # -> 404, IntegrityError -> 409, ValidationError -> 400); OperationalError is omitted
+        # because it converts to a 500 and warrants a traceback.
         disable_stack_trace={
             400,
             401,
@@ -102,6 +108,9 @@ def get_logging_config() -> LoggingConfig:
             ConflictError,
             TooManyRequestsError,
             NotEnoughXPError,
+            TortoiseDoesNotExist,
+            TortoiseIntegrityError,
+            TortoiseValidationError,
         },
         formatters={
             "standard": {

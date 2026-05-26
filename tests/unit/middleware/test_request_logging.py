@@ -18,8 +18,10 @@ from vapi.lib.exceptions import (
     http_error_to_http_response,
 )
 from vapi.lib.log_config import log_uncaught_exception
+from vapi.lib.log_formatters import StructuredMessageParser
 from vapi.middleware.request_id import request_id_middleware
 from vapi.middleware.request_logging import (
+    CombinedLoggingMiddleware,
     CombinedLoggingMiddlewareConfig,
     _extract_scope_log_fields,
     _level_for_status,
@@ -329,6 +331,43 @@ def test_render_value_quotes_only_when_needed(value: object, expected: str) -> N
     rendered = _render_value(value)
     # Then it is quoted only when it contains a space or comma
     assert rendered == expected
+
+
+def test_render_value_round_trips_embedded_quotes() -> None:
+    """Verify a value with spaces and embedded double-quotes survives the key=value round trip."""
+    # Given free-text with spaces and embedded double-quotes (e.g. a Postgres constraint name)
+    value = 'constraint "users_name_key" violated'
+    # When rendered into a key=value pair and parsed back by the JSON formatter's parser
+    message = f"error_detail={_render_value(value)}"
+    parsed = StructuredMessageParser().parse(message)
+    # Then the full value is preserved, not truncated at the first embedded quote
+    assert parsed["error_detail"] == value
+
+
+def test_log_message_tolerates_unmapped_level() -> None:
+    """Verify log_message falls back to info for a level outside the known map instead of raising."""
+
+    # Given a middleware instance with a captured stdlib logger
+    async def _app(scope: object, receive: object, send: object) -> None:
+        """No-op ASGI app for constructing the middleware."""
+
+    config = CombinedLoggingMiddlewareConfig(log_fields=["path"])
+    middleware = CombinedLoggingMiddleware(app=_app, config=config)  # type: ignore[arg-type]
+    handler = _CaptureHandler()
+    logger = logging.getLogger("test_log_message_unmapped_level")
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    middleware.logger = logger
+    middleware.is_struct_logger = False
+
+    # When log_message is called with a level absent from _LEVEL_METHODS
+    try:
+        middleware.log_message({"message": "HTTP Request", "path": "/x"}, level=logging.DEBUG)
+    finally:
+        logger.removeHandler(handler)
+
+    # Then it emits one record without raising (falling back to info)
+    assert len(handler.records) == 1
 
 
 def test_handled_error_folds_into_single_entry() -> None:
