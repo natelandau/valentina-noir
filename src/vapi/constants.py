@@ -13,6 +13,30 @@ DOCS_URL: Final[str] = "https://docs.valentina-noir.com"
 AUTH_HEADER_KEY: Final[str] = "X-API-KEY"
 ON_BEHALF_OF_HEADER_KEY: Final[str] = "On-Behalf-Of"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
+
+# Maps each public log field name to (target, litestar_extractor_field).
+# target is "request", "response", or "synthetic". This table is the single
+# source of truth: the settings catalog and the middleware's field routing and
+# output renaming are all derived from it. Only `body` and `headers` collide
+# across request/response, so only those carry a request_/response_ prefix.
+LOG_FIELD_ROUTING: Final[dict[str, tuple[str, str]]] = {
+    "path": ("request", "path"),
+    "method": ("request", "method"),
+    "query": ("request", "query"),
+    "path_params": ("request", "path_params"),
+    "client": ("request", "client"),
+    "content_type": ("request", "content_type"),
+    "scheme": ("request", "scheme"),
+    "cookies": ("request", "cookies"),
+    "status_code": ("response", "status_code"),
+    "request_body": ("request", "body"),
+    "request_headers": ("request", "headers"),
+    "response_body": ("response", "body"),
+    "response_headers": ("response", "headers"),
+    "duration_ms": ("synthetic", "duration_ms"),
+}
+LOG_FIELDS_CATALOG: Final[frozenset[str]] = frozenset(LOG_FIELD_ROUTING)
+
 COOL_POINT_VALUE: Final[int] = 10
 MAX_BULK_TRAIT_ASSIGN: Final[int] = 200
 MAX_DANGER: Final[int] = 5
