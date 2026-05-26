@@ -1,3 +1,13 @@
+## v0.20.0 (2026-05-26)
+
+### Feat
+
+- **logging**: add new logging facets (#130)
+
+### Fix
+
+- **logging**: single combined log entry per request (#129)
+
 ## v0.19.0 (2026-05-25)
 
 ### Feat
