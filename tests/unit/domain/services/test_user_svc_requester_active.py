@@ -9,19 +9,24 @@ from vapi.lib.exceptions import PermissionDeniedError
 pytestmark = pytest.mark.anyio
 
 
-async def test_assert_requester_active_rejects_deactivated(user_factory, company_factory):
-    """Verify deactivated users are rejected."""
+@pytest.mark.parametrize(
+    ("role", "match_pattern"),
+    [
+        (UserRole.DEACTIVATED, "deactivated"),
+        (UserRole.UNAPPROVED, "approved"),
+    ],
+    ids=["deactivated", "unapproved"],
+)
+async def test_assert_requester_active_rejects_inactive_user(
+    user_factory, company_factory, role: UserRole, match_pattern: str
+):
+    """Verify deactivated and unapproved users are rejected."""
+    # Given a user with an inactive role
     company = await company_factory()
-    requester = await user_factory(role=UserRole.DEACTIVATED, company=company)
-    with pytest.raises(PermissionDeniedError, match="deactivated"):
-        await UserService()._assert_requester_active(requester.id)
+    requester = await user_factory(role=role, company=company)
 
-
-async def test_assert_requester_active_rejects_unapproved(user_factory, company_factory):
-    """Verify unapproved users are rejected."""
-    company = await company_factory()
-    requester = await user_factory(role=UserRole.UNAPPROVED, company=company)
-    with pytest.raises(PermissionDeniedError, match="approved"):
+    # When asserting the requester is active, Then a PermissionDeniedError is raised
+    with pytest.raises(PermissionDeniedError, match=match_pattern):
         await UserService()._assert_requester_active(requester.id)
 
 

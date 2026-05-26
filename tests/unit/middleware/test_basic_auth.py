@@ -42,24 +42,19 @@ def _encode_basic_auth(username: str, password: str) -> str:
 class TestBasicAuthMiddlewarePathFiltering:
     """Test path-based filtering logic."""
 
-    async def test_non_saq_path_passes_through(self, mocker: MockerFixture) -> None:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/v1/companies",
+            "/",
+        ],
+        ids=["non-saq-path", "root-path"],
+    )
+    async def test_non_saq_paths_pass_through(self, path: str, mocker: MockerFixture) -> None:
         """Verify non-SAQ paths return empty AuthenticationResult."""
         # Given a connection to a non-SAQ path
         middleware = BasicAuthMiddleware(app=mocker.MagicMock())
-        connection = _create_mock_connection(mocker, path="/api/v1/companies")
-
-        # When authenticating the request
-        result = await middleware.authenticate_request(connection)
-
-        # Then it should pass through with no user
-        assert result.user is None
-        assert result.auth is None
-
-    async def test_root_path_passes_through(self, mocker: MockerFixture) -> None:
-        """Verify root path returns empty AuthenticationResult."""
-        # Given a connection to the root path
-        middleware = BasicAuthMiddleware(app=mocker.MagicMock())
-        connection = _create_mock_connection(mocker, path="/")
+        connection = _create_mock_connection(mocker, path=path)
 
         # When authenticating the request
         result = await middleware.authenticate_request(connection)
@@ -170,41 +165,31 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Invalid credentials format" in exc_info.value.detail
 
-    async def test_wrong_username_raises_error(
-        self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize(
+        ("username", "password"),
+        [
+            ("wrong_user", "secret123"),
+            ("admin", "wrong_password"),
+        ],
+        ids=["wrong-username", "wrong-password"],
+    )
+    async def test_wrong_credentials_raise_error(
+        self,
+        username: str,
+        password: str,
+        mocker: MockerFixture,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Verify wrong username raises NotAuthorizedException."""
+        """Verify wrong username or password raises NotAuthorizedException."""
         # Given SAQ admin credentials are configured
         from vapi.config import settings
 
         monkeypatch.setattr(settings.saq, "admin_username", "admin")
         monkeypatch.setattr(settings.saq, "admin_password", "secret123")
 
-        # Given a connection with wrong username
+        # Given a connection with incorrect credentials
         middleware = BasicAuthMiddleware(app=mocker.MagicMock())
-        auth_header = _encode_basic_auth("wrong_user", "secret123")
-        connection = _create_mock_connection(mocker, path="/saq/", authorization=auth_header)
-
-        # When authenticating the request
-        # Then it should raise NotAuthorizedException
-        with pytest.raises(NotAuthorizedException) as exc_info:
-            await middleware.authenticate_request(connection)
-
-        assert "Invalid credentials" in exc_info.value.detail
-
-    async def test_wrong_password_raises_error(
-        self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Verify wrong password raises NotAuthorizedException."""
-        # Given SAQ admin credentials are configured
-        from vapi.config import settings
-
-        monkeypatch.setattr(settings.saq, "admin_username", "admin")
-        monkeypatch.setattr(settings.saq, "admin_password", "secret123")
-
-        # Given a connection with wrong password
-        middleware = BasicAuthMiddleware(app=mocker.MagicMock())
-        auth_header = _encode_basic_auth("admin", "wrong_password")
+        auth_header = _encode_basic_auth(username, password)
         connection = _create_mock_connection(mocker, path="/saq/", authorization=auth_header)
 
         # When authenticating the request

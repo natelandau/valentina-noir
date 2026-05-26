@@ -8,8 +8,14 @@ from uuid import uuid4
 import pytest
 
 from vapi.constants import PermissionManageCampaign, UserRole
-from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError
+from vapi.lib.exceptions import (
+    ClientError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
 from vapi.lib.guards import (
+    developer_company_user_guard,
     user_active_guard,
     user_can_manage_campaign,
     user_character_player_or_storyteller_guard,
@@ -54,11 +60,6 @@ def _patch_user(mocker: MockerFixture, user: MagicMock | None) -> None:
         "vapi.lib.guards.User.filter",
         return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=user)),
     )
-
-
-# ---------------------------------------------------------------------------
-# user_active_guard
-# ---------------------------------------------------------------------------
 
 
 class TestUserActiveGuard:
@@ -133,11 +134,6 @@ class TestUserActiveGuard:
         await user_active_guard(connection, _mock_handler(mocker))
 
 
-# ---------------------------------------------------------------------------
-# user_character_player_or_storyteller_guard
-# ---------------------------------------------------------------------------
-
-
 class TestCharacterPlayerOrStorytellerGuard:
     """Test user_character_player_or_storyteller_guard role checks."""
 
@@ -164,10 +160,108 @@ class TestCharacterPlayerOrStorytellerGuard:
         with pytest.raises(PermissionDeniedError, match="No rights"):
             await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
 
+    async def test_missing_character_id_raises_validation_error(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify a missing character_id path param raises ValidationError."""
+        # Given a connection without a character_id
+        connection = _mock_connection(mocker, {}, headers={"On-Behalf-Of": str(uuid4())})
 
-# ---------------------------------------------------------------------------
-# user_can_manage_campaign
-# ---------------------------------------------------------------------------
+        # When/Then the guard raises
+        with pytest.raises(ValidationError, match="Character ID is required"):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_character_not_found_raises_not_found(self, mocker: MockerFixture) -> None:
+        """Verify a non-existent character raises NotFoundError."""
+        # Given a valid acting user but no matching character
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=None)),
+        )
+        _patch_user(mocker, user)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id)},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When/Then the guard raises
+        with pytest.raises(NotFoundError, match=str(character_id)):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_player_who_is_not_owner_is_denied(self, mocker: MockerFixture) -> None:
+        """Verify a player who does not own the character and lacks privilege is denied."""
+        # Given a player acting on a character owned by someone else
+        user_id = uuid4()
+        owner_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        character = mocker.MagicMock(user_player_id=owner_id)
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id)},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When/Then the guard raises
+        with pytest.raises(PermissionDeniedError, match="No rights"):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_player_who_owns_character_is_allowed(self, mocker: MockerFixture) -> None:
+        """Verify a player who owns the character passes the guard."""
+        # Given a player acting on their own character
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        character = mocker.MagicMock(user_player_id=user_id)
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id)},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When calling the guard / Then no exception is raised
+        await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+
+class TestDeveloperCompanyPermission:
+    """Test developer company permission denial branches."""
+
+    async def test_global_admin_bypasses_permission_check(self, mocker: MockerFixture) -> None:
+        """Verify a global admin developer is allowed without a company permission lookup."""
+        # Given a global-admin developer
+        connection = _mock_connection(mocker, {"company_id": str(uuid4())})
+        connection.user = mocker.MagicMock(is_global_admin=True, id=uuid4())
+
+        # When calling the guard / Then no exception is raised
+        await developer_company_user_guard(connection, _mock_handler(mocker))
+
+    @pytest.mark.parametrize("company_id", ["not-a-uuid", None], ids=["malformed", "missing"])
+    async def test_unparsable_company_id_is_denied(
+        self, company_id: str | None, mocker: MockerFixture
+    ) -> None:
+        """Verify a malformed or missing company_id denies a non-admin developer."""
+        # Given a non-admin developer and an unparsable company_id
+        path_params = {"company_id": company_id} if company_id is not None else {}
+        connection = _mock_connection(mocker, path_params)
+        connection.user = mocker.MagicMock(is_global_admin=False, id=uuid4())
+
+        # When/Then the guard raises
+        with pytest.raises(PermissionDeniedError, match="No rights"):
+            await developer_company_user_guard(connection, _mock_handler(mocker))
 
 
 def _setup_campaign_db_mocks(

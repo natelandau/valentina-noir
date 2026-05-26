@@ -6,6 +6,8 @@ from typing import Any
 from unittest.mock import MagicMock
 from uuid import uuid4
 
+import pytest
+
 from vapi.constants import AuditEntityType, AuditOperation
 from vapi.domain.hooks.audit_helpers import build_audit_entry
 
@@ -46,69 +48,36 @@ def _make_request(
 class TestResolveOperation:
     """Test operation resolution from HTTP method."""
 
-    def test_post_maps_to_create(self) -> None:
-        """Verify POST method resolves to CREATE operation."""
-        # Given a POST request to create a company
+    @pytest.mark.parametrize(
+        ("method", "operation_id", "expected_operation"),
+        [
+            ("POST", "createCompany", AuditOperation.CREATE),
+            ("PUT", "updateCompany", AuditOperation.UPDATE),
+            ("PATCH", "updateCompany", AuditOperation.UPDATE),
+            ("DELETE", "deleteCompany", AuditOperation.DELETE),
+        ],
+        ids=["POST->CREATE", "PUT->UPDATE", "PATCH->UPDATE", "DELETE->DELETE"],
+    )
+    def test_http_method_maps_to_audit_operation(
+        self,
+        method: str,
+        operation_id: str,
+        expected_operation: AuditOperation,
+    ) -> None:
+        """Verify each HTTP method resolves to the correct AuditOperation."""
+        # Given a request with the specified HTTP method
         company_id = str(uuid4())
         request = _make_request(
-            method="POST",
+            method=method,
             path_params={"company_id": company_id},
-            operation_id="createCompany",
+            operation_id=operation_id,
         )
 
         # When building the audit entry
         result = build_audit_entry(request)
 
-        # Then the operation is CREATE
-        assert result["operation"] == AuditOperation.CREATE
-
-    def test_put_maps_to_update(self) -> None:
-        """Verify PUT method resolves to UPDATE operation."""
-        # Given a PUT request to update a company
-        company_id = str(uuid4())
-        request = _make_request(
-            method="PUT",
-            path_params={"company_id": company_id},
-            operation_id="updateCompany",
-        )
-
-        # When building the audit entry
-        result = build_audit_entry(request)
-
-        # Then the operation is UPDATE
-        assert result["operation"] == AuditOperation.UPDATE
-
-    def test_patch_maps_to_update(self) -> None:
-        """Verify PATCH method resolves to UPDATE operation."""
-        # Given a PATCH request to update a company
-        company_id = str(uuid4())
-        request = _make_request(
-            method="PATCH",
-            path_params={"company_id": company_id},
-            operation_id="updateCompany",
-        )
-
-        # When building the audit entry
-        result = build_audit_entry(request)
-
-        # Then the operation is UPDATE
-        assert result["operation"] == AuditOperation.UPDATE
-
-    def test_delete_maps_to_delete(self) -> None:
-        """Verify DELETE method resolves to DELETE operation."""
-        # Given a DELETE request to delete a company
-        company_id = str(uuid4())
-        request = _make_request(
-            method="DELETE",
-            path_params={"company_id": company_id},
-            operation_id="deleteCompany",
-        )
-
-        # When building the audit entry
-        result = build_audit_entry(request)
-
-        # Then the operation is DELETE
-        assert result["operation"] == AuditOperation.DELETE
+        # Then the operation matches the expected value
+        assert result["operation"] == expected_operation
 
 
 class TestResolveEntityType:

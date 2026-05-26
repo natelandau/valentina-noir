@@ -1,6 +1,9 @@
 """Test Discord OAuth utility."""
 
 import datetime
+from typing import Any
+
+import pytest
 
 from vapi.utils.discord import is_discord_oauth_expired
 
@@ -22,19 +25,21 @@ class TestIsDiscordOauthExpired:
         result = is_discord_oauth_expired(oauth)
         assert result is True
 
-    def test_none_oauth(self) -> None:
-        """Verify None OAuth returns False."""
-        result = is_discord_oauth_expired(None)
-        assert result is False
+    @pytest.mark.parametrize(
+        "oauth",
+        [
+            None,
+            {"access_token": "abc"},
+            {"expires_at": None},
+        ],
+        ids=["none-oauth", "missing-expires_at", "none-expires_at"],
+    )
+    def test_returns_false_for_missing_or_null_expiry(self, oauth: dict[str, Any] | None) -> None:
+        """Verify None oauth, missing expires_at, and None expires_at all return False."""
+        # Given an oauth value with no valid expiry
 
-    def test_missing_expires_at(self) -> None:
-        """Verify OAuth without expires_at returns False."""
-        oauth = {"access_token": "abc"}
+        # When checking expiry
         result = is_discord_oauth_expired(oauth)
-        assert result is False
 
-    def test_none_expires_at(self) -> None:
-        """Verify OAuth with None expires_at returns False."""
-        oauth = {"expires_at": None}
-        result = is_discord_oauth_expired(oauth)
+        # Then False is returned
         assert result is False

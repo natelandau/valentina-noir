@@ -1,6 +1,9 @@
 """Test the detail_includes helper."""
 
+from __future__ import annotations
+
 from enum import StrEnum
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,28 +26,20 @@ _MAP = {
 }
 
 
-async def test_apply_includes_none_skips_fetch() -> None:
-    """Verify passing None for include does not call fetch_related."""
+@pytest.mark.parametrize(
+    "include",
+    [None, []],
+    ids=["none", "empty-list"],
+)
+async def test_apply_includes_empty_input_skips_fetch(include: list[Any] | None) -> None:
+    """Verify passing None or an empty list does not call fetch_related."""
     # Given an object with a mocked fetch_related
     obj = AsyncMock()
 
     # When apply_includes is called with no includes
-    result = await apply_includes(obj, None, _MAP)
+    result = await apply_includes(obj, include, _MAP)
 
     # Then fetch_related is not called and the set is empty
-    obj.fetch_related.assert_not_called()
-    assert result == set()
-
-
-async def test_apply_includes_empty_list_skips_fetch() -> None:
-    """Verify an empty include list does not call fetch_related."""
-    # Given an object with a mocked fetch_related
-    obj = AsyncMock()
-
-    # When apply_includes is called with an empty list
-    result = await apply_includes(obj, [], _MAP)
-
-    # Then fetch_related is not called
     obj.fetch_related.assert_not_called()
     assert result == set()
 

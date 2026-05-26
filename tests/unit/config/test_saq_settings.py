@@ -10,29 +10,22 @@ from vapi.config.base import SAQSettings
 class TestSAQCredentialValidation:
     """Tests for SAQ admin credential validation."""
 
-    def test_web_enabled_without_username_raises(self) -> None:
-        """Verify construction fails when web_enabled is True but admin_username is None."""
-        # Given web_enabled is True with only a password set
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"admin_password": "secret"},
+            {"admin_username": "admin"},
+            {},
+        ],
+        ids=["missing-username", "missing-password", "missing-both"],
+    )
+    def test_web_enabled_without_full_credentials_raises(self, kwargs: dict[str, str]) -> None:
+        """Verify construction fails when web_enabled is True but credentials are incomplete."""
+        # Given web_enabled is True with incomplete or absent credentials
         # When creating SAQSettings
         # Then a ValueError is raised
         with pytest.raises(ValueError, match="admin_username and admin_password must be set"):
-            SAQSettings(web_enabled=True, admin_password="secret")  # noqa: S106
-
-    def test_web_enabled_without_password_raises(self) -> None:
-        """Verify construction fails when web_enabled is True but admin_password is None."""
-        # Given web_enabled is True with only a username set
-        # When creating SAQSettings
-        # Then a ValueError is raised
-        with pytest.raises(ValueError, match="admin_username and admin_password must be set"):
-            SAQSettings(web_enabled=True, admin_username="admin")
-
-    def test_web_enabled_without_both_credentials_raises(self) -> None:
-        """Verify construction fails when web_enabled is True but both credentials are None."""
-        # Given web_enabled is True with no credentials
-        # When creating SAQSettings
-        # Then a ValueError is raised
-        with pytest.raises(ValueError, match="admin_username and admin_password must be set"):
-            SAQSettings(web_enabled=True)
+            SAQSettings(web_enabled=True, **kwargs)
 
     def test_web_enabled_with_credentials_succeeds(self) -> None:
         """Verify construction succeeds when web_enabled is True with both credentials set."""

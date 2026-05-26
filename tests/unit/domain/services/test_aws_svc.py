@@ -161,7 +161,36 @@ class TestGetCacheControl:
 
 
 class TestUploadToS3:
-    """Test the upload_to_s3 method."""
+    """Test the _upload_to_s3 method."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ClientError({"Error": {"Code": "500", "Message": "Error"}}, "PutObject"),
+            FileNotFoundError("missing local file"),
+        ],
+        ids=["client_error", "file_not_found"],
+    )
+    async def test_upload_to_s3_wraps_failures_as_aws_error(
+        self,
+        error: Exception,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify put_object ClientError and FileNotFoundError are wrapped as AWSS3Error."""
+        # Given an asset and an S3 client whose put_object fails
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(company=company, uploaded_by=user)
+        service = AWSS3Service()
+        mocker.patch.object(service.s3, "put_object", side_effect=error)
+
+        # When uploading the asset bytes
+        # Then the underlying failure is translated to AWSS3Error
+        with pytest.raises(AWSS3Error):
+            await service._upload_to_s3(asset=asset, data=b"payload")
 
 
 class TestUploadAsset:
@@ -398,6 +427,39 @@ class TestUploadAsset:
         assert "/" not in asset.original_filename
         assert '"' not in asset.original_filename
         assert ";" not in asset.original_filename
+
+    async def test_upload_asset_rolls_back_db_record_on_s3_failure(
+        self,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify the S3Asset row is deleted when the S3 upload fails after creation."""
+        # Given a character/user and an _upload_to_s3 that fails
+        company = await company_factory()
+        character = await character_factory(company=company)
+        user = await user_factory(company=company)
+        mocker.patch.object(
+            AWSS3Service, "_upload_to_s3", side_effect=AWSS3Error(detail="upload failed")
+        )
+
+        # When uploading an asset
+        # Then the error propagates to the caller
+        service = AWSS3Service()
+        with pytest.raises(AWSS3Error):
+            await service.upload_asset(
+                company_id=company.id,
+                uploaded_by_id=user.id,
+                parent_id=character.id,
+                parent_fk_field="character_id",
+                data=b"test data",
+                filename="test.jpg",
+                mime_type="image/jpeg",
+            )
+
+        # Then no orphaned S3Asset row remains
+        assert await S3Asset.filter(company_id=company.id).count() == 0
 
 
 class TestUploadFile:

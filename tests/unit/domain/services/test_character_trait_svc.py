@@ -160,12 +160,18 @@ class TestListCharacterTraits:
         for t in traits:
             assert t.trait.category_id == category1.id
 
+    @pytest.mark.parametrize(
+        "filter_value",
+        [True, False],
+        ids=["rollable_only", "non_rollable_only"],
+    )
     async def test_list_character_traits_filter_by_is_rollable(
         self,
         character_factory,
         character_trait_factory,
+        filter_value: bool,
     ) -> None:
-        """Verify that filtering by is_rollable returns only rollable traits."""
+        """Verify that filtering by is_rollable returns only traits matching that flag."""
         # Given a character with both rollable and non-rollable traits
         character = await character_factory()
 
@@ -188,47 +194,12 @@ class TestListCharacterTraits:
 
         # When we list the traits filtered by is_rollable
         service = CharacterTraitService()
-        count, traits = await service.list_character_traits(character, is_rollable=True)
+        count, traits = await service.list_character_traits(character, is_rollable=filter_value)
 
-        # Then only rollable traits should be returned
+        # Then only traits matching the filter should be returned
         assert count == 1
         assert len(traits) == 1
-        assert traits[0].trait.is_rollable is True
-
-    async def test_list_character_traits_filter_by_not_rollable(
-        self,
-        character_factory,
-        character_trait_factory,
-    ) -> None:
-        """Verify that is_rollable=False returns only non-rollable traits."""
-        # Given a character with both rollable and non-rollable traits
-        character = await character_factory()
-
-        trait_ids: list[UUID] = []
-        rollable_trait = (
-            await Trait.filter(is_archived=False, is_rollable=True)
-            .exclude(id__in=trait_ids)
-            .first()
-        )
-        trait_ids.append(rollable_trait.id)
-        await character_trait_factory(character=character, trait=rollable_trait, value=1)
-
-        non_rollable_trait = (
-            await Trait.filter(is_archived=False, is_rollable=False)
-            .exclude(id__in=trait_ids)
-            .first()
-        )
-        trait_ids.append(non_rollable_trait.id)
-        await character_trait_factory(character=character, trait=non_rollable_trait, value=1)
-
-        # When we list the traits filtered by is_rollable=False
-        service = CharacterTraitService()
-        count, traits = await service.list_character_traits(character, is_rollable=False)
-
-        # Then only non-rollable traits should be returned
-        assert count == 1
-        assert len(traits) == 1
-        assert traits[0].trait.is_rollable is False
+        assert traits[0].trait.is_rollable is filter_value
 
     async def test_list_character_traits_is_rollable_none_returns_all(
         self,

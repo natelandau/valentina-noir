@@ -71,63 +71,36 @@ class TestTraitSyncResult:
 class TestJSONWithCommentsDecoder:
     """Tests for the JSONWithCommentsDecoder class."""
 
-    def test_decode_json_without_comments(self) -> None:
-        """Verify decoding standard JSON without comments."""
-        # Given: Standard JSON
-        json_str = '{"name": "test", "value": 42}'
+    @pytest.mark.parametrize(
+        ("description", "json_str"),
+        [
+            (
+                "no_comments",
+                '{"name": "test", "value": 42}',
+            ),
+            (
+                "single_line_comments",
+                '{\n            "name": "test", // This is a comment\n            "value": 42\n        }',
+            ),
+            (
+                "multi_line_comments",
+                '{\n            /* This is a\n               multi-line comment */\n            "name": "test",\n            "value": 42\n        }',
+            ),
+            (
+                "mixed_comments",
+                '{\n            /* Header comment */\n            "name": "test", // inline comment\n            "value": 42 /* trailing comment */\n        }',
+            ),
+        ],
+        ids=["no_comments", "single_line_comments", "multi_line_comments", "mixed_comments"],
+    )
+    def test_decode_json_strips_comments(self, description: str, json_str: str) -> None:
+        """Verify comments of any style are stripped and values are parsed correctly."""
+        # Given: JSON that may contain comments
 
         # When: Decoding
         result = json.loads(json_str, cls=JSONWithCommentsDecoder)
 
-        # Then: Values should be parsed correctly
-        assert result["name"] == "test"
-        assert result["value"] == 42
-
-    def test_decode_json_with_single_line_comments(self) -> None:
-        """Verify decoding JSON with single-line comments."""
-        # Given: JSON with single-line comments
-        json_str = """{
-            "name": "test", // This is a comment
-            "value": 42
-        }"""
-
-        # When: Decoding
-        result = json.loads(json_str, cls=JSONWithCommentsDecoder)
-
-        # Then: Comments should be stripped
-        assert result["name"] == "test"
-        assert result["value"] == 42
-
-    def test_decode_json_with_multi_line_comments(self) -> None:
-        """Verify decoding JSON with multi-line comments."""
-        # Given: JSON with multi-line comments
-        json_str = """{
-            /* This is a
-               multi-line comment */
-            "name": "test",
-            "value": 42
-        }"""
-
-        # When: Decoding
-        result = json.loads(json_str, cls=JSONWithCommentsDecoder)
-
-        # Then: Comments should be stripped
-        assert result["name"] == "test"
-        assert result["value"] == 42
-
-    def test_decode_json_with_mixed_comments(self) -> None:
-        """Verify decoding JSON with both comment types."""
-        # Given: JSON with both comment types
-        json_str = """{
-            /* Header comment */
-            "name": "test", // inline comment
-            "value": 42 /* trailing comment */
-        }"""
-
-        # When: Decoding
-        result = json.loads(json_str, cls=JSONWithCommentsDecoder)
-
-        # Then: All comments should be stripped
+        # Then: Values should be parsed correctly regardless of comment style
         assert result["name"] == "test"
         assert result["value"] == 42
 

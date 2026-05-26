@@ -71,31 +71,25 @@ async def test_tail_logs_conflict_when_logging_disabled(
     assert response.status_code == HTTP_409_CONFLICT
 
 
-async def test_tail_logs_forbidden_for_non_admin(
+@pytest.mark.parametrize(
+    "url_attr",
+    [
+        GlobalAdmin.LOGS,
+        GlobalAdmin.LOGS_DOWNLOAD,
+    ],
+    ids=["tail_logs", "download_logs"],
+)
+async def test_log_endpoints_forbidden_for_non_admin(
     client: AsyncClient,
     token_company_admin: dict[str, str],
     build_url: Callable[[str, Any], str],
+    url_attr: str,
 ) -> None:
-    """Verify a non-global-admin caller is rejected."""
+    """Verify a non-global-admin caller is rejected on log endpoints."""
     # Given a non-global-admin token
 
-    # When tailing
-    response = await client.get(build_url(GlobalAdmin.LOGS), headers=token_company_admin)
-
-    # Then access is forbidden
-    assert response.status_code == HTTP_403_FORBIDDEN
-
-
-async def test_download_logs_forbidden_for_non_admin(
-    client: AsyncClient,
-    token_company_admin: dict[str, str],
-    build_url: Callable[[str, Any], str],
-) -> None:
-    """Verify a non-global-admin caller cannot download logs."""
-    # Given a non-global-admin token
-
-    # When downloading the logs
-    response = await client.get(build_url(GlobalAdmin.LOGS_DOWNLOAD), headers=token_company_admin)
+    # When requesting the log endpoint
+    response = await client.get(build_url(url_attr), headers=token_company_admin)
 
     # Then access is forbidden
     assert response.status_code == HTTP_403_FORBIDDEN

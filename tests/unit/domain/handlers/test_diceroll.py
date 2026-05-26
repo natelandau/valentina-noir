@@ -18,8 +18,27 @@ pytestmark = pytest.mark.anyio
 class TestDiceRollResult:
     """Verify DiceRollResult computed properties."""
 
-    def test_total_dice_roll_emoji(self) -> None:
-        """Verify total_dice_roll_emoji returns correct emoji string."""
+    @pytest.mark.parametrize(
+        ("attr_name", "expected"),
+        [
+            ("total_dice_roll_emoji", "1️⃣ 3️⃣ 5️⃣"),
+            ("total_dice_roll_shortcode", ":one: :three: :five:"),
+            ("player_roll_emoji", "1️⃣ 3️⃣"),
+            ("player_roll_shortcode", ":one: :three:"),
+            ("desperation_roll_emoji", "5️⃣"),
+            ("desperation_roll_shortcode", ":five:"),
+        ],
+        ids=[
+            "total_dice_roll_emoji",
+            "total_dice_roll_shortcode",
+            "player_roll_emoji",
+            "player_roll_shortcode",
+            "desperation_roll_emoji",
+            "desperation_roll_shortcode",
+        ],
+    )
+    def test_computed_property(self, attr_name: str, expected: str) -> None:
+        """Verify each computed property returns the correct formatted string."""
         # Given a dice roll result
         result = DiceRollResultSchema(
             total_result=3,
@@ -30,89 +49,9 @@ class TestDiceRollResult:
             desperation_roll=[5],
         )
 
-        # When getting the emoji string
+        # When accessing the computed property
         # Then it returns the correct string
-        assert result.total_dice_roll_emoji == "1️⃣ 3️⃣ 5️⃣"
-
-    def test_total_dice_roll_shortcode(self) -> None:
-        """Verify total_dice_roll_shortcode returns correct shortcode string."""
-        # Given a dice roll result
-        result = DiceRollResultSchema(
-            total_result=3,
-            total_result_type=RollResultType.SUCCESS,
-            total_result_humanized="3 Successes",
-            total_dice_roll=[1, 3, 5],
-            player_roll=[1, 3],
-            desperation_roll=[5],
-        )
-
-        # When getting the shortcode string
-        # Then it returns the correct string
-        assert result.total_dice_roll_shortcode == ":one: :three: :five:"
-
-    def test_player_roll_emoji(self) -> None:
-        """Verify player_roll_emoji returns correct emoji string."""
-        # Given a dice roll result
-        result = DiceRollResultSchema(
-            total_result=3,
-            total_result_type=RollResultType.SUCCESS,
-            total_result_humanized="3 Successes",
-            total_dice_roll=[1, 3, 5],
-            player_roll=[1, 3],
-            desperation_roll=[5],
-        )
-
-        # When getting the emoji string
-        # Then it returns the correct string
-        assert result.player_roll_emoji == "1️⃣ 3️⃣"
-
-    def test_player_roll_shortcode(self) -> None:
-        """Verify player_roll_shortcode returns correct shortcode string."""
-        # Given a dice roll result
-        result = DiceRollResultSchema(
-            total_result=3,
-            total_result_type=RollResultType.SUCCESS,
-            total_result_humanized="3 Successes",
-            total_dice_roll=[1, 3, 5],
-            player_roll=[1, 3],
-            desperation_roll=[5],
-        )
-
-        # When getting the shortcode string
-        # Then it returns the correct string
-        assert result.player_roll_shortcode == ":one: :three:"
-
-    def test_desperation_roll_emoji(self) -> None:
-        """Verify desperation_roll_emoji returns correct emoji string."""
-        # Given a dice roll result
-        result = DiceRollResultSchema(
-            total_result=3,
-            total_result_type=RollResultType.SUCCESS,
-            total_result_humanized="3 Successes",
-            total_dice_roll=[1, 3, 5],
-            player_roll=[1, 3],
-            desperation_roll=[5],
-        )
-
-        # When getting the emoji string
-        # Then it returns the correct string
-        assert result.desperation_roll_emoji == "5️⃣"
-
-    def test_desperation_roll_shortcode(self) -> None:
-        """Verify desperation_roll_shortcode returns correct shortcode string."""
-        # Given a dice roll result
-        result = DiceRollResultSchema(
-            total_result=3,
-            total_result_type=RollResultType.SUCCESS,
-            total_result_humanized="3 Successes",
-            total_dice_roll=[1, 3, 5],
-            player_roll=[1, 3],
-            desperation_roll=[5],
-        )
-
-        # When getting the shortcode string
-        # Then it returns the correct string
-        assert result.desperation_roll_shortcode == ":five:"
+        assert getattr(result, attr_name) == expected
 
 
 class TestCalculateResultType:

@@ -35,17 +35,6 @@ class ConcreteNoteController(BaseNoteController):
 class TestParentRefField:
     """Test parent_ref_field property derivation."""
 
-    def test_parent_ref_field_derives_from_parent_name(self) -> None:
-        """Verify parent_ref_field correctly derives from parent_name."""
-        # Given a controller with parent_name "character"
-        controller = ConcreteNoteController(parent_name="character")
-
-        # When we access parent_ref_field
-        result = controller.parent_ref_field
-
-        # Then it should be "character_id"
-        assert result == "character_id"
-
     @pytest.mark.parametrize(
         ("parent_name", "expected_ref_field"),
         [
@@ -55,11 +44,12 @@ class TestParentRefField:
             ("book", "book_id"),
             ("chapter", "chapter_id"),
         ],
+        ids=["character", "campaign", "user", "book", "chapter"],
     )
-    def test_parent_ref_field_with_different_parent_names(
+    def test_parent_ref_field_derives_from_parent_name(
         self, parent_name: str, expected_ref_field: str
     ) -> None:
-        """Verify parent_ref_field works for various parent entity types."""
+        """Verify parent_ref_field correctly derives from parent_name for each entity type."""
         # Given a controller with the specified parent_name
         controller = ConcreteNoteController(parent_name=parent_name)
 
