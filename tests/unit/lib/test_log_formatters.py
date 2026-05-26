@@ -73,3 +73,14 @@ def test_clean_message_returns_original_when_fully_stripped() -> None:
     cleaned = parser.clean_message(message)
     # Then the original message is returned rather than an empty string
     assert cleaned == message
+
+
+def test_parse_keeps_non_finite_floats_as_strings() -> None:
+    """Verify nan/inf tokens stay strings so the JSON output remains valid."""
+    # Given a message with IEEE special-value tokens that float() would accept
+    parser = StructuredMessageParser()
+    message = "a=nan b=inf c=-inf d=Infinity"
+    # When parsed
+    result = parser.parse(message)
+    # Then they are left as their original strings (json.dumps emits invalid NaN/Infinity for floats)
+    assert result == {"a": "nan", "b": "inf", "c": "-inf", "d": "Infinity"}

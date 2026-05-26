@@ -8,6 +8,7 @@ fields. ``log_config`` composes these into the application logging config.
 import ast
 import json
 import logging
+import math
 import re
 from typing import Any, ClassVar
 
@@ -69,14 +70,17 @@ class StructuredMessageParser:
         return {key: self.parse_value(value) for key, value in _STRUCTURED_KV_RE.findall(message)}
 
     def _handle_numbers(self, value: str) -> int | float | None:
-        """Parse a numeric string into int or float, returning None if not numeric."""
+        """Parse a numeric string into int or float, returning None if not finite-numeric."""
         try:
             return int(value)
         except ValueError:
             try:
-                return float(value)
+                parsed = float(value)
             except ValueError:
                 return None
+            # Reject nan/inf: float() accepts them but json.dumps emits invalid NaN/Infinity,
+            # so leave the token as a plain string for downstream parsing
+            return parsed if math.isfinite(parsed) else None
 
     def _handle_arrays(self, value: str) -> list | dict | None:
         """Parse a JSON object/array, falling back to Python literal syntax."""
