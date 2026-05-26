@@ -1,10 +1,24 @@
-"""Unit tests for idempotency middleware scope-state behavior."""
+"""Unit tests for idempotency middleware scope-state and response-caching behavior."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import pytest
 from litestar import Litestar, Request, post
 from litestar.testing import TestClient
 
-from vapi.constants import IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_STATE_KEY
-from vapi.middleware.idempotency import idempotency_middleware
+from vapi.constants import (
+    IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_KEY_STATE_KEY,
+    IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
+)
+from vapi.middleware.idempotency import ResponseCapture, idempotency_middleware
+
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
+    from pytest_mock import MockerFixture
 
 
 @post("/thing")
@@ -41,3 +55,60 @@ def test_idempotency_key_absent_when_header_missing() -> None:
 
     # Then no idempotency key is stashed
     assert response.json()["stashed"] is None
+
+
+@pytest.mark.anyio
+class TestResponseCaptureCaching:
+    """Tests for ResponseCapture._cache_response write/skip decisions."""
+
+    @staticmethod
+    def _build_capture(
+        mocker: MockerFixture, *, status_code: int, body_parts: list[bytes]
+    ) -> tuple[ResponseCapture, MagicMock]:
+        """Build a ResponseCapture with a mocked store and the given captured state."""
+        store = mocker.MagicMock()
+        store.set = mocker.AsyncMock()
+        capture = ResponseCapture(
+            send=mocker.AsyncMock(),
+            store=store,
+            cache_key="idem-key",
+            request_body_hash="body-hash",
+        )
+        capture._status_code = status_code
+        capture._raw_headers = [(b"content-type", b"application/json")]
+        capture._body_parts = body_parts
+        return capture, store
+
+    async def test_skips_caching_non_2xx_response(self, mocker: MockerFixture) -> None:
+        """Verify non-2xx responses are not cached so a transient failure cannot persist."""
+        # Given a captured 400 response
+        capture, store = self._build_capture(mocker, status_code=400, body_parts=[b"bad request"])
+
+        # When the response is finalized
+        await capture._cache_response()
+
+        # Then nothing is written to the store
+        store.set.assert_not_called()
+
+    async def test_skips_caching_oversized_response(self, mocker: MockerFixture) -> None:
+        """Verify responses larger than the size limit are not cached."""
+        # Given a 2xx response one byte over the cache size limit
+        oversized = [b"x" * (IDEMPOTENCY_MAX_CACHED_BODY_BYTES + 1)]
+        capture, store = self._build_capture(mocker, status_code=200, body_parts=oversized)
+
+        # When the response is finalized
+        await capture._cache_response()
+
+        # Then nothing is written to the store
+        store.set.assert_not_called()
+
+    async def test_caches_small_2xx_response(self, mocker: MockerFixture) -> None:
+        """Verify a small 2xx response is written to the store."""
+        # Given a small 2xx JSON response
+        capture, store = self._build_capture(mocker, status_code=200, body_parts=[b'{"ok": true}'])
+
+        # When the response is finalized
+        await capture._cache_response()
+
+        # Then it is written to the store exactly once
+        store.set.assert_awaited_once()

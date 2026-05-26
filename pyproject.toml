@@ -175,6 +175,7 @@
 
 [tool.ruff] # https://github.com/charliermarsh/ruff
 
+    cache-dir = ".cache/ruff"
     exclude = [
         ".cache",
         ".dev",
