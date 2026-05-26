@@ -9,7 +9,13 @@ from typing import TYPE_CHECKING, cast
 from litestar import Response, status_codes
 from litestar.exceptions import InternalServerException, ValidationException
 
-from vapi.constants import AUTH_HEADER_KEY, REQUEST_ID_STATE_KEY
+from vapi.constants import (
+    AUTH_HEADER_KEY,
+    ERROR_DETAIL_STATE_KEY,
+    ERROR_TYPE_STATE_KEY,
+    INVALID_PARAMETERS_STATE_KEY,
+    REQUEST_ID_STATE_KEY,
+)
 
 if TYPE_CHECKING:
     from typing import Any, ClassVar
@@ -121,6 +127,23 @@ class HTTPError(ApplicationError):
         else:
             super().__init__(*args)
 
+    def _stash_reason_on_scope(self, request: Request[Any, Any, Any]) -> None:
+        """Record the error type and detail on scope state for the combined request logger.
+
+        The combined request logger folds these into the single per-request entry at a
+        status-appropriate level, replacing a separate ERROR line so a handled 404/409 is
+        not logged as an ERROR.
+        """
+        state = request.scope.get("state")
+        if isinstance(state, dict):
+            state[ERROR_TYPE_STATE_KEY] = self.__class__.__name__
+            if self.detail is not None:
+                state[ERROR_DETAIL_STATE_KEY] = self.detail
+            # Field-level validation detail lives in the extension; surface it when present
+            invalid_parameters = self.extension.get("invalid_parameters")
+            if invalid_parameters:
+                state[INVALID_PARAMETERS_STATE_KEY] = invalid_parameters
+
     def to_response(self, request: Request[Any, Any, Any]) -> Response[dict[str, Any]]:
         """Convert HTTP error to HTTP response.
 
@@ -161,11 +184,9 @@ class HTTPError(ApplicationError):
 
         if self.extension:
             problem_details.update(self.extension)
-        msg = f"{self.__class__.__name__} - {self.detail or 'No detail provided'}"
-        logger.error(
-            msg,
-            extra=problem_details,
-        )
+
+        self._stash_reason_on_scope(request)
+
         return Response(
             content={x: y for x, y in problem_details.items() if x != AUTH_HEADER_KEY},
             headers=self.headers,

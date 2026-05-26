@@ -33,3 +33,23 @@ def test_default_log_fields_excludes_request_body() -> None:
     # Then the request body is not logged by default but duration is
     assert "request_body" not in settings.log_fields
     assert "duration_ms" in settings.log_fields
+
+
+def test_default_log_fields_include_request_and_developer_id() -> None:
+    """Verify request_id and developer_id are logged by default for request correlation."""
+    # Given no explicit log_fields configuration
+    # When LoggingSettings is constructed with defaults
+    settings = LoggingSettings()
+    # Then both correlation facets are enabled out of the box
+    assert "request_id" in settings.log_fields
+    assert "developer_id" in settings.log_fields
+
+
+def test_default_log_fields_include_error_facets() -> None:
+    """Verify error_type and error_detail are logged by default so failures explain themselves."""
+    # Given no explicit log_fields configuration
+    # When LoggingSettings is constructed with defaults
+    settings = LoggingSettings()
+    # Then the error facets are enabled out of the box (absent on successful requests)
+    assert "error_type" in settings.log_fields
+    assert "error_detail" in settings.log_fields

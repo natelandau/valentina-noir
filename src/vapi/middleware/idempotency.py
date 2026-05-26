@@ -27,6 +27,7 @@ from vapi.config import settings
 from vapi.constants import (
     AUTH_HEADER_KEY,
     IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_KEY_STATE_KEY,
     IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
     IDEMPOTENCY_TTL_SECONDS,
 )
@@ -106,6 +107,10 @@ class IdempotencyMiddleware(ASGIMiddleware):
         if not idempotency_key:
             await next_app(scope, receive, send)
             return
+
+        # Stash on scope state so the request logger can surface it. Only the cache-miss path
+        # reaches the inner logging middleware; cache hits short-circuit and aren't logged here.
+        scope["state"][IDEMPOTENCY_KEY_STATE_KEY] = idempotency_key
 
         store = app.stores.get(settings.stores.idempotency_key)
         cache_key = self._build_cache_key(request, idempotency_key=idempotency_key, method=method)

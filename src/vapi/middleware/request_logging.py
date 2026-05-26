@@ -9,6 +9,7 @@ behavior into one.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -21,7 +22,14 @@ from litestar.middleware.logging import (
 )
 from litestar.utils.scope.state import ScopeState
 
-from vapi.constants import LOG_FIELD_ROUTING
+from vapi.constants import (
+    ERROR_DETAIL_STATE_KEY,
+    ERROR_TYPE_STATE_KEY,
+    IDEMPOTENCY_KEY_STATE_KEY,
+    INVALID_PARAMETERS_STATE_KEY,
+    LOG_FIELD_ROUTING,
+    REQUEST_ID_STATE_KEY,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -29,6 +37,40 @@ if TYPE_CHECKING:
     from litestar.types import Message, Receive, Scope, Send
 
 __all__ = ("CombinedLoggingMiddleware", "CombinedLoggingMiddlewareConfig")
+
+# Status codes that warrant WARNING rather than INFO: auth failures and rate-limit
+# rejections are worth a glance (broken clients, credential probing, abuse) without
+# being server faults. Routine 4xx (validation, not-found, conflict) stay INFO.
+_WARNING_STATUS_CODES = frozenset({401, 403, 429})
+
+# Level int -> logger method name. The combined entry only emits at these three levels.
+_LEVEL_METHODS = {logging.INFO: "info", logging.WARNING: "warning", logging.ERROR: "error"}
+
+
+def _render_value(value: Any) -> str:
+    """Render a field value for the ``key=value`` message, quoting free-text when needed.
+
+    The JSON formatter re-parses ``key=value`` pairs out of the message, and its parser
+    stops an unquoted value at the first space or comma. Quote string values containing
+    either so multi-word fields like ``error_detail`` survive the round trip intact.
+    """
+    if isinstance(value, str) and (" " in value or "," in value):
+        return f'"{value}"'
+    return str(value)
+
+
+def _level_for_status(status_code: int) -> int:
+    """Map an HTTP status code to a log level for the combined request entry.
+
+    5xx are server faults (ERROR), auth/abuse rejections are worth attention (WARNING),
+    and everything else, including routine 4xx client mistakes, is normal traffic (INFO).
+    """
+    if status_code >= 500:  # noqa: PLR2004
+        return logging.ERROR
+    if status_code in _WARNING_STATUS_CODES:
+        return logging.WARNING
+    return logging.INFO
+
 
 # Litestar extractor field name -> public log_fields name, per side. Derived from
 # the routing table so collision fields (body, headers) get their request_/response_
@@ -43,6 +85,57 @@ _RESPONSE_OUTPUT_NAMES = {
     for name, (target, extractor_field) in LOG_FIELD_ROUTING.items()
     if target == "response"
 }
+
+
+# Scope-field name -> scope["state"] key, for fields that are a plain state lookup.
+# request_id is set by the request-id middleware; idempotency_key by the idempotency
+# middleware; error_*/invalid_parameters by HTTPError.to_response on a handled error.
+_STATE_KEY_FIELDS = {
+    "request_id": REQUEST_ID_STATE_KEY,
+    "idempotency_key": IDEMPOTENCY_KEY_STATE_KEY,
+    "error_detail": ERROR_DETAIL_STATE_KEY,
+    "error_type": ERROR_TYPE_STATE_KEY,
+    "invalid_parameters": INVALID_PARAMETERS_STATE_KEY,
+}
+
+
+def _extract_scope_log_fields(scope: Scope, field_names: Collection[str]) -> dict[str, Any]:
+    """Read scope-derived log fields (request_id, developer_id, etc.) from the ASGI scope.
+
+    These fields live on the scope rather than in the request/response payload: they are
+    set by upstream middleware (request_id, auth, idempotency) or by routing. Values absent
+    on the scope (unauthenticated routes, requests without an idempotency key, handlers with
+    no operation_id) are skipped so the field is simply omitted rather than logged as null.
+
+    Args:
+        scope: The ASGI connection scope.
+        field_names: The configured scope-derived field names to read.
+
+    Returns:
+        A mapping of present field names to their scope-derived values.
+    """
+    state = scope.get("state") or {}
+    values: dict[str, Any] = {}
+
+    for name in field_names:
+        if name in _STATE_KEY_FIELDS:
+            value: Any = state.get(_STATE_KEY_FIELDS[name])
+        elif name == "developer_id":
+            value = getattr(scope.get("user"), "id", None)
+        elif name == "acting_user_id":
+            # Guards resolving the On-Behalf-Of header stash the User here; absent otherwise
+            value = getattr(state.get("acting_user"), "id", None)
+        elif name == "operation_id":
+            # Litestar allows operation_id to be a callable; only string ids are loggable
+            operation_id = getattr(scope.get("route_handler"), "operation_id", None)
+            value = operation_id if isinstance(operation_id, str) else None
+        else:
+            value = None
+
+        if value is not None:
+            values[name] = value
+
+    return values
 
 
 class CombinedLoggingMiddleware(LoggingMiddleware):
@@ -108,6 +201,11 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             for key, value in response_data.items():
                 merged[_RESPONSE_OUTPUT_NAMES.get(key, key)] = value
 
+        # Read scope-derived fields here (not at request start) so route-resolution fields
+        # like operation_id, populated by the router after this middleware runs, are present
+        if self.config.scope_log_fields:
+            merged.update(_extract_scope_log_fields(scope, self.config.scope_log_fields))
+
         if self.config.include_duration:
             merged["duration_ms"] = round((time.perf_counter() - start) * 1000)
 
@@ -121,7 +219,28 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             if name in merged:
                 values[name] = merged[name]
 
-        self.log_message(values=values)
+        # Read the status straight from the response message so the entry's severity
+        # tracks the outcome even when status_code is not a configured log field
+        response_start = ScopeState.from_scope(scope).log_context.get(HTTP_RESPONSE_START) or {}
+        level = _level_for_status(response_start.get("status", 200))
+        self.log_message(values=values, level=level)
+
+    def log_message(self, values: dict[str, Any], level: int = logging.INFO) -> None:
+        """Log the combined entry at ``level`` instead of the parent's hardcoded INFO.
+
+        Args:
+            values: The ordered field values to log, including the ``message`` key.
+            level: The ``logging`` level to emit at, derived from the response status.
+        """
+        message = values.pop("message")
+        # Dispatch by method name: the Logger protocol exposes info/warning/error but not log()
+        log = getattr(self.logger, _LEVEL_METHODS[level])
+        if self.is_struct_logger:
+            log(message, **values)
+        else:
+            value_strings = [f"{key}={_render_value(value)}" for key, value in values.items()]
+            rendered = f"{message}: {', '.join(value_strings)}"
+            log(rendered)
 
 
 @dataclass
@@ -130,10 +249,11 @@ class CombinedLoggingMiddlewareConfig(LoggingMiddlewareConfig):
 
     log_fields: Collection[str] = field(default=())
     include_duration: bool = field(default=False, init=False)
+    scope_log_fields: list[str] = field(default_factory=list, init=False)
     middleware_class: type[LoggingMiddleware] = field(default=CombinedLoggingMiddleware)
 
     def __post_init__(self) -> None:
-        """Translate ``log_fields`` into the request/response extractor field tuples."""
+        """Translate ``log_fields`` into per-target field collections."""
         request_fields: list[str] = []
         response_fields: list[str] = []
         for name in self.log_fields:
@@ -142,6 +262,8 @@ class CombinedLoggingMiddlewareConfig(LoggingMiddlewareConfig):
                 request_fields.append(extractor_field)
             elif target == "response":
                 response_fields.append(extractor_field)
+            elif target == "scope":
+                self.scope_log_fields.append(name)
             else:  # synthetic (duration_ms)
                 self.include_duration = True
         self.request_log_fields = request_fields  # type: ignore[assignment]

@@ -226,6 +226,11 @@ class LoggingSettings(BaseModel):
             "client",
             "status_code",
             "duration_ms",
+            "request_id",
+            "developer_id",
+            "error_type",
+            "error_detail",
+            "invalid_parameters",
         ]
     )
 
