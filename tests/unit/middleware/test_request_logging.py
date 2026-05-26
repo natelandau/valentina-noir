@@ -10,7 +10,7 @@ from litestar.logging import LoggingConfig
 from litestar.response import Stream
 from litestar.testing import TestClient
 
-from vapi.constants import LOG_FIELD_ROUTING, LOG_FIELDS_CATALOG
+from vapi.constants import LOG_FIELD_TARGETS, LOG_FIELDS_CATALOG
 from vapi.lib.exceptions import (
     ConflictError,
     HTTPError,
@@ -36,38 +36,41 @@ _PREFIXED_COLLISION_FIELDS = {
 }
 
 
-def test_catalog_is_derived_from_routing() -> None:
-    """Ensure the catalog stays in lockstep with the routing table."""
-    # Given the routing table is the single source of truth
+def test_catalog_is_derived_from_targets() -> None:
+    """Ensure the catalog stays in lockstep with the targets table."""
+    # Given the targets table is the single source of truth
     # When the catalog is derived from it
-    # Then the catalog matches the routing keys and includes known fields
-    assert frozenset(LOG_FIELD_ROUTING) == LOG_FIELDS_CATALOG
+    # Then the catalog matches the field names and includes known fields
+    assert frozenset(LOG_FIELD_TARGETS) == LOG_FIELDS_CATALOG
     assert "path" in LOG_FIELDS_CATALOG
     assert "duration_ms" in LOG_FIELDS_CATALOG
 
 
-def test_routing_targets_are_well_formed() -> None:
-    """Verify every routing entry has a valid target and the key fields route correctly."""
-    # Given the set of valid routing targets
+def test_targets_are_well_formed() -> None:
+    """Verify every field maps to a valid target and the key fields route correctly."""
+    # Given the set of valid targets
     valid_targets = {"request", "response", "synthetic", "scope"}
 
-    # When inspecting each (target, extractor_field) pair
+    # When inspecting each field's target
     # Then every target is known and the key fields route as expected
-    assert all(target in valid_targets for target, _ in LOG_FIELD_ROUTING.values())
-    assert LOG_FIELD_ROUTING["duration_ms"] == ("synthetic", "duration_ms")
-    assert LOG_FIELD_ROUTING["request_body"] == ("request", "body")
-    assert LOG_FIELD_ROUTING["response_body"] == ("response", "body")
-    assert LOG_FIELD_ROUTING["status_code"] == ("response", "status_code")
-    assert LOG_FIELD_ROUTING["request_id"] == ("scope", "request_id")
+    assert all(target in valid_targets for target in LOG_FIELD_TARGETS.values())
+    assert LOG_FIELD_TARGETS["duration_ms"] == "synthetic"
+    assert LOG_FIELD_TARGETS["request_body"] == "request"
+    assert LOG_FIELD_TARGETS["response_body"] == "response"
+    assert LOG_FIELD_TARGETS["status_code"] == "response"
+    assert LOG_FIELD_TARGETS["request_id"] == "scope"
 
 
 def test_only_collision_fields_are_prefixed() -> None:
     """Confirm only the body/headers collision fields carry a request_/response_ prefix."""
-    # Given the routing table
-    # When comparing each public name to its litestar extractor field
-    # Then a name differs from its extractor field only for the prefixed collision fields
+    # Given the targets table
+    # When finding request/response fields whose name differs from its extractor field
+    # Then only the body/headers collision fields carry a request_/response_ prefix
     renamed = {
-        name for name, (_, extractor_field) in LOG_FIELD_ROUTING.items() if name != extractor_field
+        name
+        for name, target in LOG_FIELD_TARGETS.items()
+        if target in {"request", "response"}
+        and name != name.removeprefix("request_").removeprefix("response_")
     }
     assert renamed == _PREFIXED_COLLISION_FIELDS
 

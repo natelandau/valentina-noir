@@ -13,55 +13,16 @@ DOCS_URL: Final[str] = "https://docs.valentina-noir.com"
 AUTH_HEADER_KEY: Final[str] = "X-API-KEY"
 ON_BEHALF_OF_HEADER_KEY: Final[str] = "On-Behalf-Of"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
-
-# Maps each public log field name to (target, reader_key).
-# target is "request", "response", "synthetic", or "scope". This table is the
-# single source of truth: the settings catalog and the middleware's field
-# routing and output renaming are all derived from it. For "request"/"response"
-# the reader_key is the litestar extractor field; only `body` and `headers`
-# collide across sides, so only those carry a request_/response_ prefix. For
-# "scope" the reader_key selects an ASGI-scope reader in the logging middleware.
-LOG_FIELD_ROUTING: Final[dict[str, tuple[str, str]]] = {
-    "path": ("request", "path"),
-    "method": ("request", "method"),
-    "query": ("request", "query"),
-    "path_params": ("request", "path_params"),
-    "client": ("request", "client"),
-    "content_type": ("request", "content_type"),
-    "scheme": ("request", "scheme"),
-    "cookies": ("request", "cookies"),
-    "status_code": ("response", "status_code"),
-    "request_body": ("request", "body"),
-    "request_headers": ("request", "headers"),
-    "response_body": ("response", "body"),
-    "response_headers": ("response", "headers"),
-    "duration_ms": ("synthetic", "duration_ms"),
-    "request_id": ("scope", "request_id"),
-    "developer_id": ("scope", "developer_id"),
-    "operation_id": ("scope", "operation_id"),
-    "idempotency_key": ("scope", "idempotency_key"),
-    "acting_user_id": ("scope", "acting_user_id"),
-    "error_detail": ("scope", "error_detail"),
-    "error_type": ("scope", "error_type"),
-    "invalid_parameters": ("scope", "invalid_parameters"),
-}
-LOG_FIELDS_CATALOG: Final[frozenset[str]] = frozenset(LOG_FIELD_ROUTING)
-
 COOL_POINT_VALUE: Final[int] = 10
 MAX_BULK_TRAIT_ASSIGN: Final[int] = 200
 MAX_DANGER: Final[int] = 5
 MAX_DESPERATION: Final[int] = 5
 IGNORE_RATE_LIMIT_HEADER_KEY: Final[str] = "X-Testing-Ignore-Rate-Limit"
 IDEMPOTENCY_KEY_HEADER: Final[str] = "Idempotency-Key"
-IDEMPOTENCY_KEY_STATE_KEY: Final[str] = "idempotency_key"
 IDEMPOTENCY_TTL_SECONDS: Final[int] = 3600  # 1 hour
 IDEMPOTENCY_MAX_CACHED_BODY_BYTES: Final[int] = 1024 * 1024  # 1 MB
 AUDIT_LOG_RETENTION_DAYS: Final[int] = 365
 REQUEST_ID_HEADER: Final[str] = "X-Request-Id"
-REQUEST_ID_STATE_KEY: Final[str] = "request_id"
-ERROR_DETAIL_STATE_KEY: Final[str] = "error_detail"
-ERROR_TYPE_STATE_KEY: Final[str] = "error_type"
-INVALID_PARAMETERS_STATE_KEY: Final[str] = "invalid_parameters"
 DEFAULT_CHARACTER_AUTGEN_XP_COST: Final[int] = 10
 DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
@@ -71,6 +32,44 @@ BACKUP_S3_PREFIX: Final[str] = "db_backups/"
 RECOUP_XP_SESSION_LENGTH: Final[int] = (
     3600  # seconds (1 hour); used for WITHIN_SESSION recoup floor TTL
 )
+
+# Keys into scope["state"], the per-request scratch space Litestar carries through the
+# entire request. Defined as shared constants so writer and reader agree on the key
+# rather than duplicating a string literal.
+IDEMPOTENCY_KEY_STATE_KEY: Final[str] = "idempotency_key"
+REQUEST_ID_STATE_KEY: Final[str] = "request_id"
+ERROR_DETAIL_STATE_KEY: Final[str] = "error_detail"
+ERROR_TYPE_STATE_KEY: Final[str] = "error_type"
+INVALID_PARAMETERS_STATE_KEY: Final[str] = "invalid_parameters"
+
+# Authoritative catalog of fields that may appear on the single per-request log line;
+# a deployment enables a subset via VAPI_LOG__LOG_FIELDS. Add or remove a loggable field here;
+# the value names that source, and the middleware owns how it is fetched.
+LOG_FIELD_TARGETS: Final[dict[str, str]] = {
+    "path": "request",
+    "method": "request",
+    "query": "request",
+    "path_params": "request",
+    "client": "request",
+    "content_type": "request",
+    "scheme": "request",
+    "cookies": "request",
+    "request_body": "request",
+    "request_headers": "request",
+    "status_code": "response",
+    "response_body": "response",
+    "response_headers": "response",
+    "duration_ms": "synthetic",
+    "request_id": "scope",
+    "developer_id": "scope",
+    "operation_id": "scope",
+    "idempotency_key": "scope",
+    "acting_user_id": "scope",
+    "error_detail": "scope",
+    "error_type": "scope",
+    "invalid_parameters": "scope",
+}
+LOG_FIELDS_CATALOG: Final[frozenset[str]] = frozenset(LOG_FIELD_TARGETS)
 
 
 class BlueprintTraitOrderBy(StrEnum):

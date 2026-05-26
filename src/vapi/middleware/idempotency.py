@@ -90,12 +90,11 @@ class IdempotencyMiddleware(ASGIMiddleware):
         """
         method: str = scope.get("method", "")  # type: ignore[assignment]
 
-        # Only process POST/PUT/PATCH methods
         if method not in {"POST", "PUT", "PATCH"}:
             await next_app(scope, receive, send)
             return
 
-        # Skip if no route handler (e.g., 404 requests)
+        # An unmatched route (404, etc.) has no handler to dedup, so pass through
         if scope.get("route_handler") is None:  # pragma: no cover
             await next_app(scope, receive, send)
             return
@@ -115,11 +114,11 @@ class IdempotencyMiddleware(ASGIMiddleware):
         store = app.stores.get(settings.stores.idempotency_key)
         cache_key = self._build_cache_key(request, idempotency_key=idempotency_key, method=method)
 
-        # Read request body and compute hash
+        # Reading the ASGI stream consumes it, so buffer the body to replay to the handler;
+        # the hash backs the same-key/different-body conflict check on a later duplicate.
         full_body, request_body_hash = await self._read_and_hash_body(receive)
         replay_receive = self._create_body_replay(full_body)
 
-        # Check for cached response
         cached = await store.get(cache_key)
         if cached is not None:
             await self._handle_cache_hit(
@@ -127,7 +126,6 @@ class IdempotencyMiddleware(ASGIMiddleware):
             )
             return
 
-        # Cache miss: capture response and cache it
         logger.debug(
             "Idempotency cache miss",
             extra={"cache_key": cache_key, "idempotency_key": idempotency_key},

@@ -27,7 +27,7 @@ from vapi.constants import (
     ERROR_TYPE_STATE_KEY,
     IDEMPOTENCY_KEY_STATE_KEY,
     INVALID_PARAMETERS_STATE_KEY,
-    LOG_FIELD_ROUTING,
+    LOG_FIELD_TARGETS,
     REQUEST_ID_STATE_KEY,
 )
 
@@ -43,7 +43,6 @@ __all__ = ("CombinedLoggingMiddleware", "CombinedLoggingMiddlewareConfig")
 # being server faults. Routine 4xx (validation, not-found, conflict) stay INFO.
 _WARNING_STATUS_CODES = frozenset({401, 403, 429})
 
-# Level int -> logger method name. The combined entry only emits at these three levels.
 _LEVEL_METHODS = {logging.INFO: "info", logging.WARNING: "warning", logging.ERROR: "error"}
 
 
@@ -72,24 +71,22 @@ def _level_for_status(status_code: int) -> int:
     return logging.INFO
 
 
-# Litestar extractor field name -> public log_fields name, per side. Derived from
-# the routing table so collision fields (body, headers) get their request_/response_
-# prefix back on output, while bare fields keep their name.
+# Maps Litestar's extractor field back to the public name, restoring the request_/
+# response_ prefix so request and response body/headers stay distinct on output.
 _REQUEST_OUTPUT_NAMES = {
-    extractor_field: name
-    for name, (target, extractor_field) in LOG_FIELD_ROUTING.items()
+    name.removeprefix("request_"): name
+    for name, target in LOG_FIELD_TARGETS.items()
     if target == "request"
 }
 _RESPONSE_OUTPUT_NAMES = {
-    extractor_field: name
-    for name, (target, extractor_field) in LOG_FIELD_ROUTING.items()
+    name.removeprefix("response_"): name
+    for name, target in LOG_FIELD_TARGETS.items()
     if target == "response"
 }
 
 
-# Scope-field name -> scope["state"] key, for fields that are a plain state lookup.
-# request_id is set by the request-id middleware; idempotency_key by the idempotency
-# middleware; error_*/invalid_parameters by HTTPError.to_response on a handled error.
+# Scope fields read by a plain state lookup; the attribute-derived ones
+# (developer_id, operation_id, acting_user_id) are handled as branches below.
 _STATE_KEY_FIELDS = {
     "request_id": REQUEST_ID_STATE_KEY,
     "idempotency_key": IDEMPOTENCY_KEY_STATE_KEY,
@@ -213,7 +210,7 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
         if not merged:
             return
 
-        # Order output to match the configured log_fields list
+        # Emit in the operator's configured field order, not the order fields were merged
         values: dict[str, Any] = {"message": self.config.request_log_message}
         for name in self.config.log_fields:
             if name in merged:
@@ -257,11 +254,11 @@ class CombinedLoggingMiddlewareConfig(LoggingMiddlewareConfig):
         request_fields: list[str] = []
         response_fields: list[str] = []
         for name in self.log_fields:
-            target, extractor_field = LOG_FIELD_ROUTING[name]
+            target = LOG_FIELD_TARGETS[name]
             if target == "request":
-                request_fields.append(extractor_field)
+                request_fields.append(name.removeprefix("request_"))
             elif target == "response":
-                response_fields.append(extractor_field)
+                response_fields.append(name.removeprefix("response_"))
             elif target == "scope":
                 self.scope_log_fields.append(name)
             else:  # synthetic (duration_ms)
