@@ -152,7 +152,7 @@
     VAPI_LOG__FILE_PATH                = ""
     VAPI_LOG__LEVEL                    = "WARNING"
     VAPI_LOG__LOG_EXCEPTIONS           = "debug"
-    VAPI_LOG__REQUEST_LOG_FIELDS       = '["path","method"]'
+    VAPI_LOG__LOG_FIELDS               = '["path","method"]'
     VAPI_LOG__ROOT_LEVEL               = "WARNING"
     VAPI_LOG__TIME_IN_CONSOLE          = "false"
     VAPI_NAME                          = "vapi-pytest"

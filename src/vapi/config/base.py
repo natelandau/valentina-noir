@@ -7,7 +7,13 @@ from pydantic import BaseModel, Field, computed_field, field_validator, model_va
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from redis.asyncio import Redis
 
-from vapi.constants import AUTH_HEADER_KEY, ENVAR_PREFIX, MODULE_ROOT_PATH, LogLevel
+from vapi.constants import (
+    AUTH_HEADER_KEY,
+    ENVAR_PREFIX,
+    LOG_FIELDS_CATALOG,
+    MODULE_ROOT_PATH,
+    LogLevel,
+)
 from vapi.utils.strings import slugify
 
 
@@ -211,10 +217,30 @@ class LoggingSettings(BaseModel):
     saq_level: LogLevel = Field(default=LogLevel.INFO)
     asgi_server_level: LogLevel = Field(default=LogLevel.INFO)
     root_level: LogLevel = Field(default=LogLevel.INFO)
-    request_log_fields: list[str] = Field(
-        default_factory=lambda: ["path", "method", "query", "path_params", "body", "client"]
+    log_fields: list[str] = Field(
+        default_factory=lambda: [
+            "path",
+            "method",
+            "query",
+            "path_params",
+            "client",
+            "status_code",
+            "duration_ms",
+        ]
     )
-    response_log_fields: list[str] = Field(default_factory=lambda: ["status_code"])
+
+    @field_validator("log_fields")
+    @classmethod
+    def validate_log_fields(cls, v: list[str]) -> list[str]:
+        """Reject log field names outside the known catalog so typos fail at startup."""
+        unknown = [name for name in v if name not in LOG_FIELDS_CATALOG]
+        if unknown:
+            msg = (
+                f"Unknown log_fields entries: {unknown}. Valid fields: {sorted(LOG_FIELDS_CATALOG)}"
+            )
+            raise ValueError(msg)
+        return v
+
     obfuscate_headers: set[str] = Field(
         default_factory=lambda: {"Authorization", AUTH_HEADER_KEY, "X-CSRF-TOKEN"}
     )
