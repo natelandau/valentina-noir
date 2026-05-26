@@ -79,22 +79,20 @@ class TestResponseCaptureCaching:
         capture._body_parts = body_parts
         return capture, store
 
-    async def test_skips_caching_non_2xx_response(self, mocker: MockerFixture) -> None:
-        """Verify non-2xx responses are not cached so a transient failure cannot persist."""
-        # Given a captured 400 response
-        capture, store = self._build_capture(mocker, status_code=400, body_parts=[b"bad request"])
-
-        # When the response is finalized
-        await capture._cache_response()
-
-        # Then nothing is written to the store
-        store.set.assert_not_called()
-
-    async def test_skips_caching_oversized_response(self, mocker: MockerFixture) -> None:
-        """Verify responses larger than the size limit are not cached."""
-        # Given a 2xx response one byte over the cache size limit
-        oversized = [b"x" * (IDEMPOTENCY_MAX_CACHED_BODY_BYTES + 1)]
-        capture, store = self._build_capture(mocker, status_code=200, body_parts=oversized)
+    @pytest.mark.parametrize(
+        ("status_code", "body_parts"),
+        [
+            (400, [b"bad request"]),
+            (200, [b"x" * (IDEMPOTENCY_MAX_CACHED_BODY_BYTES + 1)]),
+        ],
+        ids=["non_2xx", "oversized"],
+    )
+    async def test_skips_caching(
+        self, status_code: int, body_parts: list[bytes], mocker: MockerFixture
+    ) -> None:
+        """Verify non-2xx and oversized responses are not written to the cache."""
+        # Given a captured response that must not be cached (bad status or too large)
+        capture, store = self._build_capture(mocker, status_code=status_code, body_parts=body_parts)
 
         # When the response is finalized
         await capture._cache_response()

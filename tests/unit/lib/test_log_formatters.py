@@ -138,32 +138,32 @@ def test_parse_keeps_non_finite_floats_as_strings() -> None:
     assert result == {"a": "nan", "b": "inf", "c": "-inf", "d": "Infinity"}
 
 
+@pytest.mark.parametrize(
+    ("level", "expected_color"),
+    [
+        (logging.DEBUG, "\x1b[40;1m"),
+        (logging.INFO, "\x1b[34;1m"),
+        (logging.WARNING, "\x1b[33;1m"),
+        (logging.ERROR, "\x1b[31m"),
+        (logging.CRITICAL, "\x1b[41m"),
+        (25, "\x1b[40;1m"),
+    ],
+    ids=["debug", "info", "warning", "error", "critical", "unmapped_falls_back_to_debug"],
+)
 def test_color_formatter_wraps_message_in_level_color(
+    level: int,
+    expected_color: str,
     make_log_record: Callable[..., logging.LogRecord],
 ) -> None:
-    """Render the message using the ANSI color mapped to the record's level."""
-    # Given an INFO-level record with a plain message
+    """Render the message with the level's ANSI color, unmapped levels falling back to DEBUG."""
+    # Given a record at the given level (25 is a custom level absent from the color map)
     formatter = ColorFormatter()
-    record = make_log_record("hello world", level=logging.INFO)
+    record = make_log_record("hello world", level=level)
     # When formatted
     output = formatter.format(record)
-    # Then the INFO color code and the message are present
-    assert "\x1b[34;1m" in output
+    # Then the expected color code and the message are present
+    assert expected_color in output
     assert "hello world" in output
-
-
-def test_color_formatter_uses_debug_format_for_unmapped_level(
-    make_log_record: Callable[..., logging.LogRecord],
-) -> None:
-    """Fall back to the DEBUG formatter when the level has no color mapping."""
-    # Given a record at a custom level absent from the color map (between INFO and WARNING)
-    formatter = ColorFormatter()
-    record = make_log_record("custom level", level=25)
-    # When formatted
-    output = formatter.format(record)
-    # Then the DEBUG color code is used as the fallback
-    assert "\x1b[40;1m" in output
-    assert "custom level" in output
 
 
 def test_color_formatter_strips_binary_payload(

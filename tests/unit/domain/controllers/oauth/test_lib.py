@@ -22,51 +22,28 @@ pytestmark = pytest.mark.anyio
 class TestIsDiscordOauthExpired:
     """Tests for is_discord_oauth_expired."""
 
-    def test_returns_true_when_token_expired(self, mocker: MockerFixture) -> None:
-        """Verify a token whose expires_at is in the past is reported as expired."""
-        # Given a user whose Discord token expired an hour ago
-        past = datetime.now(UTC).timestamp() - 3600
-        user = mocker.MagicMock(discord_oauth={"expires_at": past})
+    @pytest.mark.parametrize(
+        ("discord_oauth", "expected"),
+        [
+            ({"expires_at": datetime.now(UTC).timestamp() - 3600}, True),
+            ({"expires_at": datetime.now(UTC).timestamp() + 3600}, False),
+            (None, False),
+            ({"access_token": "abc"}, False),
+        ],
+        ids=["expired", "valid", "no_oauth_data", "no_expires_at"],
+    )
+    def test_reports_expiry_from_expires_at(
+        self, discord_oauth: dict | None, expected: bool, mocker: MockerFixture
+    ) -> None:
+        """Verify expiry is derived from expires_at, treating missing data as not expired."""
+        # Given a user with the given Discord OAuth state
+        user = mocker.MagicMock(discord_oauth=discord_oauth)
 
         # When checking expiry
         result = is_discord_oauth_expired(user)
 
-        # Then the token is expired
-        assert result is True
-
-    def test_returns_false_when_token_valid(self, mocker: MockerFixture) -> None:
-        """Verify a token whose expires_at is in the future is reported as not expired."""
-        # Given a user whose Discord token expires in an hour
-        future = datetime.now(UTC).timestamp() + 3600
-        user = mocker.MagicMock(discord_oauth={"expires_at": future})
-
-        # When checking expiry
-        result = is_discord_oauth_expired(user)
-
-        # Then the token is not expired
-        assert result is False
-
-    def test_returns_false_when_no_oauth_data(self, mocker: MockerFixture) -> None:
-        """Verify a user with no Discord OAuth data is never considered expired."""
-        # Given a user with no Discord OAuth data
-        user = mocker.MagicMock(discord_oauth=None)
-
-        # When checking expiry
-        result = is_discord_oauth_expired(user)
-
-        # Then the token is not expired
-        assert result is False
-
-    def test_returns_false_when_expires_at_absent(self, mocker: MockerFixture) -> None:
-        """Verify OAuth data lacking an expires_at value is not considered expired."""
-        # Given a user with OAuth data that has no expires_at
-        user = mocker.MagicMock(discord_oauth={"access_token": "abc"})
-
-        # When checking expiry
-        result = is_discord_oauth_expired(user)
-
-        # Then the token is not expired
-        assert result is False
+        # Then the result matches the expected expiry
+        assert result is expected
 
 
 class TestDiscordProfileToUser:
