@@ -86,13 +86,24 @@ class TestDiceRollService:
         assert result.id is not None
         assert result.roll_result is not None
 
-    async def test_create_complete_dice_invalid_trait_ids(
+    @pytest.mark.parametrize(
+        ("extra_kwargs", "error_match"),
+        [
+            ({"trait_ids": [uuid4()]}, "Trait not found"),
+            ({"character_id": uuid4()}, r"Character.*not found"),
+            ({"campaign_id": uuid4()}, r"Campaign.*not found"),
+        ],
+        ids=["invalid_trait_ids", "character_not_found", "campaign_not_found"],
+    )
+    async def test_create_complete_dice_roll_invalid_references(
         self,
         company_factory: Callable[..., Any],
         user_factory: Callable[..., Any],
         debug: Callable[[Any], None],
+        extra_kwargs: dict,
+        error_match: str,
     ) -> None:
-        """Verify creating a dice roll with invalid trait IDs raises an error."""
+        """Verify creating a dice roll with a nonexistent reference raises a ValidationError."""
         # Given a company and user
         company = await company_factory()
         user = await user_factory(company=company)
@@ -101,62 +112,12 @@ class TestDiceRollService:
             num_desperation_dice=0,
             dice_size=DiceSize.D10,
             difficulty=6,
-            trait_ids=[uuid4()],
+            **extra_kwargs,
         )
 
         # When we create the complete dice roll
         service = DiceRollService()
-        with pytest.raises(ValidationError, match="Trait not found"):
-            await service.create_complete_dice_roll(
-                data=data, company_id=company.id, user_id=user.id
-            )
-
-    async def test_create_complete_dice_roll_character_not_found(
-        self,
-        company_factory: Callable[..., Any],
-        user_factory: Callable[..., Any],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Verify creating a dice roll with a nonexistent character raises an error."""
-        # Given a company and user
-        company = await company_factory()
-        user = await user_factory(company=company)
-        data = DiceRollCreate(
-            num_dice=6,
-            num_desperation_dice=0,
-            dice_size=DiceSize.D10,
-            difficulty=6,
-            character_id=uuid4(),
-        )
-
-        # When we create the complete dice roll
-        service = DiceRollService()
-        with pytest.raises(ValidationError, match=r"Character.*not found"):
-            await service.create_complete_dice_roll(
-                data=data, company_id=company.id, user_id=user.id
-            )
-
-    async def test_create_complete_dice_roll_campaign_not_found(
-        self,
-        company_factory: Callable[..., Any],
-        user_factory: Callable[..., Any],
-        debug: Callable[[Any], None],
-    ) -> None:
-        """Verify creating a dice roll with a nonexistent campaign raises an error."""
-        # Given a company and user
-        company = await company_factory()
-        user = await user_factory(company=company)
-        data = DiceRollCreate(
-            num_dice=6,
-            num_desperation_dice=0,
-            dice_size=DiceSize.D10,
-            difficulty=6,
-            campaign_id=uuid4(),
-        )
-
-        # When we create the complete dice roll
-        service = DiceRollService()
-        with pytest.raises(ValidationError, match=r"Campaign.*not found"):
+        with pytest.raises(ValidationError, match=error_match):
             await service.create_complete_dice_roll(
                 data=data, company_id=company.id, user_id=user.id
             )

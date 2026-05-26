@@ -35,16 +35,6 @@ def test_default_log_fields_excludes_request_body() -> None:
     assert "duration_ms" in settings.log_fields
 
 
-def test_default_log_fields_include_request_and_developer_id() -> None:
-    """Verify request_id and developer_id are logged by default for request correlation."""
-    # Given no explicit log_fields configuration
-    # When LoggingSettings is constructed with defaults
-    settings = LoggingSettings()
-    # Then both correlation facets are enabled out of the box
-    assert "request_id" in settings.log_fields
-    assert "developer_id" in settings.log_fields
-
-
 def test_default_log_exceptions_is_always() -> None:
     """Verify uncaught exceptions are logged in every environment, not only under debug."""
     # Given default logging settings
@@ -54,11 +44,19 @@ def test_default_log_exceptions_is_always() -> None:
     assert settings.log_exceptions == "always"
 
 
-def test_default_log_fields_include_error_facets() -> None:
-    """Verify error_type and error_detail are logged by default so failures explain themselves."""
+@pytest.mark.parametrize(
+    ("field_a", "field_b"),
+    [
+        ("request_id", "developer_id"),
+        ("error_type", "error_detail"),
+    ],
+    ids=["correlation-facets", "error-facets"],
+)
+def test_default_log_fields_include_pair(field_a: str, field_b: str) -> None:
+    """Verify both fields in each pair are present in the default log_fields."""
     # Given no explicit log_fields configuration
     # When LoggingSettings is constructed with defaults
     settings = LoggingSettings()
-    # Then the error facets are enabled out of the box (absent on successful requests)
-    assert "error_type" in settings.log_fields
-    assert "error_detail" in settings.log_fields
+    # Then both fields are enabled out of the box
+    assert field_a in settings.log_fields
+    assert field_b in settings.log_fields

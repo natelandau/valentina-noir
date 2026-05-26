@@ -182,27 +182,20 @@ class TestUniqueConstraints:
     """Verify unique constraints on key tables."""
 
     @pytest.mark.anyio
-    async def test_developer_username_unique(self, pg_conn) -> None:
-        """Developer.username should have a unique constraint."""
+    @pytest.mark.parametrize(
+        "column",
+        ["username", "email"],
+        ids=["username", "email"],
+    )
+    async def test_developer_column_unique(self, pg_conn, column: str) -> None:
+        """Verify Developer username and email each have a unique constraint."""
         _, result = await pg_conn.execute_query(
             "SELECT COUNT(*) as cnt FROM information_schema.table_constraints tc "
             "JOIN information_schema.key_column_usage kcu "
             "  ON tc.constraint_name = kcu.constraint_name "
             "WHERE tc.constraint_type = 'UNIQUE' "
             "  AND tc.table_name = 'developer' "
-            "  AND kcu.column_name = 'username'"
-        )
-        assert result[0]["cnt"] >= 1
-
-    @pytest.mark.anyio
-    async def test_developer_email_unique(self, pg_conn) -> None:
-        """Developer.email should have a unique constraint."""
-        _, result = await pg_conn.execute_query(
-            "SELECT COUNT(*) as cnt FROM information_schema.table_constraints tc "
-            "JOIN information_schema.key_column_usage kcu "
-            "  ON tc.constraint_name = kcu.constraint_name "
-            "WHERE tc.constraint_type = 'UNIQUE' "
-            "  AND tc.table_name = 'developer' "
-            "  AND kcu.column_name = 'email'"
+            "  AND kcu.column_name = $1",
+            [column],
         )
         assert result[0]["cnt"] >= 1

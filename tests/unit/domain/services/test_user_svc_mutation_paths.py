@@ -25,28 +25,25 @@ async def test_create_user_rejects_storyteller_creating_admin(user_factory, comp
         await UserService().create_user(company=company, data=data, acting_user_id=storyteller.id)
 
 
-async def test_create_user_forbids_deactivated_initial_role(user_factory, company_factory):
-    """Verify user creation rejects DEACTIVATED as the initial role."""
+@pytest.mark.parametrize(
+    "initial_role",
+    ["DEACTIVATED", "UNAPPROVED"],
+    ids=["deactivated", "unapproved"],
+)
+async def test_create_user_forbids_invalid_initial_role(
+    user_factory, company_factory, initial_role: str
+):
+    """Verify user creation rejects DEACTIVATED and UNAPPROVED as the initial role."""
+    # Given an admin and a creation payload with a forbidden initial role
     company = await company_factory()
     admin = await user_factory(role=UserRole.ADMIN, company=company)
     data = UserCreate(
         username="new",
         email="new@example.com",
-        role="DEACTIVATED",
+        role=initial_role,
     )
-    with pytest.raises(ValidationError):
-        await UserService().create_user(company=company, data=data, acting_user_id=admin.id)
 
-
-async def test_create_user_forbids_unapproved_initial_role(user_factory, company_factory):
-    """Verify user creation rejects UNAPPROVED as the initial role."""
-    company = await company_factory()
-    admin = await user_factory(role=UserRole.ADMIN, company=company)
-    data = UserCreate(
-        username="new",
-        email="new@example.com",
-        role="UNAPPROVED",
-    )
+    # When creating the user, Then a ValidationError is raised
     with pytest.raises(ValidationError):
         await UserService().create_user(company=company, data=data, acting_user_id=admin.id)
 

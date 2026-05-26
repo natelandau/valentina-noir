@@ -142,41 +142,29 @@ class TestCampaignService:
         assert bookc.number == 3
         assert bookd.number == 4
 
-    async def test_renumber_books_out_of_range(
+    @pytest.mark.parametrize(
+        "target_number",
+        [2, 0],
+        ids=["exceeds_count", "less_than_one"],
+    )
+    async def test_renumber_books_invalid_number(
         self,
         company_factory: Callable[..., Company],
         campaign_factory: Callable[..., Campaign],
         campaign_book_factory: Callable[..., CampaignBook],
+        target_number: int,
     ) -> None:
-        """Verify renumber_books raises ValidationError when number exceeds count."""
+        """Verify renumber_books raises ValidationError for out-of-range target numbers."""
         # Given a campaign with 1 book
         company = await company_factory()
         campaign = await campaign_factory(company=company)
         book = await campaign_book_factory(name="Book A", campaign=campaign)
 
-        # When the book is renumbered to 2
+        # When the book is renumbered to an invalid number
         # Then a ValidationError should be raised
         service = CampaignService()
         with pytest.raises(ValidationError):
-            await service.renumber_books(book, 2)
-
-    async def test_renumber_books_less_than_one(
-        self,
-        company_factory: Callable[..., Company],
-        campaign_factory: Callable[..., Campaign],
-        campaign_book_factory: Callable[..., CampaignBook],
-    ) -> None:
-        """Verify renumber_books raises ValidationError when number is less than 1."""
-        # Given a campaign with 1 book
-        company = await company_factory()
-        campaign = await campaign_factory(company=company)
-        book = await campaign_book_factory(name="Book A", campaign=campaign)
-
-        # When the book is renumbered to 0
-        # Then a ValidationError should be raised
-        service = CampaignService()
-        with pytest.raises(ValidationError):
-            await service.renumber_books(book, 0)
+            await service.renumber_books(book, target_number)
 
     async def test_renumber_chapters(
         self,
@@ -221,45 +209,31 @@ class TestCampaignService:
         assert chapterc.number == 3
         assert chapterd.number == 4
 
-    async def test_renumber_chapters_out_of_range(
+    @pytest.mark.parametrize(
+        "target_number",
+        [2, 0],
+        ids=["exceeds_count", "less_than_one"],
+    )
+    async def test_renumber_chapters_invalid_number(
         self,
         company_factory: Callable[..., Company],
         campaign_factory: Callable[..., Campaign],
         campaign_book_factory: Callable[..., CampaignBook],
         campaign_chapter_factory: Callable[..., CampaignChapter],
+        target_number: int,
     ) -> None:
-        """Verify renumber_chapters raises ValidationError when number exceeds count."""
+        """Verify renumber_chapters raises ValidationError for out-of-range target numbers."""
         # Given a book with 1 chapter
         company = await company_factory()
         campaign = await campaign_factory(company=company)
         book = await campaign_book_factory(campaign=campaign)
         chapter = await campaign_chapter_factory(name="Chapter A", book=book)
 
-        # When the chapter is renumbered to 2
+        # When the chapter is renumbered to an invalid number
         # Then a ValidationError should be raised
         service = CampaignService()
         with pytest.raises(ValidationError):
-            await service.renumber_chapters(chapter, 2)
-
-    async def test_renumber_chapters_less_than_one(
-        self,
-        company_factory: Callable[..., Company],
-        campaign_factory: Callable[..., Campaign],
-        campaign_book_factory: Callable[..., CampaignBook],
-        campaign_chapter_factory: Callable[..., CampaignChapter],
-    ) -> None:
-        """Verify renumber_chapters raises ValidationError when number is less than 1."""
-        # Given a book with 1 chapter
-        company = await company_factory()
-        campaign = await campaign_factory(company=company)
-        book = await campaign_book_factory(campaign=campaign)
-        chapter = await campaign_chapter_factory(name="Chapter A", book=book)
-
-        # When the chapter is renumbered to 0
-        # Then a ValidationError should be raised
-        service = CampaignService()
-        with pytest.raises(ValidationError):
-            await service.renumber_chapters(chapter, 0)
+            await service.renumber_chapters(chapter, target_number)
 
     async def test_delete_book_and_renumber_one_book(
         self,

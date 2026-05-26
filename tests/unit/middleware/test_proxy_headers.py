@@ -146,21 +146,20 @@ class TestXForwardedFor:
 class TestFallbackBehavior:
     """Test behavior when no proxy headers are present."""
 
-    async def test_no_proxy_headers_preserves_original_client(self) -> None:
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            [(b"content-type", b"application/json")],
+            [],
+        ],
+        ids=["non-proxy-header", "empty-headers"],
+    )
+    async def test_no_proxy_headers_preserves_original_client(
+        self, headers: list[tuple[bytes, bytes]]
+    ) -> None:
         """Verify original client is preserved when no proxy headers exist."""
         # Given a request with no proxy headers
-        scope = _make_scope(headers=[(b"content-type", b"application/json")])
-
-        # When the middleware handles the request
-        result = await _run_middleware(scope)
-
-        # Then the original client is unchanged
-        assert result["client"] == ("100.64.0.17", 44358)
-
-    async def test_empty_headers_preserves_original_client(self) -> None:
-        """Verify original client is preserved with empty headers."""
-        # Given a request with no headers at all
-        scope = _make_scope()
+        scope = _make_scope(headers=headers)
 
         # When the middleware handles the request
         result = await _run_middleware(scope)
@@ -200,23 +199,18 @@ class TestFallbackBehavior:
 class TestNextAppCalled:
     """Test that the next ASGI app is always invoked."""
 
-    async def test_next_app_called_with_proxy_header(self) -> None:
-        """Verify next_app is called when a proxy header is present."""
-        # Given a request with a proxy header
-        scope = _make_scope(headers=[(b"x-real-ip", b"198.51.100.7")])
-        middleware = ProxyHeadersMiddleware()
-        next_app = AsyncMock()
-
-        # When the middleware handles the request
-        await middleware.handle(scope, AsyncMock(), AsyncMock(), next_app)
-
-        # Then next_app is called exactly once
-        next_app.assert_awaited_once()
-
-    async def test_next_app_called_without_proxy_header(self) -> None:
-        """Verify next_app is called when no proxy header is present."""
-        # Given a request without proxy headers
-        scope = _make_scope()
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            [(b"x-real-ip", b"198.51.100.7")],
+            [],
+        ],
+        ids=["with-proxy-header", "without-proxy-header"],
+    )
+    async def test_next_app_always_called(self, headers: list[tuple[bytes, bytes]]) -> None:
+        """Verify next_app is called regardless of whether a proxy header is present."""
+        # Given a request with or without a proxy header
+        scope = _make_scope(headers=headers)
         middleware = ProxyHeadersMiddleware()
         next_app = AsyncMock()
 
