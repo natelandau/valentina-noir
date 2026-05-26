@@ -226,6 +226,11 @@ class LoggingSettings(BaseModel):
             "client",
             "status_code",
             "duration_ms",
+            "request_id",
+            "developer_id",
+            "error_type",
+            "error_detail",
+            "invalid_parameters",
         ]
     )
 
@@ -245,7 +250,7 @@ class LoggingSettings(BaseModel):
         default_factory=lambda: {"Authorization", AUTH_HEADER_KEY, "X-CSRF-TOKEN"}
     )
     obfuscate_cookies: set[str] = Field(default_factory=lambda: {"session", "XSRF-TOKEN"})
-    log_exceptions: Literal["always", "debug", "never"] = Field(default="debug")
+    log_exceptions: Literal["always", "debug", "never"] = Field(default="always")
 
 
 class Settings(BaseSettings):
