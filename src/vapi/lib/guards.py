@@ -293,6 +293,9 @@ async def storyteller_character_access_guard(
     if not character:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
 
+    if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        raise PermissionDeniedError(detail="No rights to access this resource")
+
     if character.type == CharacterType.STORYTELLER and user.role not in {
         UserRole.STORYTELLER,
         UserRole.ADMIN,
