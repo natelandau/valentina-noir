@@ -37,9 +37,9 @@ user.
 
 - **`PLAYER`** is the primary type. Each player character is tied to a specific
   user through `user_player_id`.
-- **`NPC`** characters are non-player characters. Anyone in the company can see
+- **`NPC`** characters are non-player characters. They have no player (`user_player_id` is always `null`). Anyone in the company can see
   and run them, though storytellers usually do.
-- **`STORYTELLER`** characters are hidden from players. They never appear in a
+- **`STORYTELLER`** characters are hidden from players. They have no player (`user_player_id` is always `null`). They never appear in a
   player's character list, and a player who requests one by ID receives a `403`
   response. Only storytellers and admins can create a storyteller character,
   convert an existing character to the storyteller type, or edit and delete one.

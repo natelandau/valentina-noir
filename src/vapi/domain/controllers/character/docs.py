@@ -18,7 +18,7 @@ and must be fetched via their dedicated endpoints.
 CREATE_CHARACTER_DESCRIPTION = """\
 Create a new character within a campaign.
 
-Provide character details and initial trait values. The character is associated with both a creator user (who made the character) and a player user (who controls the character). If no player is specified, the creator becomes the player.
+Provide character details and initial trait values. The character is associated with a creator user (who made the character). For `PLAYER` characters, a player user (who controls the character) is also required; if no player is specified, the creator becomes the player. `NPC` and `STORYTELLER` characters have no player — providing a `user_player_id` for these types returns 400.
 """
 
 UPDATE_CHARACTER_DESCRIPTION = """\

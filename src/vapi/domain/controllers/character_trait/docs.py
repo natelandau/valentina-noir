@@ -15,7 +15,7 @@ Assign a trait to a character with an initial value.
 
 The trait must not already exist on the character and the value must not exceed the trait's maximum.
 
-**Note:** Only storyteller users and character owners can use this endpoint. Respects the company's free trait changes setting.
+**Note:** Only storyteller users and character owners can use this endpoint. Respects the company's free trait changes setting. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400.
 """
 
 CREATE_CUSTOM_TRAIT_DESCRIPTION = """\
@@ -45,6 +45,8 @@ Modify a character trait to a target value using the specified currency.
 The direction (increase/decrease) is determined automatically from the current value. Guards and affordability checks are applied based on the currency type.
 
 **Note:** `NO_COST` requires storyteller privileges. `XP` and `STARTING_POINTS` are available to character owners and storytellers. Company settings may restrict these currencies, use the `GET /value-options` endpoint to check availability.
+
+**NPC and STORYTELLER characters** only accept `NO_COST`. Using `XP` or `STARTING_POINTS` on these character types returns 400.
 """
 
 DELETE_CHARACTER_TRAIT_DESCRIPTION = """\
@@ -52,7 +54,7 @@ Remove a trait from a character.
 
 **This action cannot be undone.**
 
-**Note:** Only storyteller users and character owners can use this endpoint.
+**Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400.
 """
 
 BULK_ASSIGN_TRAITS_DESCRIPTION = """\
@@ -66,5 +68,5 @@ The response contains `succeeded` and `failed` lists. Retry only the failed item
 
 **Maximum batch size:** 200 items.
 
-**Note:** Only storyteller users and character owners can use this endpoint.
+**Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400.
 """

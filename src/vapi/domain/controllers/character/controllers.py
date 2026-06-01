@@ -273,7 +273,7 @@ class CharacterController(Controller):
                 raise ValidationError(detail="NPC and STORYTELLER characters cannot have a player")
             # Force-null the player; apply_patch treats None as a real value to apply,
             # which clears the column for PLAYER -> NPC/STORYTELLER transitions.
-            data.user_player_id = None  # type: ignore[assignment]
+            data.user_player_id = None
 
         service = CharacterService()
         changes = await service.apply_character_patch(character, data)
