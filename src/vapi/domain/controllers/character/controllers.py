@@ -26,6 +26,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService
 from vapi.lib.detail_includes import apply_includes
+from vapi.lib.exceptions import ValidationError
 from vapi.lib.guards import (
     STORYTELLER_ROLES,
     assert_can_assign_storyteller_type,
@@ -165,6 +166,13 @@ class CharacterController(Controller):
     ) -> CharacterResponse:
         """Create a new character."""
         assert_can_assign_storyteller_type(acting_user, data.type)
+        if data.type == CharacterType.PLAYER:
+            user_player_id = data.user_player_id or acting_user.id
+        else:
+            # NPC and STORYTELLER characters are storyteller-managed and have no player
+            if data.user_player_id is not None:
+                raise ValidationError(detail="NPC and STORYTELLER characters cannot have a player")
+            user_player_id = None
         character = await Character.create(
             name_first=data.name_first,
             name_last=data.name_last,
@@ -180,7 +188,7 @@ class CharacterController(Controller):
             company=company,
             campaign_id=data.campaign_id,
             user_creator=acting_user,
-            user_player_id=data.user_player_id or acting_user.id,
+            user_player_id=user_player_id,
         )
 
         # Create OneToOne attribute rows for class-specific data

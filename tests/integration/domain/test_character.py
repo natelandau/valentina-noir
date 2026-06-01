@@ -1587,6 +1587,74 @@ class TestCharacterCreate:
         ct_count = await CharacterTrait.filter(character_id=data["id"]).count()
         assert ct_count >= len(traits)
 
+    async def test_create_npc_with_player_is_rejected(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify supplying a user_player_id when creating an NPC character returns 400."""
+        # Given a valid NPC create payload with a user_player_id supplied
+        payload = {
+            "name_first": "NPC",
+            "name_last": "WithPlayer",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "type": "NPC",
+            "campaign_id": str(session_campaign.id),
+            "user_player_id": str(session_user.id),
+        }
+
+        # When we POST the payload
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            json=payload,
+        )
+
+        # Then the request is rejected with 400
+        assert response.status_code == HTTP_400_BAD_REQUEST
+
+    async def test_create_npc_without_player_has_null_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify creating an NPC without user_player_id succeeds and returns null user_player_id."""
+        # Given a valid NPC create payload with no user_player_id
+        payload = {
+            "name_first": "NPC",
+            "name_last": "NoPlayer",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "type": "NPC",
+            "campaign_id": str(session_campaign.id),
+        }
+
+        # When we POST the payload
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            json=payload,
+        )
+
+        # Then the character is created successfully
+        assert response.status_code == HTTP_201_CREATED
+        data = response.json()
+        # And the response has no player assigned
+        assert data["user_player_id"] is None
+
 
 class TestCharacterFullSheet:
     """Test character full sheet endpoint."""
