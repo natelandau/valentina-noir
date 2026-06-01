@@ -165,7 +165,11 @@ class CharacterController(Controller):
         request: Request,
     ) -> CharacterResponse:
         """Create a new character."""
+        service = CharacterService()
         assert_can_assign_storyteller_type(acting_user, data.type)
+        service.assert_can_assign_npc_type(
+            company=company, user=acting_user, requested_type=data.type
+        )
         if data.type == CharacterType.PLAYER:
             user_player_id = data.user_player_id or acting_user.id
         else:
@@ -222,7 +226,6 @@ class CharacterController(Controller):
                 creed=data.hunter_attributes.creed,
             )
 
-        service = CharacterService()
         await service.prepare_for_save(character)
 
         if data.traits:
@@ -249,15 +252,18 @@ class CharacterController(Controller):
     async def update_character(
         self,
         character: Character,
+        company: Company,
         data: CharacterPatch,
         acting_user: User,
         request: "Request",
     ) -> CharacterResponse:
         """Update a character."""
+        service = CharacterService()
         if data.type is not msgspec.UNSET:
             assert_can_assign_storyteller_type(acting_user, data.type)
-
-        service = CharacterService()
+            service.assert_can_assign_npc_type(
+                company=company, user=acting_user, requested_type=data.type
+            )
         service.reconcile_type_and_player(character, data)
         changes = await service.apply_character_patch(character, data)
         await service.prepare_for_save(character)
