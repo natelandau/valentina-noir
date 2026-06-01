@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from vapi.constants import PermissionManageCampaign, PermissionManageNPC, UserRole
+from vapi.constants import CharacterType, PermissionManageCampaign, PermissionManageNPC, UserRole
 from vapi.lib.exceptions import (
     ClientError,
     NotFoundError,
@@ -60,6 +60,15 @@ def _patch_user(mocker: MockerFixture, user: MagicMock | None) -> None:
     mocker.patch(
         "vapi.lib.guards.User.filter",
         return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=user)),
+    )
+
+
+def _patch_settings(mocker: MockerFixture, permission: PermissionManageNPC) -> None:
+    """Patch CompanySettings.filter(...).first() to return settings with the given NPC permission."""
+    settings = mocker.MagicMock(permission_manage_npc=permission)
+    mocker.patch(
+        "vapi.lib.guards.CompanySettings.filter",
+        return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=settings)),
     )
 
 
@@ -283,6 +292,109 @@ class TestCharacterPlayerOrStorytellerGuard:
 
         # When/Then the guard returns without raising because STORYTELLER bypasses the player check
         await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_npc_allowed_to_player_when_unrestricted(self, mocker: MockerFixture) -> None:
+        """Verify a player may manage an NPC when permission_manage_npc is UNRESTRICTED."""
+        # Given a player acting on an ownerless NPC in a company set to UNRESTRICTED
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        character = mocker.MagicMock(
+            user_player_id=None, type=CharacterType.NPC, company_id=uuid4()
+        )
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        _patch_settings(mocker, PermissionManageNPC.UNRESTRICTED)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id), "company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When calling the guard / Then no exception is raised
+        await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_npc_denied_to_player_when_storyteller_only(self, mocker: MockerFixture) -> None:
+        """Verify a player may not manage an NPC when permission_manage_npc is STORYTELLER."""
+        # Given a player acting on an ownerless NPC in a company set to STORYTELLER
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        character = mocker.MagicMock(
+            user_player_id=None, type=CharacterType.NPC, company_id=uuid4()
+        )
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        _patch_settings(mocker, PermissionManageNPC.STORYTELLER)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id), "company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When/Then the guard raises
+        with pytest.raises(PermissionDeniedError, match="No rights"):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_npc_allowed_to_storyteller_when_storyteller_only(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify a storyteller may manage an NPC regardless of the setting."""
+        # Given a storyteller acting on an ownerless NPC — no settings query needed
+        # because storytellers return early before CompanySettings is consulted
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.STORYTELLER, id=user_id)
+        character = mocker.MagicMock(
+            user_player_id=None, type=CharacterType.NPC, company_id=uuid4()
+        )
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id), "company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When calling the guard / Then no exception is raised
+        await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_npc_denied_to_player_when_settings_missing(self, mocker: MockerFixture) -> None:
+        """Verify a player is denied managing an NPC when the company has no settings row."""
+        # Given a player acting on an ownerless NPC whose company has no CompanySettings
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        character = mocker.MagicMock(
+            user_player_id=None, type=CharacterType.NPC, company_id=uuid4()
+        )
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        mocker.patch(
+            "vapi.lib.guards.CompanySettings.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=None)),
+        )
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id), "company_id": str(uuid4())},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When/Then the guard raises (safe default when settings are missing)
+        with pytest.raises(PermissionDeniedError, match="No rights"):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
 
 
 class TestDeveloperCompanyPermission:

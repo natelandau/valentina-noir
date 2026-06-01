@@ -17,6 +17,7 @@ from vapi.constants import (
     UserRole,
 )
 from vapi.db.sql_models import Character, Company, DeveloperCompanyPermission, User
+from vapi.db.sql_models.company import CompanySettings
 from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
@@ -244,6 +245,19 @@ async def user_character_player_or_storyteller_guard(
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
 
     if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        raise PermissionDeniedError(detail="No rights to access this resource")
+
+    # NPC characters are governed by the company's permission_manage_npc setting,
+    # not by player ownership (NPCs are ownerless). Storytellers/admins always pass,
+    # so resolve them before the settings query (also avoids a needless round-trip).
+    if character.type == CharacterType.NPC:  # type: ignore[attr-defined]
+        if user.role in STORYTELLER_ROLES:
+            return
+        # company_id is only known after the character resolves, so this query is
+        # sequential rather than gathered with the character lookup.
+        settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]
+        if settings is not None and npc_management_permitted(settings.permission_manage_npc, user):
+            return
         raise PermissionDeniedError(detail="No rights to access this resource")
 
     if (
