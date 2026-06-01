@@ -11,6 +11,7 @@ from tortoise.transactions import in_transaction
 from vapi.constants import (
     RECOUP_XP_SESSION_LENGTH,
     CharacterClass,
+    CharacterType,
     PermissionsFreeTraitChanges,
     PermissionsRecoupXP,
     TraitModifyCurrency,
@@ -87,6 +88,19 @@ class CharacterTraitService:
             msg = f"Trait can not be lowered below min value of {character_trait.trait.min_value}"
             raise ValidationError(detail=msg)
 
+    @staticmethod
+    def _assert_currency_allowed_for_type(
+        character: Character, currency: TraitModifyCurrency
+    ) -> None:
+        """Reject point-based currencies for player-less characters.
+
+        NPC and STORYTELLER characters have no player and therefore no campaign XP
+        pool; they are storyteller-managed and may only change traits at NO_COST.
+        """
+        if character.type != CharacterType.PLAYER and currency != TraitModifyCurrency.NO_COST:
+            msg = "NPC and STORYTELLER characters only support NO_COST trait changes"
+            raise ValidationError(detail=msg)
+
     async def _guard_has_minimum_renown(self, trait: Trait, character: Character) -> None:
         """Check if the character meets the minimum renown required for a gift.
 
@@ -147,7 +161,7 @@ class CharacterTraitService:
             for dot in range(1, value + 1):
                 cost += self._cost_for_dot_value(trait.initial_cost, trait.upgrade_cost, dot)
 
-        if currency == TraitModifyCurrency.XP:
+        if currency == TraitModifyCurrency.XP and character.type == CharacterType.PLAYER:
             user_svc = UserXPService()
             experience = await user_svc.get_or_create_campaign_experience(
                 character.user_player_id,  # type: ignore[attr-defined]
@@ -670,6 +684,7 @@ class CharacterTraitService:
             PermissionDeniedError: If the user does not have permissions to add the trait.
             ValidationError: If the trait cannot be added.
         """
+        self._assert_currency_allowed_for_type(character, currency)
         trait = await Trait.filter(id=trait_id, is_archived=False).first()
         if trait is None:
             msg = "Trait not found"
@@ -786,18 +801,28 @@ class CharacterTraitService:
         }
 
         # Initialize running balances
-        user_svc = UserXPService()
-        campaign_xp = await user_svc.get_or_create_campaign_experience(
-            character.user_player_id,  # type: ignore[attr-defined]
-            character.campaign_id,  # type: ignore[attr-defined]
-        )
-        running_xp = campaign_xp.xp_current
         running_starting_points = character.starting_points
+        # XP balance is only relevant for PLAYER characters; NPC/STORYTELLER never reach XP paths
+        # because _assert_currency_allowed_for_type rejects non-NO_COST currency for them.
+        running_xp = 0
+        if character.type == CharacterType.PLAYER:
+            user_svc = UserXPService()
+            campaign_xp = await user_svc.get_or_create_campaign_experience(
+                character.user_player_id,  # type: ignore[attr-defined]
+                character.campaign_id,  # type: ignore[attr-defined]
+            )
+            running_xp = campaign_xp.xp_current
 
         for item in items:
             trait_id = item.trait_id
             value = item.value
             currency = item.currency
+
+            try:
+                self._assert_currency_allowed_for_type(character, currency)
+            except ValidationError as exc:
+                failed.append(BulkAssignTraitFailure(trait_id=item.trait_id, error=exc.detail))
+                continue
 
             # Validate trait exists
             trait = trait_lookup.get(trait_id)
@@ -1144,16 +1169,20 @@ class CharacterTraitService:
                 character_id=character_trait.character_id,  # type: ignore[attr-defined]
             )
 
-        user_svc = UserXPService()
-        user_player_id = character.user_player_id  # type: ignore[attr-defined]
-        campaign_id = character.campaign_id  # type: ignore[attr-defined]
         is_flaw = await self._is_flaw_trait(character_trait)
 
-        # Flaw traits invert the currency direction
-        if is_increase == is_flaw:
-            await user_svc.add_xp(user_player_id, campaign_id, cost, update_total=False)
-        else:
-            await user_svc.spend_xp(user_player_id, campaign_id, cost)
+        # XP ledger updates only apply to PLAYER characters; the boundary guard at
+        # modify_trait_value/add_constant_trait_to_character already rejects XP for
+        # NPC/STORYTELLER, so this guard is a defensive-depth safeguard.
+        if character.type == CharacterType.PLAYER:
+            user_svc = UserXPService()
+            user_player_id = character.user_player_id  # type: ignore[attr-defined]
+            campaign_id = character.campaign_id  # type: ignore[attr-defined]
+            # Flaw traits invert the currency direction
+            if is_increase == is_flaw:
+                await user_svc.add_xp(user_player_id, campaign_id, cost, update_total=False)
+            else:
+                await user_svc.spend_xp(user_player_id, campaign_id, cost)
 
         character_trait.value += num_dots if is_increase else -num_dots
         await character_trait.save(update_fields=["value", "date_modified"])
@@ -1278,16 +1307,20 @@ class CharacterTraitService:
             A TraitValueOptionsResponse containing current value, min/max bounds,
             current XP and starting points, and options for each possible target value.
         """
-        user_svc = UserXPService()
-        user_player_id = character.user_player_id  # type: ignore[attr-defined]
-        campaign_id = character.campaign_id  # type: ignore[attr-defined]
-        campaign_experience = await user_svc.get_or_create_campaign_experience(
-            user_player_id, campaign_id
-        )
-
         current_value = character_trait.value
-        xp_current = campaign_experience.xp_current
         starting_points_current = character.starting_points
+        # XP and starting-point currencies are only valid for PLAYER characters;
+        # NPC/STORYTELLER are restricted to NO_COST, so report no spendable currency.
+        is_player = character.type == CharacterType.PLAYER
+        xp_current = 0
+        if is_player:
+            user_svc = UserXPService()
+            user_player_id = character.user_player_id  # type: ignore[attr-defined]
+            campaign_id = character.campaign_id  # type: ignore[attr-defined]
+            campaign_experience = await user_svc.get_or_create_campaign_experience(
+                user_player_id, campaign_id
+            )
+            xp_current = campaign_experience.xp_current
 
         is_flaw, upgrade_costs, downgrade_savings = await asyncio.gather(
             self._is_flaw_trait(character_trait),
@@ -1308,9 +1341,9 @@ class CharacterTraitService:
             options[str(target_value)] = TraitValueOptionDetail(
                 direction="increase",
                 point_change=cost,
-                can_use_xp=is_flaw or xp_after >= 0,
+                can_use_xp=is_player and (is_flaw or xp_after >= 0),
                 xp_after=xp_after,
-                can_use_starting_points=is_flaw or starting_points_after >= 0,
+                can_use_starting_points=is_player and (is_flaw or starting_points_after >= 0),
                 starting_points_after=starting_points_after,
             )
 
@@ -1326,9 +1359,9 @@ class CharacterTraitService:
             options[key] = TraitValueOptionDetail(
                 direction="decrease",
                 point_change=savings,
-                can_use_xp=not is_flaw or xp_after >= 0,
+                can_use_xp=is_player and (not is_flaw or xp_after >= 0),
                 xp_after=xp_after,
-                can_use_starting_points=not is_flaw or starting_points_after >= 0,
+                can_use_starting_points=is_player and (not is_flaw or starting_points_after >= 0),
                 starting_points_after=starting_points_after,
             )
 
@@ -1374,6 +1407,7 @@ class CharacterTraitService:
             PermissionDeniedError: If the user lacks required permissions, including
                 recoup-XP enforcement.
         """
+        self._assert_currency_allowed_for_type(character, currency)
         current_value = character_trait.value
         num_dots = abs(target_value - current_value)
 

@@ -11,6 +11,7 @@ from litestar.stores.memory import MemoryStore
 
 from vapi.constants import (
     CharacterClass,
+    CharacterType,
     PermissionsFreeTraitChanges,
     PermissionsRecoupXP,
     TraitModifyCurrency,
@@ -2534,6 +2535,43 @@ class TestGetValueOptions:
         assert result.options["1"].can_use_xp is True
         assert result.options["1"].can_use_starting_points is True
 
+    async def test_get_value_options_npc_reports_no_spendable_currency(
+        self,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        company_factory,
+        trait_factory,
+    ) -> None:
+        """Verify a player-less NPC reports no XP or starting-point affordability."""
+        # Given an NPC character (no player) with starting points and a trait
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(
+            type=CharacterType.NPC,
+            user_player=None,
+            campaign=campaign,
+            company=company,
+            starting_points=5,
+        )
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then no option is spendable via XP or starting points (NO_COST only),
+        # even downgrades that would otherwise refund/grant currency
+        assert result.xp_current == 0
+        assert all(not option.can_use_xp for option in result.options.values())
+        assert all(not option.can_use_starting_points for option in result.options.values())
+
     async def test_get_value_options_at_max_value(
         self,
         character_factory,
@@ -4539,3 +4577,71 @@ class TestRecoupXPGate:
 
         # Then the decrease succeeds, bypassing the gate
         assert result.value == 1
+
+
+class TestNpcCurrencyRestriction:
+    """Test that NPC and STORYTELLER characters reject non-NO_COST trait currency."""
+
+    async def test_modify_trait_value_npc_rejects_xp(
+        self,
+        character_factory,
+        character_trait_factory,
+        company_factory,
+        user_factory,
+    ) -> None:
+        """Verify modify_trait_value raises ValidationError for an NPC character with XP currency."""
+        # Given an NPC character managed by an admin user
+        company = await company_factory()
+        user = await user_factory(company=company, role=UserRole.ADMIN)
+        character = await character_factory(
+            company=company,
+            user_player=None,
+            user_creator=user,
+            type=CharacterType.NPC,
+        )
+        character_trait = await character_trait_factory(value=1, character=character)
+
+        # When we attempt to modify a trait with XP currency
+        service = CharacterTraitService()
+        with pytest.raises(ValidationError):
+            await service.modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                target_value=2,
+                currency=TraitModifyCurrency.XP,
+            )
+
+    async def test_modify_trait_value_npc_allows_no_cost(
+        self,
+        character_factory,
+        character_trait_factory,
+        company_factory,
+        user_factory,
+    ) -> None:
+        """Verify modify_trait_value succeeds for an NPC character with NO_COST currency."""
+        # Given an NPC character managed by an admin user with a trait at value=1
+        company = await company_factory()
+        user = await user_factory(company=company, role=UserRole.ADMIN)
+        character = await character_factory(
+            company=company,
+            user_player=None,
+            user_creator=user,
+            type=CharacterType.NPC,
+        )
+        character_trait = await character_trait_factory(value=1, character=character)
+
+        # When we modify the trait with NO_COST currency
+        service = CharacterTraitService()
+        result = await service.modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=2,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+        # Then the trait value is updated successfully
+        assert result.value == 2

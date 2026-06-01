@@ -236,6 +236,53 @@ class TestCharacterPlayerOrStorytellerGuard:
         # When calling the guard / Then no exception is raised
         await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
 
+    async def test_player_less_character_denied_to_regular_player(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify a player-less character is denied to a non-storyteller user."""
+        # Given a regular player acting on a character with no player (NPC/STORYTELLER type)
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.PLAYER, id=user_id)
+        character = mocker.MagicMock(user_player_id=None)
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id)},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When/Then the guard raises because None != user.id and PLAYER is not a privileged role
+        with pytest.raises(PermissionDeniedError, match="No rights"):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
+    async def test_player_less_character_allowed_to_storyteller(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify a player-less character is accessible to a storyteller."""
+        # Given a storyteller acting on a character with no player (NPC/STORYTELLER type)
+        user_id = uuid4()
+        character_id = uuid4()
+        user = mocker.MagicMock(role=UserRole.STORYTELLER, id=user_id)
+        character = mocker.MagicMock(user_player_id=None)
+        mocker.patch(
+            "vapi.db.sql_models.character.Character.filter",
+            return_value=mocker.MagicMock(first=mocker.AsyncMock(return_value=character)),
+        )
+        _patch_user(mocker, user)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character_id)},
+            headers={"On-Behalf-Of": str(user_id)},
+        )
+
+        # When/Then the guard returns without raising because STORYTELLER bypasses the player check
+        await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
 
 class TestDeveloperCompanyPermission:
     """Test developer company permission denial branches."""

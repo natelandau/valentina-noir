@@ -203,7 +203,7 @@ class CharacterAutogenerationHandler:
             type=character_type,
             game_version=game_version,
             user_creator=self.user,
-            user_player=self.user,
+            user_player=self.user if character_type == CharacterType.PLAYER else None,
         )
 
     async def _generate_attribute_values(self, character: Character) -> None:

@@ -26,6 +26,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService
 from vapi.lib.detail_includes import apply_includes
+from vapi.lib.exceptions import ValidationError
 from vapi.lib.guards import (
     STORYTELLER_ROLES,
     assert_can_assign_storyteller_type,
@@ -165,6 +166,13 @@ class CharacterController(Controller):
     ) -> CharacterResponse:
         """Create a new character."""
         assert_can_assign_storyteller_type(acting_user, data.type)
+        if data.type == CharacterType.PLAYER:
+            user_player_id = data.user_player_id or acting_user.id
+        else:
+            # NPC and STORYTELLER characters are storyteller-managed and have no player
+            if data.user_player_id is not None:
+                raise ValidationError(detail="NPC and STORYTELLER characters cannot have a player")
+            user_player_id = None
         character = await Character.create(
             name_first=data.name_first,
             name_last=data.name_last,
@@ -180,7 +188,7 @@ class CharacterController(Controller):
             company=company,
             campaign_id=data.campaign_id,
             user_creator=acting_user,
-            user_player_id=data.user_player_id or acting_user.id,
+            user_player_id=user_player_id,
         )
 
         # Create OneToOne attribute rows for class-specific data
@@ -248,6 +256,26 @@ class CharacterController(Controller):
         """Update a character."""
         if data.type is not msgspec.UNSET:
             assert_can_assign_storyteller_type(acting_user, data.type)
+
+        effective_type = data.type if data.type is not msgspec.UNSET else character.type
+        player_provided = data.user_player_id is not msgspec.UNSET
+        if effective_type == CharacterType.PLAYER:
+            # A PLAYER character must always have a player; never allow clearing it
+            if player_provided and data.user_player_id is None:
+                raise ValidationError(detail="PLAYER characters must have a user_player_id")
+            # Converting into PLAYER requires an explicit player in the same request
+            if character.type != CharacterType.PLAYER and not player_provided:
+                raise ValidationError(
+                    detail="Converting a character to PLAYER requires user_player_id"
+                )
+        else:
+            # NPC and STORYTELLER characters must never have a player
+            if player_provided and data.user_player_id is not None:
+                raise ValidationError(detail="NPC and STORYTELLER characters cannot have a player")
+            # Force-null the player; apply_patch treats None as a real value to apply,
+            # which clears the column for PLAYER -> NPC/STORYTELLER transitions.
+            data.user_player_id = None
+
         service = CharacterService()
         changes = await service.apply_character_patch(character, data)
         await service.prepare_for_save(character)

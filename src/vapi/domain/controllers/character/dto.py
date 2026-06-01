@@ -203,8 +203,8 @@ class CharacterResponse(msgspec.Struct):
     concept_name: str | None
     is_temporary: bool
     date_killed: datetime | None
-    user_creator_id: UUID
-    user_player_id: UUID
+    user_creator_id: UUID | None
+    user_player_id: UUID | None
     company_id: UUID
     campaign_id: UUID
     specialties: list[SpecialtyResponse]

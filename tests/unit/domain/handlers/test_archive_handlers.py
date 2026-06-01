@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character, CharacterInventory
@@ -204,6 +205,40 @@ class TestUserArchiveHandler:
         ]:
             refreshed = await model.get(id=obj.id)
             assert not refreshed.is_archived
+
+    async def test_archiving_user_leaves_their_npcs_intact(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify archiving a user archives their player characters but not their NPCs."""
+        # Given a user with a PLAYER character and an NPC they created
+        company = await company_factory()
+        user = await user_factory(company=company)
+        player_character = await character_factory(
+            company=company,
+            user_player=user,
+            user_creator=user,
+            type=CharacterType.PLAYER,
+        )
+        npc = await character_factory(
+            company=company,
+            user_creator=user,
+            type=CharacterType.NPC,
+            # user_player defaults to None for NPC type via the factory
+        )
+
+        # When the user is archived
+        handler = UserArchiveHandler(user=user)
+        await handler.handle()
+
+        # Then the player character is archived but the NPC is not
+        # (UserArchiveHandler filters by user_player_id, which is None for NPCs)
+        refreshed_pc = await Character.get(id=player_character.id)
+        refreshed_npc = await Character.get(id=npc.id)
+        assert refreshed_pc.is_archived is True
+        assert refreshed_npc.is_archived is False
 
 
 class TestCompanyArchiveHandler:

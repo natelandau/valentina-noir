@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from uuid_utils import uuid7
 
-from vapi.constants import AssetType, DiceSize, RollResultType
+from vapi.constants import AssetType, CharacterType, DiceSize, RollResultType
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
@@ -417,7 +417,12 @@ async def character_factory(company_factory, user_factory, campaign_factory):
         if "user_creator" not in kwargs and "user_creator_id" not in kwargs:
             user = await user_factory(company=kwargs.get("company"))
             kwargs["user_creator"] = user
-        if "user_player" not in kwargs and "user_player_id" not in kwargs:
+        # PLAYER characters default to a player; NPC/STORYTELLER default to none
+        if (
+            "user_player" not in kwargs
+            and "user_player_id" not in kwargs
+            and kwargs.get("type", CharacterType.PLAYER) == CharacterType.PLAYER
+        ):
             kwargs["user_player"] = kwargs.get("user_creator") or await user_factory(
                 company=kwargs.get("company")
             )

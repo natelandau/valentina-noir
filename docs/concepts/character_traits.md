@@ -401,6 +401,10 @@ Modify a trait to a target value using the specified currency. The system automa
 | `XP`              | Character owners and storytellers |
 | `STARTING_POINTS` | Character owners and storytellers |
 
+!!! warning "NPC and STORYTELLER characters"
+
+    Trait modifications on `NPC` and `STORYTELLER` characters only accept `NO_COST`. Using `XP` or `STARTING_POINTS` on these character types returns `400 Bad Request`.
+
 ### DELETE `/traits/{character_trait_id}`
 
 Remove a trait from the character. Optionally specify a `currency` query parameter to receive a refund. See [Deleting Traits](#deleting-traits) above.
