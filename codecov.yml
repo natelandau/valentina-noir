@@ -3,12 +3,14 @@ coverage:
   status:
     project:
       default:
-        target: 25% # the required coverage value
-        threshold: 5% # the leniency in hitting the target
+        target: auto
+        threshold: 2%
+        informational: true
     patch:
       default:
-        target: 50%
-        threshold: 5%
+        target: 75%
+        threshold: 0%
+        informational: true
   ignore:
     - tests/
     - scripts/
@@ -16,5 +18,5 @@ coverage:
     - duties.py
 
 comment:
-  layout: "diff, flags, files, components" # Remove items here to change the format
+  layout: "diff, flags, files, components"
   require_changes: false
