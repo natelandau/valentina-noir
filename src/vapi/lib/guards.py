@@ -13,9 +13,11 @@ from vapi.constants import (
     CharacterType,
     CompanyPermission,
     PermissionManageCampaign,
+    PermissionManageNPC,
     UserRole,
 )
 from vapi.db.sql_models import Character, Company, DeveloperCompanyPermission, User
+from vapi.db.sql_models.company import CompanySettings
 from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
@@ -29,6 +31,7 @@ __all__ = (
     "developer_company_owner_guard",
     "developer_company_user_guard",
     "global_admin_guard",
+    "npc_management_permitted",
     "storyteller_character_access_guard",
     "user_active_guard",
     "user_can_manage_campaign",
@@ -39,6 +42,24 @@ __all__ = (
 # Roles permitted to see and manage storyteller-type characters. Single source of
 # truth so the list filter, the access guard, and the create/update check stay in sync.
 STORYTELLER_ROLES: frozenset[UserRole] = frozenset({UserRole.STORYTELLER, UserRole.ADMIN})
+
+
+def npc_management_permitted(permission: PermissionManageNPC, user: User) -> bool:
+    """Return whether the user may manage NPC characters under the company permission.
+
+    Storytellers and admins always may; otherwise the company's
+    permission_manage_npc value decides. Used by the character and trait guards and
+    the create/convert-to-NPC service check so the rule lives in one place.
+    """
+    if user.role in STORYTELLER_ROLES:
+        return True
+    match permission:
+        case PermissionManageNPC.UNRESTRICTED:
+            return True
+        case PermissionManageNPC.STORYTELLER:
+            return False
+        case _:  # pragma: no cover
+            assert_never(permission)
 
 
 async def _resolve_acting_user_from_header(
@@ -224,6 +245,19 @@ async def user_character_player_or_storyteller_guard(
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
 
     if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        raise PermissionDeniedError(detail="No rights to access this resource")
+
+    # NPC characters are governed by the company's permission_manage_npc setting,
+    # not by player ownership (NPCs are ownerless). Storytellers/admins always pass,
+    # so resolve them before the settings query (also avoids a needless round-trip).
+    if character.type == CharacterType.NPC:
+        if user.role in STORYTELLER_ROLES:
+            return
+        # company_id is only known after the character resolves, so this query is
+        # sequential rather than gathered with the character lookup.
+        settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]
+        if settings is not None and npc_management_permitted(settings.permission_manage_npc, user):
+            return
         raise PermissionDeniedError(detail="No rights to access this resource")
 
     if (

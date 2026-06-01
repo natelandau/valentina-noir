@@ -20,6 +20,7 @@ from vapi.domain.urls import Companies
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Any
 
     from httpx import AsyncClient
 
@@ -290,6 +291,35 @@ class TestCompanyCRUD:
         assert settings["permission_grant_xp"] == "STORYTELLER"
         assert settings["permission_free_trait_changes"] == "WITHIN_24_HOURS"
         assert settings["permission_recoup_xp"] == "WITHIN_SESSION"
+
+    async def test_patch_permission_manage_npc_round_trips(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_user: dict[str, str],
+        session_company_user: Developer,
+        company_factory: Any,
+        developer_company_permission_factory: Any,
+    ) -> None:
+        """Verify permission_manage_npc can be patched and is returned in settings."""
+        # Given a company the developer has ADMIN access to
+        company = await company_factory()
+        await developer_company_permission_factory(
+            developer=session_company_user,
+            company=company,
+            permission=CompanyPermission.ADMIN,
+        )
+
+        # When patching the setting to STORYTELLER
+        response = await client.patch(
+            build_url(Companies.UPDATE, company_id=company.id),
+            headers=token_company_user,
+            json={"settings": {"permission_manage_npc": "STORYTELLER"}},
+        )
+
+        # Then the response reflects the new value
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["settings"]["permission_manage_npc"] == "STORYTELLER"
 
     async def test_patch_company_forbidden_without_admin(
         self,

@@ -8,6 +8,7 @@ import pytest
 
 from vapi.constants import (
     PermissionManageCampaign,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
@@ -198,3 +199,43 @@ class TestApplySettingsPatchMixed:
         # And unset fields are absent
         assert "settings.character_autogen_num_choices" not in changes
         assert "settings.permission_manage_campaign" not in changes
+
+
+class TestApplySettingsPatchManageNpc:
+    """Test permission_manage_npc change tracking."""
+
+    async def test_manage_npc_change_is_tracked(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify patching permission_manage_npc records the diff and updates the model."""
+        # Given a company with default settings (UNRESTRICTED)
+        company = await company_factory()
+        settings = await CompanySettings.filter(company=company).first()
+
+        # When patching permission_manage_npc to STORYTELLER
+        patch = CompanySettingsPatch(permission_manage_npc="STORYTELLER")
+        changes = await _apply_settings_patch(settings, patch)
+
+        # Then the change is tracked and applied to the model as an enum
+        assert changes["settings.permission_manage_npc"]["old"] == PermissionManageNPC.UNRESTRICTED
+        assert changes["settings.permission_manage_npc"]["new"] == PermissionManageNPC.STORYTELLER
+        assert settings.permission_manage_npc == PermissionManageNPC.STORYTELLER
+
+
+class TestPermissionManageNpcDefault:
+    """Test the default value of the permission_manage_npc setting."""
+
+    async def test_default_permission_manage_npc_is_unrestricted(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a new company's settings default permission_manage_npc to UNRESTRICTED."""
+        # Given a company created with default settings
+        company = await company_factory()
+
+        # When the settings are loaded
+        settings = await CompanySettings.filter(company=company).first()
+
+        # Then permission_manage_npc defaults to UNRESTRICTED
+        assert settings.permission_manage_npc == PermissionManageNPC.UNRESTRICTED

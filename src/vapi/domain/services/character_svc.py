@@ -18,13 +18,16 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.guards import npc_management_permitted
 from vapi.lib.patch import apply_patch
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.user import User
     from vapi.domain.controllers.character.dto import CharacterPatch, CharacterTraitCreate
 
 
@@ -153,6 +156,28 @@ class CharacterService:
                     {"field": "name_last", "message": msg},
                 ],
             )
+
+    def assert_can_assign_npc_type(
+        self, *, company: "Company", user: "User", requested_type: CharacterType
+    ) -> None:
+        """Reject assigning the NPC type when the company restricts NPC management.
+
+        Mirrors guards.assert_can_assign_storyteller_type. Reads the prefetched
+        company.settings (provide_company_by_id always prefetches it). Storytellers
+        and admins are always allowed; a no-op for non-NPC types.
+
+        Args:
+            company: The company whose NPC permission setting is checked.
+            user: The user requesting the type assignment.
+            requested_type: The character type being assigned.
+        """
+        if requested_type != CharacterType.NPC:
+            return
+        # company.settings is prefetched by provide_company_by_id; deny (rather than
+        # 500) on the rare missing-settings case, matching the character and trait guards.
+        settings = company.settings
+        if settings is None or not npc_management_permitted(settings.permission_manage_npc, user):
+            raise PermissionDeniedError(detail="No rights to access this resource")
 
     async def apply_concept_specialties(self, character: Character) -> None:
         """Sync specialties from the character's concept to the Specialty table.
