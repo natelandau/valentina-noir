@@ -11,15 +11,19 @@ def active_prefetch(
     relation: str,
     model: type[Model],
     nested: Sequence[str] | None = None,
+    exclude: Mapping[str, object] | None = None,
 ) -> Prefetch:
     """Build a ``Prefetch`` that filters out soft-deleted (``is_archived=True``) rows.
 
     Centralizes the archive-filter policy so every detail-include map applies
     the same rule. Optional ``nested`` relation names are chained onto the
     queryset via ``prefetch_related`` to avoid N+1 loads on downstream DTO
-    hydration.
+    hydration. Optional ``exclude`` drops rows matching the given lookups, used
+    to keep restricted rows (such as storyteller characters) out of an embed.
     """
     qs = model.filter(is_archived=False)
+    if exclude:
+        qs = qs.exclude(**exclude)
     if nested:
         qs = qs.prefetch_related(*nested)
     return Prefetch(relation, queryset=qs)
