@@ -10,6 +10,7 @@ from uuid import UUID
 
 from vapi.constants import (
     ON_BEHALF_OF_HEADER_KEY,
+    CharacterType,
     CompanyPermission,
     PermissionManageCampaign,
     UserRole,
@@ -24,10 +25,12 @@ if TYPE_CHECKING:
     from litestar.handlers.base import BaseRouteHandler
 
 __all__ = (
+    "assert_can_assign_storyteller_type",
     "developer_company_admin_guard",
     "developer_company_owner_guard",
     "developer_company_user_guard",
     "global_admin_guard",
+    "storyteller_character_access_guard",
     "user_active_guard",
     "user_can_manage_campaign",
     "user_character_player_or_storyteller_guard",
@@ -258,3 +261,53 @@ async def user_can_manage_campaign(connection: "ASGIConnection", _: "BaseRouteHa
             assert_never(company.settings.permission_manage_campaign)
 
     raise PermissionDeniedError(detail="No rights to access this resource")
+
+
+async def storyteller_character_access_guard(
+    connection: "ASGIConnection", _: "BaseRouteHandler"
+) -> None:
+    """Hide STORYTELLER-type characters from non-storyteller users.
+
+    Read ``character_id`` from the path. When present, load the character and the
+    acting user, and raise PermissionDeniedError if the character is a STORYTELLER
+    type while the acting user is neither a storyteller nor an admin. Return early
+    when no ``character_id`` is present so the guard can sit at controller scope
+    alongside list and create routes that share the controller.
+    """
+    from vapi.db.sql_models.character import Character
+
+    character_id_str = connection.path_params.get("character_id")
+    if not character_id_str:
+        return
+
+    try:
+        character_uuid = UUID(character_id_str)
+    except ValueError as e:
+        raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
+
+    # Fetch character and acting user in parallel since they are independent lookups
+    character_coro = Character.filter(id=character_uuid, is_archived=False).first()
+    user_coro = _resolve_acting_user_from_header(connection)
+    character, user = await asyncio.gather(character_coro, user_coro)
+
+    if not character:
+        raise NotFoundError(detail=f"Character '{character_id_str}' not found")
+
+    if character.type == CharacterType.STORYTELLER and user.role not in {
+        UserRole.STORYTELLER,
+        UserRole.ADMIN,
+    }:
+        raise PermissionDeniedError(detail="No rights to access this resource")
+
+
+def assert_can_assign_storyteller_type(user: User, requested_type: CharacterType) -> None:
+    """Reject assigning the STORYTELLER character type to non-storyteller users.
+
+    Call from create and update handlers where the requested character type comes
+    from the request body and therefore cannot be checked by a connection guard.
+    """
+    if requested_type == CharacterType.STORYTELLER and user.role not in {
+        UserRole.STORYTELLER,
+        UserRole.ADMIN,
+    }:
+        raise PermissionDeniedError(detail="No rights to access this resource")
