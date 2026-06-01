@@ -12,6 +12,7 @@ from litestar.stores.memory import MemoryStore
 from vapi.constants import (
     CharacterClass,
     CharacterType,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsRecoupXP,
     TraitModifyCurrency,
@@ -319,7 +320,7 @@ class TestGuardUserCanManageCharacter:
         storyteller_user = await user_factory(company=company, role=UserRole.STORYTELLER)
 
         # When we guard the user can manage the character
-        result = service.guard_user_can_manage_character(character, storyteller_user)
+        result = await service.guard_user_can_manage_character(character, storyteller_user)
 
         # Then the result should be True
         assert result is True
@@ -342,7 +343,7 @@ class TestGuardUserCanManageCharacter:
         )
 
         # When we guard the user can manage the character
-        result = service.guard_user_can_manage_character(character, character_owner)
+        result = await service.guard_user_can_manage_character(character, character_owner)
 
         # Then the result should be True
         assert result is True
@@ -365,7 +366,7 @@ class TestGuardUserCanManageCharacter:
         admin_user = await user_factory(company=company, role=UserRole.ADMIN)
 
         # When we guard the user can manage the character
-        result = service.guard_user_can_manage_character(character, admin_user)
+        result = await service.guard_user_can_manage_character(character, admin_user)
 
         # Then the result should be True
         assert result is True
@@ -391,7 +392,91 @@ class TestGuardUserCanManageCharacter:
         # When we guard the user can manage the character
         # Then a PermissionDeniedError should be raised
         with pytest.raises(PermissionDeniedError, match="User does not own this character"):
-            service.guard_user_can_manage_character(character, not_owner_user)
+            await service.guard_user_can_manage_character(character, not_owner_user)
+
+
+class TestGuardUserCanManageNpcCharacter:
+    """Test guard_user_can_manage_character for NPC characters."""
+
+    async def test_player_allowed_on_npc_when_unrestricted(
+        self,
+        character_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify a player may manage NPC traits when permission_manage_npc is UNRESTRICTED."""
+        # Given an unrestricted company, an NPC, and a player
+        service = CharacterTraitService()
+        company = await company_factory()
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+
+        # When guarding management
+        result = await service.guard_user_can_manage_character(npc, player)
+
+        # Then it returns True
+        assert result is True
+
+    async def test_player_denied_on_npc_when_storyteller_only(
+        self,
+        character_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify a player may not manage NPC traits when permission_manage_npc is STORYTELLER."""
+        # Given a STORYTELLER-only company, an NPC, and a player
+        service = CharacterTraitService()
+        company = await company_factory(
+            settings__permission_manage_npc=PermissionManageNPC.STORYTELLER
+        )
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+
+        # When/Then guarding management raises
+        with pytest.raises(PermissionDeniedError):
+            await service.guard_user_can_manage_character(npc, player)
+
+    async def test_storyteller_allowed_on_npc_when_storyteller_only(
+        self,
+        character_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify a storyteller may always manage NPC traits."""
+        # Given a STORYTELLER-only company, an NPC, and a storyteller
+        service = CharacterTraitService()
+        company = await company_factory(
+            settings__permission_manage_npc=PermissionManageNPC.STORYTELLER
+        )
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+        storyteller = await user_factory(company=company, role=UserRole.STORYTELLER)
+
+        # When guarding management
+        result = await service.guard_user_can_manage_character(npc, storyteller)
+
+        # Then it returns True
+        assert result is True
+
+    async def test_free_trait_guard_short_circuits_for_npc(
+        self,
+        character_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify the free-trait guard allows NPC changes regardless of permission_free_trait_changes."""
+        # Given a company that restricts free trait changes to storytellers, an NPC, and a player
+        service = CharacterTraitService()
+        company = await company_factory(
+            settings__permission_free_trait_changes=PermissionsFreeTraitChanges.STORYTELLER
+        )
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+
+        # When guarding free trait changes for the NPC
+        result = await service._guard_permissions_free_trait_changes(company, npc, player)
+
+        # Then it returns True
+        assert result is True
 
 
 class TestGuardIsSafeIncreaseDecrease:

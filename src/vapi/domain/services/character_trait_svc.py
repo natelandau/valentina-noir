@@ -39,6 +39,7 @@ from vapi.lib.exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
+from vapi.lib.guards import npc_management_permitted
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -252,25 +253,29 @@ class CharacterTraitService:
         """
         return await self._is_flaw_category(character_trait.trait.category_id)  # type: ignore[attr-defined]
 
-    def guard_user_can_manage_character(self, character: Character, user: "User") -> bool:
+    async def guard_user_can_manage_character(self, character: Character, user: "User") -> bool:
         """Guard to check if the user is able to update traits on the given character.
 
-        Users must be a storyteller or admin or the owner of the character.
-
-        Args:
-            character: The character to check the permissions for.
-            user: The user to check the permissions for.
+        Storytellers and admins always may. For NPC characters, management is governed
+        by the company's permission_manage_npc setting (NPCs are ownerless). For PLAYER
+        and STORYTELLER characters, the acting user must own the character.
 
         Returns:
             True if the user is able to update traits on the given character.
 
         Raises:
-            PermissionDeniedError: If the user does not have permissions to update traits.
+            PermissionDeniedError: If the user does not have permission.
         """
-        if character.user_player_id == user.id or user.role in [  # type: ignore[attr-defined]
-            UserRole.STORYTELLER,
-            UserRole.ADMIN,
-        ]:
+        if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
+            return True
+        if character.type == CharacterType.NPC:
+            settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]
+            if settings is None:
+                raise PermissionDeniedError(detail="No rights to access this resource")
+            if npc_management_permitted(settings.permission_manage_npc, user):
+                return True
+            raise PermissionDeniedError(detail="User does not own this character")
+        if character.user_player_id == user.id:  # type: ignore[attr-defined]
             return True
         raise PermissionDeniedError(detail="User does not own this character")
 
@@ -291,6 +296,11 @@ class CharacterTraitService:
             PermissionDeniedError: If the user does not have permissions.
         """
         if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
+            return True
+
+        # NPC/STORYTELLER characters are NO_COST-only and governed by permission_manage_npc
+        # (and storyteller rules), so the free-trait permission does not apply to them.
+        if character.type != CharacterType.PLAYER:
             return True
 
         settings = await CompanySettings.filter(company_id=company.id).first()
@@ -783,7 +793,7 @@ class CharacterTraitService:
             return BulkAssignTraitResponse(succeeded=succeeded, failed=failed)
 
         # Permission check once for the whole batch
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
         await self._guard_permissions_free_trait_changes(company, character, user)
 
         # Batch-fetch all Trait documents
@@ -994,7 +1004,7 @@ class CharacterTraitService:
             ConflictError: If the trait already exists on the character.
             ValidationError: If the trait cannot be created.
         """
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
         await self._guard_permissions_free_trait_changes(company, character, user)
 
         cleaned_name = data.name.strip()
@@ -1081,7 +1091,7 @@ class CharacterTraitService:
         Returns:
             The character trait that was increased.
         """
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
         await self._guard_permissions_free_trait_changes(company, character, user)
         self._guard_is_safe_increase(character_trait, num_dots)
 
@@ -1115,7 +1125,7 @@ class CharacterTraitService:
             PermissionDeniedError: If the user does not have permissions to decrease the trait.
             ValidationError: If the trait cannot be lowered below min value.
         """
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
         await self._guard_permissions_free_trait_changes(company, character, user)
         self._guard_is_safe_decrease(character_trait, num_dots)
 
@@ -1150,7 +1160,7 @@ class CharacterTraitService:
         Returns:
             The updated CharacterTrait.
         """
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
 
         cost: int
         if is_increase:
@@ -1215,7 +1225,7 @@ class CharacterTraitService:
         Returns:
             The updated CharacterTrait.
         """
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
 
         cost: int
         if is_increase:
@@ -1505,7 +1515,7 @@ class CharacterTraitService:
             PermissionDeniedError: If the user does not have permissions to delete the trait.
             ValidationError: If the trait cannot be deleted.
         """
-        self.guard_user_can_manage_character(character, user)
+        await self.guard_user_can_manage_character(character, user)
 
         if currency and currency != TraitModifyCurrency.NO_COST:
             character_trait = await self.modify_trait_value(

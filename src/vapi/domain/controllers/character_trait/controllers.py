@@ -248,7 +248,7 @@ class CharacterTraitController(Controller):
     ) -> None:
         """Delete a character trait."""
         service = CharacterTraitService()
-        service.guard_user_can_manage_character(character=character, user=acting_user)
+        await service.guard_user_can_manage_character(character=character, user=acting_user)
         recoup_store = request.app.stores.get(settings.stores.recoup_session_key)
         request.state.audit_description = f"Delete trait '{character_trait.trait.name}' from character '{character.name_first} {character.name_last}'"
         await service.delete_trait(
