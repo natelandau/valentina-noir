@@ -15,7 +15,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import PermissionsRecoupXP, TraitModifyCurrency, UserRole
+from vapi.constants import CharacterType, PermissionsRecoupXP, TraitModifyCurrency, UserRole
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import Company, CompanySettings
@@ -1066,3 +1066,35 @@ class TestBulkAssignTraitsToCharacter:
 
         # Then the request is rejected
         assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+async def test_player_cannot_list_storyteller_character_traits(
+    client: AsyncClient,
+    build_url: Callable[..., str],
+    session_company: Company,
+    session_campaign: Any,
+    session_user: User,
+    character_factory: Callable[..., Character],
+    token_global_admin: dict[str, str],
+) -> None:
+    """Verify a player cannot list traits of a storyteller character."""
+    # Given a storyteller-type character
+    st_char = await character_factory(
+        company=session_company,
+        campaign=session_campaign,
+        type=CharacterType.STORYTELLER,
+    )
+    player_header = {"On-Behalf-Of": str(session_user.id)}
+
+    # When the player lists its traits
+    response = await client.get(
+        build_url(
+            Characters.TRAITS,
+            company_id=session_company.id,
+            character_id=st_char.id,
+        ),
+        headers=token_global_admin | player_header,
+    )
+
+    # Then access is forbidden
+    assert response.status_code == HTTP_403_FORBIDDEN

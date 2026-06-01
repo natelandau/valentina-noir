@@ -4,7 +4,7 @@ icon: lucide/user
 
 # Characters
 
-Characters are the core entities in Valentina Noir. They represent player characters, NPCs, and storyteller-controlled figures within your campaigns. Each character belongs to a single campaign and company.
+Characters are the core entities in Valentina Noir. Each character belongs to a single campaign and company. A character's type determines who can see and manage it, so every character endpoint requires the `On-Behalf-Of` header to identify the acting user.
 
 ## Character Properties
 
@@ -25,14 +25,24 @@ Character class determines the supernatural type (or lack thereof) and affects w
 
 ### Character Types
 
-Character type indicates who controls the character and its role in the story.
+A character's type controls who can see and manage it. Every character endpoint
+requires the `On-Behalf-Of` header so the API can apply these rules to the acting
+user.
 
-| Type          | Description                      |
-| ------------- | -------------------------------- |
-| `PLAYER`      | Player character                 |
-| `NPC`         | Non-player character             |
-| `STORYTELLER` | Storyteller-controlled character |
-| `DEVELOPER`   | Developer character              |
+| Type          | Who can see it               | Who can create or edit it    |
+| ------------- | ---------------------------- | ---------------------------- |
+| `PLAYER`      | Everyone in the company      | Any approved member          |
+| `NPC`         | Everyone in the company      | Any approved member          |
+| `STORYTELLER` | Storytellers and admins only | Storytellers and admins only |
+
+- **`PLAYER`** is the primary type. Each player character is tied to a specific
+  user through `user_player_id`.
+- **`NPC`** characters are non-player characters. Anyone in the company can see
+  and run them, though storytellers usually do.
+- **`STORYTELLER`** characters are hidden from players. They never appear in a
+  player's character list, and a player who requests one by ID receives a `403`
+  response. Only storytellers and admins can create a storyteller character,
+  convert an existing character to the storyteller type, or edit and delete one.
 
 ### Game Versions
 
@@ -80,7 +90,7 @@ Generate a single character with random attributes. This method is restricted to
 You can optionally specify:
 
 - Character class (or let the system choose randomly)
-- Character type (defaults to NPC)
+- Character type (required; single autogeneration is restricted to storytellers)
 - Experience level - How many dots and traits are granted to the character - `NEW`, `INTERMEDIATE`, `ADVANCED`, or `ELITE`
 - Skill focus - How dots of traits are distributed between abilities - `JACK_OF_ALL_TRADES`, `BALANCED`, or `SPECIALIST`
 - [Concept](./character_concepts.md)

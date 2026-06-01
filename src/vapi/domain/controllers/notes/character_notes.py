@@ -12,6 +12,11 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    storyteller_character_access_guard,
+    user_active_guard,
+)
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -22,6 +27,11 @@ class CharacterNoteController(BaseNoteController):
     """Character notes controller."""
 
     tags = [APITags.CHARACTERS_NOTES.name]
+    guards = [
+        developer_company_user_guard,
+        user_active_guard,
+        storyteller_character_access_guard,
+    ]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
         "character": Provide(deps.provide_character_by_id_and_company),

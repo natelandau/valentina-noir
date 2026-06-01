@@ -10,7 +10,11 @@ from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, urls
-from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    storyteller_character_access_guard,
+    user_active_guard,
+)
 from vapi.openapi.tags import APITags
 
 from . import docs, dto, lib
@@ -27,7 +31,7 @@ class StatisticsController(Controller):
         "character": Provide(deps.provide_character_by_id_and_company),
         "campaign": Provide(deps.provide_campaign_by_id),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_active_guard, storyteller_character_access_guard]
 
     @get(
         path=urls.Companies.STATISTICS,

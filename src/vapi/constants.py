@@ -103,7 +103,6 @@ class CharacterType(StrEnum):
     PLAYER = "PLAYER"
     NPC = "NPC"
     STORYTELLER = "STORYTELLER"
-    DEVELOPER = "DEVELOPER"
 
 
 class CompanyPermission(StrEnum):

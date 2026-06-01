@@ -10,6 +10,7 @@ import msgspec
 from tortoise.exceptions import NoValuesFetched
 from tortoise.queryset import Prefetch
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
@@ -52,8 +53,16 @@ def get_user_include_prefetch_map() -> dict[UserInclude, list[str | Prefetch]]:
         ],
         UserInclude.NOTES: [active_prefetch("notes", Note)],
         UserInclude.ASSETS: [active_prefetch("owned_assets", S3Asset)],
+        # Storyteller characters are GM-controlled and hidden from players, so they
+        # are never embedded here regardless of the viewer. Use the character
+        # endpoints (which are role-aware) to access storyteller characters.
         UserInclude.CHARACTERS: [
-            active_prefetch("played_characters", Character, nested=CHARACTER_RESPONSE_PREFETCH),
+            active_prefetch(
+                "played_characters",
+                Character,
+                nested=CHARACTER_RESPONSE_PREFETCH,
+                exclude={"type": CharacterType.STORYTELLER},
+            ),
         ],
     }
 

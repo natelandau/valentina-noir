@@ -15,6 +15,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
+    storyteller_character_access_guard,
     user_active_guard,
     user_character_player_or_storyteller_guard,
 )
@@ -36,7 +37,7 @@ class CharacterInventoryController(Controller):
         "inventory_item": Provide(deps.provide_inventory_item_by_id),
         "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_active_guard]
+    guards = [developer_company_user_guard, user_active_guard, storyteller_character_access_guard]
 
     @get(
         path=urls.Characters.INVENTORY,

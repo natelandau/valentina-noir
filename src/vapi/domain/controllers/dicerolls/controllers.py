@@ -7,6 +7,7 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
 from litestar.params import Parameter
+from tortoise.expressions import Q
 
 from vapi.constants import CharacterType
 from vapi.db.sql_models.company import Company
@@ -15,8 +16,8 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DiceRollService
-from vapi.lib.exceptions import NotFoundError
-from vapi.lib.guards import developer_company_user_guard, user_active_guard
+from vapi.lib.exceptions import NotFoundError, PermissionDeniedError
+from vapi.lib.guards import STORYTELLER_ROLES, developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -38,9 +39,10 @@ class DiceRollController(Controller):
         operation_id="listDiceRolls",
         description=docs.LIST_DICEROLLS_DESCRIPTION,
     )
-    async def list_dicerolls(
+    async def list_dicerolls(  # noqa: PLR0913
         self,
         company: Company,
+        acting_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         userid: Annotated[
@@ -69,6 +71,14 @@ class DiceRollController(Controller):
             filters["character__type"] = character_type
 
         qs = DiceRoll.filter(**filters).order_by("-id")
+        # Players must not see rolls tied to storyteller-only characters. A plain
+        # exclude(character__type=...) on this nullable FK would also discard
+        # null-character rolls (SQL NOT-on-NULL is not TRUE), so explicitly keep
+        # rolls with no character via an OR clause.
+        if acting_user.role not in STORYTELLER_ROLES:
+            qs = qs.filter(
+                Q(character_id__isnull=True) | ~Q(character__type=CharacterType.STORYTELLER)
+            )
         count = await qs.count()
         dice_rolls = await qs.offset(offset).limit(limit).prefetch_related("roll_result", "traits")
         return OffsetPagination(
@@ -84,7 +94,9 @@ class DiceRollController(Controller):
         operation_id="getDiceRoll",
         description=docs.GET_DICEROLL_DESCRIPTION,
     )
-    async def get_diceroll(self, company: Company, diceroll_id: UUID) -> dto.DiceRollResponse:
+    async def get_diceroll(
+        self, company: Company, acting_user: User, diceroll_id: UUID
+    ) -> dto.DiceRollResponse:
         """Get a dice roll by ID."""
         dice_roll = (
             await DiceRoll.filter(
@@ -92,11 +104,20 @@ class DiceRollController(Controller):
                 is_archived=False,
                 company_id=company.id,
             )
-            .prefetch_related("roll_result", "traits")
+            .prefetch_related("roll_result", "traits", "character")
             .first()
         )
         if not dice_roll:
             raise NotFoundError(detail=f"Dice roll {diceroll_id} not found")
+
+        # Players must not read rolls tied to storyteller-only characters.
+        if (
+            dice_roll.character is not None
+            and dice_roll.character.type == CharacterType.STORYTELLER
+            and acting_user.role not in STORYTELLER_ROLES
+        ):
+            raise PermissionDeniedError(detail="No rights to access this resource")
+
         return dto.DiceRollResponse.from_model(dice_roll)
 
     @post(

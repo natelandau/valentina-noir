@@ -14,7 +14,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import UserRole
+from vapi.constants import CharacterType, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
@@ -508,6 +508,51 @@ class TestUserController:
             )
 
             # Then only the played character is returned
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert len(data["characters"]) == 1
+            assert data["characters"][0]["id"] == str(played.id)
+
+        async def test_get_user_include_characters_excludes_storyteller(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            session_campaign: Campaign,
+            character_factory: Callable[..., Any],
+        ) -> None:
+            """Verify include=characters never embeds storyteller-type characters."""
+            # Given a player-type and a storyteller-type character owned by the user
+            played = await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+                type=CharacterType.PLAYER,
+            )
+            await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+                type=CharacterType.STORYTELLER,
+            )
+
+            # When we include characters
+            response = await client.get(
+                build_url(
+                    UsersURL.DETAIL,
+                    user_id=session_user.id,
+                    company_id=session_company.id,
+                ),
+                headers=token_global_admin,
+                params={"include": ["characters"]},
+            )
+
+            # Then the storyteller character is omitted and only the player character remains
             assert response.status_code == HTTP_200_OK
             data = response.json()
             assert len(data["characters"]) == 1
