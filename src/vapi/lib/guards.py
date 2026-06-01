@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from litestar.handlers.base import BaseRouteHandler
 
 __all__ = (
+    "STORYTELLER_ROLES",
     "assert_can_assign_storyteller_type",
     "developer_company_admin_guard",
     "developer_company_owner_guard",
@@ -34,6 +35,10 @@ __all__ = (
     "user_character_player_or_storyteller_guard",
     "user_storyteller_guard",
 )
+
+# Roles permitted to see and manage storyteller-type characters. Single source of
+# truth so the list filter, the access guard, and the create/update check stay in sync.
+STORYTELLER_ROLES: frozenset[UserRole] = frozenset({UserRole.STORYTELLER, UserRole.ADMIN})
 
 
 async def _resolve_acting_user_from_header(
@@ -279,8 +284,16 @@ async def storyteller_character_access_guard(
     except ValueError as e:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
 
+    # Scope the lookup to the company so a character from another company is treated
+    # as not-found (matching provide_character_by_id_and_company), rather than leaking
+    # its existence via a 403 instead of a 404.
+    char_filter: dict[str, object] = {"id": character_uuid, "is_archived": False}
+    company_id_str = connection.path_params.get("company_id")
+    if company_id_str:
+        char_filter["company_id"] = company_id_str
+
     # Fetch character and acting user in parallel since they are independent lookups
-    character_coro = Character.filter(id=character_uuid, is_archived=False).first()
+    character_coro = Character.filter(**char_filter).first()
     user_coro = _resolve_acting_user_from_header(connection)
     character, user = await asyncio.gather(character_coro, user_coro)
 
@@ -290,10 +303,7 @@ async def storyteller_character_access_guard(
     if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
         raise PermissionDeniedError(detail="No rights to access this resource")
 
-    if character.type == CharacterType.STORYTELLER and user.role not in {
-        UserRole.STORYTELLER,
-        UserRole.ADMIN,
-    }:
+    if character.type == CharacterType.STORYTELLER and user.role not in STORYTELLER_ROLES:
         raise PermissionDeniedError(detail="No rights to access this resource")
 
 
@@ -303,8 +313,5 @@ def assert_can_assign_storyteller_type(user: User, requested_type: CharacterType
     Call from create and update handlers where the requested character type comes
     from the request body and therefore cannot be checked by a connection guard.
     """
-    if requested_type == CharacterType.STORYTELLER and user.role not in {
-        UserRole.STORYTELLER,
-        UserRole.ADMIN,
-    }:
+    if requested_type == CharacterType.STORYTELLER and user.role not in STORYTELLER_ROLES:
         raise PermissionDeniedError(detail="No rights to access this resource")

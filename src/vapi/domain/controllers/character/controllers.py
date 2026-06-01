@@ -11,7 +11,7 @@ from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType, UserRole
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType
 from vapi.db.sql_models.character import (
     Character,
     HunterAttributes,
@@ -27,6 +27,7 @@ from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import (
+    STORYTELLER_ROLES,
     assert_can_assign_storyteller_type,
     developer_company_user_guard,
     storyteller_character_access_guard,
@@ -118,7 +119,7 @@ class CharacterController(Controller):
             filters["status"] = status
 
         qs = Character.filter(**filters).order_by("name_first", "name_last", "id")
-        if acting_user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
+        if acting_user.role not in STORYTELLER_ROLES:
             qs = qs.exclude(type=CharacterType.STORYTELLER)
         count, characters = await asyncio.gather(
             qs.count(),

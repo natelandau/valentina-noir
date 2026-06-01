@@ -9,7 +9,7 @@ from litestar.handlers import get, post
 from litestar.params import Parameter
 from tortoise.expressions import Q
 
-from vapi.constants import CharacterType, UserRole
+from vapi.constants import CharacterType
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.user import User
@@ -17,7 +17,7 @@ from vapi.domain import deps, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DiceRollService
 from vapi.lib.exceptions import NotFoundError, PermissionDeniedError
-from vapi.lib.guards import developer_company_user_guard, user_active_guard
+from vapi.lib.guards import STORYTELLER_ROLES, developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -75,7 +75,7 @@ class DiceRollController(Controller):
         # exclude(character__type=...) on this nullable FK would also discard
         # null-character rolls (SQL NOT-on-NULL is not TRUE), so explicitly keep
         # rolls with no character via an OR clause.
-        if acting_user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
+        if acting_user.role not in STORYTELLER_ROLES:
             qs = qs.filter(
                 Q(character_id__isnull=True) | ~Q(character__type=CharacterType.STORYTELLER)
             )
@@ -114,7 +114,7 @@ class DiceRollController(Controller):
         if (
             dice_roll.character is not None
             and dice_roll.character.type == CharacterType.STORYTELLER
-            and acting_user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
+            and acting_user.role not in STORYTELLER_ROLES
         ):
             raise PermissionDeniedError(detail="No rights to access this resource")
 
