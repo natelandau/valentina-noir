@@ -54,11 +54,17 @@ class Character(BaseModel):
     )
 
     # FKs
-    user_creator: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", related_name="created_characters", on_delete=fields.OnDelete.CASCADE
+    user_creator: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
+        "models.User",
+        related_name="created_characters",
+        on_delete=fields.OnDelete.SET_NULL,
+        null=True,
     )
-    user_player: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
-        "models.User", related_name="played_characters", on_delete=fields.OnDelete.CASCADE
+    user_player: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
+        "models.User",
+        related_name="played_characters",
+        on_delete=fields.OnDelete.CASCADE,
+        null=True,
     )
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="characters", on_delete=fields.OnDelete.CASCADE
