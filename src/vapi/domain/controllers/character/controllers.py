@@ -257,26 +257,8 @@ class CharacterController(Controller):
         if data.type is not msgspec.UNSET:
             assert_can_assign_storyteller_type(acting_user, data.type)
 
-        effective_type = data.type if data.type is not msgspec.UNSET else character.type
-        player_provided = data.user_player_id is not msgspec.UNSET
-        if effective_type == CharacterType.PLAYER:
-            # A PLAYER character must always have a player; never allow clearing it
-            if player_provided and data.user_player_id is None:
-                raise ValidationError(detail="PLAYER characters must have a user_player_id")
-            # Converting into PLAYER requires an explicit player in the same request
-            if character.type != CharacterType.PLAYER and not player_provided:
-                raise ValidationError(
-                    detail="Converting a character to PLAYER requires user_player_id"
-                )
-        else:
-            # NPC and STORYTELLER characters must never have a player
-            if player_provided and data.user_player_id is not None:
-                raise ValidationError(detail="NPC and STORYTELLER characters cannot have a player")
-            # Force-null the player; apply_patch treats None as a real value to apply,
-            # which clears the column for PLAYER -> NPC/STORYTELLER transitions.
-            data.user_player_id = None
-
         service = CharacterService()
+        service.reconcile_type_and_player(character, data)
         changes = await service.apply_character_patch(character, data)
         await service.prepare_for_save(character)
         await character.save()
