@@ -173,7 +173,10 @@ class CharacterService:
         """
         if requested_type != CharacterType.NPC:
             return
-        if not npc_management_permitted(company.settings.permission_manage_npc, user):
+        # company.settings is prefetched by provide_company_by_id; deny (rather than
+        # 500) on the rare missing-settings case, matching the character and trait guards.
+        settings = company.settings
+        if settings is None or not npc_management_permitted(settings.permission_manage_npc, user):
             raise PermissionDeniedError(detail="No rights to access this resource")
 
     async def apply_concept_specialties(self, character: Character) -> None:
