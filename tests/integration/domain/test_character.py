@@ -604,8 +604,10 @@ class TestCharacterController:
         )
 
         # Then we get a 404
+        # The access guard resolves the character before the handler, so the
+        # not-found detail now includes the requested character ID.
         assert response.status_code == HTTP_404_NOT_FOUND
-        assert response.json()["detail"] == "Character not found"
+        assert response.json()["detail"] == f"Character '{fake_id}' not found"
 
     async def test_get_character_no_include_omits_children(
         self,
