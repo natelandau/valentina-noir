@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from litestar.config.response_cache import default_cache_key_builder
 
 from vapi.config import settings
-from vapi.constants import AUTH_HEADER_KEY
+from vapi.constants import AUTH_HEADER_KEY, ON_BEHALF_OF_HEADER_KEY
 from vapi.lib.crypt import hmac_sha256_hex
 
 if TYPE_CHECKING:
@@ -27,7 +27,13 @@ __all__ = (
 def response_cache_key_builder(request: Request) -> str:
     """Create a cache key for the response cache.
 
-    The cache key is a combination of the API key fingerprint followed by the request method and path parameters.
+    The cache key combines the API key fingerprint, the acting end-user from the
+    On-Behalf-Of header, and the request method and path parameters.
+
+    The acting user is part of the key because responses are role-dependent (for
+    example, storyteller characters are hidden from players). A single API key is
+    shared across end-users, so omitting On-Behalf-Of would let one user receive
+    another user's cached, role-filtered response.
 
     Args:
         request (Request): Current request instance.
@@ -37,7 +43,8 @@ def response_cache_key_builder(request: Request) -> str:
         str: App slug prefixed cache key.
     """
     fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY))
-    return f"{fingerprint}:{default_cache_key_builder(request)}"
+    acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY) or ""
+    return f"{fingerprint}:{acting_user}:{default_cache_key_builder(request)}"
 
 
 async def delete_authentication_cache_for_api_key(request: Request) -> None:
