@@ -2110,6 +2110,7 @@ class TestStorytellerCharacterVisibility:
         assert "STORYTELLER" not in returned_types
         returned_ids = {item["id"] for item in response.json()["items"]}
         assert str(player_char.id) in returned_ids
+        assert response.json()["total"] == 1
 
     async def test_list_includes_storyteller_characters_for_storyteller(
         self,
