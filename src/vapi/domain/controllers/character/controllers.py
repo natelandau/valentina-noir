@@ -260,10 +260,11 @@ class CharacterController(Controller):
         effective_type = data.type if data.type is not msgspec.UNSET else character.type
         player_provided = data.user_player_id is not msgspec.UNSET
         if effective_type == CharacterType.PLAYER:
+            # A PLAYER character must always have a player; never allow clearing it
+            if player_provided and data.user_player_id is None:
+                raise ValidationError(detail="PLAYER characters must have a user_player_id")
             # Converting into PLAYER requires an explicit player in the same request
-            if character.type != CharacterType.PLAYER and (
-                not player_provided or data.user_player_id is None
-            ):
+            if character.type != CharacterType.PLAYER and not player_provided:
                 raise ValidationError(
                     detail="Converting a character to PLAYER requires user_player_id"
                 )
