@@ -10,7 +10,7 @@ from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType, UserRole
 from vapi.db.sql_models.character import (
     Character,
     HunterAttributes,
@@ -27,6 +27,7 @@ from vapi.domain.services import CharacterService, CharacterSheetService
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.guards import (
     developer_company_user_guard,
+    storyteller_character_access_guard,
     user_active_guard,
     user_character_player_or_storyteller_guard,
 )
@@ -56,7 +57,7 @@ class CharacterController(Controller):
         "character": Provide(deps.provide_character_by_id_and_company),
         "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard, user_active_guard]
+    guards = [developer_company_user_guard, user_active_guard, storyteller_character_access_guard]
 
     @get(
         path=urls.Characters.LIST,
@@ -68,6 +69,7 @@ class CharacterController(Controller):
     async def list_characters(  # noqa: PLR0913
         self,
         company: Company,
+        acting_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         campaign_id: Annotated[UUID, Parameter(description="Filter by campaign.")] | None = None,
@@ -114,6 +116,8 @@ class CharacterController(Controller):
             filters["status"] = status
 
         qs = Character.filter(**filters).order_by("name_first", "name_last", "id")
+        if acting_user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
+            qs = qs.exclude(type=CharacterType.STORYTELLER)
         count, characters = await asyncio.gather(
             qs.count(),
             qs.offset(offset).limit(limit).prefetch_related(*CHARACTER_RESPONSE_PREFETCH),

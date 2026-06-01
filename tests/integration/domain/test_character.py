@@ -11,6 +11,7 @@ from litestar.status_codes import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
@@ -2068,3 +2069,138 @@ class TestCharacterTypeRemoval:
 
         # Then the request is rejected as a bad request
         assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+class TestStorytellerCharacterVisibility:
+    """Test that storyteller-type characters are hidden from players."""
+
+    async def test_list_excludes_storyteller_characters_for_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a player listing characters does not see storyteller characters."""
+        # Given a player-type and a storyteller-type character in the company
+        player_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.PLAYER,
+        )
+        await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player lists characters
+        response = await client.get(
+            build_url(CharacterURL.LIST, company_id=session_company.id),
+            headers=token_global_admin | player_header,
+        )
+
+        # Then only the non-storyteller character is returned
+        assert response.status_code == HTTP_200_OK
+        returned_types = {item["type"] for item in response.json()["items"]}
+        assert "STORYTELLER" not in returned_types
+        returned_ids = {item["id"] for item in response.json()["items"]}
+        assert str(player_char.id) in returned_ids
+
+    async def test_list_includes_storyteller_characters_for_storyteller(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user_storyteller: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a storyteller listing characters sees storyteller characters."""
+        # Given a storyteller-type character in the company
+        await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        st_header = {"On-Behalf-Of": str(session_user_storyteller.id)}
+
+        # When the storyteller lists characters
+        response = await client.get(
+            build_url(CharacterURL.LIST, company_id=session_company.id),
+            headers=token_global_admin | st_header,
+        )
+
+        # Then storyteller characters are present
+        assert response.status_code == HTTP_200_OK
+        returned_types = {item["type"] for item in response.json()["items"]}
+        assert "STORYTELLER" in returned_types
+
+    async def test_get_storyteller_character_forbidden_for_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a player fetching a storyteller character by ID gets 403."""
+        # Given a storyteller-type character
+        st_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player requests it by ID
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                character_id=st_char.id,
+            ),
+            headers=token_global_admin | player_header,
+        )
+
+        # Then access is forbidden
+        assert response.status_code == HTTP_403_FORBIDDEN
+
+    async def test_get_storyteller_character_allowed_for_storyteller(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user_storyteller: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a storyteller fetching a storyteller character by ID succeeds."""
+        # Given a storyteller-type character
+        st_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        st_header = {"On-Behalf-Of": str(session_user_storyteller.id)}
+
+        # When the storyteller requests it by ID
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                character_id=st_char.id,
+            ),
+            headers=token_global_admin | st_header,
+        )
+
+        # Then it is returned
+        assert response.status_code == HTTP_200_OK
