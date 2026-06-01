@@ -2208,6 +2208,37 @@ class TestStorytellerCharacterVisibility:
         # Then it is returned
         assert response.status_code == HTTP_200_OK
 
+    async def test_player_list_with_storyteller_type_filter_returns_empty(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a player filtering the list by storyteller type gets an empty page."""
+        # Given a storyteller-type character in the company
+        await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player lists characters filtered to the storyteller type
+        response = await client.get(
+            build_url(CharacterURL.LIST, company_id=session_company.id),
+            headers=token_global_admin | player_header,
+            params={"character_type": "STORYTELLER"},
+        )
+
+        # Then the page is empty
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["items"] == []
+        assert response.json()["total"] == 0
+
 
 class TestStorytellerCharacterCreation:
     """Test storyteller/admin restriction on creating and converting storyteller characters."""
