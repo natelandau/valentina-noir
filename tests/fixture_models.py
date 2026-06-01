@@ -421,7 +421,7 @@ async def character_factory(company_factory, user_factory, campaign_factory):
         if (
             "user_player" not in kwargs
             and "user_player_id" not in kwargs
-            and kwargs.get("type", "PLAYER") == CharacterType.PLAYER
+            and kwargs.get("type", CharacterType.PLAYER) == CharacterType.PLAYER
         ):
             kwargs["user_player"] = kwargs.get("user_creator") or await user_factory(
                 company=kwargs.get("company")

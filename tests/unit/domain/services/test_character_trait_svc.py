@@ -2535,6 +2535,43 @@ class TestGetValueOptions:
         assert result.options["1"].can_use_xp is True
         assert result.options["1"].can_use_starting_points is True
 
+    async def test_get_value_options_npc_reports_no_spendable_currency(
+        self,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        company_factory,
+        trait_factory,
+    ) -> None:
+        """Verify a player-less NPC reports no XP or starting-point affordability."""
+        # Given an NPC character (no player) with starting points and a trait
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(
+            type=CharacterType.NPC,
+            user_player=None,
+            campaign=campaign,
+            company=company,
+            starting_points=5,
+        )
+        trait = await trait_factory(
+            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
+        )
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+
+        # When we get value options
+        service = CharacterTraitService()
+        result = await service.get_value_options(
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then no option is spendable via XP or starting points (NO_COST only),
+        # even downgrades that would otherwise refund/grant currency
+        assert result.xp_current == 0
+        assert all(not option.can_use_xp for option in result.options.values())
+        assert all(not option.can_use_starting_points for option in result.options.values())
+
     async def test_get_value_options_at_max_value(
         self,
         character_factory,

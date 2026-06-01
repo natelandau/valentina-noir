@@ -1309,9 +1309,11 @@ class CharacterTraitService:
         """
         current_value = character_trait.value
         starting_points_current = character.starting_points
-        # XP balance is only meaningful for PLAYER characters; NPC/STORYTELLER have no XP pool.
+        # XP and starting-point currencies are only valid for PLAYER characters;
+        # NPC/STORYTELLER are restricted to NO_COST, so report no spendable currency.
+        is_player = character.type == CharacterType.PLAYER
         xp_current = 0
-        if character.type == CharacterType.PLAYER:
+        if is_player:
             user_svc = UserXPService()
             user_player_id = character.user_player_id  # type: ignore[attr-defined]
             campaign_id = character.campaign_id  # type: ignore[attr-defined]
@@ -1339,9 +1341,9 @@ class CharacterTraitService:
             options[str(target_value)] = TraitValueOptionDetail(
                 direction="increase",
                 point_change=cost,
-                can_use_xp=is_flaw or xp_after >= 0,
+                can_use_xp=is_player and (is_flaw or xp_after >= 0),
                 xp_after=xp_after,
-                can_use_starting_points=is_flaw or starting_points_after >= 0,
+                can_use_starting_points=is_player and (is_flaw or starting_points_after >= 0),
                 starting_points_after=starting_points_after,
             )
 
@@ -1357,9 +1359,9 @@ class CharacterTraitService:
             options[key] = TraitValueOptionDetail(
                 direction="decrease",
                 point_change=savings,
-                can_use_xp=not is_flaw or xp_after >= 0,
+                can_use_xp=is_player and (not is_flaw or xp_after >= 0),
                 xp_after=xp_after,
-                can_use_starting_points=not is_flaw or starting_points_after >= 0,
+                can_use_starting_points=is_player and (not is_flaw or starting_points_after >= 0),
                 starting_points_after=starting_points_after,
             )
 
