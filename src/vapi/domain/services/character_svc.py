@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import msgspec
 
-from vapi.constants import CharacterClass, CharacterStatus
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType
 from vapi.db.sql_models.character import (
     Character,
     CharacterTrait,
@@ -215,6 +215,39 @@ class CharacterService:
     _NESTED_ATTRIBUTE_FIELDS: frozenset[str] = frozenset(
         {"vampire_attributes", "werewolf_attributes", "mage_attributes", "hunter_attributes"}
     )
+
+    def reconcile_type_and_player(self, character: Character, data: "CharacterPatch") -> None:
+        """Enforce the character type/player coherence rules on a patch in-place.
+
+        PLAYER characters must always keep a player; NPC and STORYTELLER characters
+        never have one, so any provided ``user_player_id`` is silently cleared. Call
+        before :meth:`apply_character_patch` because the rules depend on whether
+        ``user_player_id`` was provided in the request (``msgspec.UNSET``), which is
+        lost once the patch is flattened onto the model.
+
+        Args:
+            character: The current character being patched.
+            data: The patch DTO, mutated in-place to normalize ``user_player_id``.
+
+        Raises:
+            ValidationError: If a PLAYER character would be left without a player.
+        """
+        effective_type = data.type if data.type is not msgspec.UNSET else character.type
+        player_provided = data.user_player_id is not msgspec.UNSET
+        if effective_type == CharacterType.PLAYER:
+            # A PLAYER character must always have a player; never allow clearing it
+            if player_provided and data.user_player_id is None:
+                raise ValidationError(detail="PLAYER characters must have a user_player_id")
+            # Converting into PLAYER requires an explicit player in the same request
+            if character.type != CharacterType.PLAYER and not player_provided:
+                raise ValidationError(
+                    detail="Converting a character to PLAYER requires user_player_id"
+                )
+        else:
+            # NPC and STORYTELLER characters never have a player; silently clear any
+            # provided value. apply_patch treats None as a real value to apply, which
+            # clears the column for PLAYER -> NPC/STORYTELLER transitions.
+            data.user_player_id = None
 
     async def apply_character_patch(
         self, character: Character, data: "CharacterPatch"

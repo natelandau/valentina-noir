@@ -2443,7 +2443,7 @@ class TestStorytellerCharacterCreation:
 class TestCharacterPatchPlayerInvariant:
     """Test that the player/type invariant is enforced on character PATCH."""
 
-    async def test_patch_assign_player_to_npc_is_rejected(
+    async def test_patch_assign_player_to_npc_clears_player(
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
@@ -2454,7 +2454,7 @@ class TestCharacterPatchPlayerInvariant:
         token_global_admin: dict[str, str],
         on_behalf_of_header: dict[str, str],
     ) -> None:
-        """Verify patching an NPC with a user_player_id returns 400."""
+        """Verify patching an NPC with a user_player_id silently clears it."""
         # Given an NPC character with no player
         npc = await character_factory(
             company=session_company,
@@ -2475,8 +2475,11 @@ class TestCharacterPatchPlayerInvariant:
             json={"user_player_id": str(session_user.id)},
         )
 
-        # Then the request is rejected with 400
-        assert response.status_code == HTTP_400_BAD_REQUEST
+        # Then the update succeeds and the player is left null
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["type"] == CharacterType.NPC.value
+        assert data["user_player_id"] is None
 
     async def test_patch_player_to_npc_nulls_player(
         self,
