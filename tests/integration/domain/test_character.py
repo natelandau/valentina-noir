@@ -2034,3 +2034,37 @@ class TestCharacterFullSheet:
         data = response.json()
         trait_ids = [ct["trait"]["id"] for ct in data["character_traits"]]
         assert str(trait.id) in trait_ids
+
+
+class TestCharacterTypeRemoval:
+    """Test that the DEVELOPER character type is no longer accepted."""
+
+    async def test_create_character_rejects_developer_type(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify creating a character with the removed DEVELOPER type fails validation."""
+        # Given a character payload using the removed DEVELOPER type
+        payload = {
+            "name_first": "Dev",
+            "name_last": "Character",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "campaign_id": str(session_campaign.id),
+            "type": "DEVELOPER",
+        }
+
+        # When we attempt to create the character
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            json=payload,
+        )
+
+        # Then the request is rejected as a bad request
+        assert response.status_code == HTTP_400_BAD_REQUEST
