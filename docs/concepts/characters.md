@@ -32,13 +32,12 @@ user.
 | Type          | Who can see it               | Who can create or edit it    |
 | ------------- | ---------------------------- | ---------------------------- |
 | `PLAYER`      | Everyone in the company      | Any approved member          |
-| `NPC`         | Everyone in the company      | Any approved member          |
+| `NPC`         | Everyone in the company      | Depends on `permission_manage_npc` |
 | `STORYTELLER` | Storytellers and admins only | Storytellers and admins only |
 
 - **`PLAYER`** is the primary type. Each player character is tied to a specific
   user through `user_player_id`.
-- **`NPC`** characters are non-player characters. They have no player (`user_player_id` is always `null`). Anyone in the company can see
-  and run them, though storytellers usually do.
+- **`NPC`** characters are non-player characters. They have no player (`user_player_id` is always `null`). Anyone in the company can see and roll dice for them. Who may create, edit, or delete them (and manage their traits, inventory, and images) depends on the company's [`permission_manage_npc`](./company_settings.md#npc-management) setting: any approved member when `UNRESTRICTED` (the default), or storytellers and admins only when `STORYTELLER`. Storytellers and admins may always manage NPCs.
 - **`STORYTELLER`** characters are hidden from players. They have no player (`user_player_id` is always `null`). They never appear in a
   player's character list, and a player who requests one by ID receives a `403`
   response. Only storytellers and admins can create a storyteller character,
