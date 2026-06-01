@@ -8,6 +8,7 @@ import pytest
 
 from vapi.constants import (
     PermissionManageCampaign,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
@@ -198,3 +199,21 @@ class TestApplySettingsPatchMixed:
         # And unset fields are absent
         assert "settings.character_autogen_num_choices" not in changes
         assert "settings.permission_manage_campaign" not in changes
+
+
+class TestPermissionManageNpcDefault:
+    """Test the default value of the permission_manage_npc setting."""
+
+    async def test_default_permission_manage_npc_is_unrestricted(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a new company's settings default permission_manage_npc to UNRESTRICTED."""
+        # Given a company created with default settings
+        company = await company_factory()
+
+        # When the settings are loaded
+        settings = await CompanySettings.filter(company=company).first()
+
+        # Then permission_manage_npc defaults to UNRESTRICTED
+        assert settings.permission_manage_npc == PermissionManageNPC.UNRESTRICTED

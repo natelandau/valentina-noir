@@ -9,6 +9,7 @@ from tortoise.validators import MinLengthValidator
 
 from vapi.constants import (
     PermissionManageCampaign,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
@@ -78,6 +79,11 @@ class CompanySettings(BaseModel):
     )
     permission_manage_campaign = fields.CharEnumField(
         PermissionManageCampaign, default=PermissionManageCampaign.UNRESTRICTED
+    )
+    permission_manage_npc = fields.CharEnumField(
+        PermissionManageNPC,
+        default=PermissionManageNPC.UNRESTRICTED,
+        db_default="UNRESTRICTED",
     )
     permission_grant_xp = fields.CharEnumField(
         PermissionsGrantXP, default=PermissionsGrantXP.UNRESTRICTED
