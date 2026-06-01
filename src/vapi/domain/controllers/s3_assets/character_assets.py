@@ -16,7 +16,12 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.s3_assets import dto
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.guards import user_character_player_or_storyteller_guard
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    storyteller_character_access_guard,
+    user_active_guard,
+    user_character_player_or_storyteller_guard,
+)
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
@@ -29,6 +34,11 @@ class CharacterAssetsController(BaseAssetsController):
 
     parent_fk_field = "character_id"
     tags = [APITags.CHARACTERS_ASSETS.name]
+    guards = [
+        developer_company_user_guard,
+        user_active_guard,
+        storyteller_character_access_guard,
+    ]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
         "acting_user": Provide(deps.provide_acting_user),
