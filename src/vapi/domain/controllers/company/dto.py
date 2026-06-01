@@ -22,6 +22,7 @@ class CompanySettingsResponse(msgspec.Struct):
     character_autogen_num_choices: int
     character_autogen_starting_points: int
     permission_manage_campaign: str
+    permission_manage_npc: str
     permission_grant_xp: str
     permission_free_trait_changes: str
     permission_recoup_xp: str
@@ -35,6 +36,7 @@ class CompanySettingsResponse(msgspec.Struct):
             character_autogen_num_choices=m.character_autogen_num_choices,
             character_autogen_starting_points=m.character_autogen_starting_points,
             permission_manage_campaign=m.permission_manage_campaign.value,
+            permission_manage_npc=m.permission_manage_npc.value,
             permission_grant_xp=m.permission_grant_xp.value,
             permission_free_trait_changes=m.permission_free_trait_changes.value,
             permission_recoup_xp=m.permission_recoup_xp.value,
@@ -141,6 +143,7 @@ class CompanySettingsCreate(msgspec.Struct):
     character_autogen_num_choices: int = 3
     character_autogen_starting_points: int = 0
     permission_manage_campaign: str = "UNRESTRICTED"
+    permission_manage_npc: str = "UNRESTRICTED"
     permission_grant_xp: str = "UNRESTRICTED"
     permission_free_trait_changes: str = "UNRESTRICTED"
     permission_recoup_xp: str = "DENIED"
@@ -165,6 +168,7 @@ class CompanySettingsPatch(msgspec.Struct):
     character_autogen_num_choices: int | msgspec.UnsetType = msgspec.UNSET
     character_autogen_starting_points: int | msgspec.UnsetType = msgspec.UNSET
     permission_manage_campaign: str | msgspec.UnsetType = msgspec.UNSET
+    permission_manage_npc: str | msgspec.UnsetType = msgspec.UNSET
     permission_grant_xp: str | msgspec.UnsetType = msgspec.UNSET
     permission_free_trait_changes: str | msgspec.UnsetType = msgspec.UNSET
     permission_recoup_xp: str | msgspec.UnsetType = msgspec.UNSET
