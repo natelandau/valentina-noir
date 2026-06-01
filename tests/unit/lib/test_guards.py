@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from vapi.constants import PermissionManageCampaign, UserRole
+from vapi.constants import PermissionManageCampaign, PermissionManageNPC, UserRole
 from vapi.lib.exceptions import (
     ClientError,
     NotFoundError,
@@ -16,6 +16,7 @@ from vapi.lib.exceptions import (
 )
 from vapi.lib.guards import (
     developer_company_user_guard,
+    npc_management_permitted,
     user_active_guard,
     user_can_manage_campaign,
     user_character_player_or_storyteller_guard,
@@ -484,3 +485,35 @@ class TestUserCanManageCampaignStoryteller:
         # Then it raises PermissionDeniedError
         with pytest.raises(PermissionDeniedError, match="No rights to access this resource"):
             await user_can_manage_campaign(connection, _mock_handler(mocker))
+
+
+class TestNpcManagementPermitted:
+    """Test the npc_management_permitted decision helper."""
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected"),
+        [
+            (PermissionManageNPC.UNRESTRICTED, UserRole.PLAYER, True),
+            (PermissionManageNPC.UNRESTRICTED, UserRole.STORYTELLER, True),
+            (PermissionManageNPC.UNRESTRICTED, UserRole.ADMIN, True),
+            (PermissionManageNPC.STORYTELLER, UserRole.PLAYER, False),
+            (PermissionManageNPC.STORYTELLER, UserRole.STORYTELLER, True),
+            (PermissionManageNPC.STORYTELLER, UserRole.ADMIN, True),
+        ],
+    )
+    def test_npc_management_permitted(
+        self,
+        mocker: MockerFixture,
+        permission: PermissionManageNPC,
+        role: UserRole,
+        expected: bool,
+    ) -> None:
+        """Verify the helper resolves role x permission to the right boolean."""
+        # Given a user with the given role
+        user = mocker.MagicMock(role=role)
+
+        # When evaluating the permission
+        result = npc_management_permitted(permission, user)
+
+        # Then the result matches the expectation
+        assert result is expected

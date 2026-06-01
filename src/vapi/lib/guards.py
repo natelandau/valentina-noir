@@ -13,6 +13,7 @@ from vapi.constants import (
     CharacterType,
     CompanyPermission,
     PermissionManageCampaign,
+    PermissionManageNPC,
     UserRole,
 )
 from vapi.db.sql_models import Character, Company, DeveloperCompanyPermission, User
@@ -29,6 +30,7 @@ __all__ = (
     "developer_company_owner_guard",
     "developer_company_user_guard",
     "global_admin_guard",
+    "npc_management_permitted",
     "storyteller_character_access_guard",
     "user_active_guard",
     "user_can_manage_campaign",
@@ -39,6 +41,24 @@ __all__ = (
 # Roles permitted to see and manage storyteller-type characters. Single source of
 # truth so the list filter, the access guard, and the create/update check stay in sync.
 STORYTELLER_ROLES: frozenset[UserRole] = frozenset({UserRole.STORYTELLER, UserRole.ADMIN})
+
+
+def npc_management_permitted(permission: PermissionManageNPC, user: User) -> bool:
+    """Return whether the user may manage NPC characters under the company permission.
+
+    Storytellers and admins always may; otherwise the company's
+    permission_manage_npc value decides. Used by the character and trait guards and
+    the create/convert-to-NPC service check so the rule lives in one place.
+    """
+    if user.role in STORYTELLER_ROLES:
+        return True
+    match permission:
+        case PermissionManageNPC.UNRESTRICTED:
+            return True
+        case PermissionManageNPC.STORYTELLER:
+            return False
+        case _:  # pragma: no cover
+            assert_never(permission)
 
 
 async def _resolve_acting_user_from_header(
