@@ -15,9 +15,7 @@ from vapi.constants import (
     PermissionManageCampaign,
     UserRole,
 )
-from vapi.db.sql_models.company import Company
-from vapi.db.sql_models.developer import DeveloperCompanyPermission
-from vapi.db.sql_models.user import User
+from vapi.db.sql_models import Character, Company, DeveloperCompanyPermission, User
 from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
@@ -197,8 +195,6 @@ async def user_character_player_or_storyteller_guard(
     path params. Raise PermissionDeniedError unless the acting user is the
     character's player or has STORYTELLER/ADMIN role.
     """
-    from vapi.db.sql_models.character import Character
-
     character_id_str = connection.path_params.get("character_id")
     if not character_id_str:
         raise ValidationError(
@@ -274,8 +270,6 @@ async def storyteller_character_access_guard(
     when no ``character_id`` is present so the guard can sit at controller scope
     alongside list and create routes that share the controller.
     """
-    from vapi.db.sql_models.character import Character
-
     character_id_str = connection.path_params.get("character_id")
     if not character_id_str:
         return
