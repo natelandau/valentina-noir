@@ -2438,3 +2438,115 @@ class TestStorytellerCharacterCreation:
 
         # Then the update is forbidden
         assert response.status_code == HTTP_403_FORBIDDEN
+
+
+class TestCharacterPatchPlayerInvariant:
+    """Test that the player/type invariant is enforced on character PATCH."""
+
+    async def test_patch_assign_player_to_npc_is_rejected(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify patching an NPC with a user_player_id returns 400."""
+        # Given an NPC character with no player
+        npc = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            user_creator=session_user,
+            user_player=None,
+            type=CharacterType.NPC,
+        )
+
+        # When we patch it to assign a player without changing type
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE,
+                company_id=session_company.id,
+                character_id=npc.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+            json={"user_player_id": str(session_user.id)},
+        )
+
+        # Then the request is rejected with 400
+        assert response.status_code == HTTP_400_BAD_REQUEST
+
+    async def test_patch_player_to_npc_nulls_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify patching a PLAYER character to NPC succeeds and clears user_player_id."""
+        # Given a PLAYER character with an assigned player
+        player_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            user_creator=session_user,
+            user_player=session_user,
+            type=CharacterType.PLAYER,
+        )
+
+        # When we patch the type to NPC without supplying user_player_id
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE,
+                company_id=session_company.id,
+                character_id=player_char.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+            json={"type": "NPC"},
+        )
+
+        # Then the update succeeds and player is nulled out
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["type"] == CharacterType.NPC.value
+        assert data["user_player_id"] is None
+
+    async def test_patch_npc_to_player_without_player_is_rejected(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify patching an NPC to PLAYER without providing user_player_id returns 400."""
+        # Given an NPC character with no player
+        npc = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            user_creator=session_user,
+            user_player=None,
+            type=CharacterType.NPC,
+        )
+
+        # When we patch the type to PLAYER without a user_player_id
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE,
+                company_id=session_company.id,
+                character_id=npc.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+            json={"type": "PLAYER"},
+        )
+
+        # Then the request is rejected with 400
+        assert response.status_code == HTTP_400_BAD_REQUEST
