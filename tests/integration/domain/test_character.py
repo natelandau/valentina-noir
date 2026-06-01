@@ -2205,3 +2205,135 @@ class TestStorytellerCharacterVisibility:
 
         # Then it is returned
         assert response.status_code == HTTP_200_OK
+
+
+class TestStorytellerCharacterCreation:
+    """Test storyteller/admin restriction on creating and converting storyteller characters."""
+
+    async def test_player_cannot_create_storyteller_character(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a player creating a storyteller-type character gets 403."""
+        # Given a storyteller-type character payload from a player
+        payload = {
+            "name_first": "Hidden",
+            "name_last": "Boss",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "campaign_id": str(session_campaign.id),
+            "type": "STORYTELLER",
+        }
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player attempts to create it
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | player_header,
+            json=payload,
+        )
+
+        # Then creation is forbidden
+        assert response.status_code == HTTP_403_FORBIDDEN
+
+    async def test_player_can_create_npc(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a player can create an NPC character."""
+        # Given an NPC payload from a player
+        payload = {
+            "name_first": "Friendly",
+            "name_last": "Bartender",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "campaign_id": str(session_campaign.id),
+            "type": "NPC",
+        }
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player creates it
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | player_header,
+            json=payload,
+        )
+
+        # Then creation succeeds
+        assert response.status_code == HTTP_201_CREATED
+
+    async def test_storyteller_can_create_storyteller_character(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user_storyteller: User,
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a storyteller can create a storyteller-type character."""
+        # Given a storyteller-type payload from a storyteller
+        payload = {
+            "name_first": "Secret",
+            "name_last": "Antagonist",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "campaign_id": str(session_campaign.id),
+            "type": "STORYTELLER",
+        }
+        st_header = {"On-Behalf-Of": str(session_user_storyteller.id)}
+
+        # When the storyteller creates it
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | st_header,
+            json=payload,
+        )
+
+        # Then creation succeeds
+        assert response.status_code == HTTP_201_CREATED
+
+    async def test_player_cannot_promote_character_to_storyteller(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify a player cannot PATCH their character's type to STORYTELLER."""
+        # Given a player-owned player-type character
+        char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            user_player=session_user,
+            user_creator=session_user,
+            type=CharacterType.PLAYER,
+        )
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player attempts to promote it to STORYTELLER
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE,
+                company_id=session_company.id,
+                character_id=char.id,
+            ),
+            headers=token_global_admin | player_header,
+            json={"type": "STORYTELLER"},
+        )
+
+        # Then the update is forbidden
+        assert response.status_code == HTTP_403_FORBIDDEN
