@@ -15,7 +15,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType, UserRole
 from vapi.db.sql_models.character import (
     Character,
     CharacterTrait,
@@ -28,6 +28,7 @@ from vapi.domain.urls import Characters as CharacterURL
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Any
 
     from httpx import AsyncClient
 
@@ -2553,3 +2554,173 @@ class TestCharacterPatchPlayerInvariant:
 
         # Then the request is rejected with 400
         assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+class TestNpcManagementPermission:
+    """Test permission_manage_npc enforcement on NPC character management."""
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected_status"),
+        [
+            ("UNRESTRICTED", UserRole.PLAYER, HTTP_201_CREATED),
+            ("STORYTELLER", UserRole.PLAYER, HTTP_403_FORBIDDEN),
+            ("STORYTELLER", UserRole.STORYTELLER, HTTP_201_CREATED),
+        ],
+    )
+    async def test_create_npc_respects_permission(
+        self,
+        permission: str,
+        role: UserRole,
+        expected_status: int,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Any],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify creating an NPC respects permission_manage_npc for the acting user."""
+        # Given a company with the given NPC permission and an acting user of the given role
+        company = await company_factory(settings__permission_manage_npc=permission)
+        actor = await user_factory(company=company, role=role.value)
+        campaign = await campaign_factory(company=company)
+
+        # When creating an NPC on behalf of the actor
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+            json={
+                "name_first": "Vinny",
+                "name_last": "NPC",
+                "character_class": "MORTAL",
+                "type": "NPC",
+                "game_version": "V5",
+                "campaign_id": str(campaign.id),
+            },
+        )
+
+        # Then the response status matches the expectation
+        assert response.status_code == expected_status
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected_status"),
+        [
+            ("UNRESTRICTED", UserRole.PLAYER, HTTP_200_OK),
+            ("STORYTELLER", UserRole.PLAYER, HTTP_403_FORBIDDEN),
+            ("STORYTELLER", UserRole.STORYTELLER, HTTP_200_OK),
+        ],
+    )
+    async def test_update_npc_respects_permission(
+        self,
+        permission: str,
+        role: UserRole,
+        expected_status: int,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify updating an NPC respects permission_manage_npc for the acting user."""
+        # Given a company with the given NPC permission, an NPC, and an acting user
+        company = await company_factory(settings__permission_manage_npc=permission)
+        actor = await user_factory(company=company, role=role.value)
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+
+        # When patching the NPC on behalf of the actor
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE,
+                company_id=company.id,
+                character_id=npc.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+            json={"name_first": "Renamed"},
+        )
+
+        # Then the response status matches the expectation
+        assert response.status_code == expected_status
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected_status"),
+        [
+            ("UNRESTRICTED", UserRole.PLAYER, HTTP_204_NO_CONTENT),
+            ("STORYTELLER", UserRole.PLAYER, HTTP_403_FORBIDDEN),
+            ("STORYTELLER", UserRole.STORYTELLER, HTTP_204_NO_CONTENT),
+        ],
+    )
+    async def test_delete_npc_respects_permission(
+        self,
+        permission: str,
+        role: UserRole,
+        expected_status: int,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify deleting an NPC respects permission_manage_npc for the acting user."""
+        # Given a company with the given NPC permission, an NPC, and an acting user
+        company = await company_factory(settings__permission_manage_npc=permission)
+        actor = await user_factory(company=company, role=role.value)
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+
+        # When deleting the NPC on behalf of the actor
+        response = await client.delete(
+            build_url(
+                CharacterURL.DELETE,
+                company_id=company.id,
+                character_id=npc.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+        )
+
+        # Then the response status matches the expectation
+        assert response.status_code == expected_status
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected_status"),
+        [
+            ("UNRESTRICTED", UserRole.PLAYER, HTTP_200_OK),
+            ("STORYTELLER", UserRole.PLAYER, HTTP_403_FORBIDDEN),
+        ],
+    )
+    async def test_convert_player_to_npc_respects_permission(
+        self,
+        permission: str,
+        role: UserRole,
+        expected_status: int,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify converting a PLAYER character to NPC respects permission_manage_npc."""
+        # Given a company with the given NPC permission, a PLAYER character owned by the actor
+        company = await company_factory(settings__permission_manage_npc=permission)
+        actor = await user_factory(company=company, role=role.value)
+        player_char = await character_factory(
+            company=company,
+            user_player=actor,
+            user_creator=actor,
+            type=CharacterType.PLAYER,
+        )
+
+        # When patching the character type to NPC on behalf of the actor
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE,
+                company_id=company.id,
+                character_id=player_char.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+            json={"type": "NPC"},
+        )
+
+        # Then the response status matches the expectation
+        assert response.status_code == expected_status

@@ -1098,3 +1098,51 @@ async def test_player_cannot_list_storyteller_character_traits(
 
     # Then access is forbidden
     assert response.status_code == HTTP_403_FORBIDDEN
+
+
+class TestNpcTraitManagementPermission:
+    """Test permission_manage_npc enforcement on NPC trait operations."""
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected_status"),
+        [
+            ("UNRESTRICTED", UserRole.PLAYER, HTTP_200_OK),
+            ("STORYTELLER", UserRole.PLAYER, HTTP_403_FORBIDDEN),
+            ("STORYTELLER", UserRole.STORYTELLER, HTTP_200_OK),
+        ],
+    )
+    async def test_modify_npc_trait_respects_permission(
+        self,
+        permission: str,
+        role: UserRole,
+        expected_status: int,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify modifying an NPC trait value respects permission_manage_npc."""
+        # Given a company with the NPC permission, an NPC with a trait, and an acting user
+        company = await company_factory(settings__permission_manage_npc=permission)
+        actor = await user_factory(company=company, role=role.value)
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+        trait = await Trait.filter(is_archived=False).first()
+        character_trait = await character_trait_factory(value=0, trait=trait, character=npc)
+
+        # When increasing the trait value with NO_COST on behalf of the actor
+        response = await client.put(
+            build_url(
+                Characters.TRAIT_VALUE,
+                company_id=company.id,
+                character_id=npc.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+            json={"target_value": 1, "currency": "NO_COST"},
+        )
+
+        # Then the response status matches the expectation
+        assert response.status_code == expected_status
