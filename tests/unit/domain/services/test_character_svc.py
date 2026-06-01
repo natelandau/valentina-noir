@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from vapi.constants import CharacterStatus
+from vapi.constants import CharacterStatus, CharacterType, PermissionManageNPC
 from vapi.db.sql_models.character import (
     Character,
     CharacterTrait,
@@ -16,7 +16,7 @@ from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, W
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.controllers.character.dto import CharacterTraitCreate
 from vapi.domain.services import CharacterService
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -656,3 +656,78 @@ class TestArchiveCharacter:
         await character.refresh_from_db()
         assert character.is_archived is True
         assert character.archive_date is not None
+
+
+class TestAssertCanAssignNpcType:
+    """Test CharacterService.assert_can_assign_npc_type."""
+
+    async def test_player_blocked_when_storyteller_only(
+        self,
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a player cannot assign the NPC type when the company restricts it."""
+        # Given a STORYTELLER-only company and a player
+        company = await company_factory(
+            settings__permission_manage_npc=PermissionManageNPC.STORYTELLER
+        )
+        player = await user_factory(company=company, role="PLAYER")
+
+        # When asserting NPC type assignment
+        # Then PermissionDeniedError is raised
+        with pytest.raises(PermissionDeniedError):
+            CharacterService().assert_can_assign_npc_type(
+                company=company, user=player, requested_type=CharacterType.NPC
+            )
+
+    async def test_player_allowed_when_unrestricted(
+        self,
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a player may assign the NPC type when the company is unrestricted."""
+        # Given an unrestricted company (default) and a player
+        company = await company_factory()
+        player = await user_factory(company=company, role="PLAYER")
+
+        # When asserting NPC type assignment
+        # Then no exception is raised
+        CharacterService().assert_can_assign_npc_type(
+            company=company, user=player, requested_type=CharacterType.NPC
+        )
+
+    async def test_non_npc_type_is_a_noop(
+        self,
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify assigning a non-NPC type is always allowed regardless of the setting."""
+        # Given a STORYTELLER-only company and a player
+        company = await company_factory(
+            settings__permission_manage_npc=PermissionManageNPC.STORYTELLER
+        )
+        player = await user_factory(company=company, role="PLAYER")
+
+        # When assigning PLAYER type
+        # Then no exception is raised
+        CharacterService().assert_can_assign_npc_type(
+            company=company, user=player, requested_type=CharacterType.PLAYER
+        )
+
+    async def test_storyteller_always_allowed(
+        self,
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a storyteller may assign NPC type even when the company restricts it."""
+        # Given a STORYTELLER-only company and a storyteller
+        company = await company_factory(
+            settings__permission_manage_npc=PermissionManageNPC.STORYTELLER
+        )
+        storyteller = await user_factory(company=company, role="STORYTELLER")
+
+        # When asserting NPC type assignment
+        # Then no exception is raised
+        CharacterService().assert_can_assign_npc_type(
+            company=company, user=storyteller, requested_type=CharacterType.NPC
+        )

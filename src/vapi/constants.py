@@ -187,6 +187,13 @@ class PermissionManageCampaign(StrEnum):
     STORYTELLER = "STORYTELLER"
 
 
+class PermissionManageNPC(StrEnum):
+    """Permissions for managing NPC characters."""
+
+    UNRESTRICTED = "UNRESTRICTED"  # Default
+    STORYTELLER = "STORYTELLER"
+
+
 class RollResultType(StrEnum):
     """Enum for results of a roll."""
 

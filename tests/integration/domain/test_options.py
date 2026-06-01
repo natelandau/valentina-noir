@@ -11,6 +11,7 @@ from vapi.constants import (
     CompanyPermission,
     DiceSize,
     PermissionManageCampaign,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
@@ -46,6 +47,7 @@ async def test_get_company_options(
     assert response.json()["companies"] == {
         "CompanyPermission": [x.value for x in CompanyPermission],
         "PermissionManageCampaign": [x.value for x in PermissionManageCampaign],
+        "PermissionManageNPC": [x.value for x in PermissionManageNPC],
         "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
         "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
         "PermissionsRecoupXP": [x.value for x in PermissionsRecoupXP],

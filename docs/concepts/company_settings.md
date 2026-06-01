@@ -85,3 +85,18 @@ Control whether players can lower a trait value (which would otherwise refund th
 This setting only applies to trait updates that specify the `XP` currency. Updates using `NO_COST` or `STARTING_POINTS` are never affected.
 
 The `WITHIN_SESSION` window is a sliding 1-hour activity window per (user, character, trait). The "start of editing" anchor is captured the first time the user touches a trait in a fresh window and is not updated by subsequent raises.
+
+### NPC Management
+
+Control who can create, update, delete, and modify the traits, inventory, and images of NPC characters.
+
+| Setting        | Behavior                                                          |
+| -------------- | ----------------------------------------------------------------- |
+| `UNRESTRICTED` | Any approved member manages NPC characters (default)              |
+| `STORYTELLER`  | Only storytellers manage NPC characters                           |
+
+!!! info "Storyteller Privileges"
+
+    Storytellers and admins always manage NPC characters regardless of this setting.
+
+This setting does not affect viewing or rolling dice for NPCs. Any approved member may always see an NPC and roll dice for it. It also has no effect on `PLAYER` or `STORYTELLER` characters.

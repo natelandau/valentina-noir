@@ -14,6 +14,7 @@ from litestar.params import Parameter
 from vapi.constants import (
     CompanyPermission,
     PermissionManageCampaign,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
@@ -72,6 +73,7 @@ async def _apply_settings_patch(
         ("character_autogen_num_choices", None),
         ("character_autogen_starting_points", None),
         ("permission_manage_campaign", PermissionManageCampaign),
+        ("permission_manage_npc", PermissionManageNPC),
         ("permission_grant_xp", PermissionsGrantXP),
         ("permission_free_trait_changes", PermissionsFreeTraitChanges),
         ("permission_recoup_xp", PermissionsRecoupXP),
@@ -167,6 +169,7 @@ class CompanyController(Controller):
                 "character_autogen_num_choices": data.settings.character_autogen_num_choices,
                 "character_autogen_starting_points": data.settings.character_autogen_starting_points,
                 "permission_manage_campaign": data.settings.permission_manage_campaign,
+                "permission_manage_npc": data.settings.permission_manage_npc,
                 "permission_grant_xp": data.settings.permission_grant_xp,
                 "permission_free_trait_changes": data.settings.permission_free_trait_changes,
                 "permission_recoup_xp": data.settings.permission_recoup_xp,

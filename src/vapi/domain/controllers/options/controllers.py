@@ -23,6 +23,7 @@ from vapi.constants import (
     HunterEdgeType,
     InventoryItemType,
     PermissionManageCampaign,
+    PermissionManageNPC,
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
@@ -74,6 +75,7 @@ class OptionsController(Controller):
             "companies": {
                 "CompanyPermission": [x.value for x in CompanyPermission],
                 "PermissionManageCampaign": [x.value for x in PermissionManageCampaign],
+                "PermissionManageNPC": [x.value for x in PermissionManageNPC],
                 "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
                 "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
                 "PermissionsRecoupXP": [x.value for x in PermissionsRecoupXP],

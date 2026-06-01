@@ -1,6 +1,7 @@
 """Test inventory item."""
 
 from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -10,12 +11,14 @@ from litestar.status_codes import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import InventoryItemType
+from vapi.constants import CharacterType, InventoryItemType, UserRole
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.user import User
 from vapi.domain.urls import Characters
 
 pytestmark = pytest.mark.anyio
@@ -336,3 +339,46 @@ class TestInventoryItem:
         assert response.status_code == HTTP_204_NO_CONTENT
         await item.refresh_from_db()
         assert item.is_archived
+
+
+class TestNpcInventoryManagementPermission:
+    """Test permission_manage_npc enforcement on NPC inventory operations."""
+
+    @pytest.mark.parametrize(
+        ("permission", "role", "expected_status"),
+        [
+            ("UNRESTRICTED", UserRole.PLAYER, HTTP_201_CREATED),
+            ("STORYTELLER", UserRole.PLAYER, HTTP_403_FORBIDDEN),
+        ],
+    )
+    async def test_create_npc_inventory_item_respects_permission(
+        self,
+        permission: str,
+        role: UserRole,
+        expected_status: int,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify adding an inventory item to an NPC respects permission_manage_npc."""
+        # Given a company with the given NPC permission, an NPC, and an acting user
+        company = await company_factory(settings__permission_manage_npc=permission)
+        actor = await user_factory(company=company, role=role.value)
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+
+        # When the actor creates an inventory item for the NPC
+        response = await client.post(
+            build_url(
+                Characters.INVENTORY_CREATE,
+                company_id=company.id,
+                character_id=npc.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+            json={"name": "Test Weapon", "type": "WEAPON"},
+        )
+
+        # Then the response status matches the expectation
+        assert response.status_code == expected_status

@@ -13,16 +13,18 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import CharacterType, RollResultType
+from vapi.constants import CharacterType, RollResultType, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.urls import DiceRolls
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Any
 
     from httpx import AsyncClient
 
     from vapi.db.sql_models.campaign import Campaign
+    from vapi.db.sql_models.character import Character
     from vapi.db.sql_models.company import Company
     from vapi.db.sql_models.developer import Developer
     from vapi.db.sql_models.user import User
@@ -598,3 +600,28 @@ class TestDiceRoll:
         assert data["user_id"] == str(session_user.id)
         assert data["company_id"] == str(session_company.id)
         assert data["result"]["total_result_type"] in RollResultType
+
+    async def test_player_can_roll_dice_for_npc_when_storyteller_only(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+    ) -> None:
+        """Verify dice rolls for an NPC are not gated by permission_manage_npc."""
+        # Given a STORYTELLER-only company, an NPC, and a player
+        company = await company_factory(settings__permission_manage_npc="STORYTELLER")
+        player = await user_factory(company=company, role=UserRole.PLAYER.value)
+        npc = await character_factory(company=company, type=CharacterType.NPC)
+
+        # When the player rolls dice for the NPC
+        response = await client.post(
+            build_url(DiceRolls.CREATE, company_id=company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(player.id)},
+            json={"num_dice": 3, "difficulty": 6, "character_id": str(npc.id)},
+        )
+
+        # Then the roll succeeds (dice rolls are never gated by permission_manage_npc)
+        assert response.status_code == HTTP_201_CREATED
