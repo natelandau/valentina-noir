@@ -433,16 +433,20 @@ class TestDiceRoll:
         diceroll_factory: Callable[..., Any],
         debug: Callable[[Any], None],
     ) -> None:
-        """Verify a player listing dice rolls does not see rolls for storyteller characters."""
-        # Given a dice roll tied to a storyteller character
+        """Verify a player listing dice rolls excludes storyteller rolls but keeps null-character rolls."""
+        # Given a dice roll tied to a storyteller character and a roll with no character
         st_char = await character_factory(
             company=session_company,
             campaign=session_campaign,
             type=CharacterType.STORYTELLER,
         )
-        await diceroll_factory(
+        st_roll = await diceroll_factory(
             company=session_company,
             character=st_char,
+            user=session_user,
+        )
+        null_roll = await diceroll_factory(
+            company=session_company,
             user=session_user,
         )
         player_header = {"On-Behalf-Of": str(session_user.id)}
@@ -453,10 +457,11 @@ class TestDiceRoll:
             headers=token_global_admin | player_header,
         )
 
-        # Then no roll for the storyteller character is returned
+        # Then the storyteller-character roll is excluded but the null-character roll is preserved
         assert response.status_code == HTTP_200_OK
-        returned_char_ids = {item.get("character_id") for item in response.json()["items"]}
-        assert str(st_char.id) not in returned_char_ids
+        returned_ids = {item["id"] for item in response.json()["items"]}
+        assert str(st_roll.id) not in returned_ids
+        assert str(null_roll.id) in returned_ids
 
     async def test_storyteller_diceroll_list_includes_storyteller_characters(
         self,
