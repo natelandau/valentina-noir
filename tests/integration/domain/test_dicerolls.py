@@ -9,10 +9,11 @@ import pytest
 from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import RollResultType
+from vapi.constants import CharacterType, RollResultType
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.urls import DiceRolls
 
@@ -419,6 +420,117 @@ class TestDiceRoll:
         assert response.status_code == HTTP_200_OK
         assert response.json()["total"] == 1
         assert response.json()["items"][0]["id"] == str(target_roll.id)
+
+    async def test_player_diceroll_list_excludes_storyteller_characters(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
+        debug: Callable[[Any], None],
+    ) -> None:
+        """Verify a player listing dice rolls does not see rolls for storyteller characters."""
+        # Given a dice roll tied to a storyteller character
+        st_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        await diceroll_factory(
+            company=session_company,
+            character=st_char,
+            user=session_user,
+        )
+        player_header = {"On-Behalf-Of": str(session_user.id)}
+
+        # When the player lists dice rolls
+        response = await client.get(
+            build_url(DiceRolls.LIST, company_id=session_company.id),
+            headers=token_global_admin | player_header,
+        )
+
+        # Then no roll for the storyteller character is returned
+        assert response.status_code == HTTP_200_OK
+        returned_char_ids = {item.get("character_id") for item in response.json()["items"]}
+        assert str(st_char.id) not in returned_char_ids
+
+    async def test_storyteller_diceroll_list_includes_storyteller_characters(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user_storyteller: User,
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
+        debug: Callable[[Any], None],
+    ) -> None:
+        """Verify a storyteller listing dice rolls still sees storyteller-character rolls."""
+        # Given a dice roll tied to a storyteller character
+        st_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        st_roll = await diceroll_factory(
+            company=session_company,
+            character=st_char,
+            user=session_user_storyteller,
+        )
+
+        # When the storyteller lists dice rolls
+        response = await client.get(
+            build_url(DiceRolls.LIST, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user_storyteller.id)},
+        )
+
+        # Then the storyteller-character roll is returned
+        assert response.status_code == HTTP_200_OK
+        returned_ids = {item["id"] for item in response.json()["items"]}
+        assert str(st_roll.id) in returned_ids
+
+    async def test_player_get_diceroll_storyteller_character_forbidden(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        character_factory: Callable[..., Any],
+        diceroll_factory: Callable[..., Any],
+        debug: Callable[[Any], None],
+    ) -> None:
+        """Verify a player cannot fetch a dice roll tied to a storyteller character."""
+        # Given a dice roll tied to a storyteller character
+        st_char = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            type=CharacterType.STORYTELLER,
+        )
+        st_roll = await diceroll_factory(
+            company=session_company,
+            character=st_char,
+            user=session_user,
+        )
+
+        # When the player fetches that dice roll by ID
+        response = await client.get(
+            build_url(
+                DiceRolls.DETAIL,
+                company_id=session_company.id,
+                diceroll_id=st_roll.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+        )
+
+        # Then access is denied
+        assert response.status_code == HTTP_403_FORBIDDEN
 
     async def test_create_diceroll_from_quickroll(
         self,
