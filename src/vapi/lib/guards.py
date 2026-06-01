@@ -250,7 +250,7 @@ async def user_character_player_or_storyteller_guard(
     # NPC characters are governed by the company's permission_manage_npc setting,
     # not by player ownership (NPCs are ownerless). Storytellers/admins always pass,
     # so resolve them before the settings query (also avoids a needless round-trip).
-    if character.type == CharacterType.NPC:  # type: ignore[attr-defined]
+    if character.type == CharacterType.NPC:
         if user.role in STORYTELLER_ROLES:
             return
         # company_id is only known after the character resolves, so this query is
