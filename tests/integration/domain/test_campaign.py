@@ -126,7 +126,9 @@ class TestGetCampaign:
         assert body["num_books"] == 2
         assert body["num_chapters"] == 0
         assert body["num_notes"] == 0
-        assert body["num_characters"] == 0
+        assert body["num_player_characters"] == 0
+        assert body["num_storyteller_characters"] == 0
+        assert body["num_npc_characters"] == 0
 
     async def test_get_campaign_wrong_company(
         self,

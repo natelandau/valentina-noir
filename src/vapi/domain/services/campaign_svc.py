@@ -9,6 +9,7 @@ from tortoise.models import Model
 from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
 
@@ -23,7 +24,21 @@ def annotate_campaign_counts(qs: QuerySet[Campaign]) -> QuerySet[Campaign]:
             distinct=True,
         ),
         num_notes=Count("notes", _filter=Q(notes__is_archived=False), distinct=True),
-        num_characters=Count("characters", _filter=Q(characters__is_archived=False), distinct=True),
+        num_player_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
+            distinct=True,
+        ),
+        num_storyteller_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.STORYTELLER),
+            distinct=True,
+        ),
+        num_npc_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
+            distinct=True,
+        ),
     )
 
 

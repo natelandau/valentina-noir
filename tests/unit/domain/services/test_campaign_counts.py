@@ -2,6 +2,7 @@
 
 import pytest
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.domain.services.campaign_svc import (
     annotate_book_counts,
@@ -21,7 +22,8 @@ async def test_campaign_counts_exact_with_fanout(
     note_factory,
 ):
     """Verify campaign counts stay exact when books, chapters, notes, and characters coexist."""
-    # Given a campaign with 2 books (3 chapters total), 2 notes, and 2 characters
+    # Given a campaign with 2 books (3 chapters total), 2 notes, and characters of each type
+    # (2 players, 1 storyteller, 1 npc)
     company = await company_factory()
     campaign = await campaign_factory(company=company)
     book1 = await campaign_book_factory(campaign=campaign)
@@ -31,17 +33,21 @@ async def test_campaign_counts_exact_with_fanout(
     await campaign_chapter_factory(book=book2)
     await note_factory(company=company, campaign=campaign)
     await note_factory(company=company, campaign=campaign)
-    await character_factory(company=company, campaign=campaign)
-    await character_factory(company=company, campaign=campaign)
+    await character_factory(company=company, campaign=campaign, type=CharacterType.PLAYER)
+    await character_factory(company=company, campaign=campaign, type=CharacterType.PLAYER)
+    await character_factory(company=company, campaign=campaign, type=CharacterType.STORYTELLER)
+    await character_factory(company=company, campaign=campaign, type=CharacterType.NPC)
 
     # When the campaign counts are annotated
     annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
 
-    # Then every count is exact
+    # Then every count is exact and characters are split by type
     assert annotated.num_books == 2
     assert annotated.num_chapters == 3
     assert annotated.num_notes == 2
-    assert annotated.num_characters == 2
+    assert annotated.num_player_characters == 2
+    assert annotated.num_storyteller_characters == 1
+    assert annotated.num_npc_characters == 1
 
 
 async def test_campaign_counts_exclude_archived(
