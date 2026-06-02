@@ -14,6 +14,7 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
+from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.user import User
 from vapi.domain.urls import GlobalAdmin
 
@@ -311,3 +312,37 @@ async def test_admin_list_users_filtered_by_archived_state(
     returned_ids = [item["id"] for item in response.json()["items"]]
     assert str(archived_user.id) in returned_ids
     assert str(active_user.id) not in returned_ids
+
+
+async def test_admin_update_writes_audit_attributed_to_developer(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_global_admin: Any,
+    build_url: Callable[..., str],
+    company_factory: Callable[..., Any],
+    user_factory: Callable[..., Any],
+) -> None:
+    """Verify a global-admin update is audited to the developer, not the target user."""
+    # Given a user
+    company = await company_factory()
+    user = await user_factory(company=company, role="PLAYER")
+
+    # When the global admin patches the user's role
+    response = await client.patch(
+        build_url(GlobalAdmin.USER_UPDATE, user_id=user.id),
+        headers=token_global_admin,
+        json={"role": "STORYTELLER"},
+    )
+    assert response.status_code == HTTP_200_OK
+
+    # Then an audit row exists, attributed to the developer, targeting the user,
+    # with no acting_user (the target is not recorded as the actor)
+    entry = (
+        await AuditLog.filter(operation_id="globalAdminUpdateUser", user_id=user.id)
+        .order_by("-date_created")
+        .first()
+    )
+    assert entry is not None
+    assert entry.developer_id == session_global_admin.id  # type: ignore[attr-defined]
+    assert entry.acting_user_id is None  # type: ignore[attr-defined]
+    assert "role" in (entry.changes or {})
