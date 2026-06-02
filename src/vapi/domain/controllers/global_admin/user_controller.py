@@ -13,12 +13,12 @@ from vapi.constants import UserRole
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
+from vapi.domain.services import GlobalAdminUserService
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import AdminUserCreate, AdminUserPatch, AdminUserResponse
-from .user_svc import GlobalAdminUserService
 
 
 class GlobalAdminUserController(Controller):

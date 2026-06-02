@@ -7,7 +7,7 @@ import pytest
 
 from vapi.constants import UserRole
 from vapi.domain.controllers.global_admin.dto import AdminUserCreate, AdminUserPatch
-from vapi.domain.controllers.global_admin.user_svc import GlobalAdminUserService
+from vapi.domain.services import GlobalAdminUserService
 from vapi.lib.exceptions import NotFoundError, ValidationError
 
 pytestmark = pytest.mark.anyio

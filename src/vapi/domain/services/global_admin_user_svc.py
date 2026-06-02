@@ -7,6 +7,10 @@ are enforced. Queries are not filtered by is_archived, so archived users are
 visible and restorable.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import msgspec
 
 from vapi.constants import UserRole
@@ -15,7 +19,8 @@ from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.patch import apply_patch
 
-from .dto import AdminUserCreate, AdminUserPatch
+if TYPE_CHECKING:
+    from vapi.domain.controllers.global_admin.dto import AdminUserCreate, AdminUserPatch
 
 
 class GlobalAdminUserService:
