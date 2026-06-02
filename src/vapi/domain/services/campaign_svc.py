@@ -1,15 +1,14 @@
 """Campaign service."""
 
-import asyncio
 from typing import Protocol
 from uuid import UUID
 
 from tortoise.expressions import F
 from tortoise.models import Model
+from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
-from vapi.utils.time import time_now
 
 
 class _NumberedItem(Protocol):
@@ -56,38 +55,50 @@ class CampaignService:
         chapter.number = new_number
         return chapter
 
+    @staticmethod
+    async def _renumber_after_delete(
+        *, model: type[Model], parent_field: str, parent_id: UUID, number: int
+    ) -> None:
+        """Shift siblings numbered above ``number`` down by one to fill a deleted item's slot."""
+        await model.filter(
+            **{parent_field: parent_id}, number__gt=number, is_archived=False
+        ).update(number=F("number") - 1)
+
     async def delete_book_and_renumber(self, book: CampaignBook) -> None:
-        """Soft-delete a book and shift higher-numbered books down to fill the gap."""
-        await self._archive_and_renumber(
-            item=book,
-            model=CampaignBook,
-            parent_field="campaign_id",
-            parent_id=book.campaign_id,  # type: ignore[attr-defined]
-        )
+        """Soft-delete a book (cascading to its chapters, notes, and assets) and renumber siblings."""
+        # Local import: campaign_svc is imported before character_trait_svc in
+        # services/__init__, so a top-level handlers import would cycle.
+        from vapi.domain.handlers import archive_book
+
+        async with in_transaction():
+            await self._renumber_after_delete(
+                model=CampaignBook,
+                parent_field="campaign_id",
+                parent_id=book.campaign_id,  # type: ignore[attr-defined]
+                number=book.number,
+            )
+            await archive_book(book=book)
 
     async def delete_chapter_and_renumber(self, chapter: CampaignChapter) -> None:
-        """Soft-delete a chapter and shift higher-numbered chapters down to fill the gap."""
-        await self._archive_and_renumber(
-            item=chapter,
-            model=CampaignChapter,
-            parent_field="book_id",
-            parent_id=chapter.book_id,  # type: ignore[attr-defined]
-        )
+        """Soft-delete a chapter (cascading to its notes and assets) and renumber siblings."""
+        # Local import: campaign_svc is imported before character_trait_svc in
+        # services/__init__, so a top-level handlers import would cycle.
+        from vapi.domain.handlers import archive_chapter
+
+        async with in_transaction():
+            await self._renumber_after_delete(
+                model=CampaignChapter,
+                parent_field="book_id",
+                parent_id=chapter.book_id,  # type: ignore[attr-defined]
+                number=chapter.number,
+            )
+            await archive_chapter(chapter=chapter)
 
     async def archive_campaign(self, campaign: Campaign) -> None:
-        """Soft-archive a campaign and all its books and chapters."""
-        now = time_now()
-        # Collect book IDs first to avoid a cross-table JOIN in the UPDATE, which
-        # PostgreSQL disallows when the target table also appears in the FROM clause.
-        book_ids = await CampaignBook.filter(campaign_id=campaign.id).values_list("id", flat=True)
-        if book_ids:
-            await CampaignChapter.filter(book_id__in=book_ids, is_archived=False).update(
-                is_archived=True, archive_date=now
-            )
-        await CampaignBook.filter(campaign_id=campaign.id, is_archived=False).update(
-            is_archived=True, archive_date=now
-        )
-        await Campaign.filter(id=campaign.id).update(is_archived=True, archive_date=now)
+        """Soft-archive a campaign and cascade to its books, chapters, characters, and data."""
+        from vapi.domain.handlers import archive_campaign
+
+        await archive_campaign(campaign=campaign)
 
     @staticmethod
     async def _get_next_number(model: type[Model], parent_field: str, parent_id: UUID) -> int:
@@ -145,21 +156,3 @@ class CampaignService:
             )
 
         await model.filter(id=item.id).update(number=new_number)
-
-    @staticmethod
-    async def _archive_and_renumber(
-        *,
-        item: _NumberedItem,
-        model: type[Model],
-        parent_field: str,
-        parent_id: UUID,
-    ) -> None:
-        """Soft-delete an item and shift higher-numbered siblings down to fill the gap."""
-        await asyncio.gather(
-            model.filter(
-                **{parent_field: parent_id},
-                number__gt=item.number,
-                is_archived=False,
-            ).update(number=F("number") - 1),
-            model.filter(id=item.id).update(is_archived=True, archive_date=time_now()),
-        )

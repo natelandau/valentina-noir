@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from uuid_utils import uuid7
 
-from vapi.constants import AssetType, CharacterType, DiceSize, RollResultType
+from vapi.constants import AssetType, CharacterType, DiceSize, RollResultType, SpecialtyType
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
@@ -497,7 +497,7 @@ async def specialty_factory():
         _counter += 1
         defaults: dict[str, Any] = {
             "name": f"Test Specialty {_counter}",
-            "type": "SKILL",
+            "type": SpecialtyType.ACTION,
         }
         defaults.update(kwargs)
         specialty = await Specialty.create(**defaults)

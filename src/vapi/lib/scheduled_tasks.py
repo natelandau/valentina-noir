@@ -38,35 +38,14 @@ async def _purge_archived_models() -> None:
     ensuring each asset's backing object is deleted from AWS before removing
     the DB record.
     """
-    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
-    from vapi.db.sql_models.character import Character, CharacterInventory
-    from vapi.db.sql_models.character_concept import CharacterConcept
-    from vapi.db.sql_models.company import Company
-    from vapi.db.sql_models.diceroll import DiceRoll
-    from vapi.db.sql_models.dictionary import DictionaryTerm
-    from vapi.db.sql_models.notes import Note
-    from vapi.db.sql_models.quickroll import QuickRoll
-    from vapi.db.sql_models.user import User
+    from vapi.db.archivable import PURGE_MODELS
 
     cutoff_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS)
 
     # Order child-first to respect FK dependencies
-    for model in [
-        DiceRoll,
-        DictionaryTerm,
-        Note,
-        QuickRoll,
-        CharacterInventory,
-        Character,
-        CampaignChapter,
-        CampaignBook,
-        Campaign,
-        CharacterConcept,
-        User,
-        Company,
-    ]:
+    for model in PURGE_MODELS:
         try:
-            deleted = await model.filter(is_archived=True, date_modified__lt=cutoff_date).delete()
+            deleted = await model.filter(is_archived=True, archive_date__lt=cutoff_date).delete()
             logger.info(
                 "Purge old %s.",
                 model.__name__,
@@ -112,7 +91,7 @@ async def _purge_s3_assets() -> None:
         return
 
     try:
-        assets = await S3Asset.filter(is_archived=True, date_modified__lt=cutoff_date)
+        assets = await S3Asset.filter(is_archived=True, archive_date__lt=cutoff_date)
     except Exception:
         logger.exception("Failed to purge S3Assets.", extra=_LOG_EXTRA)
         return

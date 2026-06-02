@@ -12,11 +12,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import msgspec
+from tortoise.transactions import in_transaction
 
 from vapi.constants import UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.lib.exceptions import NotFoundError, ValidationError
+from vapi.domain.handlers import cascade_archive_user, restore_archive_batch
+from vapi.lib.exceptions import ConflictError, NotFoundError, ValidationError
 from vapi.lib.patch import apply_patch
 
 if TYPE_CHECKING:
@@ -79,7 +81,9 @@ class GlobalAdminUserService:
         UserRole enum rather than a bare string -- UserResponse.from_model reads
         ``role.value``. Archiving via this patch (is_archived false -> true)
         cascades to owned data exactly like delete_user; setting is_archived to
-        false restores the account record only (the cascade is not reversed).
+        false reverses that cascade, restoring the user and the data archived
+        with them as a unit. Restoring is refused while the user's company is
+        archived (the company must be restored first).
 
         Args:
             user: The user to update.
@@ -91,8 +95,12 @@ class GlobalAdminUserService:
 
         Raises:
             ValidationError: If the patch sets an invalid role.
+            ConflictError: If restoring the user while their company is archived.
         """
         was_archived = user.is_archived
+        # Capture before apply_patch/save clears it, so restore can reverse the batch.
+        restore_batch_id = user.archive_batch_id if was_archived else None
+
         changes = apply_patch(user, data, exclude=frozenset({"role"}))
 
         if not isinstance(data.role, msgspec.UnsetType):
@@ -104,15 +112,28 @@ class GlobalAdminUserService:
                 changes["role"] = {"old": user.role, "new": new_role}
                 user.role = new_role
 
-        await user.save()
+        going_to_restore = was_archived and not user.is_archived
+        if going_to_restore:
+            # A flat batch means restoring a user archived as part of a company
+            # archive would resurrect the whole tenant; refuse and require the
+            # company be restored first.
+            await user.fetch_related("company")
+            if user.company.is_archived:
+                raise ConflictError(
+                    detail="Cannot restore a user while their company is archived; "
+                    "restore the company first."
+                )
 
-        # Archiving via patch must cascade to owned data, identically to
-        # delete_user; otherwise the user would be hidden while their quickrolls,
-        # assets, and characters stay active.
-        if not was_archived and user.is_archived:
-            from vapi.domain.handlers.archive_handlers import archive_user_cascade
-
-            await archive_user_cascade(user.id)
+        async with in_transaction():
+            await user.save()
+            if not was_archived and user.is_archived:
+                # Archiving via patch cascades to owned data under the user's batch,
+                # identically to delete_user.
+                await cascade_archive_user(user)
+            elif going_to_restore and restore_batch_id is not None:
+                # Restoring reverses the original archive action as a unit. The user
+                # row itself was already cleared by save(); this restores the rest.
+                await restore_archive_batch(batch_id=restore_batch_id)
 
         await user.fetch_related("campaign_experiences")
         return user, changes
@@ -123,14 +144,13 @@ class GlobalAdminUserService:
         Mirrors the tenant delete path: the user record is archived and the
         cascade archives their quickrolls, assets, and played characters. The
         last-admin guard is intentionally NOT applied here -- a global admin may
-        remove any user. Restorable via update with is_archived=false (the
-        cascade is not reversed on restore).
+        remove any user. Restorable via update with is_archived=false, which
+        reverses the cascade.
 
         Args:
             user: The user to soft-delete.
         """
-        from vapi.domain.handlers.archive_handlers import archive_user_cascade
-
-        user.is_archived = True
-        await user.save()
-        await archive_user_cascade(user.id)
+        async with in_transaction():
+            user.is_archived = True
+            await user.save()
+            await cascade_archive_user(user)

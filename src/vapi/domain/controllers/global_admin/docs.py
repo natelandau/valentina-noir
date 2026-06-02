@@ -89,10 +89,14 @@ or DEACTIVATED role. Requires global admin privileges.
 
 ADMIN_UPDATE_USER_DESCRIPTION = """\
 Update any user by ID with no role-matrix restrictions. Set `is_archived` to false \
-to restore a soft-deleted user. Requires global admin privileges.
+to restore a soft-deleted user, which reverses the archive cascade and restores the \
+data archived with them. Restoring is refused with a 409 while the user's company is \
+archived; restore the company first. Requires global admin privileges.
 """
 
 ADMIN_DELETE_USER_DESCRIPTION = """\
-Soft-delete a user by ID. The user can later be restored by patching `is_archived` \
-to false. Requires global admin privileges.
+Soft-delete a user by ID. Archival cascades to their owned data (quickrolls, assets, \
+notes, and played characters); dice rolls are kept as historical records. The user \
+can later be restored by patching `is_archived` to false, which reverses the cascade. \
+Requires global admin privileges.
 """

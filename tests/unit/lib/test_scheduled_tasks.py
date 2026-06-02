@@ -10,8 +10,14 @@ import pytest
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character, CharacterTrait
+from vapi.db.sql_models.notes import Note
 from vapi.domain.services import AWSS3Service
-from vapi.lib.scheduled_tasks import _purge_audit_logs, purge_db_expired_items
+from vapi.lib.scheduled_tasks import (
+    _ARCHIVED_RETENTION_DAYS,
+    _purge_archived_models,
+    _purge_audit_logs,
+    purge_db_expired_items,
+)
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -42,9 +48,10 @@ class TestPurgeDBExpiredItems:
         character_new_not_archived = await character_factory(is_archived=False)
         character_new_archived = await character_factory(is_archived=True)
 
-        # Bypass auto_now to set old date_modified directly via filter update
+        # Backdate archive_date directly via filter update so the archived row
+        # falls outside the retention window (purge keys off archive_date)
         await Character.filter(id=character_old_not_archived.id).update(date_modified=old_date)
-        await Character.filter(id=character_old_archived.id).update(date_modified=old_date)
+        await Character.filter(id=character_old_archived.id).update(archive_date=old_date)
 
         # When we run the task
         await purge_db_expired_items({})
@@ -59,6 +66,30 @@ class TestPurgeDBExpiredItems:
 
         # Then old archived characters are deleted
         assert await Character.filter(id=character_old_archived.id).first() is None
+
+
+class TestPurgeArchivedModels:
+    """Tests for the _purge_archived_models helper."""
+
+    async def test_purge_uses_archive_date_not_date_modified(
+        self,
+        company_factory: Callable[..., Any],
+        note_factory: Callable[..., Any],
+    ) -> None:
+        """Verify purge deletes by archive_date, sparing recently-archived rows."""
+        # Given one old-archived note and one freshly-archived note
+        company = await company_factory()
+        old_note = await note_factory(company=company, is_archived=True)
+        fresh_note = await note_factory(company=company, is_archived=True)
+        old_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS + 1)
+        await Note.filter(id=old_note.id).update(archive_date=old_date)
+
+        # When the archived-model purge runs
+        await _purge_archived_models()
+
+        # Then the old one is gone and the fresh one remains
+        assert await Note.filter(id=old_note.id).exists() is False
+        assert await Note.filter(id=fresh_note.id).exists() is True
 
 
 class TestPurgeAuditLogs:
@@ -143,9 +174,10 @@ class TestPurgeS3AssetsErrorIsolation:
         asset_1 = await s3asset_factory(is_archived=True, company=company, uploaded_by=user)
         asset_2 = await s3asset_factory(is_archived=True, company=company, uploaded_by=user)
 
-        # Bypass auto_now to set old date_modified directly
-        await S3Asset.filter(id=asset_1.id).update(date_modified=old_date)
-        await S3Asset.filter(id=asset_2.id).update(date_modified=old_date)
+        # Backdate archive_date directly so the assets fall outside the
+        # retention window (purge keys off archive_date)
+        await S3Asset.filter(id=asset_1.id).update(archive_date=old_date)
+        await S3Asset.filter(id=asset_2.id).update(archive_date=old_date)
 
         # Given delete_asset fails on the first asset but succeeds on the second
         call_count = 0

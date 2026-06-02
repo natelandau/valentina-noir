@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 from tortoise.expressions import F
+from tortoise.transactions import in_transaction
 
 from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
@@ -349,13 +350,17 @@ class UserService:
             user: The user to archive.
             company: The company the user belongs to (unused - FK handles relationship).
         """
-        from vapi.domain.handlers.archive_handlers import archive_user_cascade
+        # Local import: user_svc is pulled into the services import graph (via
+        # character_trait_svc) before CharacterTraitService is bound, so a
+        # top-level handlers import would cycle.
+        from vapi.domain.handlers import cascade_archive_user
 
         await self._assert_not_last_admin(user)
 
-        user.is_archived = True
-        await user.save()
-        await archive_user_cascade(user.id)
+        async with in_transaction():
+            user.is_archived = True
+            await user.save()
+            await cascade_archive_user(user)
 
     async def approve_user(
         self,
