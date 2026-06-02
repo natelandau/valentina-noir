@@ -30,6 +30,7 @@ from vapi.domain.deps import (
 )
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
+from vapi.domain.services.character_svc import annotate_character_counts
 from vapi.domain.services.user_svc import UserXPService
 from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
@@ -131,11 +132,9 @@ class CharacterGenerationController(Controller):
         await service.prepare_for_save(new_character)
         await new_character.save()
 
-        new_character = (
-            await Character.filter(id=new_character.id)
-            .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
-            .first()
-        )
+        new_character = await annotate_character_counts(
+            Character.filter(id=new_character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        ).first()
         request.state.audit_description = f"Autogenerate {new_character.type.value.lower()} character '{new_character.name_first} {new_character.name_last} ({new_character.character_class.value.lower()})'"
 
         return CharacterResponse.from_model(new_character)
@@ -249,11 +248,11 @@ class CharacterGenerationController(Controller):
 
         await session.delete()
 
-        selected_character = (
-            await Character.filter(id=selected_character.id)
-            .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
-            .first()
-        )
+        selected_character = await annotate_character_counts(
+            Character.filter(id=selected_character.id).prefetch_related(
+                *CHARACTER_RESPONSE_PREFETCH
+            )
+        ).first()
 
         request.state.audit_description = f"Finalize chargen session {session.id} and promote character '{selected_character.name_first} {selected_character.name_last} ({selected_character.character_class.value.lower()})'"
 

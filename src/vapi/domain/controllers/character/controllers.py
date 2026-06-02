@@ -25,8 +25,9 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService
+from vapi.domain.services.character_svc import annotate_character_counts
 from vapi.lib.detail_includes import apply_includes
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
     STORYTELLER_ROLES,
     assert_can_assign_storyteller_type,
@@ -124,7 +125,9 @@ class CharacterController(Controller):
             qs = qs.exclude(type=CharacterType.STORYTELLER)
         count, characters = await asyncio.gather(
             qs.count(),
-            qs.offset(offset).limit(limit).prefetch_related(*CHARACTER_RESPONSE_PREFETCH),
+            annotate_character_counts(
+                qs.offset(offset).limit(limit).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+            ),
         )
 
         return OffsetPagination[CharacterResponse](
@@ -147,8 +150,15 @@ class CharacterController(Controller):
         include: list[CharacterInclude] | None = None,
     ) -> CharacterDetailResponse:
         """Get a character by ID with optional embedded children."""
-        requested = await apply_includes(character, include, get_character_include_prefetch_map())
-        return CharacterDetailResponse.from_model(character, requested)
+        annotated = await annotate_character_counts(
+            Character.filter(id=character.id, is_archived=False).prefetch_related(
+                *CHARACTER_RESPONSE_PREFETCH
+            )
+        ).first()
+        if not annotated:
+            raise NotFoundError(detail="Character not found")
+        requested = await apply_includes(annotated, include, get_character_include_prefetch_map())
+        return CharacterDetailResponse.from_model(annotated, requested)
 
     @post(
         path=urls.Characters.CREATE,
@@ -234,9 +244,9 @@ class CharacterController(Controller):
                 trait_create_data=data.traits,
             )
 
-        character = await (
-            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH).first()
-        )
+        character = await annotate_character_counts(
+            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        ).first()
 
         request.state.audit_description = f"Create character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
         return CharacterResponse.from_model(character)
@@ -271,9 +281,9 @@ class CharacterController(Controller):
 
         request.state.audit_changes = changes
 
-        character = await (
-            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH).first()
-        )
+        character = await annotate_character_counts(
+            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        ).first()
 
         request.state.audit_description = f"Update character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
         return CharacterResponse.from_model(character)
@@ -313,9 +323,18 @@ class CharacterController(Controller):
         ] = False,
     ) -> CharacterFullSheetDTO:
         """Get a character full sheet."""
+        # Re-fetch annotated so the embedded CharacterResponse reports real child counts;
+        # the injected character already passed company scoping, so fetching by id is safe.
+        annotated = await annotate_character_counts(
+            Character.filter(id=character.id, is_archived=False).prefetch_related(
+                *CHARACTER_RESPONSE_PREFETCH
+            )
+        ).first()
+        if not annotated:
+            raise NotFoundError(detail="Character not found")
         svc = CharacterSheetService()
         return await svc.get_character_full_sheet(
-            character, include_available_traits=include_available_traits
+            annotated, include_available_traits=include_available_traits
         )
 
     @get(

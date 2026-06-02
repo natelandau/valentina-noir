@@ -14,7 +14,9 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.domain.services.campaign_svc import annotate_chapter_counts
 from vapi.lib.detail_includes import apply_includes
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_can_manage_campaign
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
@@ -63,7 +65,7 @@ class CampaignChapterController(Controller):
         qs = CampaignChapter.filter(book_id=book.id, is_archived=False)
         count, chapters = await asyncio.gather(
             qs.count(),
-            qs.order_by("number").offset(offset).limit(limit),
+            annotate_chapter_counts(qs.order_by("number")).offset(offset).limit(limit),
         )
         return OffsetPagination(
             items=[CampaignChapterResponse.from_model(ch) for ch in chapters],
@@ -86,8 +88,13 @@ class CampaignChapterController(Controller):
         include: list[ChapterInclude] | None = None,
     ) -> CampaignChapterDetailResponse:
         """Get a chapter by ID with optional embedded children."""
-        requested = await apply_includes(chapter, include, get_chapter_include_prefetch_map())
-        return CampaignChapterDetailResponse.from_model(chapter, requested)
+        annotated = await annotate_chapter_counts(
+            CampaignChapter.filter(id=chapter.id, is_archived=False)
+        ).first()
+        if not annotated:
+            raise NotFoundError(detail="Chapter not found")
+        requested = await apply_includes(annotated, include, get_chapter_include_prefetch_map())
+        return CampaignChapterDetailResponse.from_model(annotated, requested)
 
     @post(
         path=urls.Campaigns.CHAPTER_CREATE,
@@ -115,7 +122,8 @@ class CampaignChapterController(Controller):
             number=number,
         )
         request.state.audit_description = f"Create chapter '{chapter.number}: {chapter.name}' for book '{book.number}: {book.name}'"
-        return CampaignChapterResponse.from_model(chapter)
+        annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+        return CampaignChapterResponse.from_model(annotated)
 
     @patch(
         path=urls.Campaigns.CHAPTER_UPDATE,
@@ -137,7 +145,8 @@ class CampaignChapterController(Controller):
         request.state.audit_changes = changes
         request.state.audit_description = f"Update chapter '{chapter.number}: {chapter.name}'"
         await chapter.save()
-        return CampaignChapterResponse.from_model(chapter)
+        annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+        return CampaignChapterResponse.from_model(annotated)
 
     @delete(
         path=urls.Campaigns.CHAPTER_DELETE,
@@ -182,4 +191,5 @@ class CampaignChapterController(Controller):
         request.state.audit_description = (
             f"Renumber chapter '{chapter.name}' from {old_number} to {data.number}"
         )
-        return CampaignChapterResponse.from_model(chapter)
+        annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+        return CampaignChapterResponse.from_model(annotated)

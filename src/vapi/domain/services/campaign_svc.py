@@ -3,12 +3,60 @@
 from typing import Protocol
 from uuid import UUID
 
-from tortoise.expressions import F
+from tortoise.expressions import F, Q
+from tortoise.functions import Count
 from tortoise.models import Model
+from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
+
+
+def annotate_campaign_counts(qs: QuerySet[Campaign]) -> QuerySet[Campaign]:
+    """Annotate a Campaign queryset with active child-resource counts for responses."""
+    return qs.annotate(
+        num_books=Count("books", _filter=Q(books__is_archived=False), distinct=True),
+        num_chapters=Count(
+            "books__chapters",
+            _filter=Q(books__is_archived=False, books__chapters__is_archived=False),
+            distinct=True,
+        ),
+        num_notes=Count("notes", _filter=Q(notes__is_archived=False), distinct=True),
+        num_player_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
+            distinct=True,
+        ),
+        num_storyteller_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.STORYTELLER),
+            distinct=True,
+        ),
+        num_npc_characters=Count(
+            "characters",
+            _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
+            distinct=True,
+        ),
+    )
+
+
+def annotate_book_counts(qs: QuerySet[CampaignBook]) -> QuerySet[CampaignBook]:
+    """Annotate a CampaignBook queryset with active child-resource counts for responses."""
+    return qs.annotate(
+        num_chapters=Count("chapters", _filter=Q(chapters__is_archived=False), distinct=True),
+        num_notes=Count("notes", _filter=Q(notes__is_archived=False), distinct=True),
+        num_assets=Count("assets", _filter=Q(assets__is_archived=False), distinct=True),
+    )
+
+
+def annotate_chapter_counts(qs: QuerySet[CampaignChapter]) -> QuerySet[CampaignChapter]:
+    """Annotate a CampaignChapter queryset with active child-resource counts for responses."""
+    return qs.annotate(
+        num_notes=Count("notes", _filter=Q(notes__is_archived=False), distinct=True),
+        num_assets=Count("assets", _filter=Q(assets__is_archived=False), distinct=True),
+    )
 
 
 class _NumberedItem(Protocol):

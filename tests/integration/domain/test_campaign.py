@@ -92,6 +92,44 @@ class TestGetCampaign:
         assert response.json()["id"] == str(campaign.id)
         assert response.json()["name"] == campaign.name
 
+    async def test_get_campaign_includes_counts(
+        self,
+        client: AsyncClient,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+        session_company: Company,
+        session_global_admin,
+        session_user: User,
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., object],
+        build_url: Callable[..., str],
+    ) -> None:
+        """Verify the campaign detail response includes child-resource counts."""
+        # Given a campaign with two books and no other children
+        campaign = await campaign_factory(company=session_company)
+        await campaign_book_factory(campaign=campaign)
+        await campaign_book_factory(campaign=campaign)
+
+        # When we get the campaign
+        response = await client.get(
+            build_url(
+                Campaigns.DETAIL,
+                campaign_id=campaign.id,
+                company_id=session_company.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the response reports exact counts for each child resource
+        assert response.status_code == HTTP_200_OK
+        body = response.json()
+        assert body["num_books"] == 2
+        assert body["num_chapters"] == 0
+        assert body["num_notes"] == 0
+        assert body["num_player_characters"] == 0
+        assert body["num_storyteller_characters"] == 0
+        assert body["num_npc_characters"] == 0
+
     async def test_get_campaign_wrong_company(
         self,
         client: AsyncClient,

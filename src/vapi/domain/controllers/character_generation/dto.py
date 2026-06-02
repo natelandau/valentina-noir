@@ -56,6 +56,7 @@ class ChargenSessionResponse(msgspec.Struct):
         Requires prefetch_related('characters', and all CHARACTER_RESPONSE_PREFETCH
         nested under characters).
         """
+        # Embedded session characters are not count-annotated, so their counts default to 0 (consistent with the embedded-context getattr-0 design).
         characters = [CharacterResponse.from_model(c) for c in session.characters]
         return cls(
             id=session.id,

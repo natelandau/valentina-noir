@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import Annotated
+from uuid import UUID
 
 from litestar import Request
 from litestar.controller import Controller
@@ -15,7 +16,9 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserService
+from vapi.domain.services.user_svc import annotate_user_counts
 from vapi.lib.detail_includes import apply_includes
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
 from vapi.openapi.tags import APITags
@@ -32,6 +35,14 @@ from .dto import (
     UserResponse,
     get_user_include_prefetch_map,
 )
+
+
+async def _annotated_user_response(user_id: UUID) -> UserResponse:
+    """Re-fetch a user with count annotations and build its scalar response."""
+    user = await annotate_user_counts(
+        User.filter(id=user_id).prefetch_related("campaign_experiences")
+    ).first()
+    return UserResponse.from_model(user)
 
 
 class UserController(Controller):
@@ -71,7 +82,9 @@ class UserController(Controller):
 
         count, users = await asyncio.gather(
             qs.count(),
-            qs.offset(offset).limit(limit).prefetch_related("campaign_experiences"),
+            annotate_user_counts(
+                qs.offset(offset).limit(limit).prefetch_related("campaign_experiences")
+            ),
         )
 
         return OffsetPagination(
@@ -94,8 +107,13 @@ class UserController(Controller):
         include: list[UserInclude] | None = None,
     ) -> UserDetailResponse:
         """Get a user by ID with optional embedded children."""
-        requested = await apply_includes(target_user, include, get_user_include_prefetch_map())
-        return UserDetailResponse.from_model(target_user, requested)
+        annotated = await annotate_user_counts(
+            User.filter(id=target_user.id).prefetch_related("campaign_experiences")
+        ).first()
+        if not annotated:
+            raise NotFoundError(detail="User not found")
+        requested = await apply_includes(annotated, include, get_user_include_prefetch_map())
+        return UserDetailResponse.from_model(annotated, requested)
 
     @post(
         path=urls.Users.CREATE,
@@ -111,7 +129,7 @@ class UserController(Controller):
         """Create a new user."""
         service = UserService()
         user = await service.create_user(company=company, data=data, acting_user_id=acting_user.id)
-        return UserResponse.from_model(user)
+        return await _annotated_user_response(user.id)
 
     @patch(
         path=urls.Users.UPDATE,
@@ -130,7 +148,7 @@ class UserController(Controller):
             user=target_user, data=data, acting_user_id=acting_user.id
         )
         request.state.audit_changes = changes
-        return UserResponse.from_model(target_user)
+        return await _annotated_user_response(target_user.id)
 
     @delete(
         path=urls.Users.DELETE,
@@ -172,7 +190,9 @@ class UserController(Controller):
         ).order_by("username", "id")
         count, users = await asyncio.gather(
             qs.count(),
-            qs.offset(offset).limit(limit).prefetch_related("campaign_experiences"),
+            annotate_user_counts(
+                qs.offset(offset).limit(limit).prefetch_related("campaign_experiences")
+            ),
         )
 
         return OffsetPagination(
@@ -201,7 +221,7 @@ class UserController(Controller):
             acting_user_id=acting_user.id,
         )
         request.state.audit_description = f"Approve user '{target_user.username}'"
-        return UserResponse.from_model(target_user)
+        return await _annotated_user_response(target_user.id)
 
     @post(
         path=urls.Users.DENY,
@@ -238,7 +258,7 @@ class UserController(Controller):
         service = UserService()
         user = await service.register_user(company=company, data=data)
         request.state.audit_description = f"Register user '{user.username}'"
-        return UserResponse.from_model(user)
+        return await _annotated_user_response(user.id)
 
     @post(
         path=urls.Users.MERGE,
@@ -259,4 +279,4 @@ class UserController(Controller):
             acting_user_id=acting_user.id,
         )
         request.state.audit_description = f"Merge user into '{primary_user.username}'"
-        return UserResponse.from_model(primary_user)
+        return await _annotated_user_response(primary_user.id)

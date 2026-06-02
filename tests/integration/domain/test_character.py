@@ -579,6 +579,47 @@ class TestCharacterController:
         assert data["name_last"] == character.name_last
         _assert_character_response_shape(data)
 
+    async def test_get_character_includes_child_counts(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_inventory_factory,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify getCharacter returns child-resource counts."""
+        # Given a character with two inventory items and no notes or assets
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        await character_inventory_factory(character=character)
+        await character_inventory_factory(character=character)
+
+        # When we get the character
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the counts reflect the character's children
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["num_inventory_items"] == 2
+        assert data["num_notes"] == 0
+        assert data["num_assets"] == 0
+
     async def test_get_character_not_found(
         self,
         client: AsyncClient,
@@ -1722,6 +1763,45 @@ class TestCharacterFullSheet:
                 for ct in category["character_traits"]:
                     assert "id" in ct
                     assert "character_id" in ct
+
+    async def test_get_character_full_sheet_includes_child_counts(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_inventory_factory,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify the full sheet's embedded character reports accurate child counts."""
+        # Given a character with two inventory items
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        await character_inventory_factory(character=character)
+        await character_inventory_factory(character=character)
+
+        # When we request the full sheet
+        response = await client.get(
+            build_url(
+                CharacterURL.FULL_SHEET,
+                company_id=session_company.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the embedded character reports the inventory count
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["character"]["num_inventory_items"] == 2
 
     async def test_get_character_full_sheet_with_available_traits(
         self,

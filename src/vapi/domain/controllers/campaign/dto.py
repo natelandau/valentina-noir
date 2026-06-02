@@ -69,6 +69,12 @@ class CampaignResponse(msgspec.Struct):
     desperation: int
     danger: int
     company_id: UUID
+    num_books: int
+    num_chapters: int
+    num_notes: int
+    num_player_characters: int
+    num_storyteller_characters: int
+    num_npc_characters: int
     date_created: datetime
     date_modified: datetime
 
@@ -82,6 +88,12 @@ class CampaignResponse(msgspec.Struct):
             desperation=m.desperation,
             danger=m.danger,
             company_id=m.company_id,  # type: ignore[attr-defined]
+            num_books=m.num_books,  # type: ignore[attr-defined]
+            num_chapters=m.num_chapters,  # type: ignore[attr-defined]
+            num_notes=m.num_notes,  # type: ignore[attr-defined]
+            num_player_characters=m.num_player_characters,  # type: ignore[attr-defined]
+            num_storyteller_characters=m.num_storyteller_characters,  # type: ignore[attr-defined]
+            num_npc_characters=m.num_npc_characters,  # type: ignore[attr-defined]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -95,6 +107,9 @@ class CampaignBookResponse(msgspec.Struct):
     description: str | None
     number: int
     campaign_id: UUID
+    num_chapters: int
+    num_notes: int
+    num_assets: int
     date_created: datetime
     date_modified: datetime
 
@@ -107,6 +122,9 @@ class CampaignBookResponse(msgspec.Struct):
             description=m.description,
             number=m.number,
             campaign_id=m.campaign_id,  # type: ignore[attr-defined]
+            num_chapters=m.num_chapters,  # type: ignore[attr-defined]
+            num_notes=m.num_notes,  # type: ignore[attr-defined]
+            num_assets=m.num_assets,  # type: ignore[attr-defined]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -157,6 +175,8 @@ class CampaignChapterResponse(msgspec.Struct):
     description: str | None
     number: int
     book_id: UUID
+    num_notes: int
+    num_assets: int
     date_created: datetime
     date_modified: datetime
 
@@ -169,6 +189,11 @@ class CampaignChapterResponse(msgspec.Struct):
             description=m.description,
             number=m.number,
             book_id=m.book_id,  # type: ignore[attr-defined]
+            # Counts are annotated onto the queryset by annotate_chapter_counts. This struct is
+            # also embedded in CampaignBookDetailResponse (book ?include=chapters) where chapters
+            # are prefetched without annotations, so default to 0 when the attribute is absent.
+            num_notes=getattr(m, "num_notes", 0),
+            num_assets=getattr(m, "num_assets", 0),
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
