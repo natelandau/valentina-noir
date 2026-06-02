@@ -185,8 +185,11 @@ class CampaignChapterResponse(msgspec.Struct):
             description=m.description,
             number=m.number,
             book_id=m.book_id,  # type: ignore[attr-defined]
-            num_notes=m.num_notes,  # type: ignore[attr-defined]
-            num_assets=m.num_assets,  # type: ignore[attr-defined]
+            # Counts are annotated onto the queryset by annotate_chapter_counts. This struct is
+            # also embedded in CampaignBookDetailResponse (book ?include=chapters) where chapters
+            # are prefetched without annotations, so default to 0 when the attribute is absent.
+            num_notes=getattr(m, "num_notes", 0),
+            num_assets=getattr(m, "num_assets", 0),
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
