@@ -321,9 +321,16 @@ class CharacterController(Controller):
         ] = False,
     ) -> CharacterFullSheetDTO:
         """Get a character full sheet."""
+        # Re-fetch annotated so the embedded CharacterResponse reports real child counts;
+        # the injected character already passed company scoping, so fetching by id is safe.
+        annotated = await annotate_character_counts(
+            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        ).first()
+        if not annotated:
+            raise NotFoundError(detail="Character not found")
         svc = CharacterSheetService()
         return await svc.get_character_full_sheet(
-            character, include_available_traits=include_available_traits
+            annotated, include_available_traits=include_available_traits
         )
 
     @get(
