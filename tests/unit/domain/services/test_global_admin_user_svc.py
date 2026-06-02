@@ -6,11 +6,13 @@ from uuid import uuid4
 import pytest
 
 from vapi.constants import UserRole
+from vapi.db.sql_models.character import Character, Specialty
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.global_admin.dto import AdminUserCreate, AdminUserPatch
+from vapi.domain.handlers import archive_company
 from vapi.domain.services import GlobalAdminUserService
-from vapi.lib.exceptions import NotFoundError, ValidationError
+from vapi.lib.exceptions import ConflictError, NotFoundError, ValidationError
 
 pytestmark = pytest.mark.anyio
 
@@ -145,19 +147,53 @@ async def test_update_user_archiving_cascades_to_owned_data(
     assert (await QuickRoll.get(id=quickroll.id)).is_archived is True
 
 
-async def test_update_user_restore_does_not_unarchive_owned_data(
-    company_factory: Any, user_factory: Any, quickroll_factory: Any
+async def test_update_user_restore_reverses_cascade_on_owned_data(
+    company_factory: Any,
+    user_factory: Any,
+    character_factory: Any,
+    specialty_factory: Any,
+    quickroll_factory: Any,
 ) -> None:
-    """Verify restoring a user does not reverse the archival cascade on owned data."""
-    # Given an archived user whose quickroll was archived by the delete cascade
+    """Verify restoring a user reverses the archival cascade on owned data."""
+    # Given an active company, a user, a played character with a specialty, and a quickroll
     company = await company_factory()
     user = await user_factory(company=company)
+    character = await character_factory(company=company, user_player=user)
+    specialty = await specialty_factory(character=character)
     quickroll = await quickroll_factory(user=user)
+
+    # Given the user (and their owned data) is archived via the delete cascade
     await GlobalAdminUserService().delete_user(user)
+    assert (await Character.get(id=character.id)).is_archived is True
+    assert (await Specialty.get(id=specialty.id)).is_archived is True
+    assert (await QuickRoll.get(id=quickroll.id)).is_archived is True
 
     # When the user is restored via update
     await GlobalAdminUserService().update_user(user, AdminUserPatch(is_archived=False))
 
-    # Then the account is active again but the quickroll stays archived
-    assert (await User.get(id=user.id)).is_archived is False
-    assert (await QuickRoll.get(id=quickroll.id)).is_archived is True
+    # Then the user and every cascade-archived row is active again with no batch stamp
+    for model, row_id in (
+        (User, user.id),
+        (Character, character.id),
+        (Specialty, specialty.id),
+        (QuickRoll, quickroll.id),
+    ):
+        restored = await model.get(id=row_id)
+        assert restored.is_archived is False
+        assert restored.archive_batch_id is None
+
+
+async def test_update_user_restore_refused_while_company_archived(
+    company_factory: Any, user_factory: Any
+) -> None:
+    """Verify restoring a user is refused while their company is archived."""
+    # Given a user whose company has been archived as a whole tenant
+    company = await company_factory()
+    user = await user_factory(company=company)
+    await archive_company(company)
+    # Re-fetch so the in-memory user reflects the archived state set by the cascade
+    user = await User.get(id=user.id)
+
+    # When/Then restoring the user via update raises ConflictError
+    with pytest.raises(ConflictError):
+        await GlobalAdminUserService().update_user(user, AdminUserPatch(is_archived=False))

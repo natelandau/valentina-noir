@@ -229,13 +229,13 @@ async def archive_company(company: Company) -> ArchiveContext:
     return ctx
 
 
-async def archive_user_cascade(user_id: UUID) -> None:
-    """Temporary compatibility shim; removed when services are rewired (Phase 4b).
+async def cascade_archive_user(user: User) -> ArchiveContext:
+    """Cascade-archive a user's owned data under the user row's existing batch.
 
-    Existing services archive the user record themselves and then call this to
-    cascade to owned data. Kept so those callers keep working until they switch
-    to archive_user(). Uses a fresh context, so the user row's own batch id may
-    differ from these children until the rewire lands.
+    The caller has already archived the user record (e.g. via ``user.save()``),
+    so this reuses that row's batch id and timestamp, keeping the user and their
+    owned data in one restorable batch. Dice rolls are intentionally not touched.
     """
-    ctx = _new_context()
-    await _archive_user_children(user_id, ctx)
+    ctx = ArchiveContext(batch_id=user.archive_batch_id, now=user.archive_date)
+    await _archive_user_children(user.id, ctx)
+    return ctx

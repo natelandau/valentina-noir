@@ -349,13 +349,13 @@ class UserService:
             user: The user to archive.
             company: The company the user belongs to (unused - FK handles relationship).
         """
-        from vapi.domain.handlers.archive_handlers import archive_user_cascade
+        from vapi.domain.handlers import cascade_archive_user
 
         await self._assert_not_last_admin(user)
 
         user.is_archived = True
         await user.save()
-        await archive_user_cascade(user.id)
+        await cascade_archive_user(user)
 
     async def approve_user(
         self,

@@ -10,7 +10,7 @@ from .archive_handlers import (
     archive_character,
     archive_company,
     archive_user,
-    archive_user_cascade,
+    cascade_archive_user,
 )
 from .character_autogeneration.handler import CharacterAutogenerationHandler
 from .restore_handlers import restore_archive_batch
@@ -26,6 +26,6 @@ __all__ = (
     "archive_character",
     "archive_company",
     "archive_user",
-    "archive_user_cascade",
+    "cascade_archive_user",
     "restore_archive_batch",
 )
