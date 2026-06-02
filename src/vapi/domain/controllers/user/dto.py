@@ -112,6 +112,10 @@ class UserResponse(msgspec.Struct):
     google_profile: dict | None
     github_profile: dict | None
     discord_profile: dict | None
+    num_quickrolls: int
+    num_notes: int
+    num_assets: int
+    num_characters: int
     campaign_experience: list[CampaignExperienceResponse]
 
     @classmethod
@@ -153,6 +157,13 @@ class UserResponse(msgspec.Struct):
             google_profile=m.google_profile,
             github_profile=m.github_profile,
             discord_profile=m.discord_profile,
+            # Counts are annotated onto the queryset by annotate_user_counts. UserResponse is
+            # also built from un-annotated users (e.g. a freshly created admin user in the
+            # company-create response), where the counts are genuinely 0, so default to 0.
+            num_quickrolls=getattr(m, "num_quickrolls", 0),
+            num_notes=getattr(m, "num_notes", 0),
+            num_assets=getattr(m, "num_assets", 0),
+            num_characters=getattr(m, "num_characters", 0),
             campaign_experience=experiences,
         )
 

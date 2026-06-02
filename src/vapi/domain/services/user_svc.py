@@ -7,7 +7,8 @@ import uuid
 from typing import TYPE_CHECKING
 
 import msgspec
-from tortoise.expressions import F
+from tortoise.expressions import F, Q
+from tortoise.functions import Count
 from tortoise.transactions import in_transaction
 
 from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
@@ -27,8 +28,28 @@ from .validation_svc import GetModelByIdValidationService
 if TYPE_CHECKING:
     from uuid import UUID
 
+    from tortoise.queryset import QuerySet
+
     from vapi.db.sql_models.company import Company
     from vapi.domain.controllers.user.dto import UserCreate, UserPatch, UserRegister
+
+
+def annotate_user_counts(qs: QuerySet[User]) -> QuerySet[User]:
+    """Annotate a User queryset with active child-resource counts for responses.
+
+    played_characters needs no type filter: NPC and storyteller characters belong to
+    the campaign and never have a player, so played_characters is player-only.
+    """
+    return qs.annotate(
+        num_quickrolls=Count(
+            "quick_rolls", _filter=Q(quick_rolls__is_archived=False), distinct=True
+        ),
+        num_notes=Count("notes", _filter=Q(notes__is_archived=False), distinct=True),
+        num_assets=Count("owned_assets", _filter=Q(owned_assets__is_archived=False), distinct=True),
+        num_characters=Count(
+            "played_characters", _filter=Q(played_characters__is_archived=False), distinct=True
+        ),
+    )
 
 
 class UserService:

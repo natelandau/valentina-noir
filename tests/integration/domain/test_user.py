@@ -713,6 +713,59 @@ class TestUserController:
             assert len(data["assets"]) == 1
             assert data["assets"][0]["id"] == str(active.id)
 
+        async def test_get_user_returns_child_counts(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user: User,
+            session_campaign: Campaign,
+            quickroll_factory: Callable[..., Any],
+            note_factory: Callable[..., Any],
+            s3asset_factory: Callable[..., Any],
+            character_factory: Callable[..., Any],
+        ) -> None:
+            """Verify getUser returns exact child-resource counts for each relation."""
+            # Given a user with 2 quickrolls, 2 notes, 2 owned assets, and 2 played characters
+            await quickroll_factory(user=session_user)
+            await quickroll_factory(user=session_user)
+            await note_factory(company=session_company, user=session_user)
+            await note_factory(company=session_company, user=session_user)
+            await s3asset_factory(
+                company=session_company, user_parent=session_user, uploaded_by=session_user
+            )
+            await s3asset_factory(
+                company=session_company, user_parent=session_user, uploaded_by=session_user
+            )
+            await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+            await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+            )
+
+            # When we get the user
+            response = await client.get(
+                build_url(UsersURL.DETAIL, user_id=session_user.id, company_id=session_company.id),
+                headers=token_global_admin,
+            )
+
+            # Then the response includes exact counts for every relation
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert data["num_quickrolls"] == 2
+            assert data["num_notes"] == 2
+            assert data["num_assets"] == 2
+            assert data["num_characters"] == 2
+
         async def test_get_user_include_invalid_value(
             self,
             client: AsyncClient,
@@ -771,6 +824,12 @@ class TestUserController:
             assert data["email"] == "test@test.com"
             assert data["role"] == "ADMIN"
             assert data["company_id"] == str(session_company.id)
+
+            # Then a freshly created user reports zero children for every relation
+            assert data["num_quickrolls"] == 0
+            assert data["num_notes"] == 0
+            assert data["num_assets"] == 0
+            assert data["num_characters"] == 0
 
             # Then the user exists in the database
             new_user = await User.get(id=data["id"])
