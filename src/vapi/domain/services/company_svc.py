@@ -22,20 +22,23 @@ if TYPE_CHECKING:
 def annotate_company_counts(qs: QuerySet[Company]) -> QuerySet[Company]:
     """Annotate a Company queryset with filtered resource counts."""
     return qs.annotate(
-        num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False)),
+        num_campaigns=Count("campaigns", _filter=Q(campaigns__is_archived=False), distinct=True),
         num_player_characters=Count(
             "characters",
             _filter=Q(characters__is_archived=False, characters__type=CharacterType.PLAYER),
+            distinct=True,
         ),
         num_storyteller_characters=Count(
             "characters",
             _filter=Q(characters__is_archived=False, characters__type=CharacterType.STORYTELLER),
+            distinct=True,
         ),
         num_npc_characters=Count(
             "characters",
             _filter=Q(characters__is_archived=False, characters__type=CharacterType.NPC),
+            distinct=True,
         ),
-        num_users=Count("users", _filter=Q(users__is_archived=False)),
+        num_users=Count("users", _filter=Q(users__is_archived=False), distinct=True),
     )
 
 
