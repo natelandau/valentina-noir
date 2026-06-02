@@ -14,8 +14,12 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import CompanyPermission
+from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import User
 from vapi.domain.urls import Companies
 
 if TYPE_CHECKING:
@@ -379,6 +383,55 @@ class TestCompanyCRUD:
         # And the company is archived in the database
         await company.refresh_from_db()
         assert company.is_archived is True
+
+    async def test_delete_company_cascades_to_tenant(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: Developer,
+        company_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        note_factory: Callable[..., Any],
+    ) -> None:
+        """Verify deleting a company cascade-archives its tenant under the company batch id."""
+        # Given a company the developer owns with a campaign, character, user, and note
+        company = await company_factory()
+        await DeveloperCompanyPermission.create(
+            developer=session_company_user,
+            company=company,
+            permission=CompanyPermission.OWNER,
+        )
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, campaign=campaign)
+        note = await note_factory(company=company)
+
+        # When we delete the company
+        response = await client.delete(
+            build_url(Companies.DELETE, company_id=company.id),
+            headers=token_company_user,
+        )
+
+        # Then the response is 204
+        assert response.status_code == HTTP_204_NO_CONTENT
+
+        # And the company, its settings, and its tenant share one archive batch id
+        company = await Company.get(id=company.id)
+        settings = await CompanySettings.get(company_id=company.id)
+        campaign = await Campaign.get(id=campaign.id)
+        character = await Character.get(id=character.id)
+        user = await User.get(id=user.id)
+        note = await Note.get(id=note.id)
+
+        assert company.is_archived is True
+        assert company.archive_batch_id is not None
+        for obj in (settings, campaign, character, user, note):
+            assert obj.is_archived is True
+            assert obj.archive_batch_id == company.archive_batch_id
 
     async def test_delete_company_forbidden_without_owner(
         self,

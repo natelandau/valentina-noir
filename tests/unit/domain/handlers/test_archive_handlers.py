@@ -18,7 +18,7 @@ from vapi.db.sql_models.character import (
 )
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
-from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
@@ -451,6 +451,15 @@ class TestCompanyArchiveHandler:
         user_spy.assert_called()
         character_spy.assert_called()
         campaign_spy.assert_called()
+
+        # And the company's settings row should be archived under the company batch
+        settings = await CompanySettings.get(company_id=company.id)
+        assert settings.is_archived
+        assert settings.archive_batch_id == (await Company.get(id=company.id)).archive_batch_id
+
+        # And another company's settings should not be archived
+        settings_2 = await CompanySettings.get(company_id=company_2.id)
+        assert not settings_2.is_archived
 
         # And the company row and a representative character share one batch id
         assert (await Character.get(id=character.id)).archive_batch_id == (

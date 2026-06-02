@@ -30,7 +30,7 @@ from vapi.db.sql_models.character import (
 )
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
-from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
@@ -178,7 +178,7 @@ class CompanyArchiveHandler:
 
     async def _archive_company_scoped(self) -> None:
         """Archive models scoped directly by company_id (incl. dice rolls)."""
-        for model in (Note, DictionaryTerm, CharacterConcept, DiceRoll, S3Asset):
+        for model in (Note, DictionaryTerm, CharacterConcept, DiceRoll, S3Asset, CompanySettings):
             await _archive_where(model, self.ctx, company_id=self.company.id)
 
     async def handle(self) -> None:

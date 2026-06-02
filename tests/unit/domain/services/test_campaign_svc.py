@@ -13,7 +13,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.character import Character, Specialty
     from vapi.db.sql_models.company import Company
+    from vapi.db.sql_models.diceroll import DiceRoll
+    from vapi.db.sql_models.notes import Note
 
 pytestmark = pytest.mark.anyio
 
@@ -370,3 +373,51 @@ class TestCampaignService:
         assert book2.is_archived
         assert chapter1.is_archived
         assert chapter2.is_archived
+
+    async def test_archive_campaign_cascades_to_characters_and_notes(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+        specialty_factory: Callable[..., Specialty],
+        note_factory: Callable[..., Note],
+        diceroll_factory: Callable[..., DiceRoll],
+        user_factory: Callable[..., object],
+    ) -> None:
+        """Verify archive_campaign cascades to characters, their data, and notes under one batch."""
+        # Given a campaign with a character, that character's specialty/note, and a campaign note
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, campaign=campaign)
+        specialty = await specialty_factory(character=character)
+        character_note = await note_factory(company=company, character=character)
+        campaign_note = await note_factory(company=company, campaign=campaign)
+        # And a dice roll on the campaign, which is a historical artifact that must survive
+        user = await user_factory(company=company)
+        dice_roll = await diceroll_factory(company=company, user=user, campaign=campaign)
+
+        # When the campaign is archived
+        service = CampaignService()
+        await service.archive_campaign(campaign)
+
+        # Then the campaign, character, specialty, and both notes are archived under one batch
+        await campaign.refresh_from_db()
+        await character.refresh_from_db()
+        await specialty.refresh_from_db()
+        await character_note.refresh_from_db()
+        await campaign_note.refresh_from_db()
+        await dice_roll.refresh_from_db()
+
+        assert campaign.is_archived
+        assert character.is_archived
+        assert specialty.is_archived
+        assert character_note.is_archived
+        assert campaign_note.is_archived
+        assert campaign.archive_batch_id is not None
+        assert character.archive_batch_id == campaign.archive_batch_id
+        assert specialty.archive_batch_id == campaign.archive_batch_id
+        assert character_note.archive_batch_id == campaign.archive_batch_id
+        assert campaign_note.archive_batch_id == campaign.archive_batch_id
+
+        # And the dice roll survives
+        assert dice_roll.is_archived is False

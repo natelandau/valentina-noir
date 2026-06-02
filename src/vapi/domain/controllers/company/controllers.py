@@ -239,9 +239,10 @@ class CompanyController(Controller):
         after_response=hooks.post_data_update_hook,
     )
     async def delete_company(self, request: Request, company: Company) -> None:
-        """Soft-delete a company by archiving it."""
-        company.is_archived = True
-        await company.save()
+        """Soft-delete a company and cascade the archive to its entire tenant."""
+        from vapi.domain.handlers import archive_company
+
+        await archive_company(company=company)
         request.state.audit_description = f"Delete company '{company.name}'"
 
     @post(

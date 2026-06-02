@@ -75,19 +75,10 @@ class CampaignService:
         )
 
     async def archive_campaign(self, campaign: Campaign) -> None:
-        """Soft-archive a campaign and all its books and chapters."""
-        now = time_now()
-        # Collect book IDs first to avoid a cross-table JOIN in the UPDATE, which
-        # PostgreSQL disallows when the target table also appears in the FROM clause.
-        book_ids = await CampaignBook.filter(campaign_id=campaign.id).values_list("id", flat=True)
-        if book_ids:
-            await CampaignChapter.filter(book_id__in=book_ids, is_archived=False).update(
-                is_archived=True, archive_date=now
-            )
-        await CampaignBook.filter(campaign_id=campaign.id, is_archived=False).update(
-            is_archived=True, archive_date=now
-        )
-        await Campaign.filter(id=campaign.id).update(is_archived=True, archive_date=now)
+        """Soft-archive a campaign and cascade to its books, chapters, characters, and data."""
+        from vapi.domain.handlers import archive_campaign
+
+        await archive_campaign(campaign=campaign)
 
     @staticmethod
     async def _get_next_number(model: type[Model], parent_field: str, parent_id: UUID) -> int:
