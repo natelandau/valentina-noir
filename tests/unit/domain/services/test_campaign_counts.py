@@ -50,9 +50,7 @@ async def test_campaign_counts_exclude_archived(
     company = await company_factory()
     campaign = await campaign_factory(company=company)
     await campaign_book_factory(campaign=campaign)
-    archived = await campaign_book_factory(campaign=campaign)
-    archived.is_archived = True
-    await archived.save()
+    await campaign_book_factory(campaign=campaign, is_archived=True)
 
     # When counts are annotated
     annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
