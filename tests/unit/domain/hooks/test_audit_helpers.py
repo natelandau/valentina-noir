@@ -352,3 +352,59 @@ class TestAncestorFKPopulation:
         assert result["chapter_id"] == chapter_id
         assert result["entity_type"] == AuditEntityType.NOTE
         assert result["target_entity_id"] == note_id
+
+
+class TestGlobalAdminUserRoutes:
+    """Audit behavior on the flat global-admin user routes."""
+
+    def test_admin_update_does_not_set_acting_user_from_path(self) -> None:
+        """Verify a globalAdmin* route does not record the target user as the actor."""
+        # Given a PATCH to /admin/users/{user_id} with no acting user and no On-Behalf-Of
+        user_id = str(uuid4())
+        request = _make_request(
+            method="PATCH",
+            path_params={"user_id": user_id},
+            operation_id="globalAdminUpdateUser",
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then acting_user_id is None, but the target user FK is still set
+        assert result["acting_user_id"] is None
+        assert result["entity_type"] == AuditEntityType.USER
+        assert result["user_id"] == user_id
+        assert result["target_entity_id"] == user_id
+
+    def test_admin_create_resolves_user_entity(self) -> None:
+        """Verify POST /admin/users resolves entity type from operation_id when there are no path params."""
+        # Given a POST to /admin/users with no path params
+        request = _make_request(
+            method="POST",
+            path_params={},
+            operation_id="globalAdminCreateUser",
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then it is a USER create
+        assert result["entity_type"] == AuditEntityType.USER
+        assert result["operation"] == AuditOperation.CREATE
+        assert result["acting_user_id"] is None
+
+    def test_tenant_route_still_falls_back_to_path_user_id(self) -> None:
+        """Verify non-admin routes keep the user_id path fallback (gate is route-scoped)."""
+        # Given a tenant POST with a user_id path param, no acting user, no On-Behalf-Of
+        user_id = str(uuid4())
+        request = _make_request(
+            method="POST",
+            path_params={"user_id": user_id},
+            operation_id="createUserQuickroll",
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then the fallback still attributes the path user_id as actor
+        assert result["acting_user_id"] == user_id
