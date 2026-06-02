@@ -6,10 +6,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vapi.constants import CharacterType
+from vapi.constants import CharacterType, SpecialtyType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
-from vapi.db.sql_models.character import Character, CharacterInventory
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterInventory,
+    CharacterTrait,
+    Specialty,
+    VampireAttributes,
+)
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import Company
@@ -17,12 +23,15 @@ from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
-from vapi.db.sql_models.user import User
+from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.domain.handlers import (
     CampaignArchiveHandler,
     CharacterArchiveHandler,
-    CompanyArchiveHandler,
     UserArchiveHandler,
+    archive_campaign,
+    archive_character,
+    archive_company,
+    archive_user,
 )
 
 if TYPE_CHECKING:
@@ -44,9 +53,12 @@ class TestCampaignArchiveHandler:
         campaign_book_factory: Callable[..., CampaignBook],
         campaign_chapter_factory: Callable[..., CampaignChapter],
         s3asset_factory: Callable[..., S3Asset],
-        debug: Callable[[...], None],
+        character_factory: Callable[..., Character],
+        note_factory: Callable[..., Note],
+        campaign_experience_factory: Callable[..., CampaignExperience],
+        diceroll_factory: Callable[..., DiceRoll],
     ) -> None:
-        """Test the handle method."""
+        """Verify archiving a campaign archives its full subtree and nothing else."""
         # Given objects that should be archived
         company = await company_factory()
         uploader = await user_factory(company=company)
@@ -60,6 +72,15 @@ class TestCampaignArchiveHandler:
         s3_asset_3 = await s3asset_factory(
             company=company, uploaded_by=uploader, chapter=campaign_chapter
         )
+        character = await character_factory(
+            company=company, user_player=uploader, user_creator=uploader, campaign=campaign
+        )
+        campaign_note = await note_factory(company=company, campaign=campaign)
+        experience = await campaign_experience_factory(user=uploader, campaign=campaign)
+        # Dice rolls are historical artifacts and must survive a campaign archive (D4)
+        dice_roll = await diceroll_factory(
+            company=company, user=uploader, campaign=campaign, is_archived=False
+        )
 
         # and objects that should not be archived
         campaign_2 = await campaign_factory(company=company)
@@ -70,8 +91,7 @@ class TestCampaignArchiveHandler:
         s3_asset_6 = await s3asset_factory(company=company, uploaded_by=uploader)
 
         # When we archive the campaign
-        handler = CampaignArchiveHandler(campaign=campaign)
-        await handler.handle()
+        await archive_campaign(campaign=campaign)
 
         # Then the campaign and its children should be archived
         for obj, model in [
@@ -81,9 +101,15 @@ class TestCampaignArchiveHandler:
             (s3_asset, S3Asset),
             (s3_asset_2, S3Asset),
             (s3_asset_3, S3Asset),
+            (character, Character),
+            (campaign_note, Note),
+            (experience, CampaignExperience),
         ]:
             refreshed = await model.get(id=obj.id)
             assert refreshed.is_archived
+
+        # And the dice roll survives (D4)
+        assert not (await DiceRoll.get(id=dice_roll.id)).is_archived
 
         # And unrelated objects should not be archived
         for obj, model in [
@@ -97,6 +123,33 @@ class TestCampaignArchiveHandler:
             refreshed = await model.get(id=obj.id)
             assert not refreshed.is_archived
 
+    async def test_archiving_campaign_archives_only_its_own_characters(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify archiving a campaign archives its characters but not another campaign's (D1)."""
+        # Given two campaigns each with a character
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        other_campaign = await campaign_factory(company=company)
+        character = await character_factory(
+            company=company, user_player=user, user_creator=user, campaign=campaign
+        )
+        other_character = await character_factory(
+            company=company, user_player=user, user_creator=user, campaign=other_campaign
+        )
+
+        # When we archive the first campaign
+        await archive_campaign(campaign=campaign)
+
+        # Then its character is archived and the other campaign's character is not
+        assert (await Character.get(id=character.id)).is_archived
+        assert not (await Character.get(id=other_character.id)).is_archived
+
 
 class TestCharacterArchiveHandler:
     """Test the CharacterArchiveHandler."""
@@ -109,8 +162,13 @@ class TestCharacterArchiveHandler:
         trait_factory: Callable[..., Trait],
         character_inventory_factory: Callable[..., CharacterInventory],
         s3asset_factory: Callable[..., S3Asset],
+        specialty_factory: Callable[..., Specialty],
+        character_trait_factory: Callable[..., CharacterTrait],
+        vampire_attributes_factory: Callable[..., VampireAttributes],
+        note_factory: Callable[..., Note],
+        diceroll_factory: Callable[..., DiceRoll],
     ) -> None:
-        """Test the handle method."""
+        """Verify archiving a character archives all it owns except dice rolls."""
         # Given objects that should be archived
         company = await company_factory()
         uploader = await user_factory(company=company)
@@ -120,6 +178,14 @@ class TestCharacterArchiveHandler:
         trait = await trait_factory(custom_for_character_id=character.id)
         inventory_item = await character_inventory_factory(character=character)
         s3_asset = await s3asset_factory(company=company, uploaded_by=uploader, character=character)
+        specialty = await specialty_factory(character=character, type=SpecialtyType.ACTION)
+        character_trait = await character_trait_factory(character=character)
+        vampire_attrs = await vampire_attributes_factory(character=character)
+        character_note = await note_factory(company=company, character=character)
+        # Dice rolls are historical artifacts and must survive a character archive (D4)
+        dice_roll = await diceroll_factory(
+            company=company, user=uploader, character=character, is_archived=False
+        )
 
         # And objects that should not be archived
         uploader_2 = await user_factory(company=company)
@@ -133,18 +199,26 @@ class TestCharacterArchiveHandler:
         )
 
         # When we archive the character
-        handler = CharacterArchiveHandler(character=character)
-        await handler.handle()
+        await archive_character(character=character)
 
+        # Then the character and its children should be archived
         for obj, model in [
             (character, Character),
             (trait, Trait),
             (inventory_item, CharacterInventory),
             (s3_asset, S3Asset),
+            (specialty, Specialty),
+            (character_trait, CharacterTrait),
+            (vampire_attrs, VampireAttributes),
+            (character_note, Note),
         ]:
             refreshed = await model.get(id=obj.id)
             assert refreshed.is_archived
 
+        # And the dice roll survives (D4)
+        assert not (await DiceRoll.get(id=dice_roll.id)).is_archived
+
+        # And unrelated objects should not be archived
         for obj, model in [
             (character_2, Character),
             (trait_2, Trait),
@@ -153,6 +227,38 @@ class TestCharacterArchiveHandler:
         ]:
             refreshed = await model.get(id=obj.id)
             assert not refreshed.is_archived
+
+    async def test_archiving_character_shares_one_batch_id(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        specialty_factory: Callable[..., Specialty],
+        character_trait_factory: Callable[..., CharacterTrait],
+        note_factory: Callable[..., Note],
+    ) -> None:
+        """Verify every row archived by one action shares the returned batch id and a date."""
+        # Given a character with several owned rows
+        company = await company_factory()
+        user = await user_factory(company=company)
+        character = await character_factory(company=company, user_player=user, user_creator=user)
+        specialty = await specialty_factory(character=character, type=SpecialtyType.ACTION)
+        character_trait = await character_trait_factory(character=character)
+        character_note = await note_factory(company=company, character=character)
+
+        # When we archive the character
+        ctx = await archive_character(character=character)
+
+        # Then every archived row carries the same batch id and a non-null date
+        for obj, model in [
+            (character, Character),
+            (specialty, Specialty),
+            (character_trait, CharacterTrait),
+            (character_note, Note),
+        ]:
+            refreshed = await model.get(id=obj.id)
+            assert refreshed.archive_batch_id == ctx.batch_id
+            assert refreshed.archive_date is not None
 
 
 class TestUserArchiveHandler:
@@ -165,15 +271,24 @@ class TestUserArchiveHandler:
         character_factory: Callable[..., Character],
         s3asset_factory: Callable[..., S3Asset],
         quickroll_factory: Callable[..., QuickRoll],
+        campaign_factory: Callable[..., Campaign],
+        campaign_experience_factory: Callable[..., CampaignExperience],
+        note_factory: Callable[..., Note],
+        diceroll_factory: Callable[..., DiceRoll],
     ) -> None:
-        """Test the handle method."""
+        """Verify archiving a user archives all they own except dice rolls."""
         # Given objects that should be archived
         company = await company_factory()
         user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
         character = await character_factory(company=company, user_player=user, user_creator=user)
         quickroll = await quickroll_factory(user=user)
         s3_asset = await s3asset_factory(company=company, uploaded_by=user, user_parent=user)
         s3_asset_2 = await s3asset_factory(company=company, uploaded_by=user, character=character)
+        user_note = await note_factory(company=company, user=user)
+        experience = await campaign_experience_factory(user=user, campaign=campaign)
+        # Dice rolls are historical artifacts and must survive a user archive (D4)
+        dice_roll = await diceroll_factory(company=company, user=user, is_archived=False)
 
         # And objects that should not be archived
         user_2 = await user_factory(company=company)
@@ -184,19 +299,25 @@ class TestUserArchiveHandler:
         s3_asset_3 = await s3asset_factory(company=company, uploaded_by=user_2, user_parent=user_2)
 
         # When we archive the user
-        handler = UserArchiveHandler(user=user)
-        await handler.handle()
+        await archive_user(user=user)
 
+        # Then the user and their owned data should be archived
         for obj, model in [
             (user, User),
             (character, Character),
             (quickroll, QuickRoll),
             (s3_asset, S3Asset),
             (s3_asset_2, S3Asset),
+            (user_note, Note),
+            (experience, CampaignExperience),
         ]:
             refreshed = await model.get(id=obj.id)
             assert refreshed.is_archived
 
+        # And the dice roll survives (D4)
+        assert not (await DiceRoll.get(id=dice_roll.id)).is_archived
+
+        # And unrelated objects should not be archived
         for obj, model in [
             (user_2, User),
             (character_2, Character),
@@ -230,8 +351,7 @@ class TestUserArchiveHandler:
         )
 
         # When the user is archived
-        handler = UserArchiveHandler(user=user)
-        await handler.handle()
+        await archive_user(user=user)
 
         # Then the player character is archived but the NPC is not
         # (UserArchiveHandler filters by user_player_id, which is None for NPCs)
@@ -257,7 +377,7 @@ class TestCompanyArchiveHandler:
         diceroll_factory: Callable[..., DiceRoll],
         mocker: MockerFixture,
     ) -> None:
-        """Test the handle method."""
+        """Verify archiving a company archives its whole tenant under one batch id."""
         # Given objects that should be archived
         company = await company_factory()
         user = await user_factory(company=company, is_archived=False)
@@ -295,9 +415,9 @@ class TestCompanyArchiveHandler:
         campaign_spy = mocker.spy(CampaignArchiveHandler, "handle")
 
         # When we archive the company
-        handler = CompanyArchiveHandler(company=company)
-        await handler.handle()
+        await archive_company(company=company)
 
+        # Then the company and its tenant should be archived (dice rolls included for company)
         for obj, model in [
             (company, Company),
             (campaign, Campaign),
@@ -312,6 +432,7 @@ class TestCompanyArchiveHandler:
             refreshed = await model.get(id=obj.id)
             assert refreshed.is_archived
 
+        # And another company's data should not be archived
         for obj, model in [
             (company_2, Company),
             (user_2, User),
@@ -325,9 +446,13 @@ class TestCompanyArchiveHandler:
             refreshed = await model.get(id=obj.id)
             assert not refreshed.is_archived
 
-        # Then the spies should have been called
-        user_spy.assert_called_once()
-        # Character handler is called twice: once from UserArchiveHandler cascade,
-        # once from CompanyArchiveHandler iterating company characters
-        assert character_spy.call_count == 2
-        campaign_spy.assert_called_once()
+        # And the spies should each have been called (a character can be reached up to
+        # three ways under D1: company loop, user cascade, campaign cascade, all idempotent)
+        user_spy.assert_called()
+        character_spy.assert_called()
+        campaign_spy.assert_called()
+
+        # And the company row and a representative character share one batch id
+        assert (await Character.get(id=character.id)).archive_batch_id == (
+            await Company.get(id=company.id)
+        ).archive_batch_id
