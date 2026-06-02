@@ -12,10 +12,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import msgspec
+from tortoise.transactions import in_transaction
 
 from vapi.constants import UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
+from vapi.domain.handlers import cascade_archive_user, restore_archive_batch
 from vapi.lib.exceptions import ConflictError, NotFoundError, ValidationError
 from vapi.lib.patch import apply_patch
 
@@ -122,10 +124,6 @@ class GlobalAdminUserService:
                     "restore the company first."
                 )
 
-        from tortoise.transactions import in_transaction
-
-        from vapi.domain.handlers import cascade_archive_user, restore_archive_batch
-
         async with in_transaction():
             await user.save()
             if not was_archived and user.is_archived:
@@ -152,10 +150,6 @@ class GlobalAdminUserService:
         Args:
             user: The user to soft-delete.
         """
-        from tortoise.transactions import in_transaction
-
-        from vapi.domain.handlers import cascade_archive_user
-
         async with in_transaction():
             user.is_archived = True
             await user.save()

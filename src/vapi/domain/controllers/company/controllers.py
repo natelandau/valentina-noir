@@ -24,6 +24,7 @@ from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
+from vapi.domain.handlers import archive_company
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CompanyService
 from vapi.domain.services.company_svc import annotate_company_counts
@@ -240,8 +241,6 @@ class CompanyController(Controller):
     )
     async def delete_company(self, request: Request, company: Company) -> None:
         """Soft-delete a company and cascade the archive to its entire tenant."""
-        from vapi.domain.handlers import archive_company
-
         await archive_company(company=company)
         request.state.audit_description = f"Delete company '{company.name}'"
 

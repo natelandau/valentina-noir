@@ -5,6 +5,7 @@ from uuid import UUID
 
 from tortoise.expressions import F
 from tortoise.models import Model
+from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
@@ -65,8 +66,8 @@ class CampaignService:
 
     async def delete_book_and_renumber(self, book: CampaignBook) -> None:
         """Soft-delete a book (cascading to its chapters, notes, and assets) and renumber siblings."""
-        from tortoise.transactions import in_transaction
-
+        # Local import: campaign_svc is imported before character_trait_svc in
+        # services/__init__, so a top-level handlers import would cycle.
         from vapi.domain.handlers import archive_book
 
         async with in_transaction():
@@ -80,8 +81,8 @@ class CampaignService:
 
     async def delete_chapter_and_renumber(self, chapter: CampaignChapter) -> None:
         """Soft-delete a chapter (cascading to its notes and assets) and renumber siblings."""
-        from tortoise.transactions import in_transaction
-
+        # Local import: campaign_svc is imported before character_trait_svc in
+        # services/__init__, so a top-level handlers import would cycle.
         from vapi.domain.handlers import archive_chapter
 
         async with in_transaction():

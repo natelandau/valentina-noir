@@ -378,6 +378,8 @@ class CharacterService:
         Args:
             character: The character to archive.
         """
+        # Local import: character_svc is imported before character_trait_svc in
+        # services/__init__, so a top-level handlers import would cycle.
         from vapi.domain.handlers import archive_character
 
         await archive_character(character=character)
