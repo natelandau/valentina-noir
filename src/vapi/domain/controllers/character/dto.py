@@ -207,6 +207,9 @@ class CharacterResponse(msgspec.Struct):
     user_player_id: UUID | None
     company_id: UUID
     campaign_id: UUID
+    num_inventory_items: int
+    num_notes: int
+    num_assets: int
     specialties: list[SpecialtyResponse]
     vampire_attributes: VampireAttributesResponse | None
     werewolf_attributes: WerewolfAttributesResponse | None
@@ -289,6 +292,11 @@ class CharacterResponse(msgspec.Struct):
             user_player_id=m.user_player_id,  # type: ignore[attr-defined]
             company_id=m.company_id,  # type: ignore[attr-defined]
             campaign_id=m.campaign_id,  # type: ignore[attr-defined]
+            # Counts come from annotate_character_counts(); the full-sheet path builds a
+            # CharacterResponse from an un-annotated model, so default to 0 when absent.
+            num_inventory_items=getattr(m, "num_inventory_items", 0),
+            num_notes=getattr(m, "num_notes", 0),
+            num_assets=getattr(m, "num_assets", 0),
             specialties=specialties_list,
             vampire_attributes=vampire_resp,
             werewolf_attributes=werewolf_resp,
