@@ -18,6 +18,7 @@ from .dictionary.controllers import DictionaryTermController
 from .global_admin.audit_log import GlobalAdminAuditLogController
 from .global_admin.controllers import GlobalAdminController
 from .global_admin.server_logs import GlobalAdminServerLogsController
+from .global_admin.user_controller import GlobalAdminUserController
 from .notes import (
     CampaignBookNoteController,
     CampaignChapterNoteController,
@@ -70,6 +71,7 @@ __all__ = (
     "GlobalAdminAuditLogController",
     "GlobalAdminController",
     "GlobalAdminServerLogsController",
+    "GlobalAdminUserController",
     "OAuth2Controller",
     "OptionsController",
     "QuickRollController",
