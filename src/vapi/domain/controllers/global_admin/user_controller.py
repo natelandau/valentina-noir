@@ -16,6 +16,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import GlobalAdminUserService
 from vapi.domain.services.user_svc import annotate_user_counts
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
@@ -89,6 +90,8 @@ class GlobalAdminUserController(Controller):
         user = await annotate_user_counts(
             User.filter(id=target_user.id).prefetch_related("campaign_experiences")
         ).first()
+        if not user:
+            raise NotFoundError(detail="User not found")
         return AdminUserResponse.from_model(user)
 
     @post(

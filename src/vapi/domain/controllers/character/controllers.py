@@ -151,7 +151,9 @@ class CharacterController(Controller):
     ) -> CharacterDetailResponse:
         """Get a character by ID with optional embedded children."""
         annotated = await annotate_character_counts(
-            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+            Character.filter(id=character.id, is_archived=False).prefetch_related(
+                *CHARACTER_RESPONSE_PREFETCH
+            )
         ).first()
         if not annotated:
             raise NotFoundError(detail="Character not found")
@@ -324,7 +326,9 @@ class CharacterController(Controller):
         # Re-fetch annotated so the embedded CharacterResponse reports real child counts;
         # the injected character already passed company scoping, so fetching by id is safe.
         annotated = await annotate_character_counts(
-            Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+            Character.filter(id=character.id, is_archived=False).prefetch_related(
+                *CHARACTER_RESPONSE_PREFETCH
+            )
         ).first()
         if not annotated:
             raise NotFoundError(detail="Character not found")

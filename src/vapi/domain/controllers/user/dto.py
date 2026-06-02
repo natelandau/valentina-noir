@@ -199,6 +199,8 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
         if UserInclude.ASSETS in includes:
             fields["assets"] = [S3AssetResponse.from_model(a) for a in m.owned_assets]
         if UserInclude.CHARACTERS in includes:
+            # Embedded characters come from a prefetch without count annotations, so their
+            # num_* fields default to 0 (CharacterResponse.from_model uses getattr defaults).
             fields["characters"] = [CharacterResponse.from_model(c) for c in m.played_characters]
 
         return cls(**fields)  # type: ignore[arg-type]
