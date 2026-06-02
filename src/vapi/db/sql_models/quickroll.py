@@ -28,7 +28,7 @@ class QuickRoll(BaseModel):
 
     # M2M
     traits: fields.ManyToManyRelation[Trait] = fields.ManyToManyField(
-        "models.Trait", related_name="quick_rolls", through="quick_roll_traits"
+        "models.Trait", related_name="quick_rolls", through="j_quick_roll_traits"
     )
 
     class Meta:

@@ -28,20 +28,23 @@ EXPECTED_TABLES = [
     "character_inventory",
     "character_trait",
     "chargen_session",
-    "chargen_session_characters",
     "company",
     "company_settings",
     "developer",
     "developer_company_permission",
     "dice_roll",
     "dice_roll_result",
-    "dice_roll_traits",
     "dictionary_term",
     "hunter_attributes",
+    "j_chargen_session_characters",
+    "j_dice_roll_traits",
+    "j_quick_roll_traits",
+    "j_vampire_clan_disciplines",
+    "j_werewolf_auspice_gifts",
+    "j_werewolf_tribe_gifts",
     "mage_attributes",
     "note",
     "quick_roll",
-    "quick_roll_traits",
     "s3_asset",
     "specialty",
     "trait",
@@ -50,12 +53,9 @@ EXPECTED_TABLES = [
     "user",
     "vampire_attributes",
     "vampire_clan",
-    "vampire_clan_disciplines",
     "werewolf_attributes",
     "werewolf_auspice",
-    "werewolf_auspice_gifts",
     "werewolf_tribe",
-    "werewolf_tribe_gifts",
 ]
 
 
@@ -96,12 +96,12 @@ class TestPrimaryKeys:
             for t in EXPECTED_TABLES
             if t
             not in {
-                "chargen_session_characters",
-                "dice_roll_traits",
-                "quick_roll_traits",
-                "vampire_clan_disciplines",
-                "werewolf_auspice_gifts",
-                "werewolf_tribe_gifts",
+                "j_chargen_session_characters",
+                "j_dice_roll_traits",
+                "j_quick_roll_traits",
+                "j_vampire_clan_disciplines",
+                "j_werewolf_auspice_gifts",
+                "j_werewolf_tribe_gifts",
             }
         ],
     )

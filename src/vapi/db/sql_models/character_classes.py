@@ -34,7 +34,7 @@ class VampireClan(BaseModel):
 
     # M2M
     disciplines: fields.ManyToManyRelation[Trait] = fields.ManyToManyField(
-        "models.Trait", related_name="clans", through="vampire_clan_disciplines"
+        "models.Trait", related_name="clans", through="j_vampire_clan_disciplines"
     )
 
     # Reverse relations
@@ -58,7 +58,7 @@ class WerewolfAuspice(BaseModel):
 
     # M2M
     gifts: fields.ManyToManyRelation[Trait] = fields.ManyToManyField(
-        "models.Trait", related_name="auspices", through="werewolf_auspice_gifts"
+        "models.Trait", related_name="auspices", through="j_werewolf_auspice_gifts"
     )
 
     # Reverse relations
@@ -86,7 +86,7 @@ class WerewolfTribe(BaseModel):
 
     # M2M
     gifts: fields.ManyToManyRelation[Trait] = fields.ManyToManyField(
-        "models.Trait", related_name="tribes", through="werewolf_tribe_gifts"
+        "models.Trait", related_name="tribes", through="j_werewolf_tribe_gifts"
     )
 
     # Reverse relations
