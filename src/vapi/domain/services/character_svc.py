@@ -4,6 +4,9 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 import msgspec
+from tortoise.expressions import Q
+from tortoise.functions import Count
+from tortoise.queryset import QuerySet
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
 from vapi.db.sql_models.character import (
@@ -29,6 +32,17 @@ if TYPE_CHECKING:
     from vapi.db.sql_models.company import Company
     from vapi.db.sql_models.user import User
     from vapi.domain.controllers.character.dto import CharacterPatch, CharacterTraitCreate
+
+
+def annotate_character_counts(qs: QuerySet[Character]) -> QuerySet[Character]:
+    """Annotate a Character queryset with active child-resource counts for responses."""
+    return qs.annotate(
+        num_inventory_items=Count(
+            "inventory", _filter=Q(inventory__is_archived=False), distinct=True
+        ),
+        num_notes=Count("notes", _filter=Q(notes__is_archived=False), distinct=True),
+        num_assets=Count("assets", _filter=Q(assets__is_archived=False), distinct=True),
+    )
 
 
 class CharacterService:

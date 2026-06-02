@@ -15,6 +15,8 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import GlobalAdminUserService
+from vapi.domain.services.user_svc import annotate_user_counts
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
@@ -60,10 +62,12 @@ class GlobalAdminUserController(Controller):
 
         count, users = await asyncio.gather(
             qs.count(),
-            qs.order_by("username")
-            .offset(offset)
-            .limit(limit)
-            .prefetch_related("campaign_experiences"),
+            annotate_user_counts(
+                qs.order_by("username")
+                .offset(offset)
+                .limit(limit)
+                .prefetch_related("campaign_experiences")
+            ),
         )
 
         return OffsetPagination(
@@ -82,7 +86,13 @@ class GlobalAdminUserController(Controller):
     )
     async def get_user(self, *, target_user: User) -> AdminUserResponse:
         """Retrieve a single user by ID (archived users included)."""
-        return AdminUserResponse.from_model(target_user)
+        # Re-fetch annotated by id; no is_archived filter on the user so archived users stay visible.
+        user = await annotate_user_counts(
+            User.filter(id=target_user.id).prefetch_related("campaign_experiences")
+        ).first()
+        if not user:
+            raise NotFoundError(detail="User not found")
+        return AdminUserResponse.from_model(user)
 
     @post(
         path=urls.GlobalAdmin.USER_CREATE,
@@ -97,6 +107,9 @@ class GlobalAdminUserController(Controller):
         request.state.audit_description = (
             f"created user {user.username} in company {user.company_id}"  # type: ignore[attr-defined]
         )
+        user = await annotate_user_counts(
+            User.filter(id=user.id).prefetch_related("campaign_experiences")
+        ).first()
         return AdminUserResponse.from_model(user)
 
     @patch(
@@ -112,6 +125,9 @@ class GlobalAdminUserController(Controller):
         """Update any user by ID with no role-matrix restrictions."""
         user, changes = await GlobalAdminUserService().update_user(target_user, data)
         request.state.audit_changes = changes
+        user = await annotate_user_counts(
+            User.filter(id=user.id).prefetch_related("campaign_experiences")
+        ).first()
         return AdminUserResponse.from_model(user)
 
     @delete(

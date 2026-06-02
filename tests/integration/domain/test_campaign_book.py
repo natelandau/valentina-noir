@@ -210,6 +210,44 @@ async def test_get_book_no_include_omits_children(
     assert "assets" not in data
 
 
+async def test_get_book_includes_child_counts(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory,
+    build_url: Callable[..., str],
+) -> None:
+    """Verify getBook detail reports exact child resource counts."""
+    # Given a book with two chapters and no notes or assets
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    await campaign_chapter_factory(book=book)
+    await campaign_chapter_factory(book=book)
+
+    # When we get the book detail
+    response = await client.get(
+        build_url(
+            Campaigns.BOOK_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+    )
+
+    # Then the counts are exact
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert data["num_chapters"] == 2
+    assert data["num_notes"] == 0
+    assert data["num_assets"] == 0
+
+
 async def test_get_book_include_all_children(
     client: AsyncClient,
     token_global_admin: dict[str, str],
