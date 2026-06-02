@@ -657,6 +657,41 @@ class TestArchiveCharacter:
         assert character.is_archived is True
         assert character.archive_date is not None
 
+    async def test_archive_character_cascades_to_owned_data(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        character_inventory_factory: "Callable[..., Any]",
+        specialty_factory: "Callable[..., Any]",
+        note_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify archive_character cascades to inventory, specialty, and notes under one batch."""
+        # Given a character with inventory, a specialty, and a note
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
+        inventory = await character_inventory_factory(character=character)
+        specialty = await specialty_factory(character=character)
+        note = await note_factory(company=company, character=character)
+        service = CharacterService()
+
+        # When we archive the character
+        await service.archive_character(character)
+
+        # Then the character and its owned data are archived under one batch id
+        await character.refresh_from_db()
+        await inventory.refresh_from_db()
+        await specialty.refresh_from_db()
+        await note.refresh_from_db()
+
+        assert character.is_archived is True
+        assert character.archive_batch_id is not None
+        assert inventory.is_archived is True
+        assert inventory.archive_batch_id == character.archive_batch_id
+        assert specialty.is_archived is True
+        assert specialty.archive_batch_id == character.archive_batch_id
+        assert note.is_archived is True
+        assert note.archive_batch_id == character.archive_batch_id
+
 
 class TestAssertCanAssignNpcType:
     """Test CharacterService.assert_can_assign_npc_type."""

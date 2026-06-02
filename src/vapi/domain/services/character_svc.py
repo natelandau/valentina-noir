@@ -373,14 +373,13 @@ class CharacterService:
             await trait_svc.after_save(rows[0], character)
 
     async def archive_character(self, character: Character) -> None:
-        """Soft-delete a character.
-
-        Cascade wiring for child entities (inventory, traits, assets, notes) will be
-        added as each domain migrates in later sessions.
+        """Soft-delete a character and cascade the archive to its owned data.
 
         Args:
             character: The character to archive.
         """
-        character.is_archived = True
-        character.archive_date = time_now()
-        await character.save()
+        # Local import: character_svc is imported before character_trait_svc in
+        # services/__init__, so a top-level handlers import would cycle.
+        from vapi.domain.handlers import archive_character
+
+        await archive_character(character=character)

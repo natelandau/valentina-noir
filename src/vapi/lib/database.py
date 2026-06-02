@@ -58,6 +58,54 @@ def tortoise_config() -> dict[str, Any]:
     }
 
 
+# SQL that installs the archive-stamp enforcement trigger on every BaseModel
+# table. The migration (0010) carries the same SQL for incremental upgrades of
+# existing databases; this constant is the source of truth for fresh-schema
+# paths (Tortoise.generate_schemas) which bypass migrations entirely. Keep the
+# two in sync.
+_ARCHIVE_TRIGGER_FUNCTION_SQL = (
+    "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+    "CREATE OR REPLACE FUNCTION enforce_archive_stamps() "
+    "RETURNS trigger AS $$ BEGIN "
+    "IF NEW.is_archived THEN "
+    "IF NEW.archive_date IS NULL THEN NEW.archive_date := now(); END IF; "
+    "IF NEW.archive_batch_id IS NULL THEN "
+    "NEW.archive_batch_id := gen_random_uuid(); END IF; "
+    "ELSE NEW.archive_date := NULL; NEW.archive_batch_id := NULL; "
+    "END IF; RETURN NEW; END; $$ LANGUAGE plpgsql;"
+)
+
+_ARCHIVE_TRIGGER_ATTACH_SQL = (
+    "DO $$ DECLARE tbl text; BEGIN "
+    "FOR tbl IN SELECT table_name FROM information_schema.columns "
+    "WHERE table_schema = 'public' AND column_name = 'archive_batch_id' "
+    "LOOP "
+    "EXECUTE format("
+    "'DROP TRIGGER IF EXISTS trg_enforce_archive_stamps ON %I', tbl); "
+    "EXECUTE format("
+    "'CREATE TRIGGER trg_enforce_archive_stamps "
+    "BEFORE INSERT OR UPDATE ON %I FOR EACH ROW "
+    "EXECUTE FUNCTION enforce_archive_stamps()', tbl); "
+    "END LOOP; END $$;"
+)
+
+
+async def install_archive_stamp_trigger() -> None:
+    """Install the archive-stamp enforcement trigger on every archivable table.
+
+    Tortoise's ``generate_schemas`` creates tables straight from the models and
+    never runs migration RunSQL, so fresh databases (tests, initial production
+    setup) would otherwise lack the DB-level backstop that guarantees archived
+    rows always carry both ``archive_date`` and ``archive_batch_id``. Call this
+    immediately after ``generate_schemas`` to close that gap. Idempotent.
+    """
+    from tortoise import Tortoise
+
+    conn = Tortoise.get_connection("default")
+    await conn.execute_script(_ARCHIVE_TRIGGER_FUNCTION_SQL)
+    await conn.execute_script(_ARCHIVE_TRIGGER_ATTACH_SQL)
+
+
 def __getattr__(name: str) -> dict[str, Any]:
     """Lazy module-level attribute for the `tortoise` CLI (e.g. `tortoise -c vapi.lib.database.TORTOISE_ORM`)."""
     if name == "TORTOISE_ORM":

@@ -1,204 +1,295 @@
 """Archive handlers.
 
-Used to handle the archiving of various models and their associated data.
+Archive a top-level entity and cascade the archive to everything it owns. One
+ArchiveContext (batch id + timestamp) is created per top-level action and
+threaded through every nested handler, so the whole cascade shares a batch id
+and can be restored as a unit. Every write is a guarded bulk update that flips
+only currently-active rows (is_archived=False), making nested cascades
+idempotent. Dice rolls are historical artifacts and are never cascade-archived.
 """
 
-import asyncio
 import logging
+from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
+
+from tortoise.models import Model
+from tortoise.transactions import in_transaction
+from uuid_utils import uuid7
 
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
-from vapi.db.sql_models.character import Character, CharacterInventory
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterInventory,
+    CharacterTrait,
+    HunterAttributes,
+    MageAttributes,
+    Specialty,
+    VampireAttributes,
+    WerewolfAttributes,
+)
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
-from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
-from vapi.db.sql_models.user import User
+from vapi.db.sql_models.user import CampaignExperience, User
+from vapi.utils.time import time_now
 
 logger = logging.getLogger("vapi")
 
 
-async def archive_s3_assets(fk_field: str, object_ids: list[UUID]) -> int:
-    """Archive all S3 assets matching the given FK field and IDs."""
-    return await S3Asset.filter(
-        **{f"{fk_field}__in": object_ids},
-        is_archived=False,
-    ).update(is_archived=True)
+@dataclass(frozen=True)
+class ArchiveContext:
+    """Shared identity for one top-level archive action.
+
+    Args:
+        batch_id: Stamped on every row the action archives; the restore key.
+        now: Single timestamp stamped as archive_date across the whole action.
+    """
+
+    batch_id: UUID
+    now: datetime
 
 
-class CampaignArchiveHandler:
-    """Campaign archive handler."""
+async def _archive_where(model: type[Model], ctx: ArchiveContext, **filters: object) -> int:
+    """Archive every currently-active row of ``model`` matching ``filters``.
 
-    def __init__(self, campaign: Campaign) -> None:
-        """Initialize the campaign archive handler."""
-        self.campaign = campaign
+    Filtering on is_archived=False is what keeps the cascade idempotent and lets
+    restore distinguish rows archived by this action from rows already archived.
+    """
+    return await model.filter(is_archived=False, **filters).update(
+        is_archived=True,
+        archive_date=ctx.now,
+        archive_batch_id=ctx.batch_id,
+    )
 
-    async def handle(self) -> None:
-        """Handle the archiving of the campaign."""
-        campaign_books = await CampaignBook.filter(campaign_id=self.campaign.id)
-        book_ids = [b.id for b in campaign_books]
 
-        campaign_chapters = await CampaignChapter.filter(book_id__in=book_ids)
-        chapter_ids = [c.id for c in campaign_chapters]
+async def archive_s3_assets(fk_field: str, object_ids: list[UUID], ctx: ArchiveContext) -> int:
+    """Archive all active S3 assets matching the given FK field and IDs."""
+    return await _archive_where(S3Asset, ctx, **{f"{fk_field}__in": object_ids})
 
-        await CampaignChapter.filter(book_id__in=book_ids).update(is_archived=True)
-        await CampaignBook.filter(campaign_id=self.campaign.id).update(is_archived=True)
 
-        s3_counts = await asyncio.gather(
-            archive_s3_assets("chapter_id", chapter_ids),
-            archive_s3_assets("book_id", book_ids),
-            archive_s3_assets("campaign_id", [self.campaign.id]),
-        )
-        num_s3_assets = sum(s3_counts)
+async def _archive_character_children(character_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive everything owned by a character (dice rolls excluded, D4)."""
+    await archive_s3_assets("character_id", [character_id], ctx)
+    await _archive_where(Trait, ctx, custom_for_character_id=character_id)
+    await _archive_where(CharacterTrait, ctx, character_id=character_id)
+    await _archive_where(CharacterInventory, ctx, character_id=character_id)
+    await _archive_where(Specialty, ctx, character_id=character_id)
+    for attr_model in (
+        VampireAttributes,
+        WerewolfAttributes,
+        MageAttributes,
+        HunterAttributes,
+    ):
+        await _archive_where(attr_model, ctx, character_id=character_id)
+    await _archive_where(Note, ctx, character_id=character_id)
 
-        self.campaign.is_archived = True
-        await self.campaign.save()
 
-        logger.debug(
-            "Archive campaign",
-            extra={
-                "component": "campaign_archive_handler",
-                "campaign_id": self.campaign.id,
-                "s3_assets_archived": num_s3_assets,
-                "campaign_books_archived": len(campaign_books),
-                "campaign_chapters_archived": len(campaign_chapters),
-            },
-        )
+async def _archive_user_children(user_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive everything owned by a user (dice rolls excluded, D4).
+
+    Cascades to PLAYER characters only (filtered by user_player_id); NPCs the
+    user merely created are ownerless and survive.
+    """
+    await _archive_where(QuickRoll, ctx, user_id=user_id)
+    await archive_s3_assets("user_parent_id", [user_id], ctx)
+    await _archive_where(Note, ctx, user_id=user_id)
+    await _archive_where(CampaignExperience, ctx, user_id=user_id)
+    for character in await Character.filter(user_player_id=user_id, is_archived=False):
+        await CharacterArchiveHandler(character=character, ctx=ctx).handle()
+
+
+async def _archive_campaign_children(campaign_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive books, chapters, their notes/assets, characters (D1), and campaign data."""
+    book_ids = [b.id for b in await CampaignBook.filter(campaign_id=campaign_id, is_archived=False)]
+    chapter_ids = [
+        c.id for c in await CampaignChapter.filter(book_id__in=book_ids, is_archived=False)
+    ]
+
+    await _archive_where(CampaignChapter, ctx, book_id__in=book_ids)
+    await _archive_where(CampaignBook, ctx, campaign_id=campaign_id)
+
+    await archive_s3_assets("chapter_id", chapter_ids, ctx)
+    await archive_s3_assets("book_id", book_ids, ctx)
+    await archive_s3_assets("campaign_id", [campaign_id], ctx)
+
+    await _archive_where(Note, ctx, chapter_id__in=chapter_ids)
+    await _archive_where(Note, ctx, book_id__in=book_ids)
+    await _archive_where(Note, ctx, campaign_id=campaign_id)
+    await _archive_where(CampaignExperience, ctx, campaign_id=campaign_id)
+
+    for character in await Character.filter(campaign_id=campaign_id, is_archived=False):
+        await CharacterArchiveHandler(character=character, ctx=ctx).handle()
+
+
+async def _archive_chapter_children(chapter_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive the notes and assets attached to a chapter."""
+    await archive_s3_assets("chapter_id", [chapter_id], ctx)
+    await _archive_where(Note, ctx, chapter_id=chapter_id)
+
+
+async def _archive_book_children(book_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive a book's chapters and the notes/assets on the book and those chapters."""
+    chapter_ids = [c.id for c in await CampaignChapter.filter(book_id=book_id, is_archived=False)]
+    await _archive_where(CampaignChapter, ctx, book_id=book_id)
+
+    await archive_s3_assets("chapter_id", chapter_ids, ctx)
+    await archive_s3_assets("book_id", [book_id], ctx)
+
+    await _archive_where(Note, ctx, chapter_id__in=chapter_ids)
+    await _archive_where(Note, ctx, book_id=book_id)
 
 
 class CharacterArchiveHandler:
-    """Character archive handler."""
+    """Archive a character and everything it owns."""
 
-    def __init__(self, character: Character) -> None:
-        """Initialize the character archive handler."""
+    def __init__(self, character: Character, ctx: ArchiveContext) -> None:
+        """Initialize with the character and the shared archive context."""
         self.character = character
+        self.ctx = ctx
 
     async def handle(self) -> None:
-        """Handle the archiving of the character."""
-        self.character.is_archived = True
-        await self.character.save()
+        """Flip the character (idempotent) and cascade to its children."""
+        await _archive_where(Character, self.ctx, id=self.character.id)
+        await _archive_character_children(self.character.id, self.ctx)
 
-        num_s3_assets_archived = await archive_s3_assets("character_id", [self.character.id])
 
-        custom_traits_archived = await Trait.filter(
-            custom_for_character_id=self.character.id,
-        ).update(is_archived=True)
+class CampaignArchiveHandler:
+    """Archive a campaign and everything under it."""
 
-        inventory_items_archived = await CharacterInventory.filter(
-            character_id=self.character.id,
-        ).update(is_archived=True)
+    def __init__(self, campaign: Campaign, ctx: ArchiveContext) -> None:
+        """Initialize with the campaign and the shared archive context."""
+        self.campaign = campaign
+        self.ctx = ctx
 
-        logger.debug(
-            "Archive character",
-            extra={
-                "component": "character_archive_handler",
-                "character_id": self.character.id,
-                "s3_assets_archived": num_s3_assets_archived,
-                "custom_traits_archived": custom_traits_archived,
-                "inventory_items_archived": inventory_items_archived,
-            },
-        )
+    async def handle(self) -> None:
+        """Flip the campaign (idempotent) and cascade to its children."""
+        await _archive_where(Campaign, self.ctx, id=self.campaign.id)
+        await _archive_campaign_children(self.campaign.id, self.ctx)
 
 
 class UserArchiveHandler:
-    """User archive handler."""
+    """Archive a user and everything they own."""
 
-    def __init__(self, user: User) -> None:
-        """Initialize the user archive handler."""
+    def __init__(self, user: User, ctx: ArchiveContext) -> None:
+        """Initialize with the user and the shared archive context."""
         self.user = user
+        self.ctx = ctx
 
     async def handle(self) -> None:
-        """Handle the archiving of the user."""
-        self.user.is_archived = True
-        await self.user.save()
-
-        num_quickrolls_archived = await QuickRoll.filter(
-            user_id=self.user.id,
-        ).update(is_archived=True)
-
-        num_s3_assets_archived = await archive_s3_assets("user_parent_id", [self.user.id])
-
-        for character in await Character.filter(user_player_id=self.user.id):
-            await CharacterArchiveHandler(character=character).handle()
-
-        logger.debug(
-            "Archive user",
-            extra={
-                "component": "user_archive_handler",
-                "user_id": self.user.id,
-                "num_quickrolls_archived": num_quickrolls_archived,
-                "num_s3_assets_archived": num_s3_assets_archived,
-            },
-        )
-
-
-async def archive_user_cascade(user_id: UUID) -> None:
-    """Archive data owned by a user without touching the User record itself.
-
-    The Tortoise UserService archives the User record, then calls this
-    function to cascade archival to QuickRoll, S3Asset, and Character.
-
-    Args:
-        user_id: The user's UUID.
-    """
-    await QuickRoll.filter(user_id=user_id).update(is_archived=True)
-    await archive_s3_assets("user_parent_id", [user_id])
-
-    for character in await Character.filter(user_player_id=user_id):
-        await CharacterArchiveHandler(character=character).handle()
+        """Flip the user (idempotent) and cascade to their owned data."""
+        await _archive_where(User, self.ctx, id=self.user.id)
+        await _archive_user_children(self.user.id, self.ctx)
 
 
 class CompanyArchiveHandler:
-    """Company archive handler."""
+    """Archive a company and every entity belonging to it."""
 
-    def __init__(self, company: Company) -> None:
-        """Initialize the company archive handler."""
+    def __init__(self, company: Company, ctx: ArchiveContext) -> None:
+        """Initialize with the company and the shared archive context."""
         self.company = company
+        self.ctx = ctx
 
-    async def _archive_other_models(self) -> None:
-        """Archive other models associated with the company."""
-        for model in [Note, DictionaryTerm, CharacterConcept, DiceRoll, S3Asset]:
-            archived = await model.filter(
-                company_id=self.company.id,
-                is_archived=False,
-            ).update(is_archived=True)
-
-            logger.debug(
-                "Archive %s",
-                model.__name__,
-                extra={
-                    "component": "company_archive_handler",
-                    "company_id": self.company.id,
-                    "num_archived": archived,
-                },
-            )
+    async def _archive_company_scoped(self) -> None:
+        """Archive models scoped directly by company_id (incl. dice rolls)."""
+        for model in (Note, DictionaryTerm, CharacterConcept, DiceRoll, S3Asset, CompanySettings):
+            await _archive_where(model, self.ctx, company_id=self.company.id)
 
     async def handle(self) -> None:
-        """Handle the archiving of a company."""
-        logger.debug(
-            "Archive company and all associated data.",
-            extra={"component": "company_archive_handler", "company_id": self.company.id},
+        """Cascade through all child entities, then flip the company itself."""
+        for campaign in await Campaign.filter(company_id=self.company.id, is_archived=False):
+            await CampaignArchiveHandler(campaign=campaign, ctx=self.ctx).handle()
+
+        for character in await Character.filter(company_id=self.company.id, is_archived=False):
+            await CharacterArchiveHandler(character=character, ctx=self.ctx).handle()
+
+        for user in await User.filter(company_id=self.company.id, is_archived=False):
+            await UserArchiveHandler(user=user, ctx=self.ctx).handle()
+
+        await self._archive_company_scoped()
+        await _archive_where(Company, self.ctx, id=self.company.id)
+
+
+def _new_context() -> ArchiveContext:
+    """Mint a fresh archive context for a top-level action."""
+    return ArchiveContext(batch_id=UUID(str(uuid7())), now=time_now())
+
+
+async def archive_character(character: Character) -> ArchiveContext:
+    """Archive a character and its subtree as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await CharacterArchiveHandler(character=character, ctx=ctx).handle()
+    return ctx
+
+
+async def archive_campaign(campaign: Campaign) -> ArchiveContext:
+    """Archive a campaign and its subtree as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await CampaignArchiveHandler(campaign=campaign, ctx=ctx).handle()
+    return ctx
+
+
+async def archive_book(book: CampaignBook) -> ArchiveContext:
+    """Archive a book and its chapters/notes/assets as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await _archive_where(CampaignBook, ctx, id=book.id)
+        await _archive_book_children(book.id, ctx)
+    return ctx
+
+
+async def archive_chapter(chapter: CampaignChapter) -> ArchiveContext:
+    """Archive a chapter and its notes/assets as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await _archive_where(CampaignChapter, ctx, id=chapter.id)
+        await _archive_chapter_children(chapter.id, ctx)
+    return ctx
+
+
+async def archive_user(user: User) -> ArchiveContext:
+    """Archive a user and their owned data as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await UserArchiveHandler(user=user, ctx=ctx).handle()
+    return ctx
+
+
+async def archive_company(company: Company) -> ArchiveContext:
+    """Archive a company and its entire tenant as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await CompanyArchiveHandler(company=company, ctx=ctx).handle()
+    return ctx
+
+
+async def cascade_archive_user(user: User) -> ArchiveContext:
+    """Cascade-archive a user's owned data under the user row's existing batch.
+
+    The caller has already archived the user record (e.g. via ``user.save()``),
+    so this reuses that row's batch id and timestamp, keeping the user and their
+    owned data in one restorable batch. Dice rolls are intentionally not touched.
+
+    Raises:
+        ValueError: If the user row has not been archived first (its
+            archive_batch_id / archive_date are unset), which would otherwise
+            stamp the children with a NULL batch and make them unrestorable.
+    """
+    if user.archive_batch_id is None or user.archive_date is None:
+        msg = (
+            "cascade_archive_user requires the user to be archived first "
+            "(archive_batch_id and archive_date must be set); got "
+            f"archive_batch_id={user.archive_batch_id}, archive_date={user.archive_date}"
         )
+        raise ValueError(msg)
 
-        for campaign in await Campaign.filter(company_id=self.company.id):
-            await CampaignArchiveHandler(campaign=campaign).handle()
-
-        for character in await Character.filter(company_id=self.company.id):
-            await CharacterArchiveHandler(character=character).handle()
-
-        for user in await User.filter(company_id=self.company.id):
-            await UserArchiveHandler(user=user).handle()
-
-        await self._archive_other_models()
-
-        self.company.is_archived = True
-        await self.company.save()
-
-        logger.debug(
-            "Archive company and all associated data. Completed",
-            extra={"component": "company_archive_handler", "company_id": self.company.id},
-        )
+    ctx = ArchiveContext(batch_id=user.archive_batch_id, now=user.archive_date)
+    await _archive_user_children(user.id, ctx)
+    return ctx
