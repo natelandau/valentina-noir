@@ -45,7 +45,7 @@ async def _purge_archived_models() -> None:
     # Order child-first to respect FK dependencies
     for model in PURGE_MODELS:
         try:
-            deleted = await model.filter(is_archived=True, date_modified__lt=cutoff_date).delete()
+            deleted = await model.filter(is_archived=True, archive_date__lt=cutoff_date).delete()
             logger.info(
                 "Purge old %s.",
                 model.__name__,
@@ -91,7 +91,7 @@ async def _purge_s3_assets() -> None:
         return
 
     try:
-        assets = await S3Asset.filter(is_archived=True, date_modified__lt=cutoff_date)
+        assets = await S3Asset.filter(is_archived=True, archive_date__lt=cutoff_date)
     except Exception:
         logger.exception("Failed to purge S3Assets.", extra=_LOG_EXTRA)
         return
