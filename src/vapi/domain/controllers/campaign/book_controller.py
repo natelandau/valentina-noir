@@ -14,7 +14,9 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.domain.services.campaign_svc import annotate_book_counts
 from vapi.lib.detail_includes import apply_includes
+from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_can_manage_campaign
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
@@ -62,7 +64,7 @@ class CampaignBookController(Controller):
         qs = CampaignBook.filter(campaign_id=campaign.id, is_archived=False)
         count, books = await asyncio.gather(
             qs.count(),
-            qs.order_by("number").offset(offset).limit(limit),
+            annotate_book_counts(qs.order_by("number")).offset(offset).limit(limit),
         )
         return OffsetPagination(
             items=[CampaignBookResponse.from_model(b) for b in books],
@@ -85,8 +87,13 @@ class CampaignBookController(Controller):
         include: list[BookInclude] | None = None,
     ) -> CampaignBookDetailResponse:
         """Get a book by ID with optional embedded children."""
-        requested = await apply_includes(book, include, get_book_include_prefetch_map())
-        return CampaignBookDetailResponse.from_model(book, requested)
+        annotated = await annotate_book_counts(
+            CampaignBook.filter(id=book.id, is_archived=False)
+        ).first()
+        if not annotated:
+            raise NotFoundError(detail="Book not found")
+        requested = await apply_includes(annotated, include, get_book_include_prefetch_map())
+        return CampaignBookDetailResponse.from_model(annotated, requested)
 
     @post(
         path=urls.Campaigns.BOOK_CREATE,
@@ -116,7 +123,8 @@ class CampaignBookController(Controller):
         request.state.audit_description = (
             f"Create book '{book.number}: {book.name}' for campaign '{campaign.name}'"
         )
-        return CampaignBookResponse.from_model(book)
+        annotated = await annotate_book_counts(CampaignBook.filter(id=book.id)).first()
+        return CampaignBookResponse.from_model(annotated)
 
     @patch(
         path=urls.Campaigns.BOOK_UPDATE,
@@ -138,7 +146,8 @@ class CampaignBookController(Controller):
         request.state.audit_changes = changes
         request.state.audit_description = f"Update book '{book.number}: {book.name}'"
         await book.save()
-        return CampaignBookResponse.from_model(book)
+        annotated = await annotate_book_counts(CampaignBook.filter(id=book.id)).first()
+        return CampaignBookResponse.from_model(annotated)
 
     @delete(
         path=urls.Campaigns.BOOK_DELETE,
@@ -183,4 +192,5 @@ class CampaignBookController(Controller):
         request.state.audit_description = (
             f"Renumber book '{book.name}' from {old_number} to {data.number}"
         )
-        return CampaignBookResponse.from_model(book)
+        annotated = await annotate_book_counts(CampaignBook.filter(id=book.id)).first()
+        return CampaignBookResponse.from_model(annotated)
