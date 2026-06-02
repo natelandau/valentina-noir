@@ -71,6 +71,7 @@ _FK_PARAM_KEYS: dict[str, str] = {pk: fk for pk, _, fk in PARAM_ENTITY_MAP if fk
 # path param is a parent, not the target being created.
 OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createUser": AuditEntityType.USER,
+    "globalAdminCreateUser": AuditEntityType.USER,
     "registerUser": AuditEntityType.USER,
     "mergeUsers": AuditEntityType.USER,
     "approveUser": AuditEntityType.USER,
@@ -99,6 +100,19 @@ OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createCompany": AuditEntityType.COMPANY,
     "globalAdminCreateDeveloper": AuditEntityType.DEVELOPER,
 }
+
+# Global-admin user routes authenticate via Developer API key, never via a User
+# session, so a user_id path param on these routes is always the target, not the
+# actor (the acting Developer is recorded separately as developer_id). Listed
+# explicitly rather than matched by prefix so unrelated globalAdmin* routes, or a
+# future one where a user genuinely is the actor, are not silently caught.
+_GLOBAL_ADMIN_USER_OPERATION_IDS: frozenset[str] = frozenset(
+    {
+        "globalAdminCreateUser",
+        "globalAdminUpdateUser",
+        "globalAdminDeleteUser",
+    }
+)
 
 # operation_ids that are POST but semantically UPDATE
 _POST_AS_UPDATE: frozenset[str] = frozenset(
@@ -166,6 +180,7 @@ def _resolve_entity_and_fks(
 def _resolve_acting_user(
     request: Request,
     path_params: dict[str, str],
+    operation_id: str | None,
 ) -> str | None:
     """Derive the acting user ID from request state, header, or path params.
 
@@ -173,6 +188,10 @@ def _resolve_acting_user(
     1. request.state.acting_user (stashed by guards/provider)
     2. On-Behalf-Of header
     3. user_id path param (fallback for user-domain endpoints)
+
+    Global-admin user routes have no acting User -- the actor is the Developer,
+    recorded separately as developer_id -- so the path-param fallback is skipped
+    for them to avoid recording the target user as the actor.
     """
     from vapi.constants import ON_BEHALF_OF_HEADER_KEY
 
@@ -183,6 +202,12 @@ def _resolve_acting_user(
     header_value = request.headers.get(ON_BEHALF_OF_HEADER_KEY)
     if header_value:
         return header_value
+
+    # Global-admin user routes have no acting User; suppress the path-param
+    # fallback so the target user is never recorded as the actor (see the set's
+    # definition for the full rationale).
+    if operation_id in _GLOBAL_ADMIN_USER_OPERATION_IDS:
+        return None
 
     if "user_id" in path_params:
         return path_params["user_id"]
@@ -242,7 +267,7 @@ def build_audit_entry(
     entity_type, target_entity_id, fk_values = _resolve_entity_and_fks(
         path_params, method, operation_id
     )
-    acting_user_id = _resolve_acting_user(request, path_params)
+    acting_user_id = _resolve_acting_user(request, path_params, operation_id)
 
     description: str | None = getattr(request.state, "audit_description", None)
     if description is None:

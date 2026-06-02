@@ -69,3 +69,30 @@ download.
 Returns 409 if file logging is not enabled or no log files exist on disk. \
 Requires global admin privileges.
 """
+
+ADMIN_LIST_USERS_DESCRIPTION = """\
+Retrieve a paginated list of users across all companies. Optionally filter by \
+company, role, email, or archived state. Unlike the company-scoped user endpoints, \
+this requires no On-Behalf-Of header. Requires global admin privileges.
+"""
+
+ADMIN_GET_USER_DESCRIPTION = """\
+Retrieve a single user by ID, regardless of which company they belong to. Archived \
+(soft-deleted) users are returned here. Requires global admin privileges.
+"""
+
+ADMIN_CREATE_USER_DESCRIPTION = """\
+Create a user in the company identified by `company_id` in the request body. The \
+role assignment matrix does not apply. A user cannot be created with the UNAPPROVED \
+or DEACTIVATED role. Requires global admin privileges.
+"""
+
+ADMIN_UPDATE_USER_DESCRIPTION = """\
+Update any user by ID with no role-matrix restrictions. Set `is_archived` to false \
+to restore a soft-deleted user. Requires global admin privileges.
+"""
+
+ADMIN_DELETE_USER_DESCRIPTION = """\
+Soft-delete a user by ID. The user can later be restored by patching `is_archived` \
+to false. Requires global admin privileges.
+"""
