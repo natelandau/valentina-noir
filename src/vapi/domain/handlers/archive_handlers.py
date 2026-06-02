@@ -276,7 +276,20 @@ async def cascade_archive_user(user: User) -> ArchiveContext:
     The caller has already archived the user record (e.g. via ``user.save()``),
     so this reuses that row's batch id and timestamp, keeping the user and their
     owned data in one restorable batch. Dice rolls are intentionally not touched.
+
+    Raises:
+        ValueError: If the user row has not been archived first (its
+            archive_batch_id / archive_date are unset), which would otherwise
+            stamp the children with a NULL batch and make them unrestorable.
     """
+    if user.archive_batch_id is None or user.archive_date is None:
+        msg = (
+            "cascade_archive_user requires the user to be archived first "
+            "(archive_batch_id and archive_date must be set); got "
+            f"archive_batch_id={user.archive_batch_id}, archive_date={user.archive_date}"
+        )
+        raise ValueError(msg)
+
     ctx = ArchiveContext(batch_id=user.archive_batch_id, now=user.archive_date)
     await _archive_user_children(user.id, ctx)
     return ctx

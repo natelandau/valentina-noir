@@ -54,6 +54,15 @@ class CampaignService:
         chapter.number = new_number
         return chapter
 
+    @staticmethod
+    async def _renumber_after_delete(
+        *, model: type[Model], parent_field: str, parent_id: UUID, number: int
+    ) -> None:
+        """Shift siblings numbered above ``number`` down by one to fill a deleted item's slot."""
+        await model.filter(
+            **{parent_field: parent_id}, number__gt=number, is_archived=False
+        ).update(number=F("number") - 1)
+
     async def delete_book_and_renumber(self, book: CampaignBook) -> None:
         """Soft-delete a book (cascading to its chapters, notes, and assets) and renumber siblings."""
         from tortoise.transactions import in_transaction
@@ -61,11 +70,12 @@ class CampaignService:
         from vapi.domain.handlers import archive_book
 
         async with in_transaction():
-            await CampaignBook.filter(
-                campaign_id=book.campaign_id,  # type: ignore[attr-defined]
-                number__gt=book.number,
-                is_archived=False,
-            ).update(number=F("number") - 1)
+            await self._renumber_after_delete(
+                model=CampaignBook,
+                parent_field="campaign_id",
+                parent_id=book.campaign_id,  # type: ignore[attr-defined]
+                number=book.number,
+            )
             await archive_book(book=book)
 
     async def delete_chapter_and_renumber(self, chapter: CampaignChapter) -> None:
@@ -75,11 +85,12 @@ class CampaignService:
         from vapi.domain.handlers import archive_chapter
 
         async with in_transaction():
-            await CampaignChapter.filter(
-                book_id=chapter.book_id,  # type: ignore[attr-defined]
-                number__gt=chapter.number,
-                is_archived=False,
-            ).update(number=F("number") - 1)
+            await self._renumber_after_delete(
+                model=CampaignChapter,
+                parent_field="book_id",
+                parent_id=chapter.book_id,  # type: ignore[attr-defined]
+                number=chapter.number,
+            )
             await archive_chapter(chapter=chapter)
 
     async def archive_campaign(self, campaign: Campaign) -> None:

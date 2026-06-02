@@ -32,6 +32,7 @@ from vapi.domain.handlers import (
     archive_character,
     archive_company,
     archive_user,
+    cascade_archive_user,
 )
 
 if TYPE_CHECKING:
@@ -264,6 +265,21 @@ class TestCharacterArchiveHandler:
 
 class TestUserArchiveHandler:
     """Test the UserArchiveHandler."""
+
+    async def test_cascade_archive_user_rejects_unarchived_user(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify cascading a user whose row was not archived first raises rather than corrupting the batch."""
+        # Given an active user (no archive_batch_id minted yet)
+        company = await company_factory()
+        user = await user_factory(company=company, is_archived=False)
+
+        # When cascade_archive_user is called without archiving the user row first
+        # Then it raises rather than stamping children with a NULL batch
+        with pytest.raises(ValueError, match="archived first"):
+            await cascade_archive_user(user)
 
     async def test_handle(
         self,
