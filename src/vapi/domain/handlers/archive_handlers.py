@@ -14,6 +14,7 @@ from datetime import datetime
 from uuid import UUID
 
 from tortoise.models import Model
+from tortoise.transactions import in_transaction
 from uuid_utils import uuid7
 
 from vapi.db.sql_models.aws import S3Asset
@@ -204,28 +205,32 @@ def _new_context() -> ArchiveContext:
 async def archive_character(character: Character) -> ArchiveContext:
     """Archive a character and its subtree as one batch; returns the context."""
     ctx = _new_context()
-    await CharacterArchiveHandler(character=character, ctx=ctx).handle()
+    async with in_transaction():
+        await CharacterArchiveHandler(character=character, ctx=ctx).handle()
     return ctx
 
 
 async def archive_campaign(campaign: Campaign) -> ArchiveContext:
     """Archive a campaign and its subtree as one batch; returns the context."""
     ctx = _new_context()
-    await CampaignArchiveHandler(campaign=campaign, ctx=ctx).handle()
+    async with in_transaction():
+        await CampaignArchiveHandler(campaign=campaign, ctx=ctx).handle()
     return ctx
 
 
 async def archive_user(user: User) -> ArchiveContext:
     """Archive a user and their owned data as one batch; returns the context."""
     ctx = _new_context()
-    await UserArchiveHandler(user=user, ctx=ctx).handle()
+    async with in_transaction():
+        await UserArchiveHandler(user=user, ctx=ctx).handle()
     return ctx
 
 
 async def archive_company(company: Company) -> ArchiveContext:
     """Archive a company and its entire tenant as one batch; returns the context."""
     ctx = _new_context()
-    await CompanyArchiveHandler(company=company, ctx=ctx).handle()
+    async with in_transaction():
+        await CompanyArchiveHandler(company=company, ctx=ctx).handle()
     return ctx
 
 

@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pytest_mock import MockerFixture
+    from tortoise.models import Model
 
 pytestmark = pytest.mark.anyio
 
@@ -465,3 +466,51 @@ class TestCompanyArchiveHandler:
         assert (await Character.get(id=character.id)).archive_batch_id == (
             await Company.get(id=company.id)
         ).archive_batch_id
+
+    async def test_archive_company_rolls_back_on_midway_failure(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        note_factory: Callable[..., Note],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a failure partway through a company archive rolls back every flip."""
+        # Given an active company with an active user, campaign, and note
+        company = await company_factory()
+        user = await user_factory(company=company, is_archived=False)
+        campaign = await campaign_factory(company=company, is_archived=False)
+        note = await note_factory(company=company, is_archived=False)
+
+        # And an injection point: the real _archive_where runs for every model
+        # except Company (the final flip), where it raises. By the time the cascade
+        # reaches the Company flip, the campaign/user/note rows have already been
+        # flipped inside the transaction, so the raise must revert all of them.
+        from vapi.domain.handlers import archive_handlers
+
+        real_archive_where = archive_handlers._archive_where
+        flipped_models: list[type[Model]] = []
+
+        async def _raise_on_company(model, ctx, **filters) -> int:  # type: ignore[no-untyped-def]
+            if model is Company:
+                msg = "boom"
+                raise RuntimeError(msg)
+            flipped_models.append(model)
+            return await real_archive_where(model, ctx, **filters)
+
+        mocker.patch.object(
+            archive_handlers, "_archive_where", side_effect=_raise_on_company, autospec=True
+        )
+
+        # When we archive the company
+        with pytest.raises(RuntimeError, match="boom"):
+            await archive_company(company=company)
+
+        # Then real rows were flipped before the failure (guards against the cascade
+        # being reordered to flip Company first, which would make this test pass
+        # vacuously), and the transaction rolled every one of them back
+        assert flipped_models  # at least one non-Company flip happened pre-failure
+        assert (await Company.get(id=company.id)).is_archived is False
+        assert (await Campaign.get(id=campaign.id)).is_archived is False
+        assert (await User.get(id=user.id)).is_archived is False
+        assert (await Note.get(id=note.id)).is_archived is False

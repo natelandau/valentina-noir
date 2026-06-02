@@ -122,18 +122,20 @@ class GlobalAdminUserService:
                     "restore the company first."
                 )
 
-        await user.save()
+        from tortoise.transactions import in_transaction
 
         from vapi.domain.handlers import cascade_archive_user, restore_archive_batch
 
-        if not was_archived and user.is_archived:
-            # Archiving via patch cascades to owned data under the user's batch,
-            # identically to delete_user.
-            await cascade_archive_user(user)
-        elif going_to_restore and restore_batch_id is not None:
-            # Restoring reverses the original archive action as a unit. The user
-            # row itself was already cleared by save(); this restores the rest.
-            await restore_archive_batch(batch_id=restore_batch_id)
+        async with in_transaction():
+            await user.save()
+            if not was_archived and user.is_archived:
+                # Archiving via patch cascades to owned data under the user's batch,
+                # identically to delete_user.
+                await cascade_archive_user(user)
+            elif going_to_restore and restore_batch_id is not None:
+                # Restoring reverses the original archive action as a unit. The user
+                # row itself was already cleared by save(); this restores the rest.
+                await restore_archive_batch(batch_id=restore_batch_id)
 
         await user.fetch_related("campaign_experiences")
         return user, changes
@@ -150,8 +152,11 @@ class GlobalAdminUserService:
         Args:
             user: The user to soft-delete.
         """
+        from tortoise.transactions import in_transaction
+
         from vapi.domain.handlers import cascade_archive_user
 
-        user.is_archived = True
-        await user.save()
-        await cascade_archive_user(user)
+        async with in_transaction():
+            user.is_archived = True
+            await user.save()
+            await cascade_archive_user(user)
