@@ -51,7 +51,7 @@ class DiceRoll(BaseModel):
 
     # M2M
     traits: fields.ManyToManyRelation[Trait] = fields.ManyToManyField(
-        "models.Trait", related_name="dice_rolls", through="dice_roll_traits"
+        "models.Trait", related_name="dice_rolls", through="j_dice_roll_traits"
     )
 
     class Meta:
