@@ -346,3 +346,29 @@ async def test_admin_update_writes_audit_attributed_to_developer(
     assert entry.developer_id == session_global_admin.id  # type: ignore[attr-defined]
     assert entry.acting_user_id is None  # type: ignore[attr-defined]
     assert "role" in (entry.changes or {})
+
+
+async def test_admin_create_user_rejects_deactivated_role(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    build_url: Callable[..., str],
+    company_factory: Callable[..., Any],
+) -> None:
+    """Verify creating a user with role DEACTIVATED is rejected."""
+    # Given a company
+    company = await company_factory()
+
+    # When creating a user with role DEACTIVATED
+    response = await client.post(
+        build_url(GlobalAdmin.USER_CREATE),
+        headers=token_global_admin,
+        json={
+            "company_id": str(company.id),
+            "username": "deactivated-user",
+            "email": "deactivated-user@example.com",
+            "role": "DEACTIVATED",
+        },
+    )
+
+    # Then the request is rejected (service-level ValidationError -> 400)
+    assert response.status_code == HTTP_400_BAD_REQUEST
