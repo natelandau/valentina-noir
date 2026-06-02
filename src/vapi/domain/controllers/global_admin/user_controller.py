@@ -1,5 +1,6 @@
 """Global-admin user-management controller."""
 
+import asyncio
 from typing import Annotated
 from uuid import UUID
 
@@ -57,12 +58,12 @@ class GlobalAdminUserController(Controller):
         if is_archived is not None:
             qs = qs.filter(is_archived=is_archived)
 
-        count = await qs.count()
-        users = (
-            await qs.order_by("username")
+        count, users = await asyncio.gather(
+            qs.count(),
+            qs.order_by("username")
             .offset(offset)
             .limit(limit)
-            .prefetch_related("campaign_experiences")
+            .prefetch_related("campaign_experiences"),
         )
 
         return OffsetPagination(

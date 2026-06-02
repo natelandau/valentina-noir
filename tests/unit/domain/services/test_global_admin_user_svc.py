@@ -6,6 +6,8 @@ from uuid import uuid4
 import pytest
 
 from vapi.constants import UserRole
+from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.db.sql_models.user import User
 from vapi.domain.controllers.global_admin.dto import AdminUserCreate, AdminUserPatch
 from vapi.domain.services import GlobalAdminUserService
 from vapi.lib.exceptions import NotFoundError, ValidationError
@@ -125,3 +127,37 @@ async def test_delete_user_soft_deletes(company_factory: Any, user_factory: Any)
 
     # Then the user is archived
     assert user.is_archived is True
+
+
+async def test_update_user_archiving_cascades_to_owned_data(
+    company_factory: Any, user_factory: Any, quickroll_factory: Any
+) -> None:
+    """Verify archiving a user via patch cascades archival to their owned data."""
+    # Given an active user with a quickroll
+    company = await company_factory()
+    user = await user_factory(company=company)
+    quickroll = await quickroll_factory(user=user)
+
+    # When the user is archived via update
+    await GlobalAdminUserService().update_user(user, AdminUserPatch(is_archived=True))
+
+    # Then the user's quickroll is archived too (same cascade as delete)
+    assert (await QuickRoll.get(id=quickroll.id)).is_archived is True
+
+
+async def test_update_user_restore_does_not_unarchive_owned_data(
+    company_factory: Any, user_factory: Any, quickroll_factory: Any
+) -> None:
+    """Verify restoring a user does not reverse the archival cascade on owned data."""
+    # Given an archived user whose quickroll was archived by the delete cascade
+    company = await company_factory()
+    user = await user_factory(company=company)
+    quickroll = await quickroll_factory(user=user)
+    await GlobalAdminUserService().delete_user(user)
+
+    # When the user is restored via update
+    await GlobalAdminUserService().update_user(user, AdminUserPatch(is_archived=False))
+
+    # Then the account is active again but the quickroll stays archived
+    assert (await User.get(id=user.id)).is_archived is False
+    assert (await QuickRoll.get(id=quickroll.id)).is_archived is True

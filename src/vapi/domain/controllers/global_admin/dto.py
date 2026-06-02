@@ -121,5 +121,7 @@ class AdminUserResponse(UserResponse):
             The admin response with every UserResponse field plus is_archived.
         """
         base = UserResponse.from_model(m)
-        fields = {f: getattr(base, f) for f in base.__struct_fields__}
+        # Exclude is_archived so this stays correct (no duplicate keyword) if the
+        # tenant UserResponse ever gains an is_archived field of its own.
+        fields = {f: getattr(base, f) for f in base.__struct_fields__ if f != "is_archived"}
         return cls(**fields, is_archived=m.is_archived)

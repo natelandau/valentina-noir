@@ -77,7 +77,9 @@ class GlobalAdminUserService:
 
         ``role`` is handled explicitly (not via apply_patch) so it is stored as a
         UserRole enum rather than a bare string -- UserResponse.from_model reads
-        ``role.value``. Setting ``is_archived`` to false restores the user.
+        ``role.value``. Archiving via this patch (is_archived false -> true)
+        cascades to owned data exactly like delete_user; setting is_archived to
+        false restores the account record only (the cascade is not reversed).
 
         Args:
             user: The user to update.
@@ -90,6 +92,7 @@ class GlobalAdminUserService:
         Raises:
             ValidationError: If the patch sets an invalid role.
         """
+        was_archived = user.is_archived
         changes = apply_patch(user, data, exclude=frozenset({"role"}))
 
         if not isinstance(data.role, msgspec.UnsetType):
@@ -102,6 +105,15 @@ class GlobalAdminUserService:
                 user.role = new_role
 
         await user.save()
+
+        # Archiving via patch must cascade to owned data, identically to
+        # delete_user; otherwise the user would be hidden while their quickrolls,
+        # assets, and characters stay active.
+        if not was_archived and user.is_archived:
+            from vapi.domain.handlers.archive_handlers import archive_user_cascade
+
+            await archive_user_cascade(user.id)
+
         await user.fetch_related("campaign_experiences")
         return user, changes
 

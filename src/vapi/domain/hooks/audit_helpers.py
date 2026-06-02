@@ -101,6 +101,19 @@ OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "globalAdminCreateDeveloper": AuditEntityType.DEVELOPER,
 }
 
+# Global-admin user routes authenticate via Developer API key, never via a User
+# session, so a user_id path param on these routes is always the target, not the
+# actor (the acting Developer is recorded separately as developer_id). Listed
+# explicitly rather than matched by prefix so unrelated globalAdmin* routes, or a
+# future one where a user genuinely is the actor, are not silently caught.
+_GLOBAL_ADMIN_USER_OPERATION_IDS: frozenset[str] = frozenset(
+    {
+        "globalAdminCreateUser",
+        "globalAdminUpdateUser",
+        "globalAdminDeleteUser",
+    }
+)
+
 # operation_ids that are POST but semantically UPDATE
 _POST_AS_UPDATE: frozenset[str] = frozenset(
     {
@@ -190,9 +203,10 @@ def _resolve_acting_user(
     if header_value:
         return header_value
 
-    # Global-admin routes authenticate via Developer API key, never via a User
-    # session, so a user_id path param here is always the target, not the actor.
-    if operation_id and operation_id.startswith("globalAdmin"):
+    # Global-admin user routes have no acting User; suppress the path-param
+    # fallback so the target user is never recorded as the actor (see the set's
+    # definition for the full rationale).
+    if operation_id in _GLOBAL_ADMIN_USER_OPERATION_IDS:
         return None
 
     if "user_id" in path_params:

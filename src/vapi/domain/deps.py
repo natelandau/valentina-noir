@@ -43,10 +43,11 @@ async def _find_or_404[M: Model](
     *extra_q: Q,
     doc_id: UUID,
     prefetch: list[str] | None = None,
+    include_archived: bool = False,
 ) -> M:
     """Look up a record by ID and raise NotFoundError if not found.
 
-    Automatically filters by is_archived == False.
+    Automatically filters by is_archived == False unless include_archived is True.
 
     Args:
         model: The Tortoise Model class to query.
@@ -54,11 +55,13 @@ async def _find_or_404[M: Model](
         *extra_q: Additional Q filters beyond ID and is_archived.
         doc_id: The record UUID to look up.
         prefetch: Relations to prefetch for the returned instance.
+        include_archived: When True, do not filter out archived rows. Only the
+            global admin domain may surface archived records.
 
     Raises:
         NotFoundError: If no matching record exists.
     """
-    qs = model.filter(id=doc_id, is_archived=False)
+    qs = model.filter(id=doc_id) if include_archived else model.filter(id=doc_id, is_archived=False)
     for q in extra_q:
         qs = qs.filter(q)
     if prefetch:
@@ -224,10 +227,13 @@ async def provide_admin_user_by_id(user_id: UUID) -> User:
     filter archived users, so a global admin can inspect and restore
     soft-deleted users. Prefetches campaign_experiences for UserResponse.
     """
-    user = await User.filter(id=user_id).prefetch_related("campaign_experiences").first()
-    if not user:
-        raise NotFoundError(detail="User not found")
-    return user
+    return await _find_or_404(
+        User,
+        "User",
+        doc_id=user_id,
+        prefetch=["campaign_experiences"],
+        include_archived=True,
+    )
 
 
 async def provide_acting_user(
