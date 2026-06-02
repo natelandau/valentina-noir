@@ -12,13 +12,12 @@ from litestar.params import Parameter
 from vapi.constants import UserRole
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.controllers.user.dto import UserResponse
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
 from . import docs
-from .dto import AdminUserCreate, AdminUserPatch
+from .dto import AdminUserCreate, AdminUserPatch, AdminUserResponse
 from .user_svc import GlobalAdminUserService
 
 
@@ -46,7 +45,7 @@ class GlobalAdminUserController(Controller):
         ] = None,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
-    ) -> OffsetPagination[UserResponse]:
+    ) -> OffsetPagination[AdminUserResponse]:
         """List users across all companies, with optional filters."""
         qs = User.all()
         if company_id is not None:
@@ -67,7 +66,7 @@ class GlobalAdminUserController(Controller):
         )
 
         return OffsetPagination(
-            items=[UserResponse.from_model(u) for u in users],
+            items=[AdminUserResponse.from_model(u) for u in users],
             limit=limit,
             offset=offset,
             total=count,
@@ -80,9 +79,9 @@ class GlobalAdminUserController(Controller):
         description=docs.ADMIN_GET_USER_DESCRIPTION,
         cache=True,
     )
-    async def get_user(self, *, target_user: User) -> UserResponse:
+    async def get_user(self, *, target_user: User) -> AdminUserResponse:
         """Retrieve a single user by ID (archived users included)."""
-        return UserResponse.from_model(target_user)
+        return AdminUserResponse.from_model(target_user)
 
     @post(
         path=urls.GlobalAdmin.USER_CREATE,
@@ -91,13 +90,13 @@ class GlobalAdminUserController(Controller):
         description=docs.ADMIN_CREATE_USER_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
     )
-    async def create_user(self, *, data: AdminUserCreate, request: Request) -> UserResponse:
+    async def create_user(self, *, data: AdminUserCreate, request: Request) -> AdminUserResponse:
         """Create a user in the company named by company_id in the body."""
         user = await GlobalAdminUserService().create_user(data)
         request.state.audit_description = (
             f"created user {user.username} in company {user.company_id}"  # type: ignore[attr-defined]
         )
-        return UserResponse.from_model(user)
+        return AdminUserResponse.from_model(user)
 
     @patch(
         path=urls.GlobalAdmin.USER_UPDATE,
@@ -108,11 +107,11 @@ class GlobalAdminUserController(Controller):
     )
     async def update_user(
         self, *, target_user: User, data: AdminUserPatch, request: Request
-    ) -> UserResponse:
+    ) -> AdminUserResponse:
         """Update any user by ID with no role-matrix restrictions."""
         user, changes = await GlobalAdminUserService().update_user(target_user, data)
         request.state.audit_changes = changes
-        return UserResponse.from_model(user)
+        return AdminUserResponse.from_model(user)
 
     @delete(
         path=urls.GlobalAdmin.USER_DELETE,

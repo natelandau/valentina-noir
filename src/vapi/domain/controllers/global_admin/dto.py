@@ -7,9 +7,11 @@ from uuid import UUID
 import msgspec
 
 from vapi.domain.controllers.company.dto import CompanyPermissionResponse
+from vapi.domain.controllers.user.dto import UserResponse
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.user import User
 
 
 class DeveloperCreate(msgspec.Struct):
@@ -94,3 +96,30 @@ class AdminUserPatch(msgspec.Struct):
     google_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
     github_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
     is_archived: bool | msgspec.UnsetType = msgspec.UNSET
+
+
+class AdminUserResponse(UserResponse):
+    """User response for the global admin domain.
+
+    Subclasses the tenant ``UserResponse`` so upstream field changes are picked
+    up automatically, and adds ``is_archived``, which the tenant response omits
+    because archived state is only surfaced inside the global admin domain.
+    """
+
+    is_archived: bool
+
+    @classmethod
+    def from_model(cls, m: "User") -> "AdminUserResponse":
+        """Convert a User to an admin response including archived state.
+
+        Requires ``campaign_experiences`` to be prefetched (same as UserResponse).
+
+        Args:
+            m: The user to serialize.
+
+        Returns:
+            The admin response with every UserResponse field plus is_archived.
+        """
+        base = UserResponse.from_model(m)
+        fields = {f: getattr(base, f) for f in base.__struct_fields__}
+        return cls(**fields, is_archived=m.is_archived)

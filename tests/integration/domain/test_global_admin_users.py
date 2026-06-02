@@ -97,6 +97,7 @@ async def test_admin_get_user(
     assert response.status_code == HTTP_200_OK
     assert response.json()["id"] == str(user.id)
     assert response.json()["company_id"] == str(company.id)
+    assert response.json()["is_archived"] is False
 
 
 async def test_admin_get_archived_user_is_visible(
@@ -120,6 +121,7 @@ async def test_admin_get_archived_user_is_visible(
     # Then it is returned (not 404)
     assert response.status_code == HTTP_200_OK
     assert response.json()["id"] == str(user.id)
+    assert response.json()["is_archived"] is True
 
 
 async def test_admin_create_user(
