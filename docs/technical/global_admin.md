@@ -117,7 +117,7 @@ Returns a [paginated](pagination.md) list of users across all companies.
 GET /api/v1/admin/users/{user_id}
 ```
 
-Retrieve a single user by ID. Archived (soft-deleted) users are returned.
+Retrieve a single user by ID. Archived (soft-deleted) users are returned. The response includes an `is_archived` boolean field indicating whether the user has been soft-deleted; this field is not present on the tenant-scoped user endpoints.
 
 ### Create user
 
