@@ -88,6 +88,63 @@ Pass `include=request_details` to embed raw request forensics in each entry. See
 
 ---
 
+## User Management
+
+Manage end-user accounts across all companies. Unlike the company-scoped [user management](user_management.md) endpoints, these are not bound to a single company and require no `On-Behalf-Of` header. The global-admin API key is the sole authorization.
+
+### List users
+
+```shell
+GET /api/v1/admin/users
+```
+
+Returns a [paginated](pagination.md) list of users across all companies.
+
+**Query parameters:**
+
+| Parameter      | Type      | Description |
+| -------------- | --------- | ----------- |
+| `company_id`   | `uuid`    | Filter by company |
+| `role`         | `string`  | Filter by role. One of `ADMIN`, `STORYTELLER`, `PLAYER`, `UNAPPROVED`, `DEACTIVATED` |
+| `email`        | `string`  | Filter by exact email match |
+| `is_archived`  | `boolean` | Filter by archived (soft-deleted) status |
+| `limit`        | `integer` | Page size (0-100, default 10) |
+| `offset`       | `integer` | Pagination offset (default 0) |
+
+### Get user
+
+```shell
+GET /api/v1/admin/users/{user_id}
+```
+
+Retrieve a single user by ID. Archived (soft-deleted) users are returned.
+
+### Create user
+
+```shell
+POST /api/v1/admin/users
+```
+
+Create a user. Supply the target `company_id` in the request body along with `username`, `email`, and `role`, plus the optional `name_first`, `name_last`, `discord_profile`, `google_profile`, and `github_profile`. A user cannot be created with the `UNAPPROVED` or `DEACTIVATED` role.
+
+### Update user
+
+```shell
+PATCH /api/v1/admin/users/{user_id}
+```
+
+Update any user by ID. Include only the fields that need to change. The role-assignment matrix does not apply, so a global admin may set any role. Setting `is_archived: false` restores a soft-deleted user.
+
+### Delete user
+
+```shell
+DELETE /api/v1/admin/users/{user_id}
+```
+
+Soft-delete a user. Archival cascades to their quickrolls, assets, and characters. Restore the user with `PATCH /api/v1/admin/users/{user_id}` and `is_archived: false`.
+
+---
+
 ## Server Logs
 
 Inspect and download the application's on-disk log files. Both endpoints return `409 Conflict` when file logging is not enabled on the server (`settings.log.file_path` is unset).
