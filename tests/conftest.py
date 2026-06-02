@@ -126,7 +126,7 @@ def register_session_id(table: str, row_id: str) -> None:
 # in a single statement (PostgreSQL handles FK ordering within a multi-table TRUNCATE).
 _PG_CLEANUP_TABLES = [
     '"audit_log"',
-    '"chargen_session_characters"',
+    '"j_chargen_session_characters"',
     '"chargen_session"',
     '"note"',
     '"s3_asset"',

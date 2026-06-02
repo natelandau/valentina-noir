@@ -34,7 +34,7 @@ class ChargenSession(BaseModel):
     characters: fields.ManyToManyRelation[Character] = fields.ManyToManyField(
         "models.Character",
         related_name="chargen_sessions",
-        through="chargen_session_characters",
+        through="j_chargen_session_characters",
     )
 
     class Meta:
