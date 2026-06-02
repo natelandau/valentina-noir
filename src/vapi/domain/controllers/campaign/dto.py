@@ -171,6 +171,8 @@ class CampaignChapterResponse(msgspec.Struct):
     description: str | None
     number: int
     book_id: UUID
+    num_notes: int
+    num_assets: int
     date_created: datetime
     date_modified: datetime
 
@@ -183,6 +185,8 @@ class CampaignChapterResponse(msgspec.Struct):
             description=m.description,
             number=m.number,
             book_id=m.book_id,  # type: ignore[attr-defined]
+            num_notes=m.num_notes,  # type: ignore[attr-defined]
+            num_assets=m.num_assets,  # type: ignore[attr-defined]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )

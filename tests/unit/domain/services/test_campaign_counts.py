@@ -2,8 +2,12 @@
 
 import pytest
 
-from vapi.db.sql_models.campaign import Campaign, CampaignBook
-from vapi.domain.services.campaign_svc import annotate_book_counts, annotate_campaign_counts
+from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.domain.services.campaign_svc import (
+    annotate_book_counts,
+    annotate_campaign_counts,
+    annotate_chapter_counts,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -86,5 +90,34 @@ async def test_book_counts_exact_with_fanout(
 
     # Then every count is exact
     assert annotated.num_chapters == 2
+    assert annotated.num_notes == 2
+    assert annotated.num_assets == 2
+
+
+async def test_chapter_counts_exact_with_fanout(
+    company_factory,
+    campaign_factory,
+    campaign_book_factory,
+    campaign_chapter_factory,
+    note_factory,
+    s3asset_factory,
+    user_factory,
+):
+    """Verify chapter counts stay exact when notes and assets coexist."""
+    # Given a chapter with 2 notes and 2 assets
+    company = await company_factory()
+    campaign = await campaign_factory(company=company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+    uploader = await user_factory(company=company)
+    await note_factory(company=company, chapter=chapter)
+    await note_factory(company=company, chapter=chapter)
+    await s3asset_factory(company=company, chapter=chapter, uploaded_by=uploader)
+    await s3asset_factory(company=company, chapter=chapter, uploaded_by=uploader)
+
+    # When the chapter counts are annotated
+    annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+
+    # Then every count is exact
     assert annotated.num_notes == 2
     assert annotated.num_assets == 2

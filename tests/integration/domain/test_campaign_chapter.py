@@ -322,6 +322,46 @@ async def test_get_chapter_include_excludes_archived_children(
     assert [a["id"] for a in data["assets"]] == [str(active_asset.id)]
 
 
+async def test_get_chapter_includes_child_counts(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    note_factory,
+    build_url: Callable[..., str],
+) -> None:
+    """Verify getChapter returns exact note and asset counts."""
+    # Given a chapter with two notes
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+    await note_factory(company=session_company, chapter=chapter)
+    await note_factory(company=session_company, chapter=chapter)
+
+    # When we get the chapter
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+    )
+
+    # Then the counts are exact
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert data["num_notes"] == 2
+    assert data["num_assets"] == 0
+
+
 async def test_get_chapter_include_invalid_value(
     client: AsyncClient,
     token_global_admin: dict[str, str],
