@@ -12,11 +12,13 @@ from vapi.lib.exceptions import ValidationError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from vapi.db.sql_models.aws import S3Asset
     from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
     from vapi.db.sql_models.character import Character, Specialty
     from vapi.db.sql_models.company import Company
     from vapi.db.sql_models.diceroll import DiceRoll
     from vapi.db.sql_models.notes import Note
+    from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
 
@@ -341,6 +343,107 @@ class TestCampaignService:
         assert chapterb.is_archived
         assert chapterc.number == 2
         assert chapterd.number == 3
+
+    async def test_delete_book_cascades_to_chapters_notes_and_assets(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        note_factory: Callable[..., Note],
+        s3asset_factory: Callable[..., S3Asset],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify delete_book_and_renumber cascades the archive to the book's subtree under one batch."""
+        # Given a book with a chapter, notes and assets on both, a sibling book, and an unrelated book
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(name="Book A", campaign=campaign, number=1)
+        sibling = await campaign_book_factory(name="Book B", campaign=campaign, number=2)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book, number=1)
+        book_note = await note_factory(company=company, book=book)
+        chapter_note = await note_factory(company=company, chapter=chapter)
+        book_asset = await s3asset_factory(company=company, uploaded_by=user, book=book)
+        chapter_asset = await s3asset_factory(company=company, uploaded_by=user, chapter=chapter)
+        # And a chapter under a different book that must not be touched
+        other_book = await campaign_book_factory(name="Other", campaign=campaign, number=3)
+        other_chapter = await campaign_chapter_factory(name="Other Chapter", book=other_book)
+
+        # When the book is deleted
+        service = CampaignService()
+        await service.delete_book_and_renumber(book)
+
+        await book.refresh_from_db()
+        await chapter.refresh_from_db()
+        await book_note.refresh_from_db()
+        await chapter_note.refresh_from_db()
+        await book_asset.refresh_from_db()
+        await chapter_asset.refresh_from_db()
+        await sibling.refresh_from_db()
+        await other_book.refresh_from_db()
+        await other_chapter.refresh_from_db()
+
+        # Then the book and its whole subtree are archived under one batch id
+        assert book.is_archived
+        assert chapter.is_archived
+        assert book_note.is_archived
+        assert chapter_note.is_archived
+        assert book_asset.is_archived
+        assert chapter_asset.is_archived
+        assert book.archive_batch_id is not None
+        assert chapter.archive_batch_id == book.archive_batch_id
+        assert book_note.archive_batch_id == book.archive_batch_id
+        assert chapter_note.archive_batch_id == book.archive_batch_id
+        assert book_asset.archive_batch_id == book.archive_batch_id
+        assert chapter_asset.archive_batch_id == book.archive_batch_id
+
+        # And the sibling book is renumbered down while the unrelated book and its
+        # chapter are untouched
+        assert sibling.number == 1
+        assert other_book.is_archived is False
+        assert other_chapter.is_archived is False
+
+    async def test_delete_chapter_cascades_to_notes_and_assets(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        note_factory: Callable[..., Note],
+        s3asset_factory: Callable[..., S3Asset],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify delete_chapter_and_renumber cascades the archive to the chapter's note and asset."""
+        # Given a chapter with a note and an asset, plus a higher-numbered sibling chapter
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(name="Chapter A", book=book, number=1)
+        sibling = await campaign_chapter_factory(name="Chapter B", book=book, number=2)
+        chapter_note = await note_factory(company=company, chapter=chapter)
+        chapter_asset = await s3asset_factory(company=company, uploaded_by=user, chapter=chapter)
+
+        # When the chapter is deleted
+        service = CampaignService()
+        await service.delete_chapter_and_renumber(chapter)
+
+        await chapter.refresh_from_db()
+        await chapter_note.refresh_from_db()
+        await chapter_asset.refresh_from_db()
+        await sibling.refresh_from_db()
+
+        # Then the chapter, its note, and its asset are archived under one batch id
+        assert chapter.is_archived
+        assert chapter_note.is_archived
+        assert chapter_asset.is_archived
+        assert chapter.archive_batch_id is not None
+        assert chapter_note.archive_batch_id == chapter.archive_batch_id
+        assert chapter_asset.archive_batch_id == chapter.archive_batch_id
+
+        # And the sibling chapter is renumbered down
+        assert sibling.number == 1
 
     async def test_archive_campaign(
         self,

@@ -1,6 +1,5 @@
 """Campaign service."""
 
-import asyncio
 from typing import Protocol
 from uuid import UUID
 
@@ -9,7 +8,6 @@ from tortoise.models import Model
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.lib.exceptions import ValidationError
-from vapi.utils.time import time_now
 
 
 class _NumberedItem(Protocol):
@@ -57,22 +55,32 @@ class CampaignService:
         return chapter
 
     async def delete_book_and_renumber(self, book: CampaignBook) -> None:
-        """Soft-delete a book and shift higher-numbered books down to fill the gap."""
-        await self._archive_and_renumber(
-            item=book,
-            model=CampaignBook,
-            parent_field="campaign_id",
-            parent_id=book.campaign_id,  # type: ignore[attr-defined]
-        )
+        """Soft-delete a book (cascading to its chapters, notes, and assets) and renumber siblings."""
+        from tortoise.transactions import in_transaction
+
+        from vapi.domain.handlers import archive_book
+
+        async with in_transaction():
+            await CampaignBook.filter(
+                campaign_id=book.campaign_id,  # type: ignore[attr-defined]
+                number__gt=book.number,
+                is_archived=False,
+            ).update(number=F("number") - 1)
+            await archive_book(book=book)
 
     async def delete_chapter_and_renumber(self, chapter: CampaignChapter) -> None:
-        """Soft-delete a chapter and shift higher-numbered chapters down to fill the gap."""
-        await self._archive_and_renumber(
-            item=chapter,
-            model=CampaignChapter,
-            parent_field="book_id",
-            parent_id=chapter.book_id,  # type: ignore[attr-defined]
-        )
+        """Soft-delete a chapter (cascading to its notes and assets) and renumber siblings."""
+        from tortoise.transactions import in_transaction
+
+        from vapi.domain.handlers import archive_chapter
+
+        async with in_transaction():
+            await CampaignChapter.filter(
+                book_id=chapter.book_id,  # type: ignore[attr-defined]
+                number__gt=chapter.number,
+                is_archived=False,
+            ).update(number=F("number") - 1)
+            await archive_chapter(chapter=chapter)
 
     async def archive_campaign(self, campaign: Campaign) -> None:
         """Soft-archive a campaign and cascade to its books, chapters, characters, and data."""
@@ -136,21 +144,3 @@ class CampaignService:
             )
 
         await model.filter(id=item.id).update(number=new_number)
-
-    @staticmethod
-    async def _archive_and_renumber(
-        *,
-        item: _NumberedItem,
-        model: type[Model],
-        parent_field: str,
-        parent_id: UUID,
-    ) -> None:
-        """Soft-delete an item and shift higher-numbered siblings down to fill the gap."""
-        await asyncio.gather(
-            model.filter(
-                **{parent_field: parent_id},
-                number__gt=item.number,
-                is_archived=False,
-            ).update(number=F("number") - 1),
-            model.filter(id=item.id).update(is_archived=True, archive_date=time_now()),
-        )

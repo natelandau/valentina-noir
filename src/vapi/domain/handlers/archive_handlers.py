@@ -127,6 +127,24 @@ async def _archive_campaign_children(campaign_id: UUID, ctx: ArchiveContext) -> 
         await CharacterArchiveHandler(character=character, ctx=ctx).handle()
 
 
+async def _archive_chapter_children(chapter_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive the notes and assets attached to a chapter."""
+    await archive_s3_assets("chapter_id", [chapter_id], ctx)
+    await _archive_where(Note, ctx, chapter_id=chapter_id)
+
+
+async def _archive_book_children(book_id: UUID, ctx: ArchiveContext) -> None:
+    """Archive a book's chapters and the notes/assets on the book and those chapters."""
+    chapter_ids = [c.id for c in await CampaignChapter.filter(book_id=book_id, is_archived=False)]
+    await _archive_where(CampaignChapter, ctx, book_id=book_id)
+
+    await archive_s3_assets("chapter_id", chapter_ids, ctx)
+    await archive_s3_assets("book_id", [book_id], ctx)
+
+    await _archive_where(Note, ctx, chapter_id__in=chapter_ids)
+    await _archive_where(Note, ctx, book_id=book_id)
+
+
 class CharacterArchiveHandler:
     """Archive a character and everything it owns."""
 
@@ -215,6 +233,24 @@ async def archive_campaign(campaign: Campaign) -> ArchiveContext:
     ctx = _new_context()
     async with in_transaction():
         await CampaignArchiveHandler(campaign=campaign, ctx=ctx).handle()
+    return ctx
+
+
+async def archive_book(book: CampaignBook) -> ArchiveContext:
+    """Archive a book and its chapters/notes/assets as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await _archive_where(CampaignBook, ctx, id=book.id)
+        await _archive_book_children(book.id, ctx)
+    return ctx
+
+
+async def archive_chapter(chapter: CampaignChapter) -> ArchiveContext:
+    """Archive a chapter and its notes/assets as one batch; returns the context."""
+    ctx = _new_context()
+    async with in_transaction():
+        await _archive_where(CampaignChapter, ctx, id=chapter.id)
+        await _archive_chapter_children(chapter.id, ctx)
     return ctx
 
 
