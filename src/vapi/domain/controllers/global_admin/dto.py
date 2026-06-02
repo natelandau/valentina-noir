@@ -84,7 +84,9 @@ class AdminUserCreate(msgspec.Struct):
 class AdminUserPatch(msgspec.Struct):
     """Request body for updating a user as a global admin.
 
-    Setting ``is_archived`` to ``false`` restores a soft-deleted user.
+    Setting ``is_archived`` to ``false`` restores a soft-deleted user, reversing the
+    archive cascade so the data archived with them is restored too. Restoring is
+    refused while the user's company is archived.
     """
 
     name_first: str | None | msgspec.UnsetType = msgspec.UNSET

@@ -133,7 +133,7 @@ Create a user. Supply the target `company_id` in the request body along with `us
 PATCH /api/v1/admin/users/{user_id}
 ```
 
-Update any user by ID. Include only the fields that need to change. The role-assignment matrix does not apply, so a global admin may set any role. Setting `is_archived: false` restores a soft-deleted user.
+Update any user by ID. Include only the fields that need to change. The role-assignment matrix does not apply, so a global admin may set any role. Setting `is_archived: false` restores a soft-deleted user, reversing the archive cascade so the data archived with them is restored as well. Restoring is refused (409 Conflict) while the user's company is archived; restore the company first.
 
 ### Delete user
 
@@ -141,7 +141,7 @@ Update any user by ID. Include only the fields that need to change. The role-ass
 DELETE /api/v1/admin/users/{user_id}
 ```
 
-Soft-delete a user. Archival cascades to their quickrolls, assets, and characters. Restore the user with `PATCH /api/v1/admin/users/{user_id}` and `is_archived: false`.
+Soft-delete a user. Archival cascades to their quickrolls, assets, notes, and played characters; dice rolls are kept as historical records. Restore the user with `PATCH /api/v1/admin/users/{user_id}` and `is_archived: false`, which reverses the cascade and restores the data archived with them as a unit.
 
 ---
 
