@@ -121,3 +121,21 @@ async def test_chapter_counts_exact_with_fanout(
     # Then every count is exact
     assert annotated.num_notes == 2
     assert annotated.num_assets == 2
+
+
+async def test_campaign_num_chapters_excludes_archived_chapters(
+    company_factory, campaign_factory, campaign_book_factory, campaign_chapter_factory
+):
+    """Verify num_chapters excludes archived chapters even when their parent book is active."""
+    # Given a campaign with 1 active book containing 1 active and 1 archived chapter
+    company = await company_factory()
+    campaign = await campaign_factory(company=company)
+    book = await campaign_book_factory(campaign=campaign)
+    await campaign_chapter_factory(book=book)
+    await campaign_chapter_factory(book=book, is_archived=True)
+
+    # When counts are annotated
+    annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
+
+    # Then the archived chapter is not counted
+    assert annotated.num_chapters == 1
