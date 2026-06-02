@@ -15,6 +15,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
+from vapi.domain.services.campaign_svc import annotate_campaign_counts
 from vapi.lib.guards import developer_company_user_guard, user_can_manage_campaign
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
@@ -53,7 +54,7 @@ class CampaignController(Controller):
         qs = Campaign.filter(company_id=company.id, is_archived=False).order_by("name", "id")
         count, campaigns = await asyncio.gather(
             qs.count(),
-            qs.offset(offset).limit(limit),
+            annotate_campaign_counts(qs).offset(offset).limit(limit),
         )
         return OffsetPagination(
             items=[CampaignResponse.from_model(c) for c in campaigns],
@@ -71,7 +72,10 @@ class CampaignController(Controller):
     )
     async def get_campaign(self, *, campaign: Campaign) -> CampaignResponse:
         """Get a campaign by ID."""
-        return CampaignResponse.from_model(campaign)
+        annotated = await annotate_campaign_counts(
+            Campaign.filter(id=campaign.id, is_archived=False)
+        ).first()
+        return CampaignResponse.from_model(annotated)
 
     @post(
         path=urls.Campaigns.CREATE,
@@ -98,7 +102,8 @@ class CampaignController(Controller):
             company=company,
         )
         request.state.audit_description = f"Create campaign '{campaign.name}'"
-        return CampaignResponse.from_model(campaign)
+        annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
+        return CampaignResponse.from_model(annotated)
 
     @patch(
         path=urls.Campaigns.UPDATE,
@@ -120,7 +125,8 @@ class CampaignController(Controller):
         request.state.audit_changes = changes
         request.state.audit_description = f"Update campaign '{campaign.name}'"
         await campaign.save()
-        return CampaignResponse.from_model(campaign)
+        annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
+        return CampaignResponse.from_model(annotated)
 
     @delete(
         path=urls.Campaigns.DELETE,

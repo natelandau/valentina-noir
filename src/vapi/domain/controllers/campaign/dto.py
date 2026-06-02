@@ -69,6 +69,10 @@ class CampaignResponse(msgspec.Struct):
     desperation: int
     danger: int
     company_id: UUID
+    num_books: int
+    num_chapters: int
+    num_notes: int
+    num_characters: int
     date_created: datetime
     date_modified: datetime
 
@@ -82,6 +86,10 @@ class CampaignResponse(msgspec.Struct):
             desperation=m.desperation,
             danger=m.danger,
             company_id=m.company_id,  # type: ignore[attr-defined]
+            num_books=m.num_books,  # type: ignore[attr-defined]
+            num_chapters=m.num_chapters,  # type: ignore[attr-defined]
+            num_notes=m.num_notes,  # type: ignore[attr-defined]
+            num_characters=m.num_characters,  # type: ignore[attr-defined]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
