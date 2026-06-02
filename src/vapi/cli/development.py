@@ -11,7 +11,11 @@ from rich.prompt import Confirm
 from tortoise import Tortoise
 
 from vapi.config import settings
-from vapi.lib.database import drop_and_recreate_database, init_tortoise
+from vapi.lib.database import (
+    drop_and_recreate_database,
+    init_tortoise,
+    install_archive_stamp_trigger,
+)
 
 from .lib.population import PopulationService
 from .seed import seed_async
@@ -85,6 +89,8 @@ def populate_db(
         # Then seed and populate
         await init_tortoise()
         await Tortoise.generate_schemas(safe=True)
+        # generate_schemas skips migration RunSQL; install the archive-stamp trigger.
+        await install_archive_stamp_trigger()
         await seed_async()
         try:
             service = PopulationService()

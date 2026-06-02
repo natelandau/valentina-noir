@@ -13,7 +13,7 @@ from tortoise import Tortoise
 
 from vapi.cli.seed import seed_async
 from vapi.config import settings
-from vapi.lib.database import tortoise_config
+from vapi.lib.database import install_archive_stamp_trigger, tortoise_config
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
@@ -90,6 +90,9 @@ async def init_test_postgres(
     config = tortoise_config()
     await Tortoise.init(config=config, _enable_global_fallback=True)
     await Tortoise.generate_schemas(safe=True)
+    # generate_schemas bypasses migration RunSQL, so install the archive-stamp
+    # trigger explicitly to mirror a migrated production database.
+    await install_archive_stamp_trigger()
 
     # Seed PostgreSQL with constants
     await seed_async()

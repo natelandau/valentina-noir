@@ -9,7 +9,7 @@ import subprocess
 import click
 from tortoise.migrations.api import migrate as tortoise_migrate
 
-from vapi.lib.database import tortoise_config
+from vapi.lib.database import install_archive_stamp_trigger, tortoise_config
 
 logger = logging.getLogger("vapi")
 
@@ -37,6 +37,9 @@ async def _apply_migrations() -> None:
 
     if not tables_exist:
         await Tortoise.generate_schemas()
+        # generate_schemas skips migration RunSQL; install the archive-stamp
+        # trigger so fresh databases get the same DB-level backstop as migrated ones.
+        await install_archive_stamp_trigger()
         # Record the initial migration so future migrations know it was applied
         await conn.execute_script(
             "CREATE TABLE IF NOT EXISTS tortoise_migrations ("

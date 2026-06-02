@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
+from uuid import UUID
 
 from tortoise import fields
 from tortoise.fields.data import CharEnumFieldInstance, CharField, TextField
@@ -23,7 +24,8 @@ class BaseModel(Model):
     All concrete Tortoise models inherit from this. The save() override handles three
     concerns that Tortoise doesn't natively support: whitespace stripping on all string
     fields, empty-string-to-None conversion on opted-in nullable fields, and archive
-    date management. These run before super().save() which triggers field validators.
+    stamp management (keeping archive_date and archive_batch_id in sync with
+    is_archived). These run before super().save() which triggers field validators.
     """
 
     id = fields.UUIDField(primary_key=True, default=uuid7)
@@ -31,6 +33,7 @@ class BaseModel(Model):
     date_modified = fields.DatetimeField(auto_now=True)
     is_archived = fields.BooleanField(default=False)
     archive_date = fields.DatetimeField(null=True)
+    archive_batch_id = fields.UUIDField(null=True, db_index=True)
 
     _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset()
 
@@ -46,7 +49,7 @@ class BaseModel(Model):
         force_create: bool = False,  # noqa: FBT001, FBT002
         force_update: bool = False,  # noqa: FBT001, FBT002
     ) -> None:
-        """Strip whitespace, convert empty strings to None, and manage archive_date."""
+        """Strip whitespace, convert empty strings to None, and manage archive stamps (date and batch id)."""
         # Strip whitespace on all string fields (skip enum fields to preserve enum instances)
         for field_name, field_obj in self._meta.fields_map.items():
             if isinstance(field_obj, CharEnumFieldInstance):
@@ -62,10 +65,19 @@ class BaseModel(Model):
             if isinstance(value, str) and value == "":
                 setattr(self, field_name, None)
 
-        if self.is_archived and self.archive_date is None:
-            self.archive_date = time_now()
-        elif not self.is_archived:
+        # Invariant: archived rows always carry both a date and a batch id; a
+        # single-row archive is a self-contained batch of one. The DB trigger
+        # (see migration) is the cross-path backstop; this keeps ORM saves correct.
+        if self.is_archived:
+            if self.archive_date is None:
+                self.archive_date = time_now()
+            if self.archive_batch_id is None:
+                # uuid7() returns a uuid_utils.UUID; convert to the stdlib type
+                # the UUIDField expects so ORM saves match the DB column type.
+                self.archive_batch_id = UUID(str(uuid7()))
+        else:
             self.archive_date = None
+            self.archive_batch_id = None
         await super().save(
             using_db=using_db,
             update_fields=update_fields,
