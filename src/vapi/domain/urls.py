@@ -22,6 +22,11 @@ class GlobalAdmin:
     DEVELOPER_DELETE = DEVELOPER_DETAIL
     DEVELOPER_NEW_KEY = f"{DEVELOPER_DETAIL}/new-key"
     DEVELOPER_AUDIT_LOGS = f"{DEVELOPER_DETAIL}/audit-logs"
+    USERS = f"{BASE}/users"
+    USER_DETAIL = f"{USERS}/{{user_id:str}}"
+    USER_CREATE = USERS
+    USER_UPDATE = USER_DETAIL
+    USER_DELETE = USER_DETAIL
     LOGS = f"{BASE}/logs"
     LOGS_DOWNLOAD = f"{LOGS}/download"
 

@@ -217,6 +217,19 @@ async def provide_target_user(user_id: UUID, company: Company) -> User:
     )
 
 
+async def provide_admin_user_by_id(user_id: UUID) -> User:
+    """Resolve user_id from the path for global-admin user management.
+
+    Unlike provide_target_user, this is not scoped to a company and does NOT
+    filter archived users, so a global admin can inspect and restore
+    soft-deleted users. Prefetches campaign_experiences for UserResponse.
+    """
+    user = await User.filter(id=user_id).prefetch_related("campaign_experiences").first()
+    if not user:
+        raise NotFoundError(detail="User not found")
+    return user
+
+
 async def provide_acting_user(
     request: "Request",
     company: Company,

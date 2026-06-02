@@ -59,3 +59,38 @@ class AdminDeveloperPatch(msgspec.Struct):
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     is_global_admin: bool | msgspec.UnsetType = msgspec.UNSET
+
+
+class AdminUserCreate(msgspec.Struct):
+    """Request body for creating a user as a global admin.
+
+    The global admin domain has no ambient company, so the target company is
+    carried in the body via ``company_id`` rather than the URL path.
+    """
+
+    company_id: UUID
+    username: str
+    email: str
+    role: str
+    name_first: str | None = None
+    name_last: str | None = None
+    discord_profile: dict | None = None
+    google_profile: dict | None = None
+    github_profile: dict | None = None
+
+
+class AdminUserPatch(msgspec.Struct):
+    """Request body for updating a user as a global admin.
+
+    Setting ``is_archived`` to ``false`` restores a soft-deleted user.
+    """
+
+    name_first: str | None | msgspec.UnsetType = msgspec.UNSET
+    name_last: str | None | msgspec.UnsetType = msgspec.UNSET
+    username: str | msgspec.UnsetType = msgspec.UNSET
+    email: str | msgspec.UnsetType = msgspec.UNSET
+    role: str | msgspec.UnsetType = msgspec.UNSET
+    discord_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
+    google_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
+    github_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
+    is_archived: bool | msgspec.UnsetType = msgspec.UNSET
