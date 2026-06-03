@@ -2,7 +2,7 @@
     authors = [{ name = "Nate Landau", email = "github@natelandau.com" }]
     dependencies = [
         "asyncio>=4.0.0",
-        "boto3>=1.43.18,<2.0.0",
+        "boto3>=1.43.21,<2.0.0",
         "httpx-oauth>=0.17.0",
         "litestar-granian>=0.15.0",
         "litestar-saq>=0.7.1",
