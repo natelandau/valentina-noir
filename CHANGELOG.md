@@ -1,3 +1,23 @@
+## v0.21.0 (2026-06-03)
+
+### Feat
+
+- **pagination**: raise page-size cap to 1000 on reference endpoints
+- add child-resource counts to response models (#138)
+- **archive**: add archive/restore cascade (#137)
+- **global-admin**: add cross-company user management (#136)
+- **characters**: gate NPC management with permission_manage_npc (#134)
+- **characters**: make npc and storyteller characters ownerless  (#133)
+- **characters**: enforce character type access control (#132)
+
+### Fix
+
+- **characters**: clear player on npc and storyteller updates
+
+### Refactor
+
+- **db**: prefix m2m join tables with j_ (#135)
+
 ## v0.20.0 (2026-05-26)
 
 ### Feat
