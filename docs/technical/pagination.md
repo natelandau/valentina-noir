@@ -14,8 +14,26 @@ Control pagination using these query parameters.
 
 | Parameter | Type    | Default | Range | Description                          |
 | --------- | ------- | ------- | ----- | ------------------------------------ |
-| `limit`   | integer | 10      | 1-100 | Maximum number of items to return    |
+| `limit`   | integer | 10      | 0-100 | Maximum number of items to return    |
 | `offset`  | integer | 0       | 0+    | Number of items to skip from the top |
+
+A request with a `limit` above the allowed range returns a `400` error. The default `limit` stays at 10, so you must pass a larger value to get more items per request.
+
+!!! note "Reference endpoints allow a larger limit"
+
+    Reference (catalog) endpoints serve a bounded, slowly-changing set of records, so they accept a `limit` up to **1000**. This lets you fetch a whole catalog (for example, every blueprint trait) in one request. These endpoints are:
+
+    - `GET /characterblueprint/sections`
+    - `GET /characterblueprint/categories`
+    - `GET /characterblueprint/subcategories`
+    - `GET /characterblueprint/traits`
+    - `GET /characterblueprint/concepts`
+    - `GET /characterblueprint/vampire-clans`
+    - `GET /characterblueprint/werewolf-tribes`
+    - `GET /characterblueprint/werewolf-auspices`
+    - `GET /dictionaries`
+
+    All paths are relative to `/api/v1/companies/{company_id}`. To pull a full catalog, request `?limit=1000` once instead of looping through offsets.
 
 ## Response Structure
 
@@ -148,7 +166,7 @@ async function getAllUsers(apiKey, companyId) {
 
 !!! tip "Optimize Your Pagination"
 
-    Use the maximum `limit=100` when fetching large datasets to minimize API calls.
+    Use the maximum `limit` for the endpoint when fetching large datasets to minimize API calls: 100 for most endpoints, or 1000 for the reference endpoints listed above.
 
 !!! warning "Handle Empty Results"
 

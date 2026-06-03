@@ -15,6 +15,9 @@ ON_BEHALF_OF_HEADER_KEY: Final[str] = "On-Behalf-Of"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
 COOL_POINT_VALUE: Final[int] = 10
 MAX_BULK_TRAIT_ASSIGN: Final[int] = 200
+# Max page size for reference/catalog list endpoints; higher than the standard 100 cap so a
+# whole bounded catalog (e.g. all blueprint traits) can be fetched in a single request.
+REFERENCE_MAX_LIMIT: Final[int] = 1000
 MAX_DANGER: Final[int] = 5
 MAX_DESPERATION: Final[int] = 5
 IGNORE_RATE_LIMIT_HEADER_KEY: Final[str] = "X-Testing-Ignore-Rate-Limit"

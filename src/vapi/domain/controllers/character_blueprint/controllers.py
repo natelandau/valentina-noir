@@ -26,7 +26,7 @@ from vapi.db.sql_models.character_sheet import (
     TraitSubcategory,
 )
 from vapi.domain import deps, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import OffsetPagination, ReferenceLimit
 from vapi.domain.services import CharacterBlueprintService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
@@ -63,7 +63,7 @@ class CharacterBlueprintSectionController(Controller):
     )
     async def list_character_blueprint_sections(
         self,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
@@ -119,7 +119,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_categories(
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
@@ -183,7 +183,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_subcategories(
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
@@ -247,7 +247,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_all_traits(  # noqa: PLR0913
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
@@ -323,7 +323,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_concepts(
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[CharacterConceptResponse]:
         """List all concepts."""
@@ -362,7 +362,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_vampire_clans(
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
@@ -409,7 +409,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_werewolf_tribes(
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
@@ -456,7 +456,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_werewolf_auspices(
         self,
         *,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         game_version: Annotated[
             GameVersion | None,
