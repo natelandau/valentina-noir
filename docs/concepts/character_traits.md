@@ -29,11 +29,11 @@ Where `existing_count` is the number of traits with value > 0 in the same catego
 
 ### Categories Using Count-Based Pricing
 
-| Category | Multiplier | Example |
-|---|---|---|
-| Werewolf Gifts | 2 | 1st gift costs 2, 2nd costs 4, 3rd costs 6 |
-| Blood Sorcery Rituals | 3 | 1st ritual costs 3, 2nd costs 6, 3rd costs 9 |
-| Oblivion Ceremonies | 3 | 1st ceremony costs 3, 2nd costs 6, 3rd costs 9 |
+| Category              | Multiplier | Example                                        |
+| --------------------- | ---------- | ---------------------------------------------- |
+| Werewolf Gifts        | 2          | 1st gift costs 2, 2nd costs 4, 3rd costs 6     |
+| Blood Sorcery Rituals | 3          | 1st ritual costs 3, 2nd costs 6, 3rd costs 9   |
+| Oblivion Ceremonies   | 3          | 1st ceremony costs 3, 2nd costs 6, 3rd costs 9 |
 
 !!! example "Count-Based Cost Example"
 
@@ -78,7 +78,7 @@ When a trait belongs to a subcategory, the trait response includes `subcategory_
 
 If a subcategory has `requires_parent` set to `true`, the subcategory must be explicitly added to a character before any of its child traits can be assigned. This is useful for traits like hunter edges, where the edge itself must be selected before its perks become available.
 
-To browse available subcategories and their traits, use the [blueprint subcategory endpoints](./character_blueprint.md#listing-category-subcategories).
+To browse available subcategories and their traits, use the [blueprint subcategory endpoints](./character_blueprint.md).
 
 ## Full Character Sheet
 

@@ -32,6 +32,7 @@
             { "Audit Logs" = "technical/audit_logs.md" },
             { "Authentication" = "technical/authentication.md" },
             { "Companies" = "technical/companies.md" },
+            { "Enumerated Values" = "technical/enumerated_values.md" },
             { "Error Handling" = "technical/errors.md" },
             { "Global Administration" = "technical/global_admin.md" },
             { "Idempotency" = "technical/idempotency.md" },
@@ -39,6 +40,15 @@
             { "Rate Limiting" = "technical/rate_limits.md" },
             { "Request IDs" = "technical/request_ids.md" },
             { "User Management" = "technical/user_management.md" },
+        ] },
+        { "Quickstart" = [
+            "quickstart/index.md",
+            { "Make Your First Request" = "quickstart/setup.md" },
+            { "Authenticate Your Users" = "quickstart/users.md" },
+            { "Campaigns" = "quickstart/campaigns.md" },
+            { "Create a Character" = "quickstart/characters.md" },
+            { "Display a Character" = "quickstart/character_sheet.md" },
+            { "Roll Dice" = "quickstart/dice_rolls.md" },
         ] },
         { "Roadmap" = [
             "roadmap/index.md",
