@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from vapi.config.base import settings
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.notes import Note
 from vapi.domain.services import AWSS3Service
 from vapi.lib.scheduled_tasks import (
-    _ARCHIVED_RETENTION_DAYS,
     _purge_archived_models,
     _purge_audit_logs,
     purge_db_expired_items,
@@ -81,7 +81,7 @@ class TestPurgeArchivedModels:
         company = await company_factory()
         old_note = await note_factory(company=company, is_archived=True)
         fresh_note = await note_factory(company=company, is_archived=True)
-        old_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS + 1)
+        old_date = time_now() - timedelta(days=settings.retention.archived_days + 1)
         await Note.filter(id=old_note.id).update(archive_date=old_date)
 
         # When the archived-model purge runs

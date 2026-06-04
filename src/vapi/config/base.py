@@ -74,6 +74,13 @@ class BackupSettings(BaseModel):
     retain_yearly: int = Field(default=2)
 
 
+class RetentionSettings(BaseModel):
+    """Data retention windows for the scheduled purge task."""
+
+    archived_days: int = Field(default=30)
+    audit_log_days: int = Field(default=365)
+
+
 class AWSSettings(BaseModel):
     """AWS settings."""
 
@@ -285,6 +292,7 @@ class Settings(BaseSettings):
     aws: AWSSettings = AWSSettings()
     saq: SAQSettings = SAQSettings()
     backup: BackupSettings = BackupSettings()
+    retention: RetentionSettings = RetentionSettings()
 
     @computed_field  # type: ignore [prop-decorator]
     @property

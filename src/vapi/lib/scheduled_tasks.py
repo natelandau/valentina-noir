@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from vapi.config.base import BackupSettings, settings
-from vapi.constants import AUDIT_LOG_RETENTION_DAYS, BACKUP_S3_PREFIX
+from vapi.constants import BACKUP_S3_PREFIX, TEMPORARY_CHARACTER_RETENTION_HOURS
 from vapi.domain.services import AWSS3Service
 from vapi.lib.database import pg_subprocess_env
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
@@ -27,8 +27,6 @@ from vapi.utils.time import time_now
 logger = logging.getLogger("vapi")
 
 _LOG_EXTRA = {"component": "saq", "task": "purge_db_expired_items"}
-_ARCHIVED_RETENTION_DAYS = 30
-_TEMPORARY_CHARACTER_RETENTION_HOURS = 24
 
 
 async def _purge_archived_models() -> None:
@@ -40,7 +38,7 @@ async def _purge_archived_models() -> None:
     """
     from vapi.db.archivable import PURGE_MODELS
 
-    cutoff_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS)
+    cutoff_date = time_now() - timedelta(days=settings.retention.archived_days)
 
     # Order child-first to respect FK dependencies
     for model in PURGE_MODELS:
@@ -63,7 +61,7 @@ async def _purge_audit_logs() -> None:
     """Purge audit log entries older than the configured retention window."""
     from vapi.db.sql_models.audit_log import AuditLog
 
-    cutoff_date = time_now() - timedelta(days=AUDIT_LOG_RETENTION_DAYS)
+    cutoff_date = time_now() - timedelta(days=settings.retention.audit_log_days)
 
     try:
         deleted = await AuditLog.filter(date_created__lt=cutoff_date).delete()
@@ -79,7 +77,7 @@ async def _purge_s3_assets() -> None:
     """Purge archived S3 assets older than the retention window."""
     from vapi.db.sql_models.aws import S3Asset
 
-    cutoff_date = time_now() - timedelta(days=_ARCHIVED_RETENTION_DAYS)
+    cutoff_date = time_now() - timedelta(days=settings.retention.archived_days)
 
     try:
         aws_service = AWSS3Service()
@@ -160,10 +158,10 @@ async def _purge_chargen_sessions() -> None:
 
 
 async def _purge_temporary_characters() -> None:
-    """Purge temporary non-chargen characters not modified in the last 24 hours."""
+    """Purge temporary non-chargen characters unmodified within the retention window."""
     from vapi.db.sql_models.character import Character
 
-    cutoff_date = time_now() - timedelta(hours=_TEMPORARY_CHARACTER_RETENTION_HOURS)
+    cutoff_date = time_now() - timedelta(hours=TEMPORARY_CHARACTER_RETENTION_HOURS)
 
     try:
         deleted = await Character.filter(

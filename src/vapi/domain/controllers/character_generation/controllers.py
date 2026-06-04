@@ -13,7 +13,7 @@ from litestar.di import Provide
 from litestar.handlers import get, post
 from litestar.params import Parameter
 
-from vapi.constants import CharacterType
+from vapi.constants import CHARGEN_SESSION_RETENTION_HOURS, CharacterType
 from vapi.db.sql_models import (
     Campaign,
     Character,
@@ -185,7 +185,7 @@ class CharacterGenerationController(Controller):
             user=acting_user,
             company=company,
             campaign=campaign,
-            expires_at=time_now() + timedelta(hours=24),
+            expires_at=time_now() + timedelta(hours=CHARGEN_SESSION_RETENTION_HOURS),
             requires_selection=num_choices > 1,
         )
         await session.characters.add(*characters)
