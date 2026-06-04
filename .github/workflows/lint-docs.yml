@@ -1,0 +1,45 @@
+---
+name: "Lint Documentation"
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - ".github/workflows/lint-docs.yml"
+            - "zensical.toml"
+            - "docs/**"
+    pull_request:
+        types:
+            - opened
+            - reopened
+            - synchronize
+        paths:
+            - ".github/workflows/lint-docs.yml"
+            - "zensical.toml"
+            - "docs/**"
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    lint-docs:
+        name: Lint Documentation
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Python, uv, and the package
+              uses: ./.github/actions/setup_python_env
+              with:
+                  python-version: "3.13"
+                  install-groups: "--only-group docs"
+
+            - name: Lint documentation
+              shell: bash
+              run: uv run --only-group docs zensical build --strict
