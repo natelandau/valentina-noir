@@ -534,6 +534,106 @@ class TestUserService:
         assert primary.google_profile["username"] == "PrimaryUser"
         assert primary.google_profile["locale"] == "en"
 
+    async def test_create_user_stores_apple_profile(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        debug: Callable[..., None],
+    ) -> None:
+        """Verify create_user persists the supplied apple_profile blob."""
+        # Given an admin requester and a create payload carrying an apple_profile
+        company = await company_factory()
+        admin = await user_factory(company=company, role=UserRole.ADMIN)
+        data = UserCreate(
+            username="apple-user",
+            email="apple-user@example.com",
+            role="PLAYER",
+            apple_profile={"id": "apple-001", "email": "a@icloud.com", "fullname": "A Person"},
+        )
+
+        # When the user is created
+        created = await UserService().create_user(
+            company=company, data=data, acting_user_id=admin.id
+        )
+
+        # Then the apple_profile is stored verbatim
+        assert created.apple_profile == {
+            "id": "apple-001",
+            "email": "a@icloud.com",
+            "fullname": "A Person",
+        }
+
+    async def test_merge_users_absorbs_apple_profile(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        debug: Callable[..., None],
+    ) -> None:
+        """Verify merge absorbs the secondary user's apple_profile into an empty primary."""
+        # Given a primary admin with no apple_profile and an UNAPPROVED secondary with one
+        company = await company_factory()
+        admin = await user_factory(company=company, role=UserRole.ADMIN)
+        primary = await user_factory(company=company, role=UserRole.PLAYER, apple_profile=None)
+        secondary = await user_factory(
+            company=company,
+            role=UserRole.UNAPPROVED,
+            apple_profile={"id": "apple-xyz", "email": "x@icloud.com"},
+        )
+
+        # When the secondary is merged into the primary
+        result = await UserService().merge_users(
+            primary_user_id=primary.id,
+            secondary_user_id=secondary.id,
+            company=company,
+            acting_user_id=admin.id,
+        )
+
+        # Then the primary now carries the secondary's apple_profile
+        assert result.apple_profile["id"] == "apple-xyz"
+        assert result.apple_profile["email"] == "x@icloud.com"
+
+    async def test_update_user_applies_apple_profile(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        debug: Callable[..., None],
+    ) -> None:
+        """Verify update_user writes a patched apple_profile onto the user."""
+        # Given an admin and a target user with no apple_profile
+        company = await company_factory()
+        admin = await user_factory(company=company, role=UserRole.ADMIN)
+        target = await user_factory(company=company, role=UserRole.PLAYER)
+        data = UserPatch(apple_profile={"id": "apple-patch", "fullname": "Patched"})
+
+        # When the user is patched
+        updated, changes = await UserService().update_user(
+            user=target, data=data, acting_user_id=admin.id
+        )
+
+        # Then the apple_profile is stored and reported in the change diff
+        assert updated.apple_profile == {"id": "apple-patch", "fullname": "Patched"}
+        assert "apple_profile" in changes
+
+    async def test_register_user_stores_apple_profile(
+        self,
+        company_factory: Callable[..., Company],
+        debug: Callable[..., None],
+    ) -> None:
+        """Verify register_user persists the supplied apple_profile blob."""
+        # Given a company and an SSO registration payload carrying an apple_profile
+        company = await company_factory()
+        data = UserRegister(
+            username="apple-reg",
+            email="apple-reg@example.com",
+            apple_profile={"id": "apple-reg-1", "email": "reg@icloud.com"},
+        )
+
+        # When the user registers
+        registered = await UserService().register_user(company=company, data=data)
+
+        # Then the apple_profile is stored verbatim
+        assert registered.apple_profile == {"id": "apple-reg-1", "email": "reg@icloud.com"}
+
 
 class TestUserQuickRollService:
     """Test the quick roll service."""

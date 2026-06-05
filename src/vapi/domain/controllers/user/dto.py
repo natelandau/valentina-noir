@@ -112,6 +112,7 @@ class UserResponse(msgspec.Struct):
     google_profile: dict | None
     github_profile: dict | None
     discord_profile: dict | None
+    apple_profile: dict | None
     num_quickrolls: int
     num_notes: int
     num_assets: int
@@ -157,6 +158,7 @@ class UserResponse(msgspec.Struct):
             google_profile=m.google_profile,
             github_profile=m.github_profile,
             discord_profile=m.discord_profile,
+            apple_profile=m.apple_profile,
             # Counts are annotated onto the queryset by annotate_user_counts. UserResponse is
             # also built from un-annotated users (e.g. a freshly created admin user in the
             # company-create response), where the counts are genuinely 0, so default to 0.
@@ -222,6 +224,7 @@ class UserCreate(msgspec.Struct):
     discord_profile: dict | None = None
     google_profile: dict | None = None
     github_profile: dict | None = None
+    apple_profile: dict | None = None
 
 
 class UserPatch(msgspec.Struct):
@@ -238,6 +241,7 @@ class UserPatch(msgspec.Struct):
     discord_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
     google_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
     github_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
+    apple_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
 
 
 class UserApprove(msgspec.Struct):
@@ -256,6 +260,7 @@ class UserRegister(msgspec.Struct):
     discord_profile: dict | None = None
     google_profile: dict | None = None
     github_profile: dict | None = None
+    apple_profile: dict | None = None
 
 
 class UserMerge(msgspec.Struct):

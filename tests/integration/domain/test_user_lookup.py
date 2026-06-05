@@ -43,6 +43,35 @@ class TestUserLookupController:
         assert match["company_name"] == session_company.name
         assert match["role"] == "PLAYER"
 
+    async def test_lookup_by_apple_id_returns_results(
+        self,
+        client: AsyncClient,
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory,
+    ) -> None:
+        """Verify lookup by apple_id matches against the apple_profile id over HTTP."""
+        # Given a user with an apple_profile on the session company
+        user = await user_factory(
+            company=session_company,
+            email="apple-lookup@example.com",
+            apple_profile={"id": "apple-lookup-001"},
+        )
+
+        # When looking up by apple_id
+        response = await client.get(
+            UserLookup.LOOKUP,
+            params={"apple_id": "apple-lookup-001"},
+            headers=token_company_user,
+        )
+
+        # Then the response contains the match
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        match = next(r for r in data if r["user_id"] == str(user.id))
+        assert match["company_id"] == str(session_company.id)
+
     async def test_lookup_no_params_returns_400(
         self,
         client: AsyncClient,

@@ -68,6 +68,7 @@ class GlobalAdminUserService:
             discord_profile=data.discord_profile,
             google_profile=data.google_profile,
             github_profile=data.github_profile,
+            apple_profile=data.apple_profile,
         )
         await user.fetch_related("campaign_experiences")
         return user
