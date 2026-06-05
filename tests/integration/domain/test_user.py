@@ -836,6 +836,43 @@ class TestUserController:
             assert new_user is not None
             assert new_user.username == "test_user"
 
+        async def test_create_user_with_apple_profile(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            session_user_admin: User,
+        ) -> None:
+            """Verify creating a user with apple_profile round-trips the profile through the API."""
+            # Given a create payload that includes an apple_profile
+            payload = {
+                "name_first": "Apple",
+                "name_last": "Int",
+                "username": "apple-int",
+                "email": "apple-int@example.com",
+                "role": "PLAYER",
+                "apple_profile": {"id": "apple-int-1", "email": "int@icloud.com"},
+            }
+
+            # When the user is created via the API
+            response = await client.post(
+                build_url(UsersURL.CREATE, company_id=session_company.id),
+                headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
+                json=payload,
+            )
+
+            # Then the response echoes the apple_profile
+            assert response.status_code == HTTP_201_CREATED
+            data = response.json()
+            assert data["username"] == "apple-int"
+            assert data["apple_profile"] == {"id": "apple-int-1", "email": "int@icloud.com"}
+
+            # Then the apple_profile is persisted in the database
+            new_user = await User.get(id=data["id"])
+            assert new_user.apple_profile == {"id": "apple-int-1", "email": "int@icloud.com"}
+
     class TestUpdateUser:
         """Test UpdateUser."""
 
@@ -879,6 +916,35 @@ class TestUserController:
             # Then the database is updated
             user = await User.get(id=user.id)
             assert user.username == "test_user_updated"
+
+        async def test_patch_user_apple_profile(
+            self,
+            client: AsyncClient,
+            build_url: Callable[[str, Any], str],
+            token_global_admin: dict[str, str],
+            session_company: Company,
+            session_global_admin: Developer,
+            user_factory: Callable[..., User],
+        ) -> None:
+            """Verify patching a user's apple_profile round-trips the new value through the API."""
+            # Given a user without an apple_profile
+            user = await user_factory(company=session_company, role="ADMIN")
+
+            # When the user's apple_profile is patched
+            response = await client.patch(
+                build_url(UsersURL.UPDATE, user_id=user.id, company_id=session_company.id),
+                headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
+                json={"apple_profile": {"id": "apple-int-2", "fullname": "Int Patched"}},
+            )
+
+            # Then the response reflects the patched apple_profile
+            assert response.status_code == HTTP_200_OK
+            data = response.json()
+            assert data["apple_profile"] == {"id": "apple-int-2", "fullname": "Int Patched"}
+
+            # Then the apple_profile is persisted in the database
+            updated_user = await User.get(id=user.id)
+            assert updated_user.apple_profile == {"id": "apple-int-2", "fullname": "Int Patched"}
 
     class TestDeleteUser:
         """Test DeleteUser."""
