@@ -216,6 +216,7 @@ class UserService:
             discord_profile=data.discord_profile,
             google_profile=data.google_profile,
             github_profile=data.github_profile,
+            apple_profile=data.apple_profile,
         )
         await user.fetch_related("campaign_experiences")
         return user
@@ -243,6 +244,7 @@ class UserService:
             discord_profile=data.discord_profile,
             google_profile=data.google_profile,
             github_profile=data.github_profile,
+            apple_profile=data.apple_profile,
         )
         await user.fetch_related("campaign_experiences")
         return user
@@ -305,7 +307,7 @@ class UserService:
             primary: The target user whose empty profile fields get filled.
             secondary: The source user whose profile fields are copied.
         """
-        for attr in ("google_profile", "github_profile", "discord_profile"):
+        for attr in ("google_profile", "github_profile", "discord_profile", "apple_profile"):
             primary_profile = getattr(primary, attr) or {}
             secondary_profile = getattr(secondary, attr) or {}
             changed = False
