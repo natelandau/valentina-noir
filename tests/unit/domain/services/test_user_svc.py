@@ -538,10 +538,11 @@ class TestUserService:
         self,
         company_factory: Callable[..., Company],
         user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
         """Verify create_user persists the supplied apple_profile blob."""
         # Given an admin requester and a create payload carrying an apple_profile
-        company = await company_factory(name="Apple Co", email="apple@co.com")
+        company = await company_factory()
         admin = await user_factory(company=company, role=UserRole.ADMIN)
         data = UserCreate(
             username="apple-user",
@@ -566,10 +567,11 @@ class TestUserService:
         self,
         company_factory: Callable[..., Company],
         user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
         """Verify merge absorbs the secondary user's apple_profile into an empty primary."""
         # Given a primary admin with no apple_profile and an UNAPPROVED secondary with one
-        company = await company_factory(name="Merge Apple Co", email="merge-apple@co.com")
+        company = await company_factory()
         admin = await user_factory(company=company, role=UserRole.ADMIN)
         primary = await user_factory(company=company, role=UserRole.PLAYER, apple_profile=None)
         secondary = await user_factory(
@@ -594,10 +596,11 @@ class TestUserService:
         self,
         company_factory: Callable[..., Company],
         user_factory: Callable[..., User],
+        debug: Callable[..., None],
     ) -> None:
         """Verify update_user writes a patched apple_profile onto the user."""
         # Given an admin and a target user with no apple_profile
-        company = await company_factory(name="Patch Apple Co", email="patch-apple@co.com")
+        company = await company_factory()
         admin = await user_factory(company=company, role=UserRole.ADMIN)
         target = await user_factory(company=company, role=UserRole.PLAYER)
         data = UserPatch(apple_profile={"id": "apple-patch", "fullname": "Patched"})
@@ -610,6 +613,26 @@ class TestUserService:
         # Then the apple_profile is stored and reported in the change diff
         assert updated.apple_profile == {"id": "apple-patch", "fullname": "Patched"}
         assert "apple_profile" in changes
+
+    async def test_register_user_stores_apple_profile(
+        self,
+        company_factory: Callable[..., Company],
+        debug: Callable[..., None],
+    ) -> None:
+        """Verify register_user persists the supplied apple_profile blob."""
+        # Given a company and an SSO registration payload carrying an apple_profile
+        company = await company_factory()
+        data = UserRegister(
+            username="apple-reg",
+            email="apple-reg@example.com",
+            apple_profile={"id": "apple-reg-1", "email": "reg@icloud.com"},
+        )
+
+        # When the user registers
+        registered = await UserService().register_user(company=company, data=data)
+
+        # Then the apple_profile is stored verbatim
+        assert registered.apple_profile == {"id": "apple-reg-1", "email": "reg@icloud.com"}
 
 
 class TestUserQuickRollService:
