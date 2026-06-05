@@ -33,6 +33,7 @@ class UserLookupController(Controller):
         discord_id: str | None = None,
         google_id: str | None = None,
         github_id: str | None = None,
+        apple_id: str | None = None,
     ) -> list[UserLookupResult]:
         """Look up a user by identifier across the developer's permitted companies."""
         return await UserLookupService().lookup(
@@ -41,4 +42,5 @@ class UserLookupController(Controller):
             discord_id=discord_id,
             google_id=google_id,
             github_id=github_id,
+            apple_id=apple_id,
         )

@@ -45,6 +45,7 @@ class TestUserLookupService:
             ("discord_id", "discord_profile", "999888777"),
             ("google_id", "google_profile", "google-abc-123"),
             ("github_id", "github_profile", "gh-456"),
+            ("apple_id", "apple_profile", "apple-user-123"),
         ],
     )
     async def test_lookup_by_oauth_id(

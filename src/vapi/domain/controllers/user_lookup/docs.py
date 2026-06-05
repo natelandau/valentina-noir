@@ -12,6 +12,7 @@ Provide **exactly one** query parameter:
 | `discord_id` | Discord profile ID          |
 | `google_id`  | Google profile ID           |
 | `github_id`  | GitHub profile ID           |
+| `apple_id`   | Apple profile ID            |
 
 **Intended for login/registration flows** — discover which companies a person already \
 belongs to so your client can offer "log in to Company X" or detect existing accounts.

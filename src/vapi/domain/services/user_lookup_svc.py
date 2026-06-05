@@ -20,6 +20,7 @@ class UserLookupService:
         discord_id: str | None = None,
         google_id: str | None = None,
         github_id: str | None = None,
+        apple_id: str | None = None,
     ) -> list[UserLookupResult]:
         """Find users matching an identifier across the developer's permitted companies.
 
@@ -33,6 +34,7 @@ class UserLookupService:
             discord_id: Match against discord_profile->>'id'.
             google_id: Match against google_profile->>'id'.
             github_id: Match against github_profile->>'id'.
+            apple_id: Match against apple_profile->>'id'.
 
         Raises:
             ValidationError: If zero or more than one identifier is provided.
@@ -42,12 +44,13 @@ class UserLookupService:
             "discord_id": discord_id,
             "google_id": google_id,
             "github_id": github_id,
+            "apple_id": apple_id,
         }
         provided = {k: v for k, v in identifiers.items() if v is not None}
 
         if len(provided) != 1:
             raise ValidationError(
-                detail="Exactly one lookup identifier is required: email, discord_id, google_id, or github_id."
+                detail="Exactly one lookup identifier is required: email, discord_id, google_id, github_id, or apple_id."
             )
 
         qs = User.filter(is_archived=False)
@@ -77,6 +80,7 @@ class UserLookupService:
                 "discord_id": "discord_profile",
                 "google_id": "google_profile",
                 "github_id": "github_profile",
+                "apple_id": "apple_profile",
             }
             json_column = oauth_json_fields[identifier_name]
             annotation_key = f"_{identifier_name}"
