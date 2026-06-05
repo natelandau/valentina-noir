@@ -125,7 +125,7 @@ Retrieve a single user by ID. Archived (soft-deleted) users are returned. The re
 POST /api/v1/admin/users
 ```
 
-Create a user. Supply the target `company_id` in the request body along with `username`, `email`, and `role`, plus the optional `name_first`, `name_last`, `discord_profile`, `google_profile`, and `github_profile`. A user cannot be created with the `UNAPPROVED` or `DEACTIVATED` role.
+Create a user. Supply the target `company_id` in the request body along with `username`, `email`, and `role`, plus the optional `name_first`, `name_last`, `discord_profile`, `google_profile`, `github_profile`, and `apple_profile`. A user cannot be created with the `UNAPPROVED` or `DEACTIVATED` role.
 
 ### Update user
 

@@ -4,7 +4,7 @@ icon: lucide/log-in
 
 # Authenticate Your Users
 
-Valentina Noir never authenticates your players directly. Your application owns sign-in: a player logs in through your own system (Google, GitHub, Discord, email, or anything else), and your app then tells Valentina which user is acting. This page links a signed-in person to a Valentina user account and gets them approved to play.
+Valentina Noir never authenticates your players directly. Your application owns sign-in: a player logs in through your own system (Google, GitHub, Discord, Apple, email, or anything else), and your app then tells Valentina which user is acting. This page links a signed-in person to a Valentina user account and gets them approved to play.
 
 !!! warning "Your app authenticates, Valentina authorizes"
 
@@ -40,7 +40,7 @@ response.raise_for_status()
 user_id = response.json()["id"]
 ```
 
-Only `username` and `email` are required. You can also pass `name_first`, `name_last`, or an OAuth profile (`google_profile`, `discord_profile`, `github_profile`) to enrich the account.
+Only `username` and `email` are required. You can also pass `name_first`, `name_last`, or an OAuth profile (`google_profile`, `discord_profile`, `github_profile`, `apple_profile`) to enrich the account.
 
 New users start with the `UNAPPROVED` role. They exist, but can't create characters, join campaigns, or roll dice until an admin approves them.
 

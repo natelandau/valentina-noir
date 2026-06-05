@@ -47,7 +47,7 @@ Link your authenticated users to Valentina user accounts.
 
 **Recommended Workflow with SSO:**
 
-1. User authenticates via your identity provider (Google, GitHub, Discord, etc.)
+1. User authenticates via your identity provider (Google, GitHub, Discord, Apple, etc.)
 2. Check if you have a stored Valentina `user_id` for this user
 3. If not, search by email: `GET /api/v1/companies/{company_id}/users?email={email}`
 4. If found, update the existing user's profile with the new OAuth info (via `PATCH`)
@@ -123,6 +123,7 @@ Search by **exactly one** identifier:
 | `discord_id` | Discord profile ID            |
 | `google_id`  | Google profile ID             |
 | `github_id`  | GitHub profile ID             |
+| `apple_id`   | Apple profile ID              |
 
 Response:
 
