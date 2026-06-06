@@ -1,3 +1,13 @@
+## v0.22.0 (2026-06-06)
+
+### Feat
+
+- **users**: add Apple as a third-party auth provider (#140)
+
+### Refactor
+
+- **config**: expose archive and audit log retention windows
+
 ## v0.21.0 (2026-06-03)
 
 ### Feat
