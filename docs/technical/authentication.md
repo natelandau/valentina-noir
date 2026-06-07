@@ -137,6 +137,87 @@ async function listCampaigns(companyId) {
 }
 ```
 
+## Verified Identity
+
+The `On-Behalf-Of` header is an *assertion* model: your application authenticates users through its own system, then tells Valentina which user is acting. Valentina trusts your application's claim without verifying the underlying credential itself.
+
+**Assertion** is the right model for bots, server-side automations, and trusted server-side clients that manage their own session state.
+
+**Verified identity** is an alternative model for applications where users sign in directly with a provider (Apple, Google, Discord, or GitHub). Instead of authenticating the user yourself and asserting their identity, you forward the provider credential to Valentina and let the API establish who signed in. Valentina verifies the credential with the provider, then resolves it to a user account. The user ID returned in the response is what you put in `On-Behalf-Of` for every subsequent request.
+
+### Token type by provider
+
+| Provider | Credential type                    |
+| -------- | ---------------------------------- |
+| Apple    | OIDC ID token (JWT)                |
+| Google   | OIDC ID token (JWT)                |
+| Discord  | OAuth access token                 |
+| GitHub   | OAuth access token                 |
+
+### Endpoint
+
+`POST /companies/{company_id}/auth/identify` requires only your API key. No `On-Behalf-Of` header is sent; the endpoint resolves the user for you.
+
+```bash
+curl -X POST "$API/companies/$COMPANY_ID/auth/identify" \
+  -H "X-API-KEY: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "google", "token": "<google-id-token>"}'
+```
+
+The response always returns `200 OK` with a `resolution` field and a `user` object:
+
+```json
+{
+    "resolution": "matched",
+    "user": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "username": "marcus_player",
+        "email": "marcus@example.com",
+        "role": "PLAYER",
+        "company_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        "...": "..."
+    }
+}
+```
+
+The `user` object is the full user response; fields are abbreviated here. See [UserResponse](user_management.md) for all fields.
+
+Use `user.id` as the value of `On-Behalf-Of` from that point on.
+
+The `resolution` field tells you how the user was located:
+
+| Value     | Meaning                                                                 |
+| --------- | ----------------------------------------------------------------------- |
+| `matched` | An existing user was found by their provider ID.                        |
+| `linked`  | An existing user was matched by provider-verified email and linked.     |
+| `created` | No matching user was found; a new `UNAPPROVED` user was created.        |
+
+A `created` user cannot access game features until an admin approves them. See [user management](user_management.md#user-approval-workflow) for the approval flow.
+
+### Apple and Google audience allowlists
+
+Apple and Google ID tokens carry an audience (`aud`) claim that must match your application. You configure the allowed audience values in your server environment:
+
+```bash
+# One entry per client app (iOS bundle ID, web OAuth client ID, etc.)
+VAPI_OAUTH__APPLE_AUDIENCES='["com.example.iosapp"]'
+VAPI_OAUTH__GOOGLE_AUDIENCES='["1234-abc.apps.googleusercontent.com"]'
+```
+
+An empty list disables that provider entirely. Tokens with an audience not in the list are rejected with `422 TOKEN_VERIFICATION_FAILED`.
+
+### Error responses
+
+| Status | Code                        | Cause                                                        |
+| ------ | --------------------------- | ------------------------------------------------------------ |
+| 400    | -                           | Unknown `provider` value (not apple/google/discord/github).  |
+| 401    | -                           | Your `X-API-KEY` is missing or invalid.                      |
+| 422    | `TOKEN_VERIFICATION_FAILED` | The provider rejected the token or it failed verification.   |
+| 422    | `EMAIL_REQUIRED`            | Provider did not supply an email; include `email` in the body. |
+| 429    | -                           | Registration rate limit exceeded. See [Rate Limiting](rate_limits.md). |
+| 503    | `PROVIDER_UNAVAILABLE`      | The provider's servers could not be reached.                 |
+
 ## Developer Permissions
 
 Each API key associates with a developer account that has permissions assigned per company. Access multiple companies with a single API key, using different permission levels for each.
