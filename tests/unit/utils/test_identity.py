@@ -4,9 +4,11 @@ import json
 import time
 from typing import Any
 
+import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from httpx_oauth.exceptions import GetProfileError
 from pytest_mock import MockerFixture
 
 from vapi.config import settings
@@ -216,3 +218,177 @@ class TestOIDCVerification:
         # Then no email is present and it is not verified
         assert identity.email is None
         assert identity.email_verified is False
+
+
+class TestDiscordVerification:
+    """Test Discord access token verification."""
+
+    async def test_valid_discord_token(self, mocker: MockerFixture) -> None:
+        """Verify a valid Discord access token resolves with a verified email."""
+        # Given Discord returns a profile for the token
+        mock_client = mocker.AsyncMock()
+        mock_client.get_profile.return_value = {
+            "id": "123456789010111213",
+            "username": "someusername",
+            "global_name": "Some User",
+            "avatar": "abc123",
+            "discriminator": "0",
+            "email": "discord@example.com",
+            "verified": True,
+        }
+        mocker.patch(
+            "vapi.utils.identity.get_discord_oauth_client",
+            return_value=mock_client,
+            autospec=True,
+        )
+
+        # When the token is verified
+        identity = await verify_provider_token(
+            provider=IdentityProvider.DISCORD,
+            token="valid-access-token",  # noqa: S106
+        )
+
+        # Then the identity matches the existing discord_profile shape
+        assert identity.provider == "discord"
+        assert identity.provider_id == "123456789010111213"
+        assert identity.email == "discord@example.com"
+        assert identity.email_verified is True
+        assert identity.profile["avatar_id"] == "abc123"
+        assert identity.profile["id"] == "123456789010111213"
+
+    async def test_rejected_discord_token(self, mocker: MockerFixture) -> None:
+        """Verify a rejected Discord token raises 422."""
+        # Given Discord rejects the token
+        mock_client = mocker.AsyncMock()
+        mock_client.get_profile.side_effect = GetProfileError("bad token")
+        mocker.patch(
+            "vapi.utils.identity.get_discord_oauth_client",
+            return_value=mock_client,
+            autospec=True,
+        )
+
+        # When the token is verified
+        # Then verification fails
+        with pytest.raises(UnprocessableEntityError):
+            await verify_provider_token(provider=IdentityProvider.DISCORD, token="bad")  # noqa: S106
+
+    async def test_discord_unreachable(self, mocker: MockerFixture) -> None:
+        """Verify a Discord outage raises 503."""
+        # Given Discord times out
+        mock_client = mocker.AsyncMock()
+        mock_client.get_profile.side_effect = httpx.ConnectTimeout("timeout")
+        mocker.patch(
+            "vapi.utils.identity.get_discord_oauth_client",
+            return_value=mock_client,
+            autospec=True,
+        )
+
+        # When the token is verified
+        # Then the outage surfaces as 503
+        with pytest.raises(ServiceUnavailableError):
+            await verify_provider_token(provider=IdentityProvider.DISCORD, token="any")  # noqa: S106
+
+
+class TestGitHubVerification:
+    """Test GitHub access token verification."""
+
+    @staticmethod
+    def _mock_github(
+        mocker: MockerFixture,
+        *,
+        user_status: int = 200,
+        emails_status: int = 200,
+        emails: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Patch httpx.AsyncClient for the two GitHub API calls."""
+        user_response = mocker.Mock(status_code=user_status)
+        user_response.json.return_value = {"id": 4242, "login": "octocat", "email": None}
+        if user_status != 200:
+            # Simulate raise_for_status raising for non-2xx responses
+            error_response = mocker.Mock(status_code=user_status)
+            user_response.raise_for_status = mocker.Mock(
+                side_effect=httpx.HTTPStatusError(
+                    message="HTTP error",
+                    request=mocker.Mock(),
+                    response=error_response,
+                )
+            )
+        else:
+            user_response.raise_for_status = mocker.Mock()
+        emails_response = mocker.Mock(status_code=emails_status)
+        emails_response.json.return_value = (
+            emails
+            if emails is not None
+            else [
+                {"email": "octo@example.com", "primary": True, "verified": True},
+                {"email": "other@example.com", "primary": False, "verified": True},
+            ]
+        )
+
+        mock_client = mocker.AsyncMock()
+        mock_client.get.side_effect = [user_response, emails_response]
+        mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch("vapi.utils.identity.httpx.AsyncClient", return_value=mock_client)
+
+    async def test_valid_github_token(self, mocker: MockerFixture) -> None:
+        """Verify a valid GitHub token resolves with the verified primary email."""
+        # Given GitHub returns a user and a verified primary email
+        self._mock_github(mocker)
+
+        # When the token is verified
+        identity = await verify_provider_token(provider=IdentityProvider.GITHUB, token="gho_x")  # noqa: S106
+
+        # Then the identity uses the verified primary email and string id
+        assert identity.provider == "github"
+        assert identity.provider_id == "4242"
+        assert identity.email == "octo@example.com"
+        assert identity.email_verified is True
+        assert identity.profile["login"] == "octocat"
+
+    async def test_github_no_email_scope(self, mocker: MockerFixture) -> None:
+        """Verify a token without the user:email scope yields an unverified fallback."""
+        # Given the emails endpoint returns 403 (no user:email scope granted)
+        # The 403 status means the email list is never read; only the public profile email is used
+        self._mock_github(mocker, emails_status=403)
+
+        # When the token is verified
+        identity = await verify_provider_token(provider=IdentityProvider.GITHUB, token="gho_x")  # noqa: S106
+
+        # Then no verified email is claimed
+        assert identity.email is None
+        assert identity.email_verified is False
+
+    async def test_rejected_github_token(self, mocker: MockerFixture) -> None:
+        """Verify a rejected GitHub token raises 422."""
+        # Given GitHub returns 401 for the user call
+        self._mock_github(mocker, user_status=401)
+
+        # When the token is verified
+        # Then verification fails
+        with pytest.raises(UnprocessableEntityError):
+            await verify_provider_token(provider=IdentityProvider.GITHUB, token="bad")  # noqa: S106
+
+    async def test_github_unreachable(self, mocker: MockerFixture) -> None:
+        """Verify a GitHub network failure raises 503."""
+        # Given GitHub is unreachable
+        mock_client = mocker.AsyncMock()
+        mock_client.get.side_effect = httpx.ConnectTimeout("timeout")
+        mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch("vapi.utils.identity.httpx.AsyncClient", return_value=mock_client)
+
+        # When the token is verified
+        # Then the outage surfaces as 503
+        with pytest.raises(ServiceUnavailableError):
+            await verify_provider_token(provider=IdentityProvider.GITHUB, token="any")  # noqa: S106
+
+    async def test_github_rate_limited(self, mocker: MockerFixture) -> None:
+        """Verify a GitHub 403 (rate limit) raises 503, not 422."""
+        # Given GitHub returns 403 for the user call
+        self._mock_github(mocker, user_status=403)
+
+        # When the token is verified
+        # Then the rate-limit surfaces as a provider outage, not a token rejection
+        with pytest.raises(ServiceUnavailableError):
+            await verify_provider_token(provider=IdentityProvider.GITHUB, token="gho_x")  # noqa: S106

@@ -11,8 +11,10 @@ from typing import TYPE_CHECKING, Any, assert_never, cast
 import httpx
 import jwt
 import msgspec
+from httpx_oauth.exceptions import GetProfileError
 
 from vapi.config import settings
+from vapi.config.oauth import get_discord_oauth_client
 from vapi.constants import IdentityProvider
 from vapi.lib.exceptions import ServiceUnavailableError, UnprocessableEntityError
 
@@ -26,6 +28,10 @@ APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUERS = ("https://appleid.apple.com",)
 GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 GOOGLE_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
+GITHUB_USER_URL = "https://api.github.com/user"
+GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
+GITHUB_OK_STATUS = 200
+GITHUB_UNAUTHORIZED_STATUS = 401
 
 
 class VerifiedIdentity(msgspec.Struct):
@@ -229,18 +235,115 @@ async def _verify_oidc_token(
 
 
 async def _verify_discord_token(token: str) -> VerifiedIdentity:
-    """Verify a Discord OAuth access token (implemented in a later task).
+    """Verify a Discord OAuth access token by fetching the profile it grants.
 
     Args:
         token: The Discord OAuth access token.
     """
-    raise NotImplementedError
+    try:
+        profile = await get_discord_oauth_client().get_profile(token)
+    except GetProfileError as e:
+        raise UnprocessableEntityError(
+            detail="Discord rejected the access token",
+            code="TOKEN_VERIFICATION_FAILED",
+        ) from e
+    except httpx.HTTPError as e:
+        raise ServiceUnavailableError(
+            detail="Discord is unreachable",
+            code="PROVIDER_UNAVAILABLE",
+        ) from e
+
+    try:
+        provider_id = str(profile["id"])
+    except (KeyError, TypeError) as e:
+        raise UnprocessableEntityError(
+            detail="Discord profile is missing required 'id' field",
+            code="TOKEN_VERIFICATION_FAILED",
+        ) from e
+
+    email: str | None = profile.get("email")
+    # Match the discord_profile shape written by the existing OAuth callback flow
+    discord_profile = {
+        "id": provider_id,
+        "username": profile.get("username"),
+        "global_name": profile.get("global_name"),
+        "avatar_id": profile.get("avatar"),
+        "discriminator": profile.get("discriminator"),
+        "email": email,
+        "verified": profile.get("verified", False),
+    }
+    return VerifiedIdentity(
+        provider=IdentityProvider.DISCORD.value,
+        provider_id=provider_id,
+        email=email,
+        email_verified=bool(email and profile.get("verified")),
+        profile=discord_profile,
+    )
 
 
 async def _verify_github_token(token: str) -> VerifiedIdentity:
-    """Verify a GitHub OAuth access token (implemented in a later task).
+    """Verify a GitHub OAuth access token via the user and emails endpoints.
 
     Args:
         token: The GitHub OAuth access token.
     """
-    raise NotImplementedError
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=settings.oauth.identity_http_timeout) as client:
+            user_response = await client.get(GITHUB_USER_URL, headers=headers)
+            user_response.raise_for_status()
+            emails_response = await client.get(GITHUB_EMAILS_URL, headers=headers)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == GITHUB_UNAUTHORIZED_STATUS:
+            raise UnprocessableEntityError(
+                detail="GitHub rejected the access token",
+                code="TOKEN_VERIFICATION_FAILED",
+            ) from e
+        # 403 can mean rate-limited (not a bad token), and 5xx are server errors;
+        # treat all non-401 HTTP errors as a transient provider outage.
+        raise ServiceUnavailableError(
+            detail="GitHub is unreachable",
+            code="PROVIDER_UNAVAILABLE",
+        ) from e
+    except httpx.HTTPError as e:
+        raise ServiceUnavailableError(
+            detail="GitHub is unreachable",
+            code="PROVIDER_UNAVAILABLE",
+        ) from e
+
+    try:
+        gh_user = user_response.json()
+        provider_id = str(gh_user["id"])
+    except (ValueError, KeyError, TypeError) as e:
+        raise UnprocessableEntityError(
+            detail="GitHub user response is malformed or missing 'id'",
+            code="TOKEN_VERIFICATION_FAILED",
+        ) from e
+
+    email: str | None = None
+    email_verified = False
+    if emails_response.status_code == GITHUB_OK_STATUS:
+        try:
+            email_list: list[dict[str, Any]] = emails_response.json()
+        except ValueError:
+            email_list = []
+        # Prefer the verified primary address; tokens without the user:email
+        # scope get a 403 here, in which case fall back to the public profile email
+        for entry in email_list:
+            if entry.get("primary") and entry.get("verified") and "email" in entry:
+                email, email_verified = entry["email"], True
+                break
+    if email is None:
+        email = gh_user.get("email")
+
+    return VerifiedIdentity(
+        provider=IdentityProvider.GITHUB.value,
+        provider_id=provider_id,
+        email=email,
+        email_verified=email_verified,
+        profile={"id": provider_id, "login": gh_user.get("login"), "email": email},
+    )
