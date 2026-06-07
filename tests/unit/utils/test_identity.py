@@ -105,6 +105,19 @@ class TestOIDCVerification:
         # Then the email counts as verified
         assert identity.email_verified is True
 
+    async def test_email_verified_integer_one(
+        self, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify the integer 1 for email_verified is accepted as verified."""
+        # Given a token where email_verified is the integer 1
+        token = _sign_token(rsa_keypair[0], email_verified=1)
+
+        # When the token is verified
+        identity = await verify_provider_token(provider=IdentityProvider.APPLE, token=token)
+
+        # Then the email counts as verified
+        assert identity.email_verified is True
+
     async def test_unverified_email(self, rsa_keypair: tuple[Any, dict[str, Any]]) -> None:
         """Verify an unverified email claim yields email_verified False."""
         # Given a token with an unverified email
@@ -152,7 +165,7 @@ class TestOIDCVerification:
         rsa_keypair: tuple[Any, dict[str, Any]],
         mocker: MockerFixture,
     ) -> None:
-        """Verify a token signed with an unknown key is rejected after one cache-bypass refetch."""
+        """Verify a token signed with an unknown key is rejected without a redundant refetch when there is no cache."""
         # Given a fresh fetch mock so we can inspect its call count
         fetch_mock = mocker.AsyncMock(return_value=rsa_keypair[1])
         mocker.patch("vapi.utils.identity._fetch_jwks", new=fetch_mock)
@@ -160,13 +173,50 @@ class TestOIDCVerification:
         # Given a token signed with a kid absent from the JWKS
         token = _sign_token(rsa_keypair[0], kid="rotated-away")
 
-        # When the token is verified
+        # When the token is verified (no store=None means no cache, so no refetch)
         # Then verification fails
         with pytest.raises(UnprocessableEntityError):
             await verify_provider_token(provider=IdentityProvider.APPLE, token=token)
 
-        # And the JWKS was fetched twice (initial + one cache-bypass refetch)
-        assert fetch_mock.call_count == 2
+        # And the JWKS was fetched exactly once (no pointless cache-bypass refetch without a store)
+        assert fetch_mock.call_count == 1
+
+    async def test_unknown_kid_refetches_when_cached(
+        self,
+        rsa_keypair: tuple[Any, dict[str, Any]],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a cache miss on a rotated key triggers exactly one network refetch."""
+        import msgspec
+        from litestar.stores.memory import MemoryStore
+
+        from vapi.utils.identity import VerifiedIdentity, _get_jwks  # noqa: F401
+
+        private_key, good_jwks = rsa_keypair
+
+        # Given a store pre-populated with STALE JWKS that lacks the token's kid
+        store = MemoryStore()
+        stale_jwks = {"keys": []}  # no matching key
+        await store.set("apple", msgspec.json.encode(stale_jwks))
+
+        # Given _fetch_jwks returns the fresh JWKS that contains the key
+        fetch_mock = mocker.AsyncMock(return_value=good_jwks)
+        mocker.patch("vapi.utils.identity._fetch_jwks", new=fetch_mock)
+
+        # Given a valid token signed with the test kid
+        token = _sign_token(private_key)
+
+        # When the token is verified with the cache store
+        identity = await verify_provider_token(
+            provider=IdentityProvider.APPLE, token=token, store=store
+        )
+
+        # Then verification succeeds (the refetch found the key)
+        assert isinstance(identity, VerifiedIdentity)
+        assert identity.provider_id == "apple-sub-001"
+
+        # And exactly one network fetch happened (the cache was checked first, then one refetch)
+        assert fetch_mock.call_count == 1
 
     async def test_empty_audience_allowlist_fails_closed(
         self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]

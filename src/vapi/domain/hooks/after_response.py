@@ -44,6 +44,10 @@ from vapi.utils.time import time_now
 if TYPE_CHECKING:
     from litestar import Request
 
+# Fields always redacted from persisted request bodies regardless of per-endpoint configuration.
+# Endpoints may extend this via ``request.state.audit_redact_fields`` for additional fields.
+_DEFAULT_REDACT_FIELDS: frozenset[str] = frozenset({"token", "password", "secret", "api_key"})
+
 
 async def _parse_request_body(request: Request) -> tuple[str | None, dict | None]:
     """Extract raw request body and parsed JSON from the request."""
@@ -85,7 +89,9 @@ def _apply_redactions(
     Returns:
         Tuple of (redacted_body, redacted_json).
     """
-    if not redact_fields or request_json is None:
+    # json.loads can yield non-dict bodies (e.g. bulk endpoints post arrays); only
+    # dict bodies have top-level keys to redact
+    if not redact_fields or not isinstance(request_json, dict):
         return request_body, request_json
 
     redacted_json = {k: "[REDACTED]" if k in redact_fields else v for k, v in request_json.items()}
@@ -98,7 +104,10 @@ async def add_audit_log(request: Request) -> None:
     """Create an audit log entry with both raw request data and structured fields."""
     request_body, request_json = await _parse_request_body(request)
 
-    redact_fields: list[str] = getattr(request.state, "audit_redact_fields", None) or []
+    per_request: list[str] = getattr(request.state, "audit_redact_fields", None) or []
+    # Always merge per-request fields with the module-level defaults so sensitive
+    # fields are redacted even when a controller doesn't set audit_redact_fields.
+    redact_fields: list[str] = list(_DEFAULT_REDACT_FIELDS | set(per_request))
     if redact_fields:
         request_body, request_json = _apply_redactions(
             request_body=request_body,

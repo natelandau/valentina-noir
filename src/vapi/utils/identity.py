@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
     from litestar.stores.base import Store
 
-__all__ = ("VerifiedIdentity", "verify_provider_token")
+__all__ = ("VerifiedIdentity", "build_discord_profile", "verify_provider_token")
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUERS = ("https://appleid.apple.com",)
@@ -118,7 +118,10 @@ async def _get_jwks(
         store: Optional Redis store for caching. None skips caching.
         force_refresh: Bypass the cache and fetch fresh data.
     """
-    cache_key = f"{settings.stores.jwks_key}:{provider}"
+    # Use only the provider name as the cache key; the StoreRegistry factory already
+    # namespaces the store with the configured prefix (e.g. "vapi:jwks:"), so
+    # prepending jwks_key here would produce a double-prefixed key.
+    cache_key = provider
     if store is not None and not force_refresh:
         cached = await store.get(cache_key)
         if cached is not None:
@@ -142,6 +145,10 @@ def _find_key(jwks: dict[str, Any], kid: str | None) -> dict[str, Any] | None:
         jwks: The JWKS document containing a "keys" array.
         kid: The key ID from the token header.
     """
+    # A kid-less token would match the first kid-less JWK entry by accident, so
+    # return None immediately to treat the token as unverifiable.
+    if kid is None:
+        return None
     return next((k for k in jwks.get("keys", []) if k.get("kid") == kid), None)
 
 
@@ -181,8 +188,9 @@ async def _verify_oidc_token(
 
     jwks = await _get_jwks(url=jwks_url, provider=provider.value, store=store)
     key_data = _find_key(jwks, kid)
-    if key_data is None:
-        # Key rotation: refetch the JWKS once, bypassing the cache
+    if key_data is None and store is not None:
+        # Key rotation: only refetch when a cache exists to bypass; without a
+        # store the first fetch is always fresh, so a second call would be pointless.
         jwks = await _get_jwks(
             url=jwks_url, provider=provider.value, store=store, force_refresh=True
         )
@@ -224,8 +232,8 @@ async def _verify_oidc_token(
         )
 
     email: str | None = claims.get("email")
-    # Apple sends email_verified as the string "true" on some token versions
-    email_verified = str(claims.get("email_verified", "")).lower() == "true"
+    # Apple sends email_verified as "true" (string) or 1 (integer) on some token versions
+    email_verified = str(claims.get("email_verified", "")).lower() in {"true", "1"}
     return VerifiedIdentity(
         provider=provider.value,
         provider_id=claims["sub"],
@@ -233,6 +241,31 @@ async def _verify_oidc_token(
         email_verified=bool(email and email_verified),
         profile={"id": claims["sub"], "email": email},
     )
+
+
+def build_discord_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    """Build the normalized discord_profile dict from a raw Discord API response.
+
+    Produces the canonical 7-key shape that both the identity resolution flow
+    and the OAuth callback flow persist to ``User.discord_profile``. Centralizing
+    this keeps the two code paths in sync when Discord changes its schema.
+
+    Args:
+        profile: The raw profile dict returned by the Discord API or OAuth client.
+
+    Returns:
+        Normalized dict with keys: id, username, global_name, avatar_id,
+        discriminator, email, verified.
+    """
+    return {
+        "id": str(profile["id"]),
+        "username": profile.get("username"),
+        "global_name": profile.get("global_name"),
+        "avatar_id": profile.get("avatar"),
+        "discriminator": profile.get("discriminator"),
+        "email": profile.get("email"),
+        "verified": profile.get("verified", False),
+    }
 
 
 async def _verify_discord_token(token: str) -> VerifiedIdentity:
@@ -263,16 +296,7 @@ async def _verify_discord_token(token: str) -> VerifiedIdentity:
         ) from e
 
     email: str | None = profile.get("email")
-    # Match the discord_profile shape written by the existing OAuth callback flow
-    discord_profile = {
-        "id": provider_id,
-        "username": profile.get("username"),
-        "global_name": profile.get("global_name"),
-        "avatar_id": profile.get("avatar"),
-        "discriminator": profile.get("discriminator"),
-        "email": email,
-        "verified": profile.get("verified", False),
-    }
+    discord_profile = build_discord_profile(profile)
     return VerifiedIdentity(
         provider=IdentityProvider.DISCORD.value,
         provider_id=provider_id,
@@ -283,7 +307,7 @@ async def _verify_discord_token(token: str) -> VerifiedIdentity:
 
 
 def _extract_github_email(
-    emails_response: Any, profile_email: str | None
+    emails_response: httpx.Response, profile_email: str | None
 ) -> tuple[str | None, bool]:
     """Extract the best verified email from the GitHub emails API response.
 

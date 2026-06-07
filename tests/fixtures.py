@@ -10,11 +10,36 @@ import pytest
 
 from vapi.constants import GameVersion
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
+from vapi.utils.identity import VerifiedIdentity
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 pytestmark = pytest.mark.anyio
+
+
+def build_verified_identity(**overrides: Any) -> VerifiedIdentity:
+    """Build a VerifiedIdentity with sensible Apple-provider defaults.
+
+    Use as a shared helper in both unit and integration identity tests to avoid
+    duplicating the default payload. Pass keyword overrides to customize individual
+    fields for a specific scenario.
+
+    Args:
+        **overrides: Fields to override in the default VerifiedIdentity.
+
+    Returns:
+        A VerifiedIdentity instance with the merged field values.
+    """
+    defaults: dict[str, Any] = {
+        "provider": "apple",
+        "provider_id": "apple-sub-001",
+        "email": "person@example.com",
+        "email_verified": True,
+        "profile": {"id": "apple-sub-001", "email": "person@example.com"},
+    }
+    defaults.update(overrides)
+    return VerifiedIdentity(**defaults)
 
 
 @pytest.fixture

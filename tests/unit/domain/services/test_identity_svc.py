@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
+from tests.fixtures import build_verified_identity as _identity
 from vapi.constants import UserRole
 from vapi.db.sql_models.user import User
 from vapi.domain.services.identity_svc import IdentityResolution, IdentityService
 from vapi.lib.exceptions import ConflictError, UnprocessableEntityError
-from vapi.utils.identity import VerifiedIdentity
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -18,19 +18,6 @@ if TYPE_CHECKING:
     from vapi.db.sql_models.company import Company
 
 pytestmark = pytest.mark.anyio
-
-
-def _identity(**overrides: Any) -> VerifiedIdentity:
-    """Build a VerifiedIdentity with sensible defaults."""
-    defaults: dict[str, Any] = {
-        "provider": "apple",
-        "provider_id": "apple-sub-001",
-        "email": "person@example.com",
-        "email_verified": True,
-        "profile": {"id": "apple-sub-001", "email": "person@example.com"},
-    }
-    defaults.update(overrides)
-    return VerifiedIdentity(**defaults)
 
 
 class TestResolve:

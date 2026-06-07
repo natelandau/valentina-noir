@@ -9,6 +9,7 @@ from urllib.parse import quote_plus
 from vapi.config import settings
 from vapi.config.oauth import get_discord_oauth_client
 from vapi.lib.exceptions import ImproperlyConfiguredError
+from vapi.utils.identity import build_discord_profile
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -47,15 +48,7 @@ async def discord_profile_to_user(user: User) -> User:
         )
     profile = await get_discord_oauth_client().get_profile(oauth["access_token"])
 
-    user.discord_profile = {
-        "id": profile["id"],
-        "username": profile["username"],
-        "global_name": profile["global_name"],
-        "avatar_id": profile["avatar"],
-        "discriminator": profile["discriminator"],
-        "email": profile["email"],
-        "verified": profile["verified"],
-    }
+    user.discord_profile = build_discord_profile(profile)
     await user.save()
     return user
 

@@ -14,6 +14,7 @@ from litestar.status_codes import (
 )
 from pytest_mock import MockerFixture
 
+from tests.fixtures import build_verified_identity as _identity
 from vapi.constants import AUTH_HEADER_KEY, AuditOperation
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
@@ -22,26 +23,12 @@ from vapi.db.sql_models.user import User
 from vapi.domain import urls
 from vapi.domain.services.developer_svc import DeveloperService
 from vapi.lib.exceptions import UnprocessableEntityError
-from vapi.utils.identity import VerifiedIdentity
 
 pytestmark = pytest.mark.anyio
 
 VERIFY_TARGET = "vapi.domain.controllers.identity.controllers.verify_provider_token"
 
 _developer_service = DeveloperService()
-
-
-def _identity(**overrides: Any) -> VerifiedIdentity:
-    """Build a VerifiedIdentity with sensible defaults."""
-    defaults: dict[str, Any] = {
-        "provider": "apple",
-        "provider_id": "apple-sub-001",
-        "email": "person@example.com",
-        "email_verified": True,
-        "profile": {"id": "apple-sub-001", "email": "person@example.com"},
-    }
-    defaults.update(overrides)
-    return VerifiedIdentity(**defaults)
 
 
 class TestIdentifyEndpoint:
@@ -275,6 +262,142 @@ class TestIdentifyEndpoint:
 
         # Then the guard rejects the request
         assert response.status_code == HTTP_403_FORBIDDEN
+
+    async def test_identify_returns_annotated_counts(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+        quickroll_factory: Any,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify the identify response includes accurate child-resource counts for existing users."""
+        # Given an existing user with one quickroll
+        user = await user_factory(
+            company=session_company,
+            role="PLAYER",
+            apple_profile={"id": "apple-sub-001", "email": "person@example.com"},
+        )
+        await quickroll_factory(user=user)
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the client identifies the user
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the response includes accurate counts rather than zeros
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["resolution"] == "matched"
+        assert data["user"]["num_quickrolls"] == 1
+
+    async def test_identify_with_unapproved_on_behalf_of_header(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify an unapproved acting user can call identify when On-Behalf-Of is set."""
+        # Given an UNAPPROVED user whose ID will be sent as the On-Behalf-Of header
+        unapproved = await user_factory(company=session_company, role="UNAPPROVED")
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity(
+            provider_id="apple-sub-unapproved",
+            email="unapproved@example.com",
+            profile={"id": "apple-sub-unapproved", "email": "unapproved@example.com"},
+        )
+
+        # When the client calls identify with On-Behalf-Of pointing to the unapproved user
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user | {"On-Behalf-Of": str(unapproved.id)},
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the request succeeds (allow_unapproved_user bypasses the active guard)
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["resolution"] in {"matched", "created"}
+
+    @pytest.mark.clean_db
+    async def test_identify_audit_operation_is_update_for_matched_user(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify the audit log records UPDATE when identify resolves to an existing user."""
+        # Given an existing user and a clean audit log
+        await AuditLog.all().delete()
+        await user_factory(
+            company=session_company,
+            apple_profile={"id": "apple-sub-001", "email": "person@example.com"},
+        )
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the client identifies the user (matched resolution)
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the resolution is matched
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["resolution"] == "matched"
+
+        # And the audit log records UPDATE (not CREATE) because no new user was created
+        audit = await AuditLog.filter(operation_id="identifyUser").first()
+        assert audit is not None
+        assert audit.operation == AuditOperation.UPDATE
+
+    @pytest.mark.clean_db
+    async def test_identify_audit_operation_is_create_for_new_user(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify the audit log records CREATE when identify creates a new user."""
+        # Given a clean audit log and no matching user
+        await AuditLog.all().delete()
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the client identifies an unknown identity
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the resolution is created
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["resolution"] == "created"
+
+        # And the audit log records CREATE
+        audit = await AuditLog.filter(operation_id="identifyUser").first()
+        assert audit is not None
+        assert audit.operation == AuditOperation.CREATE
 
 
 class TestLinkIdentityEndpoint:

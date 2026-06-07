@@ -6,7 +6,7 @@ from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK
 
 from vapi.config import settings
-from vapi.constants import IdentityProvider, UserRole
+from vapi.constants import AuditOperation, IdentityProvider, UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
@@ -17,7 +17,12 @@ from vapi.domain.controllers.identity.dto import (
     LinkIdentityRequest,
 )
 from vapi.domain.controllers.user.dto import UserResponse
-from vapi.domain.services.identity_svc import IdentityService
+from vapi.domain.controllers.user.helpers import annotated_user_response
+from vapi.domain.services.identity_svc import (
+    PROVIDER_PROFILE_FIELDS,
+    IdentityResolution,
+    IdentityService,
+)
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
@@ -63,7 +68,7 @@ class IdentityController(Controller):
         operation_id="identifyUser",
         description=docs.IDENTIFY_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        opt={"rate_limits": [USER_REGISTRATION_LIMIT]},
+        opt={"rate_limits": [USER_REGISTRATION_LIMIT], "allow_unapproved_user": True},
     )
     async def identify(
         self, request: Request, data: IdentifyRequest, company: Company
@@ -92,10 +97,17 @@ class IdentityController(Controller):
         request.state.audit_description = (
             f"Identify user '{user.username}' via {provider.value} ({resolution.value})"
         )
-        request.state.audit_redact_fields = ["token"]
+        # Record whether the identity was newly created or matched/linked so the
+        # audit log accurately reflects the operation rather than always defaulting
+        # to CREATE from the HTTP POST method.
+        request.state.audit_operation = (
+            AuditOperation.CREATE
+            if resolution is IdentityResolution.CREATED
+            else AuditOperation.UPDATE
+        )
         return IdentifyResponse(
             resolution=resolution,
-            user=UserResponse.from_model(user),
+            user=await annotated_user_response(user.id),
         )
 
     @post(
@@ -128,7 +140,7 @@ class IdentityController(Controller):
         store = request.app.stores.get(settings.stores.jwks_key)
         identity = await verify_provider_token(provider=provider, token=data.token, store=store)
 
-        profile_field = f"{provider.value}_profile"
+        profile_field = PROVIDER_PROFILE_FIELDS[provider]
         old_profile = getattr(target_user, profile_field)
 
         service = IdentityService()
@@ -137,5 +149,4 @@ class IdentityController(Controller):
             f"Link {provider.value} identity to user '{user.username}'"
         )
         request.state.audit_changes = {profile_field: {"old": old_profile, "new": identity.profile}}
-        request.state.audit_redact_fields = ["token"]
-        return UserResponse.from_model(user)
+        return await annotated_user_response(user.id)

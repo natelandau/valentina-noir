@@ -18,6 +18,7 @@ def _make_request(
     operation_id: str | None = None,
     audit_description: str | None = None,
     audit_changes: dict[str, Any] | None = None,
+    audit_operation: AuditOperation | None = None,
     headers: dict[str, str] | None = None,
     acting_user: Any | None = None,
 ) -> MagicMock:
@@ -31,11 +32,17 @@ def _make_request(
     state = MagicMock()
     state.audit_description = audit_description
     state.audit_changes = audit_changes
-    # getattr returns a Mock object instead of None for deleted attrs
+    # getattr returns a Mock object instead of None for deleted attrs — delete
+    # optional state attrs when not explicitly set so getattr falls back to the
+    # supplied default rather than returning a truthy MagicMock.
     if audit_description is None:
         del state.audit_description
     if audit_changes is None:
         del state.audit_changes
+    if audit_operation is None:
+        del state.audit_operation
+    else:
+        state.audit_operation = audit_operation
     if acting_user is None:
         del state.acting_user
     else:
@@ -286,6 +293,23 @@ class TestRequestStateOverrides:
 
         # Then changes is None
         assert result["changes"] is None
+
+    def test_audit_operation_override(self) -> None:
+        """Verify request.state.audit_operation overrides the HTTP-method-derived operation."""
+        # Given a POST request whose runtime semantics are UPDATE (e.g. identifyUser matching)
+        company_id = str(uuid4())
+        request = _make_request(
+            method="POST",
+            path_params={"company_id": company_id},
+            operation_id="identifyUser",
+            audit_operation=AuditOperation.UPDATE,
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then the override wins over the default POST->CREATE mapping
+        assert result["operation"] == AuditOperation.UPDATE
 
 
 class TestAncestorFKPopulation:

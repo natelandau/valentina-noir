@@ -206,14 +206,15 @@ class IdentityService:
         resolved_username = username or await self._derive_username(
             company=company, identity=identity
         )
-        user = await User.create(
+        # Build the unsaved instance first so the provider profile can be set via
+        # setattr before the single INSERT, avoiding the INSERT+UPDATE two-round-trip
+        # pattern that User.create() + save() would produce.
+        user = User(
             username=resolved_username,
             email=email,
             role=UserRole.UNAPPROVED,
-            company=company,
+            company_id=company.id,
         )
-        # Write the provider profile after creation; dynamic field name prevents
-        # static typing of the **kwargs expansion in User.create.
         setattr(user, profile_field, identity.profile)
         await user.save()
         await user.fetch_related("campaign_experiences")
