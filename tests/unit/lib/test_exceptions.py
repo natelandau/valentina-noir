@@ -14,6 +14,8 @@ from litestar.exceptions import (
 
 from vapi.lib.exceptions import (
     NoFieldsToUpdateError,
+    ServiceUnavailableError,
+    UnprocessableEntityError,
     litestar_http_exc_to_http_response,
 )
 
@@ -92,6 +94,40 @@ class TestLitestarValidationExceptionMapping:
         # Then the response carries the original detail
         assert response.content["detail"] == "Request body is malformed"
         assert response.status_code == status_codes.HTTP_400_BAD_REQUEST
+
+
+class TestUnprocessableEntityError:
+    """Tests for the UnprocessableEntityError contract."""
+
+    def test_unprocessable_entity_error_response(self) -> None:
+        """Verify UnprocessableEntityError carries a 422 status and extension code."""
+        # Given a detail and an extension code
+        detail = "Token failed"
+        code = "TOKEN_VERIFICATION_FAILED"
+
+        # When the error is constructed
+        error = UnprocessableEntityError(detail=detail, code=code)
+
+        # Then the status code and extension are set
+        assert error.status_code == 422
+        assert error.extension == {"code": code}
+
+
+class TestServiceUnavailableError:
+    """Tests for the ServiceUnavailableError contract."""
+
+    def test_service_unavailable_error_response(self) -> None:
+        """Verify ServiceUnavailableError carries a 503 status and extension code."""
+        # Given a detail and an extension code
+        detail = "Provider down"
+        code = "PROVIDER_UNAVAILABLE"
+
+        # When the error is constructed
+        error = ServiceUnavailableError(detail=detail, code=code)
+
+        # Then the status code and extension are set
+        assert error.status_code == 503
+        assert error.extension == {"code": code}
 
 
 class TestLitestarOtherExceptionMapping:
