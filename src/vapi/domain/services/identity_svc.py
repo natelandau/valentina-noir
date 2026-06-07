@@ -12,7 +12,7 @@ from tortoise.expressions import RawSQL
 
 from vapi.constants import IdentityProvider, UserRole
 from vapi.db.sql_models.user import User
-from vapi.lib.exceptions import UnprocessableEntityError
+from vapi.lib.exceptions import ConflictError, UnprocessableEntityError
 from vapi.utils.strings import random_string
 
 if TYPE_CHECKING:
@@ -128,6 +128,49 @@ class IdentityService:
             fallback_email=fallback_email,
         )
         return user, IdentityResolution.CREATED
+
+    async def link_identity(
+        self, *, company: "Company", user: User, identity: "VerifiedIdentity"
+    ) -> User:
+        """Attach an additional verified provider identity to a user.
+
+        Args:
+            company: The company scope for conflict checks.
+            user: The user receiving the identity.
+            identity: The verified provider identity to attach.
+
+        Returns:
+            The updated user.
+
+        Raises:
+            ConflictError: The identity belongs to another user, or the user
+                already has a different identity from this provider.
+        """
+        profile_field = PROVIDER_PROFILE_FIELDS[IdentityProvider(identity.provider)]
+
+        existing = await self._find_by_provider_id(
+            company=company, profile_field=profile_field, provider_id=identity.provider_id
+        )
+        if existing and existing.id != user.id:
+            raise ConflictError(
+                detail=(
+                    "This identity is already linked to another user. "
+                    "Use the merge endpoint to combine accounts."
+                ),
+                code="IDENTITY_ALREADY_LINKED",
+            )
+
+        current = getattr(user, profile_field) or {}
+        if current.get("id") and str(current["id"]) != identity.provider_id:
+            raise ConflictError(
+                detail=f"User already has a different {identity.provider} identity linked.",
+                code="IDENTITY_ALREADY_LINKED",
+            )
+
+        setattr(user, profile_field, identity.profile)
+        await user.save()
+        await user.fetch_related("campaign_experiences")
+        return user
 
     async def _create_user(
         self,

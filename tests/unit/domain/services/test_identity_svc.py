@@ -9,7 +9,7 @@ import pytest
 from vapi.constants import UserRole
 from vapi.db.sql_models.user import User
 from vapi.domain.services.identity_svc import IdentityResolution, IdentityService
-from vapi.lib.exceptions import UnprocessableEntityError
+from vapi.lib.exceptions import ConflictError, UnprocessableEntityError
 from vapi.utils.identity import VerifiedIdentity
 
 if TYPE_CHECKING:
@@ -266,3 +266,72 @@ class TestResolve:
         # Then the identity links onto the existing user
         assert resolution == IdentityResolution.LINKED
         assert resolved.id == user.id
+
+
+class TestLinkIdentity:
+    """Test IdentityService.link_identity."""
+
+    async def test_link_success(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify a verified identity is attached to the user."""
+        # Given a user without an apple identity
+        company = await company_factory()
+        user = await user_factory(company=company)
+
+        # When the identity is linked
+        service = IdentityService()
+        linked = await service.link_identity(company=company, user=user, identity=_identity())
+
+        # Then the profile is attached and persisted
+        assert linked.apple_profile["id"] == "apple-sub-001"
+        persisted = await User.get(id=user.id)
+        assert persisted.apple_profile["id"] == "apple-sub-001"
+
+    async def test_link_idempotent_same_provider_id(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify re-linking the same provider ID refreshes the profile."""
+        # Given a user already linked to this apple identity
+        company = await company_factory()
+        user = await user_factory(
+            company=company, apple_profile={"id": "apple-sub-001", "email": "old@example.com"}
+        )
+
+        # When the identity is linked again
+        service = IdentityService()
+        linked = await service.link_identity(company=company, user=user, identity=_identity())
+
+        # Then the profile is refreshed without error
+        assert linked.apple_profile["email"] == "person@example.com"
+
+    async def test_link_conflict_other_user(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify linking an identity owned by another user raises 409."""
+        # Given another user already holding this apple identity
+        company = await company_factory()
+        await user_factory(company=company, apple_profile={"id": "apple-sub-001"})
+        user = await user_factory(company=company)
+
+        # When the identity is linked
+        # Then a conflict is raised with the error code
+        service = IdentityService()
+        with pytest.raises(ConflictError) as exc_info:
+            await service.link_identity(company=company, user=user, identity=_identity())
+        assert exc_info.value.extension == {"code": "IDENTITY_ALREADY_LINKED"}
+
+    async def test_link_conflict_different_provider_id(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify linking over an existing different identity raises 409."""
+        # Given a user already linked to a different apple identity
+        company = await company_factory()
+        user = await user_factory(company=company, apple_profile={"id": "other-sub"})
+
+        # When the identity is linked
+        # Then a conflict is raised (no silent overwrite)
+        service = IdentityService()
+        with pytest.raises(ConflictError) as exc_info:
+            await service.link_identity(company=company, user=user, identity=_identity())
+        assert exc_info.value.extension == {"code": "IDENTITY_ALREADY_LINKED"}
