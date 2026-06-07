@@ -32,6 +32,7 @@ GITHUB_USER_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 GITHUB_OK_STATUS = 200
 GITHUB_UNAUTHORIZED_STATUS = 401
+GITHUB_SERVER_ERROR_STATUS = 500
 
 
 class VerifiedIdentity(msgspec.Struct):
@@ -281,6 +282,44 @@ async def _verify_discord_token(token: str) -> VerifiedIdentity:
     )
 
 
+def _extract_github_email(
+    emails_response: Any, profile_email: str | None
+) -> tuple[str | None, bool]:
+    """Extract the best verified email from the GitHub emails API response.
+
+    Raises ServiceUnavailableError on 5xx (provider outage). Falls back to the
+    public profile email when the emails endpoint is inaccessible (e.g. 403 no
+    user:email scope).
+
+    Args:
+        emails_response: The raw httpx response from the GitHub emails endpoint.
+        profile_email: The public profile email from the user endpoint, used as fallback.
+
+    Returns:
+        Tuple of (email, email_verified).
+    """
+    # A 5xx is a GitHub outage; raise rather than silently skipping verified-email
+    # matching, which would cause auto-link to miss the user.
+    # A 4xx (e.g. 403 no user:email scope) is a caller limitation — fall through to
+    # the public profile email fallback instead.
+    if emails_response.status_code >= GITHUB_SERVER_ERROR_STATUS:
+        raise ServiceUnavailableError(
+            detail="GitHub is unreachable",
+            code="PROVIDER_UNAVAILABLE",
+        )
+    if emails_response.status_code == GITHUB_OK_STATUS:
+        try:
+            email_list: list[dict[str, Any]] = emails_response.json()
+        except ValueError:
+            email_list = []
+        # Prefer the verified primary address; tokens without the user:email
+        # scope get a 403 here, in which case fall back to the public profile email
+        for entry in email_list:
+            if entry.get("primary") and entry.get("verified") and "email" in entry:
+                return entry["email"], True
+    return profile_email, False
+
+
 async def _verify_github_token(token: str) -> VerifiedIdentity:
     """Verify a GitHub OAuth access token via the user and emails endpoints.
 
@@ -324,21 +363,10 @@ async def _verify_github_token(token: str) -> VerifiedIdentity:
             code="TOKEN_VERIFICATION_FAILED",
         ) from e
 
-    email: str | None = None
-    email_verified = False
-    if emails_response.status_code == GITHUB_OK_STATUS:
-        try:
-            email_list: list[dict[str, Any]] = emails_response.json()
-        except ValueError:
-            email_list = []
-        # Prefer the verified primary address; tokens without the user:email
-        # scope get a 403 here, in which case fall back to the public profile email
-        for entry in email_list:
-            if entry.get("primary") and entry.get("verified") and "email" in entry:
-                email, email_verified = entry["email"], True
-                break
-    if email is None:
-        email = gh_user.get("email")
+    email, email_verified = _extract_github_email(
+        emails_response=emails_response,
+        profile_email=gh_user.get("email"),
+    )
 
     return VerifiedIdentity(
         provider=IdentityProvider.GITHUB.value,

@@ -392,3 +392,13 @@ class TestGitHubVerification:
         # Then the rate-limit surfaces as a provider outage, not a token rejection
         with pytest.raises(ServiceUnavailableError):
             await verify_provider_token(provider=IdentityProvider.GITHUB, token="gho_x")  # noqa: S106
+
+    async def test_github_emails_endpoint_outage(self, mocker: MockerFixture) -> None:
+        """Verify a 5xx from the GitHub emails endpoint raises 503 instead of silently skipping verified-email matching."""
+        # Given the user endpoint succeeds but the emails endpoint returns 500
+        self._mock_github(mocker, emails_status=500)
+
+        # When the token is verified
+        # Then the server error surfaces as a provider outage
+        with pytest.raises(ServiceUnavailableError):
+            await verify_provider_token(provider=IdentityProvider.GITHUB, token="gho_x")  # noqa: S106

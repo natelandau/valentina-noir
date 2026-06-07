@@ -126,6 +126,7 @@ _POST_AS_UPDATE: frozenset[str] = frozenset(
         "denyUser",
         "mergeUsers",
         "bulkAssignCharacterTraits",
+        "linkUserIdentity",  # modifies an existing user, never creates one
     }
 )
 

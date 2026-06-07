@@ -14,7 +14,7 @@ from litestar.status_codes import (
 )
 from pytest_mock import MockerFixture
 
-from vapi.constants import AUTH_HEADER_KEY
+from vapi.constants import AUTH_HEADER_KEY, AuditOperation
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer
@@ -440,3 +440,42 @@ class TestLinkIdentityEndpoint:
         # Then the conflict is reported with the error code
         assert response.status_code == HTTP_409_CONFLICT
         assert response.json()["code"] == "IDENTITY_ALREADY_LINKED"
+
+    @pytest.mark.clean_db
+    async def test_link_redacts_token_in_audit_log(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify the provider token is replaced with [REDACTED] in the audit log for the link endpoint."""
+        # Given an active user and a clean audit log
+        await AuditLog.all().delete()
+        user = await user_factory(company=session_company, role="PLAYER")
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the user links a provider identity with a raw bearer token
+        response = await client.post(
+            build_url(urls.Identity.LINK, company_id=session_company.id, user_id=user.id),
+            headers=token_company_user | {"On-Behalf-Of": str(user.id)},
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the request succeeds
+        assert response.status_code == HTTP_200_OK
+
+        # And the audit log entry stores [REDACTED] instead of the raw token
+        audit = await AuditLog.filter(operation_id="linkUserIdentity").first()
+        assert audit is not None
+        assert audit.request_json is not None
+        assert audit.request_json.get("token") == "[REDACTED]"
+        assert "verified-upstream" not in str(audit.request_json)
+        assert "verified-upstream" not in (audit.request_body or "")
+
+        # And the operation is classified as UPDATE (linking modifies an existing user)
+        assert audit.operation == AuditOperation.UPDATE
