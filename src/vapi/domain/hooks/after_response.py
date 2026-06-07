@@ -18,6 +18,15 @@ the response returns:
 
     request.state.audit_description = "Sofia updated trait 'Strength' from 2 to 3"
     request.state.audit_changes = {"value": {"old": 2, "new": 3}}
+
+To redact sensitive fields from the persisted request body, set this before
+the response returns:
+
+    request.state.audit_redact_fields = ["token", "password"]
+
+Each named key at the top level of the parsed request JSON will have its value
+replaced with "[REDACTED]" before the entry is written. Only top-level keys
+are redacted; nested values are not traversed.
 """
 
 from __future__ import annotations
@@ -57,9 +66,46 @@ async def _parse_request_body(request: Request) -> tuple[str | None, dict | None
     return request_body, request_json
 
 
+def _apply_redactions(
+    request_body: str | None,
+    request_json: dict | None,
+    redact_fields: list[str],
+) -> tuple[str | None, dict | None]:
+    """Replace sensitive top-level keys in the persisted request body with [REDACTED].
+
+    Use when a request body contains credentials (e.g. provider tokens) that must
+    not be stored in the audit log. Only top-level keys are redacted; nested values
+    are not traversed.
+
+    Args:
+        request_body: Raw request body string.
+        request_json: Parsed request JSON dict, or None if not JSON.
+        redact_fields: List of top-level key names whose values to redact.
+
+    Returns:
+        Tuple of (redacted_body, redacted_json).
+    """
+    if not redact_fields or request_json is None:
+        return request_body, request_json
+
+    redacted_json = {k: "[REDACTED]" if k in redact_fields else v for k, v in request_json.items()}
+    # Re-serialize so request_body stays consistent with request_json
+    redacted_body = json.dumps(redacted_json)
+    return redacted_body, redacted_json
+
+
 async def add_audit_log(request: Request) -> None:
     """Create an audit log entry with both raw request data and structured fields."""
     request_body, request_json = await _parse_request_body(request)
+
+    redact_fields: list[str] = getattr(request.state, "audit_redact_fields", None) or []
+    if redact_fields:
+        request_body, request_json = _apply_redactions(
+            request_body=request_body,
+            request_json=request_json,
+            redact_fields=redact_fields,
+        )
+
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 
     structured = build_audit_entry(request)

@@ -73,6 +73,7 @@ OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createUser": AuditEntityType.USER,
     "globalAdminCreateUser": AuditEntityType.USER,
     "registerUser": AuditEntityType.USER,
+    "identifyUser": AuditEntityType.USER,
     "mergeUsers": AuditEntityType.USER,
     "approveUser": AuditEntityType.USER,
     "denyUser": AuditEntityType.USER,

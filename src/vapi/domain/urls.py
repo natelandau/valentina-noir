@@ -110,6 +110,13 @@ class Users:
     QUICKROLL_DELETE = QUICKROLL_DETAIL
 
 
+class Identity:
+    """Verified identity resolution endpoints."""
+
+    IDENTIFY = f"{Companies.DETAIL}/auth/identify"
+    LINK = f"{Users.DETAIL}/identities"
+
+
 class Campaigns:
     """Campaign resource endpoints."""
 
