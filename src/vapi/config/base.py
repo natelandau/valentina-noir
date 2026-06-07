@@ -157,6 +157,7 @@ class StoresSettings(BaseModel):
     user_role_key: str = Field(default="user_role")
     idempotency_key: str = Field(default="idempotency")
     recoup_session_key: str = Field(default="recoup_session")
+    jwks_key: str = Field(default="jwks")
 
 
 class RateLimitPolicy(BaseModel):
@@ -183,6 +184,12 @@ class OAuthSettings(BaseModel):
     discord_client_id: str | None = Field(default=None)
     discord_client_secret: str | None = Field(default=None)
     discord_callback_url: str | None = Field(default=None)
+
+    # Verified identity resolution (identify endpoint)
+    apple_audiences: list[str] = Field(default_factory=list)
+    google_audiences: list[str] = Field(default_factory=list)
+    identity_http_timeout: float = Field(default=10.0)
+    jwks_cache_ttl: int = Field(default=21600)  # 6 hours
 
 
 class CORSSettings(BaseModel):
