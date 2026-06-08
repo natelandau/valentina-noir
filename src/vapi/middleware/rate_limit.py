@@ -79,7 +79,7 @@ class BucketState(Struct, frozen=True):
 
     Args:
         tokens (float): Current number of tokens in the bucket.
-        last_refill (float): Timestamp (from :func:`time.monotonic`) of the last refill operation.
+        last_refill (float): Wall-clock timestamp (from :func:`time.time`) of the last refill operation. Wall clock is used rather than :func:`time.monotonic` because this value is persisted to a shared store and read by other worker processes and across restarts, where a monotonic clock's per-process reference point is meaningless.
     """
 
     tokens: float
@@ -116,7 +116,9 @@ class TokenBucket(Struct):
     tokens: float
     set_headers: bool
     set_429_headers: bool
-    last_refill: float = field(default_factory=time.monotonic)
+    # Wall clock, not time.monotonic: this value is persisted and read by other
+    # worker processes and across restarts, where a monotonic epoch is meaningless.
+    last_refill: float = field(default_factory=time.time)
 
     async def allow_request(self) -> bool:
         """Attempt to consume one token from the bucket.
@@ -124,10 +126,18 @@ class TokenBucket(Struct):
         Returns:
             bool: True if a token was consumed, False if no tokens were available.
         """
-        now = time.monotonic()
-        tokens_to_add = (now - self.last_refill) * self.refill_rate
-        self.tokens = min(self.capacity, self.tokens + tokens_to_add)
-        self.last_refill = now
+        now = time.time()
+        # Floor elapsed at 0: wall clock can move backward (NTP step, or a peer
+        # worker whose clock is ahead wrote a future last_refill). A negative
+        # elapsed must not subtract tokens, and last_refill must never rewind, or
+        # a later forward step would over-refill and grant an unearned burst.
+        elapsed = max(0.0, now - self.last_refill)
+        tokens_to_add = elapsed * self.refill_rate
+        # Floor at 0 as well as the capacity ceiling so stale negative persisted
+        # state cannot strand the bucket below zero, which would translate into a
+        # multi-day reset_after that cannot self-heal.
+        self.tokens = min(self.capacity, max(0.0, self.tokens + tokens_to_add))
+        self.last_refill = max(self.last_refill, now)
 
         allowed = self.tokens >= 1
         if allowed:
@@ -188,6 +198,19 @@ class TokenBucket(Struct):
         return self.tokens > other.tokens
 
     @property
+    def window(self) -> float:
+        """Calculate the time, in seconds, to refill an empty bucket to full capacity.
+
+        This is the canonical full-refill window shared by the store TTL, the
+        advertised ``RateLimit-Policy`` window, and the ``reset_after`` cap so the
+        three cannot drift apart.
+
+        Returns:
+            float: Seconds to refill an empty bucket to full capacity.
+        """
+        return self.capacity / self.refill_rate
+
+    @property
     def expires_in(self) -> int:
         """Calculate the number of seconds until the bucket entry expires in the store.
 
@@ -196,7 +219,7 @@ class TokenBucket(Struct):
         Returns:
             int: Expiration time in seconds.
         """
-        return math.ceil(self.capacity / self.refill_rate) + 60
+        return math.ceil(self.window) + 60
 
     @property
     def reset_after(self) -> float:
@@ -207,7 +230,10 @@ class TokenBucket(Struct):
         Returns:
             float: Time in seconds until the bucket has at least one token.
         """
-        return max(0, 1 - self.tokens) / self.refill_rate
+        # Cap at the full-refill window: a reset longer than the time to refill an
+        # empty bucket is definitionally impossible, so clamp it as a final guard
+        # against advertising a pathological retry_after to clients.
+        return min(self.window, max(0.0, 1 - self.tokens) / self.refill_rate)
 
     def build_headers(self) -> dict[str, str]:
         """Build the headers for the response.
@@ -215,11 +241,8 @@ class TokenBucket(Struct):
         Returns:
             dict[str, str]: The headers for the response.
         """
-        # Calculate window: time to refill empty bucket to full capacity
-        window = math.ceil(self.capacity / self.refill_rate)
-
         return {
-            "RateLimit-Policy": f'"{self.name}";q={int(self.capacity)};w={window}',
+            "RateLimit-Policy": f'"{self.name}";q={int(self.capacity)};w={math.ceil(self.window)}',
             "RateLimit": f'"{self.name}";r={int(self.tokens)};t={math.ceil(self.reset_after)}',
         }
 
