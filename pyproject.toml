@@ -2,9 +2,9 @@
     authors = [{ name = "Nate Landau", email = "github@natelandau.com" }]
     dependencies = [
         "asyncio>=4.0.0",
-        "boto3>=1.43.18,<2.0.0",
+        "boto3>=1.43.24,<2.0.0",
         "litestar-granian>=0.15.0",
-        "litestar-saq>=0.7.1",
+        "litestar-saq>=0.8.0",
         "litestar[jinja,jwt,redis]>=2.23.0,<3.0.0",
         "msgspec[toml]>=0.21.1",
         "numpy>=2.4.6,<3.0.0",
@@ -17,7 +17,7 @@
         "titlecase>=2.4.1",
         "tortoise-orm[asyncpg]>=1.1.7,<2.0.0",
         "uuid-utils>=0.16.0",
-]
+    ]
     description = "Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games."
     license = { file = "LICENSE" }
     name = "vapi"
@@ -30,7 +30,7 @@
 
 [build-system]
     build-backend = "uv_build"
-    requires      = ["uv_build>=0.11.0"]
+    requires      = ["uv_build>=0.11.0,<0.12.0"]
 
 [dependency-groups]
     dev = [
@@ -39,7 +39,7 @@
         "docker>=7.1.0",
         "duty>=1.9.0",
         "mypy>=2.1.0",
-        "prek>=0.4.3",
+        "prek>=0.4.4",
         "pymongo>=4.17.0",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.1.0",
@@ -51,12 +51,12 @@
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.0.3",
-        "ruff>=0.15.15",
+        "ruff>=0.15.16",
         "shellcheck-py>=0.11.0.1",
-        "typos>=1.47.0",
+        "typos>=1.47.2",
         "yamllint>=1.38.0",
     ]
-    docs = ["zensical>=0.0.43"]
+    docs = ["zensical>=0.0.44"]
 
 [tool.commitizen]
     bump_message               = "bump(release): v$current_version → v$new_version"
