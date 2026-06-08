@@ -3,7 +3,6 @@
     dependencies = [
         "asyncio>=4.0.0",
         "boto3>=1.43.18,<2.0.0",
-        "httpx-oauth>=0.17.0",
         "litestar-granian>=0.15.0",
         "litestar-saq>=0.7.1",
         "litestar[jinja,jwt,redis]>=2.23.0,<3.0.0",
@@ -157,9 +156,6 @@
     VAPI_LOG__ROOT_LEVEL               = "WARNING"
     VAPI_LOG__TIME_IN_CONSOLE          = "false"
     VAPI_NAME                          = "vapi-pytest"
-    VAPI_OAUTH__DISCORD_CALLBACK_URL   = "https://localhost:8000/api/v1/oauth/discord/callback"
-    VAPI_OAUTH__DISCORD_CLIENT_ID      = "MOCK_CLIENT_ID"
-    VAPI_OAUTH__DISCORD_CLIENT_SECRET  = "MOCK_CLIENT_SECRET"
     VAPI_POSTGRES__DATABASE            = "vapi-pytest"
     VAPI_POSTGRES__HOST                = "localhost"
     VAPI_POSTGRES__PASSWORD            = "valentina"

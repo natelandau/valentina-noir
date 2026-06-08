@@ -40,17 +40,6 @@ def anyio_backend():
     return "asyncio"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def patch_settings():
-    """Clear cached config that may have been created before test env vars were applied."""
-    try:
-        from vapi.config.oauth import get_discord_oauth_client
-
-        get_discord_oauth_client.cache_clear()
-    except Exception:  # noqa: BLE001, S110
-        pass
-
-
 @pytest.fixture(scope="session")
 def worker_id(request):
     """Get xdist worker ID."""

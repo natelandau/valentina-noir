@@ -589,18 +589,6 @@ wheels = [
 ]
 
 [[package]]
-name = "httpx-oauth"
-version = "0.17.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7f/91/8b9f58cbf6e8914577183731233e66d3e586f1397b23190f46a929206b96/httpx_oauth-0.17.0.tar.gz", hash = "sha256:d279997ea80e7fc6f713acc8ed0fcc07ec319bae939753a2579d1fb7a753167b", size = 124506, upload-time = "2026-05-13T14:47:08.744Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/23/db1df57aeb6b96ad6c2c3b84bf45d22fc3293949cee7c506cbd5aa1805a3/httpx_oauth-0.17.0-py3-none-any.whl", hash = "sha256:8098e48dfeb97d0f35a83aa7bfaf18d2e7dcd9f3962f19f60fc0ec939e5d6bd2", size = 38083, upload-time = "2026-05-13T14:47:07.659Z" },
-]
-
-[[package]]
 name = "idna"
 version = "3.17"
 source = { registry = "https://pypi.org/simple" }
@@ -1735,7 +1723,6 @@ source = { editable = "." }
 dependencies = [
     { name = "asyncio" },
     { name = "boto3" },
-    { name = "httpx-oauth" },
     { name = "litestar", extra = ["jinja", "jwt", "redis"] },
     { name = "litestar-granian" },
     { name = "litestar-saq" },
@@ -1784,7 +1771,6 @@ docs = [
 requires-dist = [
     { name = "asyncio", specifier = ">=4.0.0" },
     { name = "boto3", specifier = ">=1.43.18,<2.0.0" },
-    { name = "httpx-oauth", specifier = ">=0.17.0" },
     { name = "litestar", extras = ["jinja", "jwt", "redis"], specifier = ">=2.23.0,<3.0.0" },
     { name = "litestar-granian", specifier = ">=0.15.0" },
     { name = "litestar-saq", specifier = ">=0.7.1" },

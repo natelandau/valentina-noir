@@ -27,7 +27,6 @@ from .notes import (
     CharacterNoteController,
     UserNoteController,
 )
-from .oauth.controllers import OAuth2Controller
 from .options.controllers import OptionsController
 from .s3_assets import (
     BookAssetsController,
@@ -74,7 +73,6 @@ __all__ = (
     "GlobalAdminServerLogsController",
     "GlobalAdminUserController",
     "IdentityController",
-    "OAuth2Controller",
     "OptionsController",
     "QuickRollController",
     "StatisticsController",
