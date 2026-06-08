@@ -206,9 +206,9 @@ A token is accepted when its `aud` value appears in either of two sources:
 - **Operator-managed env vars** (global, applies to all developers):
 
   ```bash
-  # One entry per client app (iOS bundle ID, web OAuth client ID, etc.)
-  VAPI_OAUTH__APPLE_AUDIENCES='["com.example.iosapp"]'
-  VAPI_OAUTH__GOOGLE_AUDIENCES='["1234-abc.apps.googleusercontent.com"]'
+  # Comma-separated, one entry per client app (iOS bundle ID, web OAuth client ID, etc.)
+  VAPI_OAUTH__APPLE_AUDIENCES=com.example.iosapp,com.example.iosapp2
+  VAPI_OAUTH__GOOGLE_AUDIENCES=1234-abc.apps.googleusercontent.com
   ```
 
   This is the right choice for first-party deployments where the operator controls the client apps.

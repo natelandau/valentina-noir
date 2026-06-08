@@ -1,10 +1,11 @@
 """API application settings."""
 
+import json
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from redis.asyncio import Redis
 
 from vapi.constants import (
@@ -181,11 +182,33 @@ class RateLimitSettings(BaseModel):
 class OAuthSettings(BaseModel):
     """OAuth settings."""
 
-    # Verified identity resolution (identify endpoint)
-    apple_audiences: list[str] = Field(default_factory=list)
-    google_audiences: list[str] = Field(default_factory=list)
+    # Verified identity resolution (identify endpoint).
+    # NoDecode disables pydantic-settings' JSON parsing so audiences can be supplied as a plain
+    # comma-separated string. JSON arrays were brittle in container envs where shell quoting leaks
+    # literal quotes into the value and breaks json.loads.
+    apple_audiences: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    google_audiences: Annotated[list[str], NoDecode] = Field(default_factory=list)
     identity_http_timeout: float = Field(default=10.0)
     jwks_cache_ttl: int = Field(default=21600)  # 6 hours
+
+    @field_validator("apple_audiences", "google_audiences", mode="before")
+    @classmethod
+    def parse_audiences(cls, v: str | list[str] | None) -> list[str]:
+        """Accept audiences as a comma-separated string, a JSON array, or a list.
+
+        Comma-separated is the documented format; the JSON-array branch preserves backward
+        compatibility with values written in the previously documented style.
+        """
+        if v is None:
+            return []
+        if isinstance(v, str):
+            stripped = v.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                return json.loads(stripped)
+            return [item.strip() for item in stripped.split(",") if item.strip()]
+        return v
 
 
 class CORSSettings(BaseModel):
