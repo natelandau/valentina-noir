@@ -114,6 +114,7 @@ class Identity:
 
     IDENTIFY = f"{Companies.DETAIL}/auth/identify"
     LINK = f"{Users.DETAIL}/identities"
+    UNLINK = f"{LINK}/{{provider:str}}"
 
 
 class Campaigns:

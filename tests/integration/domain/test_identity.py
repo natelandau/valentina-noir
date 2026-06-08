@@ -9,6 +9,7 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
+    HTTP_404_NOT_FOUND,
     HTTP_409_CONFLICT,
     HTTP_422_UNPROCESSABLE_ENTITY,
 )
@@ -642,4 +643,209 @@ class TestLinkIdentityEndpoint:
         assert "verified-upstream" not in (audit.request_body or "")
 
         # And the operation is classified as UPDATE (linking modifies an existing user)
+        assert audit.operation == AuditOperation.UPDATE
+
+
+class TestUnlinkIdentityEndpoint:
+    """Test DELETE /companies/{company_id}/users/{user_id}/identities/{provider}."""
+
+    async def test_unlink_self(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify a user can unlink a provider from their own account."""
+        # Given a user with two linked identities acting on their own behalf
+        user = await user_factory(
+            company=session_company,
+            role="PLAYER",
+            apple_profile={"id": "apple-sub-001"},
+            github_profile={"id": "4242"},
+        )
+
+        # When they unlink the apple identity
+        response = await client.delete(
+            build_url(
+                urls.Identity.UNLINK,
+                company_id=session_company.id,
+                user_id=user.id,
+                provider="apple",
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(user.id)},
+        )
+
+        # Then the apple identity is removed and the github identity remains
+        assert response.status_code == HTTP_200_OK
+        data = response.json()
+        assert data["apple_profile"] is None
+        assert data["github_profile"]["id"] == "4242"
+
+    async def test_unlink_other_user_requires_admin(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify a non-admin cannot unlink identities for another user."""
+        # Given a player acting on another user's account
+        actor = await user_factory(company=session_company, role="PLAYER")
+        target = await user_factory(
+            company=session_company,
+            role="PLAYER",
+            apple_profile={"id": "apple-sub-001"},
+            github_profile={"id": "4242"},
+        )
+
+        # When they attempt to unlink
+        response = await client.delete(
+            build_url(
+                urls.Identity.UNLINK,
+                company_id=session_company.id,
+                user_id=target.id,
+                provider="apple",
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(actor.id)},
+        )
+
+        # Then the request is denied
+        assert response.status_code == HTTP_403_FORBIDDEN
+
+    async def test_unlink_admin_for_other_user(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify an admin can unlink identities for another user."""
+        # Given an admin acting on another user's account
+        admin = await user_factory(company=session_company, role="ADMIN")
+        target = await user_factory(
+            company=session_company,
+            role="PLAYER",
+            apple_profile={"id": "apple-sub-001"},
+            github_profile={"id": "4242"},
+        )
+
+        # When the admin unlinks the apple identity
+        response = await client.delete(
+            build_url(
+                urls.Identity.UNLINK,
+                company_id=session_company.id,
+                user_id=target.id,
+                provider="apple",
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(admin.id)},
+        )
+
+        # Then the identity is removed
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["apple_profile"] is None
+
+    async def test_unlink_not_linked(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify unlinking a provider the user never linked returns 404."""
+        # Given a user with only an apple identity
+        user = await user_factory(
+            company=session_company, role="PLAYER", apple_profile={"id": "apple-sub-001"}
+        )
+
+        # When they unlink a github identity they never linked
+        response = await client.delete(
+            build_url(
+                urls.Identity.UNLINK,
+                company_id=session_company.id,
+                user_id=user.id,
+                provider="github",
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(user.id)},
+        )
+
+        # Then the request reports the identity is not linked
+        assert response.status_code == HTTP_404_NOT_FOUND
+        assert response.json()["code"] == "IDENTITY_NOT_LINKED"
+
+    async def test_unlink_last_identity_rejected(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify a user cannot unlink their only linked identity."""
+        # Given a user with a single linked identity
+        user = await user_factory(
+            company=session_company, role="PLAYER", apple_profile={"id": "apple-sub-001"}
+        )
+
+        # When they attempt to unlink it
+        response = await client.delete(
+            build_url(
+                urls.Identity.UNLINK,
+                company_id=session_company.id,
+                user_id=user.id,
+                provider="apple",
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(user.id)},
+        )
+
+        # Then the request is refused with the error code
+        assert response.status_code == HTTP_409_CONFLICT
+        assert response.json()["code"] == "LAST_IDENTITY"
+
+    @pytest.mark.clean_db
+    async def test_unlink_audit_operation_is_update(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify the audit log records UPDATE when an identity is unlinked."""
+        # Given a clean audit log and a user with two linked identities
+        await AuditLog.all().delete()
+        user = await user_factory(
+            company=session_company,
+            role="PLAYER",
+            apple_profile={"id": "apple-sub-001"},
+            github_profile={"id": "4242"},
+        )
+
+        # When the user unlinks the apple identity
+        response = await client.delete(
+            build_url(
+                urls.Identity.UNLINK,
+                company_id=session_company.id,
+                user_id=user.id,
+                provider="apple",
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(user.id)},
+        )
+
+        # Then the request succeeds
+        assert response.status_code == HTTP_200_OK
+
+        # And the audit log records UPDATE (the user row persists, only a field is cleared)
+        audit = await AuditLog.filter(operation_id="unlinkUserIdentity").first()
+        assert audit is not None
         assert audit.operation == AuditOperation.UPDATE

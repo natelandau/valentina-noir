@@ -34,3 +34,16 @@ user (use the merge endpoint instead) or if the user already has a different \
 identity from this provider. Re-linking the same identity is idempotent and \
 refreshes the stored profile.
 """
+
+UNLINK_DESCRIPTION = """\
+Remove a linked provider identity from a user.
+
+Use this for "disconnect account" settings flows: the provider in the path \
+(`apple`, `google`, `discord`, or `github`) is cleared from the user. Only the \
+user themselves or a company admin may unlink identities.
+
+Returns 404 with code IDENTITY_NOT_LINKED if the user has no identity from that \
+provider, and 409 with code LAST_IDENTITY if it is the user's only linked \
+identity. The final identity is protected so a user can never be left with no \
+way to authenticate; link another provider first, then retry.
+"""
