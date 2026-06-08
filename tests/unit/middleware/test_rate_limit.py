@@ -167,7 +167,7 @@ class TestTokenBucketAllowRequest:
     async def test_deny_request_when_empty(self) -> None:
         """Verify request is denied when no tokens remain."""
         # Given a bucket with no tokens
-        bucket = _make_bucket(tokens=0.0, last_refill=time.monotonic())
+        bucket = _make_bucket(tokens=0.0, last_refill=time.time())
 
         # When a request is attempted
         result = await bucket.allow_request()
@@ -181,7 +181,7 @@ class TestTokenBucketAllowRequest:
         bucket = _make_bucket(
             tokens=0.0,
             refill_rate=2.0,
-            last_refill=time.monotonic() - 5,
+            last_refill=time.time() - 5,
         )
 
         # When a request is attempted
@@ -197,7 +197,7 @@ class TestTokenBucketAllowRequest:
             tokens=0.0,
             capacity=10,
             refill_rate=100.0,
-            last_refill=time.monotonic() - 1000,
+            last_refill=time.time() - 1000,
         )
 
         # When a request is attempted
@@ -228,7 +228,7 @@ class TestTokenBucketPersistence:
     async def test_from_store_restores_cached_bucket(self) -> None:
         """Verify bucket is restored from cached state."""
         # Given a cached bucket state
-        cached_state = BucketState(tokens=3.0, last_refill=time.monotonic() - 1)
+        cached_state = BucketState(tokens=3.0, last_refill=time.time() - 1)
         store = _make_store(cached=encode_json(cached_state))
         policy = _make_policy()
 
@@ -305,6 +305,79 @@ class TestTokenBucketProperties:
         window = math.ceil(100 / 10.0)
         assert headers["RateLimit-Policy"] == f'"api";q=100;w={window}'
         assert headers["RateLimit"] == f'"api";r=50;t={math.ceil(bucket.reset_after)}'
+
+
+class TestTokenBucketCrossProcessState:
+    """Regression tests for persisted-state safety across processes and clock changes.
+
+    last_refill is persisted to a shared store and read by other worker processes
+    and across restarts. These tests lock in that a bucket reconstructed from stale
+    or foreign persisted state can never strand a caller with a pathological
+    retry_after, the original time.monotonic() bug that drove tokens far below zero
+    and produced a multi-day reset_after.
+    """
+
+    async def test_allow_request_heals_stale_persisted_state(self) -> None:
+        """Verify a bucket restored from a far-past timestamp refills instead of stranding."""
+        # Given persisted state written long ago in a different process (a small
+        # monotonic-era timestamp) with tokens driven far below zero
+        cached_state = BucketState(tokens=-816053.0, last_refill=50_000.0)
+        store = _make_store(cached=encode_json(cached_state))
+        policy = _make_policy(capacity=10, refill_rate=1.0)
+
+        # When the bucket is reconstructed and a request is attempted
+        bucket = await TokenBucket.from_store_or_new(
+            store=store,
+            storage_key="key",
+            request_identifier="user1",
+            limit_policy=policy,
+        )
+        result = await bucket.allow_request()
+
+        # Then the bucket healed into a sane range and advertises a bounded reset
+        assert result is True
+        assert 0.0 <= bucket.tokens <= policy.capacity
+        assert bucket.reset_after <= bucket.window
+
+    async def test_allow_request_floors_far_negative_tokens(self) -> None:
+        """Verify far-negative tokens with no elapsed refill never yield a multi-day reset."""
+        # Given a bucket whose persisted tokens are far below zero and no time has
+        # elapsed to refill them (last_refill is now)
+        bucket = _make_bucket(
+            tokens=-816053.0,
+            capacity=10,
+            refill_rate=1.0,
+            last_refill=time.time(),
+        )
+
+        # When a request is attempted
+        result = await bucket.allow_request()
+
+        # Then the request is denied, tokens are floored at zero, and reset_after is
+        # bounded by the full-refill window rather than a multi-day value
+        assert result is False
+        assert bucket.tokens == 0.0
+        assert bucket.reset_after <= bucket.window
+
+    async def test_allow_request_does_not_rewind_future_last_refill(self) -> None:
+        """Verify a future last_refill is not pulled backward, preventing an unearned burst."""
+        # Given a bucket whose last_refill is in the future (a peer worker's clock
+        # ran ahead and persisted it)
+        future = time.time() + 3600
+        bucket = _make_bucket(
+            tokens=0.0,
+            capacity=10,
+            refill_rate=1.0,
+            last_refill=future,
+        )
+
+        # When a request is attempted (elapsed time is negative)
+        await bucket.allow_request()
+
+        # Then no tokens are granted and last_refill is not rewound to now, so a
+        # later forward clock step cannot over-refill the bucket
+        assert bucket.tokens == 0.0
+        assert bucket.last_refill == future
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +557,7 @@ class TestRateLimitMiddlewareHandle:
         scope = _make_scope()
 
         # Given TokenBucket.from_store_or_new returns an empty bucket
-        empty_bucket = _make_bucket(tokens=0.0, capacity=0, last_refill=time.monotonic())
+        empty_bucket = _make_bucket(tokens=0.0, capacity=0, last_refill=time.time())
         mocker.patch(
             "vapi.middleware.rate_limit.TokenBucket.from_store_or_new",
             new_callable=AsyncMock,
