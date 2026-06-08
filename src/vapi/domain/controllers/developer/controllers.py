@@ -1,5 +1,6 @@
 """Developer controllers."""
 
+import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
@@ -8,6 +9,7 @@ from litestar.handlers import get, patch, post
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import DeveloperService
+from vapi.domain.services.developer_svc import validate_provider_audiences
 from vapi.lib.patch import apply_patch
 from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
 from vapi.lib.stores import delete_authentication_cache_for_api_key
@@ -69,7 +71,18 @@ class DeveloperController(Controller):
         self, *, developer: Developer, data: DeveloperPatch, request: Request
     ) -> DeveloperResponse:
         """Update the current developer."""
-        changes = apply_patch(developer, data)
+        changes = apply_patch(developer, data, exclude=frozenset({"provider_audiences"}))
+
+        if not isinstance(data.provider_audiences, msgspec.UnsetType):
+            validate_provider_audiences(data.provider_audiences)
+            old_audiences = developer.provider_audiences
+            if old_audiences != data.provider_audiences:
+                changes["provider_audiences"] = {
+                    "old": old_audiences,
+                    "new": data.provider_audiences,
+                }
+                developer.provider_audiences = data.provider_audiences
+
         request.state.audit_changes = changes
         request.state.audit_description = f"Update developer '{developer.username}'"
         await developer.save()

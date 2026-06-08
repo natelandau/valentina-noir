@@ -15,10 +15,10 @@ from litestar.status_codes import (
 from pytest_mock import MockerFixture
 
 from tests.fixtures import build_verified_identity as _identity
-from vapi.constants import AUTH_HEADER_KEY, AuditOperation
+from vapi.constants import AUTH_HEADER_KEY, AuditOperation, CompanyPermission
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
-from vapi.db.sql_models.developer import Developer
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
 from vapi.domain import urls
 from vapi.domain.services.developer_svc import DeveloperService
@@ -398,6 +398,47 @@ class TestIdentifyEndpoint:
         audit = await AuditLog.filter(operation_id="identifyUser").first()
         assert audit is not None
         assert audit.operation == AuditOperation.CREATE
+
+    async def test_identify_passes_developer_audiences_to_verify(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        developer_factory: Callable[..., Any],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify identify calls verify_provider_token with the developer's registered audiences."""
+        # Given a fresh developer with provider_audiences registered for apple
+        developer = await developer_factory(
+            username="audiences-test-dev",
+            email="audiences-dev@example.com",
+            provider_audiences={"apple": ["com.myapp.bundle"]},
+        )
+        await DeveloperCompanyPermission.create(
+            developer=developer,
+            company=session_company,
+            permission=CompanyPermission.USER,
+        )
+        api_key = await _developer_service.generate_api_key(developer)
+        token = {AUTH_HEADER_KEY: api_key}
+
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the developer calls identify for apple
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the request succeeds
+        assert response.status_code == HTTP_200_OK
+
+        # And verify_provider_token was called with the developer's registered audiences
+        mock_verify.assert_called_once()
+        call_kwargs = mock_verify.call_args.kwargs
+        assert call_kwargs.get("additional_audiences") == ["com.myapp.bundle"]
 
 
 class TestLinkIdentityEndpoint:

@@ -1,7 +1,7 @@
 """Global admin DTOs."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import msgspec
@@ -35,6 +35,7 @@ class DeveloperAdminResponse(msgspec.Struct):
     email: str
     is_global_admin: bool
     key_generated: datetime | None
+    provider_audiences: dict[str, list[str]] | None
     companies: list[CompanyPermissionResponse]
 
     @classmethod
@@ -51,6 +52,7 @@ class DeveloperAdminResponse(msgspec.Struct):
             email=m.email,
             is_global_admin=m.is_global_admin,
             key_generated=m.key_generated,
+            provider_audiences=m.provider_audiences,
             companies=[CompanyPermissionResponse.from_model(p) for p in m.permissions],
         )
 
@@ -61,6 +63,7 @@ class AdminDeveloperPatch(msgspec.Struct):
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     is_global_admin: bool | msgspec.UnsetType = msgspec.UNSET
+    provider_audiences: Any | msgspec.UnsetType = msgspec.UNSET
 
 
 class AdminUserCreate(msgspec.Struct):

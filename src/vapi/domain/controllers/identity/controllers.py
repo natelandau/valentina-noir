@@ -8,6 +8,7 @@ from litestar.status_codes import HTTP_200_OK
 from vapi.config import settings
 from vapi.constants import AuditOperation, IdentityProvider, UserRole
 from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.developer import Developer
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.identity import docs
@@ -58,6 +59,7 @@ class IdentityController(Controller):
         "company": Provide(deps.provide_company_by_id),
         "target_user": Provide(deps.provide_target_user),
         "acting_user": Provide(deps.provide_acting_user),
+        "developer": Provide(deps.provide_developer_from_request),
     }
     guards = [developer_company_user_guard, user_active_guard]
 
@@ -71,7 +73,7 @@ class IdentityController(Controller):
         opt={"rate_limits": [USER_REGISTRATION_LIMIT], "allow_unapproved_user": True},
     )
     async def identify(
-        self, request: Request, data: IdentifyRequest, company: Company
+        self, request: Request, data: IdentifyRequest, company: Company, developer: Developer
     ) -> IdentifyResponse:
         """Resolve a verified provider login to a canonical user.
 
@@ -81,10 +83,12 @@ class IdentityController(Controller):
         """
         provider = _parse_provider(data.provider)
         store = request.app.stores.get(settings.stores.jwks_key)
+        additional = (developer.provider_audiences or {}).get(provider.value, [])
         identity = await verify_provider_token(
             provider=provider,
             token=data.token,
             store=store,
+            additional_audiences=additional,
         )
 
         service = IdentityService()
@@ -125,6 +129,7 @@ class IdentityController(Controller):
         company: Company,
         target_user: User,
         acting_user: User,
+        developer: Developer,
     ) -> UserResponse:
         """Attach an additional verified provider identity to a user.
 
@@ -138,7 +143,13 @@ class IdentityController(Controller):
 
         provider = _parse_provider(data.provider)
         store = request.app.stores.get(settings.stores.jwks_key)
-        identity = await verify_provider_token(provider=provider, token=data.token, store=store)
+        additional = (developer.provider_audiences or {}).get(provider.value, [])
+        identity = await verify_provider_token(
+            provider=provider,
+            token=data.token,
+            store=store,
+            additional_audiences=additional,
+        )
 
         profile_field = PROVIDER_PROFILE_FIELDS[provider]
         old_profile = getattr(target_user, profile_field)

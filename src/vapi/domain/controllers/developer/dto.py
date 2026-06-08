@@ -1,7 +1,7 @@
 """Developer DTOs."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import msgspec
@@ -21,6 +21,7 @@ class DeveloperResponse(msgspec.Struct):
     username: str
     email: str
     key_generated: datetime | None
+    provider_audiences: dict[str, list[str]] | None
     companies: list[CompanyPermissionResponse]
 
     @classmethod
@@ -36,6 +37,7 @@ class DeveloperResponse(msgspec.Struct):
             username=m.username,
             email=m.email,
             key_generated=m.key_generated,
+            provider_audiences=m.provider_audiences,
             companies=[CompanyPermissionResponse.from_model(p) for p in m.permissions],
         )
 
@@ -48,3 +50,4 @@ class DeveloperPatch(msgspec.Struct):
 
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
+    provider_audiences: Any | msgspec.UnsetType = msgspec.UNSET

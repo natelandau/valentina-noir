@@ -195,17 +195,45 @@ The `resolution` field tells you how the user was located:
 
 A `created` user cannot access game features until an admin approves them. See [user management](user_management.md#user-approval-workflow) for the approval flow.
 
-### Apple and Google audience allowlists
+### Apple and Google audience registration
 
-Apple and Google ID tokens carry an audience (`aud`) claim that must match your application. You configure the allowed audience values in your server environment:
+Every Apple ID token and Google ID token contains an `aud` (audience) claim that names the specific application the token was minted for. An iOS app produces tokens with `aud` set to its bundle ID (e.g. `com.example.myapp`). A web app produces tokens with `aud` set to its Google OAuth client ID (e.g. `1234-abc.apps.googleusercontent.com`).
 
-```bash
-# One entry per client app (iOS bundle ID, web OAuth client ID, etc.)
-VAPI_OAUTH__APPLE_AUDIENCES='["com.example.iosapp"]'
-VAPI_OAUTH__GOOGLE_AUDIENCES='["1234-abc.apps.googleusercontent.com"]'
-```
+Checking the `aud` claim is a security requirement. Without it, any valid Google token from any application on the internet would be accepted here, and an attacker who obtains a token issued for a different site could replay it against this API to log in as that user.
 
-An empty list disables that provider entirely. Tokens with an audience not in the list are rejected with `422 TOKEN_VERIFICATION_FAILED`.
+A token is accepted when its `aud` value appears in either of two sources:
+
+- **Operator-managed env vars** (global, applies to all developers):
+
+  ```bash
+  # One entry per client app (iOS bundle ID, web OAuth client ID, etc.)
+  VAPI_OAUTH__APPLE_AUDIENCES='["com.example.iosapp"]'
+  VAPI_OAUTH__GOOGLE_AUDIENCES='["1234-abc.apps.googleusercontent.com"]'
+  ```
+
+  This is the right choice for first-party deployments where the operator controls the client apps.
+
+- **Self-service per-developer registration** (scoped to your API key): register your own audience values via `PATCH /developers/me` with the `provider_audiences` field. This is the right choice for external developers building their own client apps.
+
+  ```bash
+  curl -X PATCH "https://api.valentina-noir.com/api/v1/developers/me" \
+    -H "X-API-KEY: $API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "provider_audiences": {
+        "google": ["1234-abc.apps.googleusercontent.com"],
+        "apple": ["com.example.myapp"]
+      }
+    }'
+  ```
+
+  Audience values are not secrets (a bundle ID or OAuth client ID is public by design). At most 20 audiences per provider are allowed, each up to 255 characters. Set `provider_audiences` to `null` to clear your registered audiences.
+
+A provider is disabled (returns `422 TOKEN_VERIFICATION_FAILED`) only when both sources are empty for the calling developer. Discord and GitHub do not use audience claims because their access tokens are scoped by OAuth scope strings rather than by client-app identity, so no registration is needed.
+
+!!! note "Which source takes effect?"
+
+    A token is accepted when its `aud` appears in *either* source. If your operator has already configured a global allowlist that includes your app's audience, you do not need to register it yourself, though registering it again is harmless.
 
 ### Error responses
 

@@ -9,6 +9,7 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
 )
 
 from vapi.db.sql_models.developer import Developer
@@ -194,3 +195,55 @@ async def test_new_api_key(
     assert db_developer.api_key_fingerprint != original_api_key_fingerprint
     assert "companies" in json_data
     assert isinstance(json_data["companies"], list)
+
+
+async def test_patch_developer_provider_audiences_valid(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    developer_factory: Callable[..., Developer],
+) -> None:
+    """Verify the admin can set valid provider_audiences on a Developer."""
+    # Given a developer
+    new_developer = await developer_factory()
+    audiences = {
+        "apple": ["com.example.myapp"],
+        "google": ["1234-abc.apps.googleusercontent.com"],
+    }
+
+    # When the admin patches provider_audiences with valid data
+    response = await client.patch(
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=new_developer.id),
+        headers=token_global_admin,
+        json={"provider_audiences": audiences},
+    )
+
+    # Then the response is 200 and includes the audiences
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert data["provider_audiences"] == audiences
+
+    # And the value is persisted in the database
+    db_developer = await Developer.get(id=new_developer.id)
+    assert db_developer.provider_audiences == audiences
+
+
+async def test_patch_developer_provider_audiences_invalid_shape(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    developer_factory: Callable[..., Developer],
+) -> None:
+    """Verify the admin PATCH rejects provider_audiences with an invalid shape."""
+    # Given a developer
+    new_developer = await developer_factory()
+
+    # When the admin sends an invalid provider_audiences shape (value is not a list)
+    response = await client.patch(
+        build_url(GlobalAdmin.DEVELOPER_DETAIL, developer_id=new_developer.id),
+        headers=token_global_admin,
+        json={"provider_audiences": {"apple": "not-a-list"}},
+    )
+
+    # Then the request is rejected with 400
+    assert response.status_code == HTTP_400_BAD_REQUEST

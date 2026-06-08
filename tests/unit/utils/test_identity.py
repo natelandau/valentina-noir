@@ -270,6 +270,108 @@ class TestOIDCVerification:
         assert identity.email_verified is False
 
 
+class TestMergedAudienceVerification:
+    """Test that additional_audiences merges correctly with the env-configured list."""
+
+    @pytest.fixture(autouse=True)
+    def _configure_fetch(
+        self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Serve the test JWKS without hitting the network."""
+        mocker.patch(
+            "vapi.utils.identity._fetch_jwks", new=mocker.AsyncMock(return_value=rsa_keypair[1])
+        )
+
+    async def test_aud_in_env_list_passes(
+        self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify a token whose aud appears only in the env list is accepted."""
+        # Given the env list contains the audience and additional_audiences is empty
+        mocker.patch.object(settings.oauth, "apple_audiences", [AUDIENCE])
+        token = _sign_token(rsa_keypair[0], aud=AUDIENCE)
+
+        # When the token is verified with no additional audiences
+        identity = await verify_provider_token(
+            provider=IdentityProvider.APPLE,
+            token=token,
+            additional_audiences=[],
+        )
+
+        # Then it resolves successfully
+        assert identity.provider_id == "apple-sub-001"
+
+    async def test_aud_in_additional_only_passes(
+        self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify a token whose aud appears only in additional_audiences is accepted."""
+        # Given the env list is empty but additional_audiences contains the audience
+        mocker.patch.object(settings.oauth, "apple_audiences", [])
+        developer_aud = "com.myapp.client"
+        token = _sign_token(rsa_keypair[0], aud=developer_aud)
+
+        # When the token is verified with the developer's registered audience
+        identity = await verify_provider_token(
+            provider=IdentityProvider.APPLE,
+            token=token,
+            additional_audiences=[developer_aud],
+        )
+
+        # Then it resolves successfully via the developer-registered audience
+        assert identity.provider_id == "apple-sub-001"
+
+    async def test_aud_in_neither_list_fails(
+        self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify a token whose aud is in neither source is rejected."""
+        # Given neither source contains the token's audience
+        mocker.patch.object(settings.oauth, "apple_audiences", ["com.other.app"])
+        token = _sign_token(rsa_keypair[0], aud="com.evil.attacker")
+
+        # When the token is verified
+        # Then it is rejected
+        with pytest.raises(UnprocessableEntityError):
+            await verify_provider_token(
+                provider=IdentityProvider.APPLE,
+                token=token,
+                additional_audiences=["com.legit.app"],
+            )
+
+    async def test_both_lists_empty_fails_closed(
+        self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify the provider is disabled when both the env list and additional are empty."""
+        # Given both sources are empty
+        mocker.patch.object(settings.oauth, "apple_audiences", [])
+        token = _sign_token(rsa_keypair[0])
+
+        # When the token is verified with no additional audiences
+        # Then it fails closed
+        with pytest.raises(UnprocessableEntityError):
+            await verify_provider_token(
+                provider=IdentityProvider.APPLE,
+                token=token,
+                additional_audiences=[],
+            )
+
+    async def test_additional_provided_env_empty_passes(
+        self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify a token is accepted when additional_audiences is supplied and env is empty."""
+        # Given the env list is empty but the developer registered their audience
+        mocker.patch.object(settings.oauth, "apple_audiences", [])
+        token = _sign_token(rsa_keypair[0], aud=AUDIENCE)
+
+        # When the token is verified with additional_audiences containing the aud
+        identity = await verify_provider_token(
+            provider=IdentityProvider.APPLE,
+            token=token,
+            additional_audiences=[AUDIENCE],
+        )
+
+        # Then it resolves successfully
+        assert identity.provider_id == "apple-sub-001"
+
+
 class TestDiscordVerification:
     """Test Discord access token verification."""
 

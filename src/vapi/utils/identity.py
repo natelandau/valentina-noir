@@ -50,14 +50,22 @@ async def verify_provider_token(
     provider: IdentityProvider,
     token: str,
     store: "Store | None" = None,
+    additional_audiences: list[str] | None = None,
 ) -> VerifiedIdentity:
     """Verify a provider credential and return the normalized identity.
+
+    For Apple and Google, the accepted audiences are the union of the global
+    env-configured list and any additional audiences passed by the caller (e.g.
+    audiences registered by the calling developer via PATCH /developers/me).
 
     Args:
         provider: Which identity provider issued the credential.
         token: An OIDC ID token (apple/google) or OAuth access token (discord/github).
         store: Optional Redis store for JWKS caching. None skips caching.
+        additional_audiences: Extra audience values to accept beyond the global
+            env list. Only used for Apple and Google (OIDC providers).
     """
+    extra: list[str] = additional_audiences or []
     match provider:
         case IdentityProvider.APPLE:
             return await _verify_oidc_token(
@@ -65,7 +73,7 @@ async def verify_provider_token(
                 token=token,
                 jwks_url=APPLE_JWKS_URL,
                 issuers=APPLE_ISSUERS,
-                audiences=settings.oauth.apple_audiences,
+                audiences=[*settings.oauth.apple_audiences, *extra],
                 store=store,
             )
         case IdentityProvider.GOOGLE:
@@ -74,7 +82,7 @@ async def verify_provider_token(
                 token=token,
                 jwks_url=GOOGLE_JWKS_URL,
                 issuers=GOOGLE_ISSUERS,
-                audiences=settings.oauth.google_audiences,
+                audiences=[*settings.oauth.google_audiences, *extra],
                 store=store,
             )
         case IdentityProvider.DISCORD:

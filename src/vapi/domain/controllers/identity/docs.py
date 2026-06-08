@@ -14,8 +14,11 @@ The `resolution` field reports which path was taken (`matched`, `linked`, or \
 is required there only if the provider did not supply one. Verification failures \
 return 422 with code TOKEN_VERIFICATION_FAILED; provider outages return 503.
 
-Apple and Google tokens are accepted only when their audience is in the server's \
-configured allowlist.
+Apple and Google tokens are accepted when their audience appears in either the \
+server's global env allowlist (`VAPI_OAUTH__APPLE_AUDIENCES` / \
+`VAPI_OAUTH__GOOGLE_AUDIENCES`) or the calling developer's self-registered audiences \
+(`provider_audiences` on `PATCH /developers/me`). A provider is disabled (422) only \
+when both sources are empty for the caller.
 """
 
 LINK_DESCRIPTION = """\
