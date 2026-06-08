@@ -1,10 +1,18 @@
 """API application settings."""
 
+import json
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from redis.asyncio import Redis
 
 from vapi.constants import (
@@ -91,6 +99,31 @@ class AWSSettings(BaseModel):
     cloudfront_url: str | None = Field(default=None)
 
 
+def parse_str_collection(value: str | list[str] | set[str] | None) -> list[str]:
+    """Normalize a string collection given as comma-separated text, a JSON array, or a sequence.
+
+    Pairs with the `NoDecode` annotation so list/set settings can be supplied as plain
+    comma-separated env vars. pydantic-settings otherwise JSON-decodes collection fields, which
+    breaks in container environments where shell quoting leaks literal quotes into the value
+    (e.g. `'["a"]'`). JSON arrays still parse, for backward compatibility.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("["):
+            return json.loads(stripped)
+        # The filter drops empty items, so blank and whitespace-only input yields [].
+        return [item.strip() for item in stripped.split(",") if item.strip()]
+    return list(value)
+
+
+# Collection settings that operators may set via env vars. NoDecode disables pydantic-settings'
+# JSON parsing and BeforeValidator accepts comma-separated values instead.
+CsvList = Annotated[list[str], NoDecode, BeforeValidator(parse_str_collection)]
+CsvSet = Annotated[set[str], NoDecode, BeforeValidator(parse_str_collection)]
+
+
 class Server(BaseModel):
     """Server settings."""
 
@@ -99,7 +132,7 @@ class Server(BaseModel):
     scheme: str = Field(default="https")
     keep_alive: int = Field(default=65)  # 65 seconds > AWS timeout
     reload: bool = Field(default=False)
-    reload_dirs: list[str] = Field(default_factory=lambda: [str(MODULE_ROOT_PATH)])
+    reload_dirs: CsvList = Field(default_factory=lambda: [str(MODULE_ROOT_PATH)])
     request_max_body_size: int = Field(default=5_242_880)  # 5MB
 
     @computed_field  # type: ignore [prop-decorator]
@@ -181,9 +214,10 @@ class RateLimitSettings(BaseModel):
 class OAuthSettings(BaseModel):
     """OAuth settings."""
 
-    # Verified identity resolution (identify endpoint)
-    apple_audiences: list[str] = Field(default_factory=list)
-    google_audiences: list[str] = Field(default_factory=list)
+    # Verified identity resolution (identify endpoint). One audience per client app, supplied
+    # comma-separated; see parse_str_collection for why JSON arrays are not required.
+    apple_audiences: CsvList = Field(default_factory=list)
+    google_audiences: CsvList = Field(default_factory=list)
     identity_http_timeout: float = Field(default=10.0)
     jwks_cache_ttl: int = Field(default=21600)  # 6 hours
 
@@ -192,12 +226,12 @@ class CORSSettings(BaseModel):
     """CORS settings."""
 
     enabled: bool = Field(default=False)
-    allowed_origins: list[str] = Field(default=["*"])
+    allowed_origins: CsvList = Field(default_factory=lambda: ["*"])
     allow_origin_regex: str | None = Field(default=None)
-    allow_methods: list[str] = Field(
+    allow_methods: CsvList = Field(
         default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE"]
     )
-    allow_headers: list[str] = Field(default_factory=lambda: ["Content-Type", AUTH_HEADER_KEY])
+    allow_headers: CsvList = Field(default_factory=lambda: ["Content-Type", AUTH_HEADER_KEY])
     max_age: int = Field(default=3600)
 
 
@@ -205,7 +239,7 @@ class AllowedHostsSettings(BaseModel):
     """Allowed hosts settings for host-header validation."""
 
     enabled: bool = Field(default=False)
-    hosts: list[str] = Field(default=["*"])
+    hosts: CsvList = Field(default_factory=lambda: ["*"])
 
 
 class LoggingSettings(BaseModel):
@@ -227,7 +261,7 @@ class LoggingSettings(BaseModel):
     saq_level: LogLevel = Field(default=LogLevel.INFO)
     asgi_server_level: LogLevel = Field(default=LogLevel.INFO)
     root_level: LogLevel = Field(default=LogLevel.INFO)
-    log_fields: list[str] = Field(
+    log_fields: CsvList = Field(
         default_factory=lambda: [
             "path",
             "method",
@@ -256,10 +290,10 @@ class LoggingSettings(BaseModel):
             raise ValueError(msg)
         return v
 
-    obfuscate_headers: set[str] = Field(
+    obfuscate_headers: CsvSet = Field(
         default_factory=lambda: {"Authorization", AUTH_HEADER_KEY, "X-CSRF-TOKEN"}
     )
-    obfuscate_cookies: set[str] = Field(default_factory=lambda: {"session", "XSRF-TOKEN"})
+    obfuscate_cookies: CsvSet = Field(default_factory=lambda: {"session", "XSRF-TOKEN"})
     log_exceptions: Literal["always", "debug", "never"] = Field(default="always")
 
 

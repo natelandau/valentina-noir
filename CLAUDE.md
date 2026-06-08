@@ -85,3 +85,5 @@ duty dev-setup                # Initialize development environment
 Documentation is stored in the `docs/` directory. The documentation is written in Markdown and uses the [Zensical](https://zensical.org/) static site generator. The documentation is hosted on [GitHub Pages](https://pages.github.com/).
 
 **IMPORTANT:** Always check the documentation after every change to ensure it is correct and up to date.
+
+**Audience:** `docs/` is for end-user API developers only. They consume the public API via an `X-API-KEY` and have no access to the server, its environment variables, deployment config, or source. Never document maintainer- or operator-facing concerns (env vars, server config, deployment, migrations, internal architecture) in `docs/`. All maintainer-facing documentation goes in `README.md`.
