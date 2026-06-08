@@ -6,7 +6,7 @@ from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK
 
 from vapi.config import settings
-from vapi.constants import AuditOperation, IdentityProvider, UserRole
+from vapi.constants import AuditOperation, UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer
 from vapi.db.sql_models.user import User
@@ -24,31 +24,11 @@ from vapi.domain.services.identity_svc import (
     IdentityResolution,
     IdentityService,
 )
-from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import PermissionDeniedError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
 from vapi.openapi.tags import APITags
 from vapi.utils.identity import verify_provider_token
-
-
-def _parse_provider(value: str) -> IdentityProvider:
-    """Validate and convert the provider name from the request body.
-
-    Raises ValidationError with a 400 status so callers get a structured
-    problem-details response rather than an unhandled ValueError.
-    """
-    try:
-        return IdentityProvider(value)
-    except ValueError as e:
-        raise ValidationError(
-            detail=f"Unknown identity provider '{value}'",
-            invalid_parameters=[
-                {
-                    "field": "provider",
-                    "message": "Must be one of: apple, google, discord, github",
-                },
-            ],
-        ) from e
 
 
 class IdentityController(Controller):
@@ -81,7 +61,7 @@ class IdentityController(Controller):
         on provider ID, auto-linking by verified email, or creating a new
         UNAPPROVED user. Returns the resolution path and full user payload.
         """
-        provider = _parse_provider(data.provider)
+        provider = data.provider
         store = request.app.stores.get(settings.stores.jwks_key)
         additional = (developer.provider_audiences or {}).get(provider.value, [])
         identity = await verify_provider_token(
@@ -141,7 +121,7 @@ class IdentityController(Controller):
                 detail="Only the user themselves or an admin can link identities"
             )
 
-        provider = _parse_provider(data.provider)
+        provider = data.provider
         store = request.app.stores.get(settings.stores.jwks_key)
         additional = (developer.provider_audiences or {}).get(provider.value, [])
         identity = await verify_provider_token(

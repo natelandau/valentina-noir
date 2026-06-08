@@ -2,6 +2,7 @@
 
 import msgspec
 
+from vapi.constants import IdentityProvider
 from vapi.domain.controllers.user.dto import UserResponse
 from vapi.domain.services.identity_svc import IdentityResolution
 
@@ -9,7 +10,7 @@ from vapi.domain.services.identity_svc import IdentityResolution
 class IdentifyRequest(msgspec.Struct):
     """Request body for resolving a verified provider login to a user."""
 
-    provider: str
+    provider: IdentityProvider
     token: str
     username: str | None = None
     email: str | None = None
@@ -18,7 +19,7 @@ class IdentifyRequest(msgspec.Struct):
 class LinkIdentityRequest(msgspec.Struct):
     """Request body for linking an additional provider identity to a user."""
 
-    provider: str
+    provider: IdentityProvider
     token: str
 
 

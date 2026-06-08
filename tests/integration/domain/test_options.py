@@ -10,6 +10,7 @@ from vapi.config import settings
 from vapi.constants import (
     CompanyPermission,
     DiceSize,
+    IdentityProvider,
     PermissionManageCampaign,
     PermissionManageNPC,
     PermissionsFreeTraitChanges,
@@ -19,6 +20,7 @@ from vapi.constants import (
     UserRole,
 )
 from vapi.domain import urls
+from vapi.domain.services.identity_svc import IdentityResolution
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,6 +60,8 @@ async def test_get_company_options(
         "WITHIN_SESSION",
     ]
     assert response.json()["users"] == {
+        "IdentityProvider": [x.value for x in IdentityProvider],
+        "IdentityResolution": [x.value for x in IdentityResolution],
         "UserRole": [x.value for x in UserRole],
     }
     assert response.json()["gameplay"] == {
