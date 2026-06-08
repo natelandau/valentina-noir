@@ -1,3 +1,9 @@
+## v0.23.1 (2026-06-08)
+
+### Fix
+
+- **config**: accept comma-separated values for all list settings (#145)
+
 ## v0.23.0 (2026-06-08)
 
 ### Feat
