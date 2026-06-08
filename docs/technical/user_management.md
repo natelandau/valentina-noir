@@ -109,6 +109,21 @@ The endpoint verifies the credential with the provider and attaches it to the us
 - The identity belongs to a different user. Use the [merge endpoint](#merging-users) to combine accounts.
 - The user already has a different identity from the same provider linked (e.g., trying to link a second Google account when one is already saved).
 
+### Unlink: remove a provider identity
+
+`DELETE /companies/{company_id}/users/{user_id}/identities/{provider}` is the counterpart to the link endpoint, for "disconnect account" settings flows. The `{provider}` path segment is one of `apple`, `google`, `discord`, or `github`. Only the user themselves or a company `ADMIN` may call it, and it requires both `X-API-KEY` and `On-Behalf-Of`. There is no request body.
+
+```bash
+curl -X DELETE "$API/companies/$COMPANY_ID/users/$USER_ID/identities/github" \
+  -H "X-API-KEY: $API_KEY" \
+  -H "On-Behalf-Of: $USER_ID"
+```
+
+The endpoint clears the matching `*_profile` column and returns the updated user object.
+
+- **404 Not Found** with code `IDENTITY_NOT_LINKED` if the user has no identity from that provider.
+- **409 Conflict** with code `LAST_IDENTITY` if it is the user's only linked identity. A user's final identity is protected so unlinking can never leave an account with no way to authenticate. Link another provider first, then retry.
+
 ### Provisioning users without a supported provider
 
 For players who sign in through a provider Valentina verifies (Apple, Google, Discord, GitHub), use [`identify`](#identify-resolve-a-provider-login). It performs the lookup, linking, and first-time creation in a single call, so your client doesn't search by email or write profile data itself.

@@ -12,7 +12,7 @@ from tortoise.expressions import RawSQL
 
 from vapi.constants import IdentityProvider, UserRole
 from vapi.db.sql_models.user import User
-from vapi.lib.exceptions import ConflictError, UnprocessableEntityError
+from vapi.lib.exceptions import ConflictError, NotFoundError, UnprocessableEntityError
 from vapi.utils.strings import random_string
 
 if TYPE_CHECKING:
@@ -168,6 +168,47 @@ class IdentityService:
             )
 
         setattr(user, profile_field, identity.profile)
+        await user.save()
+        await user.fetch_related("campaign_experiences")
+        return user
+
+    async def unlink_identity(self, *, user: User, provider: IdentityProvider) -> User:
+        """Remove a linked provider identity from a user.
+
+        Use this for "disconnect account" settings flows. The user's last
+        remaining identity is protected so unlinking can never leave an account
+        with no way to authenticate.
+
+        Args:
+            user: The user to remove the identity from.
+            provider: The provider whose identity to remove.
+
+        Returns:
+            The updated user.
+
+        Raises:
+            NotFoundError: The user has no identity from this provider.
+            ConflictError: The identity is the user's only linked identity.
+        """
+        profile_field = PROVIDER_PROFILE_FIELDS[provider]
+        # A linked identity is a non-null JSON column; compare to None rather than
+        # truthiness so an empty-dict profile still counts as linked.
+        if getattr(user, profile_field) is None:
+            raise NotFoundError(
+                detail=f"No {provider.value} identity is linked to this user.",
+                code="IDENTITY_NOT_LINKED",
+            )
+
+        linked_count = sum(
+            1 for field in PROVIDER_PROFILE_FIELDS.values() if getattr(user, field) is not None
+        )
+        if linked_count <= 1:
+            raise ConflictError(
+                detail="Cannot remove the user's only linked identity.",
+                code="LAST_IDENTITY",
+            )
+
+        setattr(user, profile_field, None)
         await user.save()
         await user.fetch_related("campaign_experiences")
         return user

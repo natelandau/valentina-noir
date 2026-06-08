@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import pytest
 
 from tests.fixtures import build_verified_identity as _identity
-from vapi.constants import UserRole
+from vapi.constants import IdentityProvider, UserRole
 from vapi.db.sql_models.user import User
 from vapi.domain.services.identity_svc import IdentityResolution, IdentityService
-from vapi.lib.exceptions import ConflictError, UnprocessableEntityError
+from vapi.lib.exceptions import ConflictError, NotFoundError, UnprocessableEntityError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -322,3 +322,62 @@ class TestLinkIdentity:
         with pytest.raises(ConflictError) as exc_info:
             await service.link_identity(company=company, user=user, identity=_identity())
         assert exc_info.value.extension == {"code": "IDENTITY_ALREADY_LINKED"}
+
+
+class TestUnlinkIdentity:
+    """Test IdentityService.unlink_identity."""
+
+    async def test_unlink_success(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify a linked identity is removed when the user has another remaining."""
+        # Given a user with two linked identities
+        company = await company_factory()
+        user = await user_factory(
+            company=company,
+            apple_profile={"id": "apple-sub-001"},
+            github_profile={"id": "4242"},
+        )
+
+        # When the apple identity is unlinked
+        service = IdentityService()
+        unlinked = await service.unlink_identity(user=user, provider=IdentityProvider.APPLE)
+
+        # Then the apple profile is cleared and the github profile remains
+        assert unlinked.apple_profile is None
+        assert unlinked.github_profile == {"id": "4242"}
+        persisted = await User.get(id=user.id)
+        assert persisted.apple_profile is None
+        assert persisted.github_profile == {"id": "4242"}
+
+    async def test_unlink_not_linked_raises(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify unlinking a provider the user never linked raises 404."""
+        # Given a user with only an apple identity
+        company = await company_factory()
+        user = await user_factory(company=company, apple_profile={"id": "apple-sub-001"})
+
+        # When the unlinked github identity is removed
+        # Then a not-found error is raised with the error code
+        service = IdentityService()
+        with pytest.raises(NotFoundError) as exc_info:
+            await service.unlink_identity(user=user, provider=IdentityProvider.GITHUB)
+        assert exc_info.value.extension == {"code": "IDENTITY_NOT_LINKED"}
+
+    async def test_unlink_last_identity_raises(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify removing the user's only identity is refused."""
+        # Given a user with a single linked identity
+        company = await company_factory()
+        user = await user_factory(company=company, apple_profile={"id": "apple-sub-001"})
+
+        # When that sole identity is unlinked
+        # Then a conflict is raised and the profile is left untouched
+        service = IdentityService()
+        with pytest.raises(ConflictError) as exc_info:
+            await service.unlink_identity(user=user, provider=IdentityProvider.APPLE)
+        assert exc_info.value.extension == {"code": "LAST_IDENTITY"}
+        persisted = await User.get(id=user.id)
+        assert persisted.apple_profile == {"id": "apple-sub-001"}

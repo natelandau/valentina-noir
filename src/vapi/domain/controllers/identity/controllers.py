@@ -1,12 +1,12 @@
 """Identity resolution controllers."""
 
-from litestar import Request, post
+from litestar import Request, delete, post
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK
 
 from vapi.config import settings
-from vapi.constants import AuditOperation, UserRole
+from vapi.constants import AuditOperation, IdentityProvider, UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer
 from vapi.db.sql_models.user import User
@@ -29,6 +29,23 @@ from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
 from vapi.openapi.tags import APITags
 from vapi.utils.identity import verify_provider_token
+
+
+def _require_self_or_admin(*, acting_user: User, target_user: User, action: str) -> None:
+    """Guard identity mutations to the user themselves or a company admin.
+
+    Args:
+        acting_user: The user the request is acting on behalf of.
+        target_user: The user whose identities are being changed.
+        action: Verb used in the error message (e.g. "link", "unlink").
+
+    Raises:
+        PermissionDeniedError: The acting user is neither the target nor an admin.
+    """
+    if acting_user.id != target_user.id and acting_user.role != UserRole.ADMIN:
+        raise PermissionDeniedError(
+            detail=f"Only the user themselves or an admin can {action} identities"
+        )
 
 
 class IdentityController(Controller):
@@ -116,10 +133,7 @@ class IdentityController(Controller):
         Only the user themselves or a company admin may link identities.
         Verifies the provider credential before saving the profile.
         """
-        if acting_user.id != target_user.id and acting_user.role != UserRole.ADMIN:
-            raise PermissionDeniedError(
-                detail="Only the user themselves or an admin can link identities"
-            )
+        _require_self_or_admin(acting_user=acting_user, target_user=target_user, action="link")
 
         provider = data.provider
         store = request.app.stores.get(settings.stores.jwks_key)
@@ -140,4 +154,40 @@ class IdentityController(Controller):
             f"Link {provider.value} identity to user '{user.username}'"
         )
         request.state.audit_changes = {profile_field: {"old": old_profile, "new": identity.profile}}
+        return await annotated_user_response(user.id)
+
+    @delete(
+        path=urls.Identity.UNLINK,
+        status_code=HTTP_200_OK,
+        summary="Unlink identity",
+        operation_id="unlinkUserIdentity",
+        description=docs.UNLINK_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+    )
+    async def unlink_identity(
+        self,
+        request: Request,
+        provider: IdentityProvider,
+        target_user: User,
+        acting_user: User,
+    ) -> UserResponse:
+        """Remove a linked provider identity from a user.
+
+        Only the user themselves or a company admin may unlink identities. The
+        user's final identity is protected to keep the account authenticable.
+        """
+        _require_self_or_admin(acting_user=acting_user, target_user=target_user, action="unlink")
+
+        profile_field = PROVIDER_PROFILE_FIELDS[provider]
+        old_profile = getattr(target_user, profile_field)
+
+        service = IdentityService()
+        user = await service.unlink_identity(user=target_user, provider=provider)
+        request.state.audit_description = (
+            f"Unlink {provider.value} identity from user '{user.username}'"
+        )
+        request.state.audit_changes = {profile_field: {"old": old_profile, "new": None}}
+        # Unlinking clears a field on the existing user; record UPDATE rather than
+        # the DELETE the HTTP method would otherwise imply (the user row persists).
+        request.state.audit_operation = AuditOperation.UPDATE
         return await annotated_user_response(user.id)
