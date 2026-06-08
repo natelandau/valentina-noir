@@ -94,7 +94,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         app_config.openapi_config = create_openapi_config()
 
-        app_config.plugins.extend([plugins.granian, plugins.oauth])
+        app_config.plugins.extend([plugins.granian])
         if settings.saq.enabled:
             app_config.plugins.append(plugins.saq)
 

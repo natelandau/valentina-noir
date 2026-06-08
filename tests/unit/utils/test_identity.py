@@ -8,7 +8,6 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from httpx_oauth.exceptions import GetProfileError
 from pytest_mock import MockerFixture
 
 from vapi.config import settings
@@ -375,11 +374,11 @@ class TestMergedAudienceVerification:
 class TestDiscordVerification:
     """Test Discord access token verification."""
 
-    async def test_valid_discord_token(self, mocker: MockerFixture) -> None:
-        """Verify a valid Discord access token resolves with a verified email."""
-        # Given Discord returns a profile for the token
-        mock_client = mocker.AsyncMock()
-        mock_client.get_profile.return_value = {
+    @staticmethod
+    def _mock_discord(mocker: MockerFixture, *, status: int = 200) -> None:
+        """Patch httpx.AsyncClient for the Discord profile call."""
+        response = mocker.Mock(status_code=status)
+        response.json.return_value = {
             "id": "123456789010111213",
             "username": "someusername",
             "global_name": "Some User",
@@ -388,11 +387,28 @@ class TestDiscordVerification:
             "email": "discord@example.com",
             "verified": True,
         }
-        mocker.patch(
-            "vapi.utils.identity.get_discord_oauth_client",
-            return_value=mock_client,
-            autospec=True,
-        )
+        if status != 200:
+            error_response = mocker.Mock(status_code=status)
+            response.raise_for_status = mocker.Mock(
+                side_effect=httpx.HTTPStatusError(
+                    message="HTTP error",
+                    request=mocker.Mock(),
+                    response=error_response,
+                )
+            )
+        else:
+            response.raise_for_status = mocker.Mock()
+
+        mock_client = mocker.AsyncMock()
+        mock_client.get.return_value = response
+        mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch("vapi.utils.identity.httpx.AsyncClient", return_value=mock_client)
+
+    async def test_valid_discord_token(self, mocker: MockerFixture) -> None:
+        """Verify a valid Discord access token resolves with a verified email."""
+        # Given Discord returns a profile for the token
+        self._mock_discord(mocker)
 
         # When the token is verified
         identity = await verify_provider_token(
@@ -410,14 +426,8 @@ class TestDiscordVerification:
 
     async def test_rejected_discord_token(self, mocker: MockerFixture) -> None:
         """Verify a rejected Discord token raises 422."""
-        # Given Discord rejects the token
-        mock_client = mocker.AsyncMock()
-        mock_client.get_profile.side_effect = GetProfileError("bad token")
-        mocker.patch(
-            "vapi.utils.identity.get_discord_oauth_client",
-            return_value=mock_client,
-            autospec=True,
-        )
+        # Given Discord returns 401 for the token
+        self._mock_discord(mocker, status=401)
 
         # When the token is verified
         # Then verification fails
@@ -428,12 +438,10 @@ class TestDiscordVerification:
         """Verify a Discord outage raises 503."""
         # Given Discord times out
         mock_client = mocker.AsyncMock()
-        mock_client.get_profile.side_effect = httpx.ConnectTimeout("timeout")
-        mocker.patch(
-            "vapi.utils.identity.get_discord_oauth_client",
-            return_value=mock_client,
-            autospec=True,
-        )
+        mock_client.get.side_effect = httpx.ConnectTimeout("timeout")
+        mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch("vapi.utils.identity.httpx.AsyncClient", return_value=mock_client)
 
         # When the token is verified
         # Then the outage surfaces as 503

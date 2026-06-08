@@ -38,7 +38,6 @@ class User(BaseModel):
     github_profile: Any = fields.JSONField(null=True)
     discord_profile: Any = fields.JSONField(null=True)
     apple_profile: Any = fields.JSONField(null=True)
-    discord_oauth: Any = fields.JSONField(null=True)
 
     # FK
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(

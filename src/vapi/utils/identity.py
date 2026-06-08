@@ -11,10 +11,8 @@ from typing import TYPE_CHECKING, Any, assert_never, cast
 import httpx
 import jwt
 import msgspec
-from httpx_oauth.exceptions import GetProfileError
 
 from vapi.config import settings
-from vapi.config.oauth import get_discord_oauth_client
 from vapi.constants import IdentityProvider
 from vapi.lib.exceptions import ServiceUnavailableError, UnprocessableEntityError
 
@@ -33,6 +31,8 @@ GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 GITHUB_OK_STATUS = 200
 GITHUB_UNAUTHORIZED_STATUS = 401
 GITHUB_SERVER_ERROR_STATUS = 500
+DISCORD_USER_URL = "https://discord.com/api/users/@me"
+DISCORD_UNAUTHORIZED_STATUS = 401
 
 
 class VerifiedIdentity(msgspec.Struct):
@@ -279,15 +279,29 @@ def build_discord_profile(profile: dict[str, Any]) -> dict[str, Any]:
 async def _verify_discord_token(token: str) -> VerifiedIdentity:
     """Verify a Discord OAuth access token by fetching the profile it grants.
 
+    The caller supplies an access token it already obtained from Discord; this
+    only confirms the token is valid by reading the profile it grants. Mirrors
+    the GitHub flow rather than constructing an OAuth client, since no
+    authorization or token exchange happens server-side.
+
     Args:
         token: The Discord OAuth access token.
     """
+    headers = {"Authorization": f"Bearer {token}"}
     try:
-        profile = await get_discord_oauth_client().get_profile(token)
-    except GetProfileError as e:
-        raise UnprocessableEntityError(
-            detail="Discord rejected the access token",
-            code="TOKEN_VERIFICATION_FAILED",
+        async with httpx.AsyncClient(timeout=settings.oauth.identity_http_timeout) as client:
+            response = await client.get(DISCORD_USER_URL, headers=headers)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == DISCORD_UNAUTHORIZED_STATUS:
+            raise UnprocessableEntityError(
+                detail="Discord rejected the access token",
+                code="TOKEN_VERIFICATION_FAILED",
+            ) from e
+        # 403 (rate limit) and 5xx are transient provider problems, not bad tokens.
+        raise ServiceUnavailableError(
+            detail="Discord is unreachable",
+            code="PROVIDER_UNAVAILABLE",
         ) from e
     except httpx.HTTPError as e:
         raise ServiceUnavailableError(
@@ -296,8 +310,9 @@ async def _verify_discord_token(token: str) -> VerifiedIdentity:
         ) from e
 
     try:
+        profile = response.json()
         provider_id = str(profile["id"])
-    except (KeyError, TypeError) as e:
+    except (ValueError, KeyError, TypeError) as e:
         raise UnprocessableEntityError(
             detail="Discord profile is missing required 'id' field",
             code="TOKEN_VERIFICATION_FAILED",

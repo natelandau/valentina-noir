@@ -181,10 +181,6 @@ class RateLimitSettings(BaseModel):
 class OAuthSettings(BaseModel):
     """OAuth settings."""
 
-    discord_client_id: str | None = Field(default=None)
-    discord_client_secret: str | None = Field(default=None)
-    discord_callback_url: str | None = Field(default=None)
-
     # Verified identity resolution (identify endpoint)
     apple_audiences: list[str] = Field(default_factory=list)
     google_audiences: list[str] = Field(default_factory=list)
