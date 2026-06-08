@@ -21,6 +21,7 @@ from vapi.constants import (
     GameVersion,
     HunterCreed,
     HunterEdgeType,
+    IdentityProvider,
     InventoryItemType,
     PermissionManageCampaign,
     PermissionManageNPC,
@@ -39,6 +40,7 @@ from vapi.domain.handlers.character_autogeneration.constants import (
     AutoGenExperienceLevel,
 )
 from vapi.domain.handlers.character_autogeneration.utils import CLASS_PERCENTILE_TABLE
+from vapi.domain.services.identity_svc import IdentityResolution
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -121,6 +123,8 @@ class OptionsController(Controller):
                 ],
             },
             "users": {
+                "IdentityProvider": [x.value for x in IdentityProvider],
+                "IdentityResolution": [x.value for x in IdentityResolution],
                 "UserRole": [x.value for x in UserRole],
             },
             "gameplay": {

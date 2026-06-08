@@ -37,7 +37,9 @@ __all__ = (
     "NotEnoughXPError",
     "NotFoundError",
     "PermissionDeniedError",
+    "ServiceUnavailableError",
     "TooManyRequestsError",
+    "UnprocessableEntityError",
     "ValidationError",
     "does_not_exist_to_http_response",
     "http_error_to_http_response",
@@ -265,6 +267,12 @@ class NotFoundError(ClientError):
     _default_status_code: ClassVar[int] = status_codes.HTTP_404_NOT_FOUND
 
 
+class UnprocessableEntityError(ClientError):
+    """Raised when a request is well-formed but cannot be processed."""
+
+    _default_status_code: ClassVar[int] = status_codes.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 class TooManyRequestsError(ClientError):
     """Raised when request rate limits have been exceeded."""
 
@@ -278,6 +286,12 @@ class InternalServerError(HTTPError):
     _default_detail: ClassVar[str] = (
         "Something went wrong on our end. Please contact support if the issue persists."
     )
+
+
+class ServiceUnavailableError(HTTPError):
+    """Raised when an upstream dependency required by the request is unavailable."""
+
+    _default_status_code: ClassVar[int] = status_codes.HTTP_503_SERVICE_UNAVAILABLE
 
 
 class ConflictError(ClientError):

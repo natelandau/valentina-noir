@@ -14,6 +14,7 @@ from .developer_svc import DeveloperService
 from .diceroll_svc import DiceRollService
 from .dictionary_svc import DictionaryService
 from .global_admin_user_svc import GlobalAdminUserService
+from .identity_svc import IdentityResolution, IdentityService
 from .user_lookup_svc import UserLookupService
 from .user_svc import UserQuickRollService, UserService, UserXPService
 from .validation_svc import GetModelByIdValidationService
@@ -31,6 +32,8 @@ __all__ = (
     "DictionaryService",
     "GetModelByIdValidationService",
     "GlobalAdminUserService",
+    "IdentityResolution",
+    "IdentityService",
     "UserLookupService",
     "UserQuickRollService",
     "UserService",

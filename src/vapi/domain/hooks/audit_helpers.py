@@ -15,13 +15,18 @@ Populating custom descriptions and change tracking:
 
         request.state.audit_description = "Sofia updated trait 'Strength' from 2 to 3"
         request.state.audit_changes = {"value": {"old": 2, "new": 3}}
+        request.state.audit_operation = AuditOperation.UPDATE
 
     - audit_description (str): Overrides the auto-generated human-readable description.
     - audit_changes (dict): Saved to the `changes` JSONB column. Format:
       {"field_name": {"old": old_value, "new": new_value}}
+    - audit_operation (AuditOperation): Overrides the operation derived from the HTTP
+      method and operation_id. Useful for POST endpoints whose semantic meaning depends
+      on runtime state (e.g. identify creates on first call but updates on subsequent
+      calls).
 
-    Both are optional and independent. Endpoints that set neither still get a useful
-    auto-generated description and null changes.
+    All are optional and independent. Endpoints that set none still get useful
+    auto-generated values.
 
 Adding new entity types:
     1. Add the value to AuditEntityType in constants.py.
@@ -73,6 +78,8 @@ OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createUser": AuditEntityType.USER,
     "globalAdminCreateUser": AuditEntityType.USER,
     "registerUser": AuditEntityType.USER,
+    "identifyUser": AuditEntityType.USER,
+    "linkUserIdentity": AuditEntityType.USER,
     "mergeUsers": AuditEntityType.USER,
     "approveUser": AuditEntityType.USER,
     "denyUser": AuditEntityType.USER,
@@ -124,6 +131,7 @@ _POST_AS_UPDATE: frozenset[str] = frozenset(
         "denyUser",
         "mergeUsers",
         "bulkAssignCharacterTraits",
+        "linkUserIdentity",  # modifies an existing user, never creates one
     }
 )
 
@@ -263,7 +271,9 @@ def build_audit_entry(
     raw_op_id = request.route_handler.operation_id
     operation_id: str | None = raw_op_id if isinstance(raw_op_id, str) else None
 
-    operation = _resolve_operation(method, operation_id)
+    operation = getattr(request.state, "audit_operation", None) or _resolve_operation(
+        method, operation_id
+    )
     entity_type, target_entity_id, fk_values = _resolve_entity_and_fks(
         path_params, method, operation_id
     )

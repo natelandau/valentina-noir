@@ -10,6 +10,11 @@ Control what actions end-users can perform within your application through user 
 
 The API enforces game rules based on user roles. For example, only storytellers can grant XP, and players can only edit their own characters. Your application assigns users to the correct roles, and the API enforces what each role can do.
 
+The API supports two models for connecting your users to Valentina accounts:
+
+- **Assertion** - your application authenticates users itself, then asserts their identity via the `On-Behalf-Of` header. Use this for bots and trusted server-side clients that manage their own sessions. See [On-Behalf-Of](authentication.md#the-on-behalf-of-header).
+- **Verified identity** - your client forwards a provider credential (Apple/Google OIDC ID token, Discord/GitHub OAuth access token) to Valentina, which verifies it and resolves the user automatically. Use this for apps where users sign in with a provider directly. See [Verified Identity](authentication.md#verified-identity) and the [identify endpoint](#identify-resolve-a-provider-login) below.
+
 !!! warning "Your Responsibility"
 
     **Valentina Noir doesn't authenticate end-users directly.** Your application authenticates users through your own system (OAuth, passwords, etc.), then makes API calls on their behalf using the [`On-Behalf-Of` header](authentication.md#the-on-behalf-of-header). The API trusts your application's assertion of which user is making the request.
@@ -41,18 +46,83 @@ flowchart LR
 - Character data, dice rolls, and campaign progress sync across all clients
 - Role changes take effect immediately across all clients
 
-### Linking Users
+### Identify: resolve a provider login
 
-Link your authenticated users to Valentina user accounts.
+`POST /companies/{company_id}/auth/identify` is the recommended way to handle logins when your users authenticate with a provider (Apple, Google, Discord, or GitHub). Your client obtains the provider credential during the sign-in flow, then forwards it to this endpoint. Valentina verifies it with the provider and resolves the user in order:
 
-**Recommended Workflow with SSO:**
+1. **Provider ID match** - finds the user whose stored provider profile has the same subject ID.
+2. **Verified email auto-link** - if the provider's verified email matches exactly one non-archived user (including `DEACTIVATED`), that user is linked to the provider profile.
+3. **Create** - a new `UNAPPROVED` user is created when no match is found.
 
-1. User authenticates via your identity provider (Google, GitHub, Discord, Apple, etc.)
-2. Check if you have a stored Valentina `user_id` for this user
+The response always returns `200 OK`:
+
+```json
+{
+    "resolution": "matched",
+    "user": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "username": "marcus_player",
+        "email": "marcus@example.com",
+        "role": "PLAYER",
+        "company_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        "...": "..."
+    }
+}
+```
+
+The `user` object is the full user response; fields are abbreviated here.
+
+The `resolution` field indicates which path was taken:
+
+| Value     | Meaning                                                              |
+| --------- | -------------------------------------------------------------------- |
+| `matched` | User found by provider ID.                                           |
+| `linked`  | User found by provider-verified email and linked to the provider.   |
+| `created` | No existing user found; a new `UNAPPROVED` user was created.         |
+
+Use `user.id` as the value of `On-Behalf-Of` from that point on.
+
+When a new user is created, include `username` and (if the provider does not supply an email) `email` in the request body. If the provider supplies no email and you don't include one, the endpoint returns `422 EMAIL_REQUIRED`. For provider token types and audience configuration, see [Verified Identity](authentication.md#verified-identity).
+
+Auto-link by email requires a provider-verified email and exactly one matching user. When there are zero or two or more matches, the endpoint falls through to create a new user. Merge the duplicate afterwards if needed.
+
+!!! note "DEACTIVATED users are auto-linked deliberately"
+
+    Email auto-link intentionally includes `DEACTIVATED` users. Skipping them would create a new `UNAPPROVED` account with the same email, which could bypass deactivation if an admin later approves it. The user is linked to keep the identity unified; role guards still prevent them from acting.
+
+### Link: attach a second provider identity
+
+`POST /companies/{company_id}/users/{user_id}/identities` is the account-linking endpoint for settings flows. A user who already has a Valentina account (authenticated via any path) can connect a second provider. Only the user themselves or a company `ADMIN` may call this endpoint. It requires both `X-API-KEY` and `On-Behalf-Of`.
+
+```bash
+curl -X POST "$API/companies/$COMPANY_ID/users/$USER_ID/identities" \
+  -H "X-API-KEY: $API_KEY" \
+  -H "On-Behalf-Of: $USER_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "github", "token": "<github-access-token>"}'
+```
+
+The endpoint verifies the credential with the provider and attaches it to the user. Re-linking the same identity is idempotent and refreshes the stored profile. The response is the updated user object.
+
+**409 Conflict** with code `IDENTITY_ALREADY_LINKED` is returned in two cases:
+
+- The identity belongs to a different user. Use the [merge endpoint](#merging-users) to combine accounts.
+- The user already has a different identity from the same provider linked (e.g., trying to link a second Google account when one is already saved).
+
+### Assertion-style: register manually
+
+For bots and server-side clients that manage their own sessions, or when you need explicit control over user creation, register users directly.
+
+**Workflow:**
+
+1. User authenticates via your identity provider.
+2. Check if you have a stored Valentina `user_id` for this user.
 3. If not, search by email: `GET /api/v1/companies/{company_id}/users?email={email}`
-4. If found, update the existing user's profile with the new OAuth info (via `PATCH`)
-5. If not found, register a new user: `POST /api/v1/companies/{company_id}/users/register`
-6. Store the returned `user_id` in your database
+4. If found, update the existing user's profile with the new OAuth info (via `PATCH`).
+5. If not found, register a new user: `POST /api/v1/companies/{company_id}/users/register`.
+6. Store the returned `user_id` in your database.
+
+**Example:**
 
 ```python
 import requests
@@ -150,7 +220,12 @@ Providing zero or multiple query parameters returns `400 Bad Request`.
 
 ### Merging Users
 
-When a duplicate UNAPPROVED user is created (e.g., a user authenticates via a new identity provider before you matched them to their existing account), merge the accounts:
+Merge is the cleanup path for situations where automatic resolution could not match accounts. This happens when:
+
+- A duplicate `UNAPPROVED` user is created because no automatic match was possible.
+- A user signed in with Apple's "Hide My Email" relay (`...@privaterelay.appleid.com`). Private-relay addresses are unique to each app and never match a user's real email on other providers, so `identify` always creates a new user for them rather than linking. After the user is recognized, merge the new account into the existing one or use the [link endpoint](#link-attach-a-second-provider-identity) to connect their Apple identity explicitly.
+
+To merge accounts:
 
 ```yaml
 POST /api/v1/companies/{company_id}/users/merge HTTP/1.1

@@ -19,6 +19,7 @@ from .global_admin.audit_log import GlobalAdminAuditLogController
 from .global_admin.controllers import GlobalAdminController
 from .global_admin.server_logs import GlobalAdminServerLogsController
 from .global_admin.user_controller import GlobalAdminUserController
+from .identity.controllers import IdentityController
 from .notes import (
     CampaignBookNoteController,
     CampaignChapterNoteController,
@@ -72,6 +73,7 @@ __all__ = (
     "GlobalAdminController",
     "GlobalAdminServerLogsController",
     "GlobalAdminUserController",
+    "IdentityController",
     "OAuth2Controller",
     "OptionsController",
     "QuickRollController",

@@ -80,6 +80,8 @@ The response groups enumerations by domain. Each value is the exact string (or n
             "CharacterClassPercentileChance": ["VAMPIRE: 1-40", "WEREWOLF: 41-65", "..."]
         },
         "users": {
+            "IdentityProvider": ["apple", "google", "discord", "github"],
+            "IdentityResolution": ["matched", "linked", "created"],
             "UserRole": ["ADMIN", "STORYTELLER", "PLAYER", "UNAPPROVED", "DEACTIVATED"]
         },
         "gameplay": {
@@ -105,7 +107,7 @@ Each top-level key groups the enumerations for one domain of the API.
 | `companies`                | Developer permission levels and company permission settings                     |
 | `characters`               | Classes, types, statuses, game versions, and character-building options, plus `_related` catalog links |
 | `character_autogeneration` | The class-distribution table used by random character generation                |
-| `users`                    | User roles                                                                      |
+| `users`                    | User roles, identity providers, and identity resolution outcomes               |
 | `gameplay`                 | Dice sizes and dice-roll result types                                           |
 | `assets`                   | Uploadable asset types                                                          |
 | `audit_logs`               | Audit entity types and operations                                               |

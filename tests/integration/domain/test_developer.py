@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
+from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 
 from vapi.constants import AUTH_HEADER_KEY, CompanyPermission
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
@@ -120,3 +120,144 @@ async def test_developer_update(
     db_developer = await Developer.get(id=developer.id)
     assert db_developer.username == "updated-user"
     assert db_developer.email == "updated@test.com"
+
+
+async def test_developer_update_provider_audiences_valid(
+    client: AsyncClient,
+    build_url: Callable[[str, ...], str],
+    developer_factory: Callable[..., Any],
+    session_company: Company,
+) -> None:
+    """Verify PATCH /developers/me persists and returns valid provider_audiences."""
+    # Given a developer with a valid API key
+    developer = await developer_factory(is_global_admin=True)
+    await DeveloperCompanyPermission.create(
+        developer=developer, company=session_company, permission=CompanyPermission.OWNER
+    )
+    api_key = await _developer_service.generate_api_key(developer)
+    token = {AUTH_HEADER_KEY: api_key}
+
+    audiences = {
+        "apple": ["com.example.myapp"],
+        "google": ["1234-abc.apps.googleusercontent.com"],
+    }
+
+    # When we set provider_audiences
+    response = await client.patch(
+        build_url(Developers.UPDATE),
+        headers=token,
+        json={"provider_audiences": audiences},
+    )
+
+    # Then the response is 200 and includes the audiences
+    assert response.status_code == HTTP_200_OK
+    data = response.json()
+    assert data["provider_audiences"] == audiences
+
+    # And the value is persisted in the database
+    db_developer = await Developer.get(id=developer.id)
+    assert db_developer.provider_audiences == audiences
+
+
+async def test_developer_update_provider_audiences_invalid_key(
+    client: AsyncClient,
+    build_url: Callable[[str, ...], str],
+    developer_factory: Callable[..., Any],
+    session_company: Company,
+) -> None:
+    """Verify PATCH /developers/me rejects provider_audiences with an unsupported key."""
+    # Given a developer with a valid API key
+    developer = await developer_factory(is_global_admin=True)
+    await DeveloperCompanyPermission.create(
+        developer=developer, company=session_company, permission=CompanyPermission.OWNER
+    )
+    api_key = await _developer_service.generate_api_key(developer)
+    token = {AUTH_HEADER_KEY: api_key}
+
+    # When we send an unsupported provider key
+    response = await client.patch(
+        build_url(Developers.UPDATE),
+        headers=token,
+        json={"provider_audiences": {"github": ["some-client-id"]}},
+    )
+
+    # Then the request is rejected with 400
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+async def test_developer_update_provider_audiences_too_many(
+    client: AsyncClient,
+    build_url: Callable[[str, ...], str],
+    developer_factory: Callable[..., Any],
+    session_company: Company,
+) -> None:
+    """Verify PATCH /developers/me rejects more than 20 audiences per provider."""
+    # Given a developer with a valid API key
+    developer = await developer_factory(is_global_admin=True)
+    await DeveloperCompanyPermission.create(
+        developer=developer, company=session_company, permission=CompanyPermission.OWNER
+    )
+    api_key = await _developer_service.generate_api_key(developer)
+    token = {AUTH_HEADER_KEY: api_key}
+
+    # When we send 21 audiences for a provider
+    response = await client.patch(
+        build_url(Developers.UPDATE),
+        headers=token,
+        json={"provider_audiences": {"apple": [f"com.app.{i}" for i in range(21)]}},
+    )
+
+    # Then the request is rejected with 400
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+async def test_developer_update_provider_audiences_empty_string(
+    client: AsyncClient,
+    build_url: Callable[[str, ...], str],
+    developer_factory: Callable[..., Any],
+    session_company: Company,
+) -> None:
+    """Verify PATCH /developers/me rejects empty-string audience values."""
+    # Given a developer with a valid API key
+    developer = await developer_factory(is_global_admin=True)
+    await DeveloperCompanyPermission.create(
+        developer=developer, company=session_company, permission=CompanyPermission.OWNER
+    )
+    api_key = await _developer_service.generate_api_key(developer)
+    token = {AUTH_HEADER_KEY: api_key}
+
+    # When we send an empty string as an audience
+    response = await client.patch(
+        build_url(Developers.UPDATE),
+        headers=token,
+        json={"provider_audiences": {"apple": [""]}},
+    )
+
+    # Then the request is rejected with 400
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+async def test_developer_update_provider_audiences_whitespace_string(
+    client: AsyncClient,
+    build_url: Callable[[str, ...], str],
+    developer_factory: Callable[..., Any],
+    session_company: Company,
+) -> None:
+    """Verify PATCH /developers/me rejects whitespace-only audience values."""
+    # Given a developer with a valid API key
+    developer = await developer_factory(is_global_admin=True)
+    await DeveloperCompanyPermission.create(
+        developer=developer, company=session_company, permission=CompanyPermission.OWNER
+    )
+    api_key = await _developer_service.generate_api_key(developer)
+    token = {AUTH_HEADER_KEY: api_key}
+
+    # When we send a whitespace-only string as an audience
+    response = await client.patch(
+        build_url(Developers.UPDATE),
+        headers=token,
+        json={"provider_audiences": {"apple": ["   "]}},
+    )
+
+    # Then the request is rejected with 400
+    assert response.status_code == HTTP_400_BAD_REQUEST

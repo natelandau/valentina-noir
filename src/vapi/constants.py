@@ -234,6 +234,15 @@ class TraitModifyCurrency(StrEnum):
     STARTING_POINTS = "STARTING_POINTS"
 
 
+class IdentityProvider(StrEnum):
+    """Third-party identity providers supported by the identify endpoint."""
+
+    APPLE = "apple"
+    GOOGLE = "google"
+    DISCORD = "discord"
+    GITHUB = "github"
+
+
 class UserRole(StrEnum):
     """User role."""
 

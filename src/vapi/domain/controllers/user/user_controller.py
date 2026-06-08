@@ -2,7 +2,6 @@
 
 import asyncio
 from typing import Annotated
-from uuid import UUID
 
 from litestar import Request
 from litestar.controller import Controller
@@ -35,14 +34,7 @@ from .dto import (
     UserResponse,
     get_user_include_prefetch_map,
 )
-
-
-async def _annotated_user_response(user_id: UUID) -> UserResponse:
-    """Re-fetch a user with count annotations and build its scalar response."""
-    user = await annotate_user_counts(
-        User.filter(id=user_id).prefetch_related("campaign_experiences")
-    ).first()
-    return UserResponse.from_model(user)
+from .helpers import annotated_user_response as _annotated_user_response
 
 
 class UserController(Controller):

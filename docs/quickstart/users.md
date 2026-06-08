@@ -23,9 +23,53 @@ headers = {
 
 The API reads this header to apply role-based permissions and record who did what. You'll send it on every campaign, character, and dice-roll request from here on. For format rules and validation, see [Authentication](../technical/authentication.md#the-on-behalf-of-header).
 
-## Register a user
+## Sign in a user with a provider (recommended)
 
-After a player signs in to your app, check whether you've already linked them to a Valentina account. If not, register one. Registration needs only your API key, not `On-Behalf-Of`.
+If your users sign in with Apple, Google, Discord, or GitHub, forward the credential to the `identify` endpoint. Valentina verifies it with the provider and returns the Valentina user, creating one if needed. This is simpler than managing lookup and registration separately.
+
+```bash
+curl -X POST "$API/companies/$COMPANY_ID/auth/identify" \
+  -H "X-API-KEY: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "google", "token": "<google-id-token>"}'
+```
+
+| Provider | Send as `provider` | `token` type            |
+| -------- | ------------------- | ----------------------- |
+| Apple    | `apple`             | OIDC ID token (JWT)     |
+| Google   | `google`            | OIDC ID token (JWT)     |
+| Discord  | `discord`           | OAuth access token      |
+| GitHub   | `github`            | OAuth access token      |
+
+The response is always `200 OK`:
+
+```json
+{
+    "resolution": "matched",
+    "user": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "username": "marcus_player",
+        "email": "marcus@example.com",
+        "role": "PLAYER",
+        "company_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        "...": "..."
+    }
+}
+```
+
+The `user` object is the full user response; fields are abbreviated here.
+
+Store `user.id` and use it as `On-Behalf-Of` from that point on. The `resolution` field tells you whether Valentina matched an existing user, linked a user by email, or created a new one. A `created` user starts as `UNAPPROVED` and needs admin approval before they can play.
+
+!!! info "Link once, reuse forever"
+
+    Store the returned `user.id` in your own database against your app's user record. On later logins you already have the ID and don't need to call `identify` again unless the session expired or the user switched providers.
+
+For full details on resolution order, error codes, and Apple/Google audience configuration, see [Verified Identity](../technical/authentication.md#verified-identity) and the [identify endpoint reference](../technical/user_management.md#identify-resolve-a-provider-login).
+
+## Register a user (assertion-style clients)
+
+For bots and server-side clients that manage their own session state, or when you need explicit control over user creation, register users directly. This requires your API key only, no `On-Behalf-Of`.
 
 ```python
 response = requests.post(
@@ -44,7 +88,7 @@ Only `username` and `email` are required. You can also pass `name_first`, `name_
 
 New users start with the `UNAPPROVED` role. They exist, but can't create characters, join campaigns, or roll dice until an admin approves them.
 
-!!! info "Link once, reuse forever"
+!!! info "Avoid duplicates"
 
     Store the returned `user_id` in your own database against your app's user. On later logins, reuse it instead of registering again. To catch a returning player who signed in through a different identity provider, search with [`GET /users/lookup`](../technical/user_management.md#cross-company-user-lookup) before creating a duplicate.
 

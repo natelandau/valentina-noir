@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tortoise import fields
 
@@ -24,6 +24,8 @@ class Developer(BaseModel):
     api_key_fingerprint = fields.CharField(max_length=255, null=True, db_index=True)
     hashed_api_key = fields.CharField(max_length=255, null=True)
     key_generated = fields.DatetimeField(null=True)
+    # Maps OIDC provider name to list of accepted audience values for that developer's client apps
+    provider_audiences: Any = fields.JSONField(null=True)
 
     # Reverse relations
     permissions: fields.ReverseRelation[DeveloperCompanyPermission]
