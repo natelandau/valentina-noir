@@ -90,11 +90,10 @@ class TestAfterResponseHooks:
                 "username": "test_user",
                 "email": "test@test.com",
                 "role": "ADMIN",
-                "discord_profile": {"username": "discord_username"},
             },
         )
         assert response.status_code == HTTP_201_CREATED
-        assert response.json()["discord_profile"]["username"] == "discord_username"
+        assert response.json()["username"] == "test_user"
 
         # Then: the response cache should be deleted
         cached_keys = [key async for key in redis.scan_iter(match=f"{cache_prefix}:*")]
@@ -118,7 +117,6 @@ class TestAfterResponseHooks:
             "username": "test_user",
             "email": "test@test.com",
             "role": "ADMIN",
-            "discord_profile": {"username": "discord_username"},
         }
         assert audit.path_params == {"company_id": str(session_company.id)}
 

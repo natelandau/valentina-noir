@@ -23,15 +23,15 @@ be fetched via their dedicated endpoints. Invalid values return a 400 error.
 CREATE_USER_DESCRIPTION = """\
 Create a new user within a company.
 
-The user is automatically added to the company's user list. The Discord profile is optional and is not used for authentication but is included for Discord bot integration.
+The user is automatically added to the company's user list.
 
 **Note:** Requires admin-level access to the company.
 
-**Authorization:** Requester must be ADMIN or STORYTELLER. Storytellers may only create users with roles PLAYER or STORYTELLER. Creating a user with initial role UNAPPROVED or DEACTIVATED is not permitted via this endpoint (use the register endpoint for the UNAPPROVED flow).
+**Authorization:** Requester must be ADMIN or STORYTELLER. Storytellers may only create users with roles PLAYER or STORYTELLER. Creating a user with initial role UNAPPROVED or DEACTIVATED is not permitted via this endpoint (UNAPPROVED users are created through the identify endpoint).
 """
 
 UPDATE_USER_DESCRIPTION = """\
-Modify a user's properties such as name, role, or profile information.
+Modify a user's properties such as name, email, or role.
 
 Only include fields that need to be changed; omitted fields remain unchanged.
 
@@ -123,24 +123,13 @@ The target user must have the UNAPPROVED role. The user is archived and removed 
 **Note:** Requires admin-level access.
 """
 
-# Registration & Merge Controller
-REGISTER_USER_DESCRIPTION = """\
-Register a new user via SSO onboarding.
-
-Creates a new user with the UNAPPROVED role. This endpoint is designed for automated \
-user provisioning when a new identity provider user is encountered. No requesting user \
-ID is required - developer API key authentication is sufficient.
-
-The created user must be approved by an admin before they can access features. \
-Use the approve endpoint to activate the user after registration.
-"""
-
+# Merge Controller
 MERGE_USERS_DESCRIPTION = """\
 Merge an UNAPPROVED user into an existing primary user.
 
-Copies OAuth profile fields (Google, GitHub, Discord) from the secondary user to the \
-primary user, filling in only empty profile fields on the primary. The secondary user \
-is then deleted and removed from the company's user list.
+Copies provider-identity profile fields (Apple, Google, GitHub, Discord) from the \
+secondary user to the primary user, filling in only empty profile fields on the \
+primary. The secondary user is then deleted and removed from the company's user list.
 
 The secondary user must have the UNAPPROVED role. This endpoint is designed for \
 account linking when a user authenticates via a new identity provider and a duplicate \

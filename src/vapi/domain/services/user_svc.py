@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from tortoise.queryset import QuerySet
 
     from vapi.db.sql_models.company import Company
-    from vapi.domain.controllers.user.dto import UserCreate, UserPatch, UserRegister
+    from vapi.domain.controllers.user.dto import UserCreate, UserPatch
 
 
 def annotate_user_counts(qs: QuerySet[User]) -> QuerySet[User]:
@@ -82,7 +82,7 @@ class UserService:
         """Enforce the role-assignment authorization matrix.
 
         Rules:
-        - UNAPPROVED is never a valid assignment target (use approve/deny/register flow).
+        - UNAPPROVED is never a valid assignment target (use the approve/deny flow).
         - Only ADMIN may modify an ADMIN target's role.
         - Only ADMIN may assign or remove DEACTIVATED.
         - STORYTELLER may only assign STORYTELLER or PLAYER to non-admin targets.
@@ -180,8 +180,8 @@ class UserService:
         """Create a user in a company.
 
         The initial role is validated through the role-assignment matrix.
-        Creating a user with role UNAPPROVED (use register_user) or DEACTIVATED
-        (not a creation path) is forbidden.
+        Creating a user with role UNAPPROVED (use the verified identify endpoint)
+        or DEACTIVATED (not a creation path) is forbidden.
 
         Args:
             company: The company to add the user to.
@@ -213,38 +213,6 @@ class UserService:
             email=data.email,
             role=new_role,
             company=company,
-            discord_profile=data.discord_profile,
-            google_profile=data.google_profile,
-            github_profile=data.github_profile,
-            apple_profile=data.apple_profile,
-        )
-        await user.fetch_related("campaign_experiences")
-        return user
-
-    async def register_user(self, company: Company, data: UserRegister) -> User:
-        """Register a new user with the UNAPPROVED role.
-
-        Designed for SSO onboarding where no existing Valentina user is making the
-        request. Developer API key auth is sufficient -- no requesting_user_id needed.
-
-        Args:
-            company: The company to register the user in.
-            data: The registration data.
-
-        Returns:
-            The created user with campaign_experiences prefetched.
-        """
-        user = await User.create(
-            name_first=data.name_first,
-            name_last=data.name_last,
-            username=data.username,
-            email=data.email,
-            role=UserRole.UNAPPROVED,
-            company=company,
-            discord_profile=data.discord_profile,
-            google_profile=data.google_profile,
-            github_profile=data.github_profile,
-            apple_profile=data.apple_profile,
         )
         await user.fetch_related("campaign_experiences")
         return user

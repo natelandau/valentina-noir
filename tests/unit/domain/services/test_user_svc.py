@@ -11,7 +11,7 @@ from vapi.constants import PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import CampaignExperience, User
-from vapi.domain.controllers.user.dto import UserCreate, UserPatch, UserRegister
+from vapi.domain.controllers.user.dto import UserCreate, UserPatch
 from vapi.domain.services import UserQuickRollService, UserService, UserXPService
 from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
 
@@ -127,9 +127,6 @@ class TestUserService:
             username="test_user",
             email="test@example.com",
             role="PLAYER",
-            discord_profile={"global_name": "global name"},
-            google_profile={"email": "test@gmail.com", "username": "Test User"},
-            github_profile={"login": "testuser", "email": "test@github.com"},
         )
         # create_user now routes authorization through _validate_role_assignment,
         # not validate_user_can_manage_user, so we spy on the matrix helper instead.
@@ -147,11 +144,6 @@ class TestUserService:
         assert new_user.username == "test_user"
         assert new_user.email == "test@example.com"
         assert new_user.role == UserRole.PLAYER
-        assert new_user.discord_profile["global_name"] == "global name"
-        assert new_user.google_profile["email"] == "test@gmail.com"
-        assert new_user.google_profile["username"] == "Test User"
-        assert new_user.github_profile["login"] == "testuser"
-        assert new_user.github_profile["email"] == "test@github.com"
         assert new_user.company_id == company.id
         spy.assert_called_once()
 
@@ -178,12 +170,7 @@ class TestUserService:
             github_profile={"id": "583231", "login": "testuser"},
         )
 
-        data = UserPatch(
-            name_first="update",
-            discord_profile={"global_name": "global name updated"},
-            google_profile={"username": "Updated Google User"},
-            github_profile={"username": "Updated GitHub User"},
-        )
+        data = UserPatch(name_first="update")
 
         # When we update the user
         service = UserService()
@@ -197,9 +184,8 @@ class TestUserService:
         assert updated_user.username == "test_user"
         assert updated_user.email == "test@example.com"
         assert updated_user.role == UserRole.PLAYER
-        assert updated_user.discord_profile["global_name"] == "global name updated"
-        assert updated_user.google_profile["username"] == "Updated Google User"
-        assert updated_user.github_profile["username"] == "Updated GitHub User"
+        # Provider profiles are no longer patchable; the factory-seeded blobs are preserved
+        assert updated_user.discord_profile == {"id": "1234567890", "global_name": "global name"}
         assert updated_user.company_id == company.id
         spy.assert_called_once()
 
@@ -360,35 +346,6 @@ class TestUserService:
                 acting_user_id=player_user.id,
             )
 
-    async def test_register_user_success(
-        self,
-        company_factory: Callable[..., Company],
-        debug: Callable[..., None],
-    ) -> None:
-        """Verify register_user creates an UNAPPROVED user without permission checks."""
-        # Given a company and registration data
-        company = await company_factory()
-        data = UserRegister(
-            name_first="New",
-            name_last="Player",
-            username="new_player",
-            email="new@example.com",
-            google_profile={"email": "new@gmail.com", "username": "New Player"},
-        )
-
-        # When we register the user
-        service = UserService()
-        new_user = await service.register_user(company=company, data=data)
-
-        # Then the user is created with UNAPPROVED role
-        assert new_user.name_first == "New"
-        assert new_user.name_last == "Player"
-        assert new_user.username == "new_player"
-        assert new_user.email == "new@example.com"
-        assert new_user.role == UserRole.UNAPPROVED
-        assert new_user.company_id == company.id
-        assert new_user.google_profile["email"] == "new@gmail.com"
-
     async def test_merge_users_success(
         self,
         company_factory: Callable[..., Company],
@@ -534,35 +491,6 @@ class TestUserService:
         assert primary.google_profile["username"] == "PrimaryUser"
         assert primary.google_profile["locale"] == "en"
 
-    async def test_create_user_stores_apple_profile(
-        self,
-        company_factory: Callable[..., Company],
-        user_factory: Callable[..., User],
-        debug: Callable[..., None],
-    ) -> None:
-        """Verify create_user persists the supplied apple_profile blob."""
-        # Given an admin requester and a create payload carrying an apple_profile
-        company = await company_factory()
-        admin = await user_factory(company=company, role=UserRole.ADMIN)
-        data = UserCreate(
-            username="apple-user",
-            email="apple-user@example.com",
-            role="PLAYER",
-            apple_profile={"id": "apple-001", "email": "a@icloud.com", "fullname": "A Person"},
-        )
-
-        # When the user is created
-        created = await UserService().create_user(
-            company=company, data=data, acting_user_id=admin.id
-        )
-
-        # Then the apple_profile is stored verbatim
-        assert created.apple_profile == {
-            "id": "apple-001",
-            "email": "a@icloud.com",
-            "fullname": "A Person",
-        }
-
     async def test_merge_users_absorbs_apple_profile(
         self,
         company_factory: Callable[..., Company],
@@ -591,48 +519,6 @@ class TestUserService:
         # Then the primary now carries the secondary's apple_profile
         assert result.apple_profile["id"] == "apple-xyz"
         assert result.apple_profile["email"] == "x@icloud.com"
-
-    async def test_update_user_applies_apple_profile(
-        self,
-        company_factory: Callable[..., Company],
-        user_factory: Callable[..., User],
-        debug: Callable[..., None],
-    ) -> None:
-        """Verify update_user writes a patched apple_profile onto the user."""
-        # Given an admin and a target user with no apple_profile
-        company = await company_factory()
-        admin = await user_factory(company=company, role=UserRole.ADMIN)
-        target = await user_factory(company=company, role=UserRole.PLAYER)
-        data = UserPatch(apple_profile={"id": "apple-patch", "fullname": "Patched"})
-
-        # When the user is patched
-        updated, changes = await UserService().update_user(
-            user=target, data=data, acting_user_id=admin.id
-        )
-
-        # Then the apple_profile is stored and reported in the change diff
-        assert updated.apple_profile == {"id": "apple-patch", "fullname": "Patched"}
-        assert "apple_profile" in changes
-
-    async def test_register_user_stores_apple_profile(
-        self,
-        company_factory: Callable[..., Company],
-        debug: Callable[..., None],
-    ) -> None:
-        """Verify register_user persists the supplied apple_profile blob."""
-        # Given a company and an SSO registration payload carrying an apple_profile
-        company = await company_factory()
-        data = UserRegister(
-            username="apple-reg",
-            email="apple-reg@example.com",
-            apple_profile={"id": "apple-reg-1", "email": "reg@icloud.com"},
-        )
-
-        # When the user registers
-        registered = await UserService().register_user(company=company, data=data)
-
-        # Then the apple_profile is stored verbatim
-        assert registered.apple_profile == {"id": "apple-reg-1", "email": "reg@icloud.com"}
 
 
 class TestUserQuickRollService:

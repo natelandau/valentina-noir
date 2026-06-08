@@ -221,16 +221,16 @@ class UserCreate(msgspec.Struct):
     role: str
     name_first: str | None = None
     name_last: str | None = None
-    discord_profile: dict | None = None
-    google_profile: dict | None = None
-    github_profile: dict | None = None
-    apple_profile: dict | None = None
 
 
 class UserPatch(msgspec.Struct):
     """Request body for partially updating a user.
 
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
+
+    Provider-identity profiles are write-only through the verified identity endpoints
+    (identify / link); they are intentionally absent here so unverified profile blobs
+    can never reach the identity-matching columns.
     """
 
     name_first: str | None | msgspec.UnsetType = msgspec.UNSET
@@ -238,29 +238,12 @@ class UserPatch(msgspec.Struct):
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     role: str | msgspec.UnsetType = msgspec.UNSET
-    discord_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
-    google_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
-    github_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
-    apple_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
 
 
 class UserApprove(msgspec.Struct):
     """Request body for approving an unapproved user."""
 
     role: str
-
-
-class UserRegister(msgspec.Struct):
-    """Request body for SSO registration (no requesting_user_id required)."""
-
-    username: str
-    email: str
-    name_first: str | None = None
-    name_last: str | None = None
-    discord_profile: dict | None = None
-    google_profile: dict | None = None
-    github_profile: dict | None = None
-    apple_profile: dict | None = None
 
 
 class UserMerge(msgspec.Struct):

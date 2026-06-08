@@ -109,73 +109,36 @@ The endpoint verifies the credential with the provider and attaches it to the us
 - The identity belongs to a different user. Use the [merge endpoint](#merging-users) to combine accounts.
 - The user already has a different identity from the same provider linked (e.g., trying to link a second Google account when one is already saved).
 
-### Assertion-style: register manually
+### Provisioning users without a supported provider
 
-For bots and server-side clients that manage their own sessions, or when you need explicit control over user creation, register users directly.
+For players who sign in through a provider Valentina verifies (Apple, Google, Discord, GitHub), use [`identify`](#identify-resolve-a-provider-login). It performs the lookup, linking, and first-time creation in a single call, so your client doesn't search by email or write profile data itself.
 
-**Workflow:**
-
-1. User authenticates via your identity provider.
-2. Check if you have a stored Valentina `user_id` for this user.
-3. If not, search by email: `GET /api/v1/companies/{company_id}/users?email={email}`
-4. If found, update the existing user's profile with the new OAuth info (via `PATCH`).
-5. If not found, register a new user: `POST /api/v1/companies/{company_id}/users/register`.
-6. Store the returned `user_id` in your database.
-
-**Example:**
+For players who authenticate some other way (email and password, or a provider Valentina doesn't verify), an admin provisions the account directly:
 
 ```python
 import requests
 
 API_URL = "https://api.valentina-noir.com/api/v1"
-HEADERS = {"X-API-KEY": "your-api-key"}
 
-def get_or_create_valentina_user(sso_user, company_id):
-    """Link an SSO user to a Valentina user account."""
-    # Return existing user_id if already linked
-    if sso_user.valentina_user_id:
-        return sso_user.valentina_user_id
+# An admin acting user is required, supplied with On-Behalf-Of
+admin_headers = {"X-API-KEY": "your-api-key", "On-Behalf-Of": admin_user_id}
 
-    # Check if a user with this email already exists
-    response = requests.get(
-        f"{API_URL}/companies/{company_id}/users",
-        headers=HEADERS,
-        params={"email": sso_user.email},
-    )
-    existing_users = response.json()["items"]
-
-    if existing_users:
-        # Link to existing user and update their profile
-        valentina_user_id = existing_users[0]["id"]
-        requests.patch(
-            f"{API_URL}/companies/{company_id}/users/{valentina_user_id}",
-            headers={**HEADERS, "On-Behalf-Of": valentina_user_id},
-            json={
-                "google_profile": {"email": sso_user.email, "username": sso_user.name},
-            },
-        )
-    else:
-        # Register a new UNAPPROVED user
-        response = requests.post(
-            f"{API_URL}/companies/{company_id}/users/register",
-            headers=HEADERS,
-            json={
-                "username": sso_user.username,
-                "email": sso_user.email,
-                "google_profile": {
-                    "email": sso_user.email,
-                    "username": sso_user.name,
-                },
-            },
-        )
-        response.raise_for_status()
-        valentina_user_id = response.json()["id"]
-
-    # Store and return the Valentina user_id
-    sso_user.valentina_user_id = valentina_user_id
-    sso_user.save()
-    return valentina_user_id
+response = requests.post(
+    f"{API_URL}/companies/{company_id}/users",
+    headers=admin_headers,
+    json={
+        "username": "newplayer",
+        "email": "newplayer@example.com",
+        "role": "PLAYER",
+    },
+)
+response.raise_for_status()
+valentina_user_id = response.json()["id"]
 ```
+
+An admin-created user is assigned its role at creation and skips the approval queue. The role must not be `UNAPPROVED` or `DEACTIVATED`.
+
+> **Note:** Provider-identity profiles (`apple_profile`, `google_profile`, `github_profile`, `discord_profile`) are read-only on user create and update. They are written only when a verified credential reaches [`identify`](#identify-resolve-a-provider-login) or the [link endpoint](#link-attach-a-second-provider-identity), so an unverified profile can never reach the columns used to match identities.
 
 ### Cross-Company User Lookup
 
@@ -460,7 +423,7 @@ This endpoint doesn't take a request body.
 
 ### Example: Approval Flow
 
-Here's a complete example of registering a user via SSO and then approving them:
+Here's a complete example of onboarding a user via a provider login and then approving them:
 
 ```python
 import requests
@@ -468,19 +431,17 @@ import requests
 API_URL = "https://api.valentina-noir.com/api/v1"
 HEADERS = {"X-API-KEY": "your-api-key"}
 
-# Step 1: Register an unapproved user (no admin required)
+# Step 1: Resolve the provider credential to a user (no admin required).
+# A first-time login creates an UNAPPROVED user.
 response = requests.post(
-    f"{API_URL}/companies/{company_id}/users/register",
+    f"{API_URL}/companies/{company_id}/auth/identify",
     headers=HEADERS,
     json={
-        "username": "newplayer",
-        "email": "newplayer@example.com",
-        "google_profile": {
-            "email": "newplayer@gmail.com",
-        },
+        "provider": "google",
+        "token": google_id_token,
     },
 )
-new_user = response.json()
+new_user = response.json()["user"]
 
 # Step 2: List pending users (admin reviews)
 admin_headers = {**HEADERS, "On-Behalf-Of": admin_user_id}

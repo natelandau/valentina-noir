@@ -39,7 +39,7 @@ class TestExperienceController:
     async def test_get_experience_detail_no_experience(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         session_company: Company,
         session_company_user: Developer,
         session_campaign: Campaign,
@@ -73,7 +73,7 @@ class TestExperienceController:
     async def test_get_experience_with_experience(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         session_company: Company,
         session_company_user: Developer,
         session_campaign: Campaign,
@@ -114,7 +114,7 @@ class TestExperienceController:
     async def test_add_xp_to_experience(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         session_company: Company,
         session_company_user: Developer,
         session_campaign: Campaign,
@@ -152,7 +152,7 @@ class TestExperienceController:
     async def test_add_cp_to_experience(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         session_company: Company,
         session_company_user: Developer,
         session_campaign: Campaign,
@@ -190,7 +190,7 @@ class TestExperienceController:
     async def test_remove_xp_from_experience(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         session_company: Company,
         session_company_user: Developer,
         session_campaign: Campaign,
@@ -238,7 +238,7 @@ class TestUserController:
         async def test_list_users_no_results(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -260,7 +260,7 @@ class TestUserController:
         async def test_list_users_with_results(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -288,7 +288,7 @@ class TestUserController:
         async def test_list_users_with_results_user_role_filter(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -319,7 +319,7 @@ class TestUserController:
         async def test_get_user_no_results(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -337,7 +337,7 @@ class TestUserController:
         async def test_get_user_with_results(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -364,7 +364,7 @@ class TestUserController:
         async def test_get_user_no_results_company_federation(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -388,7 +388,7 @@ class TestUserController:
         async def test_get_user_no_include_omits_children(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -418,7 +418,7 @@ class TestUserController:
         async def test_get_user_include_all_children(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -471,7 +471,7 @@ class TestUserController:
         async def test_get_user_include_characters_only_played(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -516,7 +516,7 @@ class TestUserController:
         async def test_get_user_include_characters_excludes_storyteller(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -561,7 +561,7 @@ class TestUserController:
         async def test_get_user_include_characters_excludes_archived(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -606,7 +606,7 @@ class TestUserController:
         async def test_get_user_include_quickrolls_excludes_archived(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -640,7 +640,7 @@ class TestUserController:
         async def test_get_user_include_notes_excludes_archived(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -674,7 +674,7 @@ class TestUserController:
         async def test_get_user_include_assets_excludes_archived(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -716,7 +716,7 @@ class TestUserController:
         async def test_get_user_returns_child_counts(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -769,7 +769,7 @@ class TestUserController:
         async def test_get_user_include_invalid_value(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -796,7 +796,7 @@ class TestUserController:
         async def test_create_user(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -813,7 +813,6 @@ class TestUserController:
                     "username": "test_user",
                     "email": "test@test.com",
                     "role": "ADMIN",
-                    "discord_profile": {"username": "discord_username"},
                 },
             )
 
@@ -836,42 +835,35 @@ class TestUserController:
             assert new_user is not None
             assert new_user.username == "test_user"
 
-        async def test_create_user_with_apple_profile(
+        async def test_create_user_ignores_provider_profile(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
             session_user_admin: User,
         ) -> None:
-            """Verify creating a user with apple_profile round-trips the profile through the API."""
-            # Given a create payload that includes an apple_profile
-            payload = {
-                "name_first": "Apple",
-                "name_last": "Int",
-                "username": "apple-int",
-                "email": "apple-int@example.com",
-                "role": "PLAYER",
-                "apple_profile": {"id": "apple-int-1", "email": "int@icloud.com"},
-            }
-
-            # When the user is created via the API
+            """Verify a provider profile sent on create is ignored, not persisted."""
+            # Given a create payload that smuggles in an apple_profile
+            # When the user is created
             response = await client.post(
                 build_url(UsersURL.CREATE, company_id=session_company.id),
                 headers=token_global_admin | {"On-Behalf-Of": str(session_user_admin.id)},
-                json=payload,
+                json={
+                    "username": "no_profile_user",
+                    "email": "no-profile@test.com",
+                    "role": "PLAYER",
+                    "apple_profile": {"id": "should-be-ignored"},
+                },
             )
 
-            # Then the response echoes the apple_profile
+            # Then the user is created but the unverified profile never reaches the column
             assert response.status_code == HTTP_201_CREATED
             data = response.json()
-            assert data["username"] == "apple-int"
-            assert data["apple_profile"] == {"id": "apple-int-1", "email": "int@icloud.com"}
-
-            # Then the apple_profile is persisted in the database
+            assert data["apple_profile"] is None
             new_user = await User.get(id=data["id"])
-            assert new_user.apple_profile == {"id": "apple-int-1", "email": "int@icloud.com"}
+            assert new_user.apple_profile is None
 
     class TestUpdateUser:
         """Test UpdateUser."""
@@ -879,7 +871,7 @@ class TestUserController:
         async def test_update_user(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -899,7 +891,6 @@ class TestUserController:
                     "username": "test_user_updated",
                     "email": "test@test.com",
                     "role": "ADMIN",
-                    "discord_profile": {"username": "discord_username"},
                 },
             )
 
@@ -911,40 +902,10 @@ class TestUserController:
             assert data["username"] == "test_user_updated"
             assert data["email"] == "test@test.com"
             assert data["role"] == "ADMIN"
-            assert data["discord_profile"]["username"] == "discord_username"
 
             # Then the database is updated
             user = await User.get(id=user.id)
             assert user.username == "test_user_updated"
-
-        async def test_patch_user_apple_profile(
-            self,
-            client: AsyncClient,
-            build_url: Callable[[str, Any], str],
-            token_global_admin: dict[str, str],
-            session_company: Company,
-            session_global_admin: Developer,
-            user_factory: Callable[..., User],
-        ) -> None:
-            """Verify patching a user's apple_profile round-trips the new value through the API."""
-            # Given a user without an apple_profile
-            user = await user_factory(company=session_company, role="ADMIN")
-
-            # When the user's apple_profile is patched
-            response = await client.patch(
-                build_url(UsersURL.UPDATE, user_id=user.id, company_id=session_company.id),
-                headers=token_global_admin | {"On-Behalf-Of": str(user.id)},
-                json={"apple_profile": {"id": "apple-int-2", "fullname": "Int Patched"}},
-            )
-
-            # Then the response reflects the patched apple_profile
-            assert response.status_code == HTTP_200_OK
-            data = response.json()
-            assert data["apple_profile"] == {"id": "apple-int-2", "fullname": "Int Patched"}
-
-            # Then the apple_profile is persisted in the database
-            updated_user = await User.get(id=user.id)
-            assert updated_user.apple_profile == {"id": "apple-int-2", "fullname": "Int Patched"}
 
     class TestDeleteUser:
         """Test DeleteUser."""
@@ -952,7 +913,7 @@ class TestUserController:
         async def test_delete_user(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -983,7 +944,7 @@ class TestQuickRollController:
     async def test_list_user_quickrolls_no_results(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1004,7 +965,7 @@ class TestQuickRollController:
     async def test_list_user_quickrolls_with_results(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1040,7 +1001,7 @@ class TestQuickRollController:
     async def test_get_user_quickroll(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1069,7 +1030,7 @@ class TestQuickRollController:
     async def test_get_user_quickroll_not_found(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1091,7 +1052,7 @@ class TestQuickRollController:
     async def test_create_user_quickroll(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1123,7 +1084,7 @@ class TestQuickRollController:
     async def test_patch_user_quickroll(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1155,7 +1116,7 @@ class TestQuickRollController:
     async def test_patch_user_quickroll_with_traits(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1199,7 +1160,7 @@ class TestQuickRollController:
     async def test_delete_user_quickroll(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: Developer,
@@ -1236,7 +1197,7 @@ class TestUnapprovedUserController:
         async def test_list_unapproved_users_no_results(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -1256,7 +1217,7 @@ class TestUnapprovedUserController:
         async def test_list_unapproved_users_with_results(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -1287,7 +1248,7 @@ class TestUnapprovedUserController:
         async def test_approve_user_success(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -1322,7 +1283,7 @@ class TestUnapprovedUserController:
         async def test_approve_user_not_unapproved(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -1355,7 +1316,7 @@ class TestUnapprovedUserController:
         async def test_deny_user_success(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -1386,7 +1347,7 @@ class TestUnapprovedUserController:
         async def test_deny_user_not_unapproved(
             self,
             client: AsyncClient,
-            build_url: Callable[[str, Any], str],
+            build_url: Callable[..., str],
             token_global_admin: dict[str, str],
             session_company: Company,
             session_global_admin: Developer,
@@ -1411,141 +1372,80 @@ class TestUnapprovedUserController:
             assert response.status_code == HTTP_400_BAD_REQUEST
 
 
-class TestUserRegistration:
-    """Test user registration and merge endpoints."""
+class TestMergeUsers:
+    """Test MergeUsers."""
 
-    class TestRegisterUser:
-        """Test RegisterUser."""
+    async def test_merge_users_success(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify merging absorbs profile and deletes secondary."""
+        # Given a primary user and an UNAPPROVED secondary user
+        admin_user = await user_factory(company=session_company, role="ADMIN")
+        primary_user = await user_factory(
+            company=session_company,
+            google_profile=None,
+            github_profile=None,
+            discord_profile=None,
+        )
+        secondary_user = await user_factory(
+            company=session_company,
+            role="UNAPPROVED",
+            google_profile={"email": "secondary@gmail.com", "username": "Secondary"},
+        )
 
-        async def test_register_user_success(
-            self,
-            client: AsyncClient,
-            build_url: Callable[[str, Any], str],
-            token_global_admin: dict[str, str],
-            session_company: Company,
-            session_global_admin: Developer,
-        ) -> None:
-            """Verify registering a user creates an UNAPPROVED user."""
-            # When we register a user
-            response = await client.post(
-                build_url(UsersURL.REGISTER, company_id=session_company.id),
-                headers=token_global_admin,
-                json={
-                    "username": "sso_user",
-                    "email": "sso@example.com",
-                    "google_profile": {
-                        "email": "sso@gmail.com",
-                        "username": "SSO User",
-                    },
-                },
-            )
+        # When we merge the users
+        response = await client.post(
+            build_url(UsersURL.MERGE, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(admin_user.id)},
+            json={
+                "primary_user_id": str(primary_user.id),
+                "secondary_user_id": str(secondary_user.id),
+            },
+        )
 
-            # Then the user is created with UNAPPROVED role
-            assert response.status_code == HTTP_201_CREATED
-            result = response.json()
-            assert result["role"] == "UNAPPROVED"
-            assert result["username"] == "sso_user"
-            assert result["email"] == "sso@example.com"
-            assert result["google_profile"]["email"] == "sso@gmail.com"
+        # Then the merge succeeds
+        assert response.status_code == HTTP_201_CREATED
+        result = response.json()
+        assert result["id"] == str(primary_user.id)
+        assert result["google_profile"]["email"] == "secondary@gmail.com"
 
-            # Then the user exists in the database
-            new_user = await User.get(id=result["id"])
-            assert new_user is not None
-            assert new_user.role == UserRole.UNAPPROVED
+        # Then the secondary user is archived
+        archived_user = await User.get(id=secondary_user.id)
+        assert archived_user.is_archived is True
 
-        async def test_register_user_missing_required_fields(
-            self,
-            client: AsyncClient,
-            build_url: Callable[[str, Any], str],
-            token_global_admin: dict[str, str],
-            session_company: Company,
-            session_global_admin: Developer,
-        ) -> None:
-            """Verify registration fails without required fields."""
-            # When we register without required fields
-            response = await client.post(
-                build_url(UsersURL.REGISTER, company_id=session_company.id),
-                headers=token_global_admin,
-                json={"name_first": "Test"},
-            )
+    async def test_merge_users_secondary_not_unapproved(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify merge rejects when secondary is not UNAPPROVED."""
+        # Given two active users
+        admin_user = await user_factory(company=session_company, role="ADMIN")
+        primary_user = await user_factory(company=session_company)
+        secondary_user = await user_factory(company=session_company, role="PLAYER")
 
-            # Then validation fails
-            assert response.status_code == HTTP_400_BAD_REQUEST
+        # When we attempt to merge
+        response = await client.post(
+            build_url(UsersURL.MERGE, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(admin_user.id)},
+            json={
+                "primary_user_id": str(primary_user.id),
+                "secondary_user_id": str(secondary_user.id),
+            },
+        )
 
-    class TestMergeUsers:
-        """Test MergeUsers."""
-
-        async def test_merge_users_success(
-            self,
-            client: AsyncClient,
-            build_url: Callable[[str, Any], str],
-            token_global_admin: dict[str, str],
-            session_company: Company,
-            session_global_admin: Developer,
-            user_factory: Callable[..., User],
-        ) -> None:
-            """Verify merging absorbs profile and deletes secondary."""
-            # Given a primary user and an UNAPPROVED secondary user
-            admin_user = await user_factory(company=session_company, role="ADMIN")
-            primary_user = await user_factory(
-                company=session_company,
-                google_profile=None,
-                github_profile=None,
-                discord_profile=None,
-            )
-            secondary_user = await user_factory(
-                company=session_company,
-                role="UNAPPROVED",
-                google_profile={"email": "secondary@gmail.com", "username": "Secondary"},
-            )
-
-            # When we merge the users
-            response = await client.post(
-                build_url(UsersURL.MERGE, company_id=session_company.id),
-                headers=token_global_admin | {"On-Behalf-Of": str(admin_user.id)},
-                json={
-                    "primary_user_id": str(primary_user.id),
-                    "secondary_user_id": str(secondary_user.id),
-                },
-            )
-
-            # Then the merge succeeds
-            assert response.status_code == HTTP_201_CREATED
-            result = response.json()
-            assert result["id"] == str(primary_user.id)
-            assert result["google_profile"]["email"] == "secondary@gmail.com"
-
-            # Then the secondary user is archived
-            archived_user = await User.get(id=secondary_user.id)
-            assert archived_user.is_archived is True
-
-        async def test_merge_users_secondary_not_unapproved(
-            self,
-            client: AsyncClient,
-            build_url: Callable[[str, Any], str],
-            token_global_admin: dict[str, str],
-            session_company: Company,
-            session_global_admin: Developer,
-            user_factory: Callable[..., User],
-        ) -> None:
-            """Verify merge rejects when secondary is not UNAPPROVED."""
-            # Given two active users
-            admin_user = await user_factory(company=session_company, role="ADMIN")
-            primary_user = await user_factory(company=session_company)
-            secondary_user = await user_factory(company=session_company, role="PLAYER")
-
-            # When we attempt to merge
-            response = await client.post(
-                build_url(UsersURL.MERGE, company_id=session_company.id),
-                headers=token_global_admin | {"On-Behalf-Of": str(admin_user.id)},
-                json={
-                    "primary_user_id": str(primary_user.id),
-                    "secondary_user_id": str(secondary_user.id),
-                },
-            )
-
-            # Then the merge is rejected
-            assert response.status_code == HTTP_400_BAD_REQUEST
+        # Then the merge is rejected
+        assert response.status_code == HTTP_400_BAD_REQUEST
 
 
 class TestListUsersEmailFilter:
@@ -1554,7 +1454,7 @@ class TestListUsersEmailFilter:
     async def test_list_users_email_filter(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_global_admin: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,
@@ -1581,7 +1481,7 @@ class TestListUsersEmailFilter:
     async def test_list_users_email_filter_no_results(
         self,
         client: AsyncClient,
-        build_url: Callable[[str, Any], str],
+        build_url: Callable[..., str],
         token_global_admin: dict[str, str],
         session_company: Company,
         session_global_admin: Developer,

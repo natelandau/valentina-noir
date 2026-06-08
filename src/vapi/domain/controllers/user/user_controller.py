@@ -19,7 +19,6 @@ from vapi.domain.services.user_svc import annotate_user_counts
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
-from vapi.lib.rate_limit_policies import USER_REGISTRATION_LIMIT
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -30,7 +29,6 @@ from .dto import (
     UserInclude,
     UserMerge,
     UserPatch,
-    UserRegister,
     UserResponse,
     get_user_include_prefetch_map,
 )
@@ -234,23 +232,6 @@ class UserController(Controller):
             company=company,
             acting_user_id=acting_user.id,
         )
-
-    @post(
-        path=urls.Users.REGISTER,
-        summary="Register user",
-        operation_id="registerUser",
-        description=docs.REGISTER_USER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
-        opt={"rate_limits": [USER_REGISTRATION_LIMIT]},
-    )
-    async def register_user(
-        self, request: Request, data: UserRegister, company: Company
-    ) -> UserResponse:
-        """Register a new user with the UNAPPROVED role."""
-        service = UserService()
-        user = await service.register_user(company=company, data=data)
-        request.state.audit_description = f"Register user '{user.username}'"
-        return await _annotated_user_response(user.id)
 
     @post(
         path=urls.Users.MERGE,
