@@ -1,3 +1,9 @@
+## v0.23.2 (2026-06-08)
+
+### Fix
+
+- **rate-limit**: stop spurious multi-day 429 lockouts (#146)
+
 ## v0.23.1 (2026-06-08)
 
 ### Fix
