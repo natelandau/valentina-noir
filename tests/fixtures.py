@@ -43,7 +43,7 @@ def build_verified_identity(**overrides: Any) -> VerifiedIdentity:
 
 
 @pytest.fixture
-def build_url() -> Callable[[str, Any], str]:
+def build_url() -> Callable[..., str]:
     """Build a URL for tests using dummy default IDs.
 
     Default IDs are stable dummy UUIDs used as fallbacks when the caller does

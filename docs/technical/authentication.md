@@ -45,7 +45,7 @@ You don't need this header for:
 - Developer endpoints (`/developers/me`)
 - System endpoints (`/system/*`, `/health`, `/metadata`)
 - OAuth endpoints (`/oauth/*`)
-- User registration (`/companies/{company_id}/users/register`)
+- Identity resolution (`/companies/{company_id}/auth/identify`)
 
 ### Format and Validation
 

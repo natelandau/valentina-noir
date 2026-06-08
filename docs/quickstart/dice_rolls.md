@@ -89,6 +89,6 @@ With the core loop working, expand your client with the features your game needs
 - [Quick rolls](../concepts/quick_rolls.md) save trait combinations for one-tap rolling.
 - [Notes](https://api.valentina-noir.com/docs) attach to characters, campaigns, books, and chapters for backstory and session recaps.
 - [Dictionary terms](../concepts/dictionary.md) let a company define its own game terminology.
-- [User profiles](../technical/user_management.md) round out the accounts you registered in step 2: let players update their display name, email, avatar, and linked Google, Discord, or GitHub accounts, and give admins the role and approval-queue tools.
+- [User profiles](../technical/user_management.md) round out the accounts you set up in step 2: let players update their display name, email, avatar, and linked Google, Discord, or GitHub accounts, and give admins the role and approval-queue tools.
 
 For production hardening, read about [idempotency keys](../technical/idempotency.md) for safe retries, [rate limits](../technical/rate_limits.md), [error handling](../technical/errors.md), and [request IDs](../technical/request_ids.md) for support and debugging.

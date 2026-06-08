@@ -32,7 +32,7 @@ class GlobalAdminUserService:
         """Create a user in the company named by ``data.company_id``.
 
         The role matrix does not apply. UNAPPROVED and DEACTIVATED are not valid
-        initial roles (use the register/approve flow for UNAPPROVED).
+        initial roles (UNAPPROVED users are created through the identify endpoint).
 
         Args:
             data: The admin user creation payload, including the target company_id.

@@ -23,9 +23,9 @@ headers = {
 
 The API reads this header to apply role-based permissions and record who did what. You'll send it on every campaign, character, and dice-roll request from here on. For format rules and validation, see [Authentication](../technical/authentication.md#the-on-behalf-of-header).
 
-## Sign in a user with a provider (recommended)
+## Sign in a user with a provider
 
-If your users sign in with Apple, Google, Discord, or GitHub, forward the credential to the `identify` endpoint. Valentina verifies it with the provider and returns the Valentina user, creating one if needed. This is simpler than managing lookup and registration separately.
+If your users sign in with Apple, Google, Discord, or GitHub, forward the credential to the `identify` endpoint. Valentina verifies it with the provider and returns the Valentina user, creating one if needed. One call handles lookup, linking, and first-time creation.
 
 ```bash
 curl -X POST "$API/companies/$COMPANY_ID/auth/identify" \
@@ -67,30 +67,29 @@ Store `user.id` and use it as `On-Behalf-Of` from that point on. The `resolution
 
 For full details on resolution order, error codes, and Apple/Google audience configuration, see [Verified Identity](../technical/authentication.md#verified-identity) and the [identify endpoint reference](../technical/user_management.md#identify-resolve-a-provider-login).
 
-## Register a user (assertion-style clients)
+A newly created user starts with the `UNAPPROVED` role. They exist, but can't create characters, join campaigns, or roll dice until an admin approves them.
 
-For bots and server-side clients that manage their own session state, or when you need explicit control over user creation, register users directly. This requires your API key only, no `On-Behalf-Of`.
+## Provision a user without a supported provider
+
+If a player signs in through your app some other way (email and password, or a provider Valentina doesn't verify), an admin creates the account directly. This needs an admin acting user, supplied with `On-Behalf-Of`.
 
 ```python
+admin_headers = {"X-API-KEY": API_KEY, "On-Behalf-Of": admin_user_id}
+
 response = requests.post(
-    f"{BASE_URL}/companies/{company_id}/users/register",
-    headers={"X-API-KEY": API_KEY},
+    f"{BASE_URL}/companies/{company_id}/users",
+    headers=admin_headers,
     json={
         "username": "marcus_player",
         "email": "marcus@example.com",
+        "role": "PLAYER",
     },
 )
 response.raise_for_status()
 user_id = response.json()["id"]
 ```
 
-Only `username` and `email` are required. You can also pass `name_first`, `name_last`, or an OAuth profile (`google_profile`, `discord_profile`, `github_profile`, `apple_profile`) to enrich the account.
-
-New users start with the `UNAPPROVED` role. They exist, but can't create characters, join campaigns, or roll dice until an admin approves them.
-
-!!! info "Avoid duplicates"
-
-    Store the returned `user_id` in your own database against your app's user. On later logins, reuse it instead of registering again. To catch a returning player who signed in through a different identity provider, search with [`GET /users/lookup`](../technical/user_management.md#cross-company-user-lookup) before creating a duplicate.
+An admin-created user is assigned its role at creation, so it skips the approval step below. Provider-identity profiles are never set here; they are written only when a verified credential reaches `identify` or the [link endpoint](../technical/user_management.md#link-attach-a-second-provider-identity).
 
 ## Approve the user
 

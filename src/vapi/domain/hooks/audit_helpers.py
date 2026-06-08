@@ -77,7 +77,6 @@ _FK_PARAM_KEYS: dict[str, str] = {pk: fk for pk, _, fk in PARAM_ENTITY_MAP if fk
 OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createUser": AuditEntityType.USER,
     "globalAdminCreateUser": AuditEntityType.USER,
-    "registerUser": AuditEntityType.USER,
     "identifyUser": AuditEntityType.USER,
     "linkUserIdentity": AuditEntityType.USER,
     "mergeUsers": AuditEntityType.USER,
