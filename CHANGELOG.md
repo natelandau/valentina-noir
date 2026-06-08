@@ -1,3 +1,15 @@
+## v0.23.0 (2026-06-08)
+
+### Feat
+
+- **users**: add endpoint to unlink an OAuth provider identity (#144)
+- **users**: add verified identity resolution (#141)
+
+### Refactor
+
+- **auth**: remove legacy Discord OAuth login flow (#143)
+- **users**: remove unverified registration and profile writes (#142)
+
 ## v0.22.0 (2026-06-06)
 
 ### Feat
