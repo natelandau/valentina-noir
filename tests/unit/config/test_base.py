@@ -1,6 +1,7 @@
 """Tests for shared config parsing in base settings."""
 
 import pytest
+from pydantic import BaseModel
 
 from vapi.config.base import (
     AllowedHostsSettings,
@@ -43,41 +44,39 @@ class TestParseStrCollection:
 class TestCsvFieldWiring:
     """Test that NoDecode + BeforeValidator are wired onto the collection settings fields."""
 
-    def test_oauth_audiences_accept_csv(self) -> None:
-        """Verify OAuth audiences parse from a comma-separated string."""
-        # Given audiences supplied as a comma-separated string
-        # When the OAuth settings are built
-        oauth = OAuthSettings(apple_audiences="com.a.app, com.b.app")  # type: ignore[arg-type]
+    @pytest.mark.parametrize(
+        ("model", "field", "raw", "expected"),
+        [
+            (OAuthSettings, "apple_audiences", "com.a.app, com.b.app", ["com.a.app", "com.b.app"]),
+            (
+                CORSSettings,
+                "allowed_origins",
+                "https://a.com,https://b.com",
+                ["https://a.com", "https://b.com"],
+            ),
+            (
+                AllowedHostsSettings,
+                "hosts",
+                "a.example.com,b.example.com",
+                ["a.example.com", "b.example.com"],
+            ),
+            (LoggingSettings, "obfuscate_headers", "X-Foo,X-Bar", {"X-Foo", "X-Bar"}),
+        ],
+    )
+    def test_collection_field_accepts_csv(
+        self,
+        model: type[BaseModel],
+        field: str,
+        raw: str,
+        expected: list[str] | set[str],
+    ) -> None:
+        """Verify NoDecode collection fields parse a comma-separated string into a collection."""
+        # Given a collection field supplied as a comma-separated string
+        # When the settings model is built
+        settings = model(**{field: raw})
 
-        # Then the value is split into a list
-        assert oauth.apple_audiences == ["com.a.app", "com.b.app"]
-
-    def test_cors_origins_accept_csv(self) -> None:
-        """Verify CORS allowed origins parse from a comma-separated string."""
-        # Given origins supplied as a comma-separated string
-        # When the CORS settings are built
-        cors = CORSSettings(allowed_origins="https://a.com,https://b.com")  # type: ignore[arg-type]
-
-        # Then the value is split into a list
-        assert cors.allowed_origins == ["https://a.com", "https://b.com"]
-
-    def test_allowed_hosts_accept_csv(self) -> None:
-        """Verify allowed hosts parse from a comma-separated string."""
-        # Given hosts supplied as a comma-separated string
-        # When the allowed-hosts settings are built
-        allowed = AllowedHostsSettings(hosts="a.example.com,b.example.com")  # type: ignore[arg-type]
-
-        # Then the value is split into a list
-        assert allowed.hosts == ["a.example.com", "b.example.com"]
-
-    def test_obfuscate_headers_accept_csv(self) -> None:
-        """Verify the obfuscate-headers set parses from a comma-separated string."""
-        # Given header names supplied as a comma-separated string
-        # When the logging settings are built
-        log = LoggingSettings(obfuscate_headers="X-Foo,X-Bar")  # type: ignore[arg-type]
-
-        # Then the value is parsed into a set
-        assert log.obfuscate_headers == {"X-Foo", "X-Bar"}
+        # Then the value is parsed into the expected list or set
+        assert getattr(settings, field) == expected
 
     def test_log_fields_csv_still_validated_against_catalog(self) -> None:
         """Verify the catalog validator still runs after comma-separated parsing."""

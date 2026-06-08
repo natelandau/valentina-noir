@@ -111,10 +111,9 @@ def parse_str_collection(value: str | list[str] | set[str] | None) -> list[str]:
         return []
     if isinstance(value, str):
         stripped = value.strip()
-        if not stripped:
-            return []
         if stripped.startswith("["):
             return json.loads(stripped)
+        # The filter drops empty items, so blank and whitespace-only input yields [].
         return [item.strip() for item in stripped.split(",") if item.strip()]
     return list(value)
 
