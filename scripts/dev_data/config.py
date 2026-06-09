@@ -53,6 +53,8 @@ class PopulateConfig:
     quick_rolls_per_user: tuple[int, int] = (0, 3)
     notes_per_target: tuple[int, int] = (0, 3)
     inventory_per_char: tuple[int, int] = (0, 6)
+    # Fake image assets (picsum.photos URLs, never uploaded) per character, book, chapter
+    images_per_target: tuple[int, int] = (1, 2)
 
     # Traits attached to each generated quick roll (random count in this range)
     traits_per_quick_roll: tuple[int, int] = (1, 3)

@@ -4,7 +4,8 @@ import pytest
 from scripts.dev_data.config import PopulateConfig
 from scripts.dev_data.generators import populate_data
 
-from vapi.constants import CharacterClass, CharacterType, CompanyPermission, UserRole
+from vapi.constants import AssetType, CharacterClass, CharacterType, CompanyPermission, UserRole
+from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.db.sql_models.company import Company
@@ -20,7 +21,7 @@ pytestmark = pytest.mark.anyio
 class TestPopulateData:
     """The generators produce believable, varied, fully-linked data."""
 
-    async def test_populate_data_generates_full_dataset(self) -> None:
+    async def test_populate_data_generates_full_dataset(self) -> None:  # noqa: PLR0915
         # Given: a small but coverage-guaranteeing config. notes_per_target floor is 1 so
         # the per-target note assertions below are deterministic (default floor is 0).
         cfg = PopulateConfig(
@@ -92,6 +93,15 @@ class TestPopulateData:
         assert await Note.filter(campaign_id__isnull=False).count() >= 1
         assert await Note.filter(book_id__isnull=False).count() >= 1
         assert await Note.filter(character_id__isnull=False).count() >= 1
+
+        # Then: fake image assets attach to characters, books, and chapters
+        assert await S3Asset.filter(character_id__isnull=False).count() >= 1
+        assert await S3Asset.filter(book_id__isnull=False).count() >= 1
+        assert await S3Asset.filter(chapter_id__isnull=False).count() >= 1
+        # Then: every asset is an image pointing at picsum.photos (no real S3 upload)
+        assets = await S3Asset.all()
+        assert all(a.asset_type == AssetType.IMAGE for a in assets)
+        assert all(a.public_url.startswith("https://picsum.photos/") for a in assets)
 
         # Then: every generated row is active (no archived rows)
         assert await Company.filter(is_archived=True).count() == 0

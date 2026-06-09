@@ -15,6 +15,7 @@ from scripts.dev_data.config import (
     PopulateConfig,
 )
 from vapi.constants import (
+    AssetType,
     CharacterClass,
     CharacterType,
     CompanyPermission,
@@ -22,6 +23,7 @@ from vapi.constants import (
     InventoryItemType,
     UserRole,
 )
+from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.db.sql_models.character_sheet import Trait
@@ -134,10 +136,11 @@ async def create_users(companies: list[Company], cfg: PopulateConfig) -> dict[st
 
 async def create_campaigns(
     companies: list[Company], cfg: PopulateConfig
-) -> tuple[list[Campaign], list[CampaignBook]]:
+) -> tuple[list[Campaign], list[CampaignBook], list[CampaignChapter]]:
     """Create campaigns with books and chapters for each company."""
     campaigns: list[Campaign] = []
     books: list[CampaignBook] = []
+    chapters: list[CampaignChapter] = []
     for company in companies:
         for _ in range(cfg.num_campaigns):
             campaign = await Campaign.create(company=company, name=fake.campaign_title())
@@ -148,8 +151,11 @@ async def create_campaigns(
                 )
                 books.append(book)
                 for c in range(cfg.chapters_per_book):
-                    await CampaignChapter.create(book=book, number=c + 1, name=fake.chapter_title())
-    return campaigns, books
+                    chapter = await CampaignChapter.create(
+                        book=book, number=c + 1, name=fake.chapter_title()
+                    )
+                    chapters.append(chapter)
+    return campaigns, books, chapters
 
 
 def _character_type_for_index(index: int) -> CharacterType:
@@ -295,6 +301,61 @@ async def create_notes(
             )
 
 
+# Varied placeholder dimensions so the dev UI shows different aspect ratios.
+_IMAGE_SIZES: tuple[tuple[int, int], ...] = (
+    (400, 300),
+    (600, 400),
+    (800, 600),
+    (1200, 800),
+    (1024, 768),
+)
+
+
+async def create_assets(
+    characters: list[Character],
+    books: list[CampaignBook],
+    chapters: list[CampaignChapter],
+    campaigns: list[Campaign],
+    users_by_company: dict[str, list[User]],
+    cfg: PopulateConfig,
+) -> None:
+    """Attach fake image assets to characters, books, and chapters.
+
+    These are DB rows only: public_url points at picsum.photos and s3_key/s3_bucket are
+    placeholder values. Nothing is uploaded to S3.
+    """
+    campaigns_by_id = {str(campaign.id): campaign for campaign in campaigns}
+    books_by_id = {str(book.id): book for book in books}
+    seed = 0
+
+    async def _attach(*, company_id: UUID, parent_kwarg: str, parent: object) -> None:
+        nonlocal seed
+        for _ in range(_count(cfg.images_per_target)):
+            seed += 1
+            width, height = random.choice(_IMAGE_SIZES)
+            await S3Asset.create(
+                asset_type=AssetType.IMAGE,
+                mime_type="image/png",
+                original_filename=f"{fake.inventory_item_name()}.png",
+                s3_key=f"dev/{company_id}/{seed}.png",
+                s3_bucket="dev-fake-bucket",
+                public_url=fake.picsum_url(width=width, height=height, seed=seed),
+                company_id=_uuid(company_id),
+                uploaded_by=random.choice(users_by_company[str(company_id)]),
+                **{parent_kwarg: parent},
+            )
+
+    for character in characters:
+        await _attach(company_id=character.company_id, parent_kwarg="character", parent=character)
+    for book in books:
+        campaign = campaigns_by_id[str(book.campaign_id)]
+        await _attach(company_id=campaign.company_id, parent_kwarg="book", parent=book)
+    for chapter in chapters:
+        parent_book = books_by_id[str(chapter.book_id)]
+        campaign = campaigns_by_id[str(parent_book.campaign_id)]
+        await _attach(company_id=campaign.company_id, parent_kwarg="chapter", parent=chapter)
+
+
 async def populate_data(cfg: PopulateConfig) -> list[Developer]:
     """Run every generator in dependency order; return the developers for key output.
 
@@ -304,12 +365,13 @@ async def populate_data(cfg: PopulateConfig) -> list[Developer]:
     accounts = await create_developers()
     companies = await create_companies(accounts, cfg)
     users_by_company = await create_users(companies, cfg)
-    campaigns, books = await create_campaigns(companies, cfg)
+    campaigns, books, chapters = await create_campaigns(companies, cfg)
     characters = await create_characters(campaigns, companies, users_by_company, cfg)
     await create_inventory(characters, cfg)
     await create_dice_rolls(characters, users_by_company, cfg)
     await create_quick_rolls(users_by_company, cfg)
     await create_notes(campaigns, books, characters, users_by_company, cfg)
+    await create_assets(characters, books, chapters, campaigns, users_by_company, cfg)
     return accounts.as_list()
 
 

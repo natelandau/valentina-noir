@@ -44,7 +44,9 @@ All application configuration variables from `.env.example` are also supported a
 
 ## Populate dev data
 
-Fill a local development database with believable, varied test data (companies, users with every role, campaigns/books/chapters, a vampire/werewolf/mortal/hunter character mix, dice rolls, quick rolls, notes, and inventory). This is dev-only tooling and is not shipped in the production image.
+Fill a local development database with believable, varied test data (companies, users with every role, campaigns/books/chapters, a vampire/werewolf/mortal/hunter character mix, dice rolls, quick rolls, notes, inventory, and placeholder image assets). This is dev-only tooling and is not shipped in the production image.
+
+Image assets are not uploaded anywhere: they are database rows whose public URL points at `picsum.photos`, attached to characters, books, and chapters.
 
 ```bash
 duty populate                 # reset + seed + populate (non-interactive)

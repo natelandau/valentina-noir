@@ -73,3 +73,11 @@ def email() -> str:
 def username() -> str:
     """A username clamped to User.username (3-50)."""
     return _clamp(_fake.user_name(), 3, 50)
+
+
+def picsum_url(*, width: int, height: int, seed: int) -> str:
+    """A picsum.photos image URL. The seed keeps each generated image distinct.
+
+    These point at an external placeholder service; no file is ever uploaded to S3.
+    """
+    return f"https://picsum.photos/{width}/{height}?random={seed}"
