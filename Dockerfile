@@ -55,9 +55,10 @@ WORKDIR /app
 # Copy the built venv from builder
 COPY --from=builder /app/.venv .venv
 
-# Copy source and scripts
+# Copy source and the docker entrypoint only.
+# Dev-only scripts (populate_dev_db.py, dev_data/) are intentionally excluded from the image.
 COPY src/ ./src/
-COPY scripts/ ./scripts/
+COPY scripts/docker_entry.sh ./scripts/docker_entry.sh
 RUN chmod +x scripts/docker_entry.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
