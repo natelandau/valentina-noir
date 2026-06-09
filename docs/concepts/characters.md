@@ -167,7 +167,7 @@ The `include` parameter lets you fetch a character and its related data without 
 | `traits`    | All assigned traits with full trait details          |
 | `inventory` | All inventory items                                 |
 | `notes`     | All notes attached to the character                 |
-| `assets`    | All uploaded assets (images, files) for the character |
+| `assets`    | All uploaded image assets for the character         |
 
 Repeat the parameter for multiple values:
 
@@ -336,4 +336,6 @@ Attach free-form text notes to a character for tracking backstory, session recap
 
 ### Assets
 
-Upload files (images, documents) associated with a character. Common uses include character portraits, handouts, and reference images. Each asset tracks its file type, original filename, and a public URL for retrieval.
+Upload images associated with a character. Common uses include character portraits and reference images. Each asset tracks its file type, original filename, and a public URL for retrieval.
+
+Only image uploads are accepted: **PNG, JPEG, GIF, and WEBP**. The format is detected from the file's contents, so the stored type reflects the actual image, not the filename or the declared content type. Any upload that is not one of these image formats (including SVG) is rejected with a `400`.

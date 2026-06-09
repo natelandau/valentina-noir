@@ -39,6 +39,13 @@ class User(BaseModel):
     discord_profile: Any = fields.JSONField(null=True)
     apple_profile: Any = fields.JSONField(null=True)
 
+    # Custom avatar (overrides OAuth-derived avatar). Denormalized to avoid a
+    # User<->S3Asset cyclic FK: avatar_url is the active avatar's CloudFront URL
+    # (read directly in responses); avatar_asset_id is the active avatar S3Asset's id,
+    # used by AvatarService to archive the previous asset on replace/remove.
+    avatar_url = fields.TextField(null=True)
+    avatar_asset_id = fields.UUIDField(null=True)
+
     # FK
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="users", on_delete=fields.OnDelete.CASCADE

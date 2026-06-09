@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -10,8 +11,10 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
 )
+from PIL import Image
 
 from vapi.constants import AssetType
 from vapi.db.sql_models.aws import S3Asset
@@ -28,6 +31,13 @@ if TYPE_CHECKING:
     from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
+
+
+def _png_bytes() -> bytes:
+    """Build encoded PNG bytes for asset-upload tests."""
+    buf = io.BytesIO()
+    Image.new("RGB", (32, 32), color=(10, 20, 30)).save(buf, format="PNG")
+    return buf.getvalue()
 
 
 async def test_list_assets(
@@ -184,8 +194,8 @@ async def test_upload_image(
     session_campaign: Campaign,
     debug: Callable[[...], None],
 ) -> None:
-    """Verify uploading an asset creates an S3Asset record."""
-    # When: Uploading a file
+    """Verify uploading an image asset creates an S3Asset record."""
+    # When: Uploading a PNG image
     response = await client.post(
         build_url(
             Campaigns.ASSET_UPLOAD,
@@ -193,7 +203,7 @@ async def test_upload_image(
             campaign_id=session_campaign.id,
         ),
         headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
-        files={"upload": ("somefile.txt", b"world")},
+        files={"upload": ("portrait.png", _png_bytes(), "image/png")},
     )
     # debug(response.json())
 
@@ -202,27 +212,83 @@ async def test_upload_image(
 
     response_json = response.json()
 
-    # Then: Response contains expected fields
-    assert response_json["original_filename"] == "somefile.txt"
-    assert response_json["mime_type"] == "text/plain"
-    assert response_json["asset_type"] == "text"
+    # Then: Response contains expected fields with the detected image MIME type
+    assert response_json["original_filename"] == "portrait.png"
+    assert response_json["mime_type"] == "image/png"
+    assert response_json["asset_type"] == "image"
     assert response_json["campaign_id"] == str(session_campaign.id)
     assert response_json["uploaded_by_id"] == str(session_user.id)
     assert response_json["company_id"] == str(session_company.id)
     assert response_json["id"] is not None
 
-    expected_pattern = rf"^MOCK_URL/{session_company.id}/{session_campaign.id}/text/.+\.txt$"
+    expected_pattern = rf"^MOCK_URL/{session_company.id}/{session_campaign.id}/image/.+\.png$"
     assert re.match(expected_pattern, response_json["public_url"]) is not None
 
     # Then: Asset exists in the database
     db_asset = await S3Asset.filter(id=response_json["id"]).first()
     assert db_asset is not None
-    assert db_asset.asset_type == AssetType.TEXT
-    assert db_asset.mime_type == "text/plain"
+    assert db_asset.asset_type == AssetType.IMAGE
+    assert db_asset.mime_type == "image/png"
     assert str(db_asset.campaign_id) == str(session_campaign.id)  # type: ignore[attr-defined]
     assert str(db_asset.company_id) == str(session_company.id)  # type: ignore[attr-defined]
     assert str(db_asset.uploaded_by_id) == str(session_user.id)  # type: ignore[attr-defined]
     assert db_asset.public_url == response_json["public_url"]
+
+
+async def test_upload_svg_rejected(
+    client: AsyncClient,
+    token_company_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    session_company: Company,
+    session_user: User,
+    session_campaign: Campaign,
+) -> None:
+    """Verify uploading an SVG asset is rejected with a 400."""
+    # When: Uploading an SVG file
+    response = await client.post(
+        build_url(
+            Campaigns.ASSET_UPLOAD,
+            company_id=session_company.id,
+            campaign_id=session_campaign.id,
+        ),
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
+        files={
+            "upload": (
+                "logo.svg",
+                b'<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+                "image/svg+xml",
+            )
+        },
+    )
+
+    # Then: The upload is rejected and no asset is stored
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert await S3Asset.filter(campaign_id=session_campaign.id).count() == 0
+
+
+async def test_upload_spoofed_image_rejected(
+    client: AsyncClient,
+    token_company_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    session_company: Company,
+    session_user: User,
+    session_campaign: Campaign,
+) -> None:
+    """Verify a non-image payload declared as an image is rejected with a 400."""
+    # When: Uploading HTML bytes that claim to be a PNG
+    response = await client.post(
+        build_url(
+            Campaigns.ASSET_UPLOAD,
+            company_id=session_company.id,
+            campaign_id=session_campaign.id,
+        ),
+        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
+        files={"upload": ("evil.png", b"<html><script>alert(1)</script></html>", "image/png")},
+    )
+
+    # Then: The upload is rejected and no asset is stored
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert await S3Asset.filter(campaign_id=session_campaign.id).count() == 0
 
 
 async def test_delete_image(

@@ -36,6 +36,7 @@
             { "Error Handling" = "technical/errors.md" },
             { "Global Administration" = "technical/global_admin.md" },
             { "Idempotency" = "technical/idempotency.md" },
+            { "Image Assets" = "technical/assets.md" },
             { "Pagination" = "technical/pagination.md" },
             { "Rate Limiting" = "technical/rate_limits.md" },
             { "Request IDs" = "technical/request_ids.md" },

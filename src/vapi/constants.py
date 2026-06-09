@@ -33,6 +33,20 @@ AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
 BACKUP_S3_PREFIX: Final[str] = "db_backups/"
+
+# Image formats accepted for asset and avatar uploads. Maps the Pillow format name to the
+# canonical MIME type we store and serve; the client-declared MIME type is discarded in
+# favor of the format detected from the bytes. Uploads of any other type are rejected.
+ALLOWED_IMAGE_UPLOAD_FORMATS: Final[dict[str, str]] = {
+    "PNG": "image/png",
+    "JPEG": "image/jpeg",
+    "GIF": "image/gif",
+    "WEBP": "image/webp",
+}
+
+# MIME types safe to serve with an inline Content-Disposition. Anything not in this set is
+# served as an attachment so untrusted bytes can never render/execute in the browser.
+INLINE_SAFE_MIME_TYPES: Final[frozenset[str]] = frozenset(ALLOWED_IMAGE_UPLOAD_FORMATS.values())
 RECOUP_XP_SESSION_LENGTH: Final[int] = (
     3600  # seconds (1 hour); used for WITHIN_SESSION recoup floor TTL
 )

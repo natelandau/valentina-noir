@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import re
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
 from botocore.exceptions import ClientError
+from PIL import Image
 
 from vapi.config.base import settings
 from vapi.constants import (
@@ -18,7 +20,7 @@ from vapi.constants import (
 )
 from vapi.db.sql_models.aws import S3Asset
 from vapi.domain.services.aws_service import AWSS3Service
-from vapi.lib.exceptions import AWSS3Error
+from vapi.lib.exceptions import AWSS3Error, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -27,6 +29,13 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 pytestmark = pytest.mark.anyio
+
+
+def _img_bytes(fmt: str = "PNG", size: tuple[int, int] = (64, 64)) -> bytes:
+    """Build encoded image bytes of a given format for asset-upload tests."""
+    buf = io.BytesIO()
+    Image.new("RGB", size, color=(10, 20, 30)).save(buf, format=fmt)
+    return buf.getvalue()
 
 
 class TestGenerateAwsKey:
@@ -192,6 +201,52 @@ class TestUploadToS3:
         with pytest.raises(AWSS3Error):
             await service._upload_to_s3(asset=asset, data=b"payload")
 
+    async def test_upload_to_s3_serves_images_inline(
+        self,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify an image asset is stored with an inline Content-Disposition."""
+        # Given an image asset and a mocked S3 client
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(
+            company=company, uploaded_by=user, mime_type="image/png", asset_type=AssetType.IMAGE
+        )
+        service = AWSS3Service()
+        put_object = mocker.patch.object(service.s3, "put_object")
+
+        # When uploading the asset bytes
+        await service._upload_to_s3(asset=asset, data=b"payload")
+
+        # Then the object is served inline
+        assert put_object.call_args.kwargs["ContentDisposition"].startswith("inline;")
+
+    async def test_upload_to_s3_serves_non_safe_types_as_attachment(
+        self,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify an asset whose MIME type is not inline-safe is stored as an attachment."""
+        # Given a (legacy) text asset and a mocked S3 client
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(
+            company=company, uploaded_by=user, mime_type="text/html", asset_type=AssetType.TEXT
+        )
+        service = AWSS3Service()
+        put_object = mocker.patch.object(service.s3, "put_object")
+
+        # When uploading the asset bytes
+        await service._upload_to_s3(asset=asset, data=b"payload")
+
+        # Then the object is forced to download rather than render inline
+        assert put_object.call_args.kwargs["ContentDisposition"].startswith("attachment;")
+
 
 class TestUploadAsset:
     """Test the upload_asset method."""
@@ -208,22 +263,21 @@ class TestUploadAsset:
         user = await user_factory(company=company)
         character = await character_factory(company=company)
 
-        # When: Uploading an asset
+        # When: Uploading an image asset
         service = AWSS3Service()
         asset = await service.upload_asset(
             company_id=company.id,
             uploaded_by_id=user.id,
             parent_id=character.id,
             parent_fk_field="character_id",
-            data=b"test data",
-            filename="test.jpg",
-            mime_type="image/jpeg",
+            data=_img_bytes("PNG"),
+            filename="portrait.png",
         )
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
         assert asset.asset_type == AssetType.IMAGE
-        assert asset.mime_type == "image/jpeg"
+        assert asset.mime_type == "image/png"
         assert asset.character_id == character.id  # type: ignore[attr-defined]
         assert asset.company_id == company.id  # type: ignore[attr-defined]
         assert asset.uploaded_by_id == user.id  # type: ignore[attr-defined]
@@ -240,22 +294,20 @@ class TestUploadAsset:
         user = await user_factory(company=company)
         uploader = await user_factory(company=company)
 
-        # When: Uploading an asset
+        # When: Uploading an image asset
         service = AWSS3Service()
         asset = await service.upload_asset(
             company_id=company.id,
             uploaded_by_id=uploader.id,
             parent_id=user.id,
             parent_fk_field="user_parent_id",
-            data=b"audio data",
-            filename="song.mp3",
-            mime_type="audio/mpeg",
+            data=_img_bytes("PNG"),
+            filename="portrait.png",
         )
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.AUDIO
-        assert asset.mime_type == "audio/mpeg"
+        assert asset.asset_type == AssetType.IMAGE
         assert asset.user_parent_id == user.id  # type: ignore[attr-defined]
         assert asset.uploaded_by_id == uploader.id  # type: ignore[attr-defined]
 
@@ -271,22 +323,20 @@ class TestUploadAsset:
         campaign = await campaign_factory(company=company)
         user = await user_factory(company=company)
 
-        # When: Uploading an asset
+        # When: Uploading an image asset
         service = AWSS3Service()
         asset = await service.upload_asset(
             company_id=company.id,
             uploaded_by_id=user.id,
             parent_id=campaign.id,
             parent_fk_field="campaign_id",
-            data=b"video data",
-            filename="intro.mp4",
-            mime_type="video/mp4",
+            data=_img_bytes("PNG"),
+            filename="map.png",
         )
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.VIDEO
-        assert asset.mime_type == "video/mp4"
+        assert asset.asset_type == AssetType.IMAGE
         assert asset.campaign_id == campaign.id  # type: ignore[attr-defined]
 
     async def test_upload_asset_campaign_book(
@@ -303,22 +353,20 @@ class TestUploadAsset:
         book = await campaign_book_factory(campaign=campaign)
         user = await user_factory(company=company)
 
-        # When: Uploading an asset
+        # When: Uploading an image asset
         service = AWSS3Service()
         asset = await service.upload_asset(
             company_id=company.id,
             uploaded_by_id=user.id,
             parent_id=book.id,
             parent_fk_field="book_id",
-            data=b"pdf data",
-            filename="document.pdf",
-            mime_type="application/pdf",
+            data=_img_bytes("PNG"),
+            filename="cover.png",
         )
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.DOCUMENT
-        assert asset.mime_type == "application/pdf"
+        assert asset.asset_type == AssetType.IMAGE
         assert asset.book_id == book.id  # type: ignore[attr-defined]
 
     async def test_upload_asset_campaign_chapter(
@@ -337,65 +385,96 @@ class TestUploadAsset:
         chapter = await campaign_chapter_factory(book=book)
         user = await user_factory(company=company)
 
-        # When: Uploading an asset
+        # When: Uploading an image asset
         service = AWSS3Service()
         asset = await service.upload_asset(
             company_id=company.id,
             uploaded_by_id=user.id,
             parent_id=chapter.id,
             parent_fk_field="chapter_id",
-            data=b"text data",
-            filename="notes.txt",
-            mime_type="text/plain",
+            data=_img_bytes("PNG"),
+            filename="scene.png",
         )
 
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
-        assert asset.asset_type == AssetType.TEXT
-        assert asset.mime_type == "text/plain"
+        assert asset.asset_type == AssetType.IMAGE
         assert asset.chapter_id == chapter.id  # type: ignore[attr-defined]
 
     @pytest.mark.parametrize(
-        ("mime_type", "expected_type"),
+        ("fmt", "expected_mime"),
         [
-            ("image/jpeg", AssetType.IMAGE),
-            ("image/png", AssetType.IMAGE),
-            ("audio/mpeg", AssetType.AUDIO),
-            ("video/mp4", AssetType.VIDEO),
-            ("text/plain", AssetType.TEXT),
-            ("application/pdf", AssetType.DOCUMENT),
-            ("application/zip", AssetType.ARCHIVE),
-            ("application/octet-stream", AssetType.OTHER),
+            ("PNG", "image/png"),
+            ("JPEG", "image/jpeg"),
+            ("GIF", "image/gif"),
+            ("WEBP", "image/webp"),
         ],
     )
-    async def test_upload_asset_determines_asset_type(
+    async def test_upload_asset_stores_detected_mime(
         self,
         character_factory: Callable,
         user_factory: Callable,
         company_factory: Callable,
-        mime_type: str,
-        expected_type: AssetType,
+        fmt: str,
+        expected_mime: str,
     ) -> None:
-        """Verify upload_asset sets correct AssetType based on MIME type."""
+        """Verify the stored MIME type is detected from the bytes, not the filename."""
         # Given: A character and user
         company = await company_factory()
         character = await character_factory(company=company)
         user = await user_factory(company=company)
 
-        # When: Uploading an asset with the given MIME type
+        # When: Uploading an image whose filename extension is misleading (.bin)
         service = AWSS3Service()
         asset = await service.upload_asset(
             company_id=company.id,
             uploaded_by_id=user.id,
             parent_id=character.id,
             parent_fk_field="character_id",
-            data=b"test data",
-            filename="test.bin",
-            mime_type=mime_type,
+            data=_img_bytes(fmt),
+            filename="upload.bin",
         )
 
-        # Then: Asset type is correctly determined
-        assert asset.asset_type == expected_type
+        # Then: The detected canonical MIME type is stored
+        assert asset.asset_type == AssetType.IMAGE
+        assert asset.mime_type == expected_mime
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            b"plain text, not an image",
+            b"%PDF-1.4 fake pdf bytes",
+            b'<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+            b"<html><script>alert(1)</script></html>",
+        ],
+        ids=["text", "pdf", "svg", "html"],
+    )
+    async def test_upload_asset_rejects_non_image(
+        self,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
+        data: bytes,
+    ) -> None:
+        """Verify any non-image payload is rejected and leaves no S3Asset row."""
+        # Given a character/user and a non-image payload
+        company = await company_factory()
+        character = await character_factory(company=company)
+        user = await user_factory(company=company)
+
+        # When uploading the non-image payload
+        # Then a ValidationError is raised and no S3Asset row is created
+        service = AWSS3Service()
+        with pytest.raises(ValidationError):
+            await service.upload_asset(
+                company_id=company.id,
+                uploaded_by_id=user.id,
+                parent_id=character.id,
+                parent_fk_field="character_id",
+                data=data,
+                filename="upload.bin",
+            )
+        assert await S3Asset.filter(company_id=company.id).count() == 0
 
     async def test_upload_asset_sanitizes_filename(
         self,
@@ -408,7 +487,7 @@ class TestUploadAsset:
         company = await company_factory()
         character = await character_factory(company=company)
         user = await user_factory(company=company)
-        dangerous_filename = '../path/to/file"name;test.jpg'
+        dangerous_filename = '../path/to/file"name;test.png'
 
         # When: Uploading an asset with a dangerous filename
         service = AWSS3Service()
@@ -417,9 +496,8 @@ class TestUploadAsset:
             uploaded_by_id=user.id,
             parent_id=character.id,
             parent_fk_field="character_id",
-            data=b"test data",
+            data=_img_bytes("PNG"),
             filename=dangerous_filename,
-            mime_type="image/jpeg",
         )
 
         # Then: Filename is sanitized (dangerous chars removed)
@@ -453,9 +531,8 @@ class TestUploadAsset:
                 uploaded_by_id=user.id,
                 parent_id=character.id,
                 parent_fk_field="character_id",
-                data=b"test data",
-                filename="test.jpg",
-                mime_type="image/jpeg",
+                data=_img_bytes("PNG"),
+                filename="portrait.png",
             )
 
         # Then no orphaned S3Asset row remains
