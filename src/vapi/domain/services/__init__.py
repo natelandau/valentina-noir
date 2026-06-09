@@ -3,6 +3,7 @@
 Contains business logic across the domain.
 """
 
+from .avatar_svc import AvatarService
 from .aws_service import AWSS3Service
 from .campaign_svc import CampaignService
 from .character_blueprint_svc import CharacterBlueprintService
@@ -21,6 +22,7 @@ from .validation_svc import GetModelByIdValidationService
 
 __all__ = (
     "AWSS3Service",
+    "AvatarService",
     "CampaignService",
     "CharacterBlueprintService",
     "CharacterService",
