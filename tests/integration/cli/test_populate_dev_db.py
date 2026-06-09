@@ -33,25 +33,35 @@ class TestPopulateData:
             quick_rolls_per_user=(1, 3),
         )
 
+        # Baseline counts: under the parallel suite this test shares a worker database
+        # where session-scoped fixtures (company, user, campaign, book, developer) are
+        # preserved across per-test cleanup, so assert on deltas, not absolute counts.
+        companies_before = await Company.all().count()
+        users_before = await User.all().count()
+        campaigns_before = await Campaign.all().count()
+        books_before = await CampaignBook.all().count()
+        global_admins_before = await Developer.filter(is_global_admin=True).count()
+        non_global_before = await Developer.filter(is_global_admin=False).count()
+
         # When: running the generators against the seeded test database
         developers = await populate_data(cfg)
 
         # Then: the three developer tiers exist and are returned
         assert len(developers) == 3
         assert sum(1 for d in developers if d.is_global_admin) == 1
-        assert await Developer.filter(is_global_admin=True).count() == 1
-        assert await Developer.filter(is_global_admin=False).count() == 2
+        assert await Developer.filter(is_global_admin=True).count() - global_admins_before == 1
+        assert await Developer.filter(is_global_admin=False).count() - non_global_before == 2
         dev_ids = [d.id for d in developers]
         granted = await DeveloperCompanyPermission.filter(developer_id__in=dev_ids)
         permissions = {p.permission for p in granted}
         assert CompanyPermission.ADMIN in permissions
         assert CompanyPermission.USER in permissions
 
-        # Then: the backbone entities exist
-        assert await Company.all().count() == 1
-        assert await User.all().count() == 3
-        assert await Campaign.all().count() == 1
-        assert await CampaignBook.all().count() == cfg.books_per_campaign
+        # Then: the backbone entities are created in the expected counts
+        assert await Company.all().count() - companies_before == 1
+        assert await User.all().count() - users_before == 3
+        assert await Campaign.all().count() - campaigns_before == 1
+        assert await CampaignBook.all().count() - books_before == cfg.books_per_campaign
 
         # Then: user roles are fully covered
         roles = {u.role for u in await User.all()}
