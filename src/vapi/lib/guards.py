@@ -36,6 +36,7 @@ __all__ = (
     "user_active_guard",
     "user_can_manage_campaign",
     "user_character_player_or_storyteller_guard",
+    "user_self_or_admin_guard",
     "user_storyteller_guard",
 )
 
@@ -210,6 +211,34 @@ async def user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHand
 
     if user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
         raise PermissionDeniedError(detail="User must be a storyteller or admin")
+
+
+async def user_self_or_admin_guard(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:
+    """Guard requiring the acting user to be the target user or an admin.
+
+    Read ``user_id`` from the path and the acting user from the On-Behalf-Of header.
+    Allow the request when the acting user is that target user or has the ADMIN role;
+    otherwise deny. Used on self-service endpoints (e.g. avatar management) where a
+    user may manage only their own resource unless they are an admin.
+    """
+    user_id_str = connection.path_params.get("user_id")
+    if not user_id_str:
+        raise ValidationError(
+            detail="User ID is required",
+            invalid_parameters=[{"field": "user_id", "message": "User ID is required"}],
+        )
+
+    try:
+        target_uuid = UUID(user_id_str)
+    except ValueError as e:
+        raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
+
+    user = await _resolve_acting_user_from_header(connection)
+
+    if user.role == UserRole.ADMIN or user.id == target_uuid:
+        return
+
+    raise PermissionDeniedError(detail="No rights to access this resource")
 
 
 async def user_character_player_or_storyteller_guard(
