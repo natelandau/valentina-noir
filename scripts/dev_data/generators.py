@@ -211,11 +211,11 @@ async def create_dice_rolls(
     dice_sizes = list(DiceSize)
     for character in characters:
         company_users = users_by_company[str(character.company_id)]
-        # Convert uuid_utils.UUID FK ids to stdlib uuid.UUID; Tortoise's UUIDField
-        # calls uuid.UUID(value) internally, which fails on uuid_utils.UUID objects.
-        company_id = uuid.UUID(str(character.company_id))
-        character_id = uuid.UUID(str(character.id))
-        campaign_id = uuid.UUID(str(character.campaign_id)) if character.campaign_id else None
+        # Normalize uuid_utils.UUID FK ids to stdlib uuid.UUID before passing them as
+        # _id-form values (Tortoise's UUIDField conversion rejects uuid_utils.UUID).
+        company_id = _uuid(character.company_id)
+        character_id = _uuid(character.id)
+        campaign_id = _uuid(character.campaign_id) if character.campaign_id else None
         for _ in range(_count(cfg.dice_rolls_per_char)):
             user = random.choice(company_users)
             data = DiceRollCreate(
@@ -228,7 +228,7 @@ async def create_dice_rolls(
                 character_id=character_id,
             )
             await service.create_complete_dice_roll(
-                data=data, company_id=company_id, user_id=uuid.UUID(str(user.id))
+                data=data, company_id=company_id, user_id=_uuid(user.id)
             )
 
 
