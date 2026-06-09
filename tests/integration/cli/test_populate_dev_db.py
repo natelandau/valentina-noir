@@ -1,0 +1,83 @@
+"""Integration smoke test for dev-data population generators."""
+
+import pytest
+from scripts.dev_data.config import PopulateConfig
+from scripts.dev_data.generators import populate_data
+
+from vapi.constants import CharacterClass, CharacterType, CompanyPermission, UserRole
+from vapi.db.sql_models.campaign import Campaign, CampaignBook
+from vapi.db.sql_models.character import Character, CharacterInventory
+from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.quickroll import QuickRoll
+from vapi.db.sql_models.user import User
+
+pytestmark = pytest.mark.anyio
+
+
+class TestPopulateData:
+    """The generators produce believable, varied, fully-linked data."""
+
+    async def test_populate_data_generates_full_dataset(self) -> None:
+        # Given: a small but coverage-guaranteeing config. notes_per_target floor is 1 so
+        # the per-target note assertions below are deterministic (default floor is 0).
+        cfg = PopulateConfig(
+            num_companies=1,
+            num_users=3,
+            num_campaigns=1,
+            num_characters=4,
+            notes_per_target=(1, 3),
+            inventory_per_char=(1, 3),
+            quick_rolls_per_user=(1, 3),
+        )
+
+        # When: running the generators against the seeded test database
+        developers = await populate_data(cfg)
+
+        # Then: the three developer tiers exist and are returned
+        assert len(developers) == 3
+        assert sum(1 for d in developers if d.is_global_admin) == 1
+        assert await Developer.filter(is_global_admin=True).count() == 1
+        assert await Developer.filter(is_global_admin=False).count() == 2
+        dev_ids = [d.id for d in developers]
+        granted = await DeveloperCompanyPermission.filter(developer_id__in=dev_ids)
+        permissions = {p.permission for p in granted}
+        assert CompanyPermission.ADMIN in permissions
+        assert CompanyPermission.USER in permissions
+
+        # Then: the backbone entities exist
+        assert await Company.all().count() == 1
+        assert await User.all().count() == 3
+        assert await Campaign.all().count() == 1
+        assert await CampaignBook.all().count() == cfg.books_per_campaign
+
+        # Then: user roles are fully covered
+        roles = {u.role for u in await User.all()}
+        assert {UserRole.ADMIN, UserRole.STORYTELLER, UserRole.PLAYER} <= roles
+
+        # Then: characters cover every type and include a vampire and a werewolf
+        chars = await Character.all()
+        assert len(chars) == 4
+        char_types = {c.type for c in chars}
+        assert {CharacterType.PLAYER, CharacterType.NPC, CharacterType.STORYTELLER} <= char_types
+        char_classes = {c.character_class for c in chars}
+        assert CharacterClass.VAMPIRE in char_classes
+        assert CharacterClass.WEREWOLF in char_classes
+
+        # Then: content entities are present (floors pinned to 1 in cfg above)
+        assert await CharacterInventory.all().count() >= 1
+        assert await DiceRoll.all().count() >= 1
+        assert await DiceRollResult.all().count() == await DiceRoll.all().count()
+        assert await QuickRoll.all().count() >= 1
+
+        # Then: notes attach to all three target types
+        assert await Note.filter(campaign_id__isnull=False).count() >= 1
+        assert await Note.filter(book_id__isnull=False).count() >= 1
+        assert await Note.filter(character_id__isnull=False).count() >= 1
+
+        # Then: every generated row is active (no archived rows)
+        assert await Company.filter(is_archived=True).count() == 0
+        assert await Character.filter(is_archived=True).count() == 0
+        assert await Note.filter(is_archived=True).count() == 0
