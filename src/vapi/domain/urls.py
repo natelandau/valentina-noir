@@ -84,6 +84,9 @@ class Users:
     ASSET_DETAIL = f"{ASSETS}/{{asset_id:str}}"
     ASSET_DELETE = ASSET_DETAIL
 
+    # User avatar
+    AVATAR = f"{DETAIL}/avatar"
+
     STATISTICS = f"{DETAIL}/statistics"
 
     # User experience
