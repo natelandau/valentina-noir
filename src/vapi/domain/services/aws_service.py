@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -16,14 +15,17 @@ from vapi.constants import (
     AWS_ONE_DAY_CACHE_HEADER,
     AWS_ONE_HOUR_CACHE_HEADER,
     AWS_ONE_YEAR_CACHE_HEADER,
+    INLINE_SAFE_MIME_TYPES,
     AssetType,
 )
 from vapi.db.sql_models.aws import S3Asset
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
-from vapi.utils.assets import determine_asset_type, sanitize_filename
+from vapi.utils.assets import sanitize_filename
+from vapi.utils.images import validate_image_upload
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from uuid import UUID
 
 __all__ = ("AWSS3Service",)
@@ -161,6 +163,9 @@ class AWSS3Service:
     async def _upload_to_s3(self, asset: S3Asset, data: bytes) -> None:
         """Upload data to the S3 bucket."""
         cache_control = self._get_cache_control(asset.asset_type)
+        # Only known-safe types render inline; anything else is forced to download so
+        # untrusted bytes can never execute in the browser from the asset domain.
+        disposition = "inline" if asset.mime_type in INLINE_SAFE_MIME_TYPES else "attachment"
         try:
             await asyncio.to_thread(
                 self.s3.put_object,
@@ -169,7 +174,7 @@ class AWSS3Service:
                 Body=data,
                 ContentType=asset.mime_type,
                 CacheControl=cache_control,
-                ContentDisposition=f'inline; filename="{asset.original_filename}"',
+                ContentDisposition=f'{disposition}; filename="{asset.original_filename}"',
                 Metadata={
                     "uploaded-via": settings.slug,
                     "original-filename": asset.original_filename,
@@ -193,24 +198,32 @@ class AWSS3Service:
         parent_fk_field: str,
         data: bytes,
         filename: str,
-        mime_type: str,
     ) -> S3Asset:
-        """Upload an asset and create the database record.
+        """Upload an image asset and create the database record.
+
+        Only image uploads (PNG/JPEG/GIF/WEBP) are accepted. The MIME type and asset
+        type are derived from the bytes, not from the client; a non-image payload
+        raises ValidationError before anything is written.
 
         Args:
             company_id: ID of the company.
             uploaded_by_id: ID of the user uploading the asset.
             parent_id: ID of the parent entity.
             parent_fk_field: FK field name on S3Asset (e.g., "character_id").
-            data: Binary file data.
+            data: Binary image data.
             filename: Original filename.
-            mime_type: MIME type of the file.
 
         Returns:
             The created S3Asset record.
+
+        Raises:
+            ValidationError: If the bytes are not an accepted image format.
         """
-        asset_type = determine_asset_type(mime_type)
-        extension = Path(filename).suffix.lstrip(".")
+        mime_type = validate_image_upload(
+            data=data
+        )  # Detected MIME; client-declared type is ignored.
+        asset_type = AssetType.IMAGE
+        extension = mime_type.split("/", maxsplit=1)[1]  # e.g. "image/png" -> "png"
         filename = sanitize_filename(filename)
 
         s3_key = self._generate_aws_key(

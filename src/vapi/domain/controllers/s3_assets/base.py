@@ -71,7 +71,6 @@ class BaseAssetsController(Controller, ABC):
             parent_fk_field=self.parent_fk_field,
             data=data_as_bytes,
             filename=data.filename,
-            mime_type=data.content_type,
         )
         return dto.S3AssetResponse.from_model(asset)
 

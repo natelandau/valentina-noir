@@ -60,7 +60,6 @@ class AvatarService:
             parent_fk_field="user_parent_id",
             data=webp_bytes,
             filename="avatar.webp",
-            mime_type="image/webp",
         )
 
         previous_asset_id = user.avatar_asset_id
