@@ -36,10 +36,12 @@ class TestPopulateData:
         # Baseline counts: under the parallel suite this test shares a worker database
         # where session-scoped fixtures (company, user, campaign, book, developer) are
         # preserved across per-test cleanup, so assert on deltas, not absolute counts.
-        companies_before = await Company.all().count()
+        company_ids_before = {str(c.id) for c in await Company.all()}
+        companies_before = len(company_ids_before)
         users_before = await User.all().count()
         campaigns_before = await Campaign.all().count()
         books_before = await CampaignBook.all().count()
+        characters_before = await Character.all().count()
         global_admins_before = await Developer.filter(is_global_admin=True).count()
         non_global_before = await Developer.filter(is_global_admin=False).count()
 
@@ -63,13 +65,17 @@ class TestPopulateData:
         assert await Campaign.all().count() - campaigns_before == 1
         assert await CampaignBook.all().count() - books_before == cfg.books_per_campaign
 
-        # Then: user roles are fully covered
-        roles = {u.role for u in await User.all()}
+        # Then: the created company's users cover all three roles (scope to the new
+        # company so session-fixture users from other tests can't satisfy the assertion).
+        new_companies = [c for c in await Company.all() if str(c.id) not in company_ids_before]
+        assert len(new_companies) == 1
+        new_users = await User.filter(company_id=new_companies[0].id)
+        roles = {u.role for u in new_users}
         assert {UserRole.ADMIN, UserRole.STORYTELLER, UserRole.PLAYER} <= roles
 
         # Then: characters cover every type and include a vampire and a werewolf
+        assert await Character.all().count() - characters_before == 4
         chars = await Character.all()
-        assert len(chars) == 4
         char_types = {c.type for c in chars}
         assert {CharacterType.PLAYER, CharacterType.NPC, CharacterType.STORYTELLER} <= char_types
         char_classes = {c.character_class for c in chars}
