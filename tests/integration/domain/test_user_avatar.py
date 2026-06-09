@@ -39,16 +39,17 @@ async def test_set_avatar_returns_avatar_url(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_admin: Developer,
-    session_user: User,
+    user_factory: Callable,
 ) -> None:
     """Verify uploading an avatar stores a webp asset and returns avatar_url."""
     # Given a user uploading their own avatar
+    user = await user_factory(company=session_company, role="PLAYER")
     filename, data = _png()
 
     # When PUTting the avatar
     response = await client.put(
-        build_url(Users.AVATAR, company_id=session_company.id, user_id=session_user.id),
-        headers=token_company_admin | {"On-Behalf-Of": str(session_user.id)},
+        build_url(Users.AVATAR, company_id=session_company.id, user_id=user.id),
+        headers=token_company_admin | {"On-Behalf-Of": str(user.id)},
         files={"upload": (filename, data, "image/png")},
     )
 
@@ -57,9 +58,9 @@ async def test_set_avatar_returns_avatar_url(
     body = response.json()
     assert body["avatar_url"] is not None
     assert re.match(
-        rf"^MOCK_URL/{session_company.id}/{session_user.id}/image/.+\.webp$", body["avatar_url"]
+        rf"^MOCK_URL/{session_company.id}/{user.id}/image/.+\.webp$", body["avatar_url"]
     )
-    refreshed = await User.filter(id=session_user.id).first()
+    refreshed = await User.filter(id=user.id).first()
     asset = await S3Asset.filter(id=refreshed.avatar_asset_id).first()
     assert asset.mime_type == "image/webp"
 
@@ -70,15 +71,16 @@ async def test_replace_avatar_archives_previous(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_admin: Developer,
-    session_user: User,
+    user_factory: Callable,
 ) -> None:
     """Verify replacing an avatar archives the previous asset."""
     # Given a user with an existing avatar
-    url = build_url(Users.AVATAR, company_id=session_company.id, user_id=session_user.id)
-    headers = token_company_admin | {"On-Behalf-Of": str(session_user.id)}
+    user = await user_factory(company=session_company, role="PLAYER")
+    url = build_url(Users.AVATAR, company_id=session_company.id, user_id=user.id)
+    headers = token_company_admin | {"On-Behalf-Of": str(user.id)}
     filename, data = _png()
     await client.put(url, headers=headers, files={"upload": (filename, data, "image/png")})
-    first = await User.filter(id=session_user.id).first()
+    first = await User.filter(id=user.id).first()
     first_asset_id = first.avatar_asset_id
 
     # When uploading a replacement
@@ -99,12 +101,13 @@ async def test_delete_avatar_clears_url(
     build_url: Callable[[str, Any], str],
     session_company: Company,
     session_company_admin: Developer,
-    session_user: User,
+    user_factory: Callable,
 ) -> None:
     """Verify deleting an avatar archives the asset and returns null avatar_url."""
     # Given a user with an avatar
-    url = build_url(Users.AVATAR, company_id=session_company.id, user_id=session_user.id)
-    headers = token_company_admin | {"On-Behalf-Of": str(session_user.id)}
+    user = await user_factory(company=session_company, role="PLAYER")
+    url = build_url(Users.AVATAR, company_id=session_company.id, user_id=user.id)
+    headers = token_company_admin | {"On-Behalf-Of": str(user.id)}
     filename, data = _png()
     await client.put(url, headers=headers, files={"upload": (filename, data, "image/png")})
 
@@ -162,3 +165,25 @@ async def test_archiving_user_archives_avatar(
     refreshed = await S3Asset.filter(id=asset.id).first()
     assert refreshed.is_archived is True
     assert refreshed.archive_date is not None
+
+
+async def test_delete_avatar_when_none_exists(
+    client: AsyncClient,
+    token_company_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    session_company: Company,
+    session_company_admin: Developer,
+    user_factory: Callable,
+) -> None:
+    """Verify deleting a non-existent avatar is a no-op returning null avatar_url."""
+    # Given a user with no custom avatar
+    user = await user_factory(company=session_company, role="PLAYER")
+    url = build_url(Users.AVATAR, company_id=session_company.id, user_id=user.id)
+    headers = token_company_admin | {"On-Behalf-Of": str(user.id)}
+
+    # When deleting the (absent) avatar
+    response = await client.delete(url, headers=headers)
+
+    # Then the request succeeds and avatar_url is null
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["avatar_url"] is None
