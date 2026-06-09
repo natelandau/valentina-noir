@@ -213,7 +213,7 @@ def dev_setup(ctx: Context) -> None:  # noqa: ARG001
 def populate(ctx: Context) -> None:
     """Reset and populate the development database with varied test data."""
     ctx.run(
-        "uv run python -m scripts.populate_dev_db --yes",
+        "uv run python -m scripts.populate_dev_db",
         title="populate development database",
         capture=False,
     )
@@ -223,7 +223,7 @@ def populate(ctx: Context) -> None:
 def reset(ctx: Context) -> None:
     """Drop, recreate, and seed the development database without test data."""
     ctx.run(
-        "uv run python -m scripts.populate_dev_db --reset-only --yes",
+        "uv run python -m scripts.populate_dev_db --reset-only",
         title="reset development database",
         capture=False,
     )
