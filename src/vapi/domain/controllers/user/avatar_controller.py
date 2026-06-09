@@ -14,7 +14,11 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import AvatarService
-from vapi.lib.guards import user_active_guard, user_self_or_admin_guard
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_active_guard,
+    user_self_or_admin_guard,
+)
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
@@ -27,7 +31,7 @@ class UserAvatarController(Controller):
     """Manage a user's custom avatar."""
 
     tags = [APITags.USERS.name]
-    guards = [user_active_guard, user_self_or_admin_guard]
+    guards = [developer_company_user_guard, user_active_guard, user_self_or_admin_guard]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
         "target_user": Provide(deps.provide_target_user),

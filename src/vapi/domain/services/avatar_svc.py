@@ -13,6 +13,21 @@ __all__ = ("AvatarService",)
 class AvatarService:
     """Manage a user's custom avatar stored as a normalized S3 asset."""
 
+    async def _archive_previous_avatar(self, previous_asset_id: UUID | None) -> None:
+        """Soft-archive the user's prior avatar asset, if any.
+
+        The asset may already be gone (e.g. purged), so the lookup is guarded.
+        """
+        if previous_asset_id is None:
+            return
+        # Lazy import: handlers package imports services, so a top-level import here
+        # would create a circular import during package initialization.
+        from vapi.domain.handlers.archive_handlers import archive_single_asset
+
+        previous = await S3Asset.filter(id=previous_asset_id).first()
+        if previous is not None:
+            await archive_single_asset(previous)
+
     async def set_avatar(
         self,
         *,
@@ -36,10 +51,6 @@ class AvatarService:
         Returns:
             The updated user with avatar_url and avatar_asset_id set.
         """
-        # Lazy import: handlers package imports services, so a top-level import here
-        # would create a circular import during package initialization.
-        from vapi.domain.handlers.archive_handlers import archive_single_asset
-
         webp_bytes = normalize_avatar(data)
 
         asset = await AWSS3Service().upload_asset(
@@ -57,11 +68,7 @@ class AvatarService:
         user.avatar_asset_id = asset.id
         await user.save()
 
-        if previous_asset_id is not None:
-            previous = await S3Asset.filter(id=previous_asset_id).first()
-            if previous is not None:
-                await archive_single_asset(previous)
-
+        await self._archive_previous_avatar(previous_asset_id)
         return user
 
     async def remove_avatar(self, *, user: User) -> User:
@@ -75,18 +82,10 @@ class AvatarService:
         Returns:
             The updated user with avatar_url and avatar_asset_id cleared.
         """
-        # Lazy import: handlers package imports services, so a top-level import here
-        # would create a circular import during package initialization.
-        from vapi.domain.handlers.archive_handlers import archive_single_asset
-
         previous_asset_id = user.avatar_asset_id
         user.avatar_url = None
         user.avatar_asset_id = None
         await user.save()
 
-        if previous_asset_id is not None:
-            previous = await S3Asset.filter(id=previous_asset_id).first()
-            if previous is not None:
-                await archive_single_asset(previous)
-
+        await self._archive_previous_avatar(previous_asset_id)
         return user
