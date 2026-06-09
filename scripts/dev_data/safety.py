@@ -10,18 +10,16 @@ class _PostgresLike(Protocol):
 
 
 class _SettingsLike(Protocol):
-    debug: bool
     postgres: _PostgresLike
 
 
 def production_warning(settings: _SettingsLike) -> str | None:
     """Return a human-readable reason when the target looks like production, else None.
 
-    There is no environment enum on Settings, so production is inferred from two signals:
-    `debug` being off, or a non-local Postgres host. Either trips the guard.
+    Production is inferred from a non-local Postgres host: the destructive reset must only
+    run against a local development database. `debug` is intentionally not used as a signal
+    because it defaults to False, which would block legitimate local runs.
     """
-    if not settings.debug:
-        return "settings.debug is False, which looks like a production configuration"
     if settings.postgres.host not in LOCAL_HOSTS:
         return f"postgres host '{settings.postgres.host}' is not local"
     return None
