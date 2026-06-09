@@ -263,6 +263,8 @@ async def create_notes(
     def _author(company_id: UUID) -> User:
         return random.choice(users_by_company[str(company_id)])
 
+    campaigns_by_id = {str(campaign.id): campaign for campaign in campaigns}
+
     for campaign in campaigns:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
@@ -273,7 +275,7 @@ async def create_notes(
                 content=fake.note_body(),
             )
     for book in books:
-        campaign = await Campaign.get(id=book.campaign_id)
+        campaign = campaigns_by_id[str(book.campaign_id)]
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
                 company_id=_uuid(campaign.company_id),

@@ -1,6 +1,6 @@
 """Configuration for dev-data population."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from vapi.constants import CharacterClass, CharacterType
 
@@ -56,5 +56,3 @@ class PopulateConfig:
 
     # Traits attached to each generated quick roll (random count in this range)
     traits_per_quick_roll: tuple[int, int] = (1, 3)
-    type_coverage: tuple = field(default=TYPE_COVERAGE)
-    class_coverage: tuple = field(default=CLASS_COVERAGE)
