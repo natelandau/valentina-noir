@@ -1,3 +1,12 @@
+## v0.24.0 (2026-06-09)
+
+### Feat
+
+- **dev-data**: move dev populate to scripts with richer test data (#150)
+- **dev-data**: fill descriptions and theme generated names
+- **assets**: restrict uploads to images and harden serving (#149)
+- **avatar**: user-uploaded avatars (#148)
+
 ## v0.23.2 (2026-06-08)
 
 ### Fix
