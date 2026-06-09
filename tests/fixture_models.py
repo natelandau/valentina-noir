@@ -772,7 +772,14 @@ async def s3asset_factory(company_factory: Any, user_factory: Any) -> Any:
         if "company" not in kwargs and "company_id" not in kwargs:
             kwargs["company"] = await company_factory()
         if "uploaded_by" not in kwargs and "uploaded_by_id" not in kwargs:
-            kwargs["uploaded_by"] = await user_factory()
+            # Bind the auto-created uploader to the asset's company so its required
+            # company FK is satisfied even when callers pass only company + user_parent.
+            uploader_kwargs = {}
+            if "company" in kwargs:
+                uploader_kwargs["company"] = kwargs["company"]
+            elif "company_id" in kwargs:
+                uploader_kwargs["company_id"] = kwargs["company_id"]
+            kwargs["uploaded_by"] = await user_factory(**uploader_kwargs)
 
         uid = str(uuid7())
         defaults: dict[str, Any] = {
