@@ -22,7 +22,7 @@ from vapi.lib.guards import (
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
-from . import avatar_docs
+from . import docs
 from .dto import UserResponse
 from .helpers import annotated_user_response as _annotated_user_response
 
@@ -42,7 +42,7 @@ class UserAvatarController(Controller):
         path=urls.Users.AVATAR,
         summary="Set user avatar",
         operation_id="setUserAvatar",
-        description=avatar_docs.SET_AVATAR_DESCRIPTION,
+        description=docs.SET_AVATAR_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
@@ -69,7 +69,7 @@ class UserAvatarController(Controller):
         path=urls.Users.AVATAR,
         summary="Remove user avatar",
         operation_id="deleteUserAvatar",
-        description=avatar_docs.DELETE_AVATAR_DESCRIPTION,
+        description=docs.DELETE_AVATAR_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
         status_code=200,
     )
