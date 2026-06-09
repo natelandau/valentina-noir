@@ -230,6 +230,64 @@ The merge:
 
     The secondary user must have the `UNAPPROVED` role. This prevents accidental data loss from merging active users who may have characters, campaigns, and experience.
 
+## Avatars
+
+Every user response includes a top-level `avatar_url` field (a string URL or `null`). Prefer this field whenever you display a user's avatar.
+
+The value is resolved in this order:
+
+1. The user's custom uploaded avatar, if one is set.
+2. The avatar derived from a linked identity provider (e.g. Discord, Google), if any.
+3. `null` when neither is available.
+
+```json
+{
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "marcus_player",
+    "role": "PLAYER",
+    "company_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "avatar_url": "https://cdn.valentina-noir.com/avatars/550e8400.webp",
+    "...": "..."
+}
+```
+
+### Upload a Custom Avatar
+
+`PUT /companies/{company_id}/users/{user_id}/avatar` uploads a custom avatar for a user. The image is resized to a 512×512 WebP. A custom avatar overrides any avatar derived from a linked identity provider. Uploading again replaces the existing custom avatar.
+
+Send the image as `multipart/form-data` with a single image file part.
+
+| Requirement     | Detail                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| Body            | `multipart/form-data` with one image file part                        |
+| Accepted types  | PNG, JPEG, WEBP, GIF (only the first frame of an animated GIF is used) |
+| Maximum size    | 5 MB                                                                   |
+
+This endpoint requires both `X-API-KEY` and the `On-Behalf-Of` header. A user may set their own avatar, and an admin may set any user's avatar.
+
+```bash
+curl -X PUT "$API/companies/$COMPANY_ID/users/$USER_ID/avatar" \
+  -H "X-API-KEY: $API_KEY" \
+  -H "On-Behalf-Of: $USER_ID" \
+  -F "file=@avatar.png"
+```
+
+The response is the updated user object, including the new `avatar_url`.
+
+### Remove a Custom Avatar
+
+`DELETE /companies/{company_id}/users/{user_id}/avatar` removes a user's custom avatar. After removal, `avatar_url` falls back to the identity-provider avatar, or `null` if none exists.
+
+This endpoint requires both `X-API-KEY` and the `On-Behalf-Of` header. A user may remove their own avatar, and an admin may remove any user's avatar. There is no request body.
+
+```bash
+curl -X DELETE "$API/companies/$COMPANY_ID/users/$USER_ID/avatar" \
+  -H "X-API-KEY: $API_KEY" \
+  -H "On-Behalf-Of: $USER_ID"
+```
+
+The endpoint responds with `200 OK` and returns the updated user object.
+
 ## User Roles
 
 Each user belongs to a [company](companies.md) and has a role that determines their permissions. Roles remain consistent across all clients (web, mobile, Discord bot).

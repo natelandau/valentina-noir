@@ -41,6 +41,7 @@ from .system.controllers import SystemController
 from .user import (
     ExperienceController,
     QuickRollController,
+    UserAvatarController,
     UserController,
 )
 from .user_lookup.controllers import UserLookupController
@@ -78,6 +79,7 @@ __all__ = (
     "StatisticsController",
     "SystemController",
     "UserAssetsController",
+    "UserAvatarController",
     "UserController",
     "UserLookupController",
     "UserNoteController",

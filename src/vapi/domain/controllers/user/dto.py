@@ -95,6 +95,25 @@ class CampaignExperienceResponse(msgspec.Struct):
         )
 
 
+def _resolve_avatar_url(m: "User") -> str | None:
+    """Resolve a user's avatar URL: custom upload first, then OAuth-derived, else None.
+
+    The custom avatar is the denormalized ``avatar_url`` column, written by
+    AvatarService. Falls back to the provider-derived avatar (currently Discord).
+    """
+    if m.avatar_url:
+        return m.avatar_url
+
+    discord = m.discord_profile
+    if discord and "avatar_id" in discord and "discriminator" in discord:
+        return get_discord_avatar_url(
+            avatar_hash=discord["avatar_id"],
+            discord_user_id=discord["id"],
+            discriminator=discord["discriminator"],
+        )
+    return None
+
+
 class UserResponse(msgspec.Struct):
     """Response body for a user."""
 
@@ -113,6 +132,7 @@ class UserResponse(msgspec.Struct):
     github_profile: dict | None
     discord_profile: dict | None
     apple_profile: dict | None
+    avatar_url: str | None
     num_quickrolls: int
     num_notes: int
     num_assets: int
@@ -159,6 +179,7 @@ class UserResponse(msgspec.Struct):
             github_profile=m.github_profile,
             discord_profile=m.discord_profile,
             apple_profile=m.apple_profile,
+            avatar_url=_resolve_avatar_url(m),
             # Counts are annotated onto the queryset by annotate_user_counts. UserResponse is
             # also built from un-annotated users (e.g. a freshly created admin user in the
             # company-create response), where the counts are genuinely 0, so default to 0.
