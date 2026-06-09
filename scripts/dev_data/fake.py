@@ -66,8 +66,8 @@ def person_name() -> tuple[str, str]:
 
 
 def email() -> str:
-    """A unique-ish email address for a user."""
-    return _fake.unique.email()
+    """An email for a generated company or user (the columns are not unique-constrained)."""
+    return _fake.email()
 
 
 def username() -> str:
