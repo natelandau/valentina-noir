@@ -62,6 +62,6 @@ def normalize_avatar(data: bytes) -> bytes:
             out = io.BytesIO()
             img.save(out, format="WEBP", quality=_WEBP_QUALITY)
             return out.getvalue()
-    except (UnidentifiedImageError, OSError, ValueError) as e:
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as e:
         msg = "Avatar image could not be read."
         raise _invalid(msg) from e

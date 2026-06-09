@@ -91,3 +91,22 @@ def test_normalize_avatar_rejects_oversized_upload() -> None:
     # When/Then normalizing raises ValidationError
     with pytest.raises(ValidationError):
         normalize_avatar(data)
+
+
+def test_normalize_avatar_rejects_decompression_bomb() -> None:
+    """Verify an image exceeding the pixel-count guard raises ValidationError."""
+    # Given an image whose pixel count exceeds Pillow's decompression-bomb threshold
+    import PIL.Image
+
+    bomb_pixels = PIL.Image.MAX_IMAGE_PIXELS * 2 + 1
+    side = int(bomb_pixels**0.5) + 1
+    buf = io.BytesIO()
+    PIL.Image.new("RGB", (side, side)).save(buf, format="PNG")
+    data = buf.getvalue()
+
+    # The solid-color PNG compresses tiny, so the bomb branch (not the size cap) is exercised
+    assert len(data) < MAX_UPLOAD_BYTES
+
+    # When/Then normalizing raises ValidationError (not an uncaught DecompressionBombError)
+    with pytest.raises(ValidationError):
+        normalize_avatar(data)
