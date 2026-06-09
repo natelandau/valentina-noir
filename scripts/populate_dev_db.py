@@ -24,25 +24,34 @@ console = Console()
 
 async def _run(*, cfg: PopulateConfig, reset_only: bool) -> None:
     """Reset the database and (unless reset_only) populate it, then print API keys."""
-    await reset_database()
-    if reset_only:
-        await Tortoise.close_connections()
-        console.print("[green]Database reset complete.[/green]")
-        return
     try:
+        await reset_database()
+        if reset_only:
+            console.print("[green]Database reset complete.[/green]")
+            return
         developers = await populate_data(cfg)
         keys = await build_api_keys(developers)
         write_api_keys_to_stdout(keys)
         write_api_keys_to_file(keys)
     finally:
+        # Close in all paths, including a failure inside reset_database after Tortoise init.
         await Tortoise.close_connections()
 
 
 @click.command(help="Reset and populate the development database with varied test data.")
-@click.option("--companies", "num_companies", type=int, default=PopulateConfig.num_companies)
-@click.option("--users", "num_users", type=int, default=PopulateConfig.num_users)
-@click.option("--campaigns", "num_campaigns", type=int, default=PopulateConfig.num_campaigns)
-@click.option("--characters", "num_characters", type=int, default=PopulateConfig.num_characters)
+@click.option(
+    "--companies", "num_companies", type=click.IntRange(min=1), default=PopulateConfig.num_companies
+)
+@click.option("--users", "num_users", type=click.IntRange(min=1), default=PopulateConfig.num_users)
+@click.option(
+    "--campaigns", "num_campaigns", type=click.IntRange(min=1), default=PopulateConfig.num_campaigns
+)
+@click.option(
+    "--characters",
+    "num_characters",
+    type=click.IntRange(min=0),
+    default=PopulateConfig.num_characters,
+)
 @click.option("--reset-only", is_flag=True, help="Drop, recreate, and seed only; do not populate.")
 @click.option("--force", is_flag=True, help="Override the production-target safety guard.")
 @click.option("--yes", "-y", is_flag=True, help="Skip the confirmation prompt.")
