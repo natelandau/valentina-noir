@@ -42,6 +42,22 @@ id -g  # GID
 
 All application configuration variables from `.env.example` are also supported and should be passed to the container via an env file or environment variables.
 
+## Populate dev data
+
+Fill a local development database with believable, varied test data (companies, users with every role, campaigns/books/chapters, a vampire/werewolf/mortal/hunter character mix, dice rolls, quick rolls, notes, and inventory). This is dev-only tooling and is not shipped in the production image.
+
+```bash
+duty populate                 # reset + seed + populate (non-interactive)
+duty reset                    # reset + seed only, no test data
+
+# Direct invocation with custom counts:
+uv run python -m scripts.populate_dev_db --companies 3 --users 5 --campaigns 2 --characters 8
+```
+
+Both `duty populate` and `duty reset` drop and recreate the configured database. The script refuses to run against a production-like target (when `debug` is off or the Postgres host is not local); pass `--force` to override and `--yes` to skip the confirmation prompt.
+
+Generated API keys (one global-admin developer, one company-admin, one non-admin) are printed to the console and written to `~/.dev/api_keys.txt`, each annotated with its access tier so you can pick the right key when testing different permission levels.
+
 ## Database Backups
 
 Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket.
