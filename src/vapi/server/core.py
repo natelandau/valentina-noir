@@ -35,7 +35,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         """Initialize CLI by adding custom commands."""
         from vapi.cli import (
             developer_group,
-            development_group,
             makemigrations,
             migrate,
             restore,
@@ -47,7 +46,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         cli.add_command(makemigrations)
         cli.add_command(restore)
         cli.add_command(developer_group)
-        cli.add_command(development_group)
 
     def on_app_init(self, app_config: AppConfig) -> AppConfig:
         """Configure the Litestar application with routes, middleware, and plugins.
