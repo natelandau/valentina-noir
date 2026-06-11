@@ -72,14 +72,14 @@ def test_sentence_helpers_meet_min_length(generator) -> None:
 
 
 @pytest.mark.parametrize("generator", [fake.book_text, fake.chapter_text])
-def test_body_text_helpers_produce_2_to_4_paragraphs(generator) -> None:
-    """Verify long-form body helpers emit 2-4 blank-line-separated paragraphs."""
+def test_body_text_helpers_produce_3_to_8_paragraphs(generator) -> None:
+    """Verify long-form body helpers emit 3-8 blank-line-separated paragraphs."""
     # Given / When: many generated body texts
     values = [generator() for _ in range(50)]
 
-    # Then: each splits into 2-4 non-empty paragraphs
+    # Then: each splits into 3-8 non-empty paragraphs
     counts = [len(v.split("\n\n")) for v in values]
-    assert all(2 <= n <= 4 for n in counts), counts
+    assert all(3 <= n <= 8 for n in counts), counts
     assert all(p.strip() for v in values for p in v.split("\n\n"))
 
 

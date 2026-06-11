@@ -88,7 +88,7 @@ class TestPopulateData:
         assert all(c.description for c in new_campaigns)
         new_books = await CampaignBook.filter(campaign_id__in=[c.id for c in new_campaigns])
         assert new_books
-        # Books and chapters get 2-4 paragraphs (blank-line separated)
+        # Books and chapters get multiple paragraphs (blank-line separated)
         assert all(b.description and "\n\n" in b.description for b in new_books)
         new_chapters = await CampaignChapter.filter(book_id__in=[b.id for b in new_books])
         assert new_chapters

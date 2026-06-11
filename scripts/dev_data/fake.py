@@ -54,7 +54,7 @@ _COTERIE_PLACES: tuple[str, ...] = (
     "Blackmoor",
     "Ash Lane",
     "Gallows Hill",
-    "the Old Quarter",
+    "The Old Quarter",
     "Mourner's Row",
     "Saint Gall",
 )
@@ -70,6 +70,7 @@ _CHRONICLE_CITIES: tuple[str, ...] = (
     "Cairo",
     "Lisbon",
     "Montreal",
+    "New York",
     "Seattle",
     "Detroit",
     "Marseille",
@@ -77,6 +78,12 @@ _CHRONICLE_CITIES: tuple[str, ...] = (
     "Budapest",
     "Istanbul",
     "Buenos Aires",
+    "Brooklyn",
+    "Queens",
+    "Staten Island",
+    "Bronx",
+    "Manhattan",
+    "Boston",
 )
 
 
@@ -87,7 +94,13 @@ def _sentences(low: int, high: int) -> str:
 
 def _paragraphs(low: int, high: int) -> str:
     """A block of [low, high] blank-line-separated paragraphs for long-form body text."""
-    return "\n\n".join(_fake.paragraphs(nb=random.randint(low, high)))
+    text = ""
+    for _ in range(random.randint(low, high)):
+        text += (
+            _fake.paragraph(nb_sentences=random.randint(9, 16), variable_nb_sentences=False)
+            + "\n\n"
+        )
+    return text.removesuffix("\n\n")
 
 
 def _clamp(text: str, low: int, high: int) -> str:
@@ -117,13 +130,29 @@ def company_name() -> str:
 def campaign_title() -> str:
     """A "<place> by Night"-style chronicle title clamped to Campaign.name (3-50)."""
     city = random.choice(_CHRONICLE_CITIES)
+    adjective = random.choice(_COTERIE_ADJECTIVES)
+    place = random.choice(_COTERIE_PLACES)
     name = random.choice(
         (
-            f"{city} by Night",
-            f"The Fall of {city}",
-            f"{city} Nights",
-            f"{city} Unbound",
-            f"Veil over {city}",
+            f"{adjective.title()} {random.choice([city, place])} by Night",
+            f"{random.choice([city, place])} by Night",
+            f"The Fall of {random.choice([city, place])}",
+            f"The Fall of {adjective.title()} {random.choice([city, place])}",
+            f"{random.choice([city, place])} {adjective.title()} Nights",
+            f"{random.choice([city, place])} Nights",
+            f"{adjective.title()} {random.choice([city, place])} Unbound",
+            f"{random.choice([city, place])} Unbound",
+            f"Veil over {random.choice([city, place])}",
+            f"{adjective.title()} Veil over {random.choice([city, place])}",
+            f"{random.choice([city, place])} Unleashed",
+            f"{adjective.title()} {city} Unleashed",
+            f"The {adjective.title()} Cry of {random.choice([city, place])}",
+            f"The Cry of {random.choice([city, place])}",
+            f"A Requiem for {random.choice([city, place])}",
+            f"The Hunger of {random.choice([city, place])}",
+            f"{random.choice([city, place])} Undying",
+            f"Who mourns for {random.choice([city, place])}",
+            f"The Dusk of {random.choice([city, place])}",
         )
     )
     return _clamp(name, 3, 50)
@@ -131,7 +160,7 @@ def campaign_title() -> str:
 
 def campaign_description() -> str:
     """A campaign description for Campaign.description (2-4 sentences)."""
-    return _sentences(2, 4)
+    return _sentences(1, 3)
 
 
 def book_title() -> str:
@@ -141,7 +170,7 @@ def book_title() -> str:
 
 def book_text() -> str:
     """Book body text for CampaignBook.description (2-4 paragraphs)."""
-    return _paragraphs(2, 4)
+    return _paragraphs(3, 8)
 
 
 def chapter_title() -> str:
@@ -151,7 +180,7 @@ def chapter_title() -> str:
 
 def chapter_text() -> str:
     """Chapter body text for CampaignChapter.description (2-4 paragraphs)."""
-    return _paragraphs(2, 4)
+    return _paragraphs(3, 8)
 
 
 def note_title() -> str:
@@ -176,12 +205,12 @@ def inventory_item_name() -> str:
 
 def inventory_item_description() -> str:
     """An inventory item description for CharacterInventory.description (2-4 sentences)."""
-    return _sentences(2, 4)
+    return _paragraphs(1, 2)
 
 
 def character_biography() -> str:
     """A character biography for Character.biography (2-4 sentences)."""
-    return _sentences(2, 4)
+    return _paragraphs(1, 3)
 
 
 def dice_comment() -> str:

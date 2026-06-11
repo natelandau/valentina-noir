@@ -122,6 +122,7 @@ repos:
           (?x)^(
           src/|
           tests/|
+          scripts/|
           uv\.lock|
           pyproject\.toml
           )
