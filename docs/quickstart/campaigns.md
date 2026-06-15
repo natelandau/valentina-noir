@@ -146,6 +146,8 @@ Chapter responses (both the list and the detail endpoints) include a `character_
 
 Book responses also include a `character_ids` array, but it is **read-only**. It reports the distinct union of the characters across all of the book's chapters and cannot be set on a book directly. Manage character associations through the chapters instead. Archived characters are excluded from every `character_ids` field.
 
+The association is also visible from the other direction: character responses include a **read-only** `chapter_ids` array listing the non-archived chapters the character is associated with. Like the book rollup, it cannot be set on a character directly. Manage it through the chapters.
+
 ## What you have now
 
 You have a campaign and its `campaign_id`. Next, [create a character](characters.md) inside it.
