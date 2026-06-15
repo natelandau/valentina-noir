@@ -34,7 +34,10 @@ class BookInclude(StrEnum):
 def get_book_include_prefetch_map() -> dict[BookInclude, list[str | Prefetch]]:
     """Return the prefetch map for campaign book detail includes."""
     return {
-        BookInclude.CHAPTERS: [book_chapters_with_characters_prefetch()],
+        # No prefetch needed: every book response already loads chapters (with their
+        # characters) via book_chapters_with_characters_prefetch for the character_ids
+        # rollup, so the embed reuses that data instead of re-fetching it.
+        BookInclude.CHAPTERS: [],
         BookInclude.NOTES: [active_prefetch("notes", Note)],
         BookInclude.ASSETS: [active_prefetch("assets", S3Asset)],
     }
@@ -59,7 +62,7 @@ def get_chapter_include_prefetch_map() -> dict[ChapterInclude, list[str | Prefet
 @cache
 def chapter_characters_prefetch() -> Prefetch:
     """Prefetch a chapter's non-archived associated characters for ``character_ids``."""
-    return Prefetch("characters", queryset=Character.filter(is_archived=False))
+    return active_prefetch("characters", Character)
 
 
 @cache
