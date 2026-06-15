@@ -483,3 +483,132 @@ async def test_chapter_character_assignment(
     # Then it still returns the character
     assert response.status_code == HTTP_200_OK
     assert response.json()["character_ids"] == [str(char_b.id)]
+
+
+async def test_chapter_rejects_cross_campaign_character(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify a chapter rejects a character from another campaign."""
+    # Given a book in one campaign and a character in another
+    campaign = await campaign_factory(company=session_company)
+    other_campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    foreign = await character_factory(company=session_company, campaign=other_campaign)
+
+    # When we create a chapter assigning that foreign character
+    response = await client.post(
+        build_url(
+            Campaigns.CHAPTER_CREATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+        json={"name": "Bad Chapter", "character_ids": [str(foreign.id)]},
+    )
+
+    # Then the request is rejected
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+async def test_chapter_returns_multiple_characters_sorted(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify multiple assigned characters are all returned in sorted order."""
+    # Given a book and three in-campaign characters
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    char_a = await character_factory(company=session_company, campaign=campaign)
+    char_b = await character_factory(company=session_company, campaign=campaign)
+    char_c = await character_factory(company=session_company, campaign=campaign)
+    ids = [str(char_a.id), str(char_b.id), str(char_c.id)]
+
+    # When we create a chapter with all three characters
+    response = await client.post(
+        build_url(
+            Campaigns.CHAPTER_CREATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+        json={"name": "Crowded Chapter", "character_ids": ids},
+    )
+
+    # Then all three are returned, sorted by id
+    assert response.status_code == HTTP_201_CREATED
+    assert response.json()["character_ids"] == sorted(ids)
+
+
+async def test_chapter_excludes_archived_character(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify an archived character drops out of chapter and book responses."""
+    # Given a chapter with two assigned characters, one later archived
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+    keep = await character_factory(company=session_company, campaign=campaign)
+    archived = await character_factory(company=session_company, campaign=campaign)
+    await chapter.characters.add(keep, archived)
+    archived.is_archived = True
+    await archived.save()
+
+    # When we GET the chapter
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+    )
+
+    # Then only the active character is listed
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["character_ids"] == [str(keep.id)]
+
+    # When we GET the parent book
+    response = await client.get(
+        build_url(
+            Campaigns.BOOK_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+    )
+
+    # Then the rollup also excludes the archived character
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["character_ids"] == [str(keep.id)]
