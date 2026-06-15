@@ -259,15 +259,18 @@ async def test_get_book_include_all_children(
     campaign_factory: Callable[..., Campaign],
     campaign_book_factory: Callable[..., CampaignBook],
     campaign_chapter_factory,
+    character_factory: Callable[..., Character],
     note_factory,
     s3asset_factory,
     build_url: Callable[..., str],
 ) -> None:
     """Verify getBook with all includes embeds chapters, notes, and assets."""
-    # Given a book with one chapter, one note, and one asset
+    # Given a book with one chapter (with a character), one note, and one asset
     campaign = await campaign_factory(company=session_company)
     book = await campaign_book_factory(campaign=campaign)
     chapter = await campaign_chapter_factory(book=book)
+    character = await character_factory(company=session_company, campaign=campaign)
+    await chapter.characters.add(character)
     note = await note_factory(company=session_company, book=book)
     asset = await s3asset_factory(company=session_company, book=book, uploaded_by=session_user)
 
@@ -288,6 +291,8 @@ async def test_get_book_include_all_children(
     data = response.json()
     assert len(data["chapters"]) == 1
     assert data["chapters"][0]["id"] == str(chapter.id)
+    # And the embedded chapter carries its character_ids
+    assert data["chapters"][0]["character_ids"] == [str(character.id)]
     assert len(data["notes"]) == 1
     assert data["notes"][0]["id"] == str(note.id)
     assert len(data["assets"]) == 1

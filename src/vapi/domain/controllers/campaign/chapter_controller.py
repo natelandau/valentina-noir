@@ -163,7 +163,9 @@ class CampaignChapterController(Controller):
         await chapter.save()
 
         if not isinstance(data.character_ids, msgspec.UnsetType):
-            old_ids = sorted(str(c.id) for c in await chapter.characters.all())
+            # Filter archived characters so the audit diff matches what the API exposes;
+            # archiving a character leaves its join-table row intact.
+            old_ids = sorted(str(c.id) for c in await chapter.characters.filter(is_archived=False))
             characters = await CampaignService().validate_campaign_characters(
                 character_ids=data.character_ids,
                 campaign_id=book.campaign_id,  # type: ignore[attr-defined]
