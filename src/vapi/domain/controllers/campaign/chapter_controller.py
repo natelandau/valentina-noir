@@ -3,6 +3,7 @@
 import asyncio
 from typing import Annotated
 
+import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
@@ -29,6 +30,7 @@ from .dto import (
     CampaignChapterPatch,
     CampaignChapterResponse,
     ChapterInclude,
+    chapter_characters_prefetch,
     get_chapter_include_prefetch_map,
 )
 
@@ -65,7 +67,10 @@ class CampaignChapterController(Controller):
         qs = CampaignChapter.filter(book_id=book.id, is_archived=False)
         count, chapters = await asyncio.gather(
             qs.count(),
-            annotate_chapter_counts(qs.order_by("number")).offset(offset).limit(limit),
+            annotate_chapter_counts(qs.order_by("number"))
+            .prefetch_related(chapter_characters_prefetch())
+            .offset(offset)
+            .limit(limit),
         )
         return OffsetPagination(
             items=[CampaignChapterResponse.from_model(ch) for ch in chapters],
@@ -88,9 +93,11 @@ class CampaignChapterController(Controller):
         include: list[ChapterInclude] | None = None,
     ) -> CampaignChapterDetailResponse:
         """Get a chapter by ID with optional embedded children."""
-        annotated = await annotate_chapter_counts(
-            CampaignChapter.filter(id=chapter.id, is_archived=False)
-        ).first()
+        annotated = (
+            await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id, is_archived=False))
+            .prefetch_related(chapter_characters_prefetch())
+            .first()
+        )
         if not annotated:
             raise NotFoundError(detail="Chapter not found")
         requested = await apply_includes(annotated, include, get_chapter_include_prefetch_map())
@@ -114,6 +121,10 @@ class CampaignChapterController(Controller):
     ) -> CampaignChapterResponse:
         """Create a chapter."""
         service = CampaignService()
+        characters = await service.validate_campaign_characters(
+            character_ids=data.character_ids,
+            campaign_id=book.campaign_id,  # type: ignore[attr-defined]
+        )
         number = await service.get_next_chapter_number(book)
         chapter = await CampaignChapter.create(
             name=data.name,
@@ -121,8 +132,14 @@ class CampaignChapterController(Controller):
             book=book,
             number=number,
         )
+        if characters:
+            await chapter.characters.add(*characters)
         request.state.audit_description = f"Create chapter '{chapter.number}: {chapter.name}' for book '{book.number}: {book.name}'"
-        annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+        annotated = (
+            await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id))
+            .prefetch_related(chapter_characters_prefetch())
+            .first()
+        )
         return CampaignChapterResponse.from_model(annotated)
 
     @patch(
@@ -136,16 +153,35 @@ class CampaignChapterController(Controller):
     async def update_chapter(
         self,
         chapter: CampaignChapter,
+        book: CampaignBook,
         data: CampaignChapterPatch,
         acting_user: User,  # noqa: ARG002
         request: Request,
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
-        changes = apply_patch(chapter, data)
+        changes = apply_patch(chapter, data, exclude=frozenset({"character_ids"}))
+        await chapter.save()
+
+        if not isinstance(data.character_ids, msgspec.UnsetType):
+            old_ids = sorted(str(c.id) for c in await chapter.characters.all())
+            characters = await CampaignService().validate_campaign_characters(
+                character_ids=data.character_ids,
+                campaign_id=book.campaign_id,  # type: ignore[attr-defined]
+            )
+            await chapter.characters.clear()
+            if characters:
+                await chapter.characters.add(*characters)
+            new_ids = sorted(str(c.id) for c in characters)
+            if old_ids != new_ids:
+                changes["character_ids"] = {"old": old_ids, "new": new_ids}
+
         request.state.audit_changes = changes
         request.state.audit_description = f"Update chapter '{chapter.number}: {chapter.name}'"
-        await chapter.save()
-        annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+        annotated = (
+            await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id))
+            .prefetch_related(chapter_characters_prefetch())
+            .first()
+        )
         return CampaignChapterResponse.from_model(annotated)
 
     @delete(
@@ -191,5 +227,9 @@ class CampaignChapterController(Controller):
         request.state.audit_description = (
             f"Renumber chapter '{chapter.name}' from {old_number} to {data.number}"
         )
-        annotated = await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id)).first()
+        annotated = (
+            await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id))
+            .prefetch_related(chapter_characters_prefetch())
+            .first()
+        )
         return CampaignChapterResponse.from_model(annotated)

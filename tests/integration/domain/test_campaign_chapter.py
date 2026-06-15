@@ -12,6 +12,7 @@ from litestar.status_codes import (
 )
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain.urls import Campaigns
@@ -395,3 +396,90 @@ async def test_get_chapter_include_invalid_value(
 
     # Then we get a 400
     assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+async def test_chapter_character_assignment(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify characters can be assigned to a chapter on create and patch."""
+    # Given a campaign, book, and two in-campaign characters
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    char_a = await character_factory(company=session_company, campaign=campaign)
+    char_b = await character_factory(company=session_company, campaign=campaign)
+
+    # When we create a chapter with one character
+    response = await client.post(
+        build_url(
+            Campaigns.CHAPTER_CREATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+        json={"name": "Chapter One", "character_ids": [str(char_a.id)]},
+    )
+
+    # Then the response lists that character
+    assert response.status_code == HTTP_201_CREATED
+    chapter_id = response.json()["id"]
+    assert response.json()["character_ids"] == [str(char_a.id)]
+
+    # When we patch the chapter to replace the character list
+    response = await client.patch(
+        build_url(
+            Campaigns.CHAPTER_UPDATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter_id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+        json={"character_ids": [str(char_b.id)]},
+    )
+
+    # Then the list is replaced
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["character_ids"] == [str(char_b.id)]
+
+    # When we patch without character_ids
+    response = await client.patch(
+        build_url(
+            Campaigns.CHAPTER_UPDATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter_id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+        json={"name": "Renamed"},
+    )
+
+    # Then the character list is unchanged
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["character_ids"] == [str(char_b.id)]
+
+    # When we GET the chapter
+    response = await client.get(
+        build_url(
+            Campaigns.CHAPTER_DETAIL,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter_id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+    )
+
+    # Then it still returns the character
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["character_ids"] == [str(char_b.id)]
