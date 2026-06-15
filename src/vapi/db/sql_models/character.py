@@ -19,7 +19,7 @@ from vapi.db.sql_models.base import BaseModel
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.aws import S3Asset
-    from vapi.db.sql_models.campaign import Campaign
+    from vapi.db.sql_models.campaign import Campaign, CampaignChapter
     from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
     from vapi.db.sql_models.character_concept import CharacterConcept
     from vapi.db.sql_models.character_sheet import Trait
@@ -91,6 +91,7 @@ class Character(BaseModel):
     dice_rolls: fields.ReverseRelation[DiceRoll]
     assets: fields.ReverseRelation[S3Asset]
     chargen_sessions: fields.ManyToManyRelation[ChargenSession]
+    chapters: fields.ManyToManyRelation[CampaignChapter]
 
     class Meta:
         """Tortoise ORM meta options."""
