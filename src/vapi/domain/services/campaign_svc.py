@@ -11,6 +11,7 @@ from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterType
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+from vapi.db.sql_models.character import Character
 from vapi.lib.exceptions import ValidationError
 
 
@@ -67,7 +68,7 @@ class _NumberedItem(Protocol):
 
 
 class CampaignService:
-    """Manage ordered numbering of campaign books and chapters."""
+    """Manage campaign structure: book/chapter ordering and character validation for assignments."""
 
     async def get_next_book_number(self, campaign: Campaign) -> int:
         """Get the next sequential book number for a campaign."""
@@ -147,6 +148,47 @@ class CampaignService:
         from vapi.domain.handlers import archive_campaign
 
         await archive_campaign(campaign=campaign)
+
+    async def validate_campaign_characters(
+        self, *, character_ids: list[UUID], campaign_id: UUID
+    ) -> list[Character]:
+        """Resolve character IDs for chapter M2M assignment, enforcing campaign scope.
+
+        Use when accepting a caller-supplied ``character_ids`` list on chapter create or
+        patch: every ID must reference an active character in the chapter's own campaign,
+        preventing cross-campaign links and the assignment of archived characters.
+
+        Args:
+            character_ids: Caller-supplied character UUIDs (may contain duplicates).
+            campaign_id: The campaign the chapter belongs to.
+
+        Returns:
+            The validated Character objects.
+
+        Raises:
+            ValidationError: If any ID is unknown, archived, or in another campaign.
+        """
+        if not character_ids:
+            return []
+
+        # dict.fromkeys dedupes while preserving caller order for the error message
+        unique_ids = list(dict.fromkeys(character_ids))
+        characters = await Character.filter(
+            id__in=unique_ids, campaign_id=campaign_id, is_archived=False
+        )
+        found = {c.id for c in characters}
+        invalid = [str(cid) for cid in unique_ids if cid not in found]
+        if invalid:
+            raise ValidationError(
+                detail="One or more character IDs are not valid for this campaign",
+                invalid_parameters=[
+                    {
+                        "field": "character_ids",
+                        "message": f"Characters not found in this campaign or archived: {', '.join(invalid)}",
+                    },
+                ],
+            )
+        return characters
 
     @staticmethod
     async def _get_next_number(model: type[Model], parent_field: str, parent_id: UUID) -> int:
