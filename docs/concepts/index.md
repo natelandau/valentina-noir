@@ -13,7 +13,7 @@ Understanding these core concepts helps you build clients that integrate with th
 **Campaigns** - Storytellers create campaigns to organize their game worlds. Each campaign contains:
 
 - **Books** - Track a singular theme or storyline
-- **Chapters** - Represent individual gaming sessions
+- **Chapters** - Represent individual gaming sessions. A chapter can be associated with player characters from the same campaign, and a book reports the combined set of characters across its chapters.
 - Characters, NPCs, experience, and other game elements are tracked at the campaign level
 
 **[Characters](./characters.md)** - Characters represent players and NPCs in a campaign.

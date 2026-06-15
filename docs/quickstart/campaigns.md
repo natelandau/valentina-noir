@@ -106,6 +106,46 @@ requests.delete(
 
 Deleting a campaign archives it and its contents rather than erasing them. See the [full API documentation](https://api.valentina-noir.com/docs) for every field and response code.
 
+## Associate characters with chapters
+
+A chapter can record which characters appeared in that session. Pass an optional `character_ids` array when you create or update a chapter:
+
+```python
+# Create a chapter with associated characters
+requests.post(
+    f"{BASE_URL}/companies/{company_id}/campaigns/{campaign_id}/books/{book_id}/chapters",
+    headers=player_headers,
+    json={
+        "name": "The Long Night",
+        "character_ids": [
+            "550e8400-e29b-41d4-a716-446655440000",
+            "660e8400-e29b-41d4-a716-446655440111",
+        ],
+    },
+)
+```
+
+Every ID in `character_ids` must reference an active character that belongs to the same campaign as the chapter. If any ID is missing, archived, or from another campaign, the request fails with a `400`.
+
+On `PATCH`, `character_ids` replaces the chapter's entire list:
+
+- Omit the field to leave the existing associations unchanged.
+- Send `[]` to clear all associations.
+- Send a new array to replace the list with exactly those characters.
+
+```python
+# Replace a chapter's associated characters
+requests.patch(
+    f"{BASE_URL}/companies/{company_id}/campaigns/{campaign_id}/books/{book_id}/chapters/{chapter_id}",
+    headers=player_headers,
+    json={"character_ids": ["550e8400-e29b-41d4-a716-446655440000"]},
+)
+```
+
+Chapter responses (both the list and the detail endpoints) include a `character_ids` array listing the associated characters.
+
+Book responses also include a `character_ids` array, but it is **read-only**. It reports the distinct union of the characters across all of the book's chapters and cannot be set on a book directly. Manage character associations through the chapters instead. Archived characters are excluded from every `character_ids` field.
+
 ## What you have now
 
 You have a campaign and its `campaign_id`. Next, [create a character](characters.md) inside it.
