@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from vapi.db.sql_models.campaign import Campaign
+    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
     from vapi.db.sql_models.character_concept import CharacterConcept
     from vapi.db.sql_models.company import Company
     from vapi.db.sql_models.developer import Developer
@@ -57,6 +57,7 @@ def _assert_character_response_shape(data: dict) -> None:
         "campaign_id",
         "user_creator_id",
         "user_player_id",
+        "chapter_ids",
         "date_created",
         "date_modified",
     ):
@@ -578,6 +579,50 @@ class TestCharacterController:
         assert data["name_first"] == character.name_first
         assert data["name_last"] == character.name_last
         _assert_character_response_shape(data)
+
+    async def test_get_character_includes_chapter_ids(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a character response lists its non-archived chapter associations."""
+        # Given a character linked to one active and one archived chapter in its campaign
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        book = await campaign_book_factory(campaign=session_campaign)
+        active_chapter = await campaign_chapter_factory(book=book)
+        archived_chapter = await campaign_chapter_factory(book=book)
+        await active_chapter.characters.add(character)
+        await archived_chapter.characters.add(character)
+        archived_chapter.is_archived = True
+        await archived_chapter.save()
+
+        # When we get the character
+        response = await client.get(
+            build_url(
+                CharacterURL.DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then only the active chapter id is listed
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["chapter_ids"] == [str(active_chapter.id)]
 
     async def test_get_character_includes_child_counts(
         self,

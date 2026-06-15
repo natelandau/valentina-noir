@@ -524,3 +524,123 @@ class TestCampaignService:
 
         # And the dice roll survives
         assert dice_roll.is_archived is False
+
+    async def test_validate_campaign_characters_returns_active_in_campaign(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify valid in-campaign character IDs are returned."""
+        # Given a campaign with two active characters
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        char_a = await character_factory(company=company, campaign=campaign)
+        char_b = await character_factory(company=company, campaign=campaign)
+
+        # When validating those IDs
+        result = await CampaignService().validate_campaign_characters(
+            character_ids=[char_a.id, char_b.id], campaign_id=campaign.id
+        )
+
+        # Then both characters are returned
+        assert {c.id for c in result} == {char_a.id, char_b.id}
+
+    async def test_validate_campaign_characters_rejects_other_campaign(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify a character from another campaign is rejected."""
+        # Given a character in a different campaign
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        other_campaign = await campaign_factory(company=company)
+        foreign = await character_factory(company=company, campaign=other_campaign)
+
+        # When validating it against the first campaign
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError):
+            await CampaignService().validate_campaign_characters(
+                character_ids=[foreign.id], campaign_id=campaign.id
+            )
+
+    async def test_validate_campaign_characters_rejects_archived(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify an archived character is rejected."""
+        # Given an archived character in the campaign
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        archived = await character_factory(company=company, campaign=campaign, is_archived=True)
+
+        # When validating it
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError):
+            await CampaignService().validate_campaign_characters(
+                character_ids=[archived.id], campaign_id=campaign.id
+            )
+
+    async def test_validate_campaign_characters_empty_returns_empty(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+    ) -> None:
+        """Verify an empty ID list short-circuits to an empty result."""
+        # Given a campaign
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+
+        # When validating an empty list
+        result = await CampaignService().validate_campaign_characters(
+            character_ids=[], campaign_id=campaign.id
+        )
+
+        # Then the result is empty
+        assert result == []
+
+    async def test_validate_campaign_characters_deduplicates_ids(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify duplicate IDs in the input are collapsed to a single result entry."""
+        # Given a campaign with one character
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        char = await character_factory(company=company, campaign=campaign)
+
+        # When the same ID is submitted twice
+        result = await CampaignService().validate_campaign_characters(
+            character_ids=[char.id, char.id], campaign_id=campaign.id
+        )
+
+        # Then exactly one character object is returned
+        assert len(result) == 1
+        assert result[0].id == char.id
+
+    async def test_validate_campaign_characters_rejects_mixed_validity(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify one valid and one cross-campaign ID together are rejected."""
+        # Given a valid in-campaign character and a character in another campaign
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        other_campaign = await campaign_factory(company=company)
+        valid = await character_factory(company=company, campaign=campaign)
+        foreign = await character_factory(company=company, campaign=other_campaign)
+
+        # When validating the two together against the first campaign
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError):
+            await CampaignService().validate_campaign_characters(
+                character_ids=[valid.id, foreign.id], campaign_id=campaign.id
+            )

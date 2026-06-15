@@ -11,6 +11,7 @@ from tortoise.queryset import Prefetch
 
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
+from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
 from vapi.lib.detail_includes import active_prefetch
 
@@ -33,7 +34,10 @@ class BookInclude(StrEnum):
 def get_book_include_prefetch_map() -> dict[BookInclude, list[str | Prefetch]]:
     """Return the prefetch map for campaign book detail includes."""
     return {
-        BookInclude.CHAPTERS: [active_prefetch("chapters", CampaignChapter)],
+        # No prefetch needed: every book response already loads chapters (with their
+        # characters) via book_chapters_with_characters_prefetch for the character_ids
+        # rollup, so the embed reuses that data instead of re-fetching it.
+        BookInclude.CHAPTERS: [],
         BookInclude.NOTES: [active_prefetch("notes", Note)],
         BookInclude.ASSETS: [active_prefetch("assets", S3Asset)],
     }
@@ -53,6 +57,27 @@ def get_chapter_include_prefetch_map() -> dict[ChapterInclude, list[str | Prefet
         ChapterInclude.NOTES: [active_prefetch("notes", Note)],
         ChapterInclude.ASSETS: [active_prefetch("assets", S3Asset)],
     }
+
+
+@cache
+def chapter_characters_prefetch() -> Prefetch:
+    """Prefetch a chapter's non-archived associated characters for ``character_ids``."""
+    return active_prefetch("characters", Character)
+
+
+@cache
+def book_chapters_with_characters_prefetch() -> Prefetch:
+    """Prefetch a book's active chapters, each with their active characters.
+
+    Powers the book ``character_ids`` rollup and the ``?include=chapters`` embed,
+    keeping archived chapters and archived characters out of both.
+    """
+    return Prefetch(
+        "chapters",
+        queryset=CampaignChapter.filter(is_archived=False).prefetch_related(
+            chapter_characters_prefetch()
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -110,12 +135,17 @@ class CampaignBookResponse(msgspec.Struct):
     num_chapters: int
     num_notes: int
     num_assets: int
+    character_ids: list[UUID]
     date_created: datetime
     date_modified: datetime
 
     @classmethod
     def from_model(cls, m: "CampaignBook") -> "CampaignBookResponse":
-        """Convert a Tortoise CampaignBook to a response Struct."""
+        """Convert a Tortoise CampaignBook to a response Struct.
+
+        Requires ``chapters`` (with nested ``characters``) prefetched via
+        ``book_chapters_with_characters_prefetch`` so the character rollup is accurate.
+        """
         return cls(
             id=m.id,
             name=m.name,
@@ -125,6 +155,7 @@ class CampaignBookResponse(msgspec.Struct):
             num_chapters=m.num_chapters,  # type: ignore[attr-defined]
             num_notes=m.num_notes,  # type: ignore[attr-defined]
             num_assets=m.num_assets,  # type: ignore[attr-defined]
+            character_ids=sorted({c.id for ch in m.chapters for c in ch.characters}),
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -177,12 +208,16 @@ class CampaignChapterResponse(msgspec.Struct):
     book_id: UUID
     num_notes: int
     num_assets: int
+    character_ids: list[UUID]
     date_created: datetime
     date_modified: datetime
 
     @classmethod
     def from_model(cls, m: "CampaignChapter") -> "CampaignChapterResponse":
-        """Convert a Tortoise CampaignChapter to a response Struct."""
+        """Convert a Tortoise CampaignChapter to a response Struct.
+
+        Requires ``characters`` prefetched via ``chapter_characters_prefetch``.
+        """
         return cls(
             id=m.id,
             name=m.name,
@@ -194,6 +229,7 @@ class CampaignChapterResponse(msgspec.Struct):
             # are prefetched without annotations, so default to 0 when the attribute is absent.
             num_notes=getattr(m, "num_notes", 0),
             num_assets=getattr(m, "num_assets", 0),
+            character_ids=sorted(c.id for c in m.characters),
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -275,6 +311,7 @@ class CampaignChapterCreate(msgspec.Struct):
 
     name: str
     description: str | None = None
+    character_ids: list[UUID] = []
 
 
 class CampaignChapterPatch(msgspec.Struct):
@@ -285,6 +322,7 @@ class CampaignChapterPatch(msgspec.Struct):
 
     name: str | msgspec.UnsetType = msgspec.UNSET
     description: str | None | msgspec.UnsetType = msgspec.UNSET
+    character_ids: list[UUID] | msgspec.UnsetType = msgspec.UNSET
 
 
 class BookChapterNumber(msgspec.Struct):

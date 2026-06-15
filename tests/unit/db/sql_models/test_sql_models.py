@@ -36,6 +36,7 @@ EXPECTED_TABLES = [
     "dice_roll_result",
     "dictionary_term",
     "hunter_attributes",
+    "j_campaign_chapter_characters",
     "j_chargen_session_characters",
     "j_dice_roll_traits",
     "j_quick_roll_traits",
@@ -96,6 +97,7 @@ class TestPrimaryKeys:
             for t in EXPECTED_TABLES
             if t
             not in {
+                "j_campaign_chapter_characters",
                 "j_chargen_session_characters",
                 "j_dice_roll_traits",
                 "j_quick_roll_traits",

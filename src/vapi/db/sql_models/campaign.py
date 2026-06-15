@@ -82,6 +82,10 @@ class CampaignChapter(BaseModel):
         "models.CampaignBook", related_name="chapters", on_delete=fields.OnDelete.CASCADE
     )
 
+    characters: fields.ManyToManyRelation[Character] = fields.ManyToManyField(
+        "models.Character", related_name="chapters", through="j_campaign_chapter_characters"
+    )
+
     # Reverse relations
     notes: fields.ReverseRelation[Note]
     assets: fields.ReverseRelation[S3Asset]

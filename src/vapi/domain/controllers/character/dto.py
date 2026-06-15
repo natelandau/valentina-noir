@@ -178,7 +178,21 @@ CHARACTER_RESPONSE_PREFETCH: list[str] = [
     "mage_attributes",
     "hunter_attributes",
     "specialties",
+    "chapters",
 ]
+
+
+def _active_chapter_ids(character: "Character") -> list[UUID]:
+    """Return a character's non-archived chapter IDs for the response.
+
+    Read-only association managed from the chapter side. Returns an empty list when
+    ``chapters`` was not prefetched (embedded contexts), mirroring the defensive
+    handling of other prefetched relations on CharacterResponse.
+    """
+    try:
+        return sorted(c.id for c in character.chapters if not c.is_archived)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 class CharacterResponse(msgspec.Struct):
@@ -215,6 +229,7 @@ class CharacterResponse(msgspec.Struct):
     werewolf_attributes: WerewolfAttributesResponse | None
     mage_attributes: MageAttributesResponse | None
     hunter_attributes: HunterAttributesResponse | None
+    chapter_ids: list[UUID]
     date_created: datetime
     date_modified: datetime
 
@@ -224,7 +239,7 @@ class CharacterResponse(msgspec.Struct):
 
         Requires prefetch_related('concept', 'vampire_attributes__clan',
         'werewolf_attributes__tribe', 'werewolf_attributes__auspice',
-        'mage_attributes', 'hunter_attributes', 'specialties').
+        'mage_attributes', 'hunter_attributes', 'specialties', 'chapters').
         """
         vampire_resp = None
         werewolf_resp = None
@@ -298,6 +313,7 @@ class CharacterResponse(msgspec.Struct):
             num_notes=getattr(m, "num_notes", 0),
             num_assets=getattr(m, "num_assets", 0),
             specialties=specialties_list,
+            chapter_ids=_active_chapter_ids(m),
             vampire_attributes=vampire_resp,
             werewolf_attributes=werewolf_resp,
             mage_attributes=mage_resp,

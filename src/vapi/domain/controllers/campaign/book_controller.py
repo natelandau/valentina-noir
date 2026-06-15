@@ -29,6 +29,7 @@ from .dto import (
     CampaignBookDetailResponse,
     CampaignBookPatch,
     CampaignBookResponse,
+    book_chapters_with_characters_prefetch,
     get_book_include_prefetch_map,
 )
 
@@ -64,7 +65,10 @@ class CampaignBookController(Controller):
         qs = CampaignBook.filter(campaign_id=campaign.id, is_archived=False)
         count, books = await asyncio.gather(
             qs.count(),
-            annotate_book_counts(qs.order_by("number")).offset(offset).limit(limit),
+            annotate_book_counts(qs.order_by("number"))
+            .prefetch_related(book_chapters_with_characters_prefetch())
+            .offset(offset)
+            .limit(limit),
         )
         return OffsetPagination(
             items=[CampaignBookResponse.from_model(b) for b in books],
@@ -87,9 +91,11 @@ class CampaignBookController(Controller):
         include: list[BookInclude] | None = None,
     ) -> CampaignBookDetailResponse:
         """Get a book by ID with optional embedded children."""
-        annotated = await annotate_book_counts(
-            CampaignBook.filter(id=book.id, is_archived=False)
-        ).first()
+        annotated = (
+            await annotate_book_counts(CampaignBook.filter(id=book.id, is_archived=False))
+            .prefetch_related(book_chapters_with_characters_prefetch())
+            .first()
+        )
         if not annotated:
             raise NotFoundError(detail="Book not found")
         requested = await apply_includes(annotated, include, get_book_include_prefetch_map())
@@ -123,7 +129,11 @@ class CampaignBookController(Controller):
         request.state.audit_description = (
             f"Create book '{book.number}: {book.name}' for campaign '{campaign.name}'"
         )
-        annotated = await annotate_book_counts(CampaignBook.filter(id=book.id)).first()
+        annotated = (
+            await annotate_book_counts(CampaignBook.filter(id=book.id))
+            .prefetch_related(book_chapters_with_characters_prefetch())
+            .first()
+        )
         return CampaignBookResponse.from_model(annotated)
 
     @patch(
@@ -146,7 +156,11 @@ class CampaignBookController(Controller):
         request.state.audit_changes = changes
         request.state.audit_description = f"Update book '{book.number}: {book.name}'"
         await book.save()
-        annotated = await annotate_book_counts(CampaignBook.filter(id=book.id)).first()
+        annotated = (
+            await annotate_book_counts(CampaignBook.filter(id=book.id))
+            .prefetch_related(book_chapters_with_characters_prefetch())
+            .first()
+        )
         return CampaignBookResponse.from_model(annotated)
 
     @delete(
@@ -192,5 +206,9 @@ class CampaignBookController(Controller):
         request.state.audit_description = (
             f"Renumber book '{book.name}' from {old_number} to {data.number}"
         )
-        annotated = await annotate_book_counts(CampaignBook.filter(id=book.id)).first()
+        annotated = (
+            await annotate_book_counts(CampaignBook.filter(id=book.id))
+            .prefetch_related(book_chapters_with_characters_prefetch())
+            .first()
+        )
         return CampaignBookResponse.from_model(annotated)
