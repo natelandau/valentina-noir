@@ -3,11 +3,61 @@
 import asyncio
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
+from vapi.constants import AuditEntityType, AuditOperation
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.domain.paginator import OffsetPagination
 
-from .audit_log_dto import AuditLogDetailResponse, AuditLogResponse
+from .dto import AuditLogDetailResponse, AuditLogResponse
+
+
+def build_audit_log_filters(  # noqa: PLR0913
+    *,
+    base: dict[str, object],
+    company_id: UUID | None = None,
+    acting_user_id: UUID | None = None,
+    user_id: UUID | None = None,
+    campaign_id: UUID | None = None,
+    book_id: UUID | None = None,
+    chapter_id: UUID | None = None,
+    character_id: UUID | None = None,
+    entity_type: AuditEntityType | None = None,
+    operation: AuditOperation | None = None,
+) -> dict[str, object]:
+    """Build an audit-log filter dict from a base scope plus optional column filters.
+
+    The company and global-admin controllers differ only in their base scope
+    (`company_id` vs `developer_id`); every other filter is applied identically
+    here so the two controllers stay in lock-step.
+
+    Args:
+        base: The mandatory scope filter (e.g. {"company_id": ...} or {"developer_id": ...}).
+        company_id: Optional company filter (global-admin only).
+        acting_user_id: Optional acting-user filter.
+        user_id: Optional subject-user filter.
+        campaign_id: Optional campaign filter.
+        book_id: Optional book filter.
+        chapter_id: Optional chapter filter.
+        character_id: Optional character filter.
+        entity_type: Optional entity-type filter.
+        operation: Optional operation filter.
+
+    Returns:
+        A filter dict suitable for passing to list_audit_logs.
+    """
+    optional: dict[str, object | None] = {
+        "company_id": company_id,
+        "acting_user_id": acting_user_id,
+        "user_id": user_id,
+        "campaign_id": campaign_id,
+        "book_id": book_id,
+        "chapter_id": chapter_id,
+        "character_id": character_id,
+        "entity_type": entity_type,
+        "operation": operation,
+    }
+    return {**base, **{key: value for key, value in optional.items() if value is not None}}
 
 
 async def list_audit_logs(

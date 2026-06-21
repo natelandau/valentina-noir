@@ -12,13 +12,14 @@ from litestar.params import Parameter
 from vapi.constants import AuditEntityType, AuditOperation
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, urls
-from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services.audit_log_dto import (
+from vapi.domain.audit import (
     AuditLogDetailResponse,
     AuditLogInclude,
     AuditLogResponse,
+    build_audit_log_filters,
+    list_audit_logs,
 )
-from vapi.domain.services.audit_log_svc import list_audit_logs
+from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
@@ -61,26 +62,18 @@ class GlobalAdminAuditLogController(Controller):
         include: list[AuditLogInclude] | None = None,
     ) -> OffsetPagination[AuditLogResponse] | OffsetPagination[AuditLogDetailResponse]:
         """List audit log entries for a developer."""
-        filters: dict[str, object] = {"developer_id": developer.id}
-
-        if company_id is not None:
-            filters["company_id"] = company_id
-        if acting_user_id is not None:
-            filters["acting_user_id"] = acting_user_id
-        if user_id is not None:
-            filters["user_id"] = user_id
-        if campaign_id is not None:
-            filters["campaign_id"] = campaign_id
-        if book_id is not None:
-            filters["book_id"] = book_id
-        if chapter_id is not None:
-            filters["chapter_id"] = chapter_id
-        if character_id is not None:
-            filters["character_id"] = character_id
-        if entity_type is not None:
-            filters["entity_type"] = entity_type
-        if operation is not None:
-            filters["operation"] = operation
+        filters = build_audit_log_filters(
+            base={"developer_id": developer.id},
+            company_id=company_id,
+            acting_user_id=acting_user_id,
+            user_id=user_id,
+            campaign_id=campaign_id,
+            book_id=book_id,
+            chapter_id=chapter_id,
+            character_id=character_id,
+            entity_type=entity_type,
+            operation=operation,
+        )
 
         return await list_audit_logs(
             filters=filters,
