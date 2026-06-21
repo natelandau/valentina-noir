@@ -4,7 +4,7 @@ Contains business logic across the domain.
 """
 
 from .avatar_svc import AvatarService
-from .aws_service import AWSS3Service
+from .aws_svc import AWSS3Service
 from .campaign_svc import CampaignService
 from .character_blueprint_svc import CharacterBlueprintService
 from .character_sheet_svc import CharacterSheetService

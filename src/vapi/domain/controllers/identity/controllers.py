@@ -18,7 +18,7 @@ from vapi.domain.controllers.identity.dto import (
     LinkIdentityRequest,
 )
 from vapi.domain.controllers.user.dto import UserResponse
-from vapi.domain.controllers.user.helpers import annotated_user_response
+from vapi.domain.controllers.user.responses import annotated_user_response
 from vapi.domain.services.identity_svc import (
     PROVIDER_PROFILE_FIELDS,
     IdentityResolution,

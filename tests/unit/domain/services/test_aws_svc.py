@@ -19,7 +19,7 @@ from vapi.constants import (
     AssetType,
 )
 from vapi.db.sql_models.aws import S3Asset
-from vapi.domain.services.aws_service import AWSS3Service
+from vapi.domain.services.aws_svc import AWSS3Service
 from vapi.lib.exceptions import AWSS3Error, ValidationError
 
 if TYPE_CHECKING:
@@ -547,7 +547,7 @@ class TestUploadFile:
         # Given: A mocked S3 client and a real file on disk
         mock_s3_client = mocker.MagicMock()
         mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
         file_path = tmp_path / "backup.dump"
         file_path.write_bytes(b"backup data")
 
@@ -577,7 +577,7 @@ class TestUploadFile:
         mock_s3_client.upload_file.side_effect = ClientError(
             {"Error": {"Code": "500", "Message": "Error"}}, "PutObject"
         )
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
         file_path = tmp_path / "backup.dump"
         file_path.write_bytes(b"backup data")
 
@@ -609,7 +609,7 @@ class TestListKeys:
             }
         ]
         mock_s3_client.get_paginator.return_value = mock_paginator
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
 
         # When: Listing keys
         service = AWSS3Service()
@@ -626,7 +626,7 @@ class TestListKeys:
         mock_paginator = mocker.MagicMock()
         mock_paginator.paginate.return_value = [{}]
         mock_s3_client.get_paginator.return_value = mock_paginator
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
 
         # When: Listing keys
         service = AWSS3Service()
@@ -645,7 +645,7 @@ class TestListKeys:
             {"Error": {"Code": "500", "Message": "Error"}}, "ListObjectsV2"
         )
         mock_s3_client.get_paginator.return_value = mock_paginator
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
 
         # When/Then: Listing raises AWSS3Error
         service = AWSS3Service()
@@ -662,7 +662,7 @@ class TestDeleteKey:
         mock_s3_client = mocker.MagicMock()
         mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
         mock_s3_client.delete_object.return_value = {"DeleteMarker": True}
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
 
         # When: Deleting a key
         service = AWSS3Service()
@@ -681,7 +681,7 @@ class TestDeleteKey:
         mock_s3_client.delete_object.side_effect = ClientError(
             {"Error": {"Code": "500", "Message": "Error"}}, "DeleteObject"
         )
-        mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)
 
         # When/Then: Deleting raises AWSS3Error
         service = AWSS3Service()
