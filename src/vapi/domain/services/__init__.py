@@ -17,7 +17,9 @@ from .dictionary_svc import DictionaryService
 from .global_admin_user_svc import GlobalAdminUserService
 from .identity_svc import IdentityResolution, IdentityService
 from .user_lookup_svc import UserLookupService
-from .user_svc import UserQuickRollService, UserService, UserXPService
+from .user_quickroll_svc import UserQuickRollService
+from .user_svc import UserService
+from .user_xp_svc import UserXPService
 from .validation_svc import GetModelByIdValidationService
 
 __all__ = (

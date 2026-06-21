@@ -21,7 +21,7 @@ from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import User
 from vapi.domain.services import CharacterTraitService
-from vapi.domain.services.user_svc import UserXPService
+from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.domain.urls import Characters
 
 pytestmark = pytest.mark.anyio

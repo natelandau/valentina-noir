@@ -31,7 +31,7 @@ from vapi.domain.deps import (
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.domain.services.character_svc import annotate_character_counts
-from vapi.domain.services.user_svc import UserXPService
+from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
     developer_company_user_guard,
