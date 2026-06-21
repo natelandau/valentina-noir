@@ -20,7 +20,12 @@ if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
     from litestar.stores.base import Store
 
-__all__ = ("VerifiedIdentity", "build_discord_profile", "verify_provider_token")
+__all__ = (
+    "VerifiedIdentity",
+    "build_discord_profile",
+    "get_discord_avatar_url",
+    "verify_provider_token",
+)
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUERS = ("https://appleid.apple.com",)
@@ -33,6 +38,33 @@ GITHUB_UNAUTHORIZED_STATUS = 401
 GITHUB_SERVER_ERROR_STATUS = 500
 DISCORD_USER_URL = "https://discord.com/api/users/@me"
 DISCORD_UNAUTHORIZED_STATUS = 401
+_DISCORD_IMAGE_BASE_URL = "https://cdn.discordapp.com/"
+_DISCORD_AVATAR_URL = _DISCORD_IMAGE_BASE_URL + "avatars/{user_id}/{avatar_hash}.{format}"
+_DISCORD_DEFAULT_AVATAR_URL = _DISCORD_IMAGE_BASE_URL + "embed/avatars/{modulo5}.png"
+
+
+def get_discord_avatar_url(
+    avatar_hash: str, discord_user_id: int, discriminator: str
+) -> str | None:
+    """Return the URL of the user's Discord avatar.
+
+    Args:
+        avatar_hash (str): The hash of the Discord avatar.
+        discord_user_id (int): The ID of the Discord user.
+        discriminator (str): The discriminator of the Discord user.
+
+    Returns:
+        str | None: The URL of the Discord avatar.
+    """
+    if not avatar_hash:
+        if not discriminator:
+            return None
+        return _DISCORD_DEFAULT_AVATAR_URL.format(modulo5=int(discriminator) % 5)
+
+    image_format = "gif" if avatar_hash.startswith("a_") else "png"
+    return _DISCORD_AVATAR_URL.format(
+        user_id=discord_user_id, avatar_hash=avatar_hash, format=image_format
+    )
 
 
 class VerifiedIdentity(msgspec.Struct):

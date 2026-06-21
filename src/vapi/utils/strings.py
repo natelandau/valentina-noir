@@ -6,15 +6,9 @@ import random
 import re
 import string
 import unicodedata
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from datetime import timedelta
 
 __all__ = (
     "convert_int_to_emoji",
-    "format_uptime",
-    "get_discord_avatar_url",
     "random_string",
     "slugify",
 )
@@ -32,10 +26,6 @@ _EMOJI_MAP: tuple[tuple[str, str], ...] = (
     (":nine:", "9️⃣"),
     (":keycap_ten:", "🔟"),
 )
-
-_DISCORD_IMAGE_BASE_URL = "https://cdn.discordapp.com/"
-_DISCORD_AVATAR_URL = _DISCORD_IMAGE_BASE_URL + "avatars/{user_id}/{avatar_hash}.{format}"
-_DISCORD_DEFAULT_AVATAR_URL = _DISCORD_IMAGE_BASE_URL + "embed/avatars/{modulo5}.png"
 
 
 def slugify(value: str, *, separator: str | None = None, allow_unicode: bool = False) -> str:
@@ -96,46 +86,3 @@ def random_string(length: int) -> str:
         >>> assert len(random_string(10)) == 10
     """
     return "".join(random.choice(string.ascii_letters) for _ in range(length))
-
-
-def format_uptime(delta: timedelta) -> str:
-    """Format a timedelta as a human-readable duration string.
-
-    Produce a compact representation like ``"2d 14h 32m 5s"`` suitable for
-    health-check responses.
-
-    Args:
-        delta: The duration to format.
-
-    Returns:
-        str: Formatted string in the form ``"Xd Xh Xm Xs"``.
-    """
-    total_seconds = int(delta.total_seconds())
-    days, remainder = divmod(total_seconds, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{days}d {hours}h {minutes}m {seconds}s"
-
-
-def get_discord_avatar_url(
-    avatar_hash: str, discord_user_id: int, discriminator: str
-) -> str | None:
-    """Return the URL of the user's Discord avatar.
-
-    Args:
-        avatar_hash (str): The hash of the Discord avatar.
-        discord_user_id (int): The ID of the Discord user.
-        discriminator (str): The discriminator of the Discord user.
-
-    Returns:
-        str | None: The URL of the Discord avatar.
-    """
-    if not avatar_hash:
-        if not discriminator:
-            return None
-        return _DISCORD_DEFAULT_AVATAR_URL.format(modulo5=int(discriminator) % 5)
-
-    image_format = "gif" if avatar_hash.startswith("a_") else "png"
-    return _DISCORD_AVATAR_URL.format(
-        user_id=discord_user_id, avatar_hash=avatar_hash, format=image_format
-    )

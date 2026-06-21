@@ -17,7 +17,7 @@ from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
 from vapi.lib.detail_includes import active_prefetch
-from vapi.utils.strings import get_discord_avatar_url
+from vapi.utils.identity import get_discord_avatar_url
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.user import CampaignExperience, User

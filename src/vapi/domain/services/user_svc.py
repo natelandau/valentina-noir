@@ -14,7 +14,6 @@ from tortoise.transactions import in_transaction
 from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
-from vapi.domain.utils import validate_trait_ids_from_mixed_sources
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
@@ -23,7 +22,10 @@ from vapi.lib.exceptions import (
 )
 from vapi.lib.patch import apply_patch
 
-from .validation_svc import GetModelByIdValidationService
+from .validation_svc import (
+    GetModelByIdValidationService,
+    validate_trait_ids_from_mixed_sources,
+)
 
 if TYPE_CHECKING:
     from uuid import UUID
