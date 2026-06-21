@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from tortoise.expressions import RawSQL
 
-from vapi.constants import IdentityProvider, UserRole
+from vapi.constants import PROVIDER_PROFILE_FIELDS, IdentityProvider, UserRole
 from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import ConflictError, NotFoundError, UnprocessableEntityError
 from vapi.utils.strings import random_string
@@ -18,13 +18,6 @@ from vapi.utils.strings import random_string
 if TYPE_CHECKING:
     from vapi.db.sql_models.company import Company
     from vapi.utils.identity import VerifiedIdentity
-
-PROVIDER_PROFILE_FIELDS = {
-    IdentityProvider.APPLE: "apple_profile",
-    IdentityProvider.GOOGLE: "google_profile",
-    IdentityProvider.DISCORD: "discord_profile",
-    IdentityProvider.GITHUB: "github_profile",
-}
 
 # User.username has a MinLengthValidator(3); derived bases shorter than this get a suffix
 MIN_USERNAME_LENGTH = 3

@@ -11,7 +11,12 @@ from tortoise.expressions import F, Q
 from tortoise.functions import Count
 from tortoise.transactions import in_transaction
 
-from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
+from vapi.constants import (
+    COOL_POINT_VALUE,
+    PROVIDER_PROFILE_FIELDS,
+    PermissionsGrantXP,
+    UserRole,
+)
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.lib.exceptions import (
@@ -277,7 +282,7 @@ class UserService:
             primary: The target user whose empty profile fields get filled.
             secondary: The source user whose profile fields are copied.
         """
-        for attr in ("google_profile", "github_profile", "discord_profile", "apple_profile"):
+        for attr in PROVIDER_PROFILE_FIELDS.values():
             primary_profile = getattr(primary, attr) or {}
             secondary_profile = getattr(secondary, attr) or {}
             changed = False
