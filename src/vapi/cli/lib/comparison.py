@@ -15,8 +15,25 @@ _COMMENT_RE = re.compile(r"""("(?:\\"|[^"])*?")|(/\*(?:.|\s)*?\*/|//.*)""")
 __all__ = (
     "FIXTURES_PATH",
     "JSONWithCommentsDecoder",
+    "fixture_key_error",
     "needs_update",
 )
+
+
+def fixture_key_error(filename: str, item: Any, exc: KeyError) -> ValueError:
+    """Build an actionable error for a fixture entry missing a required key.
+
+    Hand-edited fixtures fail with a bare ``KeyError`` that names neither the
+    file nor the offending entry. Wrap them so a malformed fixture points the
+    maintainer straight at the file and entry to fix.
+
+    Args:
+        filename: The fixture filename being processed.
+        item: The fixture entry that triggered the error.
+        exc: The original KeyError raised while reading the entry.
+    """
+    label = item.get("name", item) if isinstance(item, dict) else item
+    return ValueError(f"{filename}: fixture entry {label!r} is missing required key {exc.args[0]!r}")
 
 
 def needs_update(instance: Any, defaults: dict[str, Any]) -> bool:

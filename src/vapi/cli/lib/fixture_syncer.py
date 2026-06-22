@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from tortoise.models import Model
 
-from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, needs_update
+from vapi.cli.lib.comparison import (
+    FIXTURES_PATH,
+    JSONWithCommentsDecoder,
+    fixture_key_error,
+    needs_update,
+)
 from vapi.cli.lib.sync_counts import SyncCounts
 from vapi.constants import WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
@@ -40,8 +45,11 @@ class FixtureSyncer:
             fixture_items: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
         for fixture_item in fixture_items:
-            lookup = self._lookup_fields(fixture_item)
-            defaults = self._defaults(fixture_item)
+            try:
+                lookup = self._lookup_fields(fixture_item)
+                defaults = self._defaults(fixture_item)
+            except KeyError as e:
+                raise fixture_key_error(self.fixture_filename, fixture_item, e) from e
             instance, created = await self.model.get_or_create(defaults=defaults, **lookup)
             if created:
                 self.counts.created += 1

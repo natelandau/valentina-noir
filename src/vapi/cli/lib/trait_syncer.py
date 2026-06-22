@@ -7,7 +7,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, needs_update
+from vapi.cli.lib.comparison import (
+    FIXTURES_PATH,
+    JSONWithCommentsDecoder,
+    fixture_key_error,
+    needs_update,
+)
 from vapi.cli.lib.sync_counts import SyncCounts
 from vapi.db.sql_models.character_classes import WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import (
@@ -54,15 +59,18 @@ class TraitSyncer:
         self.gift_fixture_map = _build_gift_fixture_map(fixture_data)
 
         for fixture_section in fixture_data:
-            section, created, updated = await self._sync_section(fixture_section)
+            try:
+                section, created, updated = await self._sync_section(fixture_section)
+                cat_counts, subcat_counts, trait_counts = await self._sync_section_categories(
+                    fixture_section, section
+                )
+            except KeyError as e:
+                raise fixture_key_error(fixture_path.name, fixture_section, e) from e
+
             if created:
                 self.result.sections.created += 1
             elif updated:
                 self.result.sections.updated += 1
-
-            cat_counts, subcat_counts, trait_counts = await self._sync_section_categories(
-                fixture_section, section
-            )
             self.result.categories += cat_counts
             self.result.subcategories += subcat_counts
             self.result.traits += trait_counts
