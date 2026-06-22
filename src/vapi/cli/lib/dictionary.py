@@ -18,6 +18,17 @@ from vapi.db.sql_models.dictionary import DictionaryTerm
 logger = logging.getLogger("vapi")
 
 
+def _append_system(definition: str, system: str | None) -> str:
+    """Append a System block to a definition when the entity defines one.
+
+    Subcategories and traits both render their optional ``system`` text the same
+    way, so the format lives here instead of being repeated at each call site.
+    """
+    if system:
+        return f"{definition}\n\n**System:**\n{system}"
+    return definition
+
+
 class DictionaryService:
     """Build and sync global dictionary terms from PostgreSQL entities."""
 
@@ -163,9 +174,7 @@ class DictionaryService:
             if not subcategory.description:
                 continue
 
-            definition = subcategory.description
-            if subcategory.system:
-                definition += f"\n\n**System:**\n{subcategory.system}"
+            definition = _append_system(subcategory.description, subcategory.system)
 
             await self._upsert_term(
                 subcategory.name,
@@ -178,9 +187,7 @@ class DictionaryService:
         """Create dictionary terms for all non-archived seed traits with descriptions."""
         traits = await Trait.filter(is_archived=False, is_custom=False, description__isnull=False)
         for trait in traits:
-            definition = trait.description
-            if trait.system:
-                definition += f"\n\n**System:**\n{trait.system}"
+            definition = _append_system(trait.description, trait.system)
 
             await self._upsert_term(
                 trait.name,

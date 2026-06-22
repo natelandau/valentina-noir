@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from vapi.cli.lib.comparison import (
     FIXTURES_PATH,
@@ -14,6 +14,10 @@ from vapi.cli.lib.comparison import (
     needs_update,
 )
 from vapi.cli.lib.sync_counts import SyncCounts
+from vapi.cli.lib.upsert import upsert
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 from vapi.db.sql_models.character_classes import WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
@@ -60,20 +64,10 @@ class TraitSyncer:
 
         for fixture_section in fixture_data:
             try:
-                section, created, updated = await self._sync_section(fixture_section)
-                cat_counts, subcat_counts, trait_counts = await self._sync_section_categories(
-                    fixture_section, section
-                )
+                section = await self._sync_section(fixture_section)
+                await self._sync_section_categories(fixture_section, section)
             except KeyError as e:
                 raise fixture_key_error(fixture_path.name, fixture_section, e) from e
-
-            if created:
-                self.result.sections.created += 1
-            elif updated:
-                self.result.sections.updated += 1
-            self.result.categories += cat_counts
-            self.result.subcategories += subcat_counts
-            self.result.traits += trait_counts
 
         self.result.sections.total = await CharSheetSection.all().count()
         self.result.categories.total = await TraitCategory.all().count()
@@ -82,14 +76,8 @@ class TraitSyncer:
 
         self._log_counts()
 
-    async def _sync_section(
-        self, fixture_section: dict[str, Any]
-    ) -> tuple[CharSheetSection, bool, bool]:
-        """Upsert a CharSheetSection from fixture data.
-
-        Returns:
-            Tuple of (section instance, created flag, updated flag).
-        """
+    async def _sync_section(self, fixture_section: dict[str, Any]) -> CharSheetSection:
+        """Upsert a CharSheetSection from fixture data."""
         defaults = {
             "description": fixture_section.get("description"),
             "character_classes": fixture_section.get("character_classes", []),
@@ -97,26 +85,19 @@ class TraitSyncer:
             "show_when_empty": fixture_section.get("show_when_empty", False),
             "order": fixture_section.get("order", 0),
         }
-        section, created = await CharSheetSection.get_or_create(
-            name=fixture_section["name"],
+        return await upsert(
+            CharSheetSection,
+            lookup={"name": fixture_section["name"]},
             defaults=defaults,
+            counts=self.result.sections,
         )
-        updated = False
-        if not created and needs_update(section, defaults):
-            await section.update_from_dict(defaults).save()
-            updated = True
-        return section, created, updated
 
     async def _sync_category(
         self,
         fixture_category: dict[str, Any],
         section: CharSheetSection,
-    ) -> tuple[TraitCategory, bool, bool]:
-        """Upsert a TraitCategory, inheriting from section when fields are absent.
-
-        Returns:
-            Tuple of (category instance, created flag, updated flag).
-        """
+    ) -> TraitCategory:
+        """Upsert a TraitCategory, inheriting from section when fields are absent."""
         character_classes = fixture_category.get("character_classes") or section.character_classes
         game_versions = fixture_category.get("game_versions") or section.game_versions
 
@@ -130,28 +111,20 @@ class TraitSyncer:
             "upgrade_cost": fixture_category.get("upgrade_cost", 2),
             "count_based_cost_multiplier": fixture_category.get("count_based_cost_multiplier"),
         }
-        category, created = await TraitCategory.get_or_create(
-            name=fixture_category["name"],
-            sheet_section=section,
+        return await upsert(
+            TraitCategory,
+            lookup={"name": fixture_category["name"], "sheet_section": section},
             defaults=defaults,
+            counts=self.result.categories,
         )
-        updated = False
-        if not created and needs_update(category, defaults):
-            await category.update_from_dict(defaults).save()
-            updated = True
-        return category, created, updated
 
     async def _sync_subcategory(
         self,
         fixture_subcategory: dict[str, Any],
         category: TraitCategory,
         section: CharSheetSection,
-    ) -> tuple[TraitSubcategory, bool, bool]:
-        """Upsert a TraitSubcategory, inheriting from category when fields are absent.
-
-        Returns:
-            Tuple of (subcategory instance, created flag, updated flag).
-        """
+    ) -> TraitSubcategory:
+        """Upsert a TraitSubcategory, inheriting from category when fields are absent."""
         defaults = {
             "description": fixture_subcategory.get("description"),
             "character_classes": fixture_subcategory.get("character_classes")
@@ -168,16 +141,12 @@ class TraitSyncer:
             "hunter_edge_type": fixture_subcategory.get("hunter_edge_type"),
             "sheet_section": section,
         }
-        subcategory, created = await TraitSubcategory.get_or_create(
-            name=fixture_subcategory["name"],
-            category=category,
+        return await upsert(
+            TraitSubcategory,
+            lookup={"name": fixture_subcategory["name"], "category": category},
             defaults=defaults,
+            counts=self.result.subcategories,
         )
-        updated = False
-        if not created and needs_update(subcategory, defaults):
-            await subcategory.update_from_dict(defaults).save()
-            updated = True
-        return subcategory, created, updated
 
     async def _sync_trait(
         self,
@@ -283,48 +252,24 @@ class TraitSyncer:
         self,
         fixture_section: dict[str, Any],
         section: CharSheetSection,
-    ) -> tuple[SyncCounts, SyncCounts, SyncCounts]:
-        """Sync all categories, subcategories, and traits within a section.
-
-        Returns:
-            Tuple of (category_counts, subcategory_counts, trait_counts).
-        """
-        cat_counts = SyncCounts()
-        subcat_counts = SyncCounts()
-        trait_counts = SyncCounts()
-
+    ) -> None:
+        """Sync all categories, subcategories, and traits within a section."""
         for fixture_category in fixture_section.get("categories", []):
-            category, created, updated = await self._sync_category(fixture_category, section)
-            if created:
-                cat_counts.created += 1
-            elif updated:
-                cat_counts.updated += 1
+            category = await self._sync_category(fixture_category, section)
 
-            # Sync subcategories and their traits
             for fixture_subcategory in fixture_category.get("subcategories", []):
-                subcategory, sub_created, sub_updated = await self._sync_subcategory(
-                    fixture_subcategory, category, section
-                )
-                if sub_created:
-                    subcat_counts.created += 1
-                elif sub_updated:
-                    subcat_counts.updated += 1
-
-                batch_counts = await self._sync_traits_batch(
+                subcategory = await self._sync_subcategory(fixture_subcategory, category, section)
+                self.result.traits += await self._sync_traits_batch(
                     fixture_subcategory,
                     category=category,
                     section=section,
                     subcategory=subcategory,
                 )
-                trait_counts += batch_counts
 
-            # Sync category-level traits (no subcategory)
-            batch_counts = await self._sync_traits_batch(
+            # Category-level traits have no subcategory
+            self.result.traits += await self._sync_traits_batch(
                 fixture_category, category=category, section=section
             )
-            trait_counts += batch_counts
-
-        return cat_counts, subcat_counts, trait_counts
 
     def _log_counts(self) -> None:
         """Log sync results for each level of the hierarchy."""
@@ -347,6 +292,19 @@ class TraitSyncer:
             )
 
 
+def _iter_traits(fixture_data: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Yield every trait dict in parsed traits.json, at both subcategory and category levels.
+
+    Centralizes the section -> category -> [subcategory] -> traits walk so the
+    validation and gift-map passes share one traversal instead of each open-coding it.
+    """
+    for section in fixture_data:
+        for category in section.get("categories", []):
+            for subcategory in category.get("subcategories", []):
+                yield from subcategory.get("traits", [])
+            yield from category.get("traits", [])
+
+
 def _validate_trait_value_ranges(fixture_data: list[dict[str, Any]]) -> None:
     """Validate that no trait has min_value greater than max_value.
 
@@ -360,23 +318,11 @@ def _validate_trait_value_ranges(fixture_data: list[dict[str, Any]]) -> None:
         ValueError: If any traits have inverted min/max values.
     """
     violations: list[str] = []
-    for section in fixture_data:
-        for category in section.get("categories", []):
-            for trait in category.get("traits", []):
-                min_val = trait.get("min_value", 0)
-                max_val = trait.get("max_value", 5)
-                if min_val > max_val:
-                    violations.append(
-                        f"  {trait['name']}: min_value={min_val}, max_value={max_val}"
-                    )
-            for subcategory in category.get("subcategories", []):
-                for trait in subcategory.get("traits", []):
-                    min_val = trait.get("min_value", 0)
-                    max_val = trait.get("max_value", 5)
-                    if min_val > max_val:
-                        violations.append(
-                            f"  {trait['name']}: min_value={min_val}, max_value={max_val}"
-                        )
+    for trait in _iter_traits(fixture_data):
+        min_val = trait.get("min_value", 0)
+        max_val = trait.get("max_value", 5)
+        if min_val > max_val:
+            violations.append(f"  {trait['name']}: min_value={min_val}, max_value={max_val}")
 
     if violations:
         msg = "traits.json has traits where min_value > max_value:\n" + "\n".join(violations)
@@ -401,15 +347,9 @@ def _build_gift_fixture_map(
             fixture_data = json.load(f, cls=JSONWithCommentsDecoder)
 
     result: dict[str, dict[str, Any]] = {}
-    for section in fixture_data:
-        for category in section.get("categories", []):
-            for subcategory in category.get("subcategories", []):
-                for trait in subcategory.get("traits", []):
-                    if ga := trait.get("gift_attributes"):
-                        result[trait["name"].strip().lower()] = dict(ga)
-            for trait in category.get("traits", []):
-                if ga := trait.get("gift_attributes"):
-                    result[trait["name"].strip().lower()] = dict(ga)
+    for trait in _iter_traits(fixture_data):
+        if ga := trait.get("gift_attributes"):
+            result[trait["name"].strip().lower()] = dict(ga)
     return result
 
 
