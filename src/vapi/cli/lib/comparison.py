@@ -52,7 +52,9 @@ def fixture_key_error(filename: str, item: Any, exc: KeyError) -> ValueError:
         exc: The original KeyError raised while reading the entry.
     """
     label = item.get("name", item) if isinstance(item, dict) else item
-    return ValueError(f"{filename}: fixture entry {label!r} is missing required key {exc.args[0]!r}")
+    return ValueError(
+        f"{filename}: fixture entry {label!r} is missing required key {exc.args[0]!r}"
+    )
 
 
 def needs_update(instance: Any, defaults: dict[str, Any]) -> bool:
