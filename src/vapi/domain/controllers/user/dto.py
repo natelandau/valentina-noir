@@ -207,9 +207,9 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
     ) -> "UserDetailResponse":
         """Convert a User to a detail response with optional children."""
         # Lazy imports - module-level imports of other DTO modules would create circular imports.
+        from vapi.domain.controllers.assets.dto import S3AssetResponse
         from vapi.domain.controllers.character.dto import CharacterResponse
         from vapi.domain.controllers.notes.dto import NoteResponse
-        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
 
         includes = includes or set()
         base = UserResponse.from_model(m)

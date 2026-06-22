@@ -636,10 +636,10 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
         """
         # Lazy imports to avoid circular dependency: these controller dto modules
         # import from deps.py which imports from this file at module level.
+        from vapi.domain.controllers.assets.dto import S3AssetResponse
         from vapi.domain.controllers.character_inventory.dto import InventoryItemResponse
         from vapi.domain.controllers.character_trait.dto import CharacterTraitResponse
         from vapi.domain.controllers.notes.dto import NoteResponse
-        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
 
         includes = includes or set()
         base = CharacterResponse.from_model(m)
