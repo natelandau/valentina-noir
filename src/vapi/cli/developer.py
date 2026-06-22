@@ -21,7 +21,7 @@ def developer_group() -> None:
     """Group of api-user commands."""
 
 
-@developer_group.command(name="create", help="Create an Developer")
+@developer_group.command(name="create", help="Create a Developer")
 @click.option(
     "--email",
     "-e",
@@ -45,7 +45,7 @@ def developer(
     username: str,
     global_admin: bool,
 ) -> None:
-    """Create an Developer."""
+    """Create a Developer."""
 
     async def create_developer_async() -> None:
         await init_tortoise()
@@ -127,10 +127,10 @@ def list_developers() -> None:
     asyncio.run(list_developers_async())
 
 
-@developer_group.command(name="delete", help="Delete an Developer")
+@developer_group.command(name="delete", help="Delete a Developer")
 @click.argument("database_id")
 def delete_developer(database_id: str) -> None:
-    """Delete an Developer."""
+    """Delete a Developer."""
 
     async def delete_developer_async() -> None:
         await init_tortoise()

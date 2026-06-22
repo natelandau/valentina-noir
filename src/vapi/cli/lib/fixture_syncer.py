@@ -36,7 +36,7 @@ class FixtureSyncer:
     async def sync(self) -> None:
         """Load fixture data and upsert all items into PostgreSQL."""
         fixture_path = FIXTURES_PATH / self.fixture_filename
-        with fixture_path.open("r") as f:
+        with fixture_path.open() as f:
             fixture_items: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
         for fixture_item in fixture_items:

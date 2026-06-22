@@ -45,7 +45,7 @@ class TraitSyncer:
     async def sync(self) -> None:
         """Load traits.json and sync the full hierarchy into PostgreSQL."""
         fixture_path = FIXTURES_PATH / "traits.json"
-        with fixture_path.open("r") as f:
+        with fixture_path.open() as f:
             fixture_data: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
         _validate_trait_value_ranges(fixture_data)
@@ -237,8 +237,6 @@ class TraitSyncer:
         updated = False
         if trait is None:
             create_kwargs: dict[str, Any] = {"name": trait_name, "category": category, **defaults}
-            if subcategory:
-                create_kwargs["subcategory"] = subcategory
             trait = await Trait.create(**create_kwargs)
             created = True
         elif needs_update(trait, defaults):
@@ -387,7 +385,7 @@ def _build_gift_fixture_map(
     """
     if fixture_data is None:
         fixture_path = FIXTURES_PATH / "traits.json"
-        with fixture_path.open("r") as f:
+        with fixture_path.open() as f:
             fixture_data = json.load(f, cls=JSONWithCommentsDecoder)
 
     result: dict[str, dict[str, Any]] = {}
@@ -481,7 +479,12 @@ async def resolve_gift_trait_references(
     if modified_traits:
         await Trait.bulk_update(modified_traits, fields=["gift_tribe_id", "gift_auspice_id"])
 
-    await _populate_gift_m2m(tribe_gifts, auspice_gifts, tribes_by_name, auspices_by_name)
+    await _populate_gift_m2m(
+        tribe_gifts=tribe_gifts,
+        auspice_gifts=auspice_gifts,
+        tribes_by_name=tribes_by_name,
+        auspices_by_name=auspices_by_name,
+    )
 
     logger.info(
         "Resolved PostgreSQL gift trait references",

@@ -10,7 +10,7 @@ from vapi.constants import PROJECT_ROOT_PATH
 FIXTURES_PATH = PROJECT_ROOT_PATH / "src/vapi/db/fixtures"
 
 # Matches JSON strings (preserved) and comments (removed)
-_COMMENT_RE = re.compile(r"""("(?:\\"|[^"])*?")|(\/\*(?:.|\s)*?\*\/|\/\/.*)""")
+_COMMENT_RE = re.compile(r"""("(?:\\"|[^"])*?")|(/\*(?:.|\s)*?\*/|//.*)""")
 
 __all__ = (
     "FIXTURES_PATH",
