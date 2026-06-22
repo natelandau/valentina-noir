@@ -22,26 +22,35 @@ async def _apply_migrations() -> None:
     schema exists, subsequent migrations work correctly.
     """
     from tortoise import Tortoise
+    from tortoise.transactions import in_transaction
 
     config = tortoise_config()
     await Tortoise.init(config=config)
 
+    # Let probe failures (bad connection, permissions) surface rather than
+    # misclassifying a reachable-but-broken database as fresh and re-bootstrapping it.
     conn = Tortoise.get_connection("default")
-    try:
-        _, rows = await conn.execute_query(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'trait')"
-        )
-        tables_exist = rows[0]["exists"]
-    except Exception:  # noqa: BLE001
-        tables_exist = False
+    _, rows = await conn.execute_query(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'trait')"
+    )
+    tables_exist = rows[0]["exists"]
 
-    if not tables_exist:
+    if tables_exist:
+        await Tortoise.close_connections()
+        await tortoise_migrate(config=config)
+        return
+
+    # Fresh database: generate the schema, install the trigger, and record the
+    # baseline migration in one transaction so a crash never leaves a populated
+    # schema without its 0001_initial marker (which would make the next migrate
+    # run try to re-apply 0001_initial against existing tables).
+    async with in_transaction():
         await Tortoise.generate_schemas()
         # generate_schemas skips migration RunSQL; install the archive-stamp
         # trigger so fresh databases get the same DB-level backstop as migrated ones.
         await install_archive_stamp_trigger()
-        # Record the initial migration so future migrations know it was applied
-        await conn.execute_script(
+        tx_conn = Tortoise.get_connection("default")
+        await tx_conn.execute_script(
             "CREATE TABLE IF NOT EXISTS tortoise_migrations ("
             "  id SERIAL PRIMARY KEY,"
             "  app VARCHAR(100) NOT NULL,"
@@ -50,10 +59,6 @@ async def _apply_migrations() -> None:
             ");"
             "INSERT INTO tortoise_migrations (app, name) VALUES ('models', '0001_initial');"
         )
-    else:
-        await Tortoise.close_connections()
-        await tortoise_migrate(config=config)
-        return
 
     await Tortoise.close_connections()
 
