@@ -32,7 +32,7 @@ def needs_update(instance: Any, defaults: dict[str, Any]) -> bool:
         bool: True if any field in defaults differs from the instance's current value.
     """
     for key, new_value in defaults.items():
-        # FK fields: Tortoise stores the raw ID as {field}_id
+        # Compare foreign keys by their raw {field}_id column so diffing never triggers a lazy relation fetch
         id_attr = f"{key}_id"
         if hasattr(instance, id_attr):
             current_id = getattr(instance, id_attr)
@@ -56,6 +56,6 @@ class JSONWithCommentsDecoder(json.JSONDecoder):
     """JSON decoder that strips single-line and block comments before parsing."""
 
     def decode(self, s: str) -> Any:  # type: ignore [override]
-        """Decode JSON after stripping comments."""
+        """Strip // and /* */ comments before parsing so JSONC-authored fixtures load cleanly."""
         s = _COMMENT_RE.sub(r"\1", s)
         return super().decode(s)

@@ -26,9 +26,9 @@ class FixtureSyncer:
     extract lookup fields and defaults from each fixture item.
     """
 
-    model: type[Model]  # Tortoise Model class
-    fixture_filename: str  # JSON filename in db/fixtures/
-    entity_label: str  # Human label for logging
+    model: type[Model]
+    fixture_filename: str  # JSON filename within db/fixtures/
+    entity_label: str
 
     def __init__(self) -> None:
         self.counts = SyncCounts()

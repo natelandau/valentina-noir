@@ -189,7 +189,7 @@ class TraitSyncer:
         """
         trait_name = fixture_trait["name"].strip()
 
-        # Extract gift attributes if present
+        # Pop gift_attributes off the fixture so it is not written as a Trait column; tribe/auspice names resolve later
         gift_defaults: dict[str, Any] = {}
         if gift_attrs := fixture_trait.pop("gift_attributes", None):
             gift_attrs.pop("tribe_name", None)

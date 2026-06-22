@@ -18,7 +18,7 @@ logger = logging.getLogger("vapi")
 
 @click.group(name="developer", invoke_without_command=False, help="api-user commands")
 def developer_group() -> None:
-    """Group of api-user commands."""
+    """Group the admin commands for creating, listing, and deleting developer accounts."""
 
 
 @developer_group.command(name="create", help="Create a Developer")
