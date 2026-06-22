@@ -227,10 +227,14 @@ class TraitSyncer:
             **gift_defaults,
         }
 
-        # Case-insensitive lookup so fixture casing variants match the signal-normalized stored name
+        # Case-insensitive lookup so fixture casing variants match the signal-normalized stored name.
+        # Constrain subcategory in both directions so a category-level trait never matches a
+        # subcategory-scoped trait of the same name (and vice versa) within the category.
         lookup_filter: dict[str, Any] = {"name__iexact": trait_name, "category": category}
         if subcategory:
             lookup_filter["subcategory"] = subcategory
+        else:
+            lookup_filter["subcategory_id__isnull"] = True
 
         trait = await Trait.filter(**lookup_filter).first()
         created = False
@@ -463,14 +467,16 @@ async def resolve_gift_trait_references(
             tribe = tribes_by_name[tribe_name]
             tribe_gifts[tribe_name].append(trait)
             if trait.gift_tribe_id != tribe.pk:  # type: ignore [attr-defined]
-                trait.gift_tribe = tribe
+                # Assign the FK column named in bulk_update so the write target matches the fields list
+                trait.gift_tribe_id = tribe.pk
                 changed = True
 
         if auspice_name and auspice_name in auspices_by_name:
             auspice = auspices_by_name[auspice_name]
             auspice_gifts[auspice_name].append(trait)
             if trait.gift_auspice_id != auspice.pk:  # type: ignore [attr-defined]
-                trait.gift_auspice = auspice
+                # Assign the FK column named in bulk_update so the write target matches the fields list
+                trait.gift_auspice_id = auspice.pk
                 changed = True
 
         if changed:
