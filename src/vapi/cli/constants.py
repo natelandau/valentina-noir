@@ -12,4 +12,3 @@ if TYPE_CHECKING:
 
 DEV_FOLDER: Final[Path] = PROJECT_ROOT_PATH / ".dev"
 API_KEYS_FILE: Final[Path] = DEV_FOLDER / "api_keys.txt"
-BASE_URL: Final[str] = "http://127.0.0.1:8000"
