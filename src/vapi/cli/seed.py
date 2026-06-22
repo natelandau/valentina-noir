@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import click
-from tortoise import Tortoise
 
 from vapi.cli.lib.dictionary import DictionaryService
 from vapi.cli.lib.fixture_syncer import (
@@ -15,8 +13,9 @@ from vapi.cli.lib.fixture_syncer import (
     WerewolfAuspiceSyncer,
     WerewolfTribeSyncer,
 )
-from vapi.cli.lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
-from vapi.lib.database import init_tortoise
+from vapi.cli.lib.gift_syncer import resolve_gift_trait_references
+from vapi.cli.lib.runner import run_with_tortoise
+from vapi.cli.lib.trait_syncer import TraitSyncer
 
 logger = logging.getLogger("vapi")
 
@@ -36,21 +35,10 @@ async def seed_async() -> None:
     await DictionaryService().sync_all()
 
 
-async def _seed_all() -> None:
-    """Run the full PostgreSQL seed.
-
-    Initializes Tortoise ORM, seeds the database, then closes Tortoise
-    connections for clean CLI shutdown.
-    """
-    await init_tortoise()
-    await seed_async()
-    await Tortoise.close_connections()
-
-
 @click.command(
     name="seed",
     help="Seed the database with reference data. Run after migrations when fixture data changes.",
 )
 def seed() -> None:
     """Seed everything."""
-    asyncio.run(_seed_all())
+    run_with_tortoise(seed_async())

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from rich.console import Console
 
-from vapi.cli.constants import API_KEYS_FILE, DEV_FOLDER
+from scripts.dev_data.constants import API_KEYS_FILE, DEV_FOLDER
 
 _console = Console()
 

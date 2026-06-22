@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from tortoise.models import Model
 
-from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, needs_update
+from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, fixture_key_error
 from vapi.cli.lib.sync_counts import SyncCounts
+from vapi.cli.lib.upsert import upsert
 from vapi.constants import WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
@@ -26,9 +27,9 @@ class FixtureSyncer:
     extract lookup fields and defaults from each fixture item.
     """
 
-    model: type[Model]  # Tortoise Model class
-    fixture_filename: str  # JSON filename in db/fixtures/
-    entity_label: str  # Human label for logging
+    model: type[Model]
+    fixture_filename: str  # JSON filename within db/fixtures/
+    entity_label: str
 
     def __init__(self) -> None:
         self.counts = SyncCounts()
@@ -36,18 +37,18 @@ class FixtureSyncer:
     async def sync(self) -> None:
         """Load fixture data and upsert all items into PostgreSQL."""
         fixture_path = FIXTURES_PATH / self.fixture_filename
-        with fixture_path.open("r") as f:
+        with fixture_path.open() as f:
             fixture_items: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
         for fixture_item in fixture_items:
-            lookup = self._lookup_fields(fixture_item)
-            defaults = self._defaults(fixture_item)
-            instance, created = await self.model.get_or_create(defaults=defaults, **lookup)
-            if created:
-                self.counts.created += 1
-            elif needs_update(instance, defaults):
-                await instance.update_from_dict(defaults).save()
-                self.counts.updated += 1
+            try:
+                lookup = self._lookup_fields(fixture_item)
+                defaults = self._defaults(fixture_item)
+            except KeyError as e:
+                raise fixture_key_error(self.fixture_filename, fixture_item, e) from e
+            instance = await upsert(
+                self.model, lookup=lookup, defaults=defaults, counts=self.counts
+            )
             self._process_item(fixture_item, instance)
 
         await self._post_sync()

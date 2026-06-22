@@ -213,9 +213,14 @@ class TestValidateTraitValueRanges:
             }
         ]
 
-        # When/Then: Both violations appear in the error
-        with pytest.raises(ValueError, match=r"(?s)Bad One.*Bad Two"):
+        # When: validating the fixture data
+        with pytest.raises(ValueError, match="min_value > max_value") as exc_info:
             _validate_trait_value_ranges(fixture_data)
+
+        # Then: both violations appear in the error, regardless of order
+        message = str(exc_info.value)
+        assert "Bad One" in message
+        assert "Bad Two" in message
 
     def test_defaults_used_when_values_absent(self) -> None:
         """Verify traits without explicit min/max use defaults (0 and 5) and pass."""

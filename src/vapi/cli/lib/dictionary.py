@@ -18,6 +18,17 @@ from vapi.db.sql_models.dictionary import DictionaryTerm
 logger = logging.getLogger("vapi")
 
 
+def _append_system(definition: str, system: str | None) -> str:
+    """Append a System block to a definition when the entity defines one.
+
+    Subcategories and traits both render their optional ``system`` text the same
+    way, so the format lives here instead of being repeated at each call site.
+    """
+    if system:
+        return f"{definition}\n\n**System:**\n{system}"
+    return definition
+
+
 class DictionaryService:
     """Build and sync global dictionary terms from PostgreSQL entities."""
 
@@ -27,10 +38,11 @@ class DictionaryService:
 
     async def sync_all(self) -> None:
         """Build dictionary terms for all entity types, then log counts."""
-        # Load only global seed terms (company_id IS NULL) to avoid collisions
-        # with company-scoped terms created via the API
+        # Scope to global seed terms so the sync never clobbers company-scoped terms created via the API
         all_terms = await DictionaryTerm.filter(company_id__isnull=True, source_type__isnull=False)
-        self._existing_terms = {t.term: t for t in all_terms}
+        # Key by the same normalization used for lookups so a stored term whose casing
+        # differs from its normalized form still resolves to a cache hit.
+        self._existing_terms = {t.term.lower().strip(): t for t in all_terms}
 
         await self._sync_vampire_clan_terms()
         await self._sync_werewolf_auspice_terms()
@@ -72,7 +84,7 @@ class DictionaryService:
             # entity types (e.g., a subcategory and trait sharing the same name)
             # where the dict cache silently drops one entry
             existing_term = await DictionaryTerm.filter(
-                term=normalized_term, company_id__isnull=True
+                term=normalized_term, company_id__isnull=True, source_type__isnull=False
             ).first()
             if existing_term:
                 self._existing_terms[normalized_term] = existing_term
@@ -162,9 +174,7 @@ class DictionaryService:
             if not subcategory.description:
                 continue
 
-            definition = subcategory.description
-            if subcategory.system:
-                definition += f"\n\n**System:**\n{subcategory.system}"
+            definition = _append_system(subcategory.description, subcategory.system)
 
             await self._upsert_term(
                 subcategory.name,
@@ -177,9 +187,7 @@ class DictionaryService:
         """Create dictionary terms for all non-archived seed traits with descriptions."""
         traits = await Trait.filter(is_archived=False, is_custom=False, description__isnull=False)
         for trait in traits:
-            definition = trait.description
-            if trait.system:
-                definition += f"\n\n**System:**\n{trait.system}"
+            definition = _append_system(trait.description, trait.system)
 
             await self._upsert_term(
                 trait.name,
