@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from datetime import timedelta
 
 import pytest
 
@@ -52,87 +51,3 @@ def test_random_string(debug) -> None:
     assert isinstance(returned, str)
     assert len(returned) == 10
     assert re.match(r"[a-zA-Z]{10}", returned)
-
-
-class TestGetDiscordAvatarUrl:
-    """Tests for get_discord_avatar_url."""
-
-    def test_get_discord_avatar_url_png(self) -> None:
-        """Verify a standard avatar hash returns a PNG URL."""
-        # Given a non-animated avatar hash
-        avatar_hash = "abc123"
-        user_id = 12345
-        discriminator = "0001"
-
-        # When getting the avatar URL
-        result = strings.get_discord_avatar_url(avatar_hash, user_id, discriminator)
-
-        # Then a PNG avatar URL is returned
-        assert result == "https://cdn.discordapp.com/avatars/12345/abc123.png"
-
-    def test_get_discord_avatar_url_gif(self) -> None:
-        """Verify an animated avatar hash returns a GIF URL."""
-        # Given an animated avatar hash (starts with "a_")
-        avatar_hash = "a_abc123"
-        user_id = 99999
-        discriminator = "1234"
-
-        # When getting the avatar URL
-        result = strings.get_discord_avatar_url(avatar_hash, user_id, discriminator)
-
-        # Then a GIF avatar URL is returned
-        assert result == "https://cdn.discordapp.com/avatars/99999/a_abc123.gif"
-
-    @pytest.mark.parametrize(
-        ("discriminator", "expected_modulo"),
-        [
-            ("0000", 0),
-            ("0001", 1),
-            ("0002", 2),
-            ("0003", 3),
-            ("0004", 4),
-            ("0005", 0),
-            ("1234", 4),
-        ],
-    )
-    def test_get_discord_avatar_url_default_avatar(
-        self, *, discriminator: str, expected_modulo: int
-    ) -> None:
-        """Verify a missing avatar hash falls back to the default avatar using discriminator modulo 5."""
-        # Given no avatar hash
-        # When getting the avatar URL
-        result = strings.get_discord_avatar_url("", 12345, discriminator)
-
-        # Then the default avatar URL is returned with correct modulo
-        assert result == f"https://cdn.discordapp.com/embed/avatars/{expected_modulo}.png"
-
-    def test_get_discord_avatar_url_no_hash_no_discriminator(self) -> None:
-        """Verify None is returned when both avatar hash and discriminator are empty."""
-        # Given no avatar hash and no discriminator
-        # When getting the avatar URL
-        result = strings.get_discord_avatar_url("", 12345, "")
-
-        # Then None is returned
-        assert result is None
-
-
-@pytest.mark.parametrize(
-    ("delta", "expected"),
-    [
-        (timedelta(seconds=0), "0d 0h 0m 0s"),
-        (timedelta(seconds=45), "0d 0h 0m 45s"),
-        (timedelta(seconds=125), "0d 0h 2m 5s"),
-        (timedelta(seconds=3661), "0d 1h 1m 1s"),
-        (timedelta(seconds=90061), "1d 1h 1m 1s"),
-        (timedelta(days=5, hours=3, minutes=22, seconds=17), "5d 3h 22m 17s"),
-    ],
-)
-def test_format_uptime(delta: timedelta, expected: str) -> None:
-    """Verify duration is formatted as a human-readable string."""
-    # Given a timedelta
-
-    # When formatting it
-    result = strings.format_uptime(delta)
-
-    # Then the output matches the expected string
-    assert result == expected

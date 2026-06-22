@@ -1,5 +1,12 @@
 """Domain controllers."""
 
+from .assets import (
+    BookAssetsController,
+    CampaignAssetsController,
+    ChapterAssetsController,
+    CharacterAssetsController,
+    UserAssetsController,
+)
 from .campaign import (
     CampaignBookController,
     CampaignChapterController,
@@ -28,13 +35,6 @@ from .notes import (
     UserNoteController,
 )
 from .options.controllers import OptionsController
-from .s3_assets import (
-    BookAssetsController,
-    CampaignAssetsController,
-    ChapterAssetsController,
-    CharacterAssetsController,
-    UserAssetsController,
-)
 from .static import static_router
 from .statistics.controllers import StatisticsController
 from .system.controllers import SystemController

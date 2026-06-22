@@ -32,7 +32,7 @@ from .dto import (
     UserResponse,
     get_user_include_prefetch_map,
 )
-from .helpers import annotated_user_response as _annotated_user_response
+from .responses import annotated_user_response as _annotated_user_response
 
 
 class UserController(Controller):

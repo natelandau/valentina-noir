@@ -11,6 +11,26 @@ Controllers reference these complete paths directly without controller-level bas
 from vapi.constants import URL_ROOT_PATH
 
 
+def _note_urls(base: str) -> tuple[str, str, str, str, str]:
+    """Return the (list, detail, create, update, delete) note paths for a parent's notes base.
+
+    Notes are a uniform sub-resource on every parent (user, campaign, book, chapter,
+    character); this keeps the five paths in lock-step from a single base string.
+    """
+    detail = f"{base}/{{note_id:str}}"
+    return base, detail, base, detail, detail
+
+
+def _asset_urls(base: str) -> tuple[str, str, str, str]:
+    """Return the (list, upload, detail, delete) asset paths for a parent's assets base.
+
+    Assets are a uniform sub-resource on every parent; this keeps the four paths in
+    lock-step from a single base string.
+    """
+    detail = f"{base}/{{asset_id:str}}"
+    return base, f"{base}/upload", detail, detail
+
+
 class GlobalAdmin:
     """Global admin management endpoints."""
 
@@ -79,10 +99,7 @@ class Users:
     MERGE = f"{BASE}/merge"
 
     # User assets
-    ASSETS = f"{DETAIL}/assets"
-    ASSET_UPLOAD = f"{ASSETS}/upload"
-    ASSET_DETAIL = f"{ASSETS}/{{asset_id:str}}"
-    ASSET_DELETE = ASSET_DETAIL
+    ASSETS, ASSET_UPLOAD, ASSET_DETAIL, ASSET_DELETE = _asset_urls(f"{DETAIL}/assets")
 
     # User avatar
     AVATAR = f"{DETAIL}/avatar"
@@ -97,12 +114,8 @@ class Users:
     CP_ADD = f"{EXPERIENCE_BASE}/cp/add"
 
     # User notes
-    NOTES = f"{DETAIL}/notes"
+    NOTES, NOTE_DETAIL, NOTE_CREATE, NOTE_UPDATE, NOTE_DELETE = _note_urls(f"{DETAIL}/notes")
     LIST_NOTES = NOTES
-    NOTE_DETAIL = f"{NOTES}/{{note_id:str}}"
-    NOTE_CREATE = NOTES
-    NOTE_UPDATE = NOTE_DETAIL
-    NOTE_DELETE = NOTE_DETAIL
 
     # User quickrolls
     QUICKROLLS = f"{DETAIL}/quickrolls"
@@ -132,17 +145,10 @@ class Campaigns:
     STATISTICS = f"{DETAIL}/statistics"
 
     # Campaign assets
-    ASSETS = f"{DETAIL}/assets"
-    ASSET_UPLOAD = f"{ASSETS}/upload"
-    ASSET_DETAIL = f"{ASSETS}/{{asset_id:str}}"
-    ASSET_DELETE = ASSET_DETAIL
+    ASSETS, ASSET_UPLOAD, ASSET_DETAIL, ASSET_DELETE = _asset_urls(f"{DETAIL}/assets")
 
     # Campaign notes
-    NOTES = f"{DETAIL}/notes"
-    NOTE_DETAIL = f"{NOTES}/{{note_id:str}}"
-    NOTE_CREATE = NOTES
-    NOTE_UPDATE = NOTE_DETAIL
-    NOTE_DELETE = NOTE_DETAIL
+    NOTES, NOTE_DETAIL, NOTE_CREATE, NOTE_UPDATE, NOTE_DELETE = _note_urls(f"{DETAIL}/notes")
 
     # Campaign books
     BOOKS = f"{DETAIL}/books"
@@ -153,17 +159,14 @@ class Campaigns:
     BOOK_NUMBER = f"{BOOK_DETAIL}/number"
 
     # Book notes
-    BOOK_NOTES = f"{BOOK_DETAIL}/notes"
-    BOOK_NOTE_DETAIL = f"{BOOK_NOTES}/{{note_id:str}}"
-    BOOK_NOTE_CREATE = BOOK_NOTES
-    BOOK_NOTE_UPDATE = BOOK_NOTE_DETAIL
-    BOOK_NOTE_DELETE = BOOK_NOTE_DETAIL
+    BOOK_NOTES, BOOK_NOTE_DETAIL, BOOK_NOTE_CREATE, BOOK_NOTE_UPDATE, BOOK_NOTE_DELETE = _note_urls(
+        f"{BOOK_DETAIL}/notes"
+    )
 
     # Book assets
-    BOOK_ASSETS = f"{BOOK_DETAIL}/assets"
-    BOOK_ASSET_UPLOAD = f"{BOOK_ASSETS}/upload"
-    BOOK_ASSET_DETAIL = f"{BOOK_ASSETS}/{{asset_id:str}}"
-    BOOK_ASSET_DELETE = BOOK_ASSET_DETAIL
+    BOOK_ASSETS, BOOK_ASSET_UPLOAD, BOOK_ASSET_DETAIL, BOOK_ASSET_DELETE = _asset_urls(
+        f"{BOOK_DETAIL}/assets"
+    )
 
     # Chapters sub-resource (nested under books)
     CHAPTERS = f"{BOOK_DETAIL}/chapters"
@@ -174,17 +177,18 @@ class Campaigns:
     CHAPTER_NUMBER = f"{CHAPTER_DETAIL}/number"
 
     # Chapter Notes
-    CHAPTER_NOTES = f"{CHAPTER_DETAIL}/notes"
-    CHAPTER_NOTE_DETAIL = f"{CHAPTER_NOTES}/{{note_id:str}}"
-    CHAPTER_NOTE_CREATE = CHAPTER_NOTES
-    CHAPTER_NOTE_UPDATE = CHAPTER_NOTE_DETAIL
-    CHAPTER_NOTE_DELETE = CHAPTER_NOTE_DETAIL
+    (
+        CHAPTER_NOTES,
+        CHAPTER_NOTE_DETAIL,
+        CHAPTER_NOTE_CREATE,
+        CHAPTER_NOTE_UPDATE,
+        CHAPTER_NOTE_DELETE,
+    ) = _note_urls(f"{CHAPTER_DETAIL}/notes")
 
     # Chapter assets
-    CHAPTER_ASSETS = f"{CHAPTER_DETAIL}/assets"
-    CHAPTER_ASSET_UPLOAD = f"{CHAPTER_ASSETS}/upload"
-    CHAPTER_ASSET_DETAIL = f"{CHAPTER_ASSETS}/{{asset_id:str}}"
-    CHAPTER_ASSET_DELETE = CHAPTER_ASSET_DETAIL
+    CHAPTER_ASSETS, CHAPTER_ASSET_UPLOAD, CHAPTER_ASSET_DETAIL, CHAPTER_ASSET_DELETE = _asset_urls(
+        f"{CHAPTER_DETAIL}/assets"
+    )
 
 
 class Characters:
@@ -201,10 +205,7 @@ class Characters:
     FULL_SHEET_CATEGORY = f"{FULL_SHEET}/categories/{{category_id:str}}"
 
     # Character assets
-    ASSETS = f"{DETAIL}/assets"
-    ASSET_UPLOAD = f"{ASSETS}/upload"
-    ASSET_DETAIL = f"{ASSETS}/{{asset_id:str}}"
-    ASSET_DELETE = ASSET_DETAIL
+    ASSETS, ASSET_UPLOAD, ASSET_DETAIL, ASSET_DELETE = _asset_urls(f"{DETAIL}/assets")
 
     # Character RNG generation
     AUTOGENERATE = f"{BASE}/autogenerate"  # Used for storytellers to generate single characters
@@ -214,11 +215,7 @@ class Characters:
     CHARGEN_SESSION_DETAIL = f"{CHARGEN_SESSIONS}/{{session_id:str}}"
 
     # Notes sub-resource
-    NOTES = f"{DETAIL}/notes"
-    NOTE_DETAIL = f"{NOTES}/{{note_id:str}}"
-    NOTE_CREATE = NOTES
-    NOTE_UPDATE = NOTE_DETAIL
-    NOTE_DELETE = NOTE_DETAIL
+    NOTES, NOTE_DETAIL, NOTE_CREATE, NOTE_UPDATE, NOTE_DELETE = _note_urls(f"{DETAIL}/notes")
 
     # Character traits
     TRAITS = f"{DETAIL}/traits"

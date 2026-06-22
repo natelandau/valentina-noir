@@ -24,7 +24,7 @@ from vapi.openapi.tags import APITags
 
 from . import docs
 from .dto import UserResponse
-from .helpers import annotated_user_response as _annotated_user_response
+from .responses import annotated_user_response as _annotated_user_response
 
 
 class UserAvatarController(Controller):

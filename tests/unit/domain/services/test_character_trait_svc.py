@@ -27,7 +27,8 @@ from vapi.domain.controllers.character_trait.dto import (
     CharacterTraitCreateCustom,
 )
 from vapi.domain.services import CharacterTraitService
-from vapi.domain.services.user_svc import UserXPService
+from vapi.domain.services.recoup_floor_store import RecoupFloorStore
+from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
@@ -4385,15 +4386,14 @@ def memory_store() -> MemoryStore:
 
 
 class TestRecoupXPFloorHelpers:
-    """Tests for the WITHIN_SESSION floor helpers on CharacterTraitService."""
+    """Tests for the WITHIN_SESSION recoup floor store."""
 
     async def test_floor_key_format_is_namespaced_per_user_character_trait(
         self, memory_store: MemoryStore
     ) -> None:
         # Given
-        svc = CharacterTraitService()
         # When
-        key = svc._recoup_floor_key(
+        key = RecoupFloorStore._key(
             user_id="11111111-1111-1111-1111-111111111111",
             character_id="22222222-2222-2222-2222-222222222222",
             trait_id="33333333-3333-3333-3333-333333333333",
@@ -4407,39 +4407,27 @@ class TestRecoupXPFloorHelpers:
         )
 
     async def test_get_floor_returns_none_when_absent(self, memory_store: MemoryStore) -> None:
-        svc = CharacterTraitService()
-        result = await svc._get_recoup_floor(
-            store=memory_store, user_id="u", character_id="c", trait_id="t"
-        )
+        floor_store = RecoupFloorStore(memory_store)
+        result = await floor_store.get(user_id="u", character_id="c", trait_id="t")
         assert result is None
 
     async def test_set_floor_then_get_returns_value(self, memory_store: MemoryStore) -> None:
-        svc = CharacterTraitService()
-        await svc._set_recoup_floor(
-            store=memory_store, user_id="u", character_id="c", trait_id="t", value=3
-        )
-        result = await svc._get_recoup_floor(
-            store=memory_store, user_id="u", character_id="c", trait_id="t"
-        )
+        floor_store = RecoupFloorStore(memory_store)
+        await floor_store.set(user_id="u", character_id="c", trait_id="t", value=3)
+        result = await floor_store.get(user_id="u", character_id="c", trait_id="t")
         assert result == 3
 
     async def test_set_floor_overwrite_preserves_value(self, memory_store: MemoryStore) -> None:
         """Verify re-setting the floor with the same value leaves it intact."""
         # Given an existing floor
-        svc = CharacterTraitService()
-        await svc._set_recoup_floor(
-            store=memory_store, user_id="u", character_id="c", trait_id="t", value=2
-        )
+        floor_store = RecoupFloorStore(memory_store)
+        await floor_store.set(user_id="u", character_id="c", trait_id="t", value=2)
 
         # When re-writing the same value (which is how the gate refreshes the TTL)
-        await svc._set_recoup_floor(
-            store=memory_store, user_id="u", character_id="c", trait_id="t", value=2
-        )
+        await floor_store.set(user_id="u", character_id="c", trait_id="t", value=2)
 
         # Then the stored value is unchanged
-        result = await svc._get_recoup_floor(
-            store=memory_store, user_id="u", character_id="c", trait_id="t"
-        )
+        result = await floor_store.get(user_id="u", character_id="c", trait_id="t")
         assert result == 2
 
 
@@ -4527,8 +4515,7 @@ class TestRecoupXPGate:
         )
 
     async def _floor(self, s: "TestRecoupXPGate._Scenario") -> int | None:
-        return await s.svc._get_recoup_floor(
-            store=s.store,
+        return await RecoupFloorStore(s.store).get(
             user_id=str(s.user.id),
             character_id=str(s.character.id),
             trait_id=str(s.char_trait.id),

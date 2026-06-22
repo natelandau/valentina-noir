@@ -4,7 +4,7 @@ from uuid import UUID
 
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.user import User
-from vapi.domain.services.aws_service import AWSS3Service
+from vapi.domain.services.aws_svc import AWSS3Service
 from vapi.utils.images import normalize_avatar
 
 __all__ = ("AvatarService",)

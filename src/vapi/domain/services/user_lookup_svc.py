@@ -2,7 +2,7 @@
 
 from tortoise.expressions import RawSQL
 
-from vapi.constants import CompanyPermission
+from vapi.constants import PROVIDER_PROFILE_FIELDS, CompanyPermission
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.user_lookup.dto import UserLookupResult
@@ -77,10 +77,8 @@ class UserLookupService:
             qs = qs.filter(email=identifier_value)
         else:
             oauth_json_fields = {
-                "discord_id": "discord_profile",
-                "google_id": "google_profile",
-                "github_id": "github_profile",
-                "apple_id": "apple_profile",
+                f"{provider.value}_id": column
+                for provider, column in PROVIDER_PROFILE_FIELDS.items()
             }
             json_column = oauth_json_fields[identifier_name]
             annotation_key = f"_{identifier_name}"

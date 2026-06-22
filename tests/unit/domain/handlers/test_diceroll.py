@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from vapi.constants import DiceSize, RollResultType
-from vapi.domain.handlers.diceroll_handler import (
+from vapi.domain.handlers.diceroll_handlers import (
     DiceRollResultSchema,
     _calculate_result_type,
     _count_dice_results,
@@ -142,7 +142,7 @@ class TestRollDice:
     def test_roll_dice_returns_dice_roll_result(self, mocker) -> None:
         """Verify roll_dice returns a DiceRollResult object."""
         # Given mocked random numbers
-        mocker.patch("vapi.domain.handlers.diceroll_handler.random_num", side_effect=[5, 7, 1])
+        mocker.patch("vapi.domain.handlers.diceroll_handlers.random_num", side_effect=[5, 7, 1])
 
         # When rolling dice
         result = roll_dice(num_dice=2, num_desperation_dice=1, difficulty=6, dice_size=DiceSize.D10)
@@ -201,7 +201,7 @@ class TestRollDice:
         """Verify roll_dice calculates results correctly."""
         # Given mocked random numbers
         mocker.patch(
-            "vapi.domain.handlers.diceroll_handler.random_num",
+            "vapi.domain.handlers.diceroll_handlers.random_num",
             side_effect=player_rolls + desperation_rolls,
         )
 

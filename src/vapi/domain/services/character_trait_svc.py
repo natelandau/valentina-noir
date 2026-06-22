@@ -9,7 +9,6 @@ from litestar.stores.base import Store
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
-    RECOUP_XP_SESSION_LENGTH,
     CharacterClass,
     CharacterType,
     PermissionsFreeTraitChanges,
@@ -32,7 +31,8 @@ from vapi.domain.controllers.character_trait.dto import (
     TraitValueOptionDetail,
     TraitValueOptionsResponse,
 )
-from vapi.domain.services.user_svc import UserXPService
+from vapi.domain.services.recoup_floor_store import RecoupFloorStore
+from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
@@ -564,34 +564,6 @@ class CharacterTraitService:
             raise ValidationError(detail=msg)
         return result
 
-    @staticmethod
-    def _recoup_floor_key(*, user_id: str, character_id: str, trait_id: str) -> str:
-        """Build the Redis key for a (user, character, trait) recoup floor."""
-        return f"recoup_floor:{user_id}:{character_id}:{trait_id}"
-
-    async def _get_recoup_floor(
-        self, *, store: Store, user_id: str, character_id: str, trait_id: str
-    ) -> int | None:
-        """Read the stored recoup floor for this trait, or None if absent or expired."""
-        key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
-        raw = await store.get(key)
-        if raw is None:
-            return None
-        return int(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
-
-    async def _set_recoup_floor(
-        self,
-        *,
-        store: Store,
-        user_id: str,
-        character_id: str,
-        trait_id: str,
-        value: int,
-    ) -> None:
-        """Write a new floor value with the configured session TTL."""
-        key = self._recoup_floor_key(user_id=user_id, character_id=character_id, trait_id=trait_id)
-        await store.set(key, str(value).encode("utf-8"), expires_in=RECOUP_XP_SESSION_LENGTH)
-
     async def _enforce_recoup_xp_permission(  # noqa: PLR0913
         self,
         *,
@@ -610,6 +582,7 @@ class CharacterTraitService:
         user_id = str(user.id)
         character_id = str(character.id)
         trait_id = str(character_trait.id)
+        floor_store = RecoupFloorStore(store)
 
         match setting:
             case PermissionsRecoupXP.UNRESTRICTED:
@@ -621,8 +594,7 @@ class CharacterTraitService:
                 return
             case PermissionsRecoupXP.WITHIN_SESSION:
                 if is_increase:
-                    existing_floor = await self._get_recoup_floor(
-                        store=store,
+                    existing_floor = await floor_store.get(
                         user_id=user_id,
                         character_id=character_id,
                         trait_id=trait_id,
@@ -631,8 +603,7 @@ class CharacterTraitService:
                     # pre-update value; on subsequent raises, re-write the same
                     # floor to refresh its TTL.
                     floor_to_write = current_value if existing_floor is None else existing_floor
-                    await self._set_recoup_floor(
-                        store=store,
+                    await floor_store.set(
                         user_id=user_id,
                         character_id=character_id,
                         trait_id=trait_id,
@@ -640,8 +611,7 @@ class CharacterTraitService:
                     )
                     return
 
-                floor = await self._get_recoup_floor(
-                    store=store,
+                floor = await floor_store.get(
                     user_id=user_id,
                     character_id=character_id,
                     trait_id=trait_id,
@@ -656,8 +626,7 @@ class CharacterTraitService:
                     )
                     raise PermissionDeniedError(detail=msg)
                 # Successful lower within the session refreshes the floor's TTL.
-                await self._set_recoup_floor(
-                    store=store,
+                await floor_store.set(
                     user_id=user_id,
                     character_id=character_id,
                     trait_id=trait_id,

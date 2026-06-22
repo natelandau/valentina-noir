@@ -182,8 +182,8 @@ class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
             m: The CampaignBook model instance with relations prefetched.
             includes: Set of BookInclude values indicating which children to embed.
         """
+        from vapi.domain.controllers.assets.dto import S3AssetResponse
         from vapi.domain.controllers.notes.dto import NoteResponse
-        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
 
         includes = includes or set()
         base = CampaignBookResponse.from_model(m)
@@ -248,8 +248,8 @@ class CampaignChapterDetailResponse(CampaignChapterResponse, omit_defaults=True)
         includes: set[ChapterInclude] | None = None,
     ) -> "CampaignChapterDetailResponse":
         """Convert a CampaignChapter to a detail response with optional children."""
+        from vapi.domain.controllers.assets.dto import S3AssetResponse
         from vapi.domain.controllers.notes.dto import NoteResponse
-        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
 
         includes = includes or set()
         base = CampaignChapterResponse.from_model(m)

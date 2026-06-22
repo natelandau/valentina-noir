@@ -15,7 +15,7 @@ from vapi.domain import urls
 from vapi.lib.database import test_db_connection
 from vapi.lib.uptime import APP_START_TIME
 from vapi.openapi.tags import APITags
-from vapi.utils.strings import format_uptime
+from vapi.utils.time import format_uptime
 
 from . import docs, dto
 

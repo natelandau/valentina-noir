@@ -10,7 +10,7 @@ from tempfile import NamedTemporaryFile
 
 from vapi.config import settings
 from vapi.constants import BACKUP_S3_PREFIX
-from vapi.domain.services.aws_service import AWSS3Service
+from vapi.domain.services.aws_svc import AWSS3Service
 from vapi.lib.database import drop_and_recreate_database, pg_subprocess_env
 from vapi.lib.exceptions import (
     AWSS3Error,

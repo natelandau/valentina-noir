@@ -13,7 +13,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.controllers.s3_assets import dto
+from vapi.domain.controllers.assets import dto
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags

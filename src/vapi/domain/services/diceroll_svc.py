@@ -9,11 +9,13 @@ from vapi.constants import DiceSize
 from vapi.db.sql_models.character import CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
-from vapi.domain.handlers.diceroll_handler import roll_dice
-from vapi.domain.utils import validate_trait_ids_from_mixed_sources
+from vapi.domain.handlers.diceroll_handlers import roll_dice
 from vapi.lib.exceptions import ValidationError
 
-from .validation_svc import GetModelByIdValidationService
+from .validation_svc import (
+    GetModelByIdValidationService,
+    validate_trait_ids_from_mixed_sources,
+)
 
 if TYPE_CHECKING:
     from uuid import UUID

@@ -26,7 +26,7 @@ from vapi.domain.handlers.character_autogeneration.constants import (
     AutoGenExperienceLevel,
 )
 from vapi.domain.services import GetModelByIdValidationService
-from vapi.domain.services.user_svc import UserXPService
+from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.domain.urls import Characters as CharacterURL
 from vapi.utils.time import time_now
 

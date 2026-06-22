@@ -18,4 +18,4 @@ def fx_mock_s3_client(mocker: MockerFixture) -> None:
     mock_s3_client = mocker.MagicMock(autospec=True)
     mock_s3_client.get_bucket_location.return_value = {"LocationConstraint": "us-east-1"}
     mock_s3_client.put_object.return_value = {}
-    mocker.patch("vapi.domain.services.aws_service.boto3.client", return_value=mock_s3_client)
+    mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=mock_s3_client)

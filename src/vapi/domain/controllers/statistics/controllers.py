@@ -17,7 +17,7 @@ from vapi.lib.guards import (
 )
 from vapi.openapi.tags import APITags
 
-from . import docs, dto, lib
+from . import calculations, docs, dto
 
 
 class StatisticsController(Controller):
@@ -43,7 +43,7 @@ class StatisticsController(Controller):
         self, company: Company, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get company roll statistics."""
-        return await lib.calculate_roll_statistics(
+        return await calculations.calculate_roll_statistics(
             {"company_id": company.id, "is_archived": False, "dice_size": DiceSize.D10},
             num_top_traits=num_top_traits,
         )
@@ -58,7 +58,7 @@ class StatisticsController(Controller):
         self, target_user: User, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get user roll statistics."""
-        return await lib.calculate_roll_statistics(
+        return await calculations.calculate_roll_statistics(
             {"user_id": target_user.id, "is_archived": False, "dice_size": DiceSize.D10},
             num_top_traits=num_top_traits,
         )
@@ -73,7 +73,7 @@ class StatisticsController(Controller):
         self, character: Character, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get character roll statistics."""
-        return await lib.calculate_roll_statistics(
+        return await calculations.calculate_roll_statistics(
             {"character_id": character.id, "is_archived": False, "dice_size": DiceSize.D10},
             num_top_traits=num_top_traits,
         )
@@ -88,7 +88,7 @@ class StatisticsController(Controller):
         self, campaign: Campaign, num_top_traits: int = 5
     ) -> dto.RollStatistics:
         """Get campaign roll statistics."""
-        return await lib.calculate_roll_statistics(
+        return await calculations.calculate_roll_statistics(
             {"campaign_id": campaign.id, "is_archived": False, "dice_size": DiceSize.D10},
             num_top_traits=num_top_traits,
         )

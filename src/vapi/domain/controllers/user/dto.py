@@ -17,7 +17,7 @@ from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
 from vapi.lib.detail_includes import active_prefetch
-from vapi.utils.strings import get_discord_avatar_url
+from vapi.utils.identity import get_discord_avatar_url
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.user import CampaignExperience, User
@@ -207,9 +207,9 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
     ) -> "UserDetailResponse":
         """Convert a User to a detail response with optional children."""
         # Lazy imports - module-level imports of other DTO modules would create circular imports.
+        from vapi.domain.controllers.assets.dto import S3AssetResponse
         from vapi.domain.controllers.character.dto import CharacterResponse
         from vapi.domain.controllers.notes.dto import NoteResponse
-        from vapi.domain.controllers.s3_assets.dto import S3AssetResponse
 
         includes = includes or set()
         base = UserResponse.from_model(m)

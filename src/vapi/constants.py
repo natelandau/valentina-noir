@@ -257,6 +257,17 @@ class IdentityProvider(StrEnum):
     GITHUB = "github"
 
 
+# Single source of truth mapping each provider to the User JSON column storing its profile.
+# Consumers derive the `<provider>_id` lookup keys and the column set from this, so adding a
+# provider only requires updating IdentityProvider and this map.
+PROVIDER_PROFILE_FIELDS: dict[IdentityProvider, str] = {
+    IdentityProvider.APPLE: "apple_profile",
+    IdentityProvider.GOOGLE: "google_profile",
+    IdentityProvider.DISCORD: "discord_profile",
+    IdentityProvider.GITHUB: "github_profile",
+}
+
+
 class UserRole(StrEnum):
     """User role."""
 

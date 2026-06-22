@@ -1,4 +1,4 @@
-"""Campaign assets controller."""
+"""Character assets controller."""
 
 from typing import Annotated
 
@@ -10,13 +10,18 @@ from litestar.params import Body, Parameter
 
 from vapi.constants import AssetType
 from vapi.db.sql_models.aws import S3Asset
-from vapi.db.sql_models.campaign import Campaign
+from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.controllers.s3_assets import dto
+from vapi.domain.controllers.assets import dto
 from vapi.domain.paginator import OffsetPagination
-from vapi.lib.guards import user_can_manage_campaign
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    storyteller_character_access_guard,
+    user_active_guard,
+    user_character_player_or_storyteller_guard,
+)
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
 
@@ -24,85 +29,92 @@ from . import docs
 from .base import BaseAssetsController
 
 
-class CampaignAssetsController(BaseAssetsController):
-    """Campaign assets controller."""
+class CharacterAssetsController(BaseAssetsController):
+    """Character assets controller."""
 
-    parent_fk_field = "campaign_id"
-    tags = [APITags.CAMPAIGNS_ASSETS.name]
+    parent_fk_field = "character_id"
+    tags = [APITags.CHARACTERS_ASSETS.name]
+    guards = [
+        developer_company_user_guard,
+        user_active_guard,
+        storyteller_character_access_guard,
+    ]
     dependencies = {
         "company": Provide(deps.provide_company_by_id),
         "acting_user": Provide(deps.provide_acting_user),
-        "campaign": Provide(deps.provide_campaign_by_id),
+        "character": Provide(deps.provide_character_by_id_and_company),
         "asset": Provide(deps.provide_s3_asset_by_id),
     }
 
     @get(
-        path=urls.Campaigns.ASSETS,
-        summary="List campaign assets",
-        operation_id="listCampaignAssets",
+        path=urls.Characters.ASSETS,
+        summary="List character assets",
+        operation_id="listCharacterAssets",
         description=docs.LIST_ASSETS_DESCRIPTION,
         cache=True,
     )
-    async def list_campaign_assets(
+    async def list_character_assets(
         self,
-        campaign: Campaign,
+        character: Character,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
     ) -> OffsetPagination[dto.S3AssetResponse]:
-        """List all campaign assets."""
+        """List all character assets."""
         return await self._list_assets(
-            parent_id=campaign.id,
+            parent_id=character.id,
             asset_type=asset_type,
             limit=limit,
             offset=offset,
         )
 
     @get(
-        path=urls.Campaigns.ASSET_DETAIL,
-        summary="Get a campaign asset",
-        operation_id="getCampaignAsset",
+        path=urls.Characters.ASSET_DETAIL,
+        summary="Get a character asset",
+        operation_id="getCharacterAsset",
         description=docs.GET_ASSET_DESCRIPTION,
         cache=True,
     )
-    async def get_campaign_asset(self, campaign: Campaign, asset: S3Asset) -> dto.S3AssetResponse:
-        """Get a campaign asset."""
-        return await self._get_asset(asset, parent_id=campaign.id)
+    async def get_character_asset(
+        self, character: Character, asset: S3Asset
+    ) -> dto.S3AssetResponse:
+        """Get a character asset."""
+        return await self._get_asset(asset, parent_id=character.id)
 
     @post(
-        path=urls.Campaigns.ASSET_UPLOAD,
-        summary="Upload a campaign asset",
-        operation_id="uploadCampaignAsset",
+        path=urls.Characters.ASSET_UPLOAD,
+        summary="Upload a character asset",
+        operation_id="uploadCharacterAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[user_can_manage_campaign],
+        guards=[user_character_player_or_storyteller_guard],
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
     async def handle_file_upload(
         self,
         company: Company,
-        campaign: Campaign,
+        character: Character,
         acting_user: User,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> dto.S3AssetResponse:
-        """Upload a campaign asset."""
+        """Upload a character asset."""
         return await self._create_asset(
-            parent_id=campaign.id,
+            parent_id=character.id,
             company_id=company.id,
             upload_user_id=acting_user.id,
             data=data,
         )
 
     @delete(
-        path=urls.Campaigns.ASSET_DELETE,
-        summary="Delete a campaign asset",
-        operation_id="deleteCampaignAsset",
+        path=urls.Characters.ASSET_DELETE,
+        summary="Delete a character asset",
+        operation_id="deleteCharacterAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
-        guards=[user_can_manage_campaign],
+        guards=[user_character_player_or_storyteller_guard],
     )
-    async def delete_campaign_asset(self, asset: S3Asset, acting_user: User) -> None:  # noqa: ARG002
-        """Delete a campaign asset."""
+    async def delete_character_asset(self, asset: S3Asset, acting_user: User) -> None:  # noqa: ARG002
+        """Delete a character asset."""
         await self._delete_asset(asset=asset)
