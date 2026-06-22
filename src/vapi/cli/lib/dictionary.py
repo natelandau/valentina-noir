@@ -29,7 +29,9 @@ class DictionaryService:
         """Build dictionary terms for all entity types, then log counts."""
         # Scope to global seed terms so the sync never clobbers company-scoped terms created via the API
         all_terms = await DictionaryTerm.filter(company_id__isnull=True, source_type__isnull=False)
-        self._existing_terms = {t.term: t for t in all_terms}
+        # Key by the same normalization used for lookups so a stored term whose casing
+        # differs from its normalized form still resolves to a cache hit.
+        self._existing_terms = {t.term.lower().strip(): t for t in all_terms}
 
         await self._sync_vampire_clan_terms()
         await self._sync_werewolf_auspice_terms()
@@ -71,7 +73,7 @@ class DictionaryService:
             # entity types (e.g., a subcategory and trait sharing the same name)
             # where the dict cache silently drops one entry
             existing_term = await DictionaryTerm.filter(
-                term=normalized_term, company_id__isnull=True
+                term=normalized_term, company_id__isnull=True, source_type__isnull=False
             ).first()
             if existing_term:
                 self._existing_terms[normalized_term] = existing_term
