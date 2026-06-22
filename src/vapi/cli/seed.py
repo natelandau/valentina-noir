@@ -13,8 +13,9 @@ from vapi.cli.lib.fixture_syncer import (
     WerewolfAuspiceSyncer,
     WerewolfTribeSyncer,
 )
+from vapi.cli.lib.gift_syncer import resolve_gift_trait_references
 from vapi.cli.lib.runner import run_with_tortoise
-from vapi.cli.lib.trait_syncer import TraitSyncer, resolve_gift_trait_references
+from vapi.cli.lib.trait_syncer import TraitSyncer
 
 logger = logging.getLogger("vapi")
 

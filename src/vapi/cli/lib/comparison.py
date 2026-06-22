@@ -2,6 +2,7 @@
 
 import json
 import re
+from collections.abc import Iterator
 from enum import Enum
 from typing import Any
 
@@ -16,8 +17,26 @@ __all__ = (
     "FIXTURES_PATH",
     "JSONWithCommentsDecoder",
     "fixture_key_error",
+    "iter_trait_fixtures",
     "needs_update",
 )
+
+
+def iter_trait_fixtures(fixture_data: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Yield every trait dict in parsed traits.json, at both subcategory and category levels.
+
+    Centralizes the section -> category -> [subcategory] -> traits walk so the validation
+    and gift-map passes share one traversal instead of each open-coding it. Subcategory
+    traits are yielded before category-level traits, matching the gift-map's last-wins order.
+
+    Args:
+        fixture_data: The parsed traits.json data.
+    """
+    for section in fixture_data:
+        for category in section.get("categories", []):
+            for subcategory in category.get("subcategories", []):
+                yield from subcategory.get("traits", [])
+            yield from category.get("traits", [])
 
 
 def fixture_key_error(filename: str, item: Any, exc: KeyError) -> ValueError:
