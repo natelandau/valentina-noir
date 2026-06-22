@@ -1,13 +1,19 @@
 """Admin CLI."""
 
 import logging
+from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import click
 from rich.console import Console
+from tortoise.expressions import Q
 
 from vapi.cli.lib.runner import run_with_tortoise
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.domain.services.developer_svc import DeveloperService
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 console = Console()
 
@@ -27,15 +33,23 @@ async def _create_developer(*, email: str, username: str, global_admin: bool) ->
         username: Username of the developer.
         global_admin: Whether the developer is a global admin.
     """
+    # Email and username are independently unique, so match either one: an existing
+    # developer that shares only the email (or only the username) still collides.
     existing_developer = await Developer.filter(
-        email=email, username=username, is_archived=False
+        Q(email=email) | Q(username=username), is_archived=False
     ).first()
     if existing_developer:
+        collisions = [
+            field
+            for field, value in (("email", email), ("username", username))
+            if getattr(existing_developer, field) == value
+        ]
         logger.info(
             "Developer already exists, skipping creation",
             extra={
                 "email": email,
                 "username": username,
+                "collision_fields": collisions,
                 "database_id": str(existing_developer.id),
                 "is_global_admin": existing_developer.is_global_admin,
                 "component": "cli",
@@ -104,12 +118,21 @@ def developer(
 async def _list_developers() -> None:
     """Print every developer with its company permissions."""
     developers = await Developer.all()
+
+    # Load every developer's permissions in one query instead of one per developer.
+    perms_by_developer: dict[UUID, list[DeveloperCompanyPermission]] = defaultdict(list)
+    if developers:
+        permissions = await DeveloperCompanyPermission.filter(
+            developer_id__in=[dev.id for dev in developers]
+        ).prefetch_related("company")
+        for perm in permissions:
+            perms_by_developer[perm.developer_id].append(perm)  # type: ignore[attr-defined]
+
     console.rule("Developers")
     for dev in developers:
-        permissions = await DeveloperCompanyPermission.filter(
-            developer_id=dev.id
-        ).prefetch_related("company")
-        company_perms = [f"{perm.company.name}:{perm.permission}" for perm in permissions]
+        company_perms = [
+            f"{perm.company.name}:{perm.permission}" for perm in perms_by_developer[dev.id]
+        ]
         console.print(f"[underline]id:          {dev.id}")
         console.print(f"Username:    {dev.username}")
         console.print(f"Email:       {dev.email}")
