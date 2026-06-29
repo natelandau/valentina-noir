@@ -74,7 +74,8 @@ class CharacterService:
         # During create, vampire_attributes may not exist yet as a DB row.
         # The controller passes clan_id; we need to look it up.
         vampire_attrs = await VampireAttributes.filter(character=character).first()
-        clan_id: UUID | None = vampire_attrs.clan_id if vampire_attrs else None  # type: ignore[attr-defined]
+
+        clan_id: UUID | None = vampire_attrs.clan_id if vampire_attrs else None  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
 
         if not clan_id:
             raise ValidationError(
@@ -83,6 +84,9 @@ class CharacterService:
                     {"field": "clan_id", "message": "Vampire clan id is required"},
                 ],
             )
+
+        if not vampire_attrs:
+            return
 
         clan = await VampireClan.filter(id=clan_id, is_archived=False).first()
         if not clan:
@@ -121,8 +125,11 @@ class CharacterService:
             return
 
         werewolf_attrs = await WerewolfAttributes.filter(character=character).first()
-        tribe_id: UUID | None = werewolf_attrs.tribe_id if werewolf_attrs else None  # type: ignore[attr-defined]
-        auspice_id: UUID | None = werewolf_attrs.auspice_id if werewolf_attrs else None  # type: ignore[attr-defined]
+        if not werewolf_attrs:
+            return
+
+        tribe_id: UUID | None = werewolf_attrs.tribe_id if werewolf_attrs else None  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
+        auspice_id: UUID | None = werewolf_attrs.auspice_id if werewolf_attrs else None  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
 
         if not tribe_id or not auspice_id:
             raise ValidationError(
@@ -142,8 +149,8 @@ class CharacterService:
         if not auspice:
             raise ValidationError(detail=f"Werewolf auspice {auspice_id} not found")
 
-        werewolf_attrs.tribe = tribe
-        werewolf_attrs.auspice = auspice
+        werewolf_attrs.tribe = tribe  # ty:ignore[invalid-assignment]
+        werewolf_attrs.auspice = auspice  # ty:ignore[invalid-assignment]
         await werewolf_attrs.save()
 
     async def validate_unique_name(self, character: Character) -> None:
@@ -159,7 +166,7 @@ class CharacterService:
             name_first=character.name_first,
             name_last=character.name_last,
             is_archived=False,
-            company_id=character.company_id,  # type: ignore[attr-defined]
+            company_id=character.company_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
         ).exclude(id=character.id)
 
         if await qs.exists():
@@ -202,7 +209,7 @@ class CharacterService:
         Raises:
             ValidationError: If concept_id is set but concept not found.
         """
-        concept_id: UUID | None = character.concept_id  # type: ignore[attr-defined]
+        concept_id: UUID | None = character.concept_id  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
         if not concept_id:
             return
 

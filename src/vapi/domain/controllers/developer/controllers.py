@@ -87,7 +87,10 @@ class DeveloperController(Controller):
         request.state.audit_description = f"Update developer '{developer.username}'"
         await developer.save()
 
-        developer = (
+        updated_developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
         )
-        return DeveloperResponse.from_model(developer)
+        if not updated_developer:
+            msg = f"Developer not found for id {developer.id}"
+            raise ValueError(msg)
+        return DeveloperResponse.from_model(updated_developer)

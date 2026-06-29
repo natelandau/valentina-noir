@@ -134,6 +134,8 @@ class CampaignBookController(Controller):
             .prefetch_related(book_chapters_with_characters_prefetch())
             .first()
         )
+        if not annotated:
+            raise NotFoundError(detail="Book not found")
         return CampaignBookResponse.from_model(annotated)
 
     @patch(
@@ -161,6 +163,8 @@ class CampaignBookController(Controller):
             .prefetch_related(book_chapters_with_characters_prefetch())
             .first()
         )
+        if not annotated:
+            raise NotFoundError(detail="Book not found")
         return CampaignBookResponse.from_model(annotated)
 
     @delete(
@@ -211,4 +215,7 @@ class CampaignBookController(Controller):
             .prefetch_related(book_chapters_with_characters_prefetch())
             .first()
         )
+        if not annotated:
+            raise NotFoundError(detail="Book not found")
+
         return CampaignBookResponse.from_model(annotated)

@@ -338,4 +338,4 @@ class Settings(BaseSettings):
         return slugify(self.name)
 
 
-settings = Settings()  # type: ignore [call-arg]
+settings = Settings()  # type: ignore [call-arg] # ty:ignore[missing-argument]

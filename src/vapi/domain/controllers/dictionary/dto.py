@@ -54,7 +54,7 @@ class DictionaryTermResponse(msgspec.Struct):
             definition=m.definition,
             link=m.link,
             synonyms=m.synonyms or [],
-            company_id=m.company_id,  # type: ignore[attr-defined]
+            company_id=m.company_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             source_type=m.source_type.value if m.source_type else None,
             source_id=m.source_id,
         )

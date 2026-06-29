@@ -80,7 +80,7 @@ class UserLookupService:
                 f"{provider.value}_id": column
                 for provider, column in PROVIDER_PROFILE_FIELDS.items()
             }
-            json_column = oauth_json_fields[identifier_name]
+            json_column = oauth_json_fields[identifier_name]  # ty:ignore[invalid-argument-type]
             annotation_key = f"_{identifier_name}"
             qs = qs.annotate(**{annotation_key: RawSQL(f"{json_column}->>'id'")}).filter(
                 **{annotation_key: identifier_value}

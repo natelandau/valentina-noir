@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, assert_never, cast
 
 import httpx
 import jwt
+import jwt.algorithms
 import msgspec
 
 from vapi.config import settings

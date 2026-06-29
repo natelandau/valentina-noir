@@ -2,9 +2,9 @@
 
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from enum import Enum
-from typing import Any
+from typing import Any, override
 
 from vapi.constants import PROJECT_ROOT_PATH
 
@@ -93,7 +93,10 @@ def needs_update(instance: Any, defaults: dict[str, Any]) -> bool:
 class JSONWithCommentsDecoder(json.JSONDecoder):
     """JSON decoder that strips single-line and block comments before parsing."""
 
-    def decode(self, s: str) -> Any:  # type: ignore [override]
+    @override
+    def decode(self, s: str, _w: Callable[..., Any] | None = None) -> Any:
         """Strip // and /* */ comments before parsing so JSONC-authored fixtures load cleanly."""
         s = _COMMENT_RE.sub(r"\1", s)
-        return super().decode(s)
+        if _w is None:
+            return super().decode(s)
+        return super().decode(s, _w)

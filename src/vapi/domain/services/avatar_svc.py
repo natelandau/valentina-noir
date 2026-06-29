@@ -82,7 +82,7 @@ class AvatarService:
             The updated user with avatar_url and avatar_asset_id cleared.
         """
         previous_asset_id = user.avatar_asset_id
-        user.avatar_url = None
+        user.avatar_url = None  # ty:ignore[invalid-assignment]
         user.avatar_asset_id = None
         await user.save()
 

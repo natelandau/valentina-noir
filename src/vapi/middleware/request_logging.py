@@ -34,6 +34,7 @@ from vapi.constants import (
 if TYPE_CHECKING:
     from collections.abc import Collection
 
+    from litestar.data_extractors import RequestExtractorField, ResponseExtractorField
     from litestar.types import Message, Receive, Scope, Send
 
 __all__ = ("CombinedLoggingMiddleware", "CombinedLoggingMiddlewareConfig")
@@ -264,18 +265,18 @@ class CombinedLoggingMiddlewareConfig(LoggingMiddlewareConfig):
 
     def __post_init__(self) -> None:
         """Translate ``log_fields`` into per-target field collections."""
-        request_fields: list[str] = []
-        response_fields: list[str] = []
+        request_fields: list[RequestExtractorField] = []
+        response_fields: list[ResponseExtractorField] = []
         for name in self.log_fields:
             target = LOG_FIELD_TARGETS[name]
             if target == "request":
-                request_fields.append(name.removeprefix("request_"))
+                request_fields.append(name.removeprefix("request_"))  # ty:ignore[invalid-argument-type]
             elif target == "response":
-                response_fields.append(name.removeprefix("response_"))
+                response_fields.append(name.removeprefix("response_"))  # ty:ignore[invalid-argument-type]
             elif target == "scope":
                 self.scope_log_fields.append(name)
             else:  # synthetic (duration_ms)
                 self.include_duration = True
-        self.request_log_fields = request_fields  # type: ignore[assignment]
-        self.response_log_fields = response_fields  # type: ignore[assignment]
+        self.request_log_fields = request_fields
+        self.response_log_fields = response_fields
         super().__post_init__()

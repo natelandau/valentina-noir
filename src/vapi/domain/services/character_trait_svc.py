@@ -150,12 +150,12 @@ class CharacterTraitService:
             NotEnoughXPError: If the user cannot afford the XP cost.
             ValidationError: If the character cannot afford the starting points cost.
         """
-        if await self._is_flaw_category(trait.category_id):  # type: ignore[attr-defined]
+        if await self._is_flaw_category(trait.category_id):  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             return
 
         multiplier = trait.count_based_cost_multiplier
         if multiplier is not None:
-            count = await self._count_category_traits(character.id, trait.category_id)  # type: ignore[attr-defined]
+            count = await self._count_category_traits(character.id, trait.category_id)  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             cost = (count + 1) * multiplier
         else:
             cost = 0
@@ -165,8 +165,8 @@ class CharacterTraitService:
         if currency == TraitModifyCurrency.XP and character.type == CharacterType.PLAYER:
             user_svc = UserXPService()
             experience = await user_svc.get_or_create_campaign_experience(
-                character.user_player_id,  # type: ignore[attr-defined]
-                character.campaign_id,  # type: ignore[attr-defined]
+                character.user_player_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
+                character.campaign_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             )
             if experience.xp_current < cost:
                 raise NotEnoughXPError
@@ -251,7 +251,7 @@ class CharacterTraitService:
         Returns:
             True if the trait belongs to the "Flaws" parent category.
         """
-        return await self._is_flaw_category(character_trait.trait.category_id)  # type: ignore[attr-defined]
+        return await self._is_flaw_category(character_trait.trait.category_id)  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
 
     async def guard_user_can_manage_character(self, character: Character, user: "User") -> bool:
         """Guard to check if the user is able to update traits on the given character.
@@ -269,13 +269,13 @@ class CharacterTraitService:
         if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
             return True
         if character.type == CharacterType.NPC:
-            settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]
+            settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             if settings is None:
                 raise PermissionDeniedError(detail="No rights to access this resource")
             if npc_management_permitted(settings.permission_manage_npc, user):
                 return True
             raise PermissionDeniedError(detail="User does not own this character")
-        if character.user_player_id == user.id:  # type: ignore[attr-defined]
+        if character.user_player_id == user.id:  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             return True
         raise PermissionDeniedError(detail="User does not own this character")
 
@@ -339,7 +339,7 @@ class CharacterTraitService:
             upgrade_costs[str(num_dots)] = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             )
         return upgrade_costs
 
@@ -364,13 +364,13 @@ class CharacterTraitService:
             downgrade_savings[str(num_dots)] = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                character_id=character_trait.character_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             )
 
         downgrade_savings["DELETE"] = await self._calculate_downgrade_savings(
             character_trait,
             character_trait.value,
-            character_id=character_trait.character_id,  # type: ignore[attr-defined]
+            character_id=character_trait.character_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
         )
 
         return downgrade_savings
@@ -393,7 +393,7 @@ class CharacterTraitService:
         return await self._calculate_upgrade_cost(
             character_trait,
             increase_by,
-            character_id=character_trait.character_id,  # type: ignore[attr-defined]
+            character_id=character_trait.character_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
         )
 
     async def _calculate_upgrade_cost(
@@ -426,7 +426,7 @@ class CharacterTraitService:
                 raise ValidationError(detail=msg)
             count = await self._count_category_traits(
                 character_id,
-                character_trait.trait.category_id,  # type: ignore[attr-defined]
+                character_trait.trait.category_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             )
             return (count + 1) * multiplier
 
@@ -465,7 +465,7 @@ class CharacterTraitService:
         return await self._calculate_downgrade_savings(
             character_trait,
             decrease_by,
-            character_id=character_trait.character_id,  # type: ignore[attr-defined]
+            character_id=character_trait.character_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
         )
 
     async def _calculate_downgrade_savings(
@@ -495,7 +495,7 @@ class CharacterTraitService:
         if multiplier is not None:
             count = await self._count_category_traits(
                 character_id,
-                character_trait.trait.category_id,  # type: ignore[attr-defined]
+                character_trait.trait.category_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             )
             return count * multiplier
 
@@ -775,7 +775,7 @@ class CharacterTraitService:
             character_id=character.id,
         ).select_related("trait")
         existing_trait_ids: set[UUID] = {
-            ct.trait_id  # type: ignore[attr-defined]
+            ct.trait_id  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
             for ct in existing_cts
         }
 
@@ -787,8 +787,8 @@ class CharacterTraitService:
         if character.type == CharacterType.PLAYER:
             user_svc = UserXPService()
             campaign_xp = await user_svc.get_or_create_campaign_experience(
-                character.user_player_id,  # type: ignore[attr-defined]
-                character.campaign_id,  # type: ignore[attr-defined]
+                character.user_player_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+                character.campaign_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             )
             running_xp = campaign_xp.xp_current
 
@@ -800,7 +800,9 @@ class CharacterTraitService:
             try:
                 self._assert_currency_allowed_for_type(character, currency)
             except ValidationError as exc:
-                failed.append(BulkAssignTraitFailure(trait_id=item.trait_id, error=exc.detail))
+                failed.append(
+                    BulkAssignTraitFailure(trait_id=item.trait_id, error=exc.detail or str(exc))
+                )
                 continue
 
             # Validate trait exists
@@ -843,7 +845,9 @@ class CharacterTraitService:
                 try:
                     await self._guard_has_minimum_renown(trait, character)
                 except ValidationError as exc:
-                    failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=exc.detail))
+                    failed.append(
+                        BulkAssignTraitFailure(trait_id=trait_id, error=exc.detail or str(exc))
+                    )
                     continue
 
             try:
@@ -872,7 +876,7 @@ class CharacterTraitService:
                         cost = await self._calculate_upgrade_cost(
                             character_trait,
                             num_dots,
-                            character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                            character_id=character_trait.character_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
                         )
                         is_flaw = await self._is_flaw_trait(character_trait)
 
@@ -905,7 +909,7 @@ class CharacterTraitService:
                         cost = await self._calculate_upgrade_cost(
                             character_trait,
                             num_dots,
-                            character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                            character_id=character_trait.character_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
                         )
                         is_flaw = await self._is_flaw_trait(character_trait)
 
@@ -1137,7 +1141,7 @@ class CharacterTraitService:
             cost = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                character_id=character_trait.character_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             )
         else:
             if not deleting_trait:
@@ -1145,7 +1149,7 @@ class CharacterTraitService:
             cost = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                character_id=character_trait.character_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             )
 
         is_flaw = await self._is_flaw_trait(character_trait)
@@ -1155,8 +1159,8 @@ class CharacterTraitService:
         # NPC/STORYTELLER, so this guard is a defensive-depth safeguard.
         if character.type == CharacterType.PLAYER:
             user_svc = UserXPService()
-            user_player_id = character.user_player_id  # type: ignore[attr-defined]
-            campaign_id = character.campaign_id  # type: ignore[attr-defined]
+            user_player_id = character.user_player_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            campaign_id = character.campaign_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             # Flaw traits invert the currency direction
             if is_increase == is_flaw:
                 await user_svc.add_xp(user_player_id, campaign_id, cost, update_total=False)
@@ -1202,7 +1206,7 @@ class CharacterTraitService:
             cost = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                character_id=character_trait.character_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             )
         else:
             if not deleting_trait:
@@ -1210,7 +1214,7 @@ class CharacterTraitService:
             cost = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # type: ignore[attr-defined]
+                character_id=character_trait.character_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             )
 
         is_flaw = await self._is_flaw_trait(character_trait)
@@ -1294,8 +1298,8 @@ class CharacterTraitService:
         xp_current = 0
         if is_player:
             user_svc = UserXPService()
-            user_player_id = character.user_player_id  # type: ignore[attr-defined]
-            campaign_id = character.campaign_id  # type: ignore[attr-defined]
+            user_player_id = character.user_player_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            campaign_id = character.campaign_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             campaign_experience = await user_svc.get_or_create_campaign_experience(
                 user_player_id, campaign_id
             )

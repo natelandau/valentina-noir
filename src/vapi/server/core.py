@@ -124,7 +124,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             app_config.cors_config = CORSConfig(
                 allow_origins=settings.cors.allowed_origins,
                 allow_origin_regex=settings.cors.allow_origin_regex,
-                allow_methods=settings.cors.allow_methods,  # type: ignore [arg-type]
+                allow_methods=settings.cors.allow_methods,  # type: ignore [arg-type] # ty:ignore[invalid-argument-type]
                 allow_headers=settings.cors.allow_headers,
                 max_age=settings.cors.max_age,
             )
@@ -136,7 +136,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 allowed_hosts=settings.allowed_hosts.hosts
             )
 
-        app_config.exception_handlers = {
+        app_config.exception_handlers = {  # ty:ignore[invalid-assignment]
             HTTPError: http_error_to_http_response,
             HTTPException: litestar_http_exc_to_http_response,
             TortoiseDoesNotExist: does_not_exist_to_http_response,

@@ -247,6 +247,8 @@ class CharacterController(Controller):
         character = await annotate_character_counts(
             Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
         ).first()
+        if not character:
+            raise NotFoundError(detail="Character not found")
 
         request.state.audit_description = f"Create character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
         return CharacterResponse.from_model(character)
@@ -281,12 +283,14 @@ class CharacterController(Controller):
 
         request.state.audit_changes = changes
 
-        character = await annotate_character_counts(
+        updated_character = await annotate_character_counts(
             Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
         ).first()
+        if not updated_character:
+            raise NotFoundError(detail="Character not found")
 
-        request.state.audit_description = f"Update character '{character.name_first} {character.name_last} ({character.character_class.value.lower()})'"
-        return CharacterResponse.from_model(character)
+        request.state.audit_description = f"Update character '{updated_character.name_first} {updated_character.name_last} ({updated_character.character_class.value.lower()})'"
+        return CharacterResponse.from_model(updated_character)
 
     @delete(
         path=urls.Characters.DELETE,

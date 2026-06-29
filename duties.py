@@ -141,7 +141,12 @@ def update_dockerfile(ctx: Context) -> None:
     """Update the Dockerfile with the uv version."""
     dockerfile = PROJECT_ROOT / "Dockerfile"
     version = ctx.run(["uv", "--version"], title="uv version", capture=True)
-    version = re.search(r"(\d+\.\d+\.\d+)", version).group(1)
+    version_output = ctx.run(["uv", "--version"], title="uv version", capture=True)
+    match = re.search(r"(\d+\.\d+\.\d+)", version_output)
+    if match is None:
+        msg = f"Could not parse uv version from output: {version_output!r}"
+        raise RuntimeError(msg)
+    version = match.group(1)
     dockerfile_content = dockerfile.read_text(encoding="utf-8")
     if not re.search(rf"uv:{version}", dockerfile_content):
         dockerfile_content = re.sub(r"uv:\d+\.\d+\.\d+", f"uv:{version}", dockerfile_content)

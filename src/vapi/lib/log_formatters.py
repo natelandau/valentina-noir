@@ -10,7 +10,7 @@ import json
 import logging
 import math
 import re
-from typing import Any, ClassVar
+from typing import Any, ClassVar, override
 
 from pythonjsonlogger.core import RESERVED_ATTRS
 from pythonjsonlogger.json import JsonFormatter
@@ -247,17 +247,16 @@ class LitestarJsonFormatter(JsonFormatter):
 
     _parser: ClassVar[StructuredMessageParser] = StructuredMessageParser()
 
+    @override
     def add_fields(
-        self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
+        self, log_data: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
     ) -> None:
         """Add fields to the log record, parsing structured key=value pairs."""
-        super().add_fields(log_record, record, message_dict)
-
+        super().add_fields(log_data, record, message_dict)
         message = _sanitize_binary_body(record.getMessage())
         extracted = self._parser.parse(message)
-
         if extracted:
-            log_record.update(extracted)
-            log_record["message"] = self._parser.clean_message(message)
+            log_data.update(extracted)
+            log_data["message"] = self._parser.clean_message(message)
         else:
-            log_record["message"] = message
+            log_data["message"] = message

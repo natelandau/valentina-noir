@@ -96,6 +96,9 @@ class GlobalAdminController(Controller):
         developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
         )
+        if not developer:
+            msg = f"Developer not found for id {developer.id}"  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            raise ValueError(msg)
         return DeveloperAdminResponse.from_model(developer)
 
     @patch(
@@ -128,10 +131,13 @@ class GlobalAdminController(Controller):
         request.state.audit_changes = changes
         await developer.save()
 
-        developer = (
+        updated_developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
         )
-        return DeveloperAdminResponse.from_model(developer)
+        if not updated_developer:
+            msg = f"Developer not found for id {developer.id}"
+            raise ValueError(msg)
+        return DeveloperAdminResponse.from_model(updated_developer)
 
     @delete(
         path=urls.GlobalAdmin.DEVELOPER_DELETE,
@@ -163,25 +169,28 @@ class GlobalAdminController(Controller):
         await delete_authentication_cache_for_api_key(request)
 
         # Re-fetch with prefetched relations for the companies field
-        developer = (
+        updated_developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
         )
+        if not updated_developer:
+            msg = f"Developer not found for id {developer.id}"
+            raise ValueError(msg)
 
         return {
-            "id": str(developer.id),
-            "username": developer.username,
-            "email": developer.email,
-            "date_created": developer.date_created.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "date_modified": developer.date_modified.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "id": str(updated_developer.id),
+            "username": updated_developer.username,
+            "email": updated_developer.email,
+            "date_created": updated_developer.date_created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "date_modified": updated_developer.date_modified.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "api_key": new_key,
-            "is_global_admin": str(developer.is_global_admin),
-            "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "is_global_admin": str(updated_developer.is_global_admin),
+            "key_generated": updated_developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "companies": [
                 {
                     "company_id": str(p.company.id),
                     "company_name": p.company.name,
                     "permission": p.permission.value,
                 }
-                for p in developer.permissions
+                for p in updated_developer.permissions
             ],
         }

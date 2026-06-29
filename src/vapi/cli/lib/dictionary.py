@@ -80,7 +80,7 @@ class DictionaryService:
 
         existing_term = self._existing_terms.get(normalized_term)
         if not existing_term:
-            # Cache miss — check DB directly to handle name collisions across
+            # Cache miss - check DB directly to handle name collisions across
             # entity types (e.g., a subcategory and trait sharing the same name)
             # where the dict cache silently drops one entry
             existing_term = await DictionaryTerm.filter(
@@ -106,8 +106,8 @@ class DictionaryService:
             or existing_term.source_type != source_type
             or existing_term.source_id != source_id
         ):
-            existing_term.definition = normalized_definition
-            existing_term.link = normalized_link
+            existing_term.definition = normalized_definition  # ty:ignore[invalid-assignment]
+            existing_term.link = normalized_link  # ty:ignore[invalid-assignment]
             existing_term.source_type = source_type
             existing_term.source_id = source_id
             await existing_term.save()

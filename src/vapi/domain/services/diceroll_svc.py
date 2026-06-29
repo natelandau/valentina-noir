@@ -133,7 +133,7 @@ class DiceRollService:
             company=company,
             user=user,
             character=character,
-            campaign_id=character.campaign_id,  # type: ignore[attr-defined]
+            campaign_id=character.campaign_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
             comment=data.comment or f"Quick roll: {quickroll.name}",
         )
 

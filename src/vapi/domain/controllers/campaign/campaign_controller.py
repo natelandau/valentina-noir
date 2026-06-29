@@ -106,6 +106,8 @@ class CampaignController(Controller):
         )
         request.state.audit_description = f"Create campaign '{campaign.name}'"
         annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
+        if not annotated:
+            raise NotFoundError(detail="Campaign not found")
         return CampaignResponse.from_model(annotated)
 
     @patch(
@@ -129,6 +131,8 @@ class CampaignController(Controller):
         request.state.audit_description = f"Update campaign '{campaign.name}'"
         await campaign.save()
         annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
+        if not annotated:
+            raise NotFoundError(detail="Campaign not found")
         return CampaignResponse.from_model(annotated)
 
     @delete(
