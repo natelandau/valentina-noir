@@ -30,7 +30,7 @@ class DictionaryTerm(BaseModel):
     source_type = fields.CharEnumField(DictionarySourceType, null=True)
     source_id = fields.UUIDField(null=True)
 
-    company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
+    company: fields.ForeignKeyNullableRelation[Company] = fields.ForeignKeyField(
         "models.Company",
         related_name="dictionary_terms",
         on_delete=fields.OnDelete.CASCADE,
