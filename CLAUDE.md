@@ -10,7 +10,7 @@ Valentina Noir is a REST API for managing World of Darkness tabletop role-playin
 # Development
 duty run                      # Start dev server (requires PostgreSQL + Redis)
 uv run app                    # Full CLI with all options
-duty lint                     # Run all linters (ruff, mypy, typos, prek)
+duty lint                     # Run all linters (ruff, ty, typos, prek)
 duty format                   # Check code formatting with ruff
 duty test                     # Run tests with coverage
 duty test -- -n 0             # Run tests serially (for debugging)
