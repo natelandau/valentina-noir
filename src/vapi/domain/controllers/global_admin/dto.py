@@ -79,10 +79,6 @@ class AdminUserCreate(msgspec.Struct):
     role: str
     name_first: str | None = None
     name_last: str | None = None
-    discord_profile: dict | None = None
-    google_profile: dict | None = None
-    github_profile: dict | None = None
-    apple_profile: dict | None = None
 
 
 class AdminUserPatch(msgspec.Struct):
@@ -98,10 +94,6 @@ class AdminUserPatch(msgspec.Struct):
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     role: str | msgspec.UnsetType = msgspec.UNSET
-    discord_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
-    google_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
-    github_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
-    apple_profile: dict | None | msgspec.UnsetType = msgspec.UNSET
     is_archived: bool | msgspec.UnsetType = msgspec.UNSET
 
 

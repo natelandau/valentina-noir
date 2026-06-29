@@ -1,7 +1,9 @@
 """Tests for the identity resolution endpoints."""
 
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import AsyncClient
@@ -24,12 +26,25 @@ from vapi.db.sql_models.user import User
 from vapi.domain import urls
 from vapi.domain.services.developer_svc import DeveloperService
 from vapi.lib.exceptions import UnprocessableEntityError
+from vapi.utils.time import time_now
 
 pytestmark = pytest.mark.anyio
 
 VERIFY_TARGET = "vapi.domain.controllers.identity.controllers.verify_provider_token"
 
 _developer_service = DeveloperService()
+
+
+@pytest.fixture
+def mock_verify(mocker: MockerFixture) -> MagicMock:
+    """Patch provider-token verification to return a default verified Apple identity.
+
+    Tests needing a different identity reassign ``return_value``; tests exercising a
+    verification failure set ``side_effect`` on the returned mock.
+    """
+    mock = mocker.patch(VERIFY_TARGET, autospec=True)
+    mock.return_value = _identity()
+    return mock
 
 
 class TestIdentifyEndpoint:
@@ -42,12 +57,10 @@ class TestIdentifyEndpoint:
         session_company: Company,
         session_company_user: Developer,
         token_company_user: dict[str, str],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify an unknown verified identity creates an UNAPPROVED user."""
         # Given a verified identity with no matching user
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies the login
         response = await client.post(
@@ -71,13 +84,11 @@ class TestIdentifyEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a known provider ID resolves to the existing user."""
         # Given a user already holding the apple identity
         user = await user_factory(company=session_company, apple_profile={"id": "apple-sub-001"})
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies the login
         response = await client.post(
@@ -100,13 +111,11 @@ class TestIdentifyEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a verified-email match auto-links the provider to the existing user."""
         # Given a user with the matching email and no apple identity
         user = await user_factory(company=session_company, email="person@example.com")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies the login
         response = await client.post(
@@ -150,11 +159,10 @@ class TestIdentifyEndpoint:
         session_company: Company,
         session_company_user: Developer,
         token_company_user: dict[str, str],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a failed token verification surfaces as 422 with the error code."""
         # Given verification fails upstream
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
         mock_verify.side_effect = UnprocessableEntityError(
             detail="bad token", code="TOKEN_VERIFICATION_FAILED"
         )
@@ -177,11 +185,10 @@ class TestIdentifyEndpoint:
         session_company: Company,
         session_company_user: Developer,
         token_company_user: dict[str, str],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify creation without provider email succeeds when the body supplies one."""
         # Given a provider identity with no email
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
         mock_verify.return_value = _identity(
             provider="github",
             provider_id="4242",
@@ -211,13 +218,11 @@ class TestIdentifyEndpoint:
         session_company: Company,
         session_company_user: Developer,
         token_company_user: dict[str, str],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify the provider token is replaced with [REDACTED] in the audit log."""
         # Given a verified identity and a clean audit log
         await AuditLog.all().delete()
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies the login with a raw bearer token
         response = await client.post(
@@ -243,16 +248,13 @@ class TestIdentifyEndpoint:
         build_url: Callable[[str, Any], str],
         session_company: Company,
         developer_factory: Callable,
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a developer with no permission for the company receives 403."""
         # Given a developer that has no access to the company
         outsider = await developer_factory(username="outsider-dev", email="outsider@example.com")
         api_key = await _developer_service.generate_api_key(outsider)
         outsider_token = {AUTH_HEADER_KEY: api_key}
-
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the outsider calls identify for a company they don't belong to
         response = await client.post(
@@ -273,7 +275,7 @@ class TestIdentifyEndpoint:
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
         quickroll_factory: Any,
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify the identify response includes accurate child-resource counts for existing users."""
         # Given an existing user with one quickroll
@@ -283,8 +285,6 @@ class TestIdentifyEndpoint:
             apple_profile={"id": "apple-sub-001", "email": "person@example.com"},
         )
         await quickroll_factory(user=user)
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies the user
         response = await client.post(
@@ -307,12 +307,11 @@ class TestIdentifyEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify an unapproved acting user can call identify when On-Behalf-Of is set."""
         # Given an UNAPPROVED user whose ID will be sent as the On-Behalf-Of header
         unapproved = await user_factory(company=session_company, role="UNAPPROVED")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
         mock_verify.return_value = _identity(
             provider_id="apple-sub-unapproved",
             email="unapproved@example.com",
@@ -326,10 +325,11 @@ class TestIdentifyEndpoint:
             json={"provider": "apple", "token": "verified-upstream"},
         )
 
-        # Then the request succeeds (allow_unapproved_user bypasses the active guard)
+        # Then the request succeeds (allow_unapproved_user bypasses the active guard) and
+        # resolves to a new user (the identity matches no existing provider id or email)
         assert response.status_code == HTTP_200_OK
         data = response.json()
-        assert data["resolution"] in {"matched", "created"}
+        assert data["resolution"] == "created"
 
     @pytest.mark.clean_db
     async def test_identify_audit_operation_is_update_for_matched_user(
@@ -340,7 +340,7 @@ class TestIdentifyEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify the audit log records UPDATE when identify resolves to an existing user."""
         # Given an existing user and a clean audit log
@@ -349,8 +349,6 @@ class TestIdentifyEndpoint:
             company=session_company,
             apple_profile={"id": "apple-sub-001", "email": "person@example.com"},
         )
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies the user (matched resolution)
         response = await client.post(
@@ -376,13 +374,11 @@ class TestIdentifyEndpoint:
         session_company: Company,
         session_company_user: Developer,
         token_company_user: dict[str, str],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify the audit log records CREATE when identify creates a new user."""
         # Given a clean audit log and no matching user
         await AuditLog.all().delete()
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the client identifies an unknown identity
         response = await client.post(
@@ -400,13 +396,66 @@ class TestIdentifyEndpoint:
         assert audit is not None
         assert audit.operation == AuditOperation.CREATE
 
+    @pytest.mark.parametrize(
+        ("stored_profile", "expect_bump"),
+        [
+            # An identical stored profile means the login changes nothing, so the
+            # cache flush and company timestamp bump are suppressed.
+            pytest.param(
+                {"id": "apple-sub-001", "email": "person@example.com"},
+                False,
+                id="unchanged-match-suppressed",
+            ),
+            # A differing stored profile is refreshed by the login, so the company
+            # timestamp must bump to invalidate stale cached user data.
+            pytest.param(
+                {"id": "apple-sub-001", "email": "stale@example.com"},
+                True,
+                id="changed-match-invalidates",
+            ),
+        ],
+    )
+    async def test_identify_match_bumps_company_timestamp_only_when_changed(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+        mock_verify: MagicMock,
+        stored_profile: dict[str, str],
+        expect_bump: bool,
+    ) -> None:
+        """Verify a matched login bumps resources_modified_at only when it changes the user."""
+        # Given a user holding the apple identity and a company timestamp set 10 days back
+        await user_factory(company=session_company, apple_profile=stored_profile)
+        old_ts = time_now() - timedelta(days=10)
+        await Company.filter(id=session_company.id).update(resources_modified_at=old_ts)
+
+        # When the client identifies the login (matched by provider id)
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the timestamp bumps only when the matched login actually changed the user
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["resolution"] == "matched"
+        refreshed = await Company.get(id=session_company.id)
+        if expect_bump:
+            assert refreshed.resources_modified_at > time_now() - timedelta(days=1)
+        else:
+            assert refreshed.resources_modified_at < time_now() - timedelta(days=1)
+
     async def test_identify_passes_developer_audiences_to_verify(
         self,
         client: AsyncClient,
         build_url: Callable[[str, Any], str],
         session_company: Company,
         developer_factory: Callable[..., Any],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify identify calls verify_provider_token with the developer's registered audiences."""
         # Given a fresh developer with provider_audiences registered for apple
@@ -422,9 +471,6 @@ class TestIdentifyEndpoint:
         )
         api_key = await _developer_service.generate_api_key(developer)
         token = {AUTH_HEADER_KEY: api_key}
-
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the developer calls identify for apple
         response = await client.post(
@@ -453,13 +499,11 @@ class TestLinkIdentityEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a user can link a second provider to their own account."""
         # Given an active user acting on their own behalf
         user = await user_factory(company=session_company, role="PLAYER")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When they link a verified apple identity
         response = await client.post(
@@ -480,14 +524,12 @@ class TestLinkIdentityEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a non-admin cannot link identities for another user."""
         # Given a player acting on another user's account
         actor = await user_factory(company=session_company, role="PLAYER")
         target = await user_factory(company=session_company, role="PLAYER")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When they attempt to link
         response = await client.post(
@@ -507,14 +549,12 @@ class TestLinkIdentityEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify an admin can link identities for another user."""
         # Given an admin acting on another user's account
         admin = await user_factory(company=session_company, role="ADMIN")
         target = await user_factory(company=session_company, role="PLAYER")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the admin links the identity
         response = await client.post(
@@ -557,12 +597,11 @@ class TestLinkIdentityEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify a failed token verification surfaces as 422 on the link endpoint."""
         # Given a user and a token that fails verification upstream
         user = await user_factory(company=session_company, role="PLAYER")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
         mock_verify.side_effect = UnprocessableEntityError(
             detail="bad token", code="TOKEN_VERIFICATION_FAILED"
         )
@@ -586,14 +625,12 @@ class TestLinkIdentityEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify linking an identity owned by another user returns 409."""
         # Given the identity already belongs to someone else
         await user_factory(company=session_company, apple_profile={"id": "apple-sub-001"})
         user = await user_factory(company=session_company, role="PLAYER")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the user attempts to link it
         response = await client.post(
@@ -615,14 +652,12 @@ class TestLinkIdentityEndpoint:
         session_company_user: Developer,
         token_company_user: dict[str, str],
         user_factory: Callable[..., User],
-        mocker: MockerFixture,
+        mock_verify: MagicMock,
     ) -> None:
         """Verify the provider token is replaced with [REDACTED] in the audit log for the link endpoint."""
         # Given an active user and a clean audit log
         await AuditLog.all().delete()
         user = await user_factory(company=session_company, role="PLAYER")
-        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
-        mock_verify.return_value = _identity()
 
         # When the user links a provider identity with a raw bearer token
         response = await client.post(

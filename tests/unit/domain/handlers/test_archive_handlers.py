@@ -28,7 +28,9 @@ from vapi.domain.handlers import (
     CampaignArchiveHandler,
     CharacterArchiveHandler,
     UserArchiveHandler,
+    archive_book,
     archive_campaign,
+    archive_chapter,
     archive_character,
     archive_company,
     archive_user,
@@ -151,6 +153,71 @@ class TestCampaignArchiveHandler:
         # Then its character is archived and the other campaign's character is not
         assert (await Character.get(id=character.id)).is_archived
         assert not (await Character.get(id=other_character.id)).is_archived
+
+
+class TestChapterArchiveHandler:
+    """Test archiving a chapter."""
+
+    async def test_archiving_chapter_leaves_associated_characters_intact(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify archiving a chapter does not cascade-archive its associated characters."""
+        # Given a chapter with a character associated via the chapters<->characters M2M
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(book=book)
+        character = await character_factory(
+            company=company, user_player=user, user_creator=user, campaign=campaign
+        )
+        await chapter.characters.add(character)
+
+        # When we archive the chapter
+        await archive_chapter(chapter=chapter)
+
+        # Then the chapter is archived but the associated character survives
+        assert (await CampaignChapter.get(id=chapter.id)).is_archived
+        assert not (await Character.get(id=character.id)).is_archived
+
+
+class TestBookArchiveHandler:
+    """Test archiving a book."""
+
+    async def test_archiving_book_leaves_associated_characters_intact(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify archiving a book does not cascade-archive its chapters' associated characters."""
+        # Given a book whose chapter has a character associated via the M2M
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(book=book)
+        character = await character_factory(
+            company=company, user_player=user, user_creator=user, campaign=campaign
+        )
+        await chapter.characters.add(character)
+
+        # When we archive the book
+        await archive_book(book=book)
+
+        # Then the book and its chapter are archived but the associated character survives
+        assert (await CampaignBook.get(id=book.id)).is_archived
+        assert (await CampaignChapter.get(id=chapter.id)).is_archived
+        assert not (await Character.get(id=character.id)).is_archived
 
 
 class TestCharacterArchiveHandler:

@@ -35,11 +35,52 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then the existing user is matched and the profile refreshed
         assert resolution == IdentityResolution.MATCHED
         assert resolved.id == user.id
+        assert resolved.apple_profile["email"] == "person@example.com"
+
+    async def test_match_unchanged_profile_reports_not_modified(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify a matched login whose stored profile is identical reports no modification."""
+        # Given a user whose stored profile already equals the verified profile
+        company = await company_factory()
+        await user_factory(
+            company=company,
+            apple_profile={"id": "apple-sub-001", "email": "person@example.com"},
+        )
+
+        # When the identity is resolved
+        service = IdentityService()
+        _, resolution, user_modified = await service.resolve(company=company, identity=_identity())
+
+        # Then it matches but reports the row was not modified (so callers can skip invalidation)
+        assert resolution == IdentityResolution.MATCHED
+        assert user_modified is False
+
+    async def test_match_changed_profile_reports_modified(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify a matched login that refreshes a changed profile reports modification."""
+        # Given a user whose stored profile differs from the verified profile
+        company = await company_factory()
+        await user_factory(
+            company=company,
+            apple_profile={"id": "apple-sub-001", "email": "old@example.com"},
+        )
+
+        # When the identity is resolved
+        service = IdentityService()
+        resolved, resolution, user_modified = await service.resolve(
+            company=company, identity=_identity()
+        )
+
+        # Then it matches, reports the row was modified, and the profile is refreshed
+        assert resolution == IdentityResolution.MATCHED
+        assert user_modified is True
         assert resolved.apple_profile["email"] == "person@example.com"
 
     async def test_auto_link_by_verified_email(
@@ -52,7 +93,7 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then the identity is linked onto the existing user
         assert resolution == IdentityResolution.LINKED
@@ -73,7 +114,7 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(
+        resolved, resolution, _ = await service.resolve(
             company=company, identity=_identity(email_verified=False)
         )
 
@@ -92,7 +133,7 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then a fresh user is created
         assert resolution == IdentityResolution.CREATED
@@ -113,7 +154,7 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then a fresh user is created
         assert resolution == IdentityResolution.CREATED
@@ -131,7 +172,7 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then the deactivated user is matched with their status visible
         assert resolution == IdentityResolution.MATCHED
@@ -147,7 +188,7 @@ class TestResolve:
 
         # When the identity is resolved with an explicit username
         service = IdentityService()
-        resolved, resolution = await service.resolve(
+        resolved, resolution, _ = await service.resolve(
             company=company, identity=_identity(), username="chosen-name"
         )
 
@@ -172,7 +213,7 @@ class TestResolve:
 
         # When a github identity with login octocat is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(
+        resolved, resolution, _ = await service.resolve(
             company=company,
             identity=_identity(
                 provider="github",
@@ -211,7 +252,7 @@ class TestResolve:
 
         # When resolved with a fallback email
         service = IdentityService()
-        resolved, resolution = await service.resolve(
+        resolved, resolution, _ = await service.resolve(
             company=company,
             identity=_identity(email=None, email_verified=False),
             fallback_email="fallback@example.com",
@@ -231,7 +272,7 @@ class TestResolve:
 
         # When the identity is resolved
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then the identity links to the deactivated account with the status visible
         assert resolution == IdentityResolution.LINKED
@@ -248,7 +289,7 @@ class TestResolve:
 
         # When an identity arrives with the same address in lower case
         service = IdentityService()
-        resolved, resolution = await service.resolve(company=company, identity=_identity())
+        resolved, resolution, _ = await service.resolve(company=company, identity=_identity())
 
         # Then the identity links onto the existing user
         assert resolution == IdentityResolution.LINKED

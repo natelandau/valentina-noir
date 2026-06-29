@@ -61,7 +61,7 @@ class IdentityService:
         identity: "VerifiedIdentity",
         username: str | None = None,
         fallback_email: str | None = None,
-    ) -> tuple[User, IdentityResolution]:
+    ) -> tuple[User, IdentityResolution, bool]:
         """Resolve a verified identity: match, auto-link, or create.
 
         Attempts resolution in priority order: provider-ID match first,
@@ -76,7 +76,10 @@ class IdentityService:
                 provider supplied none. Never used for auto-link matching.
 
         Returns:
-            The resolved user and how it was resolved.
+            The resolved user, how it was resolved, and whether the user row was
+            modified. A matched login whose stored profile already equals the
+            verified profile changes nothing, so callers can skip cache
+            invalidation for it; creates and links always report modified.
 
         Raises:
             UnprocessableEntityError: Creation is needed but no email is available.
@@ -92,9 +95,14 @@ class IdentityService:
             company=company, profile_field=profile_field, provider_id=identity.provider_id
         )
         if user:
-            setattr(user, profile_field, identity.profile)
-            await user.save()
-            return user, IdentityResolution.MATCHED
+            # Only write when the verified profile actually differs; an unchanged
+            # login must leave the row (and its auto_now date_modified) untouched so
+            # the caller can safely skip cache invalidation for a routine login.
+            user_modified = getattr(user, profile_field) != identity.profile
+            if user_modified:
+                setattr(user, profile_field, identity.profile)
+                await user.save()
+            return user, IdentityResolution.MATCHED, user_modified
 
         # Auto-link only on provider-verified emails; client assertions never link
         if identity.email and identity.email_verified:
@@ -111,7 +119,7 @@ class IdentityService:
                 setattr(user, profile_field, identity.profile)
                 await user.save()
                 await user.fetch_related("campaign_experiences")
-                return user, IdentityResolution.LINKED
+                return user, IdentityResolution.LINKED, True
 
         user = await self._create_user(
             company=company,
@@ -120,7 +128,7 @@ class IdentityService:
             username=username,
             fallback_email=fallback_email,
         )
-        return user, IdentityResolution.CREATED
+        return user, IdentityResolution.CREATED, True
 
     async def link_identity(
         self, *, company: "Company", user: User, identity: "VerifiedIdentity"

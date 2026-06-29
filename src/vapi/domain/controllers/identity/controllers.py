@@ -89,7 +89,7 @@ class IdentityController(Controller):
         )
 
         service = IdentityService()
-        user, resolution = await service.resolve(
+        user, resolution, user_modified = await service.resolve(
             company=company,
             identity=identity,
             username=data.username,
@@ -106,6 +106,13 @@ class IdentityController(Controller):
             if resolution is IdentityResolution.CREATED
             else AuditOperation.UPDATE
         )
+        # A routine login that resolved to an existing user without changing its
+        # stored profile mutates nothing, so suppress the cache flush and company
+        # timestamp bump that would otherwise make every login bust the developer's
+        # response cache. Logins that create, link, or refresh a changed profile
+        # still invalidate, so callers never read stale user data.
+        if not user_modified:
+            request.state.resources_unmodified = True
         return IdentifyResponse(
             resolution=resolution,
             user=await annotated_user_response(user.id),
