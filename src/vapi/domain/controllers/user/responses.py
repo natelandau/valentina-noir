@@ -5,6 +5,7 @@ from uuid import UUID
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.user.dto import UserResponse
 from vapi.domain.services.user_svc import annotate_user_counts
+from vapi.lib.exceptions import NotFoundError
 
 
 async def annotated_user_response(user_id: UUID) -> UserResponse:
@@ -24,4 +25,8 @@ async def annotated_user_response(user_id: UUID) -> UserResponse:
     user = await annotate_user_counts(
         User.filter(id=user_id).prefetch_related("campaign_experiences")
     ).first()
+
+    if not user:
+        raise NotFoundError(detail="User not found")
+
     return UserResponse.from_model(user)

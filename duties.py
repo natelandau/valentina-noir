@@ -102,13 +102,12 @@ def format(ctx: Context) -> None:  # noqa: A001
 
 
 @duty
-def mypy(ctx: Context) -> None:
-    """Check the code with mypy."""
-    os.environ["FORCE_COLOR"] = "1"
+def ty(ctx: Context) -> None:
+    """Type check the code with ty."""
     ctx.run(
-        tools.mypy("src/", config_file="pyproject.toml"),
-        title=pyprefix("mypy check"),
-        command="mypy --config-file pyproject.toml src/",
+        ["ty", "check"],
+        title="ty check",
+        command="ty check",
     )
 
 
@@ -126,12 +125,12 @@ def typos(ctx: Context) -> None:
 def precommit(ctx: Context) -> None:
     """Run prek hooks."""
     ctx.run(
-        "PREK_SKIP=mypy,pytest prek run --all-files",
+        "PREK_SKIP=pytest prek run --all-files",
         title=pyprefix("prek hooks"),
     )
 
 
-@duty(pre=[ruff, mypy, typos, precommit], capture=CI)
+@duty(pre=[ruff, ty, typos, precommit], capture=CI)
 def lint(ctx: Context) -> None:
     """Run all linting duties."""
 
@@ -141,7 +140,12 @@ def update_dockerfile(ctx: Context) -> None:
     """Update the Dockerfile with the uv version."""
     dockerfile = PROJECT_ROOT / "Dockerfile"
     version = ctx.run(["uv", "--version"], title="uv version", capture=True)
-    version = re.search(r"(\d+\.\d+\.\d+)", version).group(1)
+    version_output = ctx.run(["uv", "--version"], title="uv version", capture=True)
+    match = re.search(r"(\d+\.\d+\.\d+)", version_output)
+    if match is None:
+        msg = f"Could not parse uv version from output: {version_output!r}"
+        raise RuntimeError(msg)
+    version = match.group(1)
     dockerfile_content = dockerfile.read_text(encoding="utf-8")
     if not re.search(rf"uv:{version}", dockerfile_content):
         dockerfile_content = re.sub(r"uv:\d+\.\d+\.\d+", f"uv:{version}", dockerfile_content)

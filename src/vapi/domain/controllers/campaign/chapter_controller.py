@@ -123,7 +123,7 @@ class CampaignChapterController(Controller):
         service = CampaignService()
         characters = await service.validate_campaign_characters(
             character_ids=data.character_ids,
-            campaign_id=book.campaign_id,  # type: ignore[attr-defined]
+            campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
         )
         number = await service.get_next_chapter_number(book)
         chapter = await CampaignChapter.create(
@@ -140,6 +140,10 @@ class CampaignChapterController(Controller):
             .prefetch_related(chapter_characters_prefetch())
             .first()
         )
+
+        if not annotated:
+            raise NotFoundError(detail="Chapter not found")
+
         return CampaignChapterResponse.from_model(annotated)
 
     @patch(
@@ -168,7 +172,7 @@ class CampaignChapterController(Controller):
             old_ids = sorted(str(c.id) for c in await chapter.characters.filter(is_archived=False))
             characters = await CampaignService().validate_campaign_characters(
                 character_ids=data.character_ids,
-                campaign_id=book.campaign_id,  # type: ignore[attr-defined]
+                campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
             )
             await chapter.characters.clear()
             if characters:
@@ -184,6 +188,8 @@ class CampaignChapterController(Controller):
             .prefetch_related(chapter_characters_prefetch())
             .first()
         )
+        if not annotated:
+            raise NotFoundError(detail="Chapter not found")
         return CampaignChapterResponse.from_model(annotated)
 
     @delete(
@@ -234,4 +240,6 @@ class CampaignChapterController(Controller):
             .prefetch_related(chapter_characters_prefetch())
             .first()
         )
+        if not annotated:
+            raise NotFoundError(detail="Chapter not found")
         return CampaignChapterResponse.from_model(annotated)

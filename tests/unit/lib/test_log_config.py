@@ -70,7 +70,7 @@ def test_uncaught_exception_handler_logs_with_correlation_and_stashes_type() -> 
     try:
         _raise_key_error()
     except KeyError:
-        log_uncaught_exception(logger, scope, [])  # type: ignore[arg-type]
+        log_uncaught_exception(logger, scope, [])
     finally:
         logger.removeHandler(handler)
 

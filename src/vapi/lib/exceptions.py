@@ -371,10 +371,10 @@ def litestar_http_exc_to_http_response(
         exc = ValidationError(**kwargs)
 
     elif isinstance(exception, InternalServerException):
-        exc = InternalServerError(status_code=exception.status_code, headers=exception.headers)  # type: ignore [assignment]
+        exc = InternalServerError(status_code=exception.status_code, headers=exception.headers)
 
     else:
-        exc = HTTPError(  # type: ignore [assignment]
+        exc = HTTPError(
             detail=exception.detail,
             status_code=exception.status_code,
             headers=exception.headers,

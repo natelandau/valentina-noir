@@ -162,10 +162,10 @@ class TestDiceRollService:
         # Then the dice roll is returned with correct fields
         assert result.id is not None
         assert result.roll_result is not None
-        assert result.company_id == company.id  # type: ignore[attr-defined]
-        assert result.user_id == user.id  # type: ignore[attr-defined]
-        assert result.character_id == character.id  # type: ignore[attr-defined]
-        assert result.campaign_id == campaign.id  # type: ignore[attr-defined]
+        assert result.company_id == company.id
+        assert result.user_id == user.id
+        assert result.character_id == character.id
+        assert result.campaign_id == campaign.id
         assert result.comment == "Test comment"
         # Verify traits match the ones we set up
         result_trait_ids = sorted(t.id for t in result.traits)

@@ -70,8 +70,8 @@ class SystemController(Controller):
 
         return Response(
             content=dto.SystemHealth(
-                database_status=db_status,  # type: ignore [arg-type]
-                cache_status=cache_status,  # type: ignore [arg-type]
+                database_status=db_status,
+                cache_status=cache_status,
                 database_latency_ms=database_latency_ms,
                 cache_latency_ms=cache_latency_ms,
                 uptime=uptime,

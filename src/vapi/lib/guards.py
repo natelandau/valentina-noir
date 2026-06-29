@@ -209,7 +209,7 @@ async def user_storyteller_guard(connection: "ASGIConnection", _: "BaseRouteHand
     """
     user = await _resolve_acting_user_from_header(connection)
 
-    if user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
+    if not user or user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}:
         raise PermissionDeniedError(detail="User must be a storyteller or admin")
 
 
@@ -234,6 +234,9 @@ async def user_self_or_admin_guard(connection: "ASGIConnection", _: "BaseRouteHa
         raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
 
     user = await _resolve_acting_user_from_header(connection)
+
+    if not user:
+        raise PermissionDeniedError(detail="No rights to access this resource")
 
     if user.role == UserRole.ADMIN or user.id == target_uuid:
         return
@@ -273,6 +276,9 @@ async def user_character_player_or_storyteller_guard(
     if not character:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
 
+    if not user:
+        raise PermissionDeniedError(detail="No rights to access this resource")
+
     if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
         raise PermissionDeniedError(detail="No rights to access this resource")
 
@@ -284,14 +290,15 @@ async def user_character_player_or_storyteller_guard(
             return
         # company_id is only known after the character resolves, so this query is
         # sequential rather than gathered with the character lookup.
-        settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]
+
+        settings = await CompanySettings.filter(company_id=character.company_id).first()  # ty:ignore[unresolved-attribute]
         if settings is not None and npc_management_permitted(settings.permission_manage_npc, user):
             return
         raise PermissionDeniedError(detail="No rights to access this resource")
 
     if (
         user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
-        and character.user_player_id != user.id  # type: ignore[attr-defined]
+        and character.user_player_id != user.id  # ty:ignore[unresolved-attribute]
     ):
         raise PermissionDeniedError(detail="No rights to access this resource")
 
@@ -319,7 +326,7 @@ async def user_can_manage_campaign(connection: "ASGIConnection", _: "BaseRouteHa
             return
 
         case PermissionManageCampaign.STORYTELLER:
-            if user.role in {UserRole.STORYTELLER, UserRole.ADMIN}:
+            if user and user.role in {UserRole.STORYTELLER, UserRole.ADMIN}:
                 return
         case _:  # pragma: no cover
             assert_never(company.settings.permission_manage_campaign)
@@ -363,10 +370,10 @@ async def storyteller_character_access_guard(
     if not character:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
 
-    if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+    if user and user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
         raise PermissionDeniedError(detail="No rights to access this resource")
 
-    if character.type == CharacterType.STORYTELLER and user.role not in STORYTELLER_ROLES:
+    if character.type == CharacterType.STORYTELLER and user and user.role not in STORYTELLER_ROLES:
         raise PermissionDeniedError(detail="No rights to access this resource")
 
 

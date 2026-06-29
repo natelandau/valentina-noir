@@ -87,8 +87,8 @@ class CampaignExperienceResponse(msgspec.Struct):
         """Convert a Tortoise CampaignExperience to a response Struct."""
         return cls(
             id=m.id,
-            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
-            user_id=m.user_id,  # type: ignore[attr-defined]
+            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
+            user_id=m.user_id,  # ty:ignore[unresolved-attribute]
             xp_current=m.xp_current,
             xp_total=m.xp_total,
             cool_points=m.cool_points,
@@ -172,7 +172,7 @@ class UserResponse(msgspec.Struct):
             username=m.username,
             email=m.email,
             role=m.role.value,
-            company_id=m.company_id,  # type: ignore[attr-defined]
+            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
             lifetime_xp=m.lifetime_xp,
             lifetime_cool_points=m.lifetime_cool_points,
             google_profile=m.google_profile,
@@ -226,7 +226,7 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
             # num_* fields default to 0 (CharacterResponse.from_model uses getattr defaults).
             fields["characters"] = [CharacterResponse.from_model(c) for c in m.played_characters]
 
-        return cls(**fields)  # type: ignore[arg-type]
+        return cls(**fields)  # ty:ignore[invalid-argument-type]
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +322,6 @@ class QuickRollResponse(msgspec.Struct):
             date_modified=m.date_modified,
             name=m.name,
             description=m.description or "",
-            user_id=m.user_id,  # type: ignore[attr-defined]
+            user_id=m.user_id,  # ty:ignore[unresolved-attribute]
             trait_ids=[t.id for t in m.traits],
         )

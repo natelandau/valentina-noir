@@ -35,7 +35,7 @@ class TestApplyRedactions:
         # When redactions are applied
         body, parsed = _apply_redactions(
             request_body=request_body,
-            request_json=request_json,  # type: ignore[arg-type]
+            request_json=request_json,
             redact_fields=["token"],
         )
 

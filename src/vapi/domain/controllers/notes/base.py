@@ -74,7 +74,7 @@ class BaseNoteController(Controller, ABC):
             "company_id": company_id,
             self.parent_ref_field: parent_id,
         }
-        note = await Note.create(**create_kwargs)  # type: ignore[arg-type]
+        note = await Note.create(**create_kwargs)  # ty:ignore[invalid-argument-type]
         request.state.audit_description = f"Create note '{note.title}'"
         return dto.NoteResponse.from_model(note)
 

@@ -71,8 +71,12 @@ class AWSS3Service:
 
     def _generate_public_url(self, key: str) -> str:
         """Get the public URL for any object in the S3 bucket by its key."""
+        cloudfront_url = settings.aws.cloudfront_url
+        if cloudfront_url is None:
+            msg = "AWS CloudFront URL"
+            raise MissingConfigurationError(msg)
         key_for_url = key.replace(self.prefix, "") if settings.aws.cloudfront_origin_path else key
-        return f"{settings.aws.cloudfront_url.rstrip('/')}/{key_for_url}"
+        return f"{cloudfront_url.rstrip('/')}/{key_for_url}"
 
     def _get_cache_control(self, asset_type: AssetType) -> str:
         """Determine appropriate cache control header based on asset type."""
@@ -244,7 +248,7 @@ class AWSS3Service:
             "original_filename": filename,
             parent_fk_field: parent_id,
         }
-        asset = await S3Asset.create(**create_kwargs)  # type: ignore[arg-type]
+        asset = await S3Asset.create(**create_kwargs)  # ty:ignore[invalid-argument-type]
 
         try:
             await self._upload_to_s3(asset=asset, data=data)

@@ -93,7 +93,7 @@ class CharacterAutogenerationHandler:
     ) -> None:
         self.company = company
         self.user = user
-        self.experience_level: AutoGenExperienceLevel | None = None
+        self.experience_level: AutoGenExperienceLevel = AutoGenExperienceLevel.NEW
         self.campaign = campaign
         self.skill_focus: AbilityFocus | None = None
         self.concept: CharacterConcept | None = None
@@ -129,7 +129,11 @@ class CharacterAutogenerationHandler:
         """
         async with in_transaction():
             character = await self._generate_base_character(
-                character_type, experience_level, skill_focus, char_class, concept
+                character_type=character_type,
+                experience_level=experience_level,
+                skill_focus=skill_focus,
+                char_class=char_class,
+                concept=concept,
             )
 
             match character.character_class:
@@ -166,7 +170,7 @@ class CharacterAutogenerationHandler:
 
         Args:
             character_type: The type of character to generate.
-            experience_level: The experience level to generate. If None, a random experience level will be selected.
+            experience_level: The experience level to generate. Default is NEW.
             skill_focus: The skill focus to generate. If None, a random skill focus will be selected.
             char_class: The character class to generate. If None, a random class will be selected.
             concept: The concept to generate. If None, a random concept will be selected.
@@ -221,6 +225,10 @@ class CharacterAutogenerationHandler:
         )
 
         attribute_section = await CharSheetSection.filter(name="Attributes").first()
+        if not attribute_section:
+            msg = f"Attributes section not found for character {character.id}"
+            raise ValueError(msg)
+
         categories = list(
             await TraitCategory.filter(
                 sheet_section_id=attribute_section.id,
@@ -275,7 +283,7 @@ class CharacterAutogenerationHandler:
             character (Character): The character for which to generate humanity value.
         """
         humanity_trait = await Trait.filter(name="Humanity").first()
-        if character.character_class not in humanity_trait.character_classes:
+        if character.character_class not in humanity_trait.character_classes:  # ty:ignore[unresolved-attribute]
             return
 
         character_trait = await CharacterTrait.create(
@@ -293,6 +301,10 @@ class CharacterAutogenerationHandler:
         Args:
             character (Character): The character for which to generate abilities.
         """
+        if self.skill_focus is None:
+            msg = "skill_focus must be set before generating abilities"
+            raise ValueError(msg)
+
         dots_to_apply = shuffle_and_adjust_trait_values(
             ABILITY_FOCUS_DOT_DISTRIBUTION[self.skill_focus],
             self.experience_level,
@@ -300,6 +312,10 @@ class CharacterAutogenerationHandler:
         )
 
         ability_section = await CharSheetSection.filter(name="Abilities").first()
+        if not ability_section:
+            msg = f"Ability section not found for character {character.id}"
+            raise ValueError(msg)
+
         categories = list(
             await TraitCategory.filter(
                 sheet_section_id=ability_section.id,
@@ -321,6 +337,10 @@ class CharacterAutogenerationHandler:
         shuffled_abilities = random.sample(abilities, len(abilities))
 
         abilities_by_name = {a.name: a for a in shuffled_abilities}
+        if not self.concept:
+            msg = f"Concept not found for character {character.id}"
+            raise ValueError(msg)
+
         for ability_name in self.concept.favored_ability_names:
             trait = abilities_by_name.get(ability_name)
             if not trait:
@@ -392,6 +412,10 @@ class CharacterAutogenerationHandler:
         disciplines_to_set = list(vampire_clan.disciplines)
 
         disciplines_category = await TraitCategory.filter(name="Disciplines").first()
+        if not disciplines_category:
+            msg = f"Disciplines category not found for character {character.id}"
+            raise ValueError(msg)
+
         all_disciplines = list(
             await Trait.filter(
                 category_id=disciplines_category.id,
@@ -514,6 +538,10 @@ class CharacterAutogenerationHandler:
         num_perks = starting_num_perks + EXTRA_HUNTER_EDGE_PERK_MAP[self.experience_level]
 
         edges_trait_category = await TraitCategory.filter(name="Edges").first()
+        if not edges_trait_category:
+            msg = f"Edges category not found for character {character.id}"
+            raise ValueError(msg)
+
         all_edges = list(
             await TraitSubcategory.filter(
                 category_id=edges_trait_category.id,
@@ -557,9 +585,13 @@ class CharacterAutogenerationHandler:
             return
 
         werewolf_attrs = await WerewolfAttributes.filter(character=character).first()
+        if not werewolf_attrs:
+            msg = f"Werewolf attributes not found for character {character.id}"
+            raise ValueError(msg)
+
         total_renown = werewolf_attrs.total_renown
-        auspice_id = werewolf_attrs.auspice_id  # type: ignore[attr-defined]
-        tribe_id = werewolf_attrs.tribe_id  # type: ignore[attr-defined]
+        auspice_id = werewolf_attrs.auspice_id  # ty:ignore[unresolved-attribute]
+        tribe_id = werewolf_attrs.tribe_id  # ty:ignore[unresolved-attribute]
 
         (
             tribe_gifts,
@@ -648,6 +680,9 @@ class CharacterAutogenerationHandler:
             TraitCategory.filter(name="Backgrounds").first(),
             TraitCategory.filter(name="Merits").first(),
         )
+        if not backgrounds_category or not merits_category:
+            msg = f"Backgrounds or merits category not found for character {character.id}"
+            raise ValueError(msg)
 
         possible_traits = list(
             await Trait.filter(
@@ -665,6 +700,9 @@ class CharacterAutogenerationHandler:
     async def _generate_flaw_values(self, character: Character) -> None:
         """Randomly generate flaw values for the character."""
         flaws_category = await TraitCategory.filter(name="Flaws").first()
+        if not flaws_category:
+            msg = f"Flaws category not found for character {character.id}"
+            raise ValueError(msg)
 
         possible_flaws = list(
             await Trait.filter(

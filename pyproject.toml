@@ -18,7 +18,7 @@
         "titlecase>=2.4.1",
         "tortoise-orm[asyncpg]>=1.1.7,<2.0.0",
         "uuid-utils>=0.16.0",
-]
+    ]
     description = "Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games."
     license = { file = "LICENSE" }
     name = "vapi"
@@ -40,7 +40,6 @@
         "docker>=7.1.0",
         "duty>=1.9.0",
         "faker>=40.21.0",
-        "mypy>=2.1.0",
         "prek>=0.4.4",
         "pymongo>=4.17.0",
         "pytest-clarity>=1.0.1",
@@ -55,9 +54,10 @@
         "pytest>=9.0.3",
         "ruff>=0.15.16",
         "shellcheck-py>=0.11.0.1",
+        "ty>=0.0.55",
         "typos>=1.47.2",
         "yamllint>=1.38.0",
-]
+    ]
     docs = ["zensical>=0.0.44"]
 
 [tool.commitizen]
@@ -102,26 +102,6 @@
     max_blank_lines       = 1
     max_line_length       = 100
     use_gitignore         = true
-
-[tool.mypy] # https://mypy.readthedocs.io/en/latest/config_file.html
-    cache_dir                   = ".cache/mypy"
-    disallow_any_unimported     = false
-    disallow_subclassing_any    = false
-    disallow_untyped_decorators = false
-    disallow_untyped_defs       = true
-    exclude                     = ['duties.py', 'src/vapi/db/migrations/', 'tests/']
-    follow_imports              = "normal"
-    ignore_missing_imports      = true
-    junit_xml                   = ".cache/mypy.xml"
-    no_implicit_optional        = true
-    pretty                      = false
-    show_column_numbers         = true
-    show_error_codes            = true
-    show_error_context          = true
-    strict_optional             = false
-    warn_redundant_casts        = true
-    warn_unreachable            = true
-    warn_unused_ignores         = true
 
 [tool.pytest.ini_options]
 
@@ -274,3 +254,12 @@
         line-ending               = "auto"
         quote-style               = "double"
         skip-magic-trailing-comma = false
+
+[tool.ty.terminal]
+    error-on-warning = true
+
+[tool.ty.environment]
+    python-version = "3.13"
+
+[tool.ty.src]
+    exclude = ["**/docs/**", "**/migrations/**", "**/tests/**"]

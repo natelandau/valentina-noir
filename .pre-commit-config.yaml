@@ -106,10 +106,10 @@ repos:
         language: system
         types: [shell]
 
-      - id: mypy
-        name: mypy
-        entry: mypy --config-file pyproject.toml
-        exclude: "tests/|duties.py|scripts/|migrations/"
+      - id: ty (type check)
+        name: ty
+        entry: uv run ty check
+        pass_filenames: false
         language: system
         types: [python]
 

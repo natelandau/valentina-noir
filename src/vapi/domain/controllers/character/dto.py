@@ -1,4 +1,4 @@
-"""Character DTOs — msgspec Structs for request/response bodies."""
+"""Character DTOs - msgspec Structs for request/response bodies."""
 
 from datetime import datetime
 from enum import StrEnum
@@ -48,7 +48,7 @@ class CharacterInclude(StrEnum):
 
 
 # Deferred via ``@cache`` because each ``Prefetch`` constructs a Tortoise
-# QuerySet which touches ``Model._meta.db`` — only populated after
+# QuerySet which touches ``Model._meta.db`` - only populated after
 # ``Tortoise.init()`` runs at app startup.
 @cache
 def get_character_include_prefetch_map() -> dict[CharacterInclude, list[str | Prefetch]]:
@@ -96,7 +96,7 @@ class VampireAttributesResponse(msgspec.Struct):
         Requires fetch_related('clan') for clan_name.
         """
         return cls(
-            clan_id=m.clan_id,  # type: ignore[attr-defined]
+            clan_id=m.clan_id,  # ty:ignore[unresolved-attribute]
             clan_name=m.clan_name,
             generation=m.generation,
             sire=m.sire,
@@ -124,9 +124,9 @@ class WerewolfAttributesResponse(msgspec.Struct):
         Requires fetch_related('tribe', 'auspice') for name properties.
         """
         return cls(
-            tribe_id=m.tribe_id,  # type: ignore[attr-defined]
+            tribe_id=m.tribe_id,  # ty:ignore[unresolved-attribute]
             tribe_name=m.tribe_name,
-            auspice_id=m.auspice_id,  # type: ignore[attr-defined]
+            auspice_id=m.auspice_id,  # ty:ignore[unresolved-attribute]
             auspice_name=m.auspice_name,
             pack_name=m.pack_name,
             total_renown=m.total_renown,
@@ -299,14 +299,14 @@ class CharacterResponse(msgspec.Struct):
             biography=m.biography,
             demeanor=m.demeanor,
             nature=m.nature,
-            concept_id=m.concept_id,  # type: ignore[attr-defined]
+            concept_id=m.concept_id,  # ty:ignore[unresolved-attribute]
             concept_name=m.concept_name,
             is_temporary=m.is_temporary,
             date_killed=m.date_killed,
-            user_creator_id=m.user_creator_id,  # type: ignore[attr-defined]
-            user_player_id=m.user_player_id,  # type: ignore[attr-defined]
-            company_id=m.company_id,  # type: ignore[attr-defined]
-            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
+            user_creator_id=m.user_creator_id,  # ty:ignore[unresolved-attribute]
+            user_player_id=m.user_player_id,  # ty:ignore[unresolved-attribute]
+            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
+            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
             # Counts come from annotate_character_counts(); the full-sheet path builds a
             # CharacterResponse from an un-annotated model, so default to 0 when absent.
             num_inventory_items=getattr(m, "num_inventory_items", 0),
@@ -324,7 +324,7 @@ class CharacterResponse(msgspec.Struct):
 
 
 # ---------------------------------------------------------------------------
-# Attribute sub-Structs (request — create)
+# Attribute sub-Structs (request - create)
 # ---------------------------------------------------------------------------
 
 
@@ -362,7 +362,7 @@ class HunterAttributesCreate(msgspec.Struct):
 
 
 # ---------------------------------------------------------------------------
-# Attribute sub-Structs (request — patch)
+# Attribute sub-Structs (request - patch)
 # ---------------------------------------------------------------------------
 
 
@@ -451,7 +451,7 @@ class CharacterPatch(msgspec.Struct):
     nature: str | None | msgspec.UnsetType = msgspec.UNSET
     concept_id: UUID | None | msgspec.UnsetType = msgspec.UNSET
     is_temporary: bool | msgspec.UnsetType = msgspec.UNSET
-    user_player_id: UUID | msgspec.UnsetType = msgspec.UNSET
+    user_player_id: UUID | None | msgspec.UnsetType = msgspec.UNSET
     vampire_attributes: VampireAttributesPatch | msgspec.UnsetType = msgspec.UNSET
     werewolf_attributes: WerewolfAttributesPatch | msgspec.UnsetType = msgspec.UNSET
     mage_attributes: MageAttributesPatch | msgspec.UnsetType = msgspec.UNSET
@@ -477,7 +477,7 @@ class FullSheetCharacterTraitDTO(msgspec.Struct):
         return cls(
             id=ct.id,
             value=ct.value,
-            character_id=ct.character_id,  # type: ignore[attr-defined]
+            character_id=ct.character_id,  # ty:ignore[unresolved-attribute]
             trait=TraitResponse.from_model(ct.trait),
         )
 
@@ -611,7 +611,7 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
     CharacterResponse (child fields are omitted via omit_defaults).
     """
 
-    # Optional children — omitted from JSON when not requested.
+    # Optional children - omitted from JSON when not requested.
     # Types use msgspec.Struct base because the concrete DTO modules can't be
     # imported at module level without causing circular imports.
     traits: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
@@ -655,4 +655,4 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
         if CharacterInclude.ASSETS in includes:
             fields["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
 
-        return cls(**fields)  # type: ignore[arg-type]
+        return cls(**fields)  # ty:ignore[invalid-argument-type]

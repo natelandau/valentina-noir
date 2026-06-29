@@ -1986,7 +1986,7 @@ class TestCharacterFullSheet:
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
                 character_id=character.id,
-                category_id=str(trait_no_sub.category_id),  # type: ignore[attr-defined]
+                category_id=str(trait_no_sub.category_id),
             ),
             headers=token_global_admin | on_behalf_of_header,
         )
@@ -1996,7 +1996,7 @@ class TestCharacterFullSheet:
         data = response.json()
 
         # And the response contains the category with correct structure
-        assert data["id"] == str(trait_no_sub.category_id)  # type: ignore[attr-defined]
+        assert data["id"] == str(trait_no_sub.category_id)
         assert "name" in data
         assert "subcategories" in data
         assert "character_traits" in data
@@ -2038,7 +2038,7 @@ class TestCharacterFullSheet:
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
                 character_id=character.id,
-                category_id=str(trait.category_id),  # type: ignore[attr-defined]
+                category_id=str(trait.category_id),
             ),
             params={"include_available_traits": True},
             headers=token_global_admin | on_behalf_of_header,
@@ -2221,7 +2221,7 @@ class TestCharacterFullSheet:
                 CharacterURL.FULL_SHEET_CATEGORY,
                 company_id=session_company.id,
                 character_id=character.id,
-                category_id=str(trait.category_id),  # type: ignore[attr-defined]
+                category_id=str(trait.category_id),
             ),
             headers=token_global_admin | on_behalf_of_header,
         )

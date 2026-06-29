@@ -29,7 +29,7 @@ class S3Asset(BaseModel):
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="assets", on_delete=fields.OnDelete.CASCADE
     )
-    uploaded_by: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+    uploaded_by: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User",
         related_name="uploaded_assets",
         on_delete=fields.OnDelete.SET_NULL,

@@ -69,7 +69,7 @@ class CharacterTraitResponse(msgspec.Struct):
         """
         return cls(
             id=m.id,
-            character_id=m.character_id,  # type: ignore[attr-defined]
+            character_id=m.character_id,  # ty:ignore[unresolved-attribute]
             value=m.value,
             trait=TraitResponse.from_model(m.trait),
             date_created=m.date_created.isoformat(),

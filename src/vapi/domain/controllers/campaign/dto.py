@@ -28,7 +28,7 @@ class BookInclude(StrEnum):
 
 
 # Deferred via ``@cache`` because each ``Prefetch`` constructs a Tortoise
-# QuerySet which touches ``Model._meta.db`` — only populated after
+# QuerySet which touches ``Model._meta.db`` - only populated after
 # ``Tortoise.init()`` runs at app startup.
 @cache
 def get_book_include_prefetch_map() -> dict[BookInclude, list[str | Prefetch]]:
@@ -112,13 +112,13 @@ class CampaignResponse(msgspec.Struct):
             description=m.description,
             desperation=m.desperation,
             danger=m.danger,
-            company_id=m.company_id,  # type: ignore[attr-defined]
-            num_books=m.num_books,  # type: ignore[attr-defined]
-            num_chapters=m.num_chapters,  # type: ignore[attr-defined]
-            num_notes=m.num_notes,  # type: ignore[attr-defined]
-            num_player_characters=m.num_player_characters,  # type: ignore[attr-defined]
-            num_storyteller_characters=m.num_storyteller_characters,  # type: ignore[attr-defined]
-            num_npc_characters=m.num_npc_characters,  # type: ignore[attr-defined]
+            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
+            num_books=m.num_books,  # ty:ignore[unresolved-attribute]
+            num_chapters=m.num_chapters,  # ty:ignore[unresolved-attribute]
+            num_notes=m.num_notes,  # ty:ignore[unresolved-attribute]
+            num_player_characters=m.num_player_characters,  # ty:ignore[unresolved-attribute]
+            num_storyteller_characters=m.num_storyteller_characters,  # ty:ignore[unresolved-attribute]
+            num_npc_characters=m.num_npc_characters,  # ty:ignore[unresolved-attribute]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -151,10 +151,10 @@ class CampaignBookResponse(msgspec.Struct):
             name=m.name,
             description=m.description,
             number=m.number,
-            campaign_id=m.campaign_id,  # type: ignore[attr-defined]
-            num_chapters=m.num_chapters,  # type: ignore[attr-defined]
-            num_notes=m.num_notes,  # type: ignore[attr-defined]
-            num_assets=m.num_assets,  # type: ignore[attr-defined]
+            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
+            num_chapters=m.num_chapters,  # ty:ignore[unresolved-attribute]
+            num_notes=m.num_notes,  # ty:ignore[unresolved-attribute]
+            num_assets=m.num_assets,  # ty:ignore[unresolved-attribute]
             character_ids=sorted({c.id for ch in m.chapters for c in ch.characters}),
             date_created=m.date_created,
             date_modified=m.date_modified,
@@ -195,7 +195,7 @@ class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
         if BookInclude.ASSETS in includes:
             fields["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
 
-        return cls(**fields)  # type: ignore[arg-type]
+        return cls(**fields)  # ty:ignore[invalid-argument-type]
 
 
 class CampaignChapterResponse(msgspec.Struct):
@@ -223,7 +223,7 @@ class CampaignChapterResponse(msgspec.Struct):
             name=m.name,
             description=m.description,
             number=m.number,
-            book_id=m.book_id,  # type: ignore[attr-defined]
+            book_id=m.book_id,  # ty:ignore[unresolved-attribute]
             # Counts are annotated onto the queryset by annotate_chapter_counts. This struct is
             # also embedded in CampaignBookDetailResponse (book ?include=chapters) where chapters
             # are prefetched without annotations, so default to 0 when the attribute is absent.
@@ -260,7 +260,7 @@ class CampaignChapterDetailResponse(CampaignChapterResponse, omit_defaults=True)
         if ChapterInclude.ASSETS in includes:
             fields["assets"] = [S3AssetResponse.from_model(a) for a in m.assets]
 
-        return cls(**fields)  # type: ignore[arg-type]
+        return cls(**fields)  # ty:ignore[invalid-argument-type]
 
 
 # ---------------------------------------------------------------------------

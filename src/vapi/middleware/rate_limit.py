@@ -304,7 +304,8 @@ class RateLimitMiddleware(ASGIMiddleware):
                 store=store,
                 request_identifier=request_identifier,
             )
-            allowed_buckets.append(bucket)
+            if bucket is not None:
+                allowed_buckets.append(bucket)
 
         send = self._wrap_send(send, buckets=allowed_buckets)
 

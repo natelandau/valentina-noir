@@ -192,8 +192,8 @@ async def create_characters(
     companies_by_id = {str(company.id): company for company in companies}
     characters: list[Character] = []
     for campaign in campaigns:
-        company = companies_by_id[str(campaign.company_id)]
-        company_users = users_by_company[str(campaign.company_id)]
+        company = companies_by_id[str(campaign.company_id)]  # ty:ignore[unresolved-attribute]
+        company_users = users_by_company[str(campaign.company_id)]  # ty:ignore[unresolved-attribute]
         for i in range(cfg.num_characters):
             user = random.choice(company_users)
             handler = CharacterAutogenerationHandler(user=user, company=company, campaign=campaign)
@@ -230,12 +230,12 @@ async def create_dice_rolls(
     service = DiceRollService()
     dice_sizes = list(DiceSize)
     for character in characters:
-        company_users = users_by_company[str(character.company_id)]
+        company_users = users_by_company[str(character.company_id)]  # ty:ignore[unresolved-attribute]
         # Normalize uuid_utils.UUID FK ids to stdlib uuid.UUID before passing them as
         # _id-form values (Tortoise's UUIDField conversion rejects uuid_utils.UUID).
-        company_id = _uuid(character.company_id)
+        company_id = _uuid(character.company_id)  # ty:ignore[unresolved-attribute]
         character_id = _uuid(character.id)
-        campaign_id = _uuid(character.campaign_id) if character.campaign_id else None
+        campaign_id = _uuid(character.campaign_id) if character.campaign_id else None  # ty:ignore[unresolved-attribute]
         for _ in range(_count(cfg.dice_rolls_per_char)):
             user = random.choice(company_users)
             data = DiceRollCreate(
@@ -288,18 +288,18 @@ async def create_notes(
     for campaign in campaigns:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=_uuid(campaign.company_id),
-                user=_author(campaign.company_id),
+                company_id=_uuid(campaign.company_id),  # ty:ignore[unresolved-attribute]
+                user=_author(campaign.company_id),  # ty:ignore[unresolved-attribute]
                 campaign=campaign,
                 title=fake.note_title(),
                 content=fake.note_body(),
             )
     for book in books:
-        campaign = campaigns_by_id[str(book.campaign_id)]
+        campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[unresolved-attribute]
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=_uuid(campaign.company_id),
-                user=_author(campaign.company_id),
+                company_id=_uuid(campaign.company_id),  # ty:ignore[unresolved-attribute]
+                user=_author(campaign.company_id),  # ty:ignore[unresolved-attribute]
                 book=book,
                 title=fake.note_title(),
                 content=fake.note_body(),
@@ -307,8 +307,8 @@ async def create_notes(
     for character in characters:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=_uuid(character.company_id),
-                user=_author(character.company_id),
+                company_id=_uuid(character.company_id),  # ty:ignore[unresolved-attribute]
+                user=_author(character.company_id),  # ty:ignore[unresolved-attribute]
                 character=character,
                 title=fake.note_title(),
                 content=fake.note_body(),
@@ -356,18 +356,18 @@ async def create_assets(
                 public_url=fake.picsum_url(width=width, height=height, seed=seed),
                 company_id=_uuid(company_id),
                 uploaded_by=random.choice(users_by_company[str(company_id)]),
-                **{parent_kwarg: parent},
+                **{parent_kwarg: parent},  # ty:ignore[invalid-argument-type]
             )
 
     for character in characters:
-        await _attach(company_id=character.company_id, parent_kwarg="character", parent=character)
+        await _attach(company_id=character.company_id, parent_kwarg="character", parent=character)  # ty:ignore[unresolved-attribute]
     for book in books:
-        campaign = campaigns_by_id[str(book.campaign_id)]
-        await _attach(company_id=campaign.company_id, parent_kwarg="book", parent=book)
+        campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[unresolved-attribute]
+        await _attach(company_id=campaign.company_id, parent_kwarg="book", parent=book)  # ty:ignore[unresolved-attribute]
     for chapter in chapters:
-        parent_book = books_by_id[str(chapter.book_id)]
-        campaign = campaigns_by_id[str(parent_book.campaign_id)]
-        await _attach(company_id=campaign.company_id, parent_kwarg="chapter", parent=chapter)
+        parent_book = books_by_id[str(chapter.book_id)]  # ty:ignore[unresolved-attribute]
+        campaign = campaigns_by_id[str(parent_book.campaign_id)]  # ty:ignore[unresolved-attribute]
+        await _attach(company_id=campaign.company_id, parent_kwarg="chapter", parent=chapter)  # ty:ignore[unresolved-attribute]
 
 
 async def populate_data(cfg: PopulateConfig) -> list[Developer]:
@@ -396,8 +396,8 @@ async def build_api_keys(developers: list[Developer]) -> list[DevApiKey]:
     for developer in developers:
         await developer.fetch_related("permissions")
         company_permissions = [
-            (p.company_id, p.permission)
-            for p in developer.permissions  # type: ignore[attr-defined]
+            (p.company_id, p.permission)  # ty:ignore[unresolved-attribute]
+            for p in developer.permissions
         ]
         keys.append(
             DevApiKey(
@@ -406,7 +406,7 @@ async def build_api_keys(developers: list[Developer]) -> list[DevApiKey]:
                 username=developer.username,
                 email=developer.email,
                 is_global_admin=developer.is_global_admin,
-                company_permissions=company_permissions,
+                company_permissions=company_permissions,  # ty:ignore[invalid-argument-type]
             )
         )
     return keys

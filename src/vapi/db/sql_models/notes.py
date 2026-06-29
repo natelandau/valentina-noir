@@ -25,22 +25,22 @@ class Note(BaseModel):
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="notes", on_delete=fields.OnDelete.CASCADE
     )
-    user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
+    user: fields.ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User", related_name="notes", on_delete=fields.OnDelete.SET_NULL, null=True
     )
-    campaign: fields.ForeignKeyRelation[Campaign] = fields.ForeignKeyField(
+    campaign: fields.ForeignKeyNullableRelation[Campaign] = fields.ForeignKeyField(
         "models.Campaign", related_name="notes", on_delete=fields.OnDelete.SET_NULL, null=True
     )
-    book: fields.ForeignKeyRelation[CampaignBook] = fields.ForeignKeyField(
+    book: fields.ForeignKeyNullableRelation[CampaignBook] = fields.ForeignKeyField(
         "models.CampaignBook", related_name="notes", on_delete=fields.OnDelete.SET_NULL, null=True
     )
-    chapter: fields.ForeignKeyRelation[CampaignChapter] = fields.ForeignKeyField(
+    chapter: fields.ForeignKeyNullableRelation[CampaignChapter] = fields.ForeignKeyField(
         "models.CampaignChapter",
         related_name="notes",
         on_delete=fields.OnDelete.SET_NULL,
         null=True,
     )
-    character: fields.ForeignKeyRelation[Character] = fields.ForeignKeyField(
+    character: fields.ForeignKeyNullableRelation[Character] = fields.ForeignKeyField(
         "models.Character",
         related_name="notes",
         on_delete=fields.OnDelete.SET_NULL,

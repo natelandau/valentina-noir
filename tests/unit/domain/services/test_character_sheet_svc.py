@@ -285,7 +285,7 @@ class TestCharacterSheetService:
             # category uniform, so construct the mixed case rather than skipping when absent.
             trait_without_sub = await trait_factory(
                 name="Mixed Category Direct Trait",
-                category_id=trait_with_sub.category_id,  # type: ignore[attr-defined]
+                category_id=trait_with_sub.category_id,
                 character_classes=["MORTAL"],
                 game_versions=[character.game_version],
             )
@@ -692,8 +692,8 @@ class TestCharacterSheetService:
                 .first()
             )
             assert character.werewolf_attributes is not None
-            tribe_id = werewolf_attrs.tribe_id  # type: ignore[attr-defined]
-            auspice_id = werewolf_attrs.auspice_id  # type: ignore[attr-defined]
+            tribe_id = werewolf_attrs.tribe_id
+            auspice_id = werewolf_attrs.auspice_id
             assert tribe_id is not None
             assert auspice_id is not None
 

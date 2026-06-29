@@ -3336,7 +3336,7 @@ class TestDeleteCountBasedTrait:
         await user_svc.add_xp(user.id, campaign.id, 50)
         campaign_xp = await user_svc.get_or_create_campaign_experience(
             user.id,
-            campaign.id,  # type: ignore[attr-defined]
+            campaign.id,
         )
         xp_before = campaign_xp.xp_current
 
@@ -3362,7 +3362,7 @@ class TestDeleteCountBasedTrait:
         # Then XP is refunded by 6 (3rd gift: 3 x 2)
         campaign_xp = await user_svc.get_or_create_campaign_experience(
             user.id,
-            campaign.id,  # type: ignore[attr-defined]
+            campaign.id,
         )
         assert campaign_xp.xp_current == xp_before + 6
 
@@ -3555,7 +3555,7 @@ class TestBulkAddConstantTraitsToCharacter:
         user_svc = UserXPService()
         await user_svc.get_or_create_campaign_experience(
             user.id,
-            character.campaign_id,  # type: ignore[attr-defined]
+            character.campaign_id,
         )
 
         # And multiple unused traits

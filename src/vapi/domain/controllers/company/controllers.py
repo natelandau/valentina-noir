@@ -193,6 +193,8 @@ class CompanyController(Controller):
         company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
         ).first()
+        if not company:
+            raise NotFoundError(detail="Company not found")
         request.state.audit_description = f"Create company '{company.name}'"
 
         return NewCompanyCreateResponse(
@@ -225,11 +227,14 @@ class CompanyController(Controller):
 
         request.state.audit_changes = changes
 
-        company = await annotate_company_counts(
+        updated_company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
         ).first()
-        request.state.audit_description = f"Update company '{company.name}'"
-        return CompanyResponse.from_model(company)
+        if not updated_company:
+            raise NotFoundError(detail="Company not found")
+
+        request.state.audit_description = f"Update company '{updated_company.name}'"
+        return CompanyResponse.from_model(updated_company)
 
     @delete(
         path=urls.Companies.DELETE,

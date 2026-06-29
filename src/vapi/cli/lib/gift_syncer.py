@@ -98,7 +98,7 @@ async def resolve_gift_trait_references(
         if tribe_name and tribe_name in tribes_by_name:
             tribe = tribes_by_name[tribe_name]
             tribe_gifts[tribe_name].append(trait)
-            if trait.gift_tribe_id != tribe.pk:  # type: ignore [attr-defined]
+            if trait.gift_tribe_id != tribe.pk:  # ty:ignore[unresolved-attribute]
                 # Assign the FK column named in bulk_update so the write target matches the fields list
                 trait.gift_tribe_id = tribe.pk
                 changed = True
@@ -106,7 +106,7 @@ async def resolve_gift_trait_references(
         if auspice_name and auspice_name in auspices_by_name:
             auspice = auspices_by_name[auspice_name]
             auspice_gifts[auspice_name].append(trait)
-            if trait.gift_auspice_id != auspice.pk:  # type: ignore [attr-defined]
+            if trait.gift_auspice_id != auspice.pk:  # ty:ignore[unresolved-attribute]
                 # Assign the FK column named in bulk_update so the write target matches the fields list
                 trait.gift_auspice_id = auspice.pk
                 changed = True

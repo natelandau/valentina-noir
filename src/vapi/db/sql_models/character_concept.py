@@ -23,7 +23,7 @@ class CharacterConcept(BaseModel):
     specialties: Any = fields.JSONField(default=list)
     favored_ability_names: Any = fields.JSONField(default=list)
 
-    company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
+    company: fields.ForeignKeyNullableRelation[Company] = fields.ForeignKeyField(
         "models.Company",
         related_name="character_concepts",
         on_delete=fields.OnDelete.CASCADE,

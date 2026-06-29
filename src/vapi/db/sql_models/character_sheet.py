@@ -109,7 +109,7 @@ class TraitSubcategory(BaseModel):
     category: fields.ForeignKeyRelation[TraitCategory] = fields.ForeignKeyField(
         "models.TraitCategory", related_name="subcategories", on_delete=fields.OnDelete.CASCADE
     )
-    sheet_section: fields.ForeignKeyRelation[CharSheetSection] = fields.ForeignKeyField(
+    sheet_section: fields.ForeignKeyNullableRelation[CharSheetSection] = fields.ForeignKeyField(
         "models.CharSheetSection",
         related_name="subcategories",
         on_delete=fields.OnDelete.CASCADE,
@@ -174,7 +174,7 @@ class Trait(BaseModel):
     category: fields.ForeignKeyRelation[TraitCategory] = fields.ForeignKeyField(
         "models.TraitCategory", related_name="traits", on_delete=fields.OnDelete.CASCADE
     )
-    subcategory: fields.ForeignKeyRelation[TraitSubcategory] = fields.ForeignKeyField(
+    subcategory: fields.ForeignKeyNullableRelation[TraitSubcategory] = fields.ForeignKeyField(
         "models.TraitSubcategory",
         related_name="traits",
         on_delete=fields.OnDelete.CASCADE,
@@ -190,13 +190,13 @@ class Trait(BaseModel):
     gift_duration = fields.CharField(max_length=50, null=True)
     gift_minimum_renown = fields.IntField(null=True)
     gift_is_native = fields.BooleanField(null=True)
-    gift_tribe: fields.ForeignKeyRelation[WerewolfTribe] = fields.ForeignKeyField(
+    gift_tribe: fields.ForeignKeyNullableRelation[WerewolfTribe] = fields.ForeignKeyField(
         "models.WerewolfTribe",
         related_name="gift_traits",
         on_delete=fields.OnDelete.SET_NULL,
         null=True,
     )
-    gift_auspice: fields.ForeignKeyRelation[WerewolfAuspice] = fields.ForeignKeyField(
+    gift_auspice: fields.ForeignKeyNullableRelation[WerewolfAuspice] = fields.ForeignKeyField(
         "models.WerewolfAuspice",
         related_name="gift_traits",
         on_delete=fields.OnDelete.SET_NULL,

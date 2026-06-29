@@ -26,13 +26,13 @@ def _base_fields(m: AuditLog) -> dict[str, Any]:
         "target_entity_id": m.target_entity_id,
         "description": m.description,
         "changes": m.changes,
-        "company_id": m.company_id,  # type: ignore[attr-defined]
-        "acting_user_id": m.acting_user_id,  # type: ignore[attr-defined]
-        "user_id": m.user_id,  # type: ignore[attr-defined]
-        "campaign_id": m.campaign_id,  # type: ignore[attr-defined]
-        "book_id": m.book_id,  # type: ignore[attr-defined]
-        "chapter_id": m.chapter_id,  # type: ignore[attr-defined]
-        "character_id": m.character_id,  # type: ignore[attr-defined]
+        "company_id": m.company_id,  # ty:ignore[unresolved-attribute]
+        "acting_user_id": m.acting_user_id,  # ty:ignore[unresolved-attribute]
+        "user_id": m.user_id,  # ty:ignore[unresolved-attribute]
+        "campaign_id": m.campaign_id,  # ty:ignore[unresolved-attribute]
+        "book_id": m.book_id,  # ty:ignore[unresolved-attribute]
+        "chapter_id": m.chapter_id,  # ty:ignore[unresolved-attribute]
+        "character_id": m.character_id,  # ty:ignore[unresolved-attribute]
         "request_id": m.request_id,
         "summary": m.summary,
     }

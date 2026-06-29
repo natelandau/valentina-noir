@@ -67,7 +67,7 @@ def main(
 ) -> None:
     """Entry point for `python -m scripts.populate_dev_db`."""
     pg = settings.postgres
-    warning = production_warning(settings)
+    warning = production_warning(settings)  # ty:ignore[invalid-argument-type]
     if warning and not force:
         console.print(
             f"[bold red]Refusing to run against a production-like target:[/bold red] {warning}.\n"

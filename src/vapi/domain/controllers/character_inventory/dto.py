@@ -31,7 +31,7 @@ class InventoryItemResponse(msgspec.Struct):
             name=m.name,
             description=m.description,
             type=m.type,
-            character_id=m.character_id,  # type: ignore[attr-defined]
+            character_id=m.character_id,  # ty:ignore[unresolved-attribute]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )

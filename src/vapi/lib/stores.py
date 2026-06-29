@@ -42,7 +42,7 @@ def response_cache_key_builder(request: Request) -> str:
     Returns:
         str: App slug prefixed cache key.
     """
-    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY))
+    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
     acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY) or ""
     return f"{fingerprint}:{acting_user}:{default_cache_key_builder(request)}"
 
@@ -53,11 +53,11 @@ async def delete_authentication_cache_for_api_key(request: Request) -> None:
     Args:
         request (Request): Current request instance.
     """
-    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY))
+    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
     store = request.app.stores.get(f"{settings.stores.authentication_cache_key}:{fingerprint}")
 
     # The delete_by_prefix method calls redis directly, so we need to include the namespace even though it is already included in the store
-    await store.delete_by_prefix(match=f"{settings.stores.authentication_cache_key}:{fingerprint}")  # type: ignore [attr-defined]
+    await store.delete_by_prefix(match=f"{settings.stores.authentication_cache_key}:{fingerprint}")  # ty:ignore[unresolved-attribute]
 
 
 async def delete_response_cache_for_api_key(request: Request) -> None:
@@ -66,9 +66,9 @@ async def delete_response_cache_for_api_key(request: Request) -> None:
     Args:
         request (Request): Current request instance.
     """
-    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY))
+    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
 
     store = request.app.stores.get(f"{settings.stores.response_cache_key}:{fingerprint}")
 
     # The delete_by_prefix method calls redis directly, so we need to include the namespace even though it is already included in the store
-    await store.delete_by_prefix(match=f"{settings.stores.response_cache_key}:{fingerprint}")  # type: ignore [attr-defined]
+    await store.delete_by_prefix(match=f"{settings.stores.response_cache_key}:{fingerprint}")  # ty:ignore[unresolved-attribute]

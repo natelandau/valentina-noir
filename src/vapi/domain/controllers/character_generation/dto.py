@@ -60,8 +60,8 @@ class ChargenSessionResponse(msgspec.Struct):
         characters = [CharacterResponse.from_model(c) for c in session.characters]
         return cls(
             id=session.id,
-            user_id=session.user_id,  # type: ignore[attr-defined]
-            campaign_id=session.campaign_id,  # type: ignore[attr-defined]
+            user_id=session.user_id,  # ty:ignore[unresolved-attribute]
+            campaign_id=session.campaign_id,  # ty:ignore[unresolved-attribute]
             expires_at=session.expires_at,
             requires_selection=session.requires_selection,
             characters=characters,

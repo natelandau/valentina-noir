@@ -72,7 +72,7 @@ class Character(BaseModel):
     campaign: fields.ForeignKeyRelation[Campaign] = fields.ForeignKeyField(
         "models.Campaign", related_name="characters", on_delete=fields.OnDelete.CASCADE
     )
-    concept: fields.ForeignKeyRelation[CharacterConcept] = fields.ForeignKeyField(
+    concept: fields.ForeignKeyNullableRelation[CharacterConcept] = fields.ForeignKeyField(
         "models.CharacterConcept",
         related_name="characters",
         on_delete=fields.OnDelete.SET_NULL,
@@ -122,7 +122,7 @@ class VampireAttributes(BaseModel):
     character: fields.OneToOneRelation[Character] = fields.OneToOneField(
         "models.Character", related_name="vampire_attributes", on_delete=fields.OnDelete.CASCADE
     )
-    clan: fields.ForeignKeyRelation[VampireClan] = fields.ForeignKeyField(
+    clan: fields.ForeignKeyNullableRelation[VampireClan] = fields.ForeignKeyField(
         "models.VampireClan",
         related_name="characters",
         on_delete=fields.OnDelete.SET_NULL,
@@ -154,13 +154,13 @@ class WerewolfAttributes(BaseModel):
     character: fields.OneToOneRelation[Character] = fields.OneToOneField(
         "models.Character", related_name="werewolf_attributes", on_delete=fields.OnDelete.CASCADE
     )
-    tribe: fields.ForeignKeyRelation[WerewolfTribe] = fields.ForeignKeyField(
+    tribe: fields.ForeignKeyNullableRelation[WerewolfTribe] = fields.ForeignKeyField(
         "models.WerewolfTribe",
         related_name="characters",
         on_delete=fields.OnDelete.SET_NULL,
         null=True,
     )
-    auspice: fields.ForeignKeyRelation[WerewolfAuspice] = fields.ForeignKeyField(
+    auspice: fields.ForeignKeyNullableRelation[WerewolfAuspice] = fields.ForeignKeyField(
         "models.WerewolfAuspice",
         related_name="characters",
         on_delete=fields.OnDelete.SET_NULL,

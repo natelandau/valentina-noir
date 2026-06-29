@@ -135,6 +135,10 @@ class CharacterGenerationController(Controller):
         new_character = await annotate_character_counts(
             Character.filter(id=new_character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
         ).first()
+        if not new_character:
+            msg = "New character not found"
+            raise ValueError(msg)
+
         request.state.audit_description = f"Autogenerate {new_character.type.value.lower()} character '{new_character.name_first} {new_character.name_last} ({new_character.character_class.value.lower()})'"
 
         return CharacterResponse.from_model(new_character)
@@ -195,6 +199,9 @@ class CharacterGenerationController(Controller):
             .prefetch_related(*CHARGEN_SESSION_PREFETCH)
             .first()
         )
+        if not session:
+            msg = f"Chargen session not found for id {session.id}"  # ty:ignore[unresolved-attribute]
+            raise ValueError(msg)
 
         return ChargenSessionResponse.from_model(session)
 
@@ -253,6 +260,9 @@ class CharacterGenerationController(Controller):
                 *CHARACTER_RESPONSE_PREFETCH
             )
         ).first()
+        if not selected_character:
+            msg = f"Selected character not found for id {selected_character.id}"  # ty:ignore[unresolved-attribute]
+            raise ValueError(msg)
 
         request.state.audit_description = f"Finalize chargen session {session.id} and promote character '{selected_character.name_first} {selected_character.name_last} ({selected_character.character_class.value.lower()})'"
 

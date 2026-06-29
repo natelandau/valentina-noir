@@ -278,9 +278,9 @@ class TestUploadAsset:
         assert asset.id is not None
         assert asset.asset_type == AssetType.IMAGE
         assert asset.mime_type == "image/png"
-        assert asset.character_id == character.id  # type: ignore[attr-defined]
-        assert asset.company_id == company.id  # type: ignore[attr-defined]
-        assert asset.uploaded_by_id == user.id  # type: ignore[attr-defined]
+        assert asset.character_id == character.id
+        assert asset.company_id == company.id
+        assert asset.uploaded_by_id == user.id
         assert asset.s3_bucket == settings.aws.s3_bucket_name
 
     async def test_upload_asset_user(
@@ -308,8 +308,8 @@ class TestUploadAsset:
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
         assert asset.asset_type == AssetType.IMAGE
-        assert asset.user_parent_id == user.id  # type: ignore[attr-defined]
-        assert asset.uploaded_by_id == uploader.id  # type: ignore[attr-defined]
+        assert asset.user_parent_id == user.id
+        assert asset.uploaded_by_id == uploader.id
 
     async def test_upload_asset_campaign(
         self,
@@ -337,7 +337,7 @@ class TestUploadAsset:
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
         assert asset.asset_type == AssetType.IMAGE
-        assert asset.campaign_id == campaign.id  # type: ignore[attr-defined]
+        assert asset.campaign_id == campaign.id
 
     async def test_upload_asset_campaign_book(
         self,
@@ -367,7 +367,7 @@ class TestUploadAsset:
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
         assert asset.asset_type == AssetType.IMAGE
-        assert asset.book_id == book.id  # type: ignore[attr-defined]
+        assert asset.book_id == book.id
 
     async def test_upload_asset_campaign_chapter(
         self,
@@ -399,7 +399,7 @@ class TestUploadAsset:
         # Then: S3Asset is created with correct fields
         assert asset.id is not None
         assert asset.asset_type == AssetType.IMAGE
-        assert asset.chapter_id == chapter.id  # type: ignore[attr-defined]
+        assert asset.chapter_id == chapter.id
 
     @pytest.mark.parametrize(
         ("fmt", "expected_mime"),
