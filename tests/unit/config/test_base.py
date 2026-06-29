@@ -84,4 +84,4 @@ class TestCsvFieldWiring:
         # When the logging settings are built
         # Then the catalog after-validator rejects the unknown entry
         with pytest.raises(ValueError, match="Unknown log_fields entries"):
-            LoggingSettings(log_fields="path,not_a_real_field")  # type: ignore[arg-type]
+            LoggingSettings(log_fields="path,not_a_real_field")

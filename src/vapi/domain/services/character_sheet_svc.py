@@ -115,17 +115,17 @@ class CharacterSheetService:
         for ct in all_character_traits:
             trait: Trait = ct.trait
 
-            if trait.sheet_section_id not in skeleton_section_ids:  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
-                missing_section_ids.add(trait.sheet_section_id)  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
-            if trait.category_id not in skeleton_category_ids:  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-                missing_category_ids.add(trait.category_id)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-            if trait.subcategory_id and trait.subcategory_id not in skeleton_subcategory_ids:  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-                missing_subcategory_ids.add(trait.subcategory_id)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            if trait.sheet_section_id not in skeleton_section_ids:  # ty:ignore[unresolved-attribute]
+                missing_section_ids.add(trait.sheet_section_id)  # ty:ignore[unresolved-attribute]
+            if trait.category_id not in skeleton_category_ids:  # ty:ignore[unresolved-attribute]
+                missing_category_ids.add(trait.category_id)  # ty:ignore[unresolved-attribute]
+            if trait.subcategory_id and trait.subcategory_id not in skeleton_subcategory_ids:  # ty:ignore[unresolved-attribute]
+                missing_subcategory_ids.add(trait.subcategory_id)  # ty:ignore[unresolved-attribute]
 
-            if trait.subcategory_id:  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-                traits_by_subcategory.setdefault(trait.subcategory_id, []).append(ct)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            if trait.subcategory_id:  # ty:ignore[unresolved-attribute]
+                traits_by_subcategory.setdefault(trait.subcategory_id, []).append(ct)  # ty:ignore[unresolved-attribute]
             else:
-                traits_by_category_no_sub.setdefault(trait.category_id, []).append(ct)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+                traits_by_category_no_sub.setdefault(trait.category_id, []).append(ct)  # ty:ignore[unresolved-attribute]
 
         # Backfill any structures referenced by out-of-class/version traits
         await self._backfill_missing_structures(
@@ -221,9 +221,9 @@ class CharacterSheetService:
 
         for ct in all_character_traits:
             trait: Trait = ct.trait
-            if trait.subcategory_id and trait.subcategory_id in subcategory_ids:  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-                traits_by_subcategory.setdefault(trait.subcategory_id, []).append(ct)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-            elif trait.category_id == category.id and not trait.subcategory_id:  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            if trait.subcategory_id and trait.subcategory_id in subcategory_ids:  # ty:ignore[unresolved-attribute]
+                traits_by_subcategory.setdefault(trait.subcategory_id, []).append(ct)  # ty:ignore[unresolved-attribute]
+            elif trait.category_id == category.id and not trait.subcategory_id:  # ty:ignore[unresolved-attribute]
                 category_traits_no_sub.append(ct)
 
         filtered_available_traits = self._filter_available_traits(character, all_available_traits)
@@ -308,8 +308,8 @@ class CharacterSheetService:
         for avail_trait in all_available_traits:
             if avail_trait.id in assigned_trait_ids:
                 continue
-            sub_id: UUID | None = avail_trait.subcategory_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-            cat_id: UUID = avail_trait.category_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            sub_id: UUID | None = avail_trait.subcategory_id  # ty:ignore[unresolved-attribute]
+            cat_id: UUID = avail_trait.category_id  # ty:ignore[unresolved-attribute]
             if sub_id:
                 available_by_subcategory.setdefault(sub_id, []).append(avail_trait)
             else:
@@ -339,18 +339,18 @@ class CharacterSheetService:
         try:
             werewolf_attrs = character.werewolf_attributes
             if werewolf_attrs:
-                tribe_id = werewolf_attrs.tribe_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-                auspice_id = werewolf_attrs.auspice_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+                tribe_id = werewolf_attrs.tribe_id  # ty:ignore[unresolved-attribute]
+                auspice_id = werewolf_attrs.auspice_id  # ty:ignore[unresolved-attribute]
         except (AttributeError, NoValuesFetched):
             pass
 
         return [
             t
             for t in available_traits
-            if (not t.gift_is_native and not t.gift_tribe_id and not t.gift_auspice_id)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            if (not t.gift_is_native and not t.gift_tribe_id and not t.gift_auspice_id)  # ty:ignore[unresolved-attribute]
             or t.gift_is_native
-            or (tribe_id and t.gift_tribe_id == tribe_id)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-            or (auspice_id and t.gift_auspice_id == auspice_id)  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            or (tribe_id and t.gift_tribe_id == tribe_id)  # ty:ignore[unresolved-attribute]
+            or (auspice_id and t.gift_auspice_id == auspice_id)  # ty:ignore[unresolved-attribute]
         ]
 
     @staticmethod
@@ -389,13 +389,13 @@ class CharacterSheetService:
         # Pre-index subcategories by parent category
         subcategories_by_category: dict[UUID, list[TraitSubcategory]] = {}
         for subcategory in subcategories_objects:
-            cat_id: UUID = subcategory.category_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            cat_id: UUID = subcategory.category_id  # ty:ignore[unresolved-attribute]
             subcategories_by_category.setdefault(cat_id, []).append(subcategory)
 
         # Pre-index categories by parent section
         categories_by_section: dict[UUID, list[TraitCategory]] = {}
         for category in categories_objects:
-            sec_id: UUID = category.sheet_section_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            sec_id: UUID = category.sheet_section_id  # ty:ignore[unresolved-attribute]
             categories_by_section.setdefault(sec_id, []).append(category)
 
         return [

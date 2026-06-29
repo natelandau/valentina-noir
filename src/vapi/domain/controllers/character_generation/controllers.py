@@ -200,7 +200,7 @@ class CharacterGenerationController(Controller):
             .first()
         )
         if not session:
-            msg = f"Chargen session not found for id {session.id}"  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            msg = f"Chargen session not found for id {session.id}"  # ty:ignore[unresolved-attribute]
             raise ValueError(msg)
 
         return ChargenSessionResponse.from_model(session)
@@ -261,7 +261,7 @@ class CharacterGenerationController(Controller):
             )
         ).first()
         if not selected_character:
-            msg = f"Selected character not found for id {selected_character.id}"  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            msg = f"Selected character not found for id {selected_character.id}"  # ty:ignore[unresolved-attribute]
             raise ValueError(msg)
 
         request.state.audit_description = f"Finalize chargen session {session.id} and promote character '{selected_character.name_first} {selected_character.name_last} ({selected_character.character_class.value.lower()})'"

@@ -291,14 +291,14 @@ async def user_character_player_or_storyteller_guard(
         # company_id is only known after the character resolves, so this query is
         # sequential rather than gathered with the character lookup.
 
-        settings = await CompanySettings.filter(company_id=character.company_id).first()  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
+        settings = await CompanySettings.filter(company_id=character.company_id).first()  # ty:ignore[unresolved-attribute]
         if settings is not None and npc_management_permitted(settings.permission_manage_npc, user):
             return
         raise PermissionDeniedError(detail="No rights to access this resource")
 
     if (
         user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
-        and character.user_player_id != user.id  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
+        and character.user_player_id != user.id  # ty:ignore[unresolved-attribute]
     ):
         raise PermissionDeniedError(detail="No rights to access this resource")
 

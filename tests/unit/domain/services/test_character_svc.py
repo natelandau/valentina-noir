@@ -431,7 +431,7 @@ class TestApplyConceptSpecialties:
         # Given a character without a concept
         company = await company_factory()
         character = await character_factory(character_class="MORTAL", company=company)
-        character.concept_id = None  # type: ignore[attr-defined]
+        character.concept_id = None
         service = CharacterService()
 
         # When we apply concept specialties
@@ -447,7 +447,7 @@ class TestApplyConceptSpecialties:
         # Given a character with a non-existent concept_id
         company = await company_factory()
         character = await character_factory(character_class="MORTAL", company=company)
-        character.concept_id = uuid4()  # type: ignore[attr-defined]
+        character.concept_id = uuid4()
         service = CharacterService()
 
         # When we apply concept specialties

@@ -88,7 +88,7 @@ class IdempotencyMiddleware(ASGIMiddleware):
             send (Send): The ASGI send function.
             next_app (ASGIApp): The next ASGI application in the middleware stack to call.
         """
-        method: str = scope.get("method", "")  # type: ignore[assignment]
+        method: str = scope.get("method", "")
 
         if method not in {"POST", "PUT", "PATCH"}:
             await next_app(scope, receive, send)

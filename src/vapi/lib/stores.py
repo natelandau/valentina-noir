@@ -57,7 +57,7 @@ async def delete_authentication_cache_for_api_key(request: Request) -> None:
     store = request.app.stores.get(f"{settings.stores.authentication_cache_key}:{fingerprint}")
 
     # The delete_by_prefix method calls redis directly, so we need to include the namespace even though it is already included in the store
-    await store.delete_by_prefix(match=f"{settings.stores.authentication_cache_key}:{fingerprint}")  # type: ignore [attr-defined]  # ty:ignore[unresolved-attribute]
+    await store.delete_by_prefix(match=f"{settings.stores.authentication_cache_key}:{fingerprint}")  # ty:ignore[unresolved-attribute]
 
 
 async def delete_response_cache_for_api_key(request: Request) -> None:
@@ -71,4 +71,4 @@ async def delete_response_cache_for_api_key(request: Request) -> None:
     store = request.app.stores.get(f"{settings.stores.response_cache_key}:{fingerprint}")
 
     # The delete_by_prefix method calls redis directly, so we need to include the namespace even though it is already included in the store
-    await store.delete_by_prefix(match=f"{settings.stores.response_cache_key}:{fingerprint}")  # type: ignore [attr-defined]  # ty:ignore[unresolved-attribute]
+    await store.delete_by_prefix(match=f"{settings.stores.response_cache_key}:{fingerprint}")  # ty:ignore[unresolved-attribute]

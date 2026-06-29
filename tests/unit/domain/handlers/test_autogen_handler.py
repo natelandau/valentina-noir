@@ -500,8 +500,8 @@ class TestGenerateVampireAttributes:
         vamp_attrs = (
             await VampireAttributes.filter(character=character).select_related("clan").first()
         )
-        assert vamp_attrs.clan.name in [x.name for x in vampire_clans]  # type: ignore[union-attr]
-        assert vamp_attrs.clan_id in [x.id for x in vampire_clans]  # type: ignore[attr-defined]
+        assert vamp_attrs.clan.name in [x.name for x in vampire_clans]
+        assert vamp_attrs.clan_id in [x.id for x in vampire_clans]
 
         # And verify the disciplines are generated
         all_disciplines = await _all_traits_in_category("Disciplines")
@@ -509,10 +509,10 @@ class TestGenerateVampireAttributes:
             character=character,
             trait_id__in=[trait.id for trait in all_disciplines],
         )
-        character_clan = await VampireClan.filter(id=vamp_attrs.clan_id).first()  # type: ignore[attr-defined]
+        character_clan = await VampireClan.filter(id=vamp_attrs.clan_id).first()
         await character_clan.fetch_related("disciplines")
         for discipline in character_clan.disciplines:
-            assert discipline.id in [ct.trait_id for ct in character_disciplines]  # type: ignore[attr-defined]
+            assert discipline.id in [ct.trait_id for ct in character_disciplines]
 
     @pytest.mark.parametrize(
         "experience_level",
@@ -553,7 +553,7 @@ class TestGenerateVampireAttributes:
         # Then verify the extra disciplines are generated
         all_disciplines = await _all_traits_in_category("Disciplines")
         vamp_attrs = await VampireAttributes.filter(character=character).first()
-        character_clan = await VampireClan.filter(id=vamp_attrs.clan_id).first()  # type: ignore[attr-defined]
+        character_clan = await VampireClan.filter(id=vamp_attrs.clan_id).first()
         await character_clan.fetch_related("disciplines")
         clan_discipline_count = len(list(character_clan.disciplines))
         character_disciplines = await CharacterTrait.filter(
@@ -607,7 +607,7 @@ class TestGenerateVampireAttributes:
         vamp_attrs = (
             await VampireAttributes.filter(character=character).select_related("clan").first()
         )
-        assert vamp_attrs.clan.name == clan_name  # type: ignore[union-attr]
+        assert vamp_attrs.clan.name == clan_name
 
 
 class TestGenerateWerewolfAttributes:
@@ -670,16 +670,16 @@ class TestGenerateWerewolfAttributes:
             .select_related("tribe", "auspice")
             .first()
         )
-        assert ww_attrs.tribe.name in [x.name for x in werewolf_tribes]  # type: ignore[union-attr]
-        assert ww_attrs.tribe_id in [x.id for x in werewolf_tribes]  # type: ignore[attr-defined]
-        assert ww_attrs.auspice.name in [x.name for x in werewolf_auspices]  # type: ignore[union-attr]
-        assert ww_attrs.auspice_id in [x.id for x in werewolf_auspices]  # type: ignore[attr-defined]
+        assert ww_attrs.tribe.name in [x.name for x in werewolf_tribes]
+        assert ww_attrs.tribe_id in [x.id for x in werewolf_tribes]
+        assert ww_attrs.auspice.name in [x.name for x in werewolf_auspices]
+        assert ww_attrs.auspice_id in [x.id for x in werewolf_auspices]
 
         # And verify the tribe and auspice are generated
-        auspice = await WerewolfAuspice.filter(id=ww_attrs.auspice_id).first()  # type: ignore[attr-defined]
+        auspice = await WerewolfAuspice.filter(id=ww_attrs.auspice_id).first()
         assert auspice.name in [x.name for x in werewolf_auspices]
 
-        tribe = await WerewolfTribe.filter(id=ww_attrs.tribe_id).first()  # type: ignore[attr-defined]
+        tribe = await WerewolfTribe.filter(id=ww_attrs.tribe_id).first()
         assert tribe.name in [x.name for x in werewolf_tribes]
 
         # And verify the rage trait is generated
@@ -735,8 +735,8 @@ class TestGenerateWerewolfAttributes:
         ww_attrs = (
             await WerewolfAttributes.filter(character=character).select_related("tribe").first()
         )
-        assert ww_attrs.tribe.name == tribe_name  # type: ignore[union-attr]
-        assert ww_attrs.tribe_id == werewolf_tribe.id  # type: ignore[attr-defined]
+        assert ww_attrs.tribe.name == tribe_name
+        assert ww_attrs.tribe_id == werewolf_tribe.id
 
     @pytest.mark.parametrize(
         "auspice_name",
@@ -774,8 +774,8 @@ class TestGenerateWerewolfAttributes:
         ww_attrs = (
             await WerewolfAttributes.filter(character=character).select_related("auspice").first()
         )
-        assert ww_attrs.auspice.name == auspice_name  # type: ignore[union-attr]
-        assert ww_attrs.auspice_id == werewolf_auspice.id  # type: ignore[attr-defined]
+        assert ww_attrs.auspice.name == auspice_name
+        assert ww_attrs.auspice_id == werewolf_auspice.id
 
     @pytest.mark.parametrize(
         ("auspice_name", "tribe_name", "experience_level"),
@@ -826,8 +826,8 @@ class TestGenerateWerewolfAttributes:
         rites_category = await TraitCategory.filter(name="Rites").first()
         rite_trait_ids = {t.id for t in await Trait.filter(category_id=rites_category.id)}
 
-        gift_char_traits = [ct for ct in char_traits if ct.trait.id in gift_trait_ids]  # type: ignore[attr-defined]
-        rite_char_traits = [ct for ct in char_traits if ct.trait.id in rite_trait_ids]  # type: ignore[attr-defined]
+        gift_char_traits = [ct for ct in char_traits if ct.trait.id in gift_trait_ids]
+        rite_char_traits = [ct for ct in char_traits if ct.trait.id in rite_trait_ids]
 
         gift_id_modifiers = EXTRA_WEREWOLF_GIFT_MAP
 
@@ -903,7 +903,7 @@ class TestGenerateHunterAttributes:
 
         assert len(character_perks) in expected_num_perks
 
-        total_edges = {perk.trait.subcategory_id for perk in character_perks}  # type: ignore[attr-defined]
+        total_edges = {perk.trait.subcategory_id for perk in character_perks}
 
         # Perks are randomly sampled from selected edges, so not all edges
         # may be represented in the perks

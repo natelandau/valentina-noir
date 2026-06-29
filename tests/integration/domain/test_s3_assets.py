@@ -229,9 +229,9 @@ async def test_upload_image(
     assert db_asset is not None
     assert db_asset.asset_type == AssetType.IMAGE
     assert db_asset.mime_type == "image/png"
-    assert str(db_asset.campaign_id) == str(session_campaign.id)  # type: ignore[attr-defined]
-    assert str(db_asset.company_id) == str(session_company.id)  # type: ignore[attr-defined]
-    assert str(db_asset.uploaded_by_id) == str(session_user.id)  # type: ignore[attr-defined]
+    assert str(db_asset.campaign_id) == str(session_campaign.id)
+    assert str(db_asset.company_id) == str(session_company.id)
+    assert str(db_asset.uploaded_by_id) == str(session_user.id)
     assert db_asset.public_url == response_json["public_url"]
 
 

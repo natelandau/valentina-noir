@@ -37,7 +37,7 @@ def test_log_auth_failure_logs_warning_with_correlation() -> None:
 
     # When an auth failure is logged
     try:
-        log_auth_failure(connection, "invalid API key")  # type: ignore[arg-type]
+        log_auth_failure(connection, "invalid API key")
     finally:
         logger.removeHandler(handler)
 
@@ -61,7 +61,7 @@ def test_log_auth_failure_handles_missing_state() -> None:
 
     # When an auth failure is logged
     try:
-        log_auth_failure(connection, "missing API key")  # type: ignore[arg-type]
+        log_auth_failure(connection, "missing API key")
     finally:
         logger.removeHandler(handler)
 

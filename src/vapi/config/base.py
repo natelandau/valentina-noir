@@ -135,7 +135,7 @@ class Server(BaseModel):
     reload_dirs: CsvList = Field(default_factory=lambda: [str(MODULE_ROOT_PATH)])
     request_max_body_size: int = Field(default=5_242_880)  # 5MB
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def url(self) -> str:
         """Get the FQDN for the server."""
@@ -151,7 +151,7 @@ class RedisSettings(BaseModel):
     health_check_interval: int = Field(default=5)
     keepalive: bool = Field(default=True)
 
-    # @computed_field  # type: ignore [prop-decorator]
+    # @computed_field
     @property
     def client(self) -> Redis:
         """Get the Redis client."""
@@ -331,11 +331,11 @@ class Settings(BaseSettings):
     backup: BackupSettings = BackupSettings()
     retention: RetentionSettings = RetentionSettings()
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def slug(self) -> str:
         """Get the slug for the application."""
         return slugify(self.name)
 
 
-settings = Settings()  # type: ignore [call-arg] # ty:ignore[missing-argument]
+settings = Settings()  # ty:ignore[missing-argument]

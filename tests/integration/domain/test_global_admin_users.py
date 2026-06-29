@@ -345,8 +345,8 @@ async def test_admin_update_writes_audit_attributed_to_developer(
         .first()
     )
     assert entry is not None
-    assert entry.developer_id == session_global_admin.id  # type: ignore[attr-defined]
-    assert entry.acting_user_id is None  # type: ignore[attr-defined]
+    assert entry.developer_id == session_global_admin.id
+    assert entry.acting_user_id is None
     assert "role" in (entry.changes or {})
 
 

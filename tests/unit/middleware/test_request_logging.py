@@ -352,7 +352,7 @@ def test_log_message_tolerates_unmapped_level() -> None:
         """No-op ASGI app for constructing the middleware."""
 
     config = CombinedLoggingMiddlewareConfig(log_fields=["path"])
-    middleware = CombinedLoggingMiddleware(app=_app, config=config)  # type: ignore[arg-type]
+    middleware = CombinedLoggingMiddleware(app=_app, config=config)
     handler = _CaptureHandler()
     logger = logging.getLogger("test_log_message_unmapped_level")
     logger.addHandler(handler)

@@ -97,7 +97,7 @@ class GlobalAdminController(Controller):
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
         )
         if not developer:
-            msg = f"Developer not found for id {developer.id}"  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            msg = f"Developer not found for id {developer.id}"  # ty:ignore[unresolved-attribute]
             raise ValueError(msg)
         return DeveloperAdminResponse.from_model(developer)
 

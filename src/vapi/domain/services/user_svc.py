@@ -138,7 +138,7 @@ class UserService:
 
         remaining = (
             await User.filter(
-                company_id=target_user.company_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
                 role=UserRole.ADMIN,
                 is_archived=False,
             )

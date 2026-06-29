@@ -248,7 +248,7 @@ class AWSS3Service:
             "original_filename": filename,
             parent_fk_field: parent_id,
         }
-        asset = await S3Asset.create(**create_kwargs)  # type: ignore[arg-type] # ty:ignore[invalid-argument-type]
+        asset = await S3Asset.create(**create_kwargs)  # ty:ignore[invalid-argument-type]
 
         try:
             await self._upload_to_s3(asset=asset, data=data)

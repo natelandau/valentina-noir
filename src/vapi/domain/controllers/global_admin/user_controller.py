@@ -105,7 +105,7 @@ class GlobalAdminUserController(Controller):
         """Create a user in the company named by company_id in the body."""
         user = await GlobalAdminUserService().create_user(data)
         request.state.audit_description = (
-            f"created user {user.username} in company {user.company_id}"  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            f"created user {user.username} in company {user.company_id}"  # ty:ignore[unresolved-attribute]
         )
         user = await annotate_user_counts(
             User.filter(id=user.id).prefetch_related("campaign_experiences")

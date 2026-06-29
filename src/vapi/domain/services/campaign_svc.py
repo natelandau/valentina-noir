@@ -84,7 +84,7 @@ class CampaignService:
             item=book,
             model=CampaignBook,
             parent_field="campaign_id",
-            parent_id=book.campaign_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            parent_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
             new_number=new_number,
             label="books in the campaign",
         )
@@ -97,7 +97,7 @@ class CampaignService:
             item=chapter,
             model=CampaignChapter,
             parent_field="book_id",
-            parent_id=chapter.book_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            parent_id=chapter.book_id,  # ty:ignore[unresolved-attribute]
             new_number=new_number,
             label="chapters in the book",
         )
@@ -123,7 +123,7 @@ class CampaignService:
             await self._renumber_after_delete(
                 model=CampaignBook,
                 parent_field="campaign_id",
-                parent_id=book.campaign_id,  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+                parent_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
                 number=book.number,
             )
             await archive_book(book=book)
@@ -138,7 +138,7 @@ class CampaignService:
             await self._renumber_after_delete(
                 model=CampaignChapter,
                 parent_field="book_id",
-                parent_id=chapter.book_id,  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
+                parent_id=chapter.book_id,  # ty:ignore[unresolved-attribute]
                 number=chapter.number,
             )
             await archive_chapter(chapter=chapter)

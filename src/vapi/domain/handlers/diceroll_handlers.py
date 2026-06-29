@@ -40,13 +40,13 @@ class DiceRollResultSchema(HashedBaseModel):
     player_roll: list[int]
     desperation_roll: list[int]
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def total_dice_roll_emoji(self) -> str:
         """Get the result of the dice roll."""
         return " ".join(convert_int_to_emoji(num=d) for d in sorted(self.total_dice_roll))
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def total_dice_roll_shortcode(self) -> str:
         """Get the result of the dice roll."""
@@ -54,13 +54,13 @@ class DiceRollResultSchema(HashedBaseModel):
             convert_int_to_emoji(num=d, as_shortcode=True) for d in sorted(self.total_dice_roll)
         )
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def player_roll_emoji(self) -> str:
         """Get the result of the dice roll."""
         return " ".join(convert_int_to_emoji(num=d) for d in sorted(self.player_roll))
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def player_roll_shortcode(self) -> str:
         """Get the result of the dice roll."""
@@ -68,13 +68,13 @@ class DiceRollResultSchema(HashedBaseModel):
             convert_int_to_emoji(num=d, as_shortcode=True) for d in sorted(self.player_roll)
         )
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def desperation_roll_emoji(self) -> str:
         """Get the result of the dice roll."""
         return " ".join(convert_int_to_emoji(num=d) for d in sorted(self.desperation_roll))
 
-    @computed_field  # type: ignore [prop-decorator]
+    @computed_field
     @property
     def desperation_roll_shortcode(self) -> str:
         """Get the result of the dice roll."""

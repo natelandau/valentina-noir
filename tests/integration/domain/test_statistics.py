@@ -461,7 +461,7 @@ class TestCharacterStatistics:
         from vapi.db.sql_models.diceroll import DiceRoll
 
         dr = await DiceRoll.filter(company_id=session_company.id).first()
-        character_id = dr.character_id  # type: ignore[attr-defined]
+        character_id = dr.character_id
 
         response = await client.get(
             build_url(
@@ -523,7 +523,7 @@ class TestCharacterStatistics:
         from vapi.db.sql_models.diceroll import DiceRoll
 
         dr = await DiceRoll.filter(company_id=session_company.id).first()
-        character_id = dr.character_id  # type: ignore[attr-defined]
+        character_id = dr.character_id
 
         response = await client.get(
             build_url(

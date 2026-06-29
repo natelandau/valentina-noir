@@ -590,8 +590,8 @@ class CharacterAutogenerationHandler:
             raise ValueError(msg)
 
         total_renown = werewolf_attrs.total_renown
-        auspice_id = werewolf_attrs.auspice_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
-        tribe_id = werewolf_attrs.tribe_id  # type: ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        auspice_id = werewolf_attrs.auspice_id  # ty:ignore[unresolved-attribute]
+        tribe_id = werewolf_attrs.tribe_id  # ty:ignore[unresolved-attribute]
 
         (
             tribe_gifts,

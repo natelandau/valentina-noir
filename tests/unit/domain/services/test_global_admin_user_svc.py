@@ -33,7 +33,7 @@ async def test_create_user_with_valid_role(company_factory: Any) -> None:
 
     # Then the user has the requested role and company
     assert user.role == UserRole.PLAYER
-    assert user.company_id == company.id  # type: ignore[attr-defined]
+    assert user.company_id == company.id
 
     # Cleanup: service-created users are not factory-tracked
     await user.delete()

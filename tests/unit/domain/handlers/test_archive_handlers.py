@@ -507,7 +507,7 @@ class TestCompanyArchiveHandler:
         real_archive_where = archive_handlers._archive_where
         flipped_models: list[type[Model]] = []
 
-        async def _raise_on_company(model, ctx, **filters) -> int:  # type: ignore[no-untyped-def]
+        async def _raise_on_company(model, ctx, **filters) -> int:
             if model is Company:
                 msg = "boom"
                 raise RuntimeError(msg)
