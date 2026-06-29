@@ -58,7 +58,7 @@ uv run python -m scripts.populate_dev_db --companies 3 --users 5 --campaigns 2 -
 
 Both `duty populate` and `duty reset` drop and recreate the configured database, and prompt for confirmation first. The script refuses to run against a production-like target (when the Postgres host is not local); pass `--force` to override, or `--yes` to skip the confirmation prompt in non-interactive use.
 
-Generated API keys (one global-admin developer, one company-admin, one non-admin) are printed to the console and written to `~/.dev/api_keys.txt`, each annotated with its access tier so you can pick the right key when testing different permission levels.
+Generated API keys (one global-admin developer, one company-admin, one non-admin) are printed to the console and written to `<project-root>/.dev/api_keys.txt`, each annotated with its access tier so you can pick the right key when testing different permission levels.
 
 ## Database Backups
 
