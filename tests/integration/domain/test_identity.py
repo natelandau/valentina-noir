@@ -1,6 +1,7 @@
 """Tests for the identity resolution endpoints."""
 
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -14,6 +15,7 @@ from litestar.status_codes import (
     HTTP_422_UNPROCESSABLE_ENTITY,
 )
 from pytest_mock import MockerFixture
+from tortoise import Tortoise
 
 from tests.fixtures import build_verified_identity as _identity
 from vapi.constants import AUTH_HEADER_KEY, AuditOperation, CompanyPermission
@@ -24,6 +26,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import urls
 from vapi.domain.services.developer_svc import DeveloperService
 from vapi.lib.exceptions import UnprocessableEntityError
+from vapi.utils.time import time_now
 
 pytestmark = pytest.mark.anyio
 
@@ -399,6 +402,73 @@ class TestIdentifyEndpoint:
         audit = await AuditLog.filter(operation_id="identifyUser").first()
         assert audit is not None
         assert audit.operation == AuditOperation.CREATE
+
+    async def test_identify_matched_does_not_bump_company_timestamp(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        user_factory: Callable[..., User],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a matched (login-only) identify leaves resources_modified_at untouched."""
+        # Given an existing user holding the identity and an old company timestamp
+        await user_factory(company=session_company, apple_profile={"id": "apple-sub-001"})
+        old_ts = time_now() - timedelta(days=10)
+        # Reset via SQL to avoid mutating the session-scoped company fixture
+        conn = Tortoise.get_connection("default")
+        await conn.execute_query(
+            f"UPDATE company SET resources_modified_at = '{old_ts.isoformat()}' WHERE id = '{session_company.id}'"  # noqa: S608
+        )
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the client identifies the login (matched resolution)
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the resolution is matched and the company timestamp was not bumped
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["resolution"] == "matched"
+        refreshed = await Company.get(id=session_company.id)
+        assert refreshed.resources_modified_at < time_now() - timedelta(days=1)
+
+    async def test_identify_created_bumps_company_timestamp(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        session_company: Company,
+        session_company_user: Developer,
+        token_company_user: dict[str, str],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a created identify bumps resources_modified_at (suppression is matched-only)."""
+        # Given no matching user and an old company timestamp
+        old_ts = time_now() - timedelta(days=10)
+        conn = Tortoise.get_connection("default")
+        await conn.execute_query(
+            f"UPDATE company SET resources_modified_at = '{old_ts.isoformat()}' WHERE id = '{session_company.id}'"  # noqa: S608
+        )
+        mock_verify = mocker.patch(VERIFY_TARGET, autospec=True)
+        mock_verify.return_value = _identity()
+
+        # When the client identifies an unknown identity (created resolution)
+        response = await client.post(
+            build_url(urls.Identity.IDENTIFY, company_id=session_company.id),
+            headers=token_company_user,
+            json={"provider": "apple", "token": "verified-upstream"},
+        )
+
+        # Then the resolution is created and the company timestamp was bumped
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["resolution"] == "created"
+        refreshed = await Company.get(id=session_company.id)
+        assert refreshed.resources_modified_at > time_now() - timedelta(days=1)
 
     async def test_identify_passes_developer_audiences_to_verify(
         self,

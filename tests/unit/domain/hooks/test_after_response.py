@@ -1,7 +1,11 @@
 """Tests for after-response hook helpers."""
 
 import json
+from types import SimpleNamespace
 
+import pytest
+
+from vapi.domain.hooks import after_response
 from vapi.domain.hooks.after_response import _apply_redactions
 
 
@@ -58,3 +62,50 @@ class TestApplyRedactions:
         # Then the body is returned unchanged
         assert body == "raw-bytes"
         assert parsed is None
+
+
+@pytest.mark.anyio
+class TestPostDataUpdateHook:
+    """Test post_data_update_hook side-effect suppression."""
+
+    async def test_skips_cache_invalidation_when_resources_unmodified(self, mocker) -> None:
+        """Verify a resources_unmodified request still audits but skips the cache flush and bump."""
+        # Given mocked side effects and a request flagged as resources_unmodified
+        add_audit = mocker.patch.object(after_response, "add_audit_log", autospec=True)
+        delete_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_api_key", autospec=True
+        )
+        company = mocker.patch.object(after_response, "Company")
+        request = mocker.MagicMock()
+        request.state = SimpleNamespace(resources_unmodified=True)
+        request.path_params = {"company_id": "abc"}
+
+        # When the hook runs
+        await after_response.post_data_update_hook(request)
+
+        # Then the audit log is written but the cache flush and timestamp bump are skipped
+        add_audit.assert_awaited_once_with(request)
+        delete_cache.assert_not_awaited()
+        company.filter.assert_not_called()
+
+    async def test_invalidates_cache_when_resources_modified(self, mocker) -> None:
+        """Verify a normal mutating request flushes the cache and bumps the company timestamp."""
+        # Given mocked side effects and a request that did modify resources
+        add_audit = mocker.patch.object(after_response, "add_audit_log", autospec=True)
+        delete_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_api_key", autospec=True
+        )
+        company = mocker.patch.object(after_response, "Company")
+        company.filter.return_value.update = mocker.AsyncMock()
+        request = mocker.MagicMock()
+        request.state = SimpleNamespace()
+        request.path_params = {"company_id": "abc"}
+
+        # When the hook runs
+        await after_response.post_data_update_hook(request)
+
+        # Then the cache is flushed and the company timestamp is bumped
+        add_audit.assert_awaited_once_with(request)
+        delete_cache.assert_awaited_once_with(request)
+        company.filter.assert_called_once_with(id="abc")
+        company.filter.return_value.update.assert_awaited_once()

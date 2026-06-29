@@ -106,6 +106,11 @@ class IdentityController(Controller):
             if resolution is IdentityResolution.CREATED
             else AuditOperation.UPDATE
         )
+        # A matched login resolves to an existing user and changes no client-visible
+        # resources, so suppress the cache flush and company timestamp bump that would
+        # otherwise make every login bust the developer's response cache.
+        if resolution is IdentityResolution.MATCHED:
+            request.state.resources_unmodified = True
         return IdentifyResponse(
             resolution=resolution,
             user=await annotated_user_response(user.id),

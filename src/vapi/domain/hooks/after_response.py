@@ -27,6 +27,12 @@ the response returns:
 Each named key at the top level of the parsed request JSON will have its value
 replaced with "[REDACTED]" before the entry is written. Only top-level keys
 are redacted; nested values are not traversed.
+
+A mutating endpoint that did not actually change client-visible resources can
+suppress the response-cache flush and the company timestamp bump (but not the
+audit entry) by setting:
+
+    request.state.resources_unmodified = True
 """
 
 from __future__ import annotations
@@ -139,6 +145,14 @@ async def add_audit_log(request: Request) -> None:
 async def post_data_update_hook(request: Request) -> None:
     """Create an audit log, invalidate response cache, and update company timestamp."""
     await add_audit_log(request)
+
+    # A mutating endpoint that left client-visible resources unchanged (e.g. a
+    # matched login through identify) sets this flag so a routine request does not
+    # flush the developer's entire response cache or bump the company timestamp.
+    # The audit entry above is always written regardless.
+    if getattr(request.state, "resources_unmodified", False):
+        return
+
     await delete_response_cache_for_api_key(request)
     if "company_id" in request.path_params:
         await Company.filter(id=request.path_params["company_id"]).update(
