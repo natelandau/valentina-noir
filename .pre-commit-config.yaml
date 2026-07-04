@@ -5,7 +5,7 @@ default_stages: [pre-commit, manual]
 fail_fast: true
 repos:
   - repo: "https://github.com/commitizen-tools/commitizen"
-    rev: v4.16.3
+    rev: v4.16.4
     hooks:
       - id: commitizen
 
@@ -63,14 +63,14 @@ repos:
         entry: yamllint --strict --config-file .yamllint.yml
 
   - repo: "https://github.com/astral-sh/ruff-pre-commit"
-    rev: v0.15.16
+    rev: v0.15.20
     hooks:
       - id: ruff-check
       - id: ruff-format
         args: [--check]
 
   - repo: "https://github.com/adhtruong/mirrors-typos"
-    rev: v1.47.2
+    rev: v1.48.0
     hooks:
       - id: typos
         args: ["--force-exclude"]
@@ -82,7 +82,7 @@ repos:
       - id: gitleaks
 
   - repo: "https://github.com/python-jsonschema/check-jsonschema"
-    rev: 0.37.2
+    rev: 0.37.4
     hooks:
       - id: check-github-workflows
         args: ["--verbose"]
