@@ -114,7 +114,6 @@
         'ignore:Module .* has no models:RuntimeWarning',
     ]
     markers = [
-        "clean_db: deletes all non-constant data from the database before the test",
         "serial",
     ]
     testpaths = ["tests"]

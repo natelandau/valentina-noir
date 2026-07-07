@@ -113,7 +113,6 @@ async def create_dice_rolls(
 class TestCompanyStatistics:
     """Test company statistics."""
 
-    @pytest.mark.clean_db
     async def test_get_company_statistics_no_results(
         self,
         build_url: Callable[[str, Any], str],
@@ -146,7 +145,6 @@ class TestCompanyStatistics:
             "top_traits": [],
         }
 
-    @pytest.mark.clean_db
     async def test_get_company_statistics(
         self,
         token_global_admin: dict[str, str],
@@ -199,7 +197,6 @@ class TestCompanyStatistics:
             ],
         }
 
-    @pytest.mark.clean_db
     async def test_get_company_statistics_with_num_top_traits(
         self,
         build_url: Callable[[str, Any], str],
@@ -247,7 +244,6 @@ class TestCompanyStatistics:
 class TestUserStatistics:
     """Test user statistics."""
 
-    @pytest.mark.clean_db
     async def test_get_user_statistics_no_results(
         self,
         build_url: Callable[[str, Any], str],
@@ -284,7 +280,6 @@ class TestUserStatistics:
             "top_traits": [],
         }
 
-    @pytest.mark.clean_db
     async def test_get_user_statistics(
         self,
         build_url: Callable[[str, Any], str],
@@ -341,7 +336,6 @@ class TestUserStatistics:
             ],
         }
 
-    @pytest.mark.clean_db
     async def test_get_user_statistics_with_num_top_traits(
         self,
         build_url: Callable[[str, Any], str],
@@ -393,7 +387,6 @@ class TestUserStatistics:
 class TestCharacterStatistics:
     """Test character statistics."""
 
-    @pytest.mark.clean_db
     async def test_get_character_statistics_no_results(
         self,
         build_url: Callable[[str, Any], str],
@@ -438,7 +431,6 @@ class TestCharacterStatistics:
             "top_traits": [],
         }
 
-    @pytest.mark.clean_db
     async def test_get_character_statistics(
         self,
         build_url: Callable[[str, Any], str],
@@ -503,7 +495,6 @@ class TestCharacterStatistics:
             ],
         }
 
-    @pytest.mark.clean_db
     async def test_get_character_statistics_with_num_top_traits(
         self,
         build_url: Callable[[str, Any], str],

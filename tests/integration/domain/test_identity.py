@@ -210,7 +210,6 @@ class TestIdentifyEndpoint:
         assert data["resolution"] == "created"
         assert data["user"]["email"] == "octo@example.com"
 
-    @pytest.mark.clean_db
     async def test_identify_redacts_token_in_audit_log(
         self,
         client: AsyncClient,
@@ -331,7 +330,6 @@ class TestIdentifyEndpoint:
         data = response.json()
         assert data["resolution"] == "created"
 
-    @pytest.mark.clean_db
     async def test_identify_audit_operation_is_update_for_matched_user(
         self,
         client: AsyncClient,
@@ -366,7 +364,6 @@ class TestIdentifyEndpoint:
         assert audit is not None
         assert audit.operation == AuditOperation.UPDATE
 
-    @pytest.mark.clean_db
     async def test_identify_audit_operation_is_create_for_new_user(
         self,
         client: AsyncClient,
@@ -643,7 +640,6 @@ class TestLinkIdentityEndpoint:
         assert response.status_code == HTTP_409_CONFLICT
         assert response.json()["code"] == "IDENTITY_ALREADY_LINKED"
 
-    @pytest.mark.clean_db
     async def test_link_redacts_token_in_audit_log(
         self,
         client: AsyncClient,
@@ -846,7 +842,6 @@ class TestUnlinkIdentityEndpoint:
         assert response.status_code == HTTP_409_CONFLICT
         assert response.json()["code"] == "LAST_IDENTITY"
 
-    @pytest.mark.clean_db
     async def test_unlink_audit_operation_is_update(
         self,
         client: AsyncClient,

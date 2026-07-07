@@ -35,7 +35,6 @@ pytestmark = pytest.mark.anyio
 class TestAfterResponseHooks:
     """Test the after response hooks."""
 
-    @pytest.mark.clean_db
     async def test_post_data_update_hook(
         self,
         client: AsyncClient,

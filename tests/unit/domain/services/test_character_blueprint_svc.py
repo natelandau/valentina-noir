@@ -419,7 +419,6 @@ class TestListAllTraits:
         assert count == all_traits_count
         assert traits == all_traits_limited
 
-    @pytest.mark.clean_db
     async def test_list_all_traits_sorted_by_sheet(self) -> None:
         """Verify that list_all_traits sorts by sheet order."""
         # Given the total non-archived, non-custom trait count
@@ -521,7 +520,6 @@ class TestListAllTraits:
         # Then all traits are returned regardless of is_rollable value
         assert count == expected_count
 
-    @pytest.mark.clean_db
     async def test_list_all_traits_is_rollable_with_sheet_ordering(self) -> None:
         """Verify that list_all_traits filters by is_rollable when using sheet ordering."""
         # Given the expected rollable traits
