@@ -42,14 +42,13 @@ class BaseModel(Model):
 
         abstract = True
 
-    async def save(
-        self,
-        using_db: BaseDBAsyncClient | None = None,
-        update_fields: Iterable[str] | None = None,
-        force_create: bool = False,  # noqa: FBT001, FBT002
-        force_update: bool = False,  # noqa: FBT001, FBT002
-    ) -> None:
-        """Strip whitespace, convert empty strings to None, and manage archive stamps (date and batch id)."""
+    def normalize_string_fields(self) -> None:
+        """Strip whitespace on string fields and blank opted-in nullable fields to None.
+
+        save() applies this automatically. bulk_create bypasses save() entirely, so
+        callers building instances for a bulk insert (the seed cold-start fast path)
+        must invoke this first to keep stored values identical to the per-row path.
+        """
         # Strip whitespace on all string fields (skip enum fields to preserve enum instances)
         for field_name, field_obj in self._meta.fields_map.items():
             if isinstance(field_obj, CharEnumFieldInstance):
@@ -64,6 +63,16 @@ class BaseModel(Model):
             value = getattr(self, field_name, None)
             if isinstance(value, str) and value == "":
                 setattr(self, field_name, None)
+
+    async def save(
+        self,
+        using_db: BaseDBAsyncClient | None = None,
+        update_fields: Iterable[str] | None = None,
+        force_create: bool = False,  # noqa: FBT001, FBT002
+        force_update: bool = False,  # noqa: FBT001, FBT002
+    ) -> None:
+        """Strip whitespace, convert empty strings to None, and manage archive stamps (date and batch id)."""
+        self.normalize_string_fields()
 
         # Invariant: archived rows always carry both a date and a batch id; a
         # single-row archive is a self-contained batch of one. The DB trigger

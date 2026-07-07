@@ -7,11 +7,11 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from tortoise.models import Model
+    from vapi.db.sql_models.base import BaseModel
 
 from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, fixture_key_error
 from vapi.cli.lib.sync_counts import SyncCounts
-from vapi.cli.lib.upsert import upsert
+from vapi.cli.lib.upsert import bulk_create_new, upsert
 from vapi.constants import WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
@@ -27,7 +27,7 @@ class FixtureSyncer:
     extract lookup fields and defaults from each fixture item.
     """
 
-    model: type[Model]
+    model: type[BaseModel]
     fixture_filename: str  # JSON filename within db/fixtures/
     entity_label: str
 
@@ -40,16 +40,29 @@ class FixtureSyncer:
         with fixture_path.open() as f:
             fixture_items: list[dict[str, Any]] = json.load(f, cls=JSONWithCommentsDecoder)
 
+        parsed: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = []
         for fixture_item in fixture_items:
             try:
                 lookup = self._lookup_fields(fixture_item)
                 defaults = self._defaults(fixture_item)
             except KeyError as e:
                 raise fixture_key_error(self.fixture_filename, fixture_item, e) from e
-            instance = await upsert(
-                self.model, lookup=lookup, defaults=defaults, counts=self.counts
-            )
-            self._process_item(fixture_item, instance)
+            parsed.append((fixture_item, lookup, defaults))
+
+        # Cold-start fast path: an empty table means every row is a create, so a single
+        # bulk INSERT replaces one get_or_create round trip per row. When rows already
+        # exist, fall back to per-row upsert to preserve update detection.
+        if not await self.model.all().exists():
+            instances = [self.model(**lookup, **defaults) for _, lookup, defaults in parsed]
+            await bulk_create_new(self.model, instances, self.counts)
+            for (fixture_item, _, _), instance in zip(parsed, instances, strict=True):
+                self._process_item(fixture_item, instance)
+        else:
+            for fixture_item, lookup, defaults in parsed:
+                instance = await upsert(
+                    self.model, lookup=lookup, defaults=defaults, counts=self.counts
+                )
+                self._process_item(fixture_item, instance)
 
         await self._post_sync()
         self.counts.total = await self.model.all().count()

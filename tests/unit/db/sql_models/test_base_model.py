@@ -135,3 +135,34 @@ class TestEmptyStringToNone:
         # Then non-opted-in string fields should not have been converted to None
         assert character.name_first is not None
         assert character.name_last is not None
+
+
+class TestNormalizeStringFields:
+    """Tests for normalize_string_fields, the hook the seed bulk path uses directly.
+
+    bulk_create bypasses save(), so the seed cold-start fast path calls this on each
+    unsaved instance. These verify it strips and blanks correctly without any DB write.
+    """
+
+    def test_strips_whitespace_in_memory(self) -> None:
+        """Verify normalize_string_fields strips string fields on an unsaved instance."""
+        # Given an unsaved instance with padded string values
+        campaign = Campaign(name="  Padded Name  ", description="  A description  ")
+
+        # When normalizing directly (bulk_create takes this path, not save())
+        campaign.normalize_string_fields()
+
+        # Then whitespace is stripped from both fields
+        assert campaign.name == "Padded Name"
+        assert campaign.description == "A description"
+
+    def test_blanks_opted_in_field_to_none_in_memory(self) -> None:
+        """Verify a whitespace-only opted-in field becomes None without saving."""
+        # Given an unsaved instance whose description is whitespace only
+        campaign = Campaign(name="Name", description="   ")
+
+        # When normalizing directly
+        campaign.normalize_string_fields()
+
+        # Then the opted-in field (Campaign._empty_string_to_none_fields) is None
+        assert campaign.description is None

@@ -16,7 +16,7 @@ from vapi.cli.lib.comparison import (
 )
 from vapi.cli.lib.gift_syncer import build_gift_fixture_map
 from vapi.cli.lib.sync_counts import SyncCounts
-from vapi.cli.lib.upsert import upsert
+from vapi.cli.lib.upsert import bulk_create_new, upsert
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
@@ -48,6 +48,16 @@ class TraitSyncer:
     def __init__(self) -> None:
         self.result = TraitSyncResult()
         self.gift_fixture_map: dict[str, dict[str, Any]] = {}
+        # Cold-start fast path for the ~800-row traits table: when the table starts
+        # empty, _sync_trait collects instances here instead of writing per row, and
+        # sync() bulk-inserts them once after the walk. Sections/categories/
+        # subcategories stay on the per-row path (dozens of rows, and their children
+        # need the parent PKs mid-walk).
+        self._traits_fast_path = False
+        self._pending_traits: list[Trait] = []
+        # Keys already collected, so repeated fixture rows collapse to one insert
+        # exactly as the per-row (name, category, subcategory) lookup would.
+        self._seen_trait_keys: set[tuple[str, Any, Any]] = set()
 
     async def sync(self) -> None:
         """Load traits.json and sync the full hierarchy into PostgreSQL."""
@@ -60,12 +70,17 @@ class TraitSyncer:
         # Pre-build gift_fixture_map before sync mutates fixture dicts via .pop()
         self.gift_fixture_map = build_gift_fixture_map(fixture_data)
 
+        self._traits_fast_path = not await Trait.all().exists()
+
         for fixture_section in fixture_data:
             try:
                 section = await self._sync_section(fixture_section)
                 await self._sync_section_categories(fixture_section, section)
             except KeyError as e:
                 raise fixture_key_error(fixture_path.name, fixture_section, e) from e
+
+        if self._pending_traits:
+            await bulk_create_new(Trait, self._pending_traits, self.result.traits)
 
         self.result.sections.total = await CharSheetSection.all().count()
         self.result.categories.total = await TraitCategory.all().count()
@@ -201,6 +216,20 @@ class TraitSyncer:
             "subcategory": subcategory,
             **gift_defaults,
         }
+
+        # Cold-start: collect the instance for a single bulk INSERT after the walk.
+        # Return created/updated as False so batch counting stays at zero; the final
+        # bulk_create_new tallies the real create count. The dedupe key mirrors the
+        # per-row lookup below (case-insensitive name within category+subcategory), so
+        # a repeated fixture row collapses to one insert instead of a duplicate the
+        # per-row upsert would have folded into an update.
+        if self._traits_fast_path:
+            trait = Trait(name=trait_name, category=category, **defaults)
+            key = (trait_name.lower(), category.pk, subcategory.pk if subcategory else None)
+            if key not in self._seen_trait_keys:
+                self._seen_trait_keys.add(key)
+                self._pending_traits.append(trait)
+            return trait, False, False
 
         # Case-insensitive lookup so fixture casing variants match the signal-normalized stored name.
         # Constrain subcategory in both directions so a category-level trait never matches a
