@@ -1,3 +1,23 @@
+## v0.25.0 (2026-07-06)
+
+### Feat
+
+- **campaigns**: associate characters with chapters (#151)
+
+### Fix
+
+- **dev-data**: reduce duplication in campaign names
+
+### Refactor
+
+- **cli**: restructure commands and fix correctness bugs (#153)
+- **internal**: reorganize module layout and shared helpers (#152)
+
+### Perf
+
+- **seed**: bulk-insert reference data into an empty database
+- **identity**: skip response-cache flush on unchanged logins (#155)
+
 ## v0.24.0 (2026-06-09)
 
 ### Feat
