@@ -84,7 +84,7 @@ Your client can now sign a player in, list their campaigns and characters, and r
 
 With the core loop working, expand your client with the features your game needs:
 
-- [Books and chapters](../concepts/index.md) organize a campaign into storylines and sessions, nested under `/campaigns/{campaign_id}/books`.
+- [Books and chapters](campaigns.md) organize a campaign into storylines and sessions, nested under `/campaigns/{campaign_id}/books`.
 - [Experience](../concepts/experience.md) tracks the points players spend to raise traits and buy new abilities.
 - [Quick rolls](../concepts/quick_rolls.md) save trait combinations for one-tap rolling.
 - [Notes](https://api.valentina-noir.com/docs) attach to characters, campaigns, books, and chapters for backstory and session recaps.
