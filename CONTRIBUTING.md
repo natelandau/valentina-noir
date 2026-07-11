@@ -13,7 +13,7 @@ We use [uv](https://docs.astral.sh/uv/) for dependency management. To start deve
 
 1. Configure the necessary environment variables in `.env.secret` (See `.env.example` for all possible variables)
 2. Two encryption keys are required which can be generated using the following command: `python3 -c 'import secrets; print(secrets.token_hex(32))'`
-3. Optionally, start PostgreSQL and Redis from Docker: `docker compose -f compose-db.yml up -d`. The filestore for these containers will be stored in the `.dev` directory.
+3. Optionally, start PostgreSQL and Redis from Docker: `docker compose -f compose-db.yml up -d`. The filestore for these containers will be stored in the `.dev` directory. The Redis container requires authentication, so when using it, set the following in `.env.secret`: `VAPI_REDIS__URL=redis://:redispassword@localhost:6379/0`
 4. Set up the database:
     - Apply database migrations: `duty migrate`
     - Seed with reference data: `duty seed`
