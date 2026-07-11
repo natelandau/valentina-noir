@@ -1,3 +1,9 @@
+## v0.26.0 (2026-07-11)
+
+### Feat
+
+- **traits**: pay for custom traits with xp or starting points (#158)
+
 ## v0.25.0 (2026-07-06)
 
 ### Feat
