@@ -15,7 +15,13 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import CharacterType, PermissionsRecoupXP, TraitModifyCurrency, UserRole
+from vapi.constants import (
+    CharacterType,
+    PermissionsFreeTraitChanges,
+    PermissionsRecoupXP,
+    TraitModifyCurrency,
+    UserRole,
+)
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import Company, CompanySettings
@@ -292,7 +298,7 @@ class TestCustomTraits:
             user_creator=session_user,
             campaign=session_campaign,
         )
-        trait_category = await TraitCategory.filter(is_archived=False).first()
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
         custom_trait_data = {
             "name": "Test Trait",
             "description": "Test Description",
@@ -302,6 +308,7 @@ class TestCustomTraits:
             "category_id": str(trait_category.id),
             "initial_cost": 10,
             "upgrade_cost": 10,
+            "currency": TraitModifyCurrency.NO_COST.value,
         }
 
         response = await client.post(
@@ -324,7 +331,8 @@ class TestCustomTraits:
             .first()
         )
         assert ct is not None
-        assert ct.value == 0
+        # New custom traits always start at value 1
+        assert ct.value == 1
         assert ct.trait.initial_cost == 10
         assert ct.trait.upgrade_cost == 10
         assert ct.trait.category_id == trait_category.id
@@ -333,6 +341,62 @@ class TestCustomTraits:
 
         # Clean up the custom trait since it lives in the constant trait table
         # and won't be removed by per-test cleanup
+        await ct.trait.delete()
+
+    async def test_create_custom_player_pays_xp_when_free_changes_restricted(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Any],
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+    ) -> None:
+        """Verify a player can create a custom trait by spending XP when free changes are storyteller-only."""
+        # Given a company that restricts free trait changes to storytellers
+        company = await company_factory()
+        settings = await CompanySettings.filter(company_id=company.id).first()
+        settings.permission_free_trait_changes = PermissionsFreeTraitChanges.STORYTELLER
+        await settings.save()
+        # And a player who owns a character and has XP to spend
+        campaign = await campaign_factory(company=company)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+        await UserXPService().add_xp(player.id, campaign.id, 100)
+        character = await character_factory(
+            company=company,
+            campaign=campaign,
+            user_player=player,
+            user_creator=player,
+        )
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        custom_trait_data = {
+            "name": "XP Paid Trait",
+            "category_id": str(trait_category.id),
+            "initial_cost": 5,
+            "currency": TraitModifyCurrency.XP.value,
+        }
+
+        # When the player creates a custom trait paying XP
+        response = await client.post(
+            build_url(
+                Characters.TRAIT_CREATE,
+                company_id=company.id,
+                character_id=character.id,
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(player.id)},
+            json=custom_trait_data,
+        )
+
+        # Then the trait is created at value 1 and XP is spent
+        assert response.status_code == HTTP_201_CREATED
+        assert response.json()["value"] == 1
+        experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
+        assert experience.xp_current == 95
+
+        # Clean up the custom trait since it lives in the constant trait table
+        created_custom_trait_id = response.json()["id"]
+        ct = await CharacterTrait.filter(id=created_custom_trait_id).select_related("trait").first()
         await ct.trait.delete()
 
 

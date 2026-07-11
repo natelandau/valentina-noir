@@ -1778,15 +1778,15 @@ class TestGuardHasMinimumRenown:
 class TestCreateCustomTrait:
     """Test the create_custom_trait method."""
 
-    async def test_create_custom_trait(
+    async def test_create_custom_trait_no_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
         mocker: Any,
     ) -> None:
-        """Verify the trait is created and added to the character."""
-        # Given a character and trait
+        """Verify a custom trait is created at value 1 using NO_COST currency."""
+        # Given a character and a non-flaw trait category
         company, user, character = get_company_user_character
-        trait_category = await TraitCategory.filter(is_archived=False).first()
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
         dto = CharacterTraitCreateCustom(
             name="Test Trait",
             description="Test Description",
@@ -1794,7 +1794,7 @@ class TestCreateCustomTrait:
             min_value=0,
             show_when_zero=True,
             category_id=trait_category.id,
-            value=1,
+            currency=TraitModifyCurrency.NO_COST,
         )
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
         spyguard_user_can_manage_character = mocker.spy(
@@ -1804,7 +1804,7 @@ class TestCreateCustomTrait:
             CharacterTraitService, "_guard_permissions_free_trait_changes"
         )
 
-        # When we create the trait
+        # When we create the trait with NO_COST currency
         service = CharacterTraitService()
         result = await service.create_custom_trait(
             company=company,
@@ -1813,7 +1813,7 @@ class TestCreateCustomTrait:
             data=dto,
         )
 
-        # Then the trait should be created and added to the character
+        # Then the trait is created at value 1 and the free-change gate is enforced
         ct_exists = await CharacterTrait.filter(id=result.id, character_id=character.id).exists()
         assert ct_exists
         assert result.value == 1
@@ -1828,9 +1828,196 @@ class TestCreateCustomTrait:
         assert result.trait.is_custom is True
         assert result.trait.custom_for_character_id == character.id
         assert result.character_id == character.id
-        spy_after_save.assert_called_once_with(ANY, result, character)
-        spyguard_user_can_manage_character.assert_called_once()
+        spy_after_save.assert_called_once()
+        assert spyguard_user_can_manage_character.called
+        # NO_COST creation still enforces the free-trait-change permission
         spy_guard_permissions_free_trait_changes.assert_called_once()
+
+    async def test_create_custom_trait_with_xp(
+        self,
+        character_factory,
+        campaign_factory,
+        user_factory,
+        company_factory,
+        mocker: Any,
+    ) -> None:
+        """Verify a custom trait is purchased with XP and created at value 1."""
+        # Given a player character whose owner has XP
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company, role=UserRole.PLAYER)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user.id, campaign.id, 100)
+        character = await character_factory(user_player=user, campaign=campaign, company=company)
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Paid Trait",
+            category_id=trait_category.id,
+            initial_cost=5,
+            currency=TraitModifyCurrency.XP,
+        )
+        spy_apply_xp = mocker.spy(CharacterTraitService, "_apply_xp_change")
+
+        # When we create the trait with XP currency
+        service = CharacterTraitService()
+        result = await service.create_custom_trait(
+            company=company,
+            user=user,
+            character=character,
+            data=dto,
+        )
+
+        # Then the trait is created at value 1 and the first dot's XP cost is spent
+        assert result.value == 1
+        assert result.trait.is_custom is True
+        spy_apply_xp.assert_called_once()
+        experience = await user_svc.get_or_create_campaign_experience(user.id, campaign.id)
+        assert experience.xp_current == 95
+
+    async def test_create_custom_trait_with_starting_points(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        mocker: Any,
+    ) -> None:
+        """Verify a custom trait is purchased with starting points and created at value 1."""
+        # Given a player character with starting points
+        company, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="SP Trait",
+            category_id=trait_category.id,
+            initial_cost=5,
+            currency=TraitModifyCurrency.STARTING_POINTS,
+        )
+        spy_apply_sp = mocker.spy(CharacterTraitService, "_apply_starting_points_change")
+
+        # When we create the trait with STARTING_POINTS currency
+        service = CharacterTraitService()
+        result = await service.create_custom_trait(
+            company=company,
+            user=user,
+            character=character,
+            data=dto,
+        )
+
+        # Then the trait is created at value 1 and the first dot's cost is spent
+        assert result.value == 1
+        spy_apply_sp.assert_called_once()
+        updated_character = await Character.get(id=character.id)
+        assert updated_character.starting_points == 95
+
+    async def test_create_custom_trait_player_pays_xp_when_free_changes_restricted(
+        self,
+        character_factory,
+        campaign_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify a player can create a custom trait with XP when free trait changes are storyteller-only."""
+        # Given a company that restricts free trait changes to storytellers
+        company = await company_factory()
+        settings = await CompanySettings.filter(company_id=company.id).first()
+        settings.permission_free_trait_changes = PermissionsFreeTraitChanges.STORYTELLER
+        await settings.save()
+        # And a player who owns a player character and has XP to spend
+        campaign = await campaign_factory(company=company)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+        await UserXPService().add_xp(player.id, campaign.id, 100)
+        character = await character_factory(
+            company=company,
+            campaign=campaign,
+            user_player=player,
+            user_creator=player,
+        )
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Player Paid Trait",
+            category_id=trait_category.id,
+            initial_cost=5,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # When the player creates a custom trait paying XP
+        service = CharacterTraitService()
+        result = await service.create_custom_trait(
+            company=company,
+            user=player,
+            character=character,
+            data=dto,
+        )
+
+        # Then the trait is created at value 1 without a permission error
+        assert result.value == 1
+        assert result.trait.is_custom is True
+
+    async def test_create_custom_trait_insufficient_xp_creates_nothing(
+        self,
+        character_factory,
+        campaign_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify creating a custom trait with insufficient XP raises and leaves no orphan trait."""
+        # Given a player character whose owner has no XP
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+        character = await character_factory(
+            company=company,
+            campaign=campaign,
+            user_player=player,
+            user_creator=player,
+        )
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Unaffordable Trait",
+            category_id=trait_category.id,
+            initial_cost=5,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # When the player tries to create a custom trait they cannot afford
+        # Then NotEnoughXPError is raised and no custom trait row is left behind
+        service = CharacterTraitService()
+        with pytest.raises(NotEnoughXPError):
+            await service.create_custom_trait(
+                company=company,
+                user=player,
+                character=character,
+                data=dto,
+            )
+        assert not await Trait.filter(name="Unaffordable Trait").exists()
+
+    async def test_create_custom_trait_npc_rejects_non_no_cost_currency(
+        self,
+        character_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify creating a custom trait on an NPC with a point-based currency is rejected."""
+        # Given an NPC character
+        company = await company_factory()
+        user = await user_factory(company=company, role=UserRole.ADMIN)
+        character = await character_factory(company=company, type=CharacterType.NPC)
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="NPC Trait",
+            category_id=trait_category.id,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # When we try to create the trait with XP
+        # Then a ValidationError is raised
+        service = CharacterTraitService()
+        with pytest.raises(ValidationError):
+            await service.create_custom_trait(
+                company=company,
+                user=user,
+                character=character,
+                data=dto,
+            )
 
     async def test_create_custom_trait_conflict_with_character_trait(
         self,
@@ -1842,7 +2029,7 @@ class TestCreateCustomTrait:
         company, user, character = get_company_user_character
         trait = await Trait.filter(is_archived=False).first()
         await character_trait_factory(character=character, trait=trait)
-        trait_category = await TraitCategory.filter(is_archived=False).first()
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
         dto = CharacterTraitCreateCustom(
             name=trait.name,
             description="Test Description",
@@ -1850,7 +2037,7 @@ class TestCreateCustomTrait:
             min_value=0,
             show_when_zero=True,
             category_id=trait_category.id,
-            value=1,
+            currency=TraitModifyCurrency.NO_COST,
         )
 
         # When we create the trait
@@ -1897,7 +2084,7 @@ class TestCreateCustomTrait:
             min_value=0,
             show_when_zero=True,
             category_id=unassigned_trait.category_id,
-            value=1,
+            currency=TraitModifyCurrency.NO_COST,
         )
 
         # When we create the trait

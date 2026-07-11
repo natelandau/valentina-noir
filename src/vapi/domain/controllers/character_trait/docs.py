@@ -21,9 +21,14 @@ The trait must not already exist on the character and the value must not exceed 
 CREATE_CUSTOM_TRAIT_DESCRIPTION = """\
 Create a new custom trait unique to this character.
 
-Specify the trait name, category, and optional cost configuration. Custom traits are useful for specializations or homebrew content.
+Specify the trait name, category, optional cost configuration, and the `currency` used to buy the trait's first dot. Custom traits are useful for specializations or homebrew content. The trait is always created at a value of `1`.
 
-**Note:** Only storyteller users and character owners can use this endpoint. Respects the company's free trait changes setting.
+**Currency options:**
+- `NO_COST`: Add the trait without spending points (respects the company's free trait changes setting)
+- `XP`: Spend experience points equal to the trait's initial cost
+- `STARTING_POINTS`: Spend starting points equal to the trait's initial cost
+
+**Note:** Only storyteller users and character owners can use this endpoint. `NO_COST` respects the company's free trait changes setting; `XP` and `STARTING_POINTS` are always available to character owners who can afford the cost. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. An `XP` or `STARTING_POINTS` cost the character cannot afford returns 400.
 """
 
 GET_VALUE_OPTIONS_DESCRIPTION = """\

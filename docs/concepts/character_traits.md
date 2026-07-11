@@ -128,7 +128,7 @@ The system validates that the trait exists, the value falls within the trait's m
 
 Create a trait unique to a single character. Custom traits share the same fields as core traits but remain unavailable to other characters. They're useful for representing unique abilities that don't exist in the standard trait list.
 
-Provide the trait name, parent category, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category.
+Provide the trait name, parent category, `currency`, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category. The trait is always created at a value of `1`, and the `currency` you supply pays for that first dot.
 
 ```json
 {
@@ -136,9 +136,17 @@ Provide the trait name, parent category, and optional cost overrides. If you omi
     "description": "Skill at deciphering encoded messages",
     "category_id": "69679d6b92e8772cd93d8185",
     "max_value": 5,
-    "value": 1
+    "currency": "XP"
 }
 ```
+
+The `currency` field works the same way as it does when [modifying trait values](#modifying-trait-values):
+
+- `NO_COST` adds the trait without spending points, subject to the company's free trait changes setting.
+- `XP` spends experience points equal to the trait's initial cost.
+- `STARTING_POINTS` spends starting points equal to the trait's initial cost.
+
+Paying with `XP` or `STARTING_POINTS` lets a character owner create a custom trait even when the company restricts free trait changes, as long as they can afford the cost.
 
 !!! info "Custom Trait Naming"
 
