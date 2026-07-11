@@ -2,7 +2,7 @@
     authors = [{ name = "Nate Landau", email = "github@natelandau.com" }]
     dependencies = [
         "asyncio>=4.0.0,<5.0.0",
-        "boto3>=1.43.40,<2.0.0",
+        "boto3>=1.43.46,<2.0.0",
         "litestar-granian>=0.15.0",
         "litestar-saq>=0.8.0",
         "litestar[jinja,jwt,redis]>=2.24.0,<3.0.0",
@@ -17,7 +17,7 @@
         "rich>=15.0.0",
         "titlecase>=2.4.1,<3.0.0",
         "tortoise-orm[asyncpg]>=1.1.7,<2.0.0",
-        "uuid-utils>=0.16.2",
+        "uuid-utils>=0.17.0",
     ]
     description = "Valentina Noir is a comprehensive API for managing World of Darkness tabletop role-playing games."
     license = { file = "LICENSE" }
@@ -37,10 +37,10 @@
     dev = [
         "commitizen>=4.16.4",
         "coverage>=7.15.0",
-        "docker>=7.1.0",
+        "docker>=7.2.0",
         "duty>=1.9.0",
         "faker>=40.28.1",
-        "prek>=0.4.8",
+        "prek>=0.4.9",
         "pymongo>=4.17.0",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.1.0",
@@ -52,13 +52,13 @@
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.1.1",
-        "ruff>=0.15.20",
+        "ruff>=0.15.21",
         "shellcheck-py>=0.11.0.1",
-        "ty>=0.0.56",
+        "ty>=0.0.58",
         "typos>=1.48.0",
         "yamllint>=1.38.0",
     ]
-    docs = ["zensical>=0.0.46"]
+    docs = ["zensical>=0.0.50"]
 
 [tool.commitizen]
     bump_message               = "bump(release): v$current_version → v$new_version"
