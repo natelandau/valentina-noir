@@ -204,7 +204,7 @@ def dev_setup(ctx: Context) -> None:  # noqa: ARG001
     [green]uv run app[/green]
 
   Run everything from docker:
-    [green]docker compose up --build[/green]
+    [green]duty up[/green]
 
   or run the databases from docker and the bot from uv:
     [green]docker compose -f compose-db.yml up -d[/green]
@@ -258,3 +258,11 @@ def run(ctx: Context) -> None:
         if not directory.exists():
             directory.mkdir(parents=True)
     ctx.run("uv run app run -r --reload-paths=src/", title="run application locally", capture=False)
+
+
+@duty()
+def up(ctx: Context) -> None:
+    """Build and start the full application stack (API, PostgreSQL, Redis) in Docker."""
+    # Always --build: a plain `docker compose up` reuses the cached image and can serve
+    # stale code against a database whose schema has moved on, breaking startup migrations/seed.
+    ctx.run("docker compose up --build", title="build and start full docker stack", capture=False)

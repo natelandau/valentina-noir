@@ -18,6 +18,14 @@ Valentina is built using the following core technologies:
 
 The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The container requires PostgreSQL and Redis to be available. See `compose.yml` for a full stack example.
 
+To build and start the full stack (API, PostgreSQL, Redis) locally, use:
+
+```bash
+duty up
+```
+
+This wraps `docker compose up --build`. Always build when starting the stack: a plain `docker compose up` reuses the cached image and can serve stale code against a database whose schema has already moved on (via `duty run` or a newer container), which fails during the startup migrations and seed.
+
 ### Docker-Specific Environment Variables
 
 These variables are used by the container entrypoint and are also available in `.env.example`.
