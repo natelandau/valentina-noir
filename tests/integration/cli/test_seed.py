@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from vapi.cli.lib.comparison import JSONWithCommentsDecoder
 from vapi.cli.seed import seed, seed_async
-from vapi.constants import PROJECT_ROOT_PATH, WerewolfRenown
+from vapi.constants import PROJECT_ROOT_PATH, GameVersion, WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
@@ -176,6 +176,21 @@ class TestSeedAsync:
             assert db_auspice.name == fixture_auspice["name"]
             assert db_auspice.description == fixture_auspice["description"]
 
+    async def test_werewolf_auspice_defaults_to_all_game_versions(
+        self, werewolf_auspices_fixture: list[dict]
+    ) -> None:
+        """Verify auspices without a fixture game_versions default to both V4 and V5."""
+        # Given: The auspice fixture omits game_versions entirely
+        assert all("game_versions" not in a for a in werewolf_auspices_fixture)
+
+        # When: Querying every seeded auspice
+        auspices = await WerewolfAuspice.all()
+
+        # Then: Every auspice was seeded and carries both supported game versions
+        assert auspices
+        for auspice in auspices:
+            assert sorted(auspice.game_versions) == [GameVersion.V4, GameVersion.V5]
+
     async def test_seed_creates_all_werewolf_tribes(
         self, werewolf_tribes_fixture: list[dict]
     ) -> None:
@@ -221,6 +236,21 @@ class TestSeedAsync:
             assert db_tribe.favor == fixture_tribe["favor"]
             assert db_tribe.ban == fixture_tribe["ban"]
             assert db_tribe.link == fixture_tribe.get("link")
+
+    async def test_werewolf_tribe_defaults_to_all_game_versions(
+        self, werewolf_tribes_fixture: list[dict]
+    ) -> None:
+        """Verify tribes without a fixture game_versions default to both V4 and V5."""
+        # Given: The tribe fixture omits game_versions entirely
+        assert all("game_versions" not in t for t in werewolf_tribes_fixture)
+
+        # When: Querying every seeded tribe
+        tribes = await WerewolfTribe.all()
+
+        # Then: Every tribe was seeded and carries both supported game versions
+        assert tribes
+        for tribe in tribes:
+            assert sorted(tribe.game_versions) == [GameVersion.V4, GameVersion.V5]
 
     async def test_seed_creates_all_werewolf_gifts(self) -> None:
         """Verify seed creates all werewolf gifts as traits from fixture."""

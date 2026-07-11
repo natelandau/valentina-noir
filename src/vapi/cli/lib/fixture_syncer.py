@@ -12,12 +12,16 @@ if TYPE_CHECKING:
 from vapi.cli.lib.comparison import FIXTURES_PATH, JSONWithCommentsDecoder, fixture_key_error
 from vapi.cli.lib.sync_counts import SyncCounts
 from vapi.cli.lib.upsert import bulk_create_new, upsert
-from vapi.constants import WerewolfRenown
+from vapi.constants import GameVersion, WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
 
 logger = logging.getLogger("vapi")
+
+# Werewolf tribes and auspices carry over across both supported editions (V4 and V5), so
+# default them to both unless a fixture item narrows the list itself.
+DEFAULT_WEREWOLF_GAME_VERSIONS = [GameVersion.V4, GameVersion.V5]
 
 
 class FixtureSyncer:
@@ -108,7 +112,9 @@ class WerewolfAuspiceSyncer(FixtureSyncer):
         """Return auspice fields to set/update."""
         return {
             "description": fixture_item.get("description"),
-            "game_versions": fixture_item.get("game_versions", []),
+            "game_versions": fixture_item.get(
+                "game_versions", list(DEFAULT_WEREWOLF_GAME_VERSIONS)
+            ),
             "link": fixture_item.get("link"),
         }
 
@@ -124,7 +130,9 @@ class WerewolfTribeSyncer(FixtureSyncer):
         """Return tribe fields to set/update."""
         return {
             "description": fixture_item.get("description"),
-            "game_versions": fixture_item.get("game_versions", []),
+            "game_versions": fixture_item.get(
+                "game_versions", list(DEFAULT_WEREWOLF_GAME_VERSIONS)
+            ),
             "renown": WerewolfRenown(fixture_item["renown"]),
             "patron_spirit": fixture_item.get("patron_spirit"),
             "favor": fixture_item.get("favor"),
