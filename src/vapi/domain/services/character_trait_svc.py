@@ -696,7 +696,9 @@ class CharacterTraitService:
             )
 
         if currency != TraitModifyCurrency.NO_COST:
-            await self._guard_can_afford_new_trait(trait, character, value, currency)
+            await self._guard_can_afford_new_trait(
+                trait=trait, character=character, value=value, currency=currency
+            )
 
         character_trait = await CharacterTrait.create(
             character=character,
@@ -705,8 +707,33 @@ class CharacterTraitService:
         )
         # Refetch with prefetched relations
         character_trait = await self._refetch_character_trait(character_trait.id)
-        num_dots = value
+        return await self._buy_new_trait_dots(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=value,
+            currency=currency,
+        )
 
+    async def _buy_new_trait_dots(
+        self,
+        *,
+        company: "Company",
+        user: "User",
+        character: Character,
+        character_trait: CharacterTrait,
+        num_dots: int,
+        currency: TraitModifyCurrency,
+    ) -> CharacterTrait:
+        """Raise a freshly added trait to its initial value using the chosen currency.
+
+        Shared by the constant-assign and custom-create paths so the currency dispatch,
+        and the guards each branch applies, lives in one place.
+
+        Returns:
+            The updated CharacterTrait.
+        """
         if currency == TraitModifyCurrency.NO_COST:
             return await self.increase_character_trait_value(
                 company=company,
@@ -715,7 +742,6 @@ class CharacterTraitService:
                 character_trait=character_trait,
                 num_dots=num_dots,
             )
-
         if currency == TraitModifyCurrency.XP:
             return await self._apply_xp_change(
                 user=user,
@@ -724,7 +750,6 @@ class CharacterTraitService:
                 num_dots=num_dots,
                 is_increase=True,
             )
-
         return await self._apply_starting_points_change(
             user=user,
             character=character,
@@ -977,8 +1002,9 @@ class CharacterTraitService:
             ConflictError: If the trait already exists on the character.
             ValidationError: If the trait cannot be created.
         """
+        currency = data.currency
+        self._assert_currency_allowed_for_type(character, currency)
         await self.guard_user_can_manage_character(character, user)
-        await self._guard_permissions_free_trait_changes(company, character, user)
 
         cleaned_name = data.name.strip()
 
@@ -1018,30 +1044,45 @@ class CharacterTraitService:
             data.upgrade_cost if data.upgrade_cost is not None else parent_category.upgrade_cost
         )
 
-        custom_trait = await Trait.create(
-            name=cleaned_name,
-            description=data.description,
-            max_value=data.max_value,
-            min_value=data.min_value,
-            show_when_zero=data.show_when_zero,
-            initial_cost=initial_cost,
-            upgrade_cost=upgrade_cost,
-            custom_for_character_id=character.id,
-            category=parent_category,
-            sheet_section=parent_category.sheet_section,
-            is_custom=True,
-        )
+        # New custom traits always begin at value 1. Create the definition and the
+        # character trait at 0, then buy that first dot with the chosen currency so
+        # cost and permission handling match the assign and modify paths. Wrap it in a
+        # transaction so an unaffordable purchase rolls back the orphan trait rows.
+        async with in_transaction():
+            custom_trait = await Trait.create(
+                name=cleaned_name,
+                description=data.description,
+                max_value=data.max_value,
+                min_value=data.min_value,
+                show_when_zero=data.show_when_zero,
+                initial_cost=initial_cost,
+                upgrade_cost=upgrade_cost,
+                custom_for_character_id=character.id,
+                category=parent_category,
+                sheet_section=parent_category.sheet_section,
+                is_custom=True,
+            )
 
-        character_trait = await CharacterTrait.create(
-            character=character,
-            trait=custom_trait,
-            value=data.value if data.value is not None else data.min_value,
-        )
+            if currency != TraitModifyCurrency.NO_COST:
+                await self._guard_can_afford_new_trait(
+                    trait=custom_trait, character=character, value=1, currency=currency
+                )
 
-        # Refetch with prefetched relations
-        character_trait = await self._refetch_character_trait(character_trait.id)
-        await self.after_save(character_trait, character)
-        return character_trait
+            character_trait = await CharacterTrait.create(
+                character=character,
+                trait=custom_trait,
+                value=0,
+            )
+            character_trait = await self._refetch_character_trait(character_trait.id)
+
+            return await self._buy_new_trait_dots(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=1,
+                currency=currency,
+            )
 
     async def increase_character_trait_value(
         self,

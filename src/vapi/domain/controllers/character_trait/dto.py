@@ -30,13 +30,13 @@ class CharacterTraitCreateCustom(msgspec.Struct):
 
     name: str
     category_id: UUID
+    currency: TraitModifyCurrency
     description: str | None = None
     max_value: int = 5
     min_value: int = 0
     show_when_zero: bool = True
     initial_cost: int | None = None
     upgrade_cost: int | None = None
-    value: int | None = None
 
 
 class TraitModifyRequest(msgspec.Struct):

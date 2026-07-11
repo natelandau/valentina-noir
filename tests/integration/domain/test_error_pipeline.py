@@ -19,6 +19,7 @@ from litestar.status_codes import (
 )
 from tortoise.exceptions import DoesNotExist, OperationalError
 
+from vapi.constants import TraitModifyCurrency
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.developer import Developer as DeveloperModel
 from vapi.domain.urls import Characters as CharacterURL
@@ -147,7 +148,7 @@ class TestErrorPipeline:
         )
         trait = await Trait.filter(is_archived=False).first()
         await character_trait_factory(character=character, trait=trait)
-        trait_category = await TraitCategory.filter(is_archived=False).first()
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
 
         # When we try to create a custom trait with the same name
         response = await client.post(
@@ -164,7 +165,7 @@ class TestErrorPipeline:
                 "min_value": 0,
                 "show_when_zero": True,
                 "category_id": str(trait_category.id),
-                "value": 1,
+                "currency": TraitModifyCurrency.NO_COST.value,
             },
         )
 
