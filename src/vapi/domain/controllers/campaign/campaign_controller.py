@@ -100,6 +100,7 @@ class CampaignController(Controller):
         campaign = await Campaign.create(
             name=data.name,
             description=data.description,
+            year=data.year,
             desperation=data.desperation,
             danger=data.danger,
             company=company,

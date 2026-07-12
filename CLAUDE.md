@@ -79,6 +79,7 @@ duty dev-setup                # Initialize development environment
 - The full test suite is slow. During development on a branch with multiple commits, run individual test files (e.g., `uv run pytest tests/unit/domain/services/test_character_trait_svc.py -v -n 0`) and commit with `--no-verify` to skip pre-commit hooks. Run the full test suite once at the end of the session before finalizing.
 - **Never use `pytest.skip()` or `pytest.mark.skip`.** All seed data is expected to be present. If a query for seed data returns nothing, the test should fail - not skip. Only assert in the `# Then` section, not to guard seed data existence.
 - **Always use factories to create database objects in tests.** Never call `Model.create()` or `Model.save()` directly in test bodies. Use the factory fixtures in `tests/fixture_models.py`. Factories that create constant data (traits, concepts, or any other data created when bootstrapping the database.) must clean up after themselves since the per-test cleanup only deletes non-constant tables.
+- **Minimize integration tests; prefer unit tests.** Integration tests are slow, so reserve them for verifying an entire endpoint (routing, auth/guards, status codes, overall request/response wiring). Test specifics within an endpoint (individual field behavior, defaults, normalization, DTO serialization, patch logic) with unit tests against the model, DTO, or service instead. When an endpoint is already covered by an integration test, add unit tests for new field-level behavior rather than new integration tests.
 
 ## Documentation
 

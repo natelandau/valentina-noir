@@ -35,6 +35,7 @@ campaigns = response.json()["items"]
             "id": "550e8400-e29b-41d4-a716-446655440000",
             "name": "The Sabbat Ascendant",
             "description": "A chronicle of the war for the city.",
+            "year": "1888",
             "desperation": 0,
             "danger": 0,
             "num_books": 2,
@@ -51,7 +52,7 @@ A fresh company has no campaigns yet, so `items` is empty. Create one next.
 
 ## Create a campaign
 
-A campaign needs only a `name`. The `description`, `desperation`, and `danger` fields are optional and default to empty or `0`.
+A campaign needs only a `name`. The `description`, `year`, `desperation`, and `danger` fields are optional. `description` and `year` default to empty, and `desperation` and `danger` default to `0`. `year` is a free-form text label (for example `"1888"` or `"The Victorian Era"`), not a date.
 
 ```python
 response = requests.post(
@@ -73,6 +74,7 @@ The response is the new campaign, including counts of its child resources (all `
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "name": "The Sabbat Ascendant",
     "description": "A chronicle of the war for the city.",
+    "year": null,
     "desperation": 0,
     "danger": 0,
     "company_id": "697996c7659f4e107e3bc81a",

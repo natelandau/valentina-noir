@@ -110,6 +110,37 @@ class TestEmptyStringToNone:
         # Then the description should be preserved
         assert campaign.description == "A valid description"
 
+    async def test_empty_year_converted_to_none(
+        self,
+        campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify an empty year is converted to None for the opted-in year field."""
+        # Given a company
+        company = await company_factory()
+
+        # When creating a campaign with an empty year
+        # (Campaign._empty_string_to_none_fields includes "year")
+        campaign = await campaign_factory(company=company, year="")
+
+        # Then the year should be None
+        assert campaign.year is None
+
+    async def test_non_empty_year_preserved(
+        self,
+        campaign_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a real year value is preserved as free-form text."""
+        # Given a company
+        company = await company_factory()
+
+        # When creating a campaign with a free-form year label
+        campaign = await campaign_factory(company=company, year="The Victorian Era")
+
+        # Then the year should be preserved verbatim
+        assert campaign.year == "The Victorian Era"
+
     async def test_non_opted_in_field_keeps_empty_string(
         self,
         character_factory: Callable[..., Any],

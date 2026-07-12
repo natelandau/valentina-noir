@@ -24,12 +24,13 @@ class Campaign(BaseModel):
 
     name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
     description = fields.TextField(null=True, validators=[MinLengthValidator(3)])
+    year = fields.CharField(max_length=50, null=True)
     desperation = fields.IntField(
         default=0, validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
     danger = fields.IntField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
 
-    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"description"})
+    _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset({"description", "year"})
 
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
         "models.Company", related_name="campaigns", on_delete=fields.OnDelete.CASCADE
