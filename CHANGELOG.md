@@ -1,3 +1,13 @@
+## v0.27.0 (2026-07-11)
+
+### Feat
+
+- **seed**: default werewolf tribes and auspices to V4 and V5
+
+### Fix
+
+- **traits**: create custom traits as rollable by default
+
 ## v0.26.0 (2026-07-11)
 
 ### Feat
