@@ -35,6 +35,7 @@ class CharacterTraitCreateCustom(msgspec.Struct):
     max_value: int = 5
     min_value: int = 0
     show_when_zero: bool = True
+    is_rollable: bool = True
     initial_cost: int | None = None
     upgrade_cost: int | None = None
 

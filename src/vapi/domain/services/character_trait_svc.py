@@ -1061,6 +1061,7 @@ class CharacterTraitService:
                 category=parent_category,
                 sheet_section=parent_category.sheet_section,
                 is_custom=True,
+                is_rollable=data.is_rollable,
             )
 
             if currency != TraitModifyCurrency.NO_COST:

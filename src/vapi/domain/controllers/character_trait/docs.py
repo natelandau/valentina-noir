@@ -23,6 +23,8 @@ Create a new custom trait unique to this character.
 
 Specify the trait name, category, optional cost configuration, and the `currency` used to buy the trait's first dot. Custom traits are useful for specializations or homebrew content. The trait is always created at a value of `1`.
 
+Custom traits are `is_rollable` by default so they appear when listing a character's rollable traits. Set `is_rollable` to `false` to create a non-rollable custom trait.
+
 **Currency options:**
 - `NO_COST`: Add the trait without spending points (respects the company's free trait changes setting)
 - `XP`: Spend experience points equal to the trait's initial cost

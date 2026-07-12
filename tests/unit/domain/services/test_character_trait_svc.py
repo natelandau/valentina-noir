@@ -2098,6 +2098,59 @@ class TestCreateCustomTrait:
                 data=dto,
             )
 
+    async def test_create_custom_trait_defaults_to_rollable(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify a custom trait is created rollable by default so it lists among rollable traits."""
+        # Given a character and a non-flaw trait category with no is_rollable specified
+        company, user, character = get_company_user_character
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Rollable Default Trait",
+            category_id=trait_category.id,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+        # When we create the trait
+        service = CharacterTraitService()
+        result = await service.create_custom_trait(
+            company=company,
+            user=user,
+            character=character,
+            data=dto,
+        )
+
+        # Then the trait is rollable
+        assert result.trait.is_rollable is True
+
+    async def test_create_custom_trait_can_be_non_rollable(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify a custom trait created with is_rollable=False is not rollable."""
+        # Given a character and a non-flaw trait category with is_rollable disabled
+        company, user, character = get_company_user_character
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Non Rollable Trait",
+            category_id=trait_category.id,
+            currency=TraitModifyCurrency.NO_COST,
+            is_rollable=False,
+        )
+
+        # When we create the trait
+        service = CharacterTraitService()
+        result = await service.create_custom_trait(
+            company=company,
+            user=user,
+            character=character,
+            data=dto,
+        )
+
+        # Then the trait is not rollable
+        assert result.trait.is_rollable is False
+
 
 class TestChangeCharacterTraitValue:
     """Test the change_character_trait_value method."""
