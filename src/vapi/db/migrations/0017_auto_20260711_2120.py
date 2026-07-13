@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     operations = [
         ops.AddField(
             model_name='Campaign',
-            name='year',
-            field=fields.CharField(null=True, max_length=50),
+            name='in_game_date',
+            field=fields.DateField(null=True),
         ),
     ]

@@ -1,6 +1,6 @@
 """Campaign DTOs."""
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from functools import cache
 from typing import TYPE_CHECKING, Annotated
@@ -91,7 +91,7 @@ class CampaignResponse(msgspec.Struct):
     id: UUID
     name: str
     description: str | None
-    year: str | None
+    in_game_date: date | None
     desperation: int
     danger: int
     company_id: UUID
@@ -111,7 +111,7 @@ class CampaignResponse(msgspec.Struct):
             id=m.id,
             name=m.name,
             description=m.description,
-            year=m.year,
+            in_game_date=m.in_game_date,
             desperation=m.desperation,
             danger=m.danger,
             company_id=m.company_id,  # ty:ignore[unresolved-attribute]
@@ -275,7 +275,7 @@ class CampaignCreate(msgspec.Struct):
 
     name: str
     description: str | None = None
-    year: str | None = None
+    in_game_date: date | None = None
     desperation: int = 0
     danger: int = 0
 
@@ -288,7 +288,7 @@ class CampaignPatch(msgspec.Struct):
 
     name: str | msgspec.UnsetType = msgspec.UNSET
     description: str | None | msgspec.UnsetType = msgspec.UNSET
-    year: str | None | msgspec.UnsetType = msgspec.UNSET
+    in_game_date: date | None | msgspec.UnsetType = msgspec.UNSET
     desperation: int | msgspec.UnsetType = msgspec.UNSET
     danger: int | msgspec.UnsetType = msgspec.UNSET
 

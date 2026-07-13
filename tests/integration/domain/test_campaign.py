@@ -1,6 +1,7 @@
 """Test campaign."""
 
 from collections.abc import AsyncGenerator, Callable
+from datetime import date
 
 import pytest
 from httpx import AsyncClient
@@ -262,8 +263,8 @@ class TestUpdateCampaign:
         user_role: UserRole,
         expected_status_code: int,
     ) -> None:
-        """Verify update campaign respects permission settings."""
-        # Given a company with a campaign and specific permission
+        """Verify update campaign respects permissions and clears in_game_date via null."""
+        # Given a company with a campaign (with an in-game date set) and specific permission
         await CompanySettings.filter(company_id=session_company.id).update(
             permission_manage_campaign=campaign_permission
         )
@@ -272,11 +273,12 @@ class TestUpdateCampaign:
             company=session_company,
             name="original",
             description="original description",
+            in_game_date=date(1888, 6, 15),
             danger=1,
             desperation=3,
         )
 
-        # When we update the campaign
+        # When we update the campaign, sending an explicit null to clear in_game_date
         response = await client.patch(
             build_url(
                 Campaigns.UPDATE,
@@ -287,6 +289,7 @@ class TestUpdateCampaign:
             json={
                 "name": "Test Campaign Updated",
                 "description": "Test Description Updated",
+                "in_game_date": None,
                 "danger": 2,
             },
         )
@@ -299,9 +302,12 @@ class TestUpdateCampaign:
             assert response.json()["company_id"] == str(session_company.id)
             assert response.json()["desperation"] == 3
             assert response.json()["danger"] == 2
+            # An explicit null clears a previously-set in_game_date back to null
+            assert response.json()["in_game_date"] is None
 
             await campaign.refresh_from_db()
             assert campaign.name == "Test Campaign Updated"
+            assert campaign.in_game_date is None
 
 
 class TestDeleteCampaign:
