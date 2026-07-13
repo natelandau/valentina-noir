@@ -42,6 +42,7 @@ class Character(BaseModel):
     status = fields.CharEnumField(CharacterStatus, default=CharacterStatus.ALIVE)
     starting_points = fields.IntField(default=0)
     age = fields.IntField(null=True)
+    date_of_birth = fields.DateField(null=True)
     biography = fields.TextField(null=True, validators=[MinLengthValidator(3)])
     demeanor = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
     nature = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])

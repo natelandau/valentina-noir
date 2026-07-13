@@ -1,6 +1,6 @@
 """Character DTOs - msgspec Structs for request/response bodies."""
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from functools import cache
 from typing import TYPE_CHECKING
@@ -210,6 +210,7 @@ class CharacterResponse(msgspec.Struct):
     status: CharacterStatus
     starting_points: int
     age: int | None
+    date_of_birth: date | None
     biography: str | None
     demeanor: str | None
     nature: str | None
@@ -296,6 +297,7 @@ class CharacterResponse(msgspec.Struct):
             status=m.status,
             starting_points=m.starting_points,
             age=m.age,
+            date_of_birth=m.date_of_birth,
             biography=m.biography,
             demeanor=m.demeanor,
             nature=m.nature,
@@ -422,6 +424,7 @@ class CharacterCreate(msgspec.Struct):
     name_nick: str | None = None
     type: CharacterType = CharacterType.PLAYER
     age: int | None = None
+    date_of_birth: date | None = None
     biography: str | None = None
     demeanor: str | None = None
     nature: str | None = None
@@ -446,6 +449,7 @@ class CharacterPatch(msgspec.Struct):
     type: CharacterType | msgspec.UnsetType = msgspec.UNSET
     status: CharacterStatus | msgspec.UnsetType = msgspec.UNSET
     age: int | None | msgspec.UnsetType = msgspec.UNSET
+    date_of_birth: date | None | msgspec.UnsetType = msgspec.UNSET
     biography: str | None | msgspec.UnsetType = msgspec.UNSET
     demeanor: str | None | msgspec.UnsetType = msgspec.UNSET
     nature: str | None | msgspec.UnsetType = msgspec.UNSET

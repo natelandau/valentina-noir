@@ -195,6 +195,7 @@ class CharacterController(Controller):
             type=data.type,
             game_version=data.game_version,
             age=data.age,
+            date_of_birth=data.date_of_birth,
             biography=data.biography,
             demeanor=data.demeanor,
             nature=data.nature,

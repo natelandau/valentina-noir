@@ -53,6 +53,37 @@ class TestApplyPatchScalars:
         assert changes["name_first"] == {"old": "Old", "new": "New"}
         assert changes["name_last"] == {"old": "Name", "new": "Last"}
 
+    async def test_apply_character_patch_sets_and_clears_date_of_birth(
+        self,
+        character_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify date_of_birth can be set and cleared to null via patch."""
+        from datetime import date
+
+        # Given a character with no date of birth
+        company = await company_factory()
+        character = await character_factory(company=company)
+        service = CharacterService()
+
+        # When patching a date of birth onto it
+        set_changes = await service.apply_character_patch(
+            character, CharacterPatch(date_of_birth=date(1888, 6, 15))
+        )
+
+        # Then the date is applied and the diff is recorded
+        assert character.date_of_birth == date(1888, 6, 15)
+        assert set_changes["date_of_birth"] == {"old": None, "new": date(1888, 6, 15)}
+
+        # When patching it back to null
+        clear_changes = await service.apply_character_patch(
+            character, CharacterPatch(date_of_birth=None)
+        )
+
+        # Then the date is cleared and the diff is recorded
+        assert character.date_of_birth is None
+        assert clear_changes["date_of_birth"] == {"old": date(1888, 6, 15), "new": None}
+
     async def test_apply_character_patch_no_op(
         self,
         character_factory: Callable[..., Any],
