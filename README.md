@@ -14,6 +14,12 @@ Valentina is built using the following core technologies:
 - [Redis](https://redis.io/) - In-memory data structure store
 - [Granian](https://github.com/emmett-framework/granian) - ASGI server for Python
 
+## Local development
+
+To set up a local development environment, run the app, and run the tests, see [CONTRIBUTING.md](CONTRIBUTING.md). It covers prerequisites, database setup, the task runner, and troubleshooting for developers new to the tooling.
+
+The rest of this README covers running Valentina Noir as a deployed service: Docker, seed and test data, database backups, and request logging.
+
 ## Running with Docker
 
 The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The container requires PostgreSQL and Redis to be available. See `compose.yml` for a full stack example.
