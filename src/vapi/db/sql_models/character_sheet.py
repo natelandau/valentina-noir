@@ -244,15 +244,18 @@ class Trait(BaseModel):
 
 
 class TraitPower(BaseModel):
-    """A named power a trait grants at a specific dot level (e.g. a Discipline or Thaumaturgy path power).
+    """A power or per-dot descriptor a trait grants at a specific dot level.
 
     Global reference data seeded from powers nested under each trait in traits.json.
-    A level may grant several powers (Disciplines offer a choice per dot), so powers
-    are unique per (trait, level, name) rather than per (trait, level).
+    Covers two shapes: named mechanical powers (Discipline/Thaumaturgy path powers,
+    which carry a name and system) and nameless flavor descriptors for what a dot
+    rating means on an Attribute or Skill (name is null). A level may grant several
+    powers (Disciplines offer a choice per dot), so powers are unique per
+    (trait, level, name) rather than per (trait, level).
     """
 
     level = fields.IntField(validators=[MinValueValidator(1), MaxValueValidator(100)])
-    name = fields.CharField(max_length=100, validators=[MinLengthValidator(3)])
+    name = fields.CharField(max_length=100, null=True)
     description = fields.TextField(null=True)
     system = fields.TextField(null=True)
     link = fields.TextField(null=True)

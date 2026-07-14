@@ -46,6 +46,26 @@ async def test_trait_power_multiple_per_level(trait_factory, trait_power_factory
 
 
 @pytest.mark.anyio
+async def test_trait_power_nameless_dot_descriptor(trait_factory, trait_power_factory):
+    """Verify a trait may store a nameless per-dot descriptor with a null name."""
+    # Given a trait whose dots carry only descriptive text (an Attribute or Skill)
+    trait = await trait_factory(name="Firearms")
+
+    # When a nameless power is created at level 1
+    power = await trait_power_factory(
+        trait=trait,
+        level=1,
+        name=None,
+        description="They've fired a gun a few times.",
+    )
+
+    # Then it persists with a null name
+    stored = await TraitPower.get(id=power.id)
+    assert stored.name is None
+    assert stored.description == "They've fired a gun a few times."
+
+
+@pytest.mark.anyio
 async def test_trait_power_unique_per_level_and_name(trait_factory, trait_power_factory):
     """Verify the same power cannot be seeded twice at the same (trait, level, name)."""
     # Given a trait with a level-1 power

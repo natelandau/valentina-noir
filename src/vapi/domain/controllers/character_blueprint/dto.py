@@ -169,7 +169,7 @@ class TraitPowerResponse(msgspec.Struct):
 
     id: UUID
     level: int
-    name: str
+    name: str | None
     description: str | None
     system: str | None
     link: str | None

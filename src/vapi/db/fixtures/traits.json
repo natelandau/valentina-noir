@@ -55,7 +55,44 @@
             "min_value": 1,
             "max_value": 5,
             "show_when_zero": true,
-            "link": "https://vtm.paradoxwikis.com/Strength"
+            "link": "https://vtm.paradoxwikis.com/Strength",
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can easily crush a beer can. (Deadlift 20kg)",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They are average physically. (Deadlift 45kg)",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They might be able to break down a wooden door. (Deadlift 115kg)",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "A prime physical specimen. (Deadlift 180kg)",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Break open a metal door or tear open a chain-link fence. (Deadlift 250kg)",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Dexterity",
@@ -74,7 +111,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can run but struggle with balance and dodging.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "A solid sprint and sometimes can appear graceful.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Impressive agility and their coordination is equal to a trained amateur.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They move in a way few humans can and could excel at acrobatics.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Almost superhuman movements that are liquid and hypnotic.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Stamina",
@@ -93,7 +167,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They are winded by lesser exertions.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can take a beating, but consider suing for peace.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can hike for several days with a backpack without an issue.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They could win a marathon, or take a tremendous amount of physical pain.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They'd never break a sweat, if they were mortal.",
+                "system": null,
+                "link": null
+              }
+            ]
           }
         ]
       },
@@ -134,7 +245,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They speak clearly but few people tend to listen.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "Generally likeable even if they are undead and may even have friends.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "People trust them and they make friends easily.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They possess significant personal magnetism and have an easy time drawing in followers.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They could lead a city in a rebellion if they wanted to.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Manipulation",
@@ -153,7 +301,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can convince people to do what they want as long as they remain honest.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "Able to deceive the weak willed and simple minded.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They never have to pay full price for anything.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They could be a cult leader or a politician.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They could convince the Prince to invest in desert property.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Appearance",
@@ -189,7 +374,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "The slightest provocations can send them into a rage.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can subdue their predatory nature in most non-hostile environments.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Others look to them for guidance when blood hits the fan.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can manage their Beast to some extent and bluff their way through cards with ease.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "The Beast is their pet.",
+                "system": null,
+                "link": null
+              }
+            ]
           }
         ]
       },
@@ -230,7 +452,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can read and write, but some terms confuse them.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They are smart enough to realize their own limitations.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They are able to piece together clues without difficulty.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Likely to be consulted by members of the Tremere for their intelligence.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "A genius.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Wits",
@@ -249,7 +508,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They get to the point eventually, but need to be explained to.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can usually bet the odds in a game of poker or activate emergency breaks on time.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can analyze a situation quickly and get out of the situation with the best route.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They are never caught on the back foot and find a comeback quickly.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They think and respond faster than most people can understand.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Perception",
@@ -285,7 +581,44 @@
             ],
             "min_value": 1,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They have minimal attention for anything that isn't pressing.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can settle in for the short long haul.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Distracting them takes longer than most people are willing to attempt.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can brute force a way to an answer.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They can think in a gunfight or watch the door and clean up whatever mess follows impeccably.",
+                "system": null,
+                "link": null
+              }
+            ]
           }
         ]
       }
@@ -346,7 +679,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They were attentive in gym class",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They are as fit as a mortal doing regular exercise.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Could play professional sports at night.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Immense parkour ability, why even turn into a bat?",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They could take Olympic records and Kindred mistake their skill for Disciplines.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Brawl",
@@ -365,7 +735,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They had a tough upbringing and had to fight to survive, they still have some moved.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They have been trained in hitting someone hard and well aimed.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can hold more than their own in a fight.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They either were trained in the special forces or have spent decades fighting.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They could win a MMA championship and not need their Disciplines to do it.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Craft",
@@ -383,7 +790,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They are an amateur artist.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "Their work is admired for it's usefulness.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Their creations can be gorgeous or terrifying, but intent is always clear.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Their skill is highly regarded among the kine and Kindred know this.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They are often selected to create focal points for parties at Elysium.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Dodge",
@@ -420,7 +864,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They are a cautious driver.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can put the pedal to the metal without too much fear if the weather is clear.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They have won car chases and earned rep from it.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They could be a stunt driver or personal chauffeur for someone in power.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They know cars inside and out, very few can match this skill and knowledge.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Firearms",
@@ -439,7 +920,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They've fired a gun a few times.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They know to keep their weapon clean and how to take it apart and put it back together.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They've been in the shit and came out the other side.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can handle trick shots, called shots, running shots, any shots.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They've been practicing since the Winchester came out.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Larceny",
@@ -457,7 +975,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can pick a simple lock or pocket.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can hotwire a car or shoplift.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can identify the location of security cameras and alarms to bypass them.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can defeat a keypad, re-tool and ID card, or break into a safe.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They can into or out of a multinational bank.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Melee",
@@ -476,7 +1031,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can swing a bat or blade.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They have competence with weapon handling.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Their skill with a weapon is known in the domain.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "The enemies brought a gun to a knife fight.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They are the domain's weaponmaster.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Stealth",
@@ -495,7 +1087,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can hide in darkness or camouflage.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can sneak around casual observers and stalk the same.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can evade patrolling guards.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They are subtle with silent movement.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "The Banu Haqim come to them for advise.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Survival",
@@ -514,7 +1143,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They know the trails and wilderness around the domain.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They spend more time outside than inside.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can subsist outside the city, set ups traps, and shelter for themself.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can thrive in the outside.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Gangrel packs run alongside them.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Primal-Urge",
@@ -605,7 +1271,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "Animals shy away from them but do not bolt or attack.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "Animals are docile around them, mostly ignoring them until they build trust.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Animals treat them as if they were their owner, unless provoked.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Animals are drawn to them, few creatures keep their aggression.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They can sense the animal's feelings and thoughts.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Empathy",
@@ -642,7 +1345,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can address their ruler without a faux pas.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They know the rules of the domain's popular hotspots.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can impress others with their politeness, humble submission and respect.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Their behavior sets the trend, especially if they push against the norms.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "The Keeper of Elysium and Harpies use them to set the protocols.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Insight",
@@ -660,7 +1400,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can see through empty boasts.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can pick up on hidden emotions in kine and sometimes Kindred.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can provide therapy.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They are able to detect lies easily, only the best con artists go undetected.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "People are very easy to read, as if books with large printed text.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Intimidation",
@@ -679,7 +1456,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can use scathing insults effectively.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can push humans around easily.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Their swagger and harsh behavior has given them a reputation.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They are beyond only physical threats.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Other Kindred may step back if they get involved.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Leadership",
@@ -698,7 +1512,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They have led informal clubs before.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can make their voices heard in council and sometimes their superiors listen.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can command on a battlefield.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can inspire those dying or near death into action.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Their words fill a Kindred's heart to make it feel alive and beating once again.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Performance",
@@ -717,7 +1568,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They are the life of a party but can't take this act on stage.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They have performed for others, but reviews are mixed.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They are an expert student of their craft.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can perform their craft to exceptional success, that even the Toreador have interest.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They can improvise without issue; every night a different audience and a different show.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Persuasion",
@@ -736,7 +1624,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can sell to someone who already wants to buy.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can get a discount or find an inside path to hot gossip.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can find a compromise in a conflict.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "The other side looks at settlement first when they see them in court.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They very well could be the OG silver-tongued devil.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Streetwise",
@@ -755,7 +1680,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They know where to score sex or drugs in the domain.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They know which gangs are operating in the area, they may have their own graffiti tag.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can tell the good product from the bad, get ahold of guns, and blend in with street people and gang members.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They are the person someone is referring to when they say \"I know a guy\".",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They can hire and arrange almost any criminal activity in the city.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Subterfuge",
@@ -774,7 +1736,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They tell believable and simple lies.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can hustle naive people into giving up their things.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can tell lies that should be uncovered to bolster their later and bigger lies.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can operate well in deep cover.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They do not believe this person is a liar at all.",
+                "system": null,
+                "link": null
+              }
+            ]
           }
         ]
       },
@@ -815,7 +1814,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "Basic primary and secondary educations.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "Basic university education or training, equal to a four-year degree.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "Advanced university education or training, equal to an excellent four-year degree or doctorate.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Advanced specializations outside of university on subjects very few know.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "A refined and high level scholar likely to be requested for advice or teaching.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Alertness",
@@ -851,7 +1887,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can tell when something is out of place.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can spot strange or pattern behavior in someone.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can see through most disguises and pick up on hidden things.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Few things escape their notice even when distracted.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They have senses like that of a wild animal.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Bureaucracy",
@@ -903,7 +1976,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can run a business and keep the books.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They are able to run a corporate division or bank branch.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can be a good broker on the foreign exchange market.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "Investments banks follow what they do and they have no issue concealing fraud.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They can make money doing anything anywhere.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Investigation",
@@ -922,7 +2032,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "An amateur sleuth.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "Strong knowledge on criminology and signature acts of local issues.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They either are or could be a professional detective.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "The Sheriff reaches out when they need aid.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They live an enigmatic existence and set riddles for others.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Law",
@@ -977,7 +2124,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They know basic anatomy and can perform basic first aid and CPR.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can treat minor trauma and illnesses.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can perform major operations and treat serious injuries.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can diagnose and treat all but the most obscure diseases and illnesses.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They are a medical expert, sought out for their knowledge by Kindred and mortals alike.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Meditation",
@@ -1010,7 +2194,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They know the stories of Caine and the Antediluvians.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can find the truth in pop culture nonsense.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They have experience with something unknown even by Kindred standards.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They can name most of the Antediluvians.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Tremere and Banu Haqim consult with them for rare lore.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Politics",
@@ -1029,7 +2250,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They know mortal politics in their area.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They have the ability to apply influence at a local scale, or know a guy who could.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can run a political campaign or machines.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They know the truth about the big names living and dead in the area.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "They could guess at the amount of members within the Camarilla's Inner Circle.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Science",
@@ -1048,7 +2306,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They understand the basics principles of science.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can accurately explain the competing science-based theories of the Embrace to another.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can run a lab, interpret results, and get up to speed on most science related fields. They can also repair scientific equipment.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "They are an expert in their field.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "Few others match their understanding and they are sought out for guidance.",
+                "system": null,
+                "link": null
+              }
+            ]
           },
           {
             "name": "Technology",
@@ -1067,7 +2362,44 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": true
+            "show_when_zero": true,
+            "powers": [
+              {
+                "level": 1,
+                "name": null,
+                "description": "They can upgrade a home PC and keep it safe.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": null,
+                "description": "They can conceal an IP, fly a drone, and use photo altering software.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": null,
+                "description": "They can create and distribute viruses without detection.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": null,
+                "description": "The Prince might call them to handle the domain's cybersecurity.",
+                "system": null,
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": null,
+                "description": "On the internet, no one knows they exist.",
+                "system": null,
+                "link": null
+              }
+            ]
           }
         ]
       }

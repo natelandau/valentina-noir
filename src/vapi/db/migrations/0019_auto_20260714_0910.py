@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
                 ('archive_date', fields.DatetimeField(null=True, auto_now=False, auto_now_add=False)),
                 ('archive_batch_id', fields.UUIDField(null=True, db_index=True)),
                 ('level', fields.IntField()),
-                ('name', fields.CharField(max_length=100)),
+                ('name', fields.CharField(max_length=100, null=True)),
                 ('description', fields.TextField(null=True, unique=False)),
                 ('system', fields.TextField(null=True, unique=False)),
                 ('link', fields.TextField(null=True, unique=False)),
