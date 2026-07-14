@@ -307,6 +307,8 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
     - `subcategories[].character_traits` - Traits grouped under a subcategory
     - `character_traits` - Traits that belong directly to the category without a subcategory
 
+    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array.
+
 ## Character Sub-Resources
 
 Characters have several related collections, each with its own set of CRUD endpoints. You can also embed these collections directly in the character response using the [`include` parameter](#embedding-related-resources).

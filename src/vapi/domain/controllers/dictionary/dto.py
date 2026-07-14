@@ -1,11 +1,14 @@
 """Dictionary DTOs."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
 import msgspec
 
+from vapi.db.sql_models.character_sheet import TraitPower
 from vapi.db.sql_models.dictionary import DictionaryTerm
+from vapi.domain.controllers.character_blueprint.dto import TraitPowerResponse
 
 
 class DictionaryTermCreate(msgspec.Struct):
@@ -42,10 +45,17 @@ class DictionaryTermResponse(msgspec.Struct):
     company_id: UUID | None
     source_type: str | None
     source_id: UUID | None
+    powers: list[TraitPowerResponse]
 
     @classmethod
-    def from_model(cls, m: DictionaryTerm) -> "DictionaryTermResponse":
-        """Convert a Tortoise DictionaryTerm to a response Struct."""
+    def from_model(
+        cls, m: DictionaryTerm, powers: Sequence[TraitPower] = ()
+    ) -> "DictionaryTermResponse":
+        """Convert a Tortoise DictionaryTerm to a response Struct.
+
+        ``powers`` is supplied by the dictionary service for terms sourced from a
+        trait; it is empty for every other term.
+        """
         return cls(
             id=m.id,
             date_created=m.date_created,
@@ -57,4 +67,5 @@ class DictionaryTermResponse(msgspec.Struct):
             company_id=m.company_id,  # ty:ignore[unresolved-attribute]
             source_type=m.source_type.value if m.source_type else None,
             source_id=m.source_id,
+            powers=[TraitPowerResponse.from_model(p) for p in powers],
         )

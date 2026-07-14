@@ -26,7 +26,12 @@ from vapi.db.sql_models.character import (
     WerewolfAttributes,
 )
 from vapi.db.sql_models.character_concept import CharacterConcept
-from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
+from vapi.db.sql_models.character_sheet import (
+    CharSheetSection,
+    Trait,
+    TraitCategory,
+    TraitPower,
+)
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
@@ -85,6 +90,38 @@ async def company_factory():
 
 
 @pytest.fixture
+async def trait_category_factory():
+    """Return a factory that creates Tortoise TraitCategory instances and cleans up after the test.
+
+    TraitCategory is constant data preserved across tests, so the factory tracks
+    created instances and deletes them when the test completes.
+    """
+    created: list[TraitCategory] = []
+
+    async def _factory(**kwargs: Any) -> TraitCategory:
+        if "sheet_section" not in kwargs and "sheet_section_id" not in kwargs:
+            kwargs["sheet_section"] = await CharSheetSection.first()
+
+        defaults: dict[str, Any] = {
+            "name": "Test Category",
+            "show_when_empty": False,
+            "order": 0,
+            "initial_cost": 1,
+            "upgrade_cost": 2,
+            "is_archived": False,
+        }
+        defaults.update(kwargs)
+        category = await TraitCategory.create(**defaults)
+        created.append(category)
+        return category
+
+    yield _factory
+
+    for category in created:
+        await category.delete()
+
+
+@pytest.fixture
 async def trait_factory():
     """Return a factory that creates Tortoise Trait instances and cleans up after the test.
 
@@ -122,6 +159,38 @@ async def trait_factory():
 
     for trait in created:
         await trait.delete()
+
+
+@pytest.fixture
+async def trait_power_factory():
+    """Return a factory that creates Tortoise TraitPower instances and cleans up after the test.
+
+    TraitPower is constant reference data preserved across tests, so the factory
+    tracks created instances and deletes them when the test completes.
+    """
+    created: list[TraitPower] = []
+
+    async def _factory(**kwargs: Any) -> TraitPower:
+        if "trait" not in kwargs and "trait_id" not in kwargs:
+            msg = "trait_power_factory requires a trait or trait_id"
+            raise ValueError(msg)
+
+        defaults: dict[str, Any] = {
+            "level": 1,
+            "name": "Test Power",
+            "description": "A test power.",
+            "system": None,
+            "link": None,
+        }
+        defaults.update(kwargs)
+        power = await TraitPower.create(**defaults)
+        created.append(power)
+        return power
+
+    yield _factory
+
+    for power in created:
+        await power.delete()
 
 
 @pytest.fixture

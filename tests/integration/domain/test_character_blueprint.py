@@ -17,6 +17,7 @@ from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
     TraitCategory,
+    TraitPower,
     TraitSubcategory,
 )
 from vapi.domain.controllers.character_blueprint.dto import (
@@ -38,7 +39,7 @@ def _sort_id_lists(items: list[dict], key: str) -> list[dict]:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from httpx import AsyncClient
 
@@ -288,13 +289,19 @@ class TestSheetTrait:
         token_company_admin: dict[str, str],
         session_company: Company,
         session_company_admin: Developer,
+        trait_factory: Callable[..., Awaitable[Trait]],
+        trait_power_factory: Callable[..., Awaitable[TraitPower]],
         debug: Callable[[...], None],
     ) -> None:
-        """Verify the get sheet trait endpoint is working."""
+        """Verify the get sheet trait endpoint is working, including embedded powers."""
+        # Use a dedicated trait so the power insert cannot contend with another test file
+        # for the same (trait, level) slot on the shared, session-preserved trait_power table.
+        created = await trait_factory(name="Powers Blueprint Trait")
+        await trait_power_factory(trait=created, level=1, name="Integration Test Power")
         trait = (
-            await Trait.filter(is_archived=False)
+            await Trait.filter(id=created.id)
             .prefetch_related(
-                "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"
+                "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers"
             )
             .first()
         )
@@ -311,6 +318,10 @@ class TestSheetTrait:
 
         assert response.json() == msgspec.json.decode(
             msgspec.json.encode(TraitResponse.from_model(trait))
+        )
+        assert any(
+            p["level"] == 1 and p["name"] == "Integration Test Power"
+            for p in response.json()["powers"]
         )
 
     async def test_list_all_traits(

@@ -208,6 +208,7 @@ class Trait(BaseModel):
     auspices: fields.ReverseRelation[WerewolfAuspice]
     tribes: fields.ReverseRelation[WerewolfTribe]
     character_traits: fields.ReverseRelation[CharacterTrait]
+    powers: fields.ReverseRelation[TraitPower]
     dice_rolls: fields.ManyToManyRelation[DiceRoll]
     quick_rolls: fields.ManyToManyRelation[QuickRoll]
 
@@ -240,3 +241,32 @@ class Trait(BaseModel):
     def gift_auspice_name(self) -> str | None:
         """Name of the gift auspice, requires fetch_related('gift_auspice')."""
         return self.gift_auspice.name if self.gift_auspice else None
+
+
+class TraitPower(BaseModel):
+    """A power or per-dot descriptor a trait grants at a specific dot level.
+
+    Global reference data seeded from powers nested under each trait in traits.json.
+    Covers two shapes: named mechanical powers (Discipline/Thaumaturgy path powers,
+    which carry a name and system) and nameless flavor descriptors for what a dot
+    rating means on an Attribute or Skill (name is null). A level may grant several
+    powers (Disciplines offer a choice per dot), so powers are unique per
+    (trait, level, name) rather than per (trait, level).
+    """
+
+    level = fields.IntField(validators=[MinValueValidator(1), MaxValueValidator(100)])
+    name = fields.CharField(max_length=100, null=True)
+    description = fields.TextField(null=True)
+    system = fields.TextField(null=True)
+    link = fields.TextField(null=True)
+
+    trait: fields.ForeignKeyRelation[Trait] = fields.ForeignKeyField(
+        "models.Trait", related_name="powers", on_delete=fields.OnDelete.CASCADE
+    )
+
+    class Meta:
+        """Tortoise ORM meta options."""
+
+        table = "trait_power"
+        unique_together = (("trait", "level", "name"),)
+        ordering = ("level", "name")

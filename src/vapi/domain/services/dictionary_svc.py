@@ -5,6 +5,8 @@ from uuid import UUID
 
 from tortoise.expressions import Q
 
+from vapi.constants import DictionarySourceType
+from vapi.db.sql_models.character_sheet import TraitPower
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.lib.exceptions import ValidationError
 
@@ -59,3 +61,32 @@ class DictionaryService:
         )
 
         return count, list(terms)
+
+    async def powers_by_source_id(
+        self, terms: list[DictionaryTerm]
+    ) -> dict[UUID, list[TraitPower]]:
+        """Resolve dot-level powers for trait-sourced terms in one grouped query.
+
+        Collects the source trait ids across the given terms and issues a single
+        ordered query, so a page of terms never triggers per-term power lookups.
+        Returns a map of trait id to its level-ordered powers; non-trait terms and
+        traits without powers are absent.
+        """
+        trait_ids = [
+            t.source_id
+            for t in terms
+            if t.source_type == DictionarySourceType.TRAIT and t.source_id is not None
+        ]
+        if not trait_ids:
+            return {}
+
+        # Order by (level, name) to match the TraitPower model default so powers within a
+        # single dot level come back in the same order here as on trait-embed responses.
+        powers = await TraitPower.filter(trait_id__in=trait_ids, is_archived=False).order_by(
+            "level", "name"
+        )
+
+        grouped: dict[UUID, list[TraitPower]] = {}
+        for power in powers:
+            grouped.setdefault(power.trait_id, []).append(power)  # ty:ignore[unresolved-attribute]
+        return grouped

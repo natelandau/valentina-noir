@@ -28,6 +28,7 @@ Every dictionary term includes these fields:
 | `company_id` | string or null | The owning company's ID, if this is a company term. Null for system terms. |
 | `source_type` | string or null | The type of game record this term links to. One of: `trait`, `clan`, `tribe`, `auspice`, `trait_subcategory`. Null for company terms. |
 | `source_id` | string or null | The ID of the linked game record. Use this to fetch the full object from the corresponding [character blueprint](./character_blueprint.md) endpoint. Always paired with `source_type`. |
+| `powers` | list of objects | The dot-level powers of the source trait, when `source_type` is `trait`. Empty for every other term. See [Trait Powers](./character_blueprint.md#trait-powers). |
 
 A term must have at least one of `definition` or `link`. The API rejects terms that have neither.
 
@@ -36,6 +37,8 @@ A system term is identified by having a non-null `source_type`. The `source_type
 ## System Terms and Source Linking
 
 System terms are pre-populated from the game's trait database. Each term's `definition` field contains a pre-built markdown summary that includes relevant details from the source object (descriptions, bane/compulsion text for clans, renown and patron spirit for tribes, dice pools and gift attributes for traits, etc.).
+
+A term with `source_type` of `trait` also returns the trait's dot-level powers in its `powers` array, so you can render them without a second request. Every other term has an empty `powers` array. See [Trait Powers](./character_blueprint.md#trait-powers) for the power object's fields.
 
 For richer UI experiences, use `source_type` to determine which character blueprint endpoint to query, and `source_id` as the object ID:
 

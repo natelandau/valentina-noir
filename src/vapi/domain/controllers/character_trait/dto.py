@@ -85,6 +85,7 @@ CHARACTER_TRAIT_PREFETCH = [
     "trait__sheet_section",
     "trait__gift_tribe",
     "trait__gift_auspice",
+    "trait__powers",
 ]
 
 

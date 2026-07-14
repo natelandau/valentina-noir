@@ -71,7 +71,8 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
         "subcategory_id": null, // (14)!
         "subcategory_name": null, // (15)!
         "pool": null, // (16)!
-        "system": null // (17)!
+        "system": null, // (17)!
+        "powers": [] // (18)!
     }
     ```
 
@@ -92,6 +93,89 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
     15. The name of the subcategory, if the trait belongs to one.
     16. A string describing the dice pool associated with this trait, if applicable (e.g., hunter edges).
     17. A string describing the system description for this trait, if applicable (e.g., hunter edges).
+    18. The trait's dot-level powers. Empty for most traits. See [Trait Powers](#trait-powers).
+
+### Trait Powers
+
+Any trait can carry per-dot entries in its `powers` array so you can show a player what each dot means. These come in two shapes:
+
+- **Named powers.** Biothaumaturgy, for example, grants "Thaumaturgical Forensics" at one dot and "Thaumaturgical Surgery" at two. Disciplines and Thaumaturgy/Necromancy paths work this way.
+- **Nameless dot descriptors.** Attributes and Skills carry a plain sentence for each dot (1 through 5) describing what that rating means, with no `name`. Firearms at one dot, for instance, reads "They've fired a gun a few times." Here `name` is `null`.
+
+A single dot level can grant more than one power. Disciplines, for example, offer a choice of powers at each dot, so several powers share the same `level`. Group the array by `level` to show each dot's options.
+
+The `powers` field is present on every trait. Some traits have no dot entries at all, so their `powers` array is empty. Powers come back ordered by `level`, then by `name`.
+
+Each power object has these fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | The power's unique ID. |
+| `level` | integer | The dot level that grants the power. |
+| `name` | string or null | The power's name. `null` for nameless per-dot descriptors on Attributes and Skills. |
+| `description` | string or null | What the power does. |
+| `system` | string or null | The game mechanics for using the power. |
+| `link` | string or null | URL to an external resource for the power. |
+
+??? example "Trait with powers"
+
+    ```json
+    {
+        "id": "69679d6b92e8772cd93d8185",
+        "name": "Biothaumaturgy",
+        "min_value": 1,
+        "max_value": 5,
+        "powers": [
+            {
+                "id": "69679d6b92e8772cd93d8186",
+                "level": 1,
+                "name": "Thaumaturgical Forensics",
+                "description": "The biothaumaturge reads the physiological history written into flesh and blood.",
+                "system": "The player rolls Perception + Medicine. Each success reveals one fact.",
+                "link": null
+            },
+            {
+                "id": "69679d6b92e8772cd93d8187",
+                "level": 2,
+                "name": "Thaumaturgical Surgery",
+                "description": "The biothaumaturge reshapes living tissue, mending grievous wounds.",
+                "system": "The player rolls Intelligence + Medicine. The work takes one week per level.",
+                "link": null
+            }
+        ]
+    }
+    ```
+
+??? example "Trait with dot descriptors"
+
+    ```json
+    {
+        "id": "69679d6b92e8772cd93d8190",
+        "name": "Firearms",
+        "min_value": 0,
+        "max_value": 5,
+        "powers": [
+            {
+                "id": "69679d6b92e8772cd93d8191",
+                "level": 1,
+                "name": null,
+                "description": "They've fired a gun a few times.",
+                "system": null,
+                "link": null
+            },
+            {
+                "id": "69679d6b92e8772cd93d8192",
+                "level": 2,
+                "name": null,
+                "description": "They know to keep their weapon clean and how to take it apart and put it back together.",
+                "system": null,
+                "link": null
+            }
+        ]
+    }
+    ```
+
+Powers are read-only reference data. You can't create or edit them through the API.
 
 ### Core Traits
 

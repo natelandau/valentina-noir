@@ -63,6 +63,7 @@ def get_character_include_prefetch_map() -> dict[CharacterInclude, list[str | Pr
                     "trait__category",
                     "trait__subcategory",
                     "trait__sheet_section",
+                    "trait__powers",
                 ],
             ),
         ],

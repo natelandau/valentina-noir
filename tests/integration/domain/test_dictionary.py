@@ -8,6 +8,7 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
 )
 
+from vapi.constants import DictionarySourceType
 from vapi.db.sql_models.company import Company
 from vapi.domain.urls import Dictionaries
 
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
+    from vapi.db.sql_models.character_sheet import Trait, TraitPower
     from vapi.db.sql_models.developer import Developer
     from vapi.db.sql_models.dictionary import DictionaryTerm
 
@@ -258,3 +260,45 @@ class TestDictionaryController:
 
         # Then we get a 404
         assert response.status_code == 404
+
+    async def test_get_dictionary_term_includes_trait_powers(
+        self,
+        client: "AsyncClient",
+        build_url: "Callable[[str, Any], str]",
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: "Developer",
+        trait_factory: "Callable[..., Trait]",
+        trait_power_factory: "Callable[..., TraitPower]",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
+    ) -> None:
+        """Verify a trait-sourced dictionary term embeds the trait's dot-level powers."""
+        # Given a dedicated trait, its power, and a global term sourced from it. Owning
+        # the data avoids a fragile seeded-trait name lookup (which can match more than
+        # one row under parallel test pollution) and contention with other test files on
+        # the shared (trait, level) slot.
+        trait = await trait_factory(name="Powers Dictionary Trait")
+        power = await trait_power_factory(trait=trait, level=1, name="Integration Test Power")
+        trait_term = await dictionary_term_factory(
+            term="powers dictionary term",
+            definition="A trait-sourced term for the powers test.",
+            source_type=DictionarySourceType.TRAIT,
+            source_id=trait.id,
+        )
+
+        # When we get the term
+        response = await client.get(
+            build_url(
+                Dictionaries.DETAIL,
+                company_id=session_company.id,
+                dictionary_term_id=trait_term.id,
+            ),
+            headers=token_company_user,
+        )
+
+        # Then the response embeds the power at its dot level
+        assert response.status_code == 200
+        powers = response.json()["powers"]
+        assert {"level": power.level, "name": power.name} in [
+            {"level": p["level"], "name": p["name"]} for p in powers
+        ]
