@@ -73,6 +73,7 @@ class CharacterSheetService:
                 "trait__sheet_section",
                 "trait__gift_tribe",
                 "trait__gift_auspice",
+                "trait__powers",
             ),
         ]
         if include_available_traits:
@@ -84,7 +85,12 @@ class CharacterSheetService:
                     is_custom=False,
                 )
                 .prefetch_related(
-                    "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"
+                    "category",
+                    "sheet_section",
+                    "subcategory",
+                    "gift_tribe",
+                    "gift_auspice",
+                    "powers",
                 )
                 .order_by("name")
             )
@@ -193,6 +199,7 @@ class CharacterSheetService:
                 "trait__sheet_section",
                 "trait__gift_tribe",
                 "trait__gift_auspice",
+                "trait__powers",
             ),
         ]
 
@@ -204,7 +211,12 @@ class CharacterSheetService:
                     is_custom=False,
                 )
                 .prefetch_related(
-                    "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"
+                    "category",
+                    "sheet_section",
+                    "subcategory",
+                    "gift_tribe",
+                    "gift_auspice",
+                    "powers",
                 )
                 .order_by("name")
             )

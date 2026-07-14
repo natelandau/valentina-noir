@@ -17,7 +17,9 @@ async def test_trait_response_includes_prefetched_powers(trait_factory, trait_po
     # Refetch from the DB: a freshly-created factory instance's uuid_utils.UUID id
     # does not dict-match the stdlib uuid.UUID that fetch_related uses internally.
     trait = await Trait.get(id=trait.id)
-    await trait.fetch_related("category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers")
+    await trait.fetch_related(
+        "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers"
+    )
 
     # When the response is built
     response = TraitResponse.from_model(trait)
@@ -31,7 +33,9 @@ async def test_trait_response_empty_powers_when_not_prefetched(trait_factory):
     """Verify TraitResponse returns an empty powers list when the relation was not prefetched."""
     # Given a trait with only the standard relations prefetched (no powers)
     trait = await trait_factory(name="Strength")
-    await trait.fetch_related("category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice")
+    await trait.fetch_related(
+        "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"
+    )
 
     # When the response is built
     response = TraitResponse.from_model(trait)
