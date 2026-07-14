@@ -66,14 +66,24 @@ class TraitPowerSyncer:
         else:
             lookup["subcategory_id__isnull"] = True
 
-        trait = await Trait.filter(**lookup).first()
-        if trait is None:
+        # Fetch all matches rather than .first(): Trait has no DB uniqueness on
+        # (name, category[, subcategory]), so an ambiguous match must be a hard
+        # error too, not a silent arbitrary pick.
+        matches = await Trait.filter(**lookup)
+        if not matches:
             msg = (
                 f"trait_powers.json references trait {entry['trait']!r} in category "
                 f"{entry['category']!r} (subcategory {entry.get('subcategory')!r}) which does not exist"
             )
             raise ValueError(msg)
-        return trait
+        if len(matches) > 1:
+            msg = (
+                f"trait_powers.json references trait {entry['trait']!r} in category "
+                f"{entry['category']!r} (subcategory {entry.get('subcategory')!r}) which is ambiguous: "
+                f"{len(matches)} traits match"
+            )
+            raise ValueError(msg)
+        return matches[0]
 
     def _log_counts(self) -> None:
         """Log sync results."""

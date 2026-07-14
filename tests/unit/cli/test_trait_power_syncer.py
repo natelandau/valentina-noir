@@ -5,8 +5,9 @@ import pytest
 from vapi.cli.lib.trait_power_syncer import TraitPowerSyncer
 from vapi.db.sql_models.character_sheet import TraitPower
 
+pytestmark = pytest.mark.anyio
 
-@pytest.mark.anyio
+
 async def test_syncer_creates_powers_for_resolved_trait(trait_category_factory, trait_factory):
     """Verify the syncer resolves a trait by name+category and creates its powers."""
     # Given a category and its trait matching a fixture entry
@@ -36,7 +37,6 @@ async def test_syncer_creates_powers_for_resolved_trait(trait_category_factory, 
     await TraitPower.filter(trait_id=trait.id).delete()
 
 
-@pytest.mark.anyio
 async def test_syncer_is_idempotent(trait_category_factory, trait_factory):
     """Verify re-running the syncer updates in place rather than duplicating."""
     # Given a trait and one fixture entry
@@ -67,7 +67,6 @@ async def test_syncer_is_idempotent(trait_category_factory, trait_factory):
     await TraitPower.filter(trait_id=trait.id).delete()
 
 
-@pytest.mark.anyio
 async def test_syncer_raises_on_unresolved_trait():
     """Verify an entry referencing a missing trait raises rather than silently skipping."""
     # Given a fixture entry for a trait that does not exist
@@ -78,4 +77,29 @@ async def test_syncer_raises_on_unresolved_trait():
 
     # When the syncer runs, Then it raises
     with pytest.raises(ValueError, match="Nonexistent"):
+        await syncer.sync_entries()
+
+
+async def test_syncer_raises_on_ambiguous_trait(trait_category_factory, trait_factory):
+    """Verify an entry matching more than one trait raises rather than picking arbitrarily."""
+    # Given two traits sharing the same name under the same category
+    category = await trait_category_factory(name="Thaumaturgy Paths Ambiguous")
+    await trait_factory(name="Biothaumaturgy Ambiguous", category=category)
+    await trait_factory(name="Biothaumaturgy Ambiguous", category=category)
+
+    # When the syncer runs against an entry resolving to both traits
+    syncer = TraitPowerSyncer()
+    syncer.fixture_entries = [
+        {
+            "trait": "Biothaumaturgy Ambiguous",
+            "category": "Thaumaturgy Paths Ambiguous",
+            "subcategory": None,
+            "powers": [
+                {"level": 1, "name": "First", "description": "d", "system": None, "link": None}
+            ],
+        }
+    ]
+
+    # Then it raises, naming the ambiguous trait
+    with pytest.raises(ValueError, match="Biothaumaturgy Ambiguous"):
         await syncer.sync_entries()
