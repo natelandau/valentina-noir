@@ -246,7 +246,8 @@ class Trait(BaseModel):
 class TraitPower(BaseModel):
     """A named power a trait grants at a specific dot level (e.g. a Discipline or Thaumaturgy path power).
 
-    Global reference data seeded from trait_powers.json. One power per (trait, level).
+    Global reference data seeded from powers nested under each trait in traits.json.
+    One power per (trait, level).
     """
 
     level = fields.IntField(validators=[MinValueValidator(1), MaxValueValidator(100)])

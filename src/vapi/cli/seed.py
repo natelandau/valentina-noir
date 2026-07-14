@@ -15,7 +15,6 @@ from vapi.cli.lib.fixture_syncer import (
 )
 from vapi.cli.lib.gift_syncer import resolve_gift_trait_references
 from vapi.cli.lib.runner import run_with_tortoise
-from vapi.cli.lib.trait_power_syncer import TraitPowerSyncer
 from vapi.cli.lib.trait_syncer import TraitSyncer
 
 logger = logging.getLogger("vapi")
@@ -28,7 +27,6 @@ async def seed_async() -> None:
     """
     trait_syncer = TraitSyncer()
     await trait_syncer.sync()
-    await TraitPowerSyncer().sync()
     await VampireClanSyncer().sync()
     await WerewolfAuspiceSyncer().sync()
     await WerewolfTribeSyncer().sync()

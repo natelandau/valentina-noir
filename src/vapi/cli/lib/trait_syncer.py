@@ -21,6 +21,7 @@ from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
     TraitCategory,
+    TraitPower,
     TraitSubcategory,
 )
 
@@ -35,6 +36,7 @@ class TraitSyncResult:
     categories: SyncCounts = field(default_factory=SyncCounts)
     subcategories: SyncCounts = field(default_factory=SyncCounts)
     traits: SyncCounts = field(default_factory=SyncCounts)
+    powers: SyncCounts = field(default_factory=SyncCounts)
 
 
 class TraitSyncer:
@@ -55,6 +57,10 @@ class TraitSyncer:
         # need the parent PKs mid-walk).
         self._traits_fast_path = False
         self._pending_traits: list[Trait] = []
+        # Powers nest under their trait in the fixture but need the trait row to exist
+        # first (fast-path traits are only persisted by the bulk insert after the walk),
+        # so collect (trait, powers) here and upsert them once every trait exists.
+        self._pending_powers: list[tuple[Trait, list[dict[str, Any]]]] = []
         # Keys already collected, so repeated fixture rows collapse to one insert
         # exactly as the per-row (name, category, subcategory) lookup would.
         self._seen_trait_keys: set[tuple[str, Any, Any]] = set()
@@ -81,6 +87,9 @@ class TraitSyncer:
 
         if self._pending_traits:
             await bulk_create_new(Trait, self._pending_traits, self.result.traits)
+
+        # Traits (including fast-path rows) now exist, so their nested powers can be upserted.
+        await self._sync_trait_powers()
 
         self.result.sections.total = await CharSheetSection.all().count()
         self.result.categories.total = await TraitCategory.all().count()
@@ -229,6 +238,7 @@ class TraitSyncer:
             if key not in self._seen_trait_keys:
                 self._seen_trait_keys.add(key)
                 self._pending_traits.append(trait)
+                self._collect_powers(trait, fixture_trait)
             return trait, False, False
 
         # Case-insensitive lookup so fixture casing variants match the signal-normalized stored name.
@@ -250,6 +260,7 @@ class TraitSyncer:
         elif needs_update(trait, defaults):
             await trait.update_from_dict(defaults).save()
             updated = True
+        self._collect_powers(trait, fixture_trait)
         return trait, created, updated
 
     async def _sync_traits_batch(
@@ -274,6 +285,32 @@ class TraitSyncer:
             elif updated:
                 counts.updated += 1
         return counts
+
+    def _collect_powers(self, trait: Trait, fixture_trait: dict[str, Any]) -> None:
+        """Queue a trait's nested powers for syncing once every trait row exists."""
+        if powers := fixture_trait.get("powers"):
+            self._pending_powers.append((trait, powers))
+
+    async def _sync_trait_powers(self) -> None:
+        """Upsert every trait's nested powers, keyed on (trait, level).
+
+        Runs after the trait walk so fast-path traits are persisted first. Powers are
+        few, so a per-row upsert keeps re-seeding idempotent without a bulk path.
+        """
+        for trait, fixture_powers in self._pending_powers:
+            for fixture_power in fixture_powers:
+                await upsert(
+                    TraitPower,
+                    lookup={"trait": trait, "level": fixture_power["level"]},
+                    defaults={
+                        "name": fixture_power["name"],
+                        "description": fixture_power.get("description"),
+                        "system": fixture_power.get("system"),
+                        "link": fixture_power.get("link"),
+                    },
+                    counts=self.result.powers,
+                )
+        self.result.powers.total = await TraitPower.all().count()
 
     async def _sync_section_categories(
         self,
@@ -305,6 +342,7 @@ class TraitSyncer:
             ("trait categories", self.result.categories),
             ("trait subcategories", self.result.subcategories),
             ("traits", self.result.traits),
+            ("trait powers", self.result.powers),
         ]:
             logger.info(
                 "Bootstrapped PostgreSQL %s",

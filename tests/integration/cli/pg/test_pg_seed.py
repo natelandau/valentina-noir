@@ -7,6 +7,7 @@ These tests verify the pre-seeded data is correct — they do not re-run seed.
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,9 +19,13 @@ from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
     TraitCategory,
+    TraitPower,
     TraitSubcategory,
 )
 from vapi.db.sql_models.dictionary import DictionaryTerm
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 pytestmark = pytest.mark.anyio
 
@@ -63,6 +68,19 @@ def concepts_fixture() -> list[dict]:
     """Load character concepts fixture data."""
     with (FIXTURES_PATH / "concepts.json").open("r") as f:
         return json.load(f, cls=JSONWithCommentsDecoder)
+
+
+def _iter_fixture_traits(
+    traits_fixture: list[dict],
+) -> Iterator[tuple[str, str | None, dict]]:
+    """Yield (category_name, subcategory_name, trait) for every trait in the fixture."""
+    for section in traits_fixture:
+        for category in section.get("categories", []):
+            for trait in category.get("traits", []):
+                yield category["name"], None, trait
+            for subcategory in category.get("subcategories", []):
+                for trait in subcategory.get("traits", []):
+                    yield category["name"], subcategory["name"], trait
 
 
 # --- Trait hierarchy tests ---
@@ -109,6 +127,37 @@ class TestPgTraitSeed:
         actual_count = await Trait.filter(is_custom=False).count()
         # Allow +-1 for edge cases in fixture parsing
         assert actual_count in [expected_total - 1, expected_total, expected_total + 1]
+
+    async def test_trait_powers_match_fixture(self, traits_fixture: list[dict]) -> None:
+        """Verify traits with nested powers seed their dot-level powers."""
+        # Given every trait that nests powers in the fixture, kept with its category so
+        # the seeded row is found unambiguously even if a same-named test trait exists.
+        fixture_powers = [
+            (category_name, subcategory_name, trait)
+            for category_name, subcategory_name, trait in _iter_fixture_traits(traits_fixture)
+            if trait.get("powers")
+        ]
+        assert fixture_powers, "expected at least one trait with nested powers in the fixture"
+
+        # When each such trait is read from the seeded database
+        for category_name, subcategory_name, fixture_trait in fixture_powers:
+            query = Trait.filter(
+                name=fixture_trait["name"], category__name=category_name, is_custom=False
+            )
+            query = (
+                query.filter(subcategory__name=subcategory_name)
+                if subcategory_name
+                else query.filter(subcategory_id__isnull=True)
+            )
+            db_trait = await query.first()
+            assert db_trait is not None
+            db_powers = await TraitPower.filter(trait_id=db_trait.id).order_by("level")
+
+            # Then its stored powers match the fixture, ordered by level
+            assert [(p.level, p.name) for p in db_powers] == [
+                (power["level"], power["name"])
+                for power in sorted(fixture_trait["powers"], key=lambda p: p["level"])
+            ]
 
     async def test_gift_traits_exist(self) -> None:
         """Verify gift traits were created with gift attributes."""

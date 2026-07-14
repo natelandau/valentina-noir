@@ -6784,7 +6784,23 @@
             "max_value": 5,
             "min_value": 1,
             "is_rollable": true,
-            "system": "Biothaumaturgy does not require the expenditure of blood points to create its magic. Rather, the powers of this path take one week per level to complete at Levels One and Two, and one month per level to complete at Levels Three through Five. For example, the Level One power takes one week to work, while the Level Three power takes three months for the biothaumaturge's experiments to come to fruition. Biothaumaturgy also requires the thaumaturge to have a laboratory where he may conduct his experiments. This need be nothing more complex than a doctor's table and a few sharp knives, but it may be as complex as the 'mad scientist' affairs of pulp fiction, with steaming alembics and crackling generators. The Storyteller should feel free to modify a character's Biothaumaturgy difficulties if he has an excellent laboratory resources or his facilities are utterly lacking. Working with a crude lab may add two to the difficulty while a high-grade facility may lower the difficulties by two."
+            "system": "Biothaumaturgy does not require the expenditure of blood points to create its magic. Rather, the powers of this path take one week per level to complete at Levels One and Two, and one month per level to complete at Levels Three through Five. For example, the Level One power takes one week to work, while the Level Three power takes three months for the biothaumaturge's experiments to come to fruition. Biothaumaturgy also requires the thaumaturge to have a laboratory where he may conduct his experiments. This need be nothing more complex than a doctor's table and a few sharp knives, but it may be as complex as the 'mad scientist' affairs of pulp fiction, with steaming alembics and crackling generators. The Storyteller should feel free to modify a character's Biothaumaturgy difficulties if he has an excellent laboratory resources or his facilities are utterly lacking. Working with a crude lab may add two to the difficulty while a high-grade facility may lower the difficulties by two.",
+            "powers": [
+              {
+                "level": 1,
+                "name": "Thaumaturgical Forensics",
+                "description": "The biothaumaturge reads the physiological history written into flesh and blood, learning how a body lived and died.",
+                "system": "The player rolls Perception + Medicine. Each success reveals one fact about the subject's physical history.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Thaumaturgical Surgery",
+                "description": "The biothaumaturge reshapes living tissue, mending grievous wounds or working subtler alterations.",
+                "system": "The player rolls Intelligence + Medicine. The work takes one week per level of the effect.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "The Focused Mind",
