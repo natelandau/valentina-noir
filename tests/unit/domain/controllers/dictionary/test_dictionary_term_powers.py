@@ -67,4 +67,5 @@ async def test_powers_by_source_id_groups_trait_terms(
     # that DB-sourced power.trait_id uses, since the two do not hash-equal.
     trait = await Trait.get(id=trait.id)
     assert [p.name for p in result[trait.id]] == ["First", "Second"]
-    assert plain_term.source_id not in result
+    # The non-trait term contributes no entry, so the trait is the only key.
+    assert list(result.keys()) == [trait.id]

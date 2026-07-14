@@ -289,16 +289,17 @@ class TestSheetTrait:
         token_company_admin: dict[str, str],
         session_company: Company,
         session_company_admin: Developer,
+        trait_factory: Callable[..., Awaitable[Trait]],
         trait_power_factory: Callable[..., Awaitable[TraitPower]],
         debug: Callable[[...], None],
     ) -> None:
         """Verify the get sheet trait endpoint is working, including embedded powers."""
-        # Biothaumaturgy is the only seeded trait with powers; exclude it so the level-3
-        # slot created below cannot collide with the unique (trait, level) constraint.
-        trait = await Trait.filter(is_archived=False).exclude(name="Biothaumaturgy").first()
-        await trait_power_factory(trait=trait, level=3, name="Integration Test Power")
+        # Use a dedicated trait so the power insert cannot contend with another test file
+        # for the same (trait, level) slot on the shared, session-preserved trait_power table.
+        created = await trait_factory(name="Powers Blueprint Trait")
+        await trait_power_factory(trait=created, level=1, name="Integration Test Power")
         trait = (
-            await Trait.filter(id=trait.id)
+            await Trait.filter(id=created.id)
             .prefetch_related(
                 "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers"
             )
@@ -319,7 +320,7 @@ class TestSheetTrait:
             msgspec.json.encode(TraitResponse.from_model(trait))
         )
         assert any(
-            p["level"] == 3 and p["name"] == "Integration Test Power"
+            p["level"] == 1 and p["name"] == "Integration Test Power"
             for p in response.json()["powers"]
         )
 

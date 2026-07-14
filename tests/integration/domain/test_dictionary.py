@@ -9,18 +9,17 @@ from litestar.status_codes import (
 )
 
 from vapi.constants import DictionarySourceType
-from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import Company
-from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain.urls import Dictionaries
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Callable
 
     from httpx import AsyncClient
 
-    from vapi.db.sql_models.character_sheet import TraitPower
+    from vapi.db.sql_models.character_sheet import Trait, TraitPower
     from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.dictionary import DictionaryTerm
 
 pytestmark = pytest.mark.anyio
 
@@ -269,21 +268,22 @@ class TestDictionaryController:
         token_company_user: dict[str, str],
         session_company: Company,
         session_company_user: "Developer",
-        trait_power_factory: "Callable[..., Awaitable[TraitPower]]",
+        trait_factory: "Callable[..., Trait]",
+        trait_power_factory: "Callable[..., TraitPower]",
+        dictionary_term_factory: "Callable[..., DictionaryTerm]",
     ) -> None:
         """Verify a trait-sourced dictionary term embeds the trait's dot-level powers."""
-        # Given a seeded trait-sourced dictionary term. Biothaumaturgy is the only
-        # seeded trait with powers (levels 1-2); exclude it so the level-3 power
-        # created below cannot collide with the unique (trait, level) constraint.
-        biothaumaturgy = await Trait.get(name="Biothaumaturgy")
-        trait_term = (
-            await DictionaryTerm.filter(source_type=DictionarySourceType.TRAIT)
-            .exclude(source_id=biothaumaturgy.id)
-            .first()
-        )
-        assert trait_term is not None
-        power = await trait_power_factory(
-            trait_id=trait_term.source_id, level=3, name="Integration Test Power"
+        # Given a dedicated trait, its power, and a global term sourced from it. Owning
+        # the data avoids a fragile seeded-trait name lookup (which can match more than
+        # one row under parallel test pollution) and contention with other test files on
+        # the shared (trait, level) slot.
+        trait = await trait_factory(name="Powers Dictionary Trait")
+        power = await trait_power_factory(trait=trait, level=1, name="Integration Test Power")
+        trait_term = await dictionary_term_factory(
+            term="powers dictionary term",
+            definition="A trait-sourced term for the powers test.",
+            source_type=DictionarySourceType.TRAIT,
+            source_id=trait.id,
         )
 
         # When we get the term
