@@ -3,6 +3,12 @@
 
     [default.extend-words]
         criticals = "criticals"
+        sepulchre = "sepulchre"
+        spectres = "spectres"
+        spectre = "spectre"
+        enthousiasm = "enthousiasm"
+        gaol = "gaol"
+        temportal = "temportal"
 
 [files]
     extend-exclude = ["*_cache", ".env", ".env.secrets", ".venv", "CHANGELOG.md", "_site", "static"]
