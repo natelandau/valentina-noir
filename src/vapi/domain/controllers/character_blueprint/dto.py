@@ -15,6 +15,7 @@ from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
     TraitCategory,
+    TraitPower,
     TraitSubcategory,
 )
 
@@ -163,6 +164,29 @@ class NameDescriptionResponse(msgspec.Struct):
     description: str | None
 
 
+class TraitPowerResponse(msgspec.Struct):
+    """A power a trait grants at a specific dot level."""
+
+    id: UUID
+    level: int
+    name: str
+    description: str | None
+    system: str | None
+    link: str | None
+
+    @classmethod
+    def from_model(cls, m: "TraitPower") -> "TraitPowerResponse":
+        """Convert a Tortoise TraitPower to a response Struct."""
+        return cls(
+            id=m.id,
+            level=m.level,
+            name=m.name,
+            description=m.description,
+            system=m.system,
+            link=m.link,
+        )
+
+
 class TraitResponse(msgspec.Struct):
     """Trait response."""
 
@@ -191,6 +215,7 @@ class TraitResponse(msgspec.Struct):
     opposing_pool: str | None
     system: str | None
     gift_attributes: GiftAttributesResponse | None
+    powers: list[TraitPowerResponse]
     date_created: datetime
     date_modified: datetime
 
@@ -199,7 +224,8 @@ class TraitResponse(msgspec.Struct):
         """Convert a Tortoise Trait to a response Struct.
 
         Requires ``fetch_related("category", "sheet_section", "subcategory",
-        "gift_tribe", "gift_auspice")`` to populate name properties and gift attributes.
+        "gift_tribe", "gift_auspice", "powers")`` to populate name properties, gift
+        attributes, and dot-level powers.
         """
         gift_attrs = None
         if m.gift_renown is not None:
@@ -214,6 +240,14 @@ class TraitResponse(msgspec.Struct):
                 auspice_id=m.gift_auspice.id if m.gift_auspice else None,
                 auspice_name=m.gift_auspice_name,
             )
+
+        # powers is a reverse relation; read it only when prefetched so callers that
+        # do not embed powers (and did not prefetch) get an empty list instead of NoValuesFetched.
+        powers = (
+            [TraitPowerResponse.from_model(p) for p in m.powers]
+            if m.powers._fetched  # noqa: SLF001
+            else []
+        )
 
         return cls(
             id=m.id,
@@ -241,6 +275,7 @@ class TraitResponse(msgspec.Struct):
             opposing_pool=m.opposing_pool,
             system=m.system,
             gift_attributes=gift_attrs,
+            powers=powers,
             date_created=m.date_created,
             date_modified=m.date_modified,
         )

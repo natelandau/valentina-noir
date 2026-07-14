@@ -107,7 +107,14 @@ async def provide_trait_by_id(trait_id: UUID) -> Trait:
         Trait,
         "Trait",
         doc_id=trait_id,
-        prefetch=["category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"],
+        prefetch=[
+            "category",
+            "sheet_section",
+            "subcategory",
+            "gift_tribe",
+            "gift_auspice",
+            "powers",
+        ],
     )
 
 

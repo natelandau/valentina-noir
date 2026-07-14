@@ -169,7 +169,14 @@ class CharacterBlueprintService:
         if order_by == BlueprintTraitOrderBy.SHEET:
             sort_key = ("sheet_section__order", "category__order", "name")
 
-        prefetch = ["category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice"]
+        prefetch = [
+            "category",
+            "sheet_section",
+            "subcategory",
+            "gift_tribe",
+            "gift_auspice",
+            "powers",
+        ]
 
         return await self._paginated_query(
             qs, order_by=sort_key, limit=limit, offset=offset, prefetch=prefetch
