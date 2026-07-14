@@ -1109,7 +1109,7 @@
         "traits": [
           {
             "name": "Animalism",
-            "description": "Utilized by those who desire a close and supernatural bond with the animal world as well as a vampire's own Beast.",
+            "description": "Animalism lets vampires communicate with, control, and feed more efficiently on animals, as well as act upon the inner Beast of other vampires. It normally functions only on vertebrates, and affecting herbivores is more difficult.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1121,11 +1121,153 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Bond Famulus",
+                "description": "This power creates an enhanced animal companion bound to the vampire through their vitae. A vampire may maintain only one famulus, though creating animal ghouls remains possible through other means.",
+                "system": "The vampire feeds their blood to an animal across three separate nights (already completed if taken at character creation). A player selects which animal becomes the familiar. Only the creature's death severs this bond.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Sense the Beast",
+                "description": "The vampire senses hostility and supernatural traits in those around them, detecting the presence of the Beast within other creatures.",
+                "system": "This functions passively using Resolve + Animalism, opposed by Composure + Subterfuge. It can also be activated intentionally as needed.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Animal Messenger",
+                "description": "The vampire dispatches their familiar to deliver messages to specific individuals, enabling communication across distances without direct contact.",
+                "system": "Amalgam: requires Auspex 1. Costs one Rouse Check per night. The familiar must test Resolve + Streetwise/Survival (difficulty 2) if the target location is unknown, or Intelligence + Streetwise/Survival if the target actively hides.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Atavism",
+                "description": "The vampire reverts animals to primal instincts, stripping away learned behaviors and unleashing base animal aggression and fear responses.",
+                "system": "Costs one Rouse Check. The target must sense the user. Duration equals margin of success plus one round, or an entire scene on Critical Win.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Feral Whispers",
+                "description": "The vampire achieves two-way communication with animals or summons them through psychic contact, enabling complex conversations and commands.",
+                "system": "Costs one Rouse Check per animal type (free when used on the vampire's famulus). Effect lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Leash the Beast",
+                "description": "The vampire channels their blood to suppress the Beast's awakening, maintaining control during moments of overwhelming rage or hunger.",
+                "system": "Amalgam: requires Fortitude 1. Costs one or two Rouse Checks with no specified opposing pool. Can convert one die's failure into a success during Frenzy tests.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Animal Succulence",
+                "description": "Kindred using this discipline become more efficient feeders when consuming animal blood, partially overcoming the limitations of their vampiric nature.",
+                "system": "Slake additional hunger from animals and counts Blood Potency as 2 levels lower in regards to slaking penalties. This will never let the character slake to 0.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Augury",
+                "description": "Vampires compel insect swarms to arrange themselves into meaningful patterns revealing answers.",
+                "system": "Amalgam: requires Auspex 1. Force a swarm to form an answer to a question over a few minutes. Animalism tests increase in Difficulty by 1 for rest of the session.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Awaken the Parasite",
+                "description": "This discipline animates parasites within a target's body, causing discomfort and distraction.",
+                "system": "Awaken bugs within the body of a victim for one scene. Vampires can use this power on themselves to instill fear or disgust, suffering a two-dice penalty for the duration.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Messenger's Command",
+                "description": "This power allows vampires to channel domination abilities through their animal familiars, extending their influence beyond direct contact.",
+                "system": "Amalgam: requires Dominate 1. Prerequisite: Animal Messenger and Compel or Mesmerize. Use Compel or Mesmerize through a Famulus. Dominate rating cannot exceed the Animalism rating.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Plague of Beasts",
+                "description": "A marked victim becomes conspicuous to wildlife, suffering practical disadvantages while hunted by creatures.",
+                "system": "Mark an individual as a target of animal attention for one night. Target takes margin of success as penalty against Skill pools except Physical; also easier to track down.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Quell the Beast",
+                "description": "This power suppresses the bestial nature within, calming aggression in both vampires and humans alike.",
+                "system": "Force a vampire's beast to slumber or make a mortal lethargic for one scene. Against Vampires this lasts several turns equal to test margin +1.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Scent of Prey",
+                "description": "Kindred can locate witnesses to supernatural events using their predatory senses.",
+                "system": "Track a mortal down who has witnessed a masquerade breach for one scene. It lasts one night if Critical Win.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Unliving Hive",
+                "description": "This power expands command to invertebrates, treating insect swarms as unified entities.",
+                "system": "Amalgam: requires Obfuscate 2. Extends Animalism influence to swarms of insects. Swarms are treated as single creatures.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Subsume the Spirit",
+                "description": "Transfer your consciousness into an animal, inhabiting and controlling its form temporarily or permanently.",
+                "system": "One Rouse Check to possess an animal's body. The cost is free if used on their Famulus. Duration lasts one scene or indefinitely. Dice pool: Manipulation + Animalism.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Sway the Flock",
+                "description": "Command multiple animals in a region to act according to your desires, with effect strength scaling to your success.",
+                "system": "One or more Rouse Checks to influence animals within an area to behave a certain way for one night. The amount of successes determine how influenced the animals are, the Discipline's range can be increased per Rouse Check. Dice pool: Composure + Animalism.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Animal Dominion",
+                "description": "Exert absolute command over groups of existing animals to carry out complex coordinated actions.",
+                "system": "Two Rouse Checks to command flocks or packs of animals. Duration lasts one scene or until directive fulfills. This power does not summon animals, instead utilizing those already present. Dice pool: Charisma + Animalism.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Coax the Bestial Temper",
+                "description": "Manipulate the primal impulses of vampires nearby through vocalizations, making them more or less susceptible to the Beast's call.",
+                "system": "One Rouse Check to increase or decrease nearby vampires' Frenzy resistance. Each success of margin increases or decreases the difficulty. Duration continues while humming. Dice pool: Manipulation + Animalism.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Drawing Out the Beast",
+                "description": "Channel your uncontrolled rage or terror into a target, forcing them to experience the Frenzy while you regain composure.",
+                "system": "One Rouse Check to transfer your Frenzy to another nearby victim. Duration matches Frenzy duration. This power cannot transfer Hunger Frenzy. Dice pool: Wits + Animalism versus Composure + Resolve.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Spirit Walk",
+                "description": "Transfer consciousness between animals without returning to your body, enabling seamless transitions across multiple animal hosts.",
+                "system": "Prerequisite: Subsume the Spirit. No cost listed. The duration is as though a critical success was rolled. Extends Subsume the Spirit capabilities indefinitely.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Auspex",
-            "description": "Enables users to hone their senses both physical and psychic in order to bolster their awareness, perceptions, or even see visions of the future.",
+            "description": "Auspex allows Kindred to sift the truth from lies and read the minds around them, feeling emotions from others beyond mortal skill and receiving horrifying flashes of the future. Those who master this Discipline become valuable as spies, detectives, and seers in courts and factions.",
             "link": "https://vtm.paradoxwikis.com/Auspex",
             "character_classes": [
               "VAMPIRE",
@@ -1137,11 +1279,132 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Heightened Senses",
+                "description": "Enhance vampiric senses beyond mortal skill. Prolonged use may require an expenditure of Willpower.",
+                "system": "Add the Auspex rating to all perception rolls. Costs nothing to activate.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Sense the Unseen",
+                "description": "Detect supernatural activity in the area.",
+                "system": "Roll Wits + Auspex or Resolve + Auspex versus the target's defenses. Opposes users of Obfuscate with Wits + Auspex.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Panacea",
+                "description": "Heals Willpower and calms the nerves of a target.",
+                "system": "Amalgam: requires Fortitude 1. One Rouse Check; roll Composure + Auspex. Affecting multiple targets costs additional Willpower.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Premonition",
+                "description": "Receive visions of the future.",
+                "system": "Free when triggered by the Storyteller, or one Rouse Check for active use; roll Resolve + Auspex.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Reveal Temperament",
+                "description": "Smell the Resonance of a target and whether a Dyscrasia is present.",
+                "system": "One Rouse Check; roll Intelligence + Auspex; lasts one scene. Reveals feeding information on Kindred.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Unerring Pursuit",
+                "description": "Track a chosen victim.",
+                "system": "Amalgam: requires Dominate 1. One Rouse Check; roll Resolve + Auspex; lasts one night plus one additional night per success. The target may roll Wits + Awareness to glimpse the user.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Fatal Flaw",
+                "description": "Find the weakness of a target.",
+                "system": "Amalgam: requires Oblivion 1. One Rouse Check; roll Intelligence + Auspex versus Composure + Subterfuge or Stamina + Subterfuge; lasts one scene. Mental weaknesses are defended against with Composure, physical weaknesses with Stamina.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Haruspex",
+                "description": null,
+                "system": "Amalgam: requires Oblivion 1. One Rouse Check; roll Resolve + Auspex; lasts one night. Use the recently dead to reroll dice before night's end. Requires a mortal body that died within the scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Scry the Soul",
+                "description": "Perceive information about the target.",
+                "system": "One Rouse Check; roll Intelligence + Auspex versus Composure + Subterfuge; lasts one turn. Can be used on a single target or on a crowd.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Share the Senses",
+                "description": "Tap into another person's senses.",
+                "system": "One Rouse Check; roll Resolve + Auspex; lasts one scene. A target using Sense the Unseen can notice the user.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Vermin Vision",
+                "description": "Share the senses with animals.",
+                "system": "Amalgam: requires Animalism 2. One Rouse Check; roll Resolve + Animalism; lasts one scene. Works through groups of animals.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Heart Laid Bare",
+                "description": "Know a target's deepest fear or desire.",
+                "system": "One Rouse Check; roll Intelligence + Auspex versus Composure + Subterfuge.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Spirit's Touch",
+                "description": "Gather emotional residue from an object or location.",
+                "system": "One Rouse Check; roll Intelligence + Auspex; lasts one turn. Information is gleaned from the most recent impressions working backward.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Clairvoyance",
+                "description": "Gather information from the surroundings.",
+                "system": "One Rouse Check; roll Intelligence + Auspex; lasts a few minutes up to one night. Can be used to monitor events in progress.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Possession",
+                "description": "Possess a mortal body.",
+                "system": "Amalgam: requires Dominate 3. Two Rouse Checks; roll Resolve + Auspex versus the target's Resolve + Intelligence; lasts until ended. Does not grant the ability to read the target's mind, use their skills, or impersonate them.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Telepathy",
+                "description": "Read minds and project thoughts.",
+                "system": "One Rouse Check, or one Willpower on non-consenting vampires; roll Resolve + Auspex versus Wits + Subterfuge; lasts one minute per Rouse Check, or a full scene on a consenting subject. The user does not need to roll to project their thoughts onto others.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Unburdening the Bestial Soul",
+                "description": "Remove Stains or protect a subject from gaining Stains.",
+                "system": "Prerequisite: Panacea. Amalgam: requires Dominate 3. Two Rouse Checks and 1 Stain; roll Composure + Auspex; lasts one session. Only works on vampires with a lower Humanity rating.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Blood Sorcery",
-            "description": "A type of blood magic that allows the practitioners to manipulate the blood, mortal or vampiric.",
+            "description": "Blood Sorcery is the Discipline of Kindred blood magic, most associated with the Tremere and Banu Haqim. Unlike other Disciplines, it does not develop organically but must be taught or learned through the research of old tomes. It also grants access to rituals matching the practitioner's level of mastery.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1152,11 +1415,139 @@
             ],
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "A Taste for Blood",
+                "description": "Discover traits of another through their blood.",
+                "system": "Free; Resolve + Blood Sorcery dice pool.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Corrosive Vitae",
+                "description": "Turn vitae corrosive.",
+                "system": "One or more Rouse Check. Does not work against unliving flesh, such as other vampires.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Koldunic Sorcery",
+                "description": "Attune to an element, such as water, and sense through that element for one scene, renewable.",
+                "system": "Prerequisite: requires Tzimisce clan. One Rouse Check and aggravated Health damage; roll Resolve + Blood Sorcery, opposed by Wits or Resolve + Obfuscate. Lasts one scene and can be renewed. Can be taken multiple times to attune to different elements.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Shape the Sanguine Sacrament",
+                "description": "Shape blood into a shape or image.",
+                "system": "Free activation; Manipulation + Blood Sorcery dice pool. Duration: One Scene unless deactivated. If the user uses their own vitae, it costs one Rouse Check.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Blood's Curse",
+                "description": "Temporarily increase another vampire's Bane Severity.",
+                "system": "One Rouse Check; Intelligence + Blood Sorcery vs. Stamina + Occult/Fortitude. Duration: Until dawn. If the target is a ghoul, thin-blood, or Caitiff they gain a clan bane.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Extinguish Vitae",
+                "description": "Increases another Kindred's Hunger.",
+                "system": "One Rouse Check; Intelligence + Blood Sorcery vs. Stamina + Composure. The victim can determine who used this power against them if they can see them and win an Intelligence + Occult vs. Wits + Subterfuge roll.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Scour Secrets",
+                "description": "Pore through a large amount of content within minutes.",
+                "system": "One Rouse Check; Intelligence + Blood Sorcery. Duration: One night, or until the information is found or reaches a dead-end. This power does not allow the user to parse things written in a language they cannot understand.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Blood of Potency",
+                "description": "Increase Blood Potency temporarily. This power can allow a Kindred to bypass the Blood Potency limit set by their generation.",
+                "system": "One Rouse Check; Resolve + Blood Sorcery. Duration: One Scene or Night.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Ripples of the Heart",
+                "description": "Manipulate the blood or Blood of others. This power can inflict Compulsions on others who feed from the infected, or alter the Resonance of a mortal.",
+                "system": "One Rouse Check.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Scorpion's Touch",
+                "description": "Change own vitae into a paralyzing poison. A mortal who takes any damage from this will go unconscious.",
+                "system": "One or more Rouse Check; Strength + Blood Sorcery vs. Stamina + Occult/Fortitude. Duration: One Scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Transitive Bond",
+                "description": "Extend the properties of Blood Bonding in vitae. This power was developed originally by the Tremere to combat their bane, only to resurface within the Sabbat.",
+                "system": "One Rouse Check.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Blood Aegis",
+                "description": "Form a protective Blood barrier.",
+                "system": "One or more Rouse Checks. Duration: One scene or until the damage is spent. For each Rouse Check, the user can reduce the damage taken by five points.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Fulminating Vitae",
+                "description": "A bomb made from a jar of vitae. Deals Aggravated damage to Kindred and Superficial damage to Mortals.",
+                "system": "Two Rouse Checks; Stamina + Blood Sorcery vs. Wits + Athletics. Duration: Until dawn.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Marionette",
+                "description": "Control the blood within a body, either living or dead.",
+                "system": "Prerequisite: requires Shape the Sanguine Sacrament. One Rouse Check; Manipulation + Blood Sorcery vs. Stamina + Occult or Fortitude. Duration: One turn per point of margin. Dead bodies test against difficulty 2.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Theft of Vitae",
+                "description": "Manipulate blood from a victim through the air to feed. When in use, the victim is under the same influence as a standard Kiss.",
+                "system": "One Rouse Check; Wits + Blood Sorcery vs. Wits + Occult. Duration: One feeding.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Baal's Caress",
+                "description": "Change the user's own Vitae into an aggressive and lethal poison. If a mortal takes one point of damage they die instantly.",
+                "system": "One or more Rouse Checks; Strength + Blood Sorcery vs. Stamina + Occult/Fortitude. Duration: One Scene.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Cauldron of Blood",
+                "description": "Boil the victim's blood in their body. If a mortal takes one point of damage they die screaming.",
+                "system": "One Rouse Check, Stains; Resolve + Blood Sorcery vs. Composure + Occult/Fortitude. Duration: One turn.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Reclamation of Vitae",
+                "description": "Reclaim the Blood given to create ghouls over distance. Those outside of the Sabbat take Stains upon use.",
+                "system": "One or more Stains.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Celerity",
-            "description": "Powers up the movement of the user, enabling them to have unnatural quickness in their movement and supernatural reflexes.",
+            "description": "Celerity allows the kindred to defy the constraints of the human body. Dodging, running, and general movements outside of natural ability come easily when using these powers.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1168,7 +1559,121 @@
             "link": "https://vtm.paradoxwikis.com/Celerity",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Cat's Grace",
+                "description": null,
+                "system": "Automatically pass balance tests. Does not work on objects that cannot support their weight.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Fluent Swiftness",
+                "description": null,
+                "system": "Reroll Blood Surge on a Dexterity or Celerity test.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Rapid Reflexes",
+                "description": null,
+                "system": "Faster reactions and minor actions. Prevents them from taking a penalty when they have no cover during a firefight.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Fleetness",
+                "description": null,
+                "system": "Add Celerity rating for non-combat Dexterity test or defending. May be used once per turn when defending with associated pools.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Rush Job",
+                "description": null,
+                "system": "Perform a Skill-related task that would take a long time in mere seconds. Does not speed up attacks or defenses.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "A Thousand Cuts",
+                "description": null,
+                "system": "Add Celerity to Brawl/Melee to automatically impair Mortals. Only usable with Claws or Edged Weaponry.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Blink",
+                "description": null,
+                "system": "Closes the distance as if teleporting. User moves in a straight line and may need checks against difficult terrain.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Traversal",
+                "description": null,
+                "system": "Move fast enough to move up vertical surfaces or liquid surfaces.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Weaving",
+                "description": null,
+                "system": "Prerequisite: requires Rapid Reflexes. Remove the penalty from dodging multiple ranged opponents.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Blurred Momentum",
+                "description": null,
+                "system": "Attacks against the user with fewer successes than their Celerity rating miss.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Draught of Elegance",
+                "description": null,
+                "system": "Turn their vitae into a Celerity boost for others.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Faster than Light",
+                "description": null,
+                "system": "Prerequisite: requires Blink. While using Blink, make an additional Rouse Check to pass through sunlight or fire.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Unerring Aim",
+                "description": null,
+                "system": "Amalgam: requires Auspex 2. The world slows down to a crawl. Those with Celerity 5 may nullify this power with a Rouse Check and defend.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Unseen Strike",
+                "description": null,
+                "system": "Prerequisite: requires Blink. Amalgam: requires Obfuscate 4. Disappear then reappear to surprise attack an enemy.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Lightning Strike",
+                "description": null,
+                "system": "Attack with lightning speed. Those with Celerity 5 may nullify this power with a Rouse Check and defend.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Split Second",
+                "description": null,
+                "system": "Alter the events given by Storyteller in a current scene within reason. Action should be reasonable and accomplished within a few seconds in real-time.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Chimerstry",
@@ -1186,7 +1691,7 @@
           },
           {
             "name": "Dominate",
-            "description": "Allows the user to use mind control through eye contact and spoken word as well as manipulate memories of their victims.",
+            "description": "Dominate gives Kindred the ability to control the actions of others, alter their memories, and force others to act not of their own volition.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1198,11 +1703,125 @@
             "link": "https://vtm.paradoxwikis.com/Dominate",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Cloud Memory",
+                "description": "Make someone forget the current moment.",
+                "system": "Cost: Free. Duration: Indefinitely. Dice Pool: Charisma + Dominate vs Wits + Resolve.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Compel",
+                "description": "Issue a single command.",
+                "system": "Cost: Free. Duration: No more than one scene. Dice Pool: Charisma + Dominate vs Intelligence + Resolve.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Slavish Devotion",
+                "description": "Those already underneath Dominate find it easier to resist other Kindred's Dominate.",
+                "system": "Prerequisite: requires Fortitude 1. Cost: Free. Duration: Passive. Attempts by a third party take a dice penalty equal to the other vampire's Fortitude rating.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Dementation",
+                "description": "Drive others insane.",
+                "system": "Prerequisite: requires Obfuscate 2. Cost: One Rouse Check per target per scene. Duration: One scene. Dice Pool: Manipulation + Dominate vs Composure + Intelligence. To use this power, the user must have had a conversation with the target.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Domitor's Favor",
+                "description": "Make defiance while under a Blood Bond more difficult.",
+                "system": "Cost: One Rouse Check. Duration: One month. A total fail on defiance rolls means the bond does not weaken that month.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Mesmerize",
+                "description": "Issue complex commands.",
+                "system": "Cost: One Rouse Check. Duration: Until the command is carried out or the scene ends. Dice Pool: Manipulation + Dominate vs Intelligence + Resolve.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "The Stolen Voice",
+                "description": "Remove a target's ability to express themselves, leaving them unable to speak, write, or gesture.",
+                "system": "Cost: One Rouse Check. Duration: One scene. Dice Pool: Composure + Dominate vs Resolve + Performance.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Forgetful Mind",
+                "description": "Rewrite someone's memory.",
+                "system": "Cost: One Rouse Check. Duration: Indefinitely. Dice Pool: Manipulation + Dominate vs Intelligence + Resolve. Each point of margin on the test allows one additional memory to be altered.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Submerged Directive",
+                "description": "Implant Dominate orders as suggestions for victims.",
+                "system": "Prerequisite: requires Mesmerize. Cost: Free. Duration: Passive. These orders never expire until completed, and targets can only have one at a time.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Ancestral Dominion",
+                "description": "Urge a descendant to act even if against their own opinion.",
+                "system": "Amalgam: requires Blood Sorcery 2. Prerequisite: requires Mesmerize. Cost: One Rouse Check. Duration: Until the command is carried out or the scene ends. Dice Pool: Manipulation + Dominate vs Resolve + Occult. For each generation separating them, the target gains an additional die to resist.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Implant Suggestion",
+                "description": "Change another's personality or opinion temporarily.",
+                "system": "Amalgam: requires Presence 1. Cost: One Rouse Check. Duration: One scene. Dice Pool: Manipulation + Dominate vs Composure + Resolve.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Rationalize",
+                "description": "Convince victims of Dominate that it was their idea the entire time.",
+                "system": "Cost: Free. Duration: Indefinitely. If pressed on their actions, the victim can make a test and if successful they question their actions.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Tabula Rasa",
+                "description": "Erase the victim's memory to the point they don't know who they are.",
+                "system": "Cost: Two Rouse Checks. Duration: Permanent. Dice Pool: Resolve + Dominate vs Composure + Resolve. Following this power's use is generally a string of lies and Path Indoctrination.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Lethe's Call",
+                "description": "Erase weeks' worth of memory.",
+                "system": "Prerequisite: requires Cloud Memory or Forgetful Mind. Cost: One Rouse Check. Duration: Indefinitely. Dice Pool: Manipulation + Dominate vs Intelligence + Resolve.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Mass Manipulation",
+                "description": "Extend the effects of Dominate to multiple targets.",
+                "system": "Cost: One Rouse Check in addition to the power it is added to. Duration: As per the power amplified. The victims need to see the eyes of the user. The user makes the roll against the strongest of the group.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Terminal Decree",
+                "description": "Bolster the effects of Dominate to circumvent victims' self-preservation.",
+                "system": "Cost: Free, but will give Stains. Duration: Passive. Terminal commands are always resisted instead of automatically failing.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Fortitude",
-            "description": "Strengthens the user's physical and mental resistance.",
+            "description": "Fortitude is a physical Discipline that lets a vampire withstand both physical and mental harm. It grants resilience against violence, fire, and supernatural coercion, making it a cornerstone for Kindred who expect repeated combat and environmental hazards.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1214,7 +1833,149 @@
             "link": "https://vtm.paradoxwikis.com/Fortitude",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Fluent Endurance",
+                "description": "The vampire recovers their endurance through sheer determination.",
+                "system": "Once per scene at no cost, reroll a Blood Surge Rouse Check made for a Stamina or Fortitude test.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Resilience",
+                "description": "The undead body becomes tougher and harder to injure.",
+                "system": "Passive. Add the Fortitude rating to the health track.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Unswayable Mind",
+                "description": "Strong willpower resists attempts at coercion or domination.",
+                "system": "Passive. Add the Fortitude rating to resist mental influence, including supernatural effects.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Earth's Perseverance",
+                "description": "The vampire roots themselves to a location with supernatural strength.",
+                "system": "One Rouse Check. Makes the user immovable for one scene or until released; they can still take damage.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Enduring Beasts",
+                "description": "The vampire shares their toughness with bonded animals.",
+                "system": "Amalgam: requires Animalism 1. One Rouse Check, lasts one scene; roll Stamina + Animalism. Free and automatic when used on a Famulus.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Invigorating Vitae",
+                "description": "Kindred vitae becomes more restorative when used on humans.",
+                "system": "Amalgam: requires Auspex 1. Passive. Mortals heal faster when fed vampire blood, with the standard ghouling and blood bond risks.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Obdurate",
+                "description": "The vampire keeps their footing when struck by massive force.",
+                "system": "Amalgam: requires Potence 2. One Rouse Check, lasts one scene; roll Wits + Survival. Reduces falling and impact superficial damage by the Fortitude rating before halving.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Self-Assurance",
+                "description": "Mental resolve protects against social manipulation.",
+                "system": "Prerequisite: Unswayable Mind. One Rouse Check, lasts one scene. Reduces superficial Willpower damage in social combat by the Fortitude rating, and can negate one aggravated Willpower damage, though that negation does not renew during the same scene.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Toughness",
+                "description": "Hardened undead flesh shrugs off minor injuries.",
+                "system": "One Rouse Check, lasts one scene. Subtract the Fortitude rating from all superficial damage taken before halving, to a minimum of one.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Calloused Soul",
+                "description": "The vampire hardens their soul against moral corruption.",
+                "system": "Costs two Stains (three are gained but one can be mitigated with Conviction), lasts one night. Preemptively reduces future Stain gains.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Defy Bane",
+                "description": "The vampire resists their traditional weaknesses through sheer resilience.",
+                "system": "One Rouse Check, lasts one scene; roll Wits + Survival. Converts aggravated damage to superficial, though that damage cannot be healed for the rest of the scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Fortify the Inner Façade",
+                "description": "Mental defenses strengthen against psychic intrusion.",
+                "system": "Passive. Increases the difficulty of mental powers piercing the mind by half the Fortitude rating, and adds the Fortitude rating to resistance pools when applicable.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Seal the Beast's Maw",
+                "description": "The vampire suppresses Beast impulses through discipline.",
+                "system": "Two Rouse Checks, lasts one scene. Ignore Hunger effects but reduce dice pools accordingly; make a Fury Frenzy test if a pool reaches zero.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Valeren",
+                "description": "Salubri use the Discipline to heal other Kindred.",
+                "system": "Amalgam: requires Auspex 1. One Rouse Check; roll Intelligence + Fortitude to mend an injured vampire. Each subject can be affected only once per night.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Draught of Endurance",
+                "description": "The vampire shares vitae-enhanced durability with allies.",
+                "system": "One Rouse Check plus one per drinker, lasts one night. Grants a Fortitude boost to multiple mortals or vampires.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Gorgon's Scales",
+                "description": "Different emotional states grant specialized protections.",
+                "system": "One Rouse Check, lasts one scene. The Resonance type determines the bonus: Choleric grants immunity to staking, Melancholy grants fire resistance, Phlegmatic grants Auspex resistance, and Sanguine grants sunlight resistance.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Shatter",
+                "description": "Hardened flesh rebounds force back onto attackers.",
+                "system": "Prerequisite: Toughness. One Rouse Check, lasts one scene or until hitting something. The opponent takes the damage that Toughness would subtract, and weapons break if the modifier is exceeded.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Flesh of Marble",
+                "description": "The vampire becomes statue-like, impervious to most harm.",
+                "system": "Two Rouse Checks, lasts one scene. Ignore the first source of physical damage each turn (except sunlight); a critical hit bypasses the power.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Meat Shields",
+                "description": "Nearby mortals provide additional protection.",
+                "system": "One Rouse Check, lasts one scene or until leaving the targets. Increases Fortitude by half the number of weak mortals present, rounded down, to a maximum of +5.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Prowess from Pain",
+                "description": "Injury fuels enhanced physical capability.",
+                "system": "One Rouse Check, lasts one scene. Eliminates health damage penalties and increases one Attribute per level of damage taken, capped at Blood Surge + 6.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Necromancy",
@@ -1232,7 +1993,7 @@
           },
           {
             "name": "Obfuscate",
-            "description": "The art of not being seen even in crowds either through being wholly unseen or by blending in.",
+            "description": "Obfuscate is the Discipline of concealment, letting vampires hide themselves, their companions, and objects from mortal and supernatural senses. Its powers range from simply blending into the shadows to crafting elaborate hallucinations and assuming false identities.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1244,7 +2005,163 @@
             "link": "https://vtm.paradoxwikis.com/Obfuscate",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Cloak of Shadows",
+                "description": "Passive concealment while stationary, following standard Obfuscate rules.",
+                "system": "As long as the user stands still they blend into their surroundings.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Ensconce",
+                "description": "Conceals held items; pierced by Sense the Unseen.",
+                "system": "Make others ignore small objects that are held on the vampire's body.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Mask of Ages",
+                "description": "Illusory age shift; Storytellers may limit bonus dice by the degree of age variance.",
+                "system": "Appear as an older or younger version of themselves, lasting until sunrise.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Silence of Death",
+                "description": "Eliminates the personal noise a user makes; does not suppress external power effects.",
+                "system": "Nullifies the sounds a user makes.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Cache",
+                "description": "Conceals inanimate objects; extendable nightly with additional Rouse checks.",
+                "system": "Prerequisite: requires Ensconce. Hide objects that are not held by the vampire for one scene or until dawn.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Chimerstry",
+                "description": "Combat-usable illusions affecting single targets once per conflict.",
+                "system": "Amalgam: requires Presence 1. Create brief but realistic hallucinations lasting one turn; Manipulation + Obfuscate vs. Composure + Wits.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Doubletalk",
+                "description": "Covert messaging contested by present observers.",
+                "system": "Amalgam: requires Auspex 1. Say one thing but convey something else in secret; Composure + Obfuscate vs. Wits + Auspex.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Ghost's Passing",
+                "description": "Extends concealment to animal sign; pierced by Sense the Unseen.",
+                "system": "Amalgam: requires Animalism 1. User can bestow Obfuscate onto an animal's tracks for one session.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Unseen Passage",
+                "description": "Mobile concealment; fails if actively watched when activated.",
+                "system": "User can now move while remaining hidden for one scene or until detected.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Ventriloquism",
+                "description": "Targeted auditory deception usable on line-of-sight targets.",
+                "system": "Amalgam: requires Auspex 2. Throw their voice so only the intended recipient can hear it; Wits + Obfuscate vs. Resolve + Composure.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Fata Morgana",
+                "description": "Creates elaborate hallucinations that persist throughout a scene.",
+                "system": "Amalgam: requires Presence 2. Manipulation + Obfuscate opposed roll; one Rouse Check; lasts one scene unless allowed to lapse.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Ghost in the Machine",
+                "description": "Allows the Discipline's concealment to transmit via live surveillance screens; recorded footage appears blurred.",
+                "system": "Free activation; extends Obfuscate effects through live technology displays.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Guise of the Departed",
+                "description": "Replicates the appearance and mannerisms of a recently deceased mortal.",
+                "system": "Amalgam: requires Oblivion 1. Wits + Obfuscate; one Rouse Check; duration until dawn.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Mask of a Thousand Faces",
+                "description": "Enables the user to adopt a mundane appearance rather than vanish, permitting interaction and communication with others.",
+                "system": "One Rouse Check; lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Mask of Isolation",
+                "description": "Forces the target to perceive themselves as isolated from all other beings; the effect ends if the victim becomes aware of it.",
+                "system": "Amalgam: requires Dominate 1. Manipulation + Obfuscate versus Charisma + Insight; one Rouse Check; duration extends one night plus additional nights per margin of success.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Mental Maze",
+                "description": "Removes the victim's sense of direction and location within their current area.",
+                "system": "Amalgam: requires Dominate 1. Charisma + Obfuscate opposed by Wits + Resolve; one or three Rouse Checks; lasts one night; requires eye contact.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Mind Masque",
+                "description": "Conceals and replaces emotions and thoughts against supernatural detection, with difficulty scaling to the complexity of the deception.",
+                "system": "Amalgam: requires Dominate 2. Intelligence + Obfuscate; one Rouse Check; lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Conceal",
+                "description": "Cloaks inanimate objects up to the size of a two-story house; cannot affect moving entities.",
+                "system": "Amalgam: requires Auspex 3. Intelligence + Obfuscate; one Rouse Check; lasts one night plus additional nights per margin.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Seclusion",
+                "description": "Isolates the target from perceiving or hearing any other entity; an additional resistance test is required if the target suffers physical harm.",
+                "system": "Amalgam: requires Dominate 1. Manipulation + Obfuscate opposed by Resolve + Awareness; one Rouse Check; duration spans a margin number of scenes or nights.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Vanish",
+                "description": "Enables activation of Cloak of Shadows or Unseen Passage while under direct observation; obscures mortal memories but not vampire recollection.",
+                "system": "Wits + Obfuscate opposed by Wits + Awareness; cost and mechanics match the augmented power.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Cloak the Gathering",
+                "description": "Extends chosen Obfuscate powers to multiple companions simultaneously.",
+                "system": "One additional Rouse Check beyond the base power's cost; extends to a number of companions equal to the user's Wits attribute.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Impostor's Guise",
+                "description": "Allows assumption of another person's complete appearance and mannerisms.",
+                "system": "Wits + Obfuscate opposed by Manipulation + Performance; one Rouse Check; lasts one scene; requires a five-minute study of the target's face from multiple angles.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Obeah",
@@ -1263,7 +2180,7 @@
           },
           {
             "name": "Oblivion",
-            "description": "Has two branches: one allows the user to manipulate shadows at will and the other enables necromancy or usage of spirits, though both tap into the Abyss.",
+            "description": "Oblivion is the shared Discipline of the Lasombra and the Hecata, drawing on the entropic void that lies between the living world and the realm of the dead. It lets its users command darkness and shadows, sense and manipulate the dead, and channel raw decay. Wielding it courts moral corruption, often marking the user with Stains.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1274,7 +2191,170 @@
             "link": "https://vtm.paradoxwikis.com/Oblivion",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Ashes to Ashes",
+                "description": "Accelerates the natural decay of a corpse, reducing it to ashes and a viscous residue.",
+                "system": "Cost one Rouse Check. An inanimate corpse dissolves over three turns with no test; a resisting or animate target is contested with Stamina + Oblivion versus Stamina + Medicine or Fortitude.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Binding Fetter",
+                "description": "Reveals the objects, places, or people that anchor a wraith to the mortal world.",
+                "system": "Activate for free and roll Wits + Oblivion to identify a wraith's fetters through the senses. Lasts one scene, during which the user takes a -2 penalty to Awareness, Wits, and Resolve rolls.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Oblivion Sight",
+                "description": "The user's eyes open onto the world of the dead, letting them see in darkness and perceive ghosts.",
+                "system": "Free to activate, no dice pool. Grants clear sight in total darkness and the ability to perceive ghosts. While active the user unnerves the living, taking a -2 penalty to social interactions with mortals. Lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Shadow Cloak",
+                "description": "The user manipulates ambient shadows to conceal themselves and to menace mortals.",
+                "system": "Passive, no cost and no dice pool. Grants a +2 bonus to stealth rolls and to intimidation against mortals.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Arms of Ahriman",
+                "description": "Shadowy tentacles rise from the user to grasp and strike at their foes.",
+                "system": "Amalgam: requires Potence 2. Cost one Rouse Check. Roll Wits + Oblivion. The shadow limbs persist for one scene, but the user can take no other actions while controlling them and the limbs have no separate health track.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Fatal Precognition",
+                "description": "The user receives a vision of how a chosen non-vampire will die.",
+                "system": "Amalgam: requires Auspex 2. Cost one Rouse Check. Roll Resolve + Oblivion while able to see or hear the target. The premonition lasts until the foreseen death is either fulfilled or avoided.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Fatal Prediction",
+                "description": "The user pronounces a doom over a mortal, making them far more likely to be harmed by outside forces.",
+                "system": "Amalgam: requires Auspex 2. Cost one Rouse Check. Roll Resolve + Oblivion versus Wits + Occult; on a win the victim suffers 1 Aggravated damage per margin of success from mishaps over the next 24 hours.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Shadow Cast",
+                "description": "The user projects an unnatural shadow from their body to intimidate and dishearten others.",
+                "system": "Cost one Rouse Check. The conjured shadow extends up to twice the user's Oblivion rating and increases Willpower damage dealt in social conflict. Lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Where the Veil Thins",
+                "description": "The user senses the strength of the Shroud that separates the living world from the underworld.",
+                "system": "Cost one Rouse Check. Roll Intelligence + Oblivion to gauge the density of the Shroud in the area, with varying supernatural effects. Resolves in one turn.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Aura of Decay",
+                "description": "Death radiates from the user, wilting plants, sickening living creatures, and spoiling food nearby.",
+                "system": "Cost one Rouse Check. Living targets contest with Stamina + Oblivion versus Stamina + Medicine or Fortitude. Lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Passion Feast",
+                "description": "The user feeds on the lingering passions of wraiths to slake their Hunger.",
+                "system": "Amalgam: requires Fortitude 2. Free and passive. Roll Resolve + Oblivion versus Resolve + Composure. Hunger satisfied this way does not return the following night.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Shadow Perspective",
+                "description": "The user projects their senses into a nearby shadow to observe events from a distance.",
+                "system": "Cost one Rouse Check. Project sight and hearing into a shadow within line of sight for up to one scene. The projection is detectable only by supernatural means.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Shadow Servant",
+                "description": "The user animates a shadow into a mindless servant used for spying or intimidation.",
+                "system": "Amalgam: requires Auspex 1. Cost one Rouse Check. Creates a shadow construct that lasts one scene and is destroyed by bright light.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Touch of Oblivion",
+                "description": "The user's grip channels raw decay, withering the flesh they touch.",
+                "system": "Cost one Rouse Check. Requires gripping the target. Withers a body part over one turn and may incur Stains at the Storyteller's discretion.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Necrotic Plague",
+                "description": "The user inflicts a supernatural, wasting disease upon a victim.",
+                "system": "Cost one Rouse Check. Roll Intelligence + Oblivion versus Stamina + Medicine or Fortitude. The illness can be cured only by consuming vitae. Duration varies.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Profane the Sanctified",
+                "description": "The user corrupts symbols of faith and staggers the devout.",
+                "system": "Prerequisite: requires Aura of Decay or Touch of Oblivion. Cost one Rouse Check. Roll Resolve + Oblivion versus a Willpower test; stuns wielders of True Faith for one turn and permanently corrodes holy symbols.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Stygian Shroud",
+                "description": "The user summons a pool of supernatural darkness from surrounding shadows.",
+                "system": "Cost one Rouse Check. Manifests darkness covering an area up to twice the user's Oblivion rating. Lasts one scene.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Umbrous Clutch",
+                "description": "The user reaches through a victim's own shadow to seize them from a distance.",
+                "system": "Cost one Rouse Check and one Stain. Roll Wits + Oblivion versus Dexterity + Wits to instantly pull the victim into the user's grasp.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Shadow Step",
+                "description": "The user steps into one shadow and emerges from another within sight.",
+                "system": "Cost one Rouse Check. Move between two shadows in line of sight in a single turn. Willing companions may be carried along.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Skuld Fulfilled",
+                "description": "The user revisits past afflictions on a victim, reviving diseases they had overcome.",
+                "system": "Cost two Rouse Checks. Roll Stamina + Oblivion versus Stamina + Stamina or Fortitude. Reintroduces illnesses the victim had recovered from and can strip a ghoul's vitae-granted immunity. Duration varies.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Tenebrous Avatar",
+                "description": "The user dissolves into living shadow, becoming a formless creature of darkness.",
+                "system": "Cost two Rouse Checks. The user becomes a shadow form immune to all damage except sunlight and fire. Lasts one scene or until ended.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "The Darkness Within",
+                "description": "The user draws a shadowy doppelganger out of a victim that mirrors their abilities.",
+                "system": "Cost two Rouse Checks. Roll Manipulation + Oblivion versus Composure + Resolve. The summoned entity copies the victim's skills and Disciplines and lasts one scene or until destroyed.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Withering Spirit",
+                "description": "The user erodes a victim's very soul, ensuring they cannot rise again as a wraith.",
+                "system": "Cost two Rouse Checks and Stains. Roll Resolve + Oblivion versus Resolve + Occult or Fortitude. A victim reduced by it will not return as a wraith. Lasts one turn.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Quietus",
@@ -1292,7 +2372,7 @@
           },
           {
             "name": "Potence",
-            "description": "Strengthens the user's physical prowess.",
+            "description": "Potence fuels the strength behind a hit, enhancing a vampire's strikes to a deceptive degree, as a frail Kindred can decapitate a target with one hit. This vitae-fueled power goes beyond simply being useful in a fight, as it also enables the user to force their body into actions impossible for most to replicate without it.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1304,11 +2384,118 @@
             "link": "https://vtm.paradoxwikis.com/Potence",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Fluent Strength",
+                "description": null,
+                "system": "Cost: Free. Reroll Blood Surge rouse checks on Strength or Potence rolls.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Lethal Body",
+                "description": null,
+                "system": "Cost: Free. Unarmed attacks do Aggravated Health damage to mortals when used and ignore one level of armor per Potence rating of user.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Soaring Leap",
+                "description": null,
+                "system": "Cost: Free. Leap higher and further than usual. They can move as many meters as three times their Potence rating.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Prowess",
+                "description": null,
+                "system": "Cost: One Rouse Check. Add Potence rating to their unarmed damage and to feats of Strength, add half their Potence rating (rounded up) to Melee damage. Duration: one scene.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Relentless Grasp",
+                "description": null,
+                "system": "Cost: One Rouse Check. Gain supernatural grip strength. Does not benefit the initial grapple test. Duration: one scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Brutal Feed",
+                "description": null,
+                "system": "Cost: Free. Turn feeding into a violent and messy affair that only lasts seconds to Slake the user's Hunger. Against vampires the number of feeding actions is halved (rounded down).",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Exuberance",
+                "description": null,
+                "system": "Cost: Free. Treat Potence rating as two levels higher when using Potence powers. This can take the relative discipline above the limit of 5, but when a critical or failure is rolled, take Aggravated damage.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Spark of Rage",
+                "description": null,
+                "system": "Prerequisite: requires Presence 3. Cost: One Rouse Check. The user can add their Potence rating to rile or incite a person or crowd to violent actions. Against vampires, the user will roll Manipulation + Potence vs Intelligence + Composure. Duration: one scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Uncanny Grip",
+                "description": null,
+                "system": "Cost: One Rouse Check. Strengthens their grip on most surfaces, allowing them to climb or hang unsupported. The use of this power leaves obvious traces from the damage caused. Duration: one scene.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Wrecker",
+                "description": null,
+                "system": "Prerequisite: requires Prowess. Cost: Free. Double Potence rating when used for feats of strength. It cannot be used against living targets.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Crash Down",
+                "description": null,
+                "system": "Prerequisite: requires Soaring Leap. Cost: One Rouse Check. Deal damage to a small area when using Soaring Leap. Dice pool: Strength + Potence vs Dexterity + Athletics. If opponents totally fail or take 3 or more levels of damage they are knocked down.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Draught of Might",
+                "description": null,
+                "system": "Cost: One Rouse Check. Turn their vitae into a Potence boost for others. Each drinker must take one Rouse Check's worth. Duration: one night.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Earth Shock",
+                "description": null,
+                "system": "Cost: Two Rouse Checks. Create a shockwave to throw opponents prone. This can only be used once per scene.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Fist of Caine",
+                "description": null,
+                "system": "Cost: One Rouse Check. Inflict Aggravated Health damage to mortals and supernatural creatures alike. Duration: one scene.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Subtle Hammer",
+                "description": null,
+                "system": "Cost: Free. Project the vampire's power in a specific body part. You cannot make another attack in the same move, but body parts that have limited movement receive a four-dice bonus or more.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Presence",
-            "description": "Enables the user to use subtle manipulation, control, and swaying of emotions to guide others towards a goal.",
+            "description": "The Kindred ability to dominate a social scene as flawlessly as their hunting ground is embodied by Presence. Skilled Kindred cause others to feel irresistible allure or unfettered dread within mere moments.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1320,11 +2507,153 @@
             "link": "https://vtm.paradoxwikis.com/Presence",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Awe",
+                "description": "Add Presence rating to any Skill roll involving Persuasion, Performance, or Charisma related rolls as per ST discretion.",
+                "system": "Cost: Free. Duration: one scene or until ended by the user. Once the power wears off the victim reverts to their original opinions.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Daunt",
+                "description": "Add Presence rating to any intimidation rolls.",
+                "system": "Cost: Free. Duration: one scene or until ended by the user. Awe and Daunt cannot be used at the same time.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Eyes of the Serpent",
+                "description": "Immobilize a victim by making eye contact.",
+                "system": "Amalgam: requires Protean 1. Cost: Free. Dice pool: Charisma + Presence vs. Wits + Composure. Duration: until eye contact is broken or the scene ends. A vampire victim can break this by spending Willpower any turn after the first.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Lingering Kiss",
+                "description": "Usable during feedings, the victim gains a bonus to Social attribute for one night.",
+                "system": "Cost: Free. Duration: number of nights equal to the user's Presence rating. A withdrawal follows where the victim takes a penalty equal to the original bonus when not actively working towards the next fix. It cannot be used on those under a Blood Bond. Unbondable cannot take this discipline power.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Melpominee",
+                "description": "Use Presence without seeing the target, only having them within earshot.",
+                "system": "Cost: Free. This works with Awe, Daunt, Dread Gaze, Entrance, and Majesty.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Clear the Field",
+                "description": "Clear a space in a calm and orderly manner.",
+                "system": "Amalgam: requires Dominate 3. Cost: one Rouse Check. Dice pool: Composure + Presence vs. Wits + Composure. They can exempt a number of people equal to their Composure.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Dread Gaze",
+                "description": "Instill fear into a target to make them flee.",
+                "system": "Cost: one Rouse Check. Dice pool: Charisma + Presence vs. Composure + Resolve. Duration: one turn. A critical win against a vampire victim means the victim makes a terror Frenzy at difficulty 3.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Entrancement",
+                "description": "Influence someone into a star-struck or beguiled state of mind where they do their best to keep the user happy. Adding their Presence rating in dice to any social rolls against the victim.",
+                "system": "Cost: one Rouse Check. Dice pool: Charisma + Presence vs. Composure + Wits. Duration: one hour plus one per point of margin. If the request is harmful to the victim or their loved ones, or opposes their tenets the test must be made again or Entrancement fails.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Invigorating Display",
+                "description": "After interacting with a crowd, a vampire can inhale the energy of the crowd to experience a unique Resonance.",
+                "system": "Prerequisite: requires Awe. Cost: one Rouse Check. Dice pool: Composure + Presence. Duration: one scene. The Resonance is usually intense, but can be also acute on a critical win as determined by the Storyteller.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Passion Leech",
+                "description": "Leech the passion from a mortal target, gaining the benefits of Humanity 10 temporarily.",
+                "system": "Amalgam: requires Auspex 2. Cost: one Rouse Check. Dice pool: Composure + Auspex. Duration: until sunset for the vampire, 3 nights for the victim. The benefit can be gained only once per night.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Thrown Voice",
+                "description": "Throw their voice from any point within sight and leave the voice there.",
+                "system": "Amalgam: requires Auspex 1. Cost: one Rouse Check. Duration: one scene. A roll is only needed if being used in combination with Irresistible Voice, Melpominee or similar powers.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "True Love's Face",
+                "description": "The victim will perceive the user as a mortal they have strong emotional ties with, be it hatred or love.",
+                "system": "Amalgam: requires Obfuscate 3. Cost: one Rouse Check. Dice pool: Manipulation + Presence vs. Composure + Wits. Duration: one scene. Can net stains for the victim if the perceived target is their touchstone.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Inflame Desire",
+                "description": "Boost a victim's current desire, seeking only to satisfy it.",
+                "system": "Amalgam: requires Obfuscate 1. Cost: one Rouse Check. Dice pool: Manipulation + Presence vs. Composure + Resolve. Duration: one scene. Inflicts the Need Compulsion on the victim.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Irresistible Voice",
+                "description": "The user's voice alone is enough to use Dominate on a target.",
+                "system": "Amalgam: requires Dominate 1. No additional cost. Duration: passive. Does not work through technology.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Magnum Opus",
+                "description": "Infusing Presence into artwork.",
+                "system": "Amalgam: requires Auspex 3. Cost: one or more Rouse Checks. Dice pool: Charisma/Manipulation + Craft. Audiences must roll Composure + Resolve to resist its effects.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Suffuse the Edifice",
+                "description": "Extend Presence onto a building.",
+                "system": "Duration, dice pool, and opposing pool are as the power transmitted. If the vampire is present they become the focus instead of the building.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Summon",
+                "description": "Call someone to them who has had certain Presence powers used on them or tasted the user's vitae.",
+                "system": "Cost: one Rouse Check. Dice pool: Manipulation + Presence vs. Composure + Intelligence. Duration: one night. The victim will not physically or financially harm themselves to reach the user.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Wingman",
+                "description": "Extend Presence onto another character to use.",
+                "system": "Cost: one Rouse Check plus additional powers. Duration: as power used. The same Presence power used by both does not double the bonus.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Majesty",
+                "description": "Everyone who looks at the user is dumbstruck unable to act in any way other than self-preservation.",
+                "system": "Cost: two Rouse Checks. Dice pool: Charisma + Presence vs. Composure + Resolve. Duration: one scene. A win on the contested roll allows one turn plus one per margin of freedom.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Star Magnetism",
+                "description": "Allows the use of presence through live-feed technology, does not work on recorded content.",
+                "system": "Cost: one additional Rouse Check. Duration: as power used. If using Entrancement the user must speak the target's name clearly.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Protean",
-            "description": "Grants the ability to change one's shape, grow claws, meld into the earth, or become fog.",
+            "description": "Protean is a Discipline that shapes and mutates the user's own form. Employed above all for its utility, it lets a vampire become a beast, turn their limbs into weapons, sink into the earth, or touch the more animalistic side of their Beast.",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -1336,7 +2665,163 @@
             "link": "https://vtm.paradoxwikis.com/Protean",
             "min_value": 0,
             "max_value": 5,
-            "show_when_zero": false
+            "show_when_zero": false,
+            "powers": [
+              {
+                "level": 1,
+                "name": "Eyes of the Beast",
+                "description": "Allows the user to see in total darkness.",
+                "system": "Cost: Free. Duration: As long as desired. +2 bonus dice to intimidation against mortals when active.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Squirm",
+                "description": "Turn flesh and bones rubbery, allowing the user to squeeze and fit through tight spaces.",
+                "system": "Cost: Free or one Rouse Check. Duration: As long as desired. If a Rouse Check is spent, the user can fit into even impossibly tight spaces about two inches in diameter.",
+                "link": null
+              },
+              {
+                "level": 1,
+                "name": "Weight of the Feather",
+                "description": "The user can make themselves almost weightless.",
+                "system": "Cost: Free. Duration: As long as desired. Dice pool: Wits + Survival. Wits + Survival is only used when activated as a reaction.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Feral Weapons",
+                "description": "Elongate the user's nails into claws, gaining a +2 modifier to damage or elongate their fangs and not suffer a called shot penalty.",
+                "system": "Cost: One Rouse Check. Duration: One scene. Superficial damage inflicted by the user is not halved while active.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Serpent's Kiss",
+                "description": "When biting someone, inject their own vitae into them.",
+                "system": "Cost: One Rouse Check. Duration: One scene. This can also be used to transport powers like Scorpion's Touch.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "The False Sip",
+                "description": "Prevent any blood or Blood from entering their system.",
+                "system": "Amalgam: requires Fortitude 1. Cost: One Rouse Check. Duration: One scene or more. They must vomit it back up within the scene or extend to an additional scene by making another Rouse Check.",
+                "link": null
+              },
+              {
+                "level": 2,
+                "name": "Vicissitude",
+                "description": "Sculpt the flesh of bodies allowing changes to their own bodies.",
+                "system": "Amalgam: requires Dominate 2. Cost: One Rouse Check. Duration: Permanent. Dice pool: Resolve + Protean. Each success on the roll allows a single change to be made.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Earth Meld",
+                "description": "Sink into the earth and become one with the soil.",
+                "system": "Cost: One Rouse Check. Duration: One day or more, or until disturbed. This power only works on natural surfaces and not artificial such as concrete.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Fleshcrafting",
+                "description": "Extends the mastery over the flesh to be used on others.",
+                "system": "Amalgam: requires Dominate 2. Prerequisite: requires Vicissitude. Cost: One Rouse Check. Duration: Permanent. Dice pool: Resolve + Protean vs. Stamina + Resolve. An unwilling subject may resist, with the margin of the user's roll counting as the number of changes able to be made.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Masque of Death",
+                "description": "Take on the appearance of a corpse, and while unable to move or communicate, they take any damage only if it deals Aggravated damage.",
+                "system": "Amalgam: requires Oblivion 2. Cost: One Rouse Check. Duration: Until ended by user, or user wakes from Torpor, or until sunrise. Disciplines can be used at ST discretion.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Shapechange",
+                "description": "Change into an animal with a similar body mass.",
+                "system": "Cost: One Rouse Check. Duration: One scene unless voluntarily ended. Users gain the Physical Attributes and other traits of the animal they've changed into.",
+                "link": null
+              },
+              {
+                "level": 3,
+                "name": "Visceral Absorption",
+                "description": "Draw in the remains of blood and body to the vampire to clean a scene.",
+                "system": "Amalgam: requires Blood Sorcery 2. Cost: One Rouse Check. Duration: One turn per body. Dice pool: Strength + Protean. Hunger can be reduced by one per body, up to the level of their Blood Sorcery rating but cannot reduce to 0.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Horrid Form",
+                "description": "Take on a monstrous shape.",
+                "system": "Amalgam: requires Dominate 2. Prerequisite: requires Vicissitude. Cost: One Rouse Check. Duration: One scene unless voluntarily ended. Grants several changes equal to the user's Protean rating. Any critical scores are counted as messy criticals and Frenzy checks are made with +2 Difficulty.",
+                "link": null
+              },
+              {
+                "level": 4,
+                "name": "Metamorphosis",
+                "description": "Extends shape change by granting it an additional form. The size of their new form isn't restricted by the vampire's mass.",
+                "system": "Prerequisite: requires Shapechange. Cost: One Rouse Check. Duration: One scene unless voluntarily ended. Same rules as Shapechange.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Blood Form",
+                "description": "Turn into an amorphous mass of blood.",
+                "system": "Amalgam: requires Blood Sorcery 2. Cost: One Rouse Check. Duration: One scene, or until the effect is voluntarily ended. Can be consumed, creating blood bonds as normal.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Face of the Victim",
+                "description": "Assume the shape of someone they last fed from.",
+                "system": "Prerequisite: requires Vicissitude. Cost: One Rouse Check. Duration: Until Hunger 5 or using the power again. Must be activated in the same scene where they've slaked at least 1 Hunger from either a mortal or Kindred.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Master of Forms",
+                "description": "Allows the vampire to take on any animal shape, rather than just one.",
+                "system": "Prerequisite: requires Shapechange. Cost: None, but rouse for Shapechange as normal. Duration: As Shapechange or Metamorphosis. All other limitations of Shapechange and Metamorphosis apply.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Mist Form",
+                "description": "Turn into a cloud of mist.",
+                "system": "Cost: One to three Rouse Checks. Duration: One scene unless voluntarily ended. This power takes three turns to use and may be sped up with additional Rouse Checks on a one-for-one trade.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "One with the Land",
+                "description": "Sink into the earth of their Domain.",
+                "system": "Amalgam: requires Animalism 2. Prerequisite: requires Earth Meld. Cost: Two Rouse Checks. Duration: One day or more, or until physically disturbed. Same system as Earth Meld however they are not limited by the material.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "Swarm",
+                "description": "Allows the user to shapechange into a swarm of insects, reptiles, or other vermin.",
+                "system": "Prerequisite: requires Shapechange. Cost: Two Rouse Checks. Duration: One scene, or until ended voluntarily. As a swarm, the user can attack a number of individuals equal to their Blood Potency per turn.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "The Heart of Darkness",
+                "description": "Allows a vampire to remove their own heart and store it outside of their body.",
+                "system": "Amalgam: requires Fortitude 2. Cost: Free. Duration: Permanent or until the heart is destroyed or returned to the host's body. If the heart is dealt aggravated damage equal to or greater than the user's health tracker, they fall into torpor. It can only be destroyed through fire or sunlight.",
+                "link": null
+              },
+              {
+                "level": 5,
+                "name": "The Unfettered Heart",
+                "description": "The heart of the vampire can move freely within the chest, making staking more difficult.",
+                "system": "Cost: Free. Duration: Passive. Only upon a critical win does the stake penetrate when in melee combat.",
+                "link": null
+              }
+            ]
           },
           {
             "name": "Serpentis",

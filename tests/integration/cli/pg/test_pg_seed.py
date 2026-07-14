@@ -151,14 +151,14 @@ class TestPgTraitSeed:
             )
             db_trait = await query.first()
             assert db_trait is not None
-            db_powers = await TraitPower.filter(trait_id=db_trait.id).order_by("level", "name")
+            db_powers = await TraitPower.filter(trait_id=db_trait.id)
 
-            # Then its stored powers match the fixture; a level may grant several powers,
-            # so order by (level, name) for a stable comparison
-            assert [(p.level, p.name) for p in db_powers] == [
-                (power["level"], power["name"])
-                for power in sorted(fixture_trait["powers"], key=lambda p: (p["level"], p["name"]))
-            ]
+            # Then its stored powers match the fixture. A level may grant several powers,
+            # so compare the full set sorted the same way on both sides (DB name ordering
+            # follows Postgres collation, which need not match a Python sort).
+            assert sorted((p.level, p.name) for p in db_powers) == sorted(
+                (power["level"], power["name"]) for power in fixture_trait["powers"]
+            )
 
     async def test_gift_traits_exist(self) -> None:
         """Verify gift traits were created with gift attributes."""
