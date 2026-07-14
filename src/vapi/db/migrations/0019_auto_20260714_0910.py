@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
                 ('link', fields.TextField(null=True, unique=False)),
                 ('trait', fields.ForeignKeyField('models.Trait', source_field='trait_id', db_constraint=True, to_field='id', related_name='powers', on_delete=OnDelete.CASCADE)),
             ],
-            options={'table': 'trait_power', 'app': 'models', 'unique_together': (('trait', 'level'),), 'pk_attr': 'id', 'table_description': 'A named power a trait grants at a specific dot level (e.g. a Discipline or Thaumaturgy path power).'},
+            options={'table': 'trait_power', 'app': 'models', 'unique_together': (('trait', 'level', 'name'),), 'pk_attr': 'id', 'table_description': 'A named power a trait grants at a specific dot level (e.g. a Discipline or Thaumaturgy path power).'},
             bases=['BaseModel'],
         ),
     ]

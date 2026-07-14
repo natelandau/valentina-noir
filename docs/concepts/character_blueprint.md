@@ -99,7 +99,9 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
 
 Any trait can grant a named power at specific dot levels. Biothaumaturgy, for example, grants "Thaumaturgical Forensics" at one dot and "Thaumaturgical Surgery" at two. The `powers` array carries these so you can show a player what each dot unlocks.
 
-The `powers` field is present on every trait. Most traits have no dot-level powers, so their `powers` array is empty. Powers come back ordered by `level`.
+A single dot level can grant more than one power. Disciplines, for example, offer a choice of powers at each dot, so several powers share the same `level`. Group the array by `level` to show each dot's options.
+
+The `powers` field is present on every trait. Most traits have no dot-level powers, so their `powers` array is empty. Powers come back ordered by `level`, then by `name`.
 
 Each power object has these fields:
 

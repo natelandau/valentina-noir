@@ -292,18 +292,22 @@ class TraitSyncer:
             self._pending_powers.append((trait, powers))
 
     async def _sync_trait_powers(self) -> None:
-        """Upsert every trait's nested powers, keyed on (trait, level).
+        """Upsert every trait's nested powers, keyed on (trait, level, name).
 
         Runs after the trait walk so fast-path traits are persisted first. Powers are
-        few, so a per-row upsert keeps re-seeding idempotent without a bulk path.
+        few, so a per-row upsert keeps re-seeding idempotent without a bulk path. A
+        level may grant several powers, so name is part of the key.
         """
         for trait, fixture_powers in self._pending_powers:
             for fixture_power in fixture_powers:
                 await upsert(
                     TraitPower,
-                    lookup={"trait": trait, "level": fixture_power["level"]},
-                    defaults={
+                    lookup={
+                        "trait": trait,
+                        "level": fixture_power["level"],
                         "name": fixture_power["name"],
+                    },
+                    defaults={
                         "description": fixture_power.get("description"),
                         "system": fixture_power.get("system"),
                         "link": fixture_power.get("link"),

@@ -151,12 +151,13 @@ class TestPgTraitSeed:
             )
             db_trait = await query.first()
             assert db_trait is not None
-            db_powers = await TraitPower.filter(trait_id=db_trait.id).order_by("level")
+            db_powers = await TraitPower.filter(trait_id=db_trait.id).order_by("level", "name")
 
-            # Then its stored powers match the fixture, ordered by level
+            # Then its stored powers match the fixture; a level may grant several powers,
+            # so order by (level, name) for a stable comparison
             assert [(p.level, p.name) for p in db_powers] == [
                 (power["level"], power["name"])
-                for power in sorted(fixture_trait["powers"], key=lambda p: p["level"])
+                for power in sorted(fixture_trait["powers"], key=lambda p: (p["level"], p["name"]))
             ]
 
     async def test_gift_traits_exist(self) -> None:

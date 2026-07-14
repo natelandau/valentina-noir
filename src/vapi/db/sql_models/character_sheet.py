@@ -247,7 +247,8 @@ class TraitPower(BaseModel):
     """A named power a trait grants at a specific dot level (e.g. a Discipline or Thaumaturgy path power).
 
     Global reference data seeded from powers nested under each trait in traits.json.
-    One power per (trait, level).
+    A level may grant several powers (Disciplines offer a choice per dot), so powers
+    are unique per (trait, level, name) rather than per (trait, level).
     """
 
     level = fields.IntField(validators=[MinValueValidator(1), MaxValueValidator(100)])
@@ -264,5 +265,5 @@ class TraitPower(BaseModel):
         """Tortoise ORM meta options."""
 
         table = "trait_power"
-        unique_together = (("trait", "level"),)
-        ordering = ("level",)
+        unique_together = (("trait", "level", "name"),)
+        ordering = ("level", "name")
