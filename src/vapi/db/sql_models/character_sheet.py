@@ -208,6 +208,7 @@ class Trait(BaseModel):
     auspices: fields.ReverseRelation[WerewolfAuspice]
     tribes: fields.ReverseRelation[WerewolfTribe]
     character_traits: fields.ReverseRelation[CharacterTrait]
+    powers: fields.ReverseRelation[TraitPower]
     dice_rolls: fields.ManyToManyRelation[DiceRoll]
     quick_rolls: fields.ManyToManyRelation[QuickRoll]
 
@@ -240,3 +241,27 @@ class Trait(BaseModel):
     def gift_auspice_name(self) -> str | None:
         """Name of the gift auspice, requires fetch_related('gift_auspice')."""
         return self.gift_auspice.name if self.gift_auspice else None
+
+
+class TraitPower(BaseModel):
+    """A named power a trait grants at a specific dot level (e.g. a Discipline or Thaumaturgy path power).
+
+    Global reference data seeded from trait_powers.json. One power per (trait, level).
+    """
+
+    level = fields.IntField(validators=[MinValueValidator(1), MaxValueValidator(100)])
+    name = fields.CharField(max_length=100, validators=[MinLengthValidator(3)])
+    description = fields.TextField(null=True)
+    system = fields.TextField(null=True)
+    link = fields.TextField(null=True)
+
+    trait: fields.ForeignKeyRelation[Trait] = fields.ForeignKeyField(
+        "models.Trait", related_name="powers", on_delete=fields.OnDelete.CASCADE
+    )
+
+    class Meta:
+        """Tortoise ORM meta options."""
+
+        table = "trait_power"
+        unique_together = (("trait", "level"),)
+        ordering = ("level",)
