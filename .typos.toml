@@ -3,11 +3,10 @@
 
     [default.extend-words]
         criticals = "criticals"
+        gaol      = "gaol"
         sepulchre = "sepulchre"
-        spectres = "spectres"
-        spectre = "spectre"
-        enthousiasm = "enthousiasm"
-        gaol = "gaol"
+        spectre   = "spectre"
+        spectres  = "spectres"
         temportal = "temportal"
 
 [files]

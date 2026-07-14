@@ -10320,16 +10320,16 @@
               },
               {
                 "level": 4,
-                "name": "EnthousiasmÓs",
+                "name": "Enthousiasmos",
                 "description": "A thyrsus may exude a pheromone into the air all about her person. Those affected fall into a drug-like stupor as the empathogenic toxin induces visions of all sorts of ephemeral creatures: fauns chasing nymphs, angels in flight, sprites dancing in the corners of one's eyes, and the like. The pheromone induces a happiness within the affected targets, who are likely to dance around in glee to fictitious music with make-believe creatures.",
-                "system": "A thaumaturge successfully invoking this affects any target within a 10-foot radius of herself. Victims suffer a two-dice penalty to all Dexterity and Intelligence dice pools for one scene. Furthermore, victims under the effects of EnthousiasmÓs are passive, content to while away their time in the euphoric haze. Anyone wishing to take any action must spend a point of Willpower to shrug off its effects for a turn.",
+                "system": "A thaumaturge successfully invoking this affects any target within a 10-foot radius of herself. Victims suffer a two-dice penalty to all Dexterity and Intelligence dice pools for one scene. Furthermore, victims under the effects of Enthousiasmos are passive, content to while away their time in the euphoric haze. Anyone wishing to take any action must spend a point of Willpower to shrug off its effects for a turn.",
                 "link": null
               },
               {
                 "level": 5,
                 "name": "Oinos Aimatos",
                 "description": "Many thaumaturges suspect that this power is not the original apex of this path, but rather a variation suited to a Dionysian cult headed by a vampire passing himself off as an incarnation of the god. When the thyrsus invokes this power, her blood takes on the properties of potent oinos. Whether this was intended as a deterrent to diablerists or to drive feeding ghouls into euphoric ecstasy is unknown.",
-                "system": "For the duration of one scene, anyone drinking even the tiniest drop of the thyrsus' blood is affected as per EnthousiasmÓs. The thaumaturge's player need only spend a point of blood and make a willpower roll when the character first invokes this power - thereafter, anyone who drinks the blood suffers the effects without any further expenditure on the part of the vampire.",
+                "system": "For the duration of one scene, anyone drinking even the tiniest drop of the thyrsus' blood is affected as per Enthousiasmos. The thaumaturge's player need only spend a point of blood and make a willpower roll when the character first invokes this power - thereafter, anyone who drinks the blood suffers the effects without any further expenditure on the part of the vampire.",
                 "link": null
               }
             ]
