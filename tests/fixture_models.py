@@ -90,6 +90,38 @@ async def company_factory():
 
 
 @pytest.fixture
+async def trait_category_factory():
+    """Return a factory that creates Tortoise TraitCategory instances and cleans up after the test.
+
+    TraitCategory is constant data preserved across tests, so the factory tracks
+    created instances and deletes them when the test completes.
+    """
+    created: list[TraitCategory] = []
+
+    async def _factory(**kwargs: Any) -> TraitCategory:
+        if "sheet_section" not in kwargs and "sheet_section_id" not in kwargs:
+            kwargs["sheet_section"] = await CharSheetSection.first()
+
+        defaults: dict[str, Any] = {
+            "name": "Test Category",
+            "show_when_empty": False,
+            "order": 0,
+            "initial_cost": 1,
+            "upgrade_cost": 2,
+            "is_archived": False,
+        }
+        defaults.update(kwargs)
+        category = await TraitCategory.create(**defaults)
+        created.append(category)
+        return category
+
+    yield _factory
+
+    for category in created:
+        await category.delete()
+
+
+@pytest.fixture
 async def trait_factory():
     """Return a factory that creates Tortoise Trait instances and cleans up after the test.
 

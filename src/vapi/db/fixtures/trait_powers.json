@@ -1,0 +1,23 @@
+[
+  {
+    "trait": "Biothaumaturgy",
+    "category": "Thaumaturgy Paths",
+    "subcategory": null,
+    "powers": [
+      {
+        "level": 1,
+        "name": "Thaumaturgical Forensics",
+        "description": "The biothaumaturge reads the physiological history written into flesh and blood, learning how a body lived and died.",
+        "system": "The player rolls Perception + Medicine. Each success reveals one fact about the subject's physical history.",
+        "link": null
+      },
+      {
+        "level": 2,
+        "name": "Thaumaturgical Surgery",
+        "description": "The biothaumaturge reshapes living tissue, mending grievous wounds or working subtler alterations.",
+        "system": "The player rolls Intelligence + Medicine. The work takes one week per level of the effect.",
+        "link": null
+      }
+    ]
+  }
+]
