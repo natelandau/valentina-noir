@@ -80,8 +80,10 @@ class DictionaryService:
         if not trait_ids:
             return {}
 
+        # Order by (level, name) to match the TraitPower model default so powers within a
+        # single dot level come back in the same order here as on trait-embed responses.
         powers = await TraitPower.filter(trait_id__in=trait_ids, is_archived=False).order_by(
-            "level"
+            "level", "name"
         )
 
         grouped: dict[UUID, list[TraitPower]] = {}

@@ -67,3 +67,22 @@ async def test_trait_response_empty_powers_when_not_prefetched(trait_factory):
 
     # Then powers is an empty list rather than raising
     assert response.powers == []
+
+
+async def test_trait_response_excludes_archived_powers(trait_factory, trait_power_factory):
+    """Verify archived powers are dropped from the response even when prefetched unfiltered."""
+    # Given a trait with one active and one archived power, both prefetched via the
+    # plain (unfiltered) reverse relation the trait-embed paths use
+    trait = await trait_factory(name="Biothaumaturgy")
+    await trait_power_factory(trait=trait, level=1, name="Active")
+    await trait_power_factory(trait=trait, level=2, name="Archived", is_archived=True)
+    trait = await Trait.get(id=trait.id)
+    await trait.fetch_related(
+        "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers"
+    )
+
+    # When the response is built
+    response = TraitResponse.from_model(trait)
+
+    # Then only the active power surfaces
+    assert [p.name for p in response.powers] == ["Active"]

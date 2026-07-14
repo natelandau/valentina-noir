@@ -243,8 +243,10 @@ class TraitResponse(msgspec.Struct):
 
         # powers is a reverse relation; read it only when prefetched so callers that
         # do not embed powers (and did not prefetch) get an empty list instead of NoValuesFetched.
+        # Archived powers are dropped here so the archive-filter policy holds no matter which
+        # (unfiltered, string-based) prefetch path loaded the relation.
         powers = (
-            [TraitPowerResponse.from_model(p) for p in m.powers]
+            [TraitPowerResponse.from_model(p) for p in m.powers if not p.is_archived]
             if m.powers._fetched  # noqa: SLF001
             else []
         )
