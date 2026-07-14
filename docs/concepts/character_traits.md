@@ -84,6 +84,8 @@ To browse available subcategories and their traits, use the [blueprint subcatego
 
 The full character sheet endpoint returns all assigned traits organized into sections, categories, and subcategories. Use the `include_available_traits` query parameter to also include traits the character could add.
 
+Every trait on the sheet carries its dot-level `powers` array, so any trait with per-dot abilities shows what each dot unlocks. See [Trait Powers](./character_blueprint.md#trait-powers).
+
 ### Available Traits
 
 Each category and subcategory in the full sheet response includes an `available_traits` field containing standard Trait objects that match the character's class and game version but are not yet assigned.

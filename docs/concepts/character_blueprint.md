@@ -71,7 +71,8 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
         "subcategory_id": null, // (14)!
         "subcategory_name": null, // (15)!
         "pool": null, // (16)!
-        "system": null // (17)!
+        "system": null, // (17)!
+        "powers": [] // (18)!
     }
     ```
 
@@ -92,6 +93,55 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
     15. The name of the subcategory, if the trait belongs to one.
     16. A string describing the dice pool associated with this trait, if applicable (e.g., hunter edges).
     17. A string describing the system description for this trait, if applicable (e.g., hunter edges).
+    18. The trait's dot-level powers. Empty for most traits. See [Trait Powers](#trait-powers).
+
+### Trait Powers
+
+Any trait can grant a named power at specific dot levels. Biothaumaturgy, for example, grants "Thaumaturgical Forensics" at one dot and "Thaumaturgical Surgery" at two. The `powers` array carries these so you can show a player what each dot unlocks.
+
+The `powers` field is present on every trait. Most traits have no dot-level powers, so their `powers` array is empty. Powers come back ordered by `level`.
+
+Each power object has these fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | The power's unique ID. |
+| `level` | integer | The dot level that grants the power. |
+| `name` | string | The power's name. |
+| `description` | string or null | What the power does. |
+| `system` | string or null | The game mechanics for using the power. |
+| `link` | string or null | URL to an external resource for the power. |
+
+??? example "Trait with powers"
+
+    ```json
+    {
+        "id": "69679d6b92e8772cd93d8185",
+        "name": "Biothaumaturgy",
+        "min_value": 1,
+        "max_value": 5,
+        "powers": [
+            {
+                "id": "69679d6b92e8772cd93d8186",
+                "level": 1,
+                "name": "Thaumaturgical Forensics",
+                "description": "The biothaumaturge reads the physiological history written into flesh and blood.",
+                "system": "The player rolls Perception + Medicine. Each success reveals one fact.",
+                "link": null
+            },
+            {
+                "id": "69679d6b92e8772cd93d8187",
+                "level": 2,
+                "name": "Thaumaturgical Surgery",
+                "description": "The biothaumaturge reshapes living tissue, mending grievous wounds.",
+                "system": "The player rolls Intelligence + Medicine. The work takes one week per level.",
+                "link": null
+            }
+        ]
+    }
+    ```
+
+Powers are read-only reference data. You can't create or edit them through the API.
 
 ### Core Traits
 
