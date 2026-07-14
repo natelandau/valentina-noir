@@ -50,8 +50,12 @@ class DictionaryTermController(Controller):
         count, dictionary_terms = await service.list_all_dictionary_terms(
             company_id=company.id, limit=limit, offset=offset, term=term
         )
+        powers_by_source = await service.powers_by_source_id(dictionary_terms)
         return OffsetPagination(
-            items=[DictionaryTermResponse.from_model(t) for t in dictionary_terms],
+            items=[
+                DictionaryTermResponse.from_model(t, powers=powers_by_source.get(t.source_id, ()))
+                for t in dictionary_terms
+            ],
             limit=limit,
             offset=offset,
             total=count,
@@ -66,7 +70,10 @@ class DictionaryTermController(Controller):
     )
     async def get_dictionary_term(self, dictionary_term: DictionaryTerm) -> DictionaryTermResponse:
         """Get a dictionary term by ID."""
-        return DictionaryTermResponse.from_model(dictionary_term)
+        powers_by_source = await DictionaryService().powers_by_source_id([dictionary_term])
+        return DictionaryTermResponse.from_model(
+            dictionary_term, powers=powers_by_source.get(dictionary_term.source_id, ())
+        )
 
     @post(
         path=urls.Dictionaries.CREATE,
