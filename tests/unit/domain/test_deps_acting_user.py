@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
-from uuid_utils import uuid7
 
+from vapi.db.sql_models.base import new_uuid
 from vapi.domain.deps import provide_acting_user
 from vapi.lib.exceptions import NotFoundError, ValidationError
 
@@ -62,7 +62,9 @@ class TestProvideActingUser:
         # When calling provide_acting_user
         # Then a NotFoundError is raised
         with pytest.raises(NotFoundError, match="Acting user not found"):
-            await provide_acting_user(request=request, company=company, on_behalf_of=str(uuid7()))
+            await provide_acting_user(
+                request=request, company=company, on_behalf_of=str(new_uuid())
+            )
 
     async def test_valid_header_returns_user(
         self,

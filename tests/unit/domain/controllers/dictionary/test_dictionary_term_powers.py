@@ -3,7 +3,6 @@
 import pytest
 
 from vapi.constants import DictionarySourceType
-from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.controllers.dictionary.dto import DictionaryTermResponse
 from vapi.domain.services.dictionary_svc import DictionaryService
 
@@ -63,9 +62,6 @@ async def test_powers_by_source_id_groups_trait_terms(
     result = await DictionaryService().powers_by_source_id([trait_term, plain_term])
 
     # Then only the trait's id maps to its ordered powers
-    # trait_factory returns a uuid_utils.UUID; refetch to get the stdlib uuid.UUID
-    # that DB-sourced power.trait_id uses, since the two do not hash-equal.
-    trait = await Trait.get(id=trait.id)
     assert [p.name for p in result[trait.id]] == ["First", "Second"]
     # The non-trait term contributes no entry, so the trait is the only key.
     assert list(result.keys()) == [trait.id]

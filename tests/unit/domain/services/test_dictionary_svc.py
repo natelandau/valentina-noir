@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from uuid_utils import uuid7
 
 from vapi.constants import DictionarySourceType
+from vapi.db.sql_models.base import new_uuid
 from vapi.domain.services import DictionaryService
 from vapi.lib.exceptions import ValidationError
 
@@ -37,7 +37,7 @@ class TestVerifyTermIsEditable:
         term = await dictionary_term_factory(
             company_id=company.id,
             source_type=DictionarySourceType.TRAIT,
-            source_id=uuid7(),
+            source_id=new_uuid(),
         )
         with pytest.raises(
             ValidationError,
@@ -109,7 +109,7 @@ class TestListAllDictionaryTerms:
             definition="Bar is a baz.",
             company_id=None,
             source_type=DictionarySourceType.TRAIT,
-            source_id=uuid7(),
+            source_id=new_uuid(),
             synonyms=[_TEST_TAG],
         )
         await dictionary_term_factory(
@@ -155,7 +155,7 @@ class TestListAllDictionaryTerms:
             definition="Bar is a baz.",
             company_id=None,
             source_type=DictionarySourceType.TRAIT,
-            source_id=uuid7(),
+            source_id=new_uuid(),
         )
 
         count, terms = await DictionaryService().list_all_dictionary_terms(

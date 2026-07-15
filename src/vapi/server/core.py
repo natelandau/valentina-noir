@@ -96,10 +96,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         if settings.saq.enabled:
             app_config.plugins.append(plugins.saq)
 
-        from uuid_utils import UUID as UUID_UTILS_UUID
-
-        app_config.type_encoders = {UUID_UTILS_UUID: str}
-
         app_config.route_handlers.extend(route_handlers)
         app_config.logging_config = get_logging_config()
 

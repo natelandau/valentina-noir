@@ -1,4 +1,4 @@
-"""Tests for BaseModel archive-stamp invariants."""
+"""Tests for BaseModel archive-stamp and primary-key invariants."""
 
 from typing import TYPE_CHECKING
 
@@ -10,6 +10,23 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 pytestmark = pytest.mark.anyio
+
+
+async def test_id_default_compares_equal_after_db_round_trip(
+    company_factory: "Callable[..., Company]",
+) -> None:
+    """Verify a freshly minted id still compares equal once Postgres reads it back."""
+    # Given an id minted by the primary key default
+    minted_id = Company._meta.fields_map["id"].default()
+
+    # When a row created with it is read back from Postgres
+    company = await company_factory(id=minted_id)
+
+    # Then the two ids compare equal and match as dict keys, so Tortoise's in-Python
+    # prefetch matching cannot silently miss on an instance that was never refetched
+    assert company.id == minted_id
+    assert minted_id == company.id
+    assert {minted_id: "hit"}.get(company.id) == "hit"
 
 
 async def test_save_archive_mints_date_and_batch(

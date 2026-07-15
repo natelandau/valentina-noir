@@ -1,10 +1,8 @@
 """Tests for batch restore."""
 
-from uuid import UUID
-
 import pytest
-from uuid_utils import uuid7
 
+from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.character import Character, Specialty
 from vapi.db.sql_models.character_sheet import Trait, TraitPower
 from vapi.domain.handlers import archive_character, restore_archive_batch
@@ -15,7 +13,7 @@ pytestmark = pytest.mark.anyio
 async def test_restore_unknown_batch_returns_zero() -> None:
     """Verify restoring a batch id that matches no rows returns zero."""
     # Given a batch id that was never used
-    unused_batch_id = UUID(str(uuid7()))
+    unused_batch_id = new_uuid()
 
     # When that batch is restored
     restored = await restore_archive_batch(batch_id=unused_batch_id)

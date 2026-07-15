@@ -15,9 +15,9 @@ from uuid import UUID
 
 from tortoise.models import Model
 from tortoise.transactions import in_transaction
-from uuid_utils import uuid7
 
 from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
     Character,
@@ -233,7 +233,7 @@ class CompanyArchiveHandler:
 
 def _new_context() -> ArchiveContext:
     """Mint a fresh archive context for a top-level action."""
-    return ArchiveContext(batch_id=UUID(str(uuid7())), now=time_now())
+    return ArchiveContext(batch_id=new_uuid(), now=time_now())
 
 
 async def archive_character(character: Character) -> ArchiveContext:

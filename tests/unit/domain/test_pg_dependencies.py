@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from uuid_utils import uuid7
 
+from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import (
@@ -45,7 +45,7 @@ class TestProvideCharacterBlueprintSectionById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when section does not exist."""
         with pytest.raises(NotFoundError, match="Character sheet section not found"):
-            await deps.provide_character_blueprint_section_by_id(uuid7())
+            await deps.provide_character_blueprint_section_by_id(new_uuid())
 
 
 class TestProvideTraitCategoryById:
@@ -67,7 +67,7 @@ class TestProvideTraitCategoryById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when category does not exist."""
         with pytest.raises(NotFoundError, match="Trait category not found"):
-            await deps.provide_trait_category_by_id(uuid7())
+            await deps.provide_trait_category_by_id(new_uuid())
 
 
 class TestProvideTraitSubcategoryById:
@@ -88,7 +88,7 @@ class TestProvideTraitSubcategoryById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when subcategory does not exist."""
         with pytest.raises(NotFoundError, match="Trait subcategory not found"):
-            await deps.provide_trait_subcategory_by_id(uuid7())
+            await deps.provide_trait_subcategory_by_id(new_uuid())
 
 
 class TestProvideTraitById:
@@ -110,7 +110,7 @@ class TestProvideTraitById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when trait does not exist."""
         with pytest.raises(NotFoundError, match="Trait not found"):
-            await deps.provide_trait_by_id(uuid7())
+            await deps.provide_trait_by_id(new_uuid())
 
     async def test_raises_not_found_when_archived(
         self, trait_factory: Callable[..., Trait]
@@ -142,7 +142,7 @@ class TestProvideCharacterConceptById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when concept does not exist."""
         with pytest.raises(NotFoundError, match="Character concept not found"):
-            await deps.provide_character_concept_by_id(uuid7())
+            await deps.provide_character_concept_by_id(new_uuid())
 
     async def test_raises_not_found_when_archived(
         self, character_concept_factory: Callable[..., CharacterConcept]
@@ -175,7 +175,7 @@ class TestProvideVampireClanById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when vampire clan does not exist."""
         with pytest.raises(NotFoundError, match="Vampire clan not found"):
-            await deps.provide_vampire_clan_by_id(uuid7())
+            await deps.provide_vampire_clan_by_id(new_uuid())
 
 
 class TestProvideWerewolfTribeById:
@@ -197,7 +197,7 @@ class TestProvideWerewolfTribeById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when werewolf tribe does not exist."""
         with pytest.raises(NotFoundError, match="Werewolf tribe not found"):
-            await deps.provide_werewolf_tribe_by_id(uuid7())
+            await deps.provide_werewolf_tribe_by_id(new_uuid())
 
 
 class TestProvideWerewolfAuspiceById:
@@ -219,7 +219,7 @@ class TestProvideWerewolfAuspiceById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when werewolf auspice does not exist."""
         with pytest.raises(NotFoundError, match="Werewolf auspice not found"):
-            await deps.provide_werewolf_auspice_by_id(uuid7())
+            await deps.provide_werewolf_auspice_by_id(new_uuid())
 
 
 class TestProvideDictionaryTermById:
@@ -253,7 +253,7 @@ class TestProvideDictionaryTermById:
         """Verify raising NotFoundError when term does not exist."""
         company = await company_factory()
         with pytest.raises(NotFoundError, match="Dictionary term not found"):
-            await deps.provide_dictionary_term_by_id(company, uuid7())
+            await deps.provide_dictionary_term_by_id(company, new_uuid())
 
     async def test_raises_not_found_when_different_company(
         self,

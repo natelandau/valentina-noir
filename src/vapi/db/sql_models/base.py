@@ -18,6 +18,17 @@ if TYPE_CHECKING:
     from tortoise.backends.base.client import BaseDBAsyncClient
 
 
+def new_uuid() -> UUID:
+    """Mint a time-ordered uuid7 as a stdlib UUID.
+
+    uuid7() returns a uuid_utils.UUID, which compares unequal to the stdlib UUID
+    Postgres reads back. Tortoise matches prefetched rows to their parent in Python
+    by primary key, so an unconverted id makes fetch_related silently return nothing
+    on instances that were never refetched.
+    """
+    return UUID(str(uuid7()))
+
+
 class BaseModel(Model):
     """Abstract base model providing UUID v7 primary key, timestamps, and archive fields.
 
@@ -28,7 +39,7 @@ class BaseModel(Model):
     is_archived). These run before super().save() which triggers field validators.
     """
 
-    id = fields.UUIDField(primary_key=True, default=uuid7)
+    id = fields.UUIDField(primary_key=True, default=new_uuid)
     date_created = fields.DatetimeField(auto_now_add=True)
     date_modified = fields.DatetimeField(auto_now=True)
     is_archived = fields.BooleanField(default=False)
@@ -81,9 +92,7 @@ class BaseModel(Model):
             if self.archive_date is None:
                 self.archive_date = time_now()
             if self.archive_batch_id is None:
-                # uuid7() returns a uuid_utils.UUID; convert to the stdlib type
-                # the UUIDField expects so ORM saves match the DB column type.
-                self.archive_batch_id = UUID(str(uuid7()))
+                self.archive_batch_id = new_uuid()
         else:
             self.archive_date = None
             self.archive_batch_id = None

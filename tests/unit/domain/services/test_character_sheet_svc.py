@@ -10,6 +10,7 @@ from vapi.domain.services import CharacterSheetService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from uuid import UUID
 
     from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
     from vapi.db.sql_models.company import Company
@@ -19,20 +20,15 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-def _collect_all_available_trait_ids(result: "CharacterFullSheetDTO") -> set[str]:
-    """Collect all trait IDs from available_traits across all categories and subcategories.
-
-    IDs are normalized to strings: factory-built rows carry a ``uuid_utils.UUID`` while
-    rows read back through asyncpg carry a ``pgproto.UUID``, and the two never compare
-    equal, which silently makes ``not in`` assertions vacuous.
-    """
+def _collect_all_available_trait_ids(result: "CharacterFullSheetDTO") -> set["UUID"]:
+    """Collect all trait IDs from available_traits across all categories and subcategories."""
     return {
-        str(t.id)
+        t.id
         for section in result.sections
         for category in section.categories
         for t in category.available_traits
     } | {
-        str(t.id)
+        t.id
         for section in result.sections
         for category in section.categories
         for sub in category.subcategories
@@ -293,10 +289,6 @@ class TestCharacterSheetService:
                 character_classes=["MORTAL"],
                 game_versions=[character.game_version],
             )
-            # Re-fetch so the id normalizes from uuid_utils.UUID to stdlib UUID, matching the
-            # ids read back from the sheet (otherwise the equality checks below never match).
-            trait_without_sub = await Trait.get(id=str(trait_without_sub.id))
-
             await character_trait_factory(character=character, trait=trait_with_sub, value=2)
             await character_trait_factory(character=character, trait=trait_without_sub, value=3)
 
@@ -500,7 +492,7 @@ class TestCharacterSheetService:
 
             # Then the assigned trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert str(trait.id) not in all_available_ids
+            assert trait.id not in all_available_ids
 
         async def test_custom_traits_excluded_from_available(
             self,
@@ -528,7 +520,7 @@ class TestCharacterSheetService:
 
             # Then the custom trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert str(custom_trait.id) not in all_available_ids
+            assert custom_trait.id not in all_available_ids
 
         async def test_available_traits_sorted_by_name(
             self,
@@ -585,7 +577,7 @@ class TestCharacterSheetService:
             # Then the vampire trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
             if "MORTAL" not in (vampire_trait.character_classes or []):
-                assert str(vampire_trait.id) not in all_available_ids
+                assert vampire_trait.id not in all_available_ids
 
         async def test_wrong_game_version_traits_excluded_from_available(
             self,
@@ -618,7 +610,7 @@ class TestCharacterSheetService:
 
             # Then the other-version trait should not appear
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert str(other_version_trait.id) not in all_available_ids
+            assert other_version_trait.id not in all_available_ids
 
         async def test_available_traits_empty_when_all_assigned(
             self,
@@ -744,10 +736,10 @@ class TestCharacterSheetService:
 
             # Then the available traits should not include gifts from the other tribe/auspice
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert str(other_tribe_gift.id) not in all_available_ids
+            assert other_tribe_gift.id not in all_available_ids
 
             if other_auspice_gift is not None:
-                assert str(other_auspice_gift.id) not in all_available_ids
+                assert other_auspice_gift.id not in all_available_ids
 
             # And available gifts should only be native, matching tribe, or matching auspice
             all_available_gifts = [

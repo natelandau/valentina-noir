@@ -10,10 +10,7 @@ pytestmark = pytest.mark.anyio
 
 
 async def _refetched(trait: Trait) -> Trait:
-    """Refetch a factory-built trait with the relations TraitResponse.from_model needs."""
-    # A freshly-created factory instance's uuid_utils.UUID id does not dict-match the
-    # stdlib uuid.UUID that fetch_related uses internally.
-    trait = await Trait.get(id=trait.id)
+    """Fetch a factory-built trait's relations that TraitResponse.from_model needs."""
     await trait.fetch_related(
         "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers"
     )

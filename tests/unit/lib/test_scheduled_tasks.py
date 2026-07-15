@@ -182,13 +182,12 @@ class TestPurgeS3AssetsErrorIsolation:
         # Given delete_asset fails on the first asset but succeeds on the second
         call_count = 0
 
-        asset_1_id = str(asset_1.id)
+        asset_1_id = asset_1.id
 
         async def mock_delete_asset(asset: S3Asset) -> None:
             nonlocal call_count
             call_count += 1
-            # Compare as strings to avoid uuid vs uuid_utils type mismatch
-            if str(asset.id) == asset_1_id:
+            if asset.id == asset_1_id:
                 msg = "Simulated S3 failure"
                 raise RuntimeError(msg)
             await asset.delete()

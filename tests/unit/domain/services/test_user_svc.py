@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from uuid_utils import uuid7
 
 from vapi.constants import PermissionsGrantXP, UserRole
+from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import CampaignExperience, User
@@ -106,7 +106,7 @@ class TestUserService:
         service = UserService()
         with pytest.raises(ValidationError, match=r"User .* not found"):
             await service.validate_user_can_manage_user(
-                requesting_user_id=uuid7(),
+                requesting_user_id=new_uuid(),
                 user_to_manage_id=target_user.id,
             )
 
@@ -703,7 +703,7 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_xp_to_campaign_experience(
                 company=company,
-                acting_user_id=uuid7(),
+                acting_user_id=new_uuid(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=10,
@@ -768,7 +768,7 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.add_cp_to_campaign_experience(
                 company=company,
-                acting_user_id=uuid7(),
+                acting_user_id=new_uuid(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=1,
@@ -829,7 +829,7 @@ class TestUserXPService:
         with pytest.raises(ValidationError, match=r"User.*not found"):
             await service.remove_xp_from_campaign_experience(
                 company=company,
-                acting_user_id=uuid7(),
+                acting_user_id=new_uuid(),
                 target_user=target_user,
                 campaign_id=campaign.id,
                 amount=5,

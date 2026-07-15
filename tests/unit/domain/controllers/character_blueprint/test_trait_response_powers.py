@@ -15,9 +15,6 @@ async def test_trait_response_includes_prefetched_powers(trait_factory, trait_po
     trait = await trait_factory(name="Biothaumaturgy")
     await trait_power_factory(trait=trait, level=2, name="Second")
     await trait_power_factory(trait=trait, level=1, name="First")
-    # Refetch from the DB: a freshly-created factory instance's uuid_utils.UUID id
-    # does not dict-match the stdlib uuid.UUID that fetch_related uses internally.
-    trait = await Trait.get(id=trait.id)
     await trait.fetch_related(
         "category", "sheet_section", "subcategory", "gift_tribe", "gift_auspice", "powers"
     )

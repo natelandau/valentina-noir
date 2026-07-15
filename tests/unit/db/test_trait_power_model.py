@@ -24,9 +24,7 @@ async def test_trait_power_created_with_level(trait_factory, trait_power_factory
     # Then it is stored against the trait at that level
     assert power.level == 1
     assert power.name == "Thaumaturgical Forensics"
-    # str() sidesteps uuid_utils.UUID (in-memory default) vs uuid.UUID (DB round trip)
-    # comparing unequal despite matching values.
-    assert str((await TraitPower.get(id=power.id)).trait_id) == str(trait.id)
+    assert (await TraitPower.get(id=power.id)).trait_id == trait.id
 
 
 @pytest.mark.anyio
@@ -86,10 +84,6 @@ async def test_trait_power_default_ordering_by_level(trait_factory, trait_power_
     await trait_power_factory(trait=trait, level=1, name="First")
 
     # When the trait's powers are fetched
-    # Re-fetch first: fetch_related on the in-memory instance would key its
-    # reverse-relation lookup on the uuid_utils.UUID default id, which never
-    # matches the uuid.UUID a DB round trip parses trait_id into.
-    trait = await Trait.get(id=trait.id)
     await trait.fetch_related("powers")
 
     # Then they are ordered by level ascending

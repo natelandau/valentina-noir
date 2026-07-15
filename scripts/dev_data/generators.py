@@ -1,7 +1,6 @@
 """Generators that fill a seeded database with believable, varied dev data."""
 
 import random
-import uuid
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -56,18 +55,6 @@ def _count(rng: tuple[int, int]) -> int:
     return random.randint(rng[0], rng[1])
 
 
-def _uuid(val: object) -> uuid.UUID:
-    """Convert any UUID-like object (including uuid_utils.UUID) to a stdlib uuid.UUID.
-
-    Tortoise's UUIDField.to_python_value() calls uuid.UUID(value) expecting a string
-    when it receives an already-UUID value. uuid_utils.UUID objects (which Tortoise
-    uses for primary keys) don't have the .replace() method that stdlib uuid.UUID.__init__
-    expects, so they must be converted via str() before being passed to .create() calls
-    that use the _id suffix form (e.g. company_id=...).
-    """
-    return uuid.UUID(str(val))
-
-
 async def create_developers() -> DevAccounts:
     """Create one developer of each tier: global admin, company admin, non-admin."""
     global_admin = await Developer.create(
@@ -104,14 +91,10 @@ async def create_companies(accounts: DevAccounts, cfg: PopulateConfig) -> list[C
     return companies
 
 
-async def create_users(companies: list[Company], cfg: PopulateConfig) -> dict[str, list[User]]:
-    """Create users per company with guaranteed ADMIN/STORYTELLER/PLAYER coverage.
-
-    Keyed by str(company.id): downstream lookups use FK ids from refreshed rows, which
-    can be a different UUID subtype than Company.create() returns, so we normalize to str.
-    """
+async def create_users(companies: list[Company], cfg: PopulateConfig) -> dict[UUID, list[User]]:
+    """Create users per company with guaranteed ADMIN/STORYTELLER/PLAYER coverage."""
     coverage = [UserRole.ADMIN, UserRole.STORYTELLER, UserRole.PLAYER]
-    users_by_company: dict[str, list[User]] = {}
+    users_by_company: dict[UUID, list[User]] = {}
     for company in companies:
         company_users: list[User] = []
         for i in range(cfg.num_users):
@@ -130,7 +113,7 @@ async def create_users(companies: list[Company], cfg: PopulateConfig) -> dict[st
                 name_last=last,
             )
             company_users.append(user)
-        users_by_company[str(company.id)] = company_users
+        users_by_company[company.id] = company_users
     return users_by_company
 
 
@@ -185,15 +168,15 @@ def _character_class_for_index(index: int) -> CharacterClass:
 async def create_characters(
     campaigns: list[Campaign],
     companies: list[Company],
-    users_by_company: dict[str, list[User]],
+    users_by_company: dict[UUID, list[User]],
     cfg: PopulateConfig,
 ) -> list[Character]:
     """Generate characters across types and classes via the autogeneration handler."""
-    companies_by_id = {str(company.id): company for company in companies}
+    companies_by_id = {company.id: company for company in companies}
     characters: list[Character] = []
     for campaign in campaigns:
-        company = companies_by_id[str(campaign.company_id)]  # ty:ignore[unresolved-attribute]
-        company_users = users_by_company[str(campaign.company_id)]  # ty:ignore[unresolved-attribute]
+        company = companies_by_id[campaign.company_id]  # ty:ignore[unresolved-attribute]
+        company_users = users_by_company[campaign.company_id]  # ty:ignore[unresolved-attribute]
         for i in range(cfg.num_characters):
             user = random.choice(company_users)
             handler = CharacterAutogenerationHandler(user=user, company=company, campaign=campaign)
@@ -223,19 +206,17 @@ async def create_inventory(characters: list[Character], cfg: PopulateConfig) -> 
 
 async def create_dice_rolls(
     characters: list[Character],
-    users_by_company: dict[str, list[User]],
+    users_by_company: dict[UUID, list[User]],
     cfg: PopulateConfig,
 ) -> None:
     """Record dice rolls (with results) per character via the production service."""
     service = DiceRollService()
     dice_sizes = list(DiceSize)
     for character in characters:
-        company_users = users_by_company[str(character.company_id)]  # ty:ignore[unresolved-attribute]
-        # Normalize uuid_utils.UUID FK ids to stdlib uuid.UUID before passing them as
-        # _id-form values (Tortoise's UUIDField conversion rejects uuid_utils.UUID).
-        company_id = _uuid(character.company_id)  # ty:ignore[unresolved-attribute]
-        character_id = _uuid(character.id)
-        campaign_id = _uuid(character.campaign_id) if character.campaign_id else None  # ty:ignore[unresolved-attribute]
+        company_users = users_by_company[character.company_id]  # ty:ignore[unresolved-attribute]
+        company_id = character.company_id  # ty:ignore[unresolved-attribute]
+        character_id = character.id
+        campaign_id = character.campaign_id or None  # ty:ignore[unresolved-attribute]
         for _ in range(_count(cfg.dice_rolls_per_char)):
             user = random.choice(company_users)
             data = DiceRollCreate(
@@ -248,11 +229,11 @@ async def create_dice_rolls(
                 character_id=character_id,
             )
             await service.create_complete_dice_roll(
-                data=data, company_id=company_id, user_id=_uuid(user.id)
+                data=data, company_id=company_id, user_id=user.id
             )
 
 
-async def create_quick_rolls(users_by_company: dict[str, list[User]], cfg: PopulateConfig) -> None:
+async def create_quick_rolls(users_by_company: dict[UUID, list[User]], cfg: PopulateConfig) -> None:
     """Create saved quick-roll templates per user, each with a few random traits."""
     available_traits = await Trait.filter(is_archived=False).limit(50)
     for users in users_by_company.values():
@@ -275,20 +256,20 @@ async def create_notes(
     campaigns: list[Campaign],
     books: list[CampaignBook],
     characters: list[Character],
-    users_by_company: dict[str, list[User]],
+    users_by_company: dict[UUID, list[User]],
     cfg: PopulateConfig,
 ) -> None:
     """Attach notes independently to campaigns, books, and characters."""
 
     def _author(company_id: UUID) -> User:
-        return random.choice(users_by_company[str(company_id)])
+        return random.choice(users_by_company[company_id])
 
     campaigns_by_id = {str(campaign.id): campaign for campaign in campaigns}
 
     for campaign in campaigns:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=_uuid(campaign.company_id),  # ty:ignore[unresolved-attribute]
+                company_id=campaign.company_id,  # ty:ignore[unresolved-attribute]
                 user=_author(campaign.company_id),  # ty:ignore[unresolved-attribute]
                 campaign=campaign,
                 title=fake.note_title(),
@@ -298,7 +279,7 @@ async def create_notes(
         campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[unresolved-attribute]
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=_uuid(campaign.company_id),  # ty:ignore[unresolved-attribute]
+                company_id=campaign.company_id,  # ty:ignore[unresolved-attribute]
                 user=_author(campaign.company_id),  # ty:ignore[unresolved-attribute]
                 book=book,
                 title=fake.note_title(),
@@ -307,7 +288,7 @@ async def create_notes(
     for character in characters:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=_uuid(character.company_id),  # ty:ignore[unresolved-attribute]
+                company_id=character.company_id,  # ty:ignore[unresolved-attribute]
                 user=_author(character.company_id),  # ty:ignore[unresolved-attribute]
                 character=character,
                 title=fake.note_title(),
@@ -330,7 +311,7 @@ async def create_assets(
     books: list[CampaignBook],
     chapters: list[CampaignChapter],
     campaigns: list[Campaign],
-    users_by_company: dict[str, list[User]],
+    users_by_company: dict[UUID, list[User]],
     cfg: PopulateConfig,
 ) -> None:
     """Attach fake image assets to characters, books, and chapters.
@@ -354,8 +335,8 @@ async def create_assets(
                 s3_key=f"dev/{company_id}/{seed}.png",
                 s3_bucket="dev-fake-bucket",
                 public_url=fake.picsum_url(width=width, height=height, seed=seed),
-                company_id=_uuid(company_id),
-                uploaded_by=random.choice(users_by_company[str(company_id)]),
+                company_id=company_id,
+                uploaded_by=random.choice(users_by_company[company_id]),
                 **{parent_kwarg: parent},  # ty:ignore[invalid-argument-type]
             )
 

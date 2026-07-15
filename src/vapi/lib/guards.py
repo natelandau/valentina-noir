@@ -125,14 +125,13 @@ async def _check_developer_company_permission(
 
     try:
         company_uuid = UUID(company_id_str)
-        developer_uuid = UUID(str(developer.id))
     except (ValueError, TypeError) as e:
         raise PermissionDeniedError(detail="No rights to access this resource") from e
 
     # Skip separate company existence check — the DI provider already validates
     # the company, and the permission query implicitly proves it exists
     perm = await DeveloperCompanyPermission.filter(
-        developer_id=developer_uuid,
+        developer_id=developer.id,
         company_id=company_uuid,
         company__is_archived=False,
     ).first()

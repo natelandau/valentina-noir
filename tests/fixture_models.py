@@ -292,10 +292,6 @@ async def dictionary_term_factory():
             "is_archived": False,
         }
         defaults.update(kwargs)
-        # Tortoise's UUIDField cannot accept uuid_utils.UUID directly; convert via str
-        for uuid_field in ("company_id", "source_id"):
-            if defaults.get(uuid_field) is not None:
-                defaults[uuid_field] = str(defaults[uuid_field])
         term = await DictionaryTerm.create(**defaults)
         created.append(term)
         return term
