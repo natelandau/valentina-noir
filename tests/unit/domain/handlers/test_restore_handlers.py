@@ -58,7 +58,7 @@ async def test_restore_reactivates_custom_traits_and_their_powers(
     """Verify unarchiving a character brings its custom traits and their powers back."""
     # Given an archived character whose custom trait grants a power
     character = await character_factory()
-    custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+    custom_trait = await trait_factory(custom_for_character_id=character.id)
     power = await trait_power_factory(trait=custom_trait, level=1, name="Custom Power")
     ctx = await archive_character(character=character)
     assert (await Trait.get(id=custom_trait.id)).is_archived

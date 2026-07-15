@@ -154,7 +154,6 @@ class Trait(BaseModel):
     min_value = fields.IntField(
         default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
     )
-    is_custom = fields.BooleanField(default=False)
     initial_cost = fields.IntField(
         default=0, validators=[MinValueValidator(0), MaxValueValidator(100)]
     )

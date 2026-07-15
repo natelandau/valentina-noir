@@ -199,7 +199,6 @@ class TraitResponse(msgspec.Struct):
     show_when_zero: bool
     max_value: int
     min_value: int
-    is_custom: bool
     initial_cost: int
     upgrade_cost: int
     count_based_cost_multiplier: int | None
@@ -261,7 +260,6 @@ class TraitResponse(msgspec.Struct):
             show_when_zero=m.show_when_zero,
             max_value=m.max_value,
             min_value=m.min_value,
-            is_custom=m.is_custom,
             initial_cost=m.initial_cost,
             upgrade_cost=m.upgrade_cost,
             count_based_cost_multiplier=m.count_based_cost_multiplier,

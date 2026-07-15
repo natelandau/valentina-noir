@@ -1,7 +1,6 @@
 """Unit tests for CharacterSheetService."""
 
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 import pytest
 
@@ -20,15 +19,20 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-def _collect_all_available_trait_ids(result: "CharacterFullSheetDTO") -> set[UUID]:
-    """Collect all trait IDs from available_traits across all categories and subcategories."""
+def _collect_all_available_trait_ids(result: "CharacterFullSheetDTO") -> set[str]:
+    """Collect all trait IDs from available_traits across all categories and subcategories.
+
+    IDs are normalized to strings: factory-built rows carry a ``uuid_utils.UUID`` while
+    rows read back through asyncpg carry a ``pgproto.UUID``, and the two never compare
+    equal, which silently makes ``not in`` assertions vacuous.
+    """
     return {
-        t.id
+        str(t.id)
         for section in result.sections
         for category in section.categories
         for t in category.available_traits
     } | {
-        t.id
+        str(t.id)
         for section in result.sections
         for category in section.categories
         for sub in category.subcategories
@@ -450,7 +454,7 @@ class TestCharacterSheetService:
                 is_archived=False,
                 character_classes__contains=[character.character_class],
                 game_versions__contains=[character.game_version],
-                is_custom=False,
+                custom_for_character_id__isnull=True,
             ).count()
 
             # When we get the full sheet with include_available_traits=True
@@ -483,7 +487,7 @@ class TestCharacterSheetService:
                 is_archived=False,
                 character_classes__contains=["MORTAL"],
                 game_versions__contains=[character.game_version],
-                is_custom=False,
+                custom_for_character_id__isnull=True,
             ).first()
             assert trait is not None
             await character_trait_factory(character=character, trait=trait, value=2)
@@ -496,7 +500,7 @@ class TestCharacterSheetService:
 
             # Then the assigned trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert trait.id not in all_available_ids
+            assert str(trait.id) not in all_available_ids
 
         async def test_custom_traits_excluded_from_available(
             self,
@@ -511,7 +515,6 @@ class TestCharacterSheetService:
 
             # And a custom trait exists for this character
             custom_trait = await trait_factory(
-                is_custom=True,
                 custom_for_character_id=character.id,
                 character_classes=["MORTAL"],
                 game_versions=[character.game_version],
@@ -525,7 +528,7 @@ class TestCharacterSheetService:
 
             # Then the custom trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert custom_trait.id not in all_available_ids
+            assert str(custom_trait.id) not in all_available_ids
 
         async def test_available_traits_sorted_by_name(
             self,
@@ -570,7 +573,7 @@ class TestCharacterSheetService:
             vampire_trait = await Trait.filter(
                 is_archived=False,
                 character_classes__contains=["VAMPIRE"],
-                is_custom=False,
+                custom_for_character_id__isnull=True,
             ).first()
 
             # When we get the full sheet with available traits
@@ -582,7 +585,7 @@ class TestCharacterSheetService:
             # Then the vampire trait should not appear in any available_traits list
             all_available_ids = _collect_all_available_trait_ids(result)
             if "MORTAL" not in (vampire_trait.character_classes or []):
-                assert vampire_trait.id not in all_available_ids
+                assert str(vampire_trait.id) not in all_available_ids
 
         async def test_wrong_game_version_traits_excluded_from_available(
             self,
@@ -601,7 +604,7 @@ class TestCharacterSheetService:
                 )
                 .filter(
                     is_archived=False,
-                    is_custom=False,
+                    custom_for_character_id__isnull=True,
                     character_classes__contains=[character.character_class],
                 )
                 .first()
@@ -615,7 +618,7 @@ class TestCharacterSheetService:
 
             # Then the other-version trait should not appear
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert other_version_trait.id not in all_available_ids
+            assert str(other_version_trait.id) not in all_available_ids
 
         async def test_available_traits_empty_when_all_assigned(
             self,
@@ -633,7 +636,7 @@ class TestCharacterSheetService:
                 is_archived=False,
                 character_classes__contains=[character.character_class],
                 game_versions__contains=[character.game_version],
-                is_custom=False,
+                custom_for_character_id__isnull=True,
             )
             for trait in all_traits:
                 await character_trait_factory(character=character, trait=trait, value=1)
@@ -741,10 +744,10 @@ class TestCharacterSheetService:
 
             # Then the available traits should not include gifts from the other tribe/auspice
             all_available_ids = _collect_all_available_trait_ids(result)
-            assert other_tribe_gift.id not in all_available_ids
+            assert str(other_tribe_gift.id) not in all_available_ids
 
             if other_auspice_gift is not None:
-                assert other_auspice_gift.id not in all_available_ids
+                assert str(other_auspice_gift.id) not in all_available_ids
 
             # And available gifts should only be native, matching tribe, or matching auspice
             all_available_gifts = [

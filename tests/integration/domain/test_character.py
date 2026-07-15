@@ -1472,7 +1472,7 @@ class TestCharacterCreate:
         section = await CharSheetSection.filter(name="Abilities", is_archived=False).first()
         assert section is not None
         traits = await Trait.filter(
-            sheet_section=section, is_archived=False, is_custom=False
+            sheet_section=section, is_archived=False, custom_for_character_id__isnull=True
         ).limit(3)
         assert len(traits) > 0
         trait_create_data = [{"trait_id": str(t.id), "value": 1} for t in traits]
@@ -1615,7 +1615,7 @@ class TestCharacterCreate:
         section = await CharSheetSection.filter(name="Attributes", is_archived=False).first()
         assert section is not None
         traits = await Trait.filter(
-            sheet_section=section, is_archived=False, is_custom=False
+            sheet_section=section, is_archived=False, custom_for_character_id__isnull=True
         ).limit(5)
         trait_create_data = [{"trait_id": str(t.id), "value": 0} for t in traits]
 
@@ -1874,7 +1874,7 @@ class TestCharacterFullSheet:
             subcategory_id__isnull=True,
             character_classes__contains=[character.character_class.value],
             game_versions__contains=[character.game_version.value],
-            is_custom=False,
+            custom_for_character_id__isnull=True,
         ).first()
         assert assigned_trait is not None
         await character_trait_factory(character=character, trait=assigned_trait, value=3)
@@ -2027,7 +2027,7 @@ class TestCharacterFullSheet:
             campaign=session_campaign,
         )
         trait = await Trait.filter(
-            is_archived=False, subcategory_id__isnull=True, is_custom=False
+            is_archived=False, subcategory_id__isnull=True, custom_for_character_id__isnull=True
         ).first()
         assert trait is not None
         await character_trait_factory(character=character, trait=trait, value=2)

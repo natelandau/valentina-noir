@@ -82,7 +82,7 @@ class CharacterSheetService:
                     is_archived=False,
                     character_classes__contains=[char_class],
                     game_versions__contains=[game_ver],
-                    is_custom=False,
+                    custom_for_character_id__isnull=True,
                 )
                 .prefetch_related(
                     "category",
@@ -208,7 +208,7 @@ class CharacterSheetService:
                 Trait.filter(
                     is_archived=False,
                     category_id=category.id,
-                    is_custom=False,
+                    custom_for_character_id__isnull=True,
                 )
                 .prefetch_related(
                     "category",

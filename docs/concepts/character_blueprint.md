@@ -60,7 +60,6 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
         "show_when_zero": true, // (4)!
         "max_value": 5, // (5)!
         "min_value": 0, // (6)!
-        "is_custom": false,
         "initial_cost": 1, // (7)!
         "upgrade_cost": 2, // (8)!
         "sheet_section_name": "Attributes", // (9)!
@@ -88,7 +87,7 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
     10. The ID of the sheet section which the trait belongs to.
     11. The name of the category which the trait belongs to.
     12. The ID of the category which the trait belongs to.
-    13. If the trait is custom, this is the ID of the character which the trait is custom for.
+    13. The ID of the character the trait is custom for, or `null` for a core trait. This field is how you tell the two apart.
     14. The ID of the subcategory, if the trait belongs to one. See [Trait Subcategories](./character_traits.md#trait-subcategories).
     15. The name of the subcategory, if the trait belongs to one.
     16. A string describing the dice pool associated with this trait, if applicable (e.g., hunter edges).

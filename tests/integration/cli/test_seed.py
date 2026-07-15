@@ -341,7 +341,7 @@ class TestSeedAsync:
         total_trait_count = expected_trait_count + expected_subcategory_trait_count
 
         # When: Querying traits from database (excluding custom traits)
-        traits = await Trait.filter(is_custom=False, is_archived=False).all()
+        traits = await Trait.filter(custom_for_character_id__isnull=True, is_archived=False).all()
 
         # Then: Count should match
         assert len(traits) in [

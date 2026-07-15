@@ -1017,7 +1017,7 @@ class CharacterTraitService:
 
         existing_trait = await Trait.filter(
             name__iexact=cleaned_name,
-            is_custom=False,
+            custom_for_character_id__isnull=True,
             is_archived=False,
         ).first()
         if existing_trait:
@@ -1060,7 +1060,6 @@ class CharacterTraitService:
                 custom_for_character_id=character.id,
                 category=parent_category,
                 sheet_section=parent_category.sheet_section,
-                is_custom=True,
                 is_rollable=data.is_rollable,
             )
 
@@ -1544,6 +1543,6 @@ class CharacterTraitService:
                 recoup_store=recoup_store,
             )
 
-        if character_trait.trait.is_custom:
+        if character_trait.trait.custom_for_character_id is not None:  # ty:ignore[unresolved-attribute]
             await character_trait.trait.delete()
         await character_trait.delete()

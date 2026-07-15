@@ -338,7 +338,7 @@ class TestCharacterArchiveHandler:
         """Verify a custom trait's powers are archived alongside the trait itself."""
         # Given a character whose custom trait grants a power
         character = await character_factory()
-        custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+        custom_trait = await trait_factory(custom_for_character_id=character.id)
         power = await trait_power_factory(trait=custom_trait, level=1, name="Custom Power")
 
         # And a global trait whose power belongs to nobody

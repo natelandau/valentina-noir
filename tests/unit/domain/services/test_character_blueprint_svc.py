@@ -560,7 +560,6 @@ class TestListAllTraits:
             category=category,
             subcategory=subcategory,
             character_classes=[CharacterClass.VAMPIRE.value],
-            is_custom=False,
         )
 
         # Given the expected count of traits for this subcategory
@@ -596,7 +595,6 @@ class TestListAllTraits:
             description="trait for exclude subcategory test",
             subcategory=subcategory,
             character_classes=[CharacterClass.VAMPIRE.value],
-            is_custom=False,
         )
 
         # Given the expected count of traits without subcategories

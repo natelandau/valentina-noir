@@ -547,7 +547,7 @@ class TestGuardIsSafeIncreaseDecrease:
         """
         service = CharacterTraitService()
         trait = await trait_factory(
-            initial_cost=initial_cost, upgrade_cost=upgrade_cost, max_value=5, is_custom=True
+            initial_cost=initial_cost, upgrade_cost=upgrade_cost, max_value=5
         )
 
         character_trait = await character_trait_factory(
@@ -563,7 +563,7 @@ class TestGuardIsSafeIncreaseDecrease:
     ) -> None:
         """Verify that a validation error is raised if the trait is raised above the max value."""
         service = CharacterTraitService()
-        trait = await trait_factory(max_value=5, is_custom=True)
+        trait = await trait_factory(max_value=5)
         character_trait = await character_trait_factory(
             trait=trait,
             value=4,
@@ -639,9 +639,7 @@ class TestCostForDot:
         """Verify first dot uses initial_cost."""
         # Given a trait with initial_cost=3, upgrade_cost=5
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=3, upgrade_cost=5, max_value=5, min_value=0)
         character_trait = await character_trait_factory(trait=trait, value=0)
 
         # When we calculate cost for dot 1
@@ -658,9 +656,7 @@ class TestCostForDot:
         """Verify dots above 1 use dot_value * upgrade_cost."""
         # Given a trait with initial_cost=3, upgrade_cost=5
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=3, upgrade_cost=5, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=3, upgrade_cost=5, max_value=5, min_value=0)
         character_trait = await character_trait_factory(trait=trait, value=0)
 
         # When we calculate cost for dot 3
@@ -782,7 +778,7 @@ class TestCalculateAllUpgradeCosts:
         """Verify empty dictionary returned when trait is at max value."""
         # Given a trait at its max value
         service = CharacterTraitService()
-        trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
+        trait = await trait_factory(max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=5,
@@ -802,9 +798,7 @@ class TestCalculateAllUpgradeCosts:
         """Verify single cost returned when trait is one below max value."""
         # Given a trait one below max value (value=4, max=5)
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=4,
@@ -827,9 +821,7 @@ class TestCalculateAllUpgradeCosts:
         """Verify costs returned for each possible number of dots to increase."""
         # Given a trait with value 3 and max_value 5
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=3,
@@ -853,9 +845,7 @@ class TestCalculateAllUpgradeCosts:
         """Verify all cost values are positive integers."""
         # Given a trait with room to upgrade
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=2,
@@ -881,7 +871,7 @@ class TestCalculateAllDowngradeSavings:
         """Verify only delete savings returned when trait is at min value."""
         # Given a trait at its min value
         service = CharacterTraitService()
-        trait = await trait_factory(max_value=5, min_value=0, is_custom=True)
+        trait = await trait_factory(max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=0,
@@ -901,9 +891,7 @@ class TestCalculateAllDowngradeSavings:
         """Verify single savings returned when trait is one above min value."""
         # Given a trait one above min value (value=1, min=0)
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=1,
@@ -927,9 +915,7 @@ class TestCalculateAllDowngradeSavings:
         """Verify savings returned for each possible number of dots to decrease."""
         # Given a trait with value 3 and min_value 0
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=3,
@@ -956,9 +942,7 @@ class TestCalculateAllDowngradeSavings:
         """Verify all savings values are positive integers."""
         # Given a trait with room to downgrade
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=3,
@@ -1255,7 +1239,6 @@ class TestCalculateCosts:
             upgrade_cost=upgrade_cost,
             max_value=5,
             min_value=0,
-            is_custom=True,
         )
         character_trait = await character_trait_factory(
             trait=trait,
@@ -1270,7 +1253,7 @@ class TestCalculateCosts:
     ) -> None:
         """Verify that a validation error is raised if the trait is lowered below the min value."""
         service = CharacterTraitService()
-        trait = await trait_factory(min_value=0, is_custom=True)
+        trait = await trait_factory(min_value=0)
         character_trait = await character_trait_factory(
             trait=trait,
             value=1,
@@ -1289,9 +1272,7 @@ class TestNonCountBasedCostRegression:
     ) -> None:
         """Verify non-gift trait upgrade cost still uses dot-based model."""
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(trait=trait, value=2)
         cost = await service.calculate_upgrade_cost(character_trait, 2)
         assert cost == 14  # (3x2) + (4x2) = 6 + 8
@@ -1303,9 +1284,7 @@ class TestNonCountBasedCostRegression:
     ) -> None:
         """Verify non-gift trait downgrade savings still uses dot-based model."""
         service = CharacterTraitService()
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(trait=trait, value=3)
         savings = await service.calculate_downgrade_savings(character_trait, 2)
         assert savings == 10  # (3x2) + (2x2) = 6 + 4
@@ -1825,7 +1804,6 @@ class TestCreateCustomTrait:
         assert result.trait.category_id == trait_category.id
         assert result.trait.initial_cost == trait_category.initial_cost
         assert result.trait.upgrade_cost == trait_category.upgrade_cost
-        assert result.trait.is_custom is True
         assert result.trait.custom_for_character_id == character.id
         assert result.character_id == character.id
         spy_after_save.assert_called_once()
@@ -1869,7 +1847,7 @@ class TestCreateCustomTrait:
 
         # Then the trait is created at value 1 and the first dot's XP cost is spent
         assert result.value == 1
-        assert result.trait.is_custom is True
+        assert result.trait.custom_for_character_id is not None
         spy_apply_xp.assert_called_once()
         experience = await user_svc.get_or_create_campaign_experience(user.id, campaign.id)
         assert experience.xp_current == 95
@@ -1950,7 +1928,7 @@ class TestCreateCustomTrait:
 
         # Then the trait is created at value 1 without a permission error
         assert result.value == 1
-        assert result.trait.is_custom is True
+        assert result.trait.custom_for_character_id is not None
 
     async def test_create_custom_trait_insufficient_xp_creates_nothing(
         self,
@@ -2060,7 +2038,7 @@ class TestCreateCustomTrait:
         # Given a character and trait
         company, user, character = get_company_user_character
 
-        all_traits = await Trait.filter(is_archived=False, is_custom=False)
+        all_traits = await Trait.filter(is_archived=False, custom_for_character_id__isnull=True)
         all_character_traits = await CharacterTrait.filter(
             character_id=character.id
         ).select_related("trait")
@@ -2777,9 +2755,7 @@ class TestGetValueOptions:
             starting_points=10,
         )
 
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(character=character, trait=trait, value=2)
 
         # When we get value options
@@ -2838,9 +2814,7 @@ class TestGetValueOptions:
             starting_points=5,
         )
 
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(character=character, trait=trait, value=2)
 
         # When we get value options
@@ -2880,9 +2854,7 @@ class TestGetValueOptions:
             company=company,
             starting_points=5,
         )
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(character=character, trait=trait, value=2)
 
         # When we get value options
@@ -2921,9 +2893,7 @@ class TestGetValueOptions:
             company=company,
         )
 
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(character=character, trait=trait, value=5)
 
         # When we get value options
@@ -2960,9 +2930,7 @@ class TestGetValueOptions:
             company=company,
         )
 
-        trait = await trait_factory(
-            initial_cost=1, upgrade_cost=2, max_value=5, min_value=0, is_custom=True
-        )
+        trait = await trait_factory(initial_cost=1, upgrade_cost=2, max_value=5, min_value=0)
         character_trait = await character_trait_factory(character=character, trait=trait, value=0)
 
         # When we get value options
@@ -3375,7 +3343,7 @@ class TestDeleteTrait:
         """Verify deleting a custom trait also deletes the Trait definition."""
         # Given a character with a custom trait
         company, user, character = get_company_user_character
-        custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+        custom_trait = await trait_factory(custom_for_character_id=character.id)
         character_trait = await character_trait_factory(
             value=1, character=character, trait=custom_trait
         )

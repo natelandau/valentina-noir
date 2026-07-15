@@ -124,7 +124,7 @@ class TestPgTraitSeed:
             for subcat in cat.get("subcategories", [])
         )
         expected_total = expected_category_traits + expected_subcategory_traits
-        actual_count = await Trait.filter(is_custom=False).count()
+        actual_count = await Trait.filter(custom_for_character_id__isnull=True).count()
         # Allow +-1 for edge cases in fixture parsing
         assert actual_count in [expected_total - 1, expected_total, expected_total + 1]
 
@@ -142,7 +142,9 @@ class TestPgTraitSeed:
         # When each such trait is read from the seeded database
         for category_name, subcategory_name, fixture_trait in fixture_powers:
             query = Trait.filter(
-                name=fixture_trait["name"], category__name=category_name, is_custom=False
+                name=fixture_trait["name"],
+                category__name=category_name,
+                custom_for_character_id__isnull=True,
             )
             query = (
                 query.filter(subcategory__name=subcategory_name)

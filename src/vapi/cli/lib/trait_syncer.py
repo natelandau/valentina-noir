@@ -94,7 +94,7 @@ class TraitSyncer:
         self.result.sections.total = await CharSheetSection.all().count()
         self.result.categories.total = await TraitCategory.all().count()
         self.result.subcategories.total = await TraitSubcategory.all().count()
-        self.result.traits.total = await Trait.filter(is_custom=False).count()
+        self.result.traits.total = await Trait.filter(custom_for_character_id__isnull=True).count()
 
         self._log_counts()
 
@@ -244,7 +244,13 @@ class TraitSyncer:
         # Case-insensitive lookup so fixture casing variants match the signal-normalized stored name.
         # Constrain subcategory in both directions so a category-level trait never matches a
         # subcategory-scoped trait of the same name (and vice versa) within the category.
-        lookup_filter: dict[str, Any] = {"name__iexact": trait_name, "category": category}
+        # Only ever match global traits: a fixture whose name collides with a character's custom
+        # trait must seed alongside it, not overwrite that character's costs and description.
+        lookup_filter: dict[str, Any] = {
+            "name__iexact": trait_name,
+            "category": category,
+            "custom_for_character_id__isnull": True,
+        }
         if subcategory:
             lookup_filter["subcategory"] = subcategory
         else:

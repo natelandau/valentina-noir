@@ -154,7 +154,7 @@ class CharacterBlueprintService:
             Trait,
             game_version=game_version,
             character_class=character_class,
-            extra_q=Q(custom_for_character_id=None),
+            extra_q=Q(custom_for_character_id__isnull=True),
         )
         if category_id:
             qs = qs.filter(category_id=category_id)

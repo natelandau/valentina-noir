@@ -21,7 +21,7 @@ async def test_deleting_character_deletes_its_custom_traits(
     """
     # Given a character with a custom trait
     character = await character_factory()
-    custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+    custom_trait = await trait_factory(custom_for_character_id=character.id)
 
     # When the character is hard-deleted
     await character.delete()
@@ -36,7 +36,7 @@ async def test_deleting_character_deletes_its_custom_trait_powers(
     """Verify the cascade reaches through a custom trait to its powers."""
     # Given a character with a custom trait that grants a power
     character = await character_factory()
-    custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+    custom_trait = await trait_factory(custom_for_character_id=character.id)
     power = await trait_power_factory(trait=custom_trait, level=1, name="Custom Power")
 
     # When the character is hard-deleted
@@ -71,4 +71,4 @@ async def test_custom_trait_cannot_reference_a_missing_character(trait_factory) 
     # When a custom trait claims that character as its owner
     # Then the database rejects it
     with pytest.raises(IntegrityError):
-        await trait_factory(is_custom=True, custom_for_character_id=missing_character_id)
+        await trait_factory(custom_for_character_id=missing_character_id)

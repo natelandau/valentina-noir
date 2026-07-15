@@ -185,7 +185,9 @@ class DictionaryService:
 
     async def _sync_trait_terms(self) -> None:
         """Create dictionary terms for all non-archived seed traits with descriptions."""
-        traits = await Trait.filter(is_archived=False, is_custom=False, description__isnull=False)
+        traits = await Trait.filter(
+            is_archived=False, custom_for_character_id__isnull=True, description__isnull=False
+        )
         for trait in traits:
             definition = _append_system(trait.description, trait.system)
 

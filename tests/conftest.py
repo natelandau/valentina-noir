@@ -162,12 +162,12 @@ async def _cleanup_non_constant_pg_data() -> None:
         else:
             await conn.execute_query(f"DELETE FROM {table}")  # noqa: S608
 
-    # Custom traits (is_custom=True) are per-character rows tests write into the
-    # otherwise-constant `trait` table. Their character_trait/quick_roll/dice_roll
+    # Custom traits (those owned by a character) are per-character rows tests write into
+    # the otherwise-constant `trait` table. Their character_trait/quick_roll/dice_roll
     # children are deleted by the loop above, so remove the orphaned definitions
-    # here to keep them from leaking across tests. Constant seed traits
-    # (is_custom=False) are never touched.
-    await conn.execute_query("DELETE FROM trait WHERE is_custom = true")
+    # here to keep them from leaking across tests. Constant seed traits, which have no
+    # owning character, are never touched.
+    await conn.execute_query("DELETE FROM trait WHERE custom_for_character_id IS NOT NULL")
 
 
 @pytest.fixture(autouse=True)

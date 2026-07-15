@@ -146,7 +146,6 @@ async def trait_factory():
             "show_when_zero": True,
             "initial_cost": 1,
             "upgrade_cost": 2,
-            "is_custom": False,
             "custom_for_character_id": None,
             "is_archived": False,
         }

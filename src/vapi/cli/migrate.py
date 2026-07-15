@@ -64,8 +64,10 @@ async def _apply_migrations() -> None:
         # database already reflects every migration, not just 0001_initial. Record
         # them all: recording only the baseline left the rest pending, and the next
         # migrate replayed them against the schema they had already produced
-        # ("column ... already exists"). The RunSQL they carry is either a data
-        # migration (no rows to touch here) or the archive trigger installed above.
+        # ("column ... already exists"). Skipping the SQL they carry is safe for the
+        # same reason: a data migration has no rows to touch here, schema SQL only
+        # restates what generate_schemas already built, and the archive trigger is
+        # installed above.
         recorder = MigrationRecorder(tx_conn)
         loader = MigrationLoader(config["apps"], recorder)
         loader.load_disk()

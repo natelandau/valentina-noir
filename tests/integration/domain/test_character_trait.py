@@ -463,7 +463,6 @@ class TestDeleteCharacterTrait:
             campaign=session_campaign,
         )
         custom_trait = await trait_factory(
-            is_custom=True,
             custom_for_character_id=character.id,
         )
         character_trait = await character_trait_factory(character=character, trait=custom_trait)
