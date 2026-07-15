@@ -700,21 +700,23 @@ class CharacterTraitService:
                 trait=trait, character=character, value=value, currency=currency
             )
 
-        character_trait = await CharacterTrait.create(
-            character=character,
-            trait=trait,
-            value=0,
-        )
-        # Refetch with prefetched relations
-        character_trait = await self._refetch_character_trait(character_trait.id)
-        return await self._buy_new_trait_dots(
-            company=company,
-            user=user,
-            character=character,
-            character_trait=character_trait,
-            num_dots=value,
-            currency=currency,
-        )
+        # Wrap it in a transaction so an unaffordable purchase rolls back the orphan trait row.
+        async with in_transaction():
+            character_trait = await CharacterTrait.create(
+                character=character,
+                trait=trait,
+                value=0,
+            )
+            # Refetch with prefetched relations
+            character_trait = await self._refetch_character_trait(character_trait.id)
+            return await self._buy_new_trait_dots(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=value,
+                currency=currency,
+            )
 
     async def _buy_new_trait_dots(
         self,

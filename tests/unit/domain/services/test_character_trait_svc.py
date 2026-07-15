@@ -1531,6 +1531,41 @@ class TestAddConstantTraitToCharacter:
         assert result.character_id == character.id
         spy_purchase_sp.assert_called_once()
 
+    async def test_add_constant_trait_to_character_failed_purchase_creates_nothing(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        mocker: Any,
+    ) -> None:
+        """Verify a purchase failure after the insert leaves no orphan character trait."""
+        # Given a character and a purchase step that fails after the trait row is inserted
+        company, user, character = get_company_user_character
+        character.starting_points = 100
+        await character.save()
+        trait = await Trait.filter(is_archived=False).first()
+        mocker.patch.object(
+            CharacterTraitService,
+            "_buy_new_trait_dots",
+            autospec=True,
+            side_effect=NotEnoughXPError(detail="no xp"),
+        )
+
+        # When the purchase raises
+        service = CharacterTraitService()
+        with pytest.raises(NotEnoughXPError):
+            await service.add_constant_trait_to_character(
+                company=company,
+                user=user,
+                character=character,
+                trait_id=trait.id,
+                value=2,
+                currency=TraitModifyCurrency.STARTING_POINTS,
+            )
+
+        # Then no character trait row is left behind
+        assert not await CharacterTrait.filter(
+            character_id=character.id, trait_id=trait.id
+        ).exists()
+
     async def test_add_constant_trait_to_character_over_max_value(
         self,
         get_company_user_character: tuple[Company, User, Character],

@@ -144,6 +144,32 @@ async def test_set_avatar_forbidden_for_other_non_admin(
     assert response.status_code == HTTP_403_FORBIDDEN
 
 
+@pytest.mark.parametrize("method", ["put", "delete"])
+async def test_avatar_forbidden_for_developer_without_company_access(
+    client: AsyncClient,
+    token_company_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    session_company_admin: Developer,
+    company_factory: Callable,
+    user_factory: Callable,
+    method: str,
+) -> None:
+    """Verify a developer key without access to the path company cannot touch avatars."""
+    # Given a user in a company the authenticated developer holds no permission on
+    other_company = await company_factory(name="Avatar Other Co", email="avatar-other@example.com")
+    other_user = await user_factory(company=other_company, role="PLAYER")
+    url = build_url(Users.AVATAR, company_id=other_company.id, user_id=other_user.id)
+    headers = token_company_admin | {"On-Behalf-Of": str(other_user.id)}
+    filename, data = _png()
+    kwargs = {"files": {"upload": (filename, data, "image/png")}} if method == "put" else {}
+
+    # When the developer calls the avatar endpoint under the other company
+    response = await getattr(client, method)(url, headers=headers, **kwargs)
+
+    # Then the request is forbidden
+    assert response.status_code == HTTP_403_FORBIDDEN
+
+
 async def test_archiving_user_archives_avatar(
     user_factory: Callable,
     company_factory: Callable,
