@@ -8,6 +8,8 @@ import subprocess
 
 import click
 from tortoise.migrations.api import migrate as tortoise_migrate
+from tortoise.migrations.loader import MigrationLoader
+from tortoise.migrations.recorder import MigrationRecorder
 
 from vapi.lib.database import install_archive_stamp_trigger, tortoise_config
 
@@ -41,9 +43,9 @@ async def _apply_migrations() -> None:
         return
 
     # Fresh database: generate the schema, install the trigger, and record the
-    # baseline migration in one transaction so a crash never leaves a populated
-    # schema without its 0001_initial marker (which would make the next migrate
-    # run try to re-apply 0001_initial against existing tables).
+    # migrations in one transaction so a crash never leaves a populated schema
+    # without its markers (which would make the next migrate run try to re-apply
+    # migrations against existing tables).
     async with in_transaction():
         await Tortoise.generate_schemas()
         # generate_schemas skips migration RunSQL; install the archive-stamp
@@ -57,8 +59,18 @@ async def _apply_migrations() -> None:
             "  name VARCHAR(255) NOT NULL,"
             "  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
             ");"
-            "INSERT INTO tortoise_migrations (app, name) VALUES ('models', '0001_initial');"
         )
+        # generate_schemas builds the schema from the current models, so a fresh
+        # database already reflects every migration, not just 0001_initial. Record
+        # them all: recording only the baseline left the rest pending, and the next
+        # migrate replayed them against the schema they had already produced
+        # ("column ... already exists"). The RunSQL they carry is either a data
+        # migration (no rows to touch here) or the archive trigger installed above.
+        recorder = MigrationRecorder(tx_conn)
+        loader = MigrationLoader(config["apps"], recorder)
+        loader.load_disk()
+        for key in loader.disk_migrations:
+            await recorder.record_applied(key.app_label, key.name)
 
     await Tortoise.close_connections()
 
