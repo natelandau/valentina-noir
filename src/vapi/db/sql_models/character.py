@@ -226,7 +226,7 @@ class CharacterTrait(BaseModel):
     """A trait assigned to a character with a numeric value."""
 
     character: fields.ForeignKeyRelation[Character] = fields.ForeignKeyField(
-        "models.Character", related_name="traits", on_delete=fields.OnDelete.CASCADE
+        "models.Character", related_name="traits", on_delete=fields.OnDelete.CASCADE, db_index=True
     )
     trait: fields.ForeignKeyRelation[Trait] = fields.ForeignKeyField(
         "models.Trait", related_name="character_traits", on_delete=fields.OnDelete.CASCADE
@@ -243,7 +243,10 @@ class CharacterInventory(BaseModel):
     """An item in a character's inventory."""
 
     character: fields.ForeignKeyRelation[Character] = fields.ForeignKeyField(
-        "models.Character", related_name="inventory", on_delete=fields.OnDelete.CASCADE
+        "models.Character",
+        related_name="inventory",
+        on_delete=fields.OnDelete.CASCADE,
+        db_index=True,
     )
     name = fields.CharField(max_length=50)
     description = fields.TextField(null=True)
@@ -259,7 +262,10 @@ class Specialty(BaseModel):
     """A character specialty."""
 
     character: fields.ForeignKeyRelation[Character] = fields.ForeignKeyField(
-        "models.Character", related_name="specialties", on_delete=fields.OnDelete.CASCADE
+        "models.Character",
+        related_name="specialties",
+        on_delete=fields.OnDelete.CASCADE,
+        db_index=True,
     )
     name = fields.CharField(max_length=50)
     type = fields.CharEnumField(SpecialtyType)
