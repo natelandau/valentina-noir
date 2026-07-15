@@ -13,7 +13,7 @@ from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import validate_character_classes, validate_game_versions
 
 if TYPE_CHECKING:
-    from vapi.db.sql_models.character import CharacterTrait
+    from vapi.db.sql_models.character import Character, CharacterTrait
     from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
     from vapi.db.sql_models.diceroll import DiceRoll
     from vapi.db.sql_models.quickroll import QuickRoll
@@ -168,9 +168,17 @@ class Trait(BaseModel):
     pool = fields.TextField(null=True)
     opposing_pool = fields.TextField(null=True)
     system = fields.TextField(null=True)
-    custom_for_character_id = fields.UUIDField(null=True)
 
     # FK relationships
+    # A custom trait exists only for its character, so it dies with it. Null on the
+    # global seeded traits, which outlive every character.
+    custom_for_character: fields.ForeignKeyNullableRelation[Character] = fields.ForeignKeyField(
+        "models.Character",
+        related_name="custom_traits",
+        null=True,
+        db_index=True,
+        on_delete=fields.OnDelete.CASCADE,
+    )
     category: fields.ForeignKeyRelation[TraitCategory] = fields.ForeignKeyField(
         "models.TraitCategory", related_name="traits", on_delete=fields.OnDelete.CASCADE
     )

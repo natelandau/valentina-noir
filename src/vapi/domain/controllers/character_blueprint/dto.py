@@ -270,7 +270,7 @@ class TraitResponse(msgspec.Struct):
             sheet_section_name=m.sheet_section_name,
             category_id=m.category.id,
             category_name=m.category_name,
-            custom_for_character_id=m.custom_for_character_id,
+            custom_for_character_id=m.custom_for_character_id,  # ty:ignore[unresolved-attribute]
             subcategory_id=m.subcategory.id if m.subcategory else None,
             subcategory_name=m.subcategory_name,
             pool=m.pool,

@@ -6,6 +6,7 @@ import pytest
 from uuid_utils import uuid7
 
 from vapi.db.sql_models.character import Character, Specialty
+from vapi.db.sql_models.character_sheet import Trait, TraitPower
 from vapi.domain.handlers import archive_character, restore_archive_batch
 
 pytestmark = pytest.mark.anyio
@@ -46,6 +47,30 @@ async def test_restore_batch_reactivates_whole_action(
         refreshed = await model.get(id=obj.id)
         assert refreshed.is_archived is False
         assert refreshed.archive_date is None
+        assert refreshed.archive_batch_id is None
+
+
+async def test_restore_reactivates_custom_traits_and_their_powers(
+    character_factory,
+    trait_factory,
+    trait_power_factory,
+) -> None:
+    """Verify unarchiving a character brings its custom traits and their powers back."""
+    # Given an archived character whose custom trait grants a power
+    character = await character_factory()
+    custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+    power = await trait_power_factory(trait=custom_trait, level=1, name="Custom Power")
+    ctx = await archive_character(character=character)
+    assert (await Trait.get(id=custom_trait.id)).is_archived
+    assert (await TraitPower.get(id=power.id)).is_archived
+
+    # When the character is restored
+    await restore_archive_batch(batch_id=ctx.batch_id)
+
+    # Then the trait and its power are active again
+    for obj, model in [(custom_trait, Trait), (power, TraitPower)]:
+        refreshed = await model.get(id=obj.id)
+        assert refreshed.is_archived is False
         assert refreshed.archive_batch_id is None
 
 

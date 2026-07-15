@@ -82,6 +82,7 @@ class Character(BaseModel):
 
     # Reverse relations
     traits: fields.ReverseRelation[CharacterTrait]
+    custom_traits: fields.ReverseRelation[Trait]
     inventory: fields.ReverseRelation[CharacterInventory]
     specialties: fields.ReverseRelation[Specialty]
     vampire_attributes: fields.OneToOneRelation[VampireAttributes]

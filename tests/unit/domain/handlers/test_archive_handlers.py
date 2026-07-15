@@ -17,7 +17,7 @@ from vapi.db.sql_models.character import (
     VampireAttributes,
 )
 from vapi.db.sql_models.character_concept import CharacterConcept
-from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.character_sheet import Trait, TraitPower
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.dictionary import DictionaryTerm
@@ -328,6 +328,33 @@ class TestCharacterArchiveHandler:
             refreshed = await model.get(id=obj.id)
             assert refreshed.archive_batch_id == ctx.batch_id
             assert refreshed.archive_date is not None
+
+    async def test_archiving_character_archives_its_custom_trait_powers(
+        self,
+        character_factory: Callable[..., Character],
+        trait_factory: Callable[..., Trait],
+        trait_power_factory: Callable[..., TraitPower],
+    ) -> None:
+        """Verify a custom trait's powers are archived alongside the trait itself."""
+        # Given a character whose custom trait grants a power
+        character = await character_factory()
+        custom_trait = await trait_factory(is_custom=True, custom_for_character_id=character.id)
+        power = await trait_power_factory(trait=custom_trait, level=1, name="Custom Power")
+
+        # And a global trait whose power belongs to nobody
+        global_trait = await trait_factory()
+        global_power = await trait_power_factory(trait=global_trait, level=1, name="Global Power")
+
+        # When we archive the character
+        ctx = await archive_character(character=character)
+
+        # Then the custom trait's power is archived under the same batch
+        refreshed = await TraitPower.get(id=power.id)
+        assert refreshed.is_archived
+        assert refreshed.archive_batch_id == ctx.batch_id
+
+        # And the global trait's power is untouched
+        assert not (await TraitPower.get(id=global_power.id)).is_archived
 
 
 class TestUserArchiveHandler:
