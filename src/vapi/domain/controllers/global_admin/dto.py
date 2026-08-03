@@ -89,8 +89,8 @@ class AdminUserPatch(msgspec.Struct):
     refused while the user's company is archived.
     """
 
-    name_first: str | None | msgspec.UnsetType = msgspec.UNSET
-    name_last: str | None | msgspec.UnsetType = msgspec.UNSET
+    name_first: str | msgspec.UnsetType | None = msgspec.UNSET
+    name_last: str | msgspec.UnsetType | None = msgspec.UNSET
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     role: str | msgspec.UnsetType = msgspec.UNSET

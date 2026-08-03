@@ -43,7 +43,7 @@ def log_uncaught_exception(logger: "Logger", scope: "Scope", _tb: list[str]) -> 
 
     request_id = state.get(REQUEST_ID_STATE_KEY) if isinstance(state, dict) else None
     developer_id = getattr(scope.get("user"), "id", None)
-    logger.exception(
+    logger.exception(  # noqa: LOG004
         "Uncaught exception",
         extra={
             "path": scope.get("path"),

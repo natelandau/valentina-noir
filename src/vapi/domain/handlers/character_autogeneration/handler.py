@@ -99,7 +99,7 @@ class CharacterAutogenerationHandler:
         self.concept: CharacterConcept | None = None
         self.character_trait_service = CharacterTraitService()
 
-    async def generate_character(  # noqa: PLR0913
+    async def generate_character(  # noqa: PLR0913, PLR0917
         self,
         character_type: CharacterType,
         experience_level: AutoGenExperienceLevel | None = None,

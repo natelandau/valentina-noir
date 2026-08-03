@@ -43,7 +43,7 @@ class CompanyAuditLogController(Controller):
         description=docs.LIST_AUDIT_LOGS_DESCRIPTION,
         cache=True,
     )
-    async def list_company_audit_logs(  # noqa: PLR0913
+    async def list_company_audit_logs(
         self,
         *,
         company: Company,

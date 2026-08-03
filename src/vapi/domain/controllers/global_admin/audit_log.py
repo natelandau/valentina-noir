@@ -42,7 +42,7 @@ class GlobalAdminAuditLogController(Controller):
         description=docs.LIST_DEVELOPER_AUDIT_LOGS_DESCRIPTION,
         cache=True,
     )
-    async def list_developer_audit_logs(  # noqa: PLR0913
+    async def list_developer_audit_logs(
         self,
         *,
         developer: Developer,

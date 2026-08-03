@@ -254,8 +254,8 @@ class UserPatch(msgspec.Struct):
     can never reach the identity-matching columns.
     """
 
-    name_first: str | None | msgspec.UnsetType = msgspec.UNSET
-    name_last: str | None | msgspec.UnsetType = msgspec.UNSET
+    name_first: str | msgspec.UnsetType | None = msgspec.UNSET
+    name_last: str | msgspec.UnsetType | None = msgspec.UNSET
     username: str | msgspec.UnsetType = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     role: str | msgspec.UnsetType = msgspec.UNSET

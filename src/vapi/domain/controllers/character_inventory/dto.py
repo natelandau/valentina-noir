@@ -49,5 +49,5 @@ class InventoryItemPatch(msgspec.Struct):
     """Request body for partially updating an inventory item."""
 
     name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | None | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET
     type: InventoryItemType | msgspec.UnsetType = msgspec.UNSET

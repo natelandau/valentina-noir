@@ -39,7 +39,7 @@ class DiceRollController(Controller):
         operation_id="listDiceRolls",
         description=docs.LIST_DICEROLLS_DESCRIPTION,
     )
-    async def list_dicerolls(  # noqa: PLR0913
+    async def list_dicerolls(
         self,
         company: Company,
         acting_user: User,

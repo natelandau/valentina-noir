@@ -132,7 +132,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 allowed_hosts=settings.allowed_hosts.hosts
             )
 
-        app_config.exception_handlers = {  # ty:ignore[invalid-assignment]
+        app_config.exception_handlers = {
             HTTPError: http_error_to_http_response,
             HTTPException: litestar_http_exc_to_http_response,
             TortoiseDoesNotExist: does_not_exist_to_http_response,

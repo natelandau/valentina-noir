@@ -108,7 +108,7 @@ class StructuredMessageParser:
             return value[1:-1]
         return None
 
-    def parse_value(self, value: str) -> dict | list | int | float | bool | None | str:  # noqa: PLR0911
+    def parse_value(self, value: str) -> dict | list | int | float | bool | str | None:  # noqa: PLR0911
         """Parse a value string into the appropriate Python type.
 
         Returns:

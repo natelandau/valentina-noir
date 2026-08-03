@@ -71,7 +71,7 @@ class CharacterController(Controller):
         description=docs.LIST_CHARACTERS_DESCRIPTION,
         cache=True,
     )
-    async def list_characters(  # noqa: PLR0913
+    async def list_characters(
         self,
         company: Company,
         acting_user: User,

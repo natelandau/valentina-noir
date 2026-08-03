@@ -35,7 +35,7 @@ def validate_provider_audiences(value: object) -> None:
             ],
         )
 
-    invalid_keys = sorted(set(value.keys()) - _ALLOWED_AUDIENCE_PROVIDERS)
+    invalid_keys = sorted(set(value.keys()) - _ALLOWED_AUDIENCE_PROVIDERS)  # ty: ignore[invalid-argument-type]
     if invalid_keys:
         raise ValidationError(
             detail=f"provider_audiences contains unsupported provider keys: {invalid_keys}",

@@ -373,12 +373,12 @@ class VampireAttributesPatch(msgspec.Struct):
     """Vampire attributes for character patch."""
 
     clan_id: UUID | msgspec.UnsetType = msgspec.UNSET
-    generation: int | None | msgspec.UnsetType = msgspec.UNSET
-    sire: str | None | msgspec.UnsetType = msgspec.UNSET
-    bane_name: str | None | msgspec.UnsetType = msgspec.UNSET
-    bane_description: str | None | msgspec.UnsetType = msgspec.UNSET
-    compulsion_name: str | None | msgspec.UnsetType = msgspec.UNSET
-    compulsion_description: str | None | msgspec.UnsetType = msgspec.UNSET
+    generation: int | msgspec.UnsetType | None = msgspec.UNSET
+    sire: str | msgspec.UnsetType | None = msgspec.UNSET
+    bane_name: str | msgspec.UnsetType | None = msgspec.UNSET
+    bane_description: str | msgspec.UnsetType | None = msgspec.UNSET
+    compulsion_name: str | msgspec.UnsetType | None = msgspec.UNSET
+    compulsion_description: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class WerewolfAttributesPatch(msgspec.Struct):
@@ -386,20 +386,20 @@ class WerewolfAttributesPatch(msgspec.Struct):
 
     tribe_id: UUID | msgspec.UnsetType = msgspec.UNSET
     auspice_id: UUID | msgspec.UnsetType = msgspec.UNSET
-    pack_name: str | None | msgspec.UnsetType = msgspec.UNSET
+    pack_name: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class MageAttributesPatch(msgspec.Struct):
     """Mage attributes for character patch."""
 
-    sphere: str | None | msgspec.UnsetType = msgspec.UNSET
-    tradition: str | None | msgspec.UnsetType = msgspec.UNSET
+    sphere: str | msgspec.UnsetType | None = msgspec.UNSET
+    tradition: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class HunterAttributesPatch(msgspec.Struct):
     """Hunter attributes for character patch."""
 
-    creed: str | None | msgspec.UnsetType = msgspec.UNSET
+    creed: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 # ---------------------------------------------------------------------------
@@ -446,17 +446,17 @@ class CharacterPatch(msgspec.Struct):
 
     name_first: str | msgspec.UnsetType = msgspec.UNSET
     name_last: str | msgspec.UnsetType = msgspec.UNSET
-    name_nick: str | None | msgspec.UnsetType = msgspec.UNSET
+    name_nick: str | msgspec.UnsetType | None = msgspec.UNSET
     type: CharacterType | msgspec.UnsetType = msgspec.UNSET
     status: CharacterStatus | msgspec.UnsetType = msgspec.UNSET
-    age: int | None | msgspec.UnsetType = msgspec.UNSET
-    date_of_birth: date | None | msgspec.UnsetType = msgspec.UNSET
-    biography: str | None | msgspec.UnsetType = msgspec.UNSET
-    demeanor: str | None | msgspec.UnsetType = msgspec.UNSET
-    nature: str | None | msgspec.UnsetType = msgspec.UNSET
-    concept_id: UUID | None | msgspec.UnsetType = msgspec.UNSET
+    age: int | msgspec.UnsetType | None = msgspec.UNSET
+    date_of_birth: date | msgspec.UnsetType | None = msgspec.UNSET
+    biography: str | msgspec.UnsetType | None = msgspec.UNSET
+    demeanor: str | msgspec.UnsetType | None = msgspec.UNSET
+    nature: str | msgspec.UnsetType | None = msgspec.UNSET
+    concept_id: UUID | msgspec.UnsetType | None = msgspec.UNSET
     is_temporary: bool | msgspec.UnsetType = msgspec.UNSET
-    user_player_id: UUID | None | msgspec.UnsetType = msgspec.UNSET
+    user_player_id: UUID | msgspec.UnsetType | None = msgspec.UNSET
     vampire_attributes: VampireAttributesPatch | msgspec.UnsetType = msgspec.UNSET
     werewolf_attributes: WerewolfAttributesPatch | msgspec.UnsetType = msgspec.UNSET
     mage_attributes: MageAttributesPatch | msgspec.UnsetType = msgspec.UNSET

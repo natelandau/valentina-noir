@@ -186,14 +186,18 @@
             "E711",   # Comparison to `None` should be `cond is None`
             "E712",   # use of `== False` instead of `is False`
             "FIX002", # Line contains TODO, consider resolving the issue
-            "S311",   # suspicious-non-cryptographic-random-usage
-            "TD001",  # invalid-todo-tag
-            "TD002",  # Missing author in TODO
-            "TD003",  # Missing issue link on the line following this TODO
+            # "PLR0917", # Too many positional arguments
+            "S311",  # suspicious-non-cryptographic-random-usage
+            "TD001", # invalid-todo-tag
+            "TD002", # Missing author in TODO
+            "TD003", # Missing issue link on the line following this TODO
         ]
         per-file-ignores = { "src/vapi/domain/*.py" = [
             "FBT002", # Boolean-typed positional argument in function definition (required for Litestar query parameters)
             "RUF012", # mutable-class-default
+        ], "src/vapi/domain/controllers/*.py" = [
+            "PLR0913", # Too many positional arguments,
+            "PLR0917", # Too many positional arguments
         ], "scripts/*.py" = [
             "PLR0912",
             "PLR0913",
@@ -216,7 +220,8 @@
             "FBT001",  # Boolean-typed positional argument in function definition
             "PGH003",  # Use specific rule codes when ignoring type issues
             "PLC0415", # Imports should be at top of file
-            "PLR0913",
+            "PLR0913", # Too many positional arguments,
+            "PLR0917", # Too many positional arguments
             "PLR2004",
             "PLW0108", # Lambda may be unnecessary; consider inlining inner function
             "S101",

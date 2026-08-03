@@ -181,7 +181,7 @@ class CompanyPatch(msgspec.Struct):
     """
 
     name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | None | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET
     email: str | msgspec.UnsetType = msgspec.UNSET
     settings: CompanySettingsPatch | msgspec.UnsetType = msgspec.UNSET
 

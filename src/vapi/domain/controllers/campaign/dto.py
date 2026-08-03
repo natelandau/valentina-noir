@@ -287,8 +287,8 @@ class CampaignPatch(msgspec.Struct):
     """
 
     name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | None | msgspec.UnsetType = msgspec.UNSET
-    in_game_date: date | None | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET
+    in_game_date: date | msgspec.UnsetType | None = msgspec.UNSET
     desperation: int | msgspec.UnsetType = msgspec.UNSET
     danger: int | msgspec.UnsetType = msgspec.UNSET
 
@@ -307,7 +307,7 @@ class CampaignBookPatch(msgspec.Struct):
     """
 
     name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | None | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class CampaignChapterCreate(msgspec.Struct):
@@ -325,7 +325,7 @@ class CampaignChapterPatch(msgspec.Struct):
     """
 
     name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | None | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET
     character_ids: list[UUID] | msgspec.UnsetType = msgspec.UNSET
 
 

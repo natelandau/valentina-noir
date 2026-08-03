@@ -19,7 +19,7 @@ class _Patch(msgspec.Struct):
     """Patch DTO with UNSET defaults."""
 
     name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | None | msgspec.UnsetType = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET
     count: int | msgspec.UnsetType = msgspec.UNSET
 
 

@@ -244,7 +244,7 @@ class CharacterBlueprintSectionController(Controller):
         description=docs.LIST_ALL_TRAITS_DESCRIPTION,
         cache=True,
     )
-    async def list_all_traits(  # noqa: PLR0913
+    async def list_all_traits(
         self,
         *,
         limit: ReferenceLimit = 10,

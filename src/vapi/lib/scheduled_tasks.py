@@ -102,7 +102,7 @@ async def _purge_s3_assets() -> None:
     for asset, result in zip(assets, results, strict=True):
         if isinstance(result, BaseException):
             failed += 1
-            logger.exception(
+            logger.exception(  # noqa: LOG004
                 "Failed to purge S3Asset %s.",
                 asset.id,
                 exc_info=result,
@@ -135,7 +135,7 @@ async def _purge_chargen_sessions() -> None:
         )
         for character, result in zip(session.characters, char_results, strict=True):
             if isinstance(result, BaseException):
-                logger.exception(
+                logger.exception(  # noqa: LOG004
                     "Failed to delete character %s from session %s.",
                     character.id,
                     session.id,
@@ -390,7 +390,7 @@ async def backup_database(_: Context) -> None:
         )
         for key, result in zip(to_delete, results, strict=True):
             if isinstance(result, BaseException):
-                logger.exception(
+                logger.exception(  # noqa: LOG004
                     "Failed to delete expired backup %s.",
                     key,
                     exc_info=result,

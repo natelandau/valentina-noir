@@ -27,8 +27,8 @@ class DictionaryTermPatch(msgspec.Struct):
     """
 
     term: str | msgspec.UnsetType = msgspec.UNSET
-    definition: str | None | msgspec.UnsetType = msgspec.UNSET
-    link: str | None | msgspec.UnsetType = msgspec.UNSET
+    definition: str | msgspec.UnsetType | None = msgspec.UNSET
+    link: str | msgspec.UnsetType | None = msgspec.UNSET
     synonyms: list[str] | msgspec.UnsetType = msgspec.UNSET
 
 
