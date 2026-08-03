@@ -1,3 +1,34 @@
+## v0.28.0 (2026-08-03)
+
+### BREAKING CHANGE
+
+- trait responses no longer include is_custom. Use
+custom_for_character_id instead: non-null means the trait is custom and owned
+by that character, null means it is a core trait. The two fields always agreed,
+so the substitution is exact and no behavior changes.
+
+### Feat
+
+- **traits**: add dot-level powers to trait and dictionary responses (#160)
+- **character**: add optional date of birth
+- **campaign**: add optional in-game date to campaigns
+- **campaign**: add year field
+
+### Fix
+
+- **db**: mint primary keys as stdlib UUIDs
+- **traits**: roll back the trait row when adding a trait fails
+- **migrate**: stop a fresh database failing on its second migrate
+- **traits**: delete custom traits when their character is deleted
+
+### Refactor
+
+- **traits**: remove is_custom from trait responses
+
+### Perf
+
+- **characters**: index character traits, specialties, and inventory
+
 ## v0.27.0 (2026-07-11)
 
 ### Feat
