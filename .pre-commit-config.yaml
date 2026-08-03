@@ -5,7 +5,7 @@ default_stages: [pre-commit, manual]
 fail_fast: true
 repos:
   - repo: "https://github.com/commitizen-tools/commitizen"
-    rev: v4.16.4
+    rev: v4.17.0
     hooks:
       - id: commitizen
 
@@ -63,7 +63,7 @@ repos:
         entry: yamllint --strict --config-file .yamllint.yml
 
   - repo: "https://github.com/astral-sh/ruff-pre-commit"
-    rev: v0.15.21
+    rev: v0.16.1
     hooks:
       - id: ruff-check
       - id: ruff-format
@@ -94,7 +94,7 @@ repos:
         stages: [commit-msg]
 
   - repo: "https://github.com/tsvikas/sync-with-uv"
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: sync-with-uv
 
