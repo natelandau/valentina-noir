@@ -134,6 +134,7 @@ repos:
         entry: uv run duty test
         language: system
         pass_filenames: false
+        stages: [pre-push]
         files: |
           (?x)^(
           src/|

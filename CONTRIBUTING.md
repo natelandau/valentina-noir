@@ -21,7 +21,7 @@ Set up the project in six steps:
 2. Enter the directory: `cd valentina-noir`
 3. Install all dependencies, including dev and docs groups: `uv sync --all-groups`. This creates a virtual environment in `.venv/` and installs the pinned Python version if it is missing.
 4. Activate the virtual environment: `source .venv/bin/activate`. Activation puts the project's tools (`duty`, `prek`, `pytest`, `ruff`) on your `PATH` so you can call them by name. If you skip this step, prefix each command with `uv run` (for example, `uv run duty run`).
-5. Install the [prek](https://prek.j178.dev/) git hooks: `prek install`. These run linters and formatters automatically before each commit.
+5. Install the [prek](https://prek.j178.dev/) git hooks: `prek install`. These run linters and formatters before each commit, and the test suite before each push.
 6. Configure your environment and database (see the next two sections).
 
 ## Configuring the environment
@@ -85,7 +85,7 @@ Both `duty populate` and `duty reset` drop and recreate the database, so they pr
 
 ### Skipped checks
 
-`duty lint` and `duty test` run each check through [gate-cache](https://github.com/natelandau/gate-cache). When a check passes, gate-cache records the pass for the exact content of the working copy. If you run the same check again on the same content, gate-cache skips it and prints `already passed on tree ..., skipping`. Any edit to a file that git does not ignore makes the check run again. The prek hooks call the same duty tasks, so a check that passed in your terminal is skipped at commit time.
+`duty lint` and `duty test` run each check through [gate-cache](https://github.com/natelandau/gate-cache). When a check passes, gate-cache records the pass for the exact content of the working copy. If you run the same check again on the same content, gate-cache skips it and prints `already passed on tree ..., skipping`. Any edit to a file that git does not ignore makes the check run again. The prek hooks call the same duty tasks, so a check that passed in your terminal is skipped at commit or push time.
 
 `duty test` with extra pytest arguments, for example `duty test -- -k unit`, always runs, because a filtered run must not skip the full suite.
 
@@ -210,7 +210,7 @@ duty migrate
 
 If you also need the reference data, follow up with `duty seed`. To start completely fresh, run `duty reset`.
 
-### prek hooks didn't run on commit
+### prek hooks didn't run on commit or push
 
 The git hooks aren't installed in your clone. Install them once:
 
