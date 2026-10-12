@@ -83,6 +83,14 @@ We use [Duty](https://pawamoy.github.io/duty/) as the task runner. Run `duty --l
 
 Both `duty populate` and `duty reset` drop and recreate the database, so they prompt for confirmation first.
 
+### Skipped checks
+
+`duty lint` and `duty test` run each check through [gate-cache](https://github.com/natelandau/gate-cache). When a check passes, gate-cache records the pass for the exact content of the working copy. If you run the same check again on the same content, gate-cache skips it and prints `already passed on tree ..., skipping`. Any edit to a file that git does not ignore makes the check run again. The prek hooks call the same duty tasks, so a check that passed in your terminal is skipped at commit time.
+
+`duty test` with extra pytest arguments, for example `duty test -- -k unit`, always runs, because a filtered run must not skip the full suite.
+
+To force every check to run, set `GATE_CACHE_DISABLE=1`, or delete all records with `uv run gate-cache clear`. Caching is off when the `CI` variable is set.
+
 ### Application CLI
 
 A command-line tool ships with the project for tasks the task runner doesn't cover, such as managing developer accounts and restoring database backups. See every command with:

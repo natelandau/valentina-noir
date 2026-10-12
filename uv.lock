@@ -472,6 +472,18 @@ wheels = [
 ]
 
 [[package]]
+name = "gate-cache"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "platformdirs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/1d/cf10017103862e1d9ad958f73bb27c8e001b6d2d907c4e9478b11b8a6da0/gate_cache-0.6.0.tar.gz", hash = "sha256:f497a7b9e71eb46879b53e6f063c208d5dc52aaf69752e705287cd611d1a5ba3", size = 25124, upload-time = "2026-10-12T22:00:38.31Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/db/a29706b63d669da6be65bd7b1a0aae91258e66c840ff4e7f27c5a540d2e4/gate_cache-0.6.0-py3-none-any.whl", hash = "sha256:fb200c9f100e6863df6a90e22f918e48c0cdd48849fb571708a416d60dc86ed7", size = 26502, upload-time = "2026-10-12T22:00:37.057Z" },
+]
+
+[[package]]
 name = "granian"
 version = "2.8.4"
 source = { registry = "https://pypi.org/simple" }
@@ -868,6 +880,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c9/f9/066794cca041b969964f779ee5fa66a9498bbf34248ac39c5d7954e4198f/pillow-12.3.0-cp313-cp313-win32.whl", hash = "sha256:a876864214e136f0eb367788dbd7df045f4806801518e2cfe9e13229cfe06d8f", size = 6473287, upload-time = "2026-07-01T11:54:44.9Z" },
     { url = "https://files.pythonhosted.org/packages/a6/9b/7a58e61d62be561da3a356fe2384d4059a6345fc130e23ef1c36a5b81d24/pillow-12.3.0-cp313-cp313-win_amd64.whl", hash = "sha256:1cca606cd25738df4ed873d5ad46bbdb3d83b5cbca291f6b4ff13a4df6b0bbe8", size = 7239691, upload-time = "2026-07-01T11:54:47.141Z" },
     { url = "https://files.pythonhosted.org/packages/aa/b0/c4ed4f0ef8f8fa5ee8351537db6650bb8189f7e118842978dd6589065692/pillow-12.3.0-cp313-cp313-win_arm64.whl", hash = "sha256:b629de27fda84b42cde7edef0d85f13b958b47f6e9bbcbba9b673c562a89bd8b", size = 2568185, upload-time = "2026-07-01T11:54:49.137Z" },
+]
+
+[[package]]
+name = "platformdirs"
+version = "4.13.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/a8/66d45abadff219e36e2a824181b8f6a67e7ed4572934d6252c71c29d5731/platformdirs-4.13.0.tar.gz", hash = "sha256:1aa0b0d3f224c1f07c295121e312a5a24a180d6ae5a8425ea1784b3e3863e9c0", size = 61094, upload-time = "2026-10-11T02:05:24.109Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/15/1633010b26e88e872c93b67c0b6c5e174fb74cb6fb5c1472b4d51d4a8f22/platformdirs-4.13.0-py3-none-any.whl", hash = "sha256:3dbcf4cd708f21cf876c4eaa90e58412bc4f033d87143f41b1493ff77c25b7e1", size = 32724, upload-time = "2026-10-11T02:05:22.776Z" },
 ]
 
 [[package]]
@@ -1656,6 +1677,7 @@ dev = [
     { name = "docker" },
     { name = "duty" },
     { name = "faker" },
+    { name = "gate-cache" },
     { name = "prek" },
     { name = "pymongo" },
     { name = "pytest" },
@@ -1706,6 +1728,7 @@ dev = [
     { name = "docker", specifier = ">=7.2.0" },
     { name = "duty", specifier = ">=1.10.1" },
     { name = "faker", specifier = ">=40.43.0" },
+    { name = "gate-cache", specifier = ">=0.6.0" },
     { name = "prek", specifier = ">=0.5.5" },
     { name = "pymongo", specifier = ">=4.18.3" },
     { name = "pytest", specifier = ">=9.1.1" },

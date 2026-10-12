@@ -16,6 +16,8 @@ duty test                     # Run tests with coverage
 duty test -- -n 0             # Run tests serially (for debugging)
 duty test -- -n 0 -v -s -x    # Serial, verbose, show output, stop on first failure
 # NOTE: Docker must be running for tests (PostgreSQL + Redis containers)
+# NOTE: lint/test checks run through gate-cache and skip when they already passed on identical
+#       content. Force a re-run with GATE_CACHE_DISABLE=1 (e.g. `GATE_CACHE_DISABLE=1 duty test`)
 
 # Database
 docker compose -f compose-db.yml up -d   # Start PostgreSQL + Redis

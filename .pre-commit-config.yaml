@@ -62,19 +62,13 @@ repos:
         files: ^.*\.(yaml|yml)$
         entry: yamllint --strict --config-file .yamllint.yml
 
-  - repo: "https://github.com/astral-sh/ruff-pre-commit"
-    rev: v0.17.0
-    hooks:
-      - id: ruff-check
-      - id: ruff-format
-        args: [--check]
-
   - repo: "https://github.com/adhtruong/mirrors-typos"
     rev: v1.51.1
     hooks:
+      # Commit messages only; files are checked by the local `duty typos` hook
       - id: typos
         args: ["--force-exclude"]
-        stages: [commit-msg, pre-commit]
+        stages: [commit-msg]
 
   - repo: "https://github.com/gitleaks/gitleaks"
     rev: v8.30.1
@@ -106,16 +100,38 @@ repos:
         language: system
         types: [shell]
 
-      - id: ty (type check)
-        name: ty
-        entry: uv run ty check
-        pass_filenames: false
+      # Hooks that call duty recipes share gate-cache markers with `duty lint` and `duty test`.
+      # Their ids must stay in PREK_SKIP of the `precommit` duty so lint doesn't run them twice.
+      - id: ruff
+        name: ruff check
+        entry: uv run duty ruff
         language: system
+        pass_filenames: false
         types: [python]
+
+      - id: format
+        name: ruff format
+        entry: uv run duty format
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: ty
+        name: ty
+        entry: uv run duty ty
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: typos
+        name: typos
+        entry: uv run duty typos
+        language: system
+        pass_filenames: false
 
       - id: pytest
         name: pytest
-        entry: duty test
+        entry: uv run duty test
         language: system
         pass_filenames: false
         files: |
