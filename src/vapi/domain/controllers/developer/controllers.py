@@ -52,6 +52,9 @@ class DeveloperController(Controller):
 
         await delete_authentication_cache_for_api_key(request)
         request.state.audit_description = f"Regenerate API key for developer '{developer.username}'"
+        if developer.key_generated is None:
+            msg = f"key_generated not set after generating API key for developer {developer.id}"
+            raise ValueError(msg)
         return {
             "id": str(developer.id),
             "username": developer.username,

@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from litestar.types.asgi_types import (
         HTTPRequestEvent,
         HTTPResponseBodyEvent,
-        HTTPResponseStartEvent,
     )
 
 logger = logging.getLogger("vapi")
@@ -173,13 +172,8 @@ class IdempotencyMiddleware(ASGIMiddleware):
             nonlocal body_sent
             if not body_sent:
                 body_sent = True
-                return cast(
-                    "HTTPRequestEvent",
-                    {"type": "http.request", "body": full_body, "more_body": False},
-                )
-            return cast(
-                "HTTPRequestEvent", {"type": "http.request", "body": b"", "more_body": False}
-            )
+                return {"type": "http.request", "body": full_body, "more_body": False}
+            return {"type": "http.request", "body": b"", "more_body": False}
 
         return replay_receive
 
@@ -255,14 +249,11 @@ class IdempotencyMiddleware(ASGIMiddleware):
         headers = [(k.encode("latin-1"), v.encode("latin-1")) for k, v in cached.headers]
 
         await send(
-            cast(
-                "HTTPResponseStartEvent",
-                {
-                    "type": "http.response.start",
-                    "status": cached.status_code,
-                    "headers": headers,
-                },
-            )
+            {
+                "type": "http.response.start",
+                "status": cached.status_code,
+                "headers": headers,
+            }
         )
         await send(cast("HTTPResponseBodyEvent", {"type": "http.response.body", "body": body}))
 

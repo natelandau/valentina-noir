@@ -161,6 +161,7 @@ Unexpected server error occurred.
 ```python
 import requests
 
+
 def make_request(url, api_key):
     response = requests.get(url, headers={"X-API-KEY": api_key})
 
