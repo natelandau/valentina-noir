@@ -105,6 +105,7 @@ Implement exponential backoff when rate limited:
 import time
 import requests
 
+
 def make_request_with_retry(url, api_key, max_retries=5):
     """Make a request with exponential backoff on rate limits."""
     headers = {"X-API-KEY": api_key}
@@ -126,7 +127,7 @@ def make_request_with_retry(url, api_key, max_retries=5):
                     pass
 
             # Add exponential backoff
-            wait_time = wait_time * (2 ** attempt)
+            wait_time = wait_time * (2**attempt)
             print(f"Rate limited. Waiting {wait_time} seconds...")
             time.sleep(wait_time)
             continue

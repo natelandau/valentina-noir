@@ -99,6 +99,7 @@ API_KEY = "your-api-key-here"
 BASE_URL = "https://api.valentina-noir.com"
 USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
+
 def list_campaigns(company_id):
     response = requests.get(
         f"{BASE_URL}/api/v1/companies/{company_id}/campaigns",
@@ -345,6 +346,7 @@ API_KEY = "your-api-key-here"
 BASE_URL = "https://api.valentina-noir.com"
 USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
+
 def get_companies():
     """List companies (no On-Behalf-Of header needed)."""
     response = requests.get(
@@ -353,6 +355,7 @@ def get_companies():
     )
     response.raise_for_status()
     return response.json()
+
 
 def get_campaigns(company_id):
     """List campaigns (On-Behalf-Of header required)."""

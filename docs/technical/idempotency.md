@@ -88,6 +88,7 @@ import uuid
 import time
 import requests
 
+
 def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3):
     """Create a campaign with automatic retry on server errors."""
     idempotency_key = str(uuid.uuid4())
@@ -108,7 +109,7 @@ def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3
             return response
 
         # Server error - safe to retry with same idempotency key
-        time.sleep(2 ** attempt)
+        time.sleep(2**attempt)
 
     return response
 ```

@@ -175,6 +175,9 @@ class GlobalAdminController(Controller):
         if not updated_developer:
             msg = f"Developer not found for id {developer.id}"
             raise ValueError(msg)
+        if updated_developer.key_generated is None:
+            msg = f"key_generated not set after generating API key for developer {developer.id}"
+            raise ValueError(msg)
 
         return {
             "id": str(updated_developer.id),

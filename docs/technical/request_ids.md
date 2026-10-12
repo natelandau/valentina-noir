@@ -62,6 +62,7 @@ This makes it easy to capture the request ID when handling errors — you're alr
 ```python
 import requests
 
+
 def make_request(url, api_key):
     """Make an API request and log the request ID for debugging."""
     response = requests.get(url, headers={"X-API-KEY": api_key})

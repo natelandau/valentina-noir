@@ -30,7 +30,7 @@ class RedisStore(LitestarRedisStore):
     functionality.
     """
 
-    _redis: Redis[bytes]
+    _redis: Redis
 
     async def set_many(self, items: Iterable[SetManyItem], *, transaction: bool = True) -> None:
         """Set multiple key-value pairs in Redis.

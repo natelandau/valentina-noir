@@ -97,6 +97,7 @@ Fetch all items by iterating through pages until you reach the total count.
 ```python
 import requests
 
+
 def get_all_users(api_key, company_id):
     """Fetch all users by iterating through pages."""
     base_url = f"https://api.valentina-noir.com/api/v1/companies/{company_id}/users"
@@ -108,9 +109,7 @@ def get_all_users(api_key, company_id):
 
     while True:
         response = requests.get(
-            base_url,
-            headers=headers,
-            params={"limit": limit, "offset": offset}
+            base_url, headers=headers, params={"limit": limit, "offset": offset}
         )
         response.raise_for_status()
         data = response.json()
