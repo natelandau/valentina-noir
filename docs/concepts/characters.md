@@ -200,6 +200,7 @@ When a requested collection is empty, the response contains an empty array (`[]`
                     "category_name": "Physical",
                     "sheet_section_name": "Attributes"
                 },
+                "specialties": [],
                 "date_created": "2026-01-15T10:30:00Z",
                 "date_modified": "2026-03-20T14:00:00Z"
             }
@@ -278,7 +279,8 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
                                             "max_value": 5,
                                             "min_value": 0,
                                             ...
-                                        }
+                                        },
+                                        "specialties": []
                                     }
                                 ]
                             }
@@ -292,7 +294,8 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
                                     "max_value": 5,
                                     "min_value": 0,
                                     ...
-                                }
+                                },
+                                "specialties": []
                             }
                         ]
                     }
@@ -307,7 +310,7 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
     - `subcategories[].character_traits` - Traits grouped under a subcategory
     - `character_traits` - Traits that belong directly to the category without a subcategory
 
-    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array.
+    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array. Each character trait also carries its ability [`specialties`](./character_traits.md#specialties), which is empty for traits outside the Abilities section.
 
 ## Character Sub-Resources
 

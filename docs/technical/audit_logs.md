@@ -33,7 +33,7 @@ Filter by the type of resource that was changed and the operation performed:
 | `entity_type` | `AuditEntityType` | Type of resource (see below) |
 | `operation`   | `AuditOperation`  | `CREATE`, `UPDATE`, or `DELETE` |
 
-**Entity types:** `ASSET`, `BOOK`, `CAMPAIGN`, `CHAPTER`, `CHARACTER`, `CHARACTER_INVENTORY`, `CHARACTER_TRAIT`, `CHARGEN_SESSION`, `COMPANY`, `DEVELOPER`, `DICTIONARY_TERM`, `EXPERIENCE`, `NOTE`, `QUICKROLL`, `USER`
+**Entity types:** `ASSET`, `BOOK`, `CAMPAIGN`, `CHAPTER`, `CHARACTER`, `CHARACTER_INVENTORY`, `CHARACTER_TRAIT`, `CHARACTER_TRAIT_SPECIALTY`, `CHARGEN_SESSION`, `COMPANY`, `DEVELOPER`, `DICTIONARY_TERM`, `EXPERIENCE`, `NOTE`, `QUICKROLL`, `USER`
 
 ### By Related Resource
 

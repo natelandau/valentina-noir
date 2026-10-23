@@ -21,6 +21,10 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import CharacterInventory, CharacterTrait
 from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
+from vapi.domain.controllers.character_trait.dto import (
+    CharacterTraitSpecialtyResponse,
+    active_specialties,
+)
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -64,6 +68,7 @@ def get_character_include_prefetch_map() -> dict[CharacterInclude, list[str | Pr
                     "trait__subcategory",
                     "trait__sheet_section",
                     "trait__powers",
+                    "specialties",
                 ],
             ),
         ],
@@ -475,6 +480,7 @@ class FullSheetCharacterTraitDTO(msgspec.Struct):
     value: int
     character_id: UUID
     trait: TraitResponse
+    specialties: list[CharacterTraitSpecialtyResponse]
 
     @classmethod
     def from_model(cls, ct: "CharacterTrait") -> "FullSheetCharacterTraitDTO":
@@ -484,6 +490,9 @@ class FullSheetCharacterTraitDTO(msgspec.Struct):
             value=ct.value,
             character_id=ct.character_id,  # ty:ignore[unresolved-attribute]
             trait=TraitResponse.from_model(ct.trait),
+            specialties=[
+                CharacterTraitSpecialtyResponse.from_model(s) for s in active_specialties(ct)
+            ],
         )
 
 

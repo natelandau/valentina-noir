@@ -22,7 +22,7 @@ from vapi.constants import (
     TraitModifyCurrency,
     UserRole,
 )
-from vapi.db.sql_models.character import Character, CharacterTrait
+from vapi.db.sql_models.character import Character, CharacterTrait, CharacterTraitSpecialty
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import User
@@ -541,6 +541,278 @@ class TestDeleteCharacterTrait:
         )
         assert campaign_experience.xp_current > initial_xp
         assert campaign_experience.xp_total == initial_xp
+
+
+class TestCharacterTraitSpecialties:
+    """Test the ability specialty endpoints."""
+
+    async def test_add_specialty(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify adding a specialty to an ability trait."""
+        # Given a character with an ability trait at value 2
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await Trait.filter(
+            sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
+        ).first()
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+
+        # When adding a specialty
+        response = await client.post(
+            build_url(
+                Characters.TRAIT_SPECIALTIES,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            json={"name": "Sniping"},
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the specialty is returned on the trait
+        assert response.status_code == HTTP_201_CREATED
+        assert response.json()["specialties"][0]["name"] == "Sniping"
+
+    async def test_add_specialty_non_ability_returns_400(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify specialties are rejected on non-ability traits."""
+        # Given a character with an attribute trait
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await Trait.filter(
+            sheet_section__name="Attributes", is_archived=False, custom_for_character_id=None
+        ).first()
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+
+        # When adding a specialty
+        response = await client.post(
+            build_url(
+                Characters.TRAIT_SPECIALTIES,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            json={"name": "Sniping"},
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the request is rejected
+        assert response.status_code == HTTP_400_BAD_REQUEST
+
+    async def test_update_specialty(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        character_trait_specialty_factory: Callable[..., CharacterTraitSpecialty],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify renaming a specialty."""
+        # Given an ability trait with a specialty
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await Trait.filter(
+            sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
+        ).first()
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+        specialty = await character_trait_specialty_factory(
+            character_trait=character_trait, name="Sniping"
+        )
+
+        # When renaming the specialty
+        response = await client.patch(
+            build_url(
+                Characters.TRAIT_SPECIALTY_DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+                specialty_id=specialty.id,
+            ),
+            json={"name": "Long Range"},
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the new name is returned
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["specialties"][0]["name"] == "Long Range"
+
+    async def test_delete_specialty(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        character_trait_specialty_factory: Callable[..., CharacterTraitSpecialty],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify deleting a specialty."""
+        # Given an ability trait with a specialty
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await Trait.filter(
+            sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
+        ).first()
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+        specialty = await character_trait_specialty_factory(
+            character_trait=character_trait, name="Sniping"
+        )
+
+        # When deleting the specialty
+        response = await client.delete(
+            build_url(
+                Characters.TRAIT_SPECIALTY_DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+                specialty_id=specialty.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the specialty is no longer active
+        assert response.status_code == HTTP_204_NO_CONTENT
+        assert not await CharacterTraitSpecialty.filter(id=specialty.id, is_archived=False).exists()
+
+    async def test_specialty_not_found_returns_404(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify an unknown specialty id returns 404."""
+        # Given an ability trait with no specialties
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        trait = await Trait.filter(
+            sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
+        ).first()
+        character_trait = await character_trait_factory(character=character, trait=trait, value=2)
+
+        # When deleting a random specialty id
+        response = await client.delete(
+            build_url(
+                Characters.TRAIT_SPECIALTY_DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+                specialty_id=uuid4(),
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the response is 404
+        assert response.status_code == HTTP_404_NOT_FOUND
+
+    @pytest.mark.parametrize("method", ["DELETE", "PATCH"])
+    async def test_specialty_from_other_trait_returns_404(
+        self,
+        method: str,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        character_trait_specialty_factory: Callable[..., CharacterTraitSpecialty],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a specialty is only reachable through its own character trait."""
+        # Given two ability traits and a specialty on the first
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+        )
+        traits = await Trait.filter(
+            sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
+        ).limit(2)
+        first = await character_trait_factory(character=character, trait=traits[0], value=2)
+        second = await character_trait_factory(character=character, trait=traits[1], value=2)
+        specialty = await character_trait_specialty_factory(character_trait=first, name="Sniping")
+
+        # When addressing the specialty through the second trait
+        response = await client.request(
+            method,
+            build_url(
+                Characters.TRAIT_SPECIALTY_DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=second.id,
+                specialty_id=specialty.id,
+            ),
+            json={"name": "Long Range"} if method == "PATCH" else None,
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the response is 404 and the specialty is unchanged
+        assert response.status_code == HTTP_404_NOT_FOUND
+        stored = await CharacterTraitSpecialty.get(id=specialty.id)
+        assert stored.name == "Sniping"
+        assert stored.is_archived is False
 
 
 class TestModifyTraitValue:

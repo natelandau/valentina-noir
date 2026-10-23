@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 # (path_param_key, entity_type, fk_field_name or None for generic-only)
 PARAM_ENTITY_MAP: list[tuple[str, AuditEntityType, str | None]] = [
     ("inventory_item_id", AuditEntityType.CHARACTER_INVENTORY, None),
+    ("specialty_id", AuditEntityType.CHARACTER_TRAIT_SPECIALTY, None),
     ("character_trait_id", AuditEntityType.CHARACTER_TRAIT, None),
     ("quickroll_id", AuditEntityType.QUICKROLL, None),
     ("note_id", AuditEntityType.NOTE, None),
@@ -92,6 +93,7 @@ OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createCustomTrait": AuditEntityType.CHARACTER_TRAIT,
     "assignTraitToCharacter": AuditEntityType.CHARACTER_TRAIT,
     "bulkAssignTraitsToCharacter": AuditEntityType.CHARACTER_TRAIT,
+    "addCharacterTraitSpecialty": AuditEntityType.CHARACTER_TRAIT_SPECIALTY,
     "createCharacterInventoryItem": AuditEntityType.CHARACTER_INVENTORY,
     "createDictionaryTerm": AuditEntityType.DICTIONARY_TERM,
     "createCampaignNote": AuditEntityType.NOTE,

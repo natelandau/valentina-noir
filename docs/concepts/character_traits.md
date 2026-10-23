@@ -202,6 +202,10 @@ The maximum batch size is 200 items.
 
 Modify trait values using one of three currencies.
 
+!!! note "Concurrent changes"
+
+    A value change is based on the trait's value when the request reads it, with any currency. If another request changes the same trait first, the API returns `409 Conflict`, keeps the value the other request set, and spends or refunds nothing. Fetch the trait again and retry.
+
 ### Starting Points
 
 Starting points are granted to a character at creation. Spend them to purchase initial trait values and receive refunds when decreasing traits. Starting points are tracked per character.
@@ -270,9 +274,52 @@ Certain traits are automatically recalculated when their source traits change:
 
 - **Total Renown** (werewolves only) - Computed as `Honor + Wisdom + Glory`. Stored on the character's werewolf attributes.
 
+## Specialties
+
+A specialty is a short, free-text label that narrows an ability, such as "Sniping" on Firearms. Specialties are stored on the character trait and returned in the `specialties` array of every character trait response.
+
+These ability specialties are separate from the character-level `specialties` field on the character response, which lists the specialties granted by the character's [concept](./character_concepts.md).
+
+- Specialties apply to ability traits only. Other trait types return `400 Bad Request`.
+- The ability must have a value of 1 or higher.
+- An ability can have several specialties.
+- A name must be 3 to 50 characters long. Names must be unique on the ability, ignoring case.
+
+### Adding a Specialty
+
+Send a `name` and an optional `currency`. The default `currency` is `NO_COST`.
+
+```json
+{
+    "name": "Sniping",
+    "currency": "XP"
+}
+```
+
+What the specialty costs depends on the company's [Specialty XP Cost](./company_settings.md#specialty-xp-cost) setting.
+
+| Setting | `NO_COST`                                                 | `XP`       | `STARTING_POINTS`       |
+| ------- | --------------------------------------------------------- | ---------- | ----------------------- |
+| Off     | Free, no free trait changes check                         | Free       | Free                    |
+| On      | Free, subject to the company's free trait changes setting | Costs 3 XP | Costs 3 starting points |
+
+`NPC` and `STORYTELLER` characters only accept `NO_COST`.
+
+### Refunds and Removal
+
+Each specialty remembers what was paid for it. When a specialty is removed, the same amount is returned in the same currency.
+
+- `XP` refunds are given when the company's XP recoup setting is `UNRESTRICTED` or `WITHIN_SESSION`. With `DENIED`, the specialty is removed and no XP is returned.
+- `STARTING_POINTS` refunds are always given.
+- Removing a specialty is never refused because of the recoup setting.
+
+When an ability drops to a value of 0, all of its specialties are removed and refunded under the rules above. This happens when you lower the value with any currency, recoup XP, or delete the trait.
+
 ## Deleting Traits
 
 Delete a trait from a character with an optional refund. Specify a `currency` to receive a refund based on the trait's current value, or use `NO_COST` to delete without a refund.
+
+Any [specialties](#specialties) on the trait are refunded and removed with it.
 
 ## Company Settings
 
@@ -418,3 +465,15 @@ Modify a trait to a target value using the specified currency. The system automa
 ### DELETE `/traits/{character_trait_id}`
 
 Remove a trait from the character. Optionally specify a `currency` query parameter to receive a refund. See [Deleting Traits](#deleting-traits) above.
+
+### POST `/traits/{character_trait_id}/specialties`
+
+Add a specialty to an ability trait. Returns `201 Created` with the updated character trait. See [Specialties](#specialties) above.
+
+### PATCH `/traits/{character_trait_id}/specialties/{specialty_id}`
+
+Rename a specialty. Send `{"name": "Long Range"}`. Returns the updated character trait. The cost paid does not change.
+
+### DELETE `/traits/{character_trait_id}/specialties/{specialty_id}`
+
+Remove a specialty and refund its cost. Returns `204 No Content`. See [Refunds and Removal](#refunds-and-removal) above.

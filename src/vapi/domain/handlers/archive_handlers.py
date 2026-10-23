@@ -23,6 +23,7 @@ from vapi.db.sql_models.character import (
     Character,
     CharacterInventory,
     CharacterTrait,
+    CharacterTraitSpecialty,
     HunterAttributes,
     MageAttributes,
     Specialty,
@@ -93,6 +94,10 @@ async def _archive_character_children(character_id: UUID, ctx: ArchiveContext) -
     )
     await _archive_where(TraitPower, ctx, trait_id__in=custom_trait_ids)
     await _archive_where(Trait, ctx, custom_for_character_id=character_id)
+    character_trait_ids = await CharacterTrait.filter(character_id=character_id).values_list(
+        "id", flat=True
+    )
+    await _archive_where(CharacterTraitSpecialty, ctx, character_trait_id__in=character_trait_ids)
     await _archive_where(CharacterTrait, ctx, character_id=character_id)
     await _archive_where(CharacterInventory, ctx, character_id=character_id)
     await _archive_where(Specialty, ctx, character_id=character_id)

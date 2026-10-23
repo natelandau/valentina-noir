@@ -2547,7 +2547,7 @@ class TestChangeCharacterTraitValue:
         cost = 2 * 2  # value 2 * upgrade_cost 2 = 4
         assert character.starting_points == 100 + cost
 
-    async def refund_trait_decrease_with_starting_points(
+    async def test_refund_trait_decrease_with_starting_points(
         self,
         get_company_user_character: tuple[Company, User, Character],
         character_trait_factory,
@@ -2560,7 +2560,6 @@ class TestChangeCharacterTraitValue:
         await character.save()
 
         character_trait = await character_trait_factory(value=5, character=character)
-        spy_guard_is_safe_decrease = mocker.spy(CharacterTraitService, "_guard_is_safe_decrease")
         spy_after_save = mocker.spy(CharacterTraitService, "after_save")
         spyguard_user_can_manage_character = mocker.spy(
             CharacterTraitService, "guard_user_can_manage_character"
@@ -2581,9 +2580,9 @@ class TestChangeCharacterTraitValue:
         )
 
         # Then the trait value should be refunded
-        assert result.value == 0
+        assert result.value == 4
         await character.refresh_from_db()
-        assert character.starting_points == 100 + character_trait.trait.initial_cost * 5
+        assert character.starting_points == 100 + character_trait.trait.upgrade_cost * 5
         spy_after_save.assert_called_once_with(ANY, result, character)
         spy_guard_is_safe_decrease.assert_called_once_with(ANY, character_trait, 1)
         spy_calculate_downgrade_savings.assert_called_once_with(
@@ -3833,6 +3832,55 @@ class TestBulkAddConstantTraitsToCharacter:
         for failure in result.failed:
             assert "xp" in failure.error.lower() or "not enough" in failure.error.lower()
 
+    @pytest.mark.parametrize(
+        ("currency", "message"),
+        [
+            (TraitModifyCurrency.XP, "Not enough XP"),
+            (TraitModifyCurrency.STARTING_POINTS, "Not enough starting points"),
+        ],
+    )
+    async def test_unaffordable_item_leaves_no_character_trait(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        currency: TraitModifyCurrency,
+        message: str,
+    ) -> None:
+        """Verify an item failing the affordability pre-check leaves no CharacterTrait row."""
+        # Given a character with no XP or starting points and unused traits
+        company, user, character = get_company_user_character
+        existing_trait_ids = [
+            ct.trait_id  # ty:ignore[unresolved-attribute]
+            for ct in await CharacterTrait.filter(character_id=character.id)
+        ]
+        traits = (
+            await Trait.filter(is_archived=False)
+            .exclude(id__in=existing_trait_ids)
+            .exclude(category__name="Flaws")
+            .limit(10)
+        )
+        items = [
+            CharacterTraitAddConstant(trait_id=t.id, value=1, currency=currency) for t in traits
+        ]
+
+        # When bulk assigning
+        service = CharacterTraitService()
+        result = await service.bulk_add_constant_traits_to_character(
+            company=company,
+            user=user,
+            character=character,
+            items=items,
+        )
+
+        # Then failures are reported
+        failed_ids = {f.trait_id for f in result.failed}
+        assert failed_ids
+        assert all(message in f.error for f in result.failed)
+
+        # And no CharacterTrait row remains for any failed trait
+        assert not await CharacterTrait.filter(
+            character_id=character.id, trait_id__in=failed_ids
+        ).exists()
+
     async def test_mixed_currencies_running_balance(
         self,
         get_company_user_character: tuple[Company, User, Character],
@@ -4960,3 +5008,280 @@ class TestNpcCurrencyRestriction:
 
         # Then the trait value is updated successfully
         assert result.value == 2
+
+
+class TestStaleValueChange:
+    """Test that value changes from a stale trait read are refused instead of refunded twice."""
+
+    async def test_stale_xp_decrease_conflicts_without_second_refund(
+        self,
+        character_factory,
+        character_trait_factory,
+        campaign_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify a decrease based on an outdated value raises and refunds nothing."""
+        # Given a trait at 3 and a second copy read before the first decrease, as two
+        # racing requests would hold
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        target_user = await user_factory(company=company)
+        user_svc = UserXPService()
+        await user_svc.add_xp(user_id=target_user.id, campaign_id=campaign.id, amount=10)
+        character = await character_factory(
+            user_player=target_user, campaign=campaign, company=company
+        )
+        character_trait = await character_trait_factory(value=3, character=character)
+        stale = await CharacterTrait.filter(id=character_trait.id).prefetch_related("trait").first()
+        service = CharacterTraitService()
+        await service._apply_xp_change(
+            character=character,
+            user=target_user,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=False,
+        )
+        xp_after_first = (
+            await user_svc.get_or_create_campaign_experience(target_user.id, campaign.id)
+        ).xp_current
+
+        # When the stale copy is decreased too
+        with pytest.raises(ConflictError):
+            await service._apply_xp_change(
+                character=character,
+                user=target_user,
+                character_trait=stale,
+                num_dots=1,
+                is_increase=False,
+            )
+
+        # Then XP and the value reflect only the first decrease
+        experience = await user_svc.get_or_create_campaign_experience(target_user.id, campaign.id)
+        assert experience.xp_current == xp_after_first
+        assert (await CharacterTrait.get(id=character_trait.id)).value == 2
+
+    async def test_stale_starting_points_decrease_conflicts_without_second_refund(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify a starting-point decrease based on an outdated value raises and refunds nothing."""
+        # Given a trait at 3 and a stale second copy of it
+        _, user, character = get_company_user_character
+        character.starting_points = 10
+        await character.save()
+        character_trait = await character_trait_factory(value=3, character=character)
+        stale = await CharacterTrait.filter(id=character_trait.id).prefetch_related("trait").first()
+        service = CharacterTraitService()
+        await service._apply_starting_points_change(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=False,
+        )
+        await character.refresh_from_db()
+        points_after_first = character.starting_points
+
+        # When the stale copy is decreased too
+        with pytest.raises(ConflictError):
+            await service._apply_starting_points_change(
+                user=user,
+                character=character,
+                character_trait=stale,
+                num_dots=1,
+                is_increase=False,
+            )
+
+        # Then starting points and the value reflect only the first decrease
+        await character.refresh_from_db()
+        assert character.starting_points == points_after_first
+        assert (await CharacterTrait.get(id=character_trait.id)).value == 2
+
+    async def test_value_change_advances_date_modified_on_instance(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify the returned trait carries the date_modified written with the new value."""
+        # Given a trait last modified a day ago
+        _, user, character = get_company_user_character
+        character.starting_points = 10
+        await character.save()
+        character_trait = await character_trait_factory(value=1, character=character)
+        old = time_now() - timedelta(days=1)
+        await CharacterTrait.filter(id=character_trait.id).update(date_modified=old)
+        character_trait = (
+            await CharacterTrait.filter(id=character_trait.id).prefetch_related("trait").first()
+        )
+
+        # When the value is raised with starting points
+        result = await CharacterTraitService()._apply_starting_points_change(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=True,
+        )
+
+        # Then the returned instance matches the stored, advanced timestamp
+        stored = await CharacterTrait.get(id=character_trait.id)
+        assert result.date_modified > old
+        assert result.date_modified == stored.date_modified
+
+    async def test_stale_no_cost_increase_conflicts(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify a NO_COST increase based on an outdated value raises instead of overwriting."""
+        # Given a trait at 2 and a stale second copy of it
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=2, character=character)
+        stale = await CharacterTrait.filter(id=character_trait.id).prefetch_related("trait").first()
+        service = CharacterTraitService()
+        await service.increase_character_trait_value(
+            company=company,
+            character=character,
+            user=user,
+            character_trait=character_trait,
+            num_dots=1,
+        )
+
+        # When the stale copy is increased too
+        with pytest.raises(ConflictError):
+            await service.increase_character_trait_value(
+                company=company,
+                character=character,
+                user=user,
+                character_trait=stale,
+                num_dots=2,
+            )
+
+        # Then the value reflects only the first increase
+        assert (await CharacterTrait.get(id=character_trait.id)).value == 3
+
+    async def test_stale_no_cost_decrease_conflicts(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify a NO_COST decrease based on an outdated value raises instead of overwriting."""
+        # Given a trait at 3 and a stale second copy of it
+        company, user, character = get_company_user_character
+        character_trait = await character_trait_factory(value=3, character=character)
+        stale = await CharacterTrait.filter(id=character_trait.id).prefetch_related("trait").first()
+        service = CharacterTraitService()
+        await service.decrease_character_trait_value(
+            company=company,
+            character=character,
+            user=user,
+            character_trait=character_trait,
+            num_dots=1,
+        )
+
+        # When the stale copy is decreased too
+        with pytest.raises(ConflictError):
+            await service.decrease_character_trait_value(
+                company=company,
+                character=character,
+                user=user,
+                character_trait=stale,
+                num_dots=1,
+            )
+
+        # Then the value reflects only the first decrease
+        assert (await CharacterTrait.get(id=character_trait.id)).value == 2
+
+
+class TestStaleStartingPoints:
+    """Test that starting-point ledger writes apply to the stored balance, not a stale character."""
+
+    async def _stale_character(
+        self, character: Character, *, read_as: int, stored: int
+    ) -> Character:
+        character.starting_points = read_as
+        await character.save()
+        await Character.filter(id=character.id).update(starting_points=stored)
+        return character
+
+    async def test_spend_uses_stored_balance(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify a spend from a stale character deducts from the stored balance."""
+        # Given a character read at 40 points while 20 are stored
+        _, user, character = get_company_user_character
+        character = await self._stale_character(character, read_as=40, stored=20)
+        character_trait = await character_trait_factory(value=1, character=character)
+        service = CharacterTraitService()
+        cost = await service._calculate_upgrade_cost(character_trait, 1, character_id=character.id)
+
+        # When one dot is bought with starting points
+        await service._apply_starting_points_change(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=True,
+        )
+
+        # Then the stored balance pays the cost and the instance matches it
+        stored = await Character.get(id=character.id)
+        assert stored.starting_points == 20 - cost
+        assert character.starting_points == 20 - cost
+
+    async def test_spend_rejects_when_stored_balance_short(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify a stale character showing enough points cannot overdraw the stored balance."""
+        # Given a character read at 40 points while none are stored
+        _, user, character = get_company_user_character
+        character = await self._stale_character(character, read_as=40, stored=0)
+        character_trait = await character_trait_factory(value=1, character=character)
+
+        # When one dot is bought with starting points
+        # Then it is refused and neither the balance nor the value changes
+        with pytest.raises(ValidationError, match="starting points"):
+            await CharacterTraitService()._apply_starting_points_change(
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                num_dots=1,
+                is_increase=True,
+            )
+        assert (await Character.get(id=character.id)).starting_points == 0
+        assert (await CharacterTrait.get(id=character_trait.id)).value == 1
+
+    async def test_refund_uses_stored_balance(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify a refund to a stale character adds to the stored balance."""
+        # Given a character read at 10 points while 4 are stored
+        _, user, character = get_company_user_character
+        character = await self._stale_character(character, read_as=10, stored=4)
+        character_trait = await character_trait_factory(value=3, character=character)
+        service = CharacterTraitService()
+        savings = await service._calculate_downgrade_savings(
+            character_trait, 1, character_id=character.id
+        )
+
+        # When one dot is refunded
+        await service._apply_starting_points_change(
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            num_dots=1,
+            is_increase=False,
+        )
+
+        # Then the stored balance receives the refund and the instance matches it
+        stored = await Character.get(id=character.id)
+        assert stored.starting_points == 4 + savings
+        assert character.starting_points == 4 + savings

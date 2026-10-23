@@ -86,6 +86,16 @@ This setting only applies to trait updates that specify the `XP` currency. Updat
 
 The `WITHIN_SESSION` window is a sliding 1-hour activity window per (user, character, trait). The "start of editing" anchor is captured the first time the user touches a trait in a fresh window and is not updated by subsequent raises.
 
+### Specialty XP Cost
+
+Control whether adding a specialty to an ability costs experience.
+
+| Setting                     | Behavior                                                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `specialty_xp_cost_enabled` | When enabled, adding a specialty to an ability with the `XP` currency costs 3 XP, following V5 rules. When disabled, specialties are free (default). |
+
+Each specialty records the cost and currency it was bought with. Removing a specialty refunds exactly that amount in that currency. XP refunds follow the [XP Recoup](#xp-recoup) setting: they happen when it is `UNRESTRICTED` or `WITHIN_SESSION`, and a `DENIED` setting removes the specialty with no refund. Starting point refunds are never restricted.
+
 ### NPC Management
 
 Control who can create, update, delete, and modify the traits, inventory, and images of NPC characters.

@@ -14,7 +14,12 @@ from tortoise.models import Model
 from vapi.constants import ON_BEHALF_OF_HEADER_KEY
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
-from vapi.db.sql_models.character import Character, CharacterInventory, CharacterTrait
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterInventory,
+    CharacterTrait,
+    CharacterTraitSpecialty,
+)
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import (
@@ -386,6 +391,18 @@ async def provide_character_trait_by_id(
         Q(character_id=character.id),
         doc_id=character_trait_id,
         prefetch=CHARACTER_TRAIT_PREFETCH,
+    )
+
+
+async def provide_character_trait_specialty_by_id(
+    specialty_id: UUID, character_trait: CharacterTrait
+) -> CharacterTraitSpecialty:
+    """Provide a CharacterTraitSpecialty by ID, scoped to a character trait."""
+    return await _find_or_404(
+        CharacterTraitSpecialty,
+        "Specialty",
+        Q(character_trait_id=character_trait.id),
+        doc_id=specialty_id,
     )
 
 

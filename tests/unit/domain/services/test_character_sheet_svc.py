@@ -14,7 +14,10 @@ if TYPE_CHECKING:
 
     from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
     from vapi.db.sql_models.company import Company
-    from vapi.domain.controllers.character.dto import CharacterFullSheetDTO
+    from vapi.domain.controllers.character.dto import (
+        CharacterFullSheetDTO,
+        FullSheetTraitCategoryDTO,
+    )
 
 
 pytestmark = pytest.mark.anyio
@@ -828,3 +831,69 @@ class TestCharacterSheetService:
             assert len(gift_ct) == 1
             assert gift_ct[0].trait.gift_attributes is not None
             assert gift_ct[0].trait.gift_attributes.tribe_id == tribe.id
+
+
+class TestFullSheetSpecialties:
+    """Test that full sheet builders load ability specialties."""
+
+    async def _ability_with_specialty(
+        self, character_factory, character_trait_factory, character_trait_specialty_factory
+    ) -> tuple["Character", Trait]:
+        character = await character_factory(character_class="MORTAL")
+        trait = (
+            await Trait.filter(
+                is_archived=False,
+                sheet_section__name="Abilities",
+                custom_for_character_id=None,
+                character_classes__contains=["MORTAL"],
+                game_versions__contains=[character.game_version],
+            )
+            .prefetch_related("category")
+            .first()
+        )
+        char_trait = await character_trait_factory(character=character, trait=trait, value=2)
+        await character_trait_specialty_factory(character_trait=char_trait, name="Sniping")
+        return character, trait
+
+    @staticmethod
+    def _specialty_names(category: "FullSheetTraitCategoryDTO", trait_id: "UUID") -> list[str]:
+        entries = list(category.character_traits) + [
+            ct for sub in category.subcategories for ct in sub.character_traits
+        ]
+        entry = next(ct for ct in entries if ct.trait.id == trait_id)
+        return [sp.name for sp in entry.specialties]
+
+    async def test_full_sheet_includes_specialties(
+        self, character_factory, character_trait_factory, character_trait_specialty_factory
+    ) -> None:
+        """Verify the full sheet lists an ability's specialties."""
+        # Given a character with an ability that has a specialty
+        character, trait = await self._ability_with_specialty(
+            character_factory, character_trait_factory, character_trait_specialty_factory
+        )
+
+        # When building the full sheet
+        result = await CharacterSheetService().get_character_full_sheet(character)
+
+        # Then the ability entry carries the specialty
+        category = next(
+            c for s in result.sections for c in s.categories if c.id == trait.category_id
+        )
+        assert self._specialty_names(category, trait.id) == ["Sniping"]
+
+    async def test_full_sheet_category_includes_specialties(
+        self, character_factory, character_trait_factory, character_trait_specialty_factory
+    ) -> None:
+        """Verify the single-category sheet lists an ability's specialties."""
+        # Given a character with an ability that has a specialty
+        character, trait = await self._ability_with_specialty(
+            character_factory, character_trait_factory, character_trait_specialty_factory
+        )
+
+        # When building that ability's category slice
+        result = await CharacterSheetService().get_character_full_sheet_category(
+            character, trait.category
+        )
+
+        # Then the ability entry carries the specialty
+        assert self._specialty_names(result, trait.id) == ["Sniping"]

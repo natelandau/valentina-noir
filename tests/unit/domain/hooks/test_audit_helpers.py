@@ -139,6 +139,48 @@ class TestResolveEntityType:
         assert result["campaign_id"] == campaign_id
         assert result["character_id"] == character_id
 
+    def test_specialty_path_param_maps_to_specialty_entity(self) -> None:
+        """Verify a specialty path param resolves to the specialty entity."""
+        # Given a DELETE request with a specialty path param below a character trait
+        specialty_id = str(uuid4())
+        request = _make_request(
+            method="DELETE",
+            path_params={
+                "company_id": str(uuid4()),
+                "character_id": str(uuid4()),
+                "character_trait_id": str(uuid4()),
+                "specialty_id": specialty_id,
+            },
+            operation_id="deleteCharacterTraitSpecialty",
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then the entity type is CHARACTER_TRAIT_SPECIALTY targeting the specialty
+        assert result["entity_type"] == AuditEntityType.CHARACTER_TRAIT_SPECIALTY
+        assert result["target_entity_id"] == specialty_id
+
+    def test_add_specialty_operation_maps_to_specialty_entity(self) -> None:
+        """Verify the add specialty POST resolves to the specialty entity."""
+        # Given a POST request below a character trait with the add specialty operation id
+        request = _make_request(
+            method="POST",
+            path_params={
+                "company_id": str(uuid4()),
+                "character_id": str(uuid4()),
+                "character_trait_id": str(uuid4()),
+            },
+            operation_id="addCharacterTraitSpecialty",
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then the entity type is CHARACTER_TRAIT_SPECIALTY and the operation is CREATE
+        assert result["entity_type"] == AuditEntityType.CHARACTER_TRAIT_SPECIALTY
+        assert result["operation"] == AuditOperation.CREATE
+
     def test_create_user_disambiguates_via_operation_id(self) -> None:
         """Verify POST to parent path uses operation_id to resolve entity type."""
         # Given a POST request to a company path with operation_id "createUser"

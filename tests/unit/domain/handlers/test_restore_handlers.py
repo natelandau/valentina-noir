@@ -3,7 +3,7 @@
 import pytest
 
 from vapi.db.sql_models.base import new_uuid
-from vapi.db.sql_models.character import Character, Specialty
+from vapi.db.sql_models.character import Character, CharacterTraitSpecialty, Specialty
 from vapi.db.sql_models.character_sheet import Trait, TraitPower
 from vapi.domain.handlers import archive_character, restore_archive_batch
 
@@ -97,3 +97,28 @@ async def test_restore_leaves_independently_archived_rows_alone(
     refreshed_specialty = await Specialty.get(id=specialty.id)
     assert refreshed_specialty.is_archived is True
     assert refreshed_specialty.archive_batch_id == batch_a
+
+
+async def test_restore_character_restores_trait_specialties(
+    character_factory,
+    character_trait_factory,
+    character_trait_specialty_factory,
+) -> None:
+    """Verify restoring a character's batch brings its trait specialties back."""
+    # Given an archived character whose trait carries a specialty
+    character = await character_factory()
+    character_trait = await character_trait_factory(character=character)
+    specialty = await character_trait_specialty_factory(
+        character_trait=character_trait, name="Lockpicking"
+    )
+    ctx = await archive_character(character=character)
+    assert (await CharacterTraitSpecialty.get(id=specialty.id)).is_archived
+
+    # When the batch is restored
+    await restore_archive_batch(batch_id=ctx.batch_id)
+
+    # Then the specialty is active again with cleared stamps
+    refreshed = await CharacterTraitSpecialty.get(id=specialty.id)
+    assert refreshed.is_archived is False
+    assert refreshed.archive_date is None
+    assert refreshed.archive_batch_id is None

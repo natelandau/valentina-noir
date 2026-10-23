@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, ClassVar, assert_never
 from uuid import UUID
 
 from litestar.stores.base import Store
+from tortoise.expressions import F
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
+    SPECIALTY_XP_COST,
     CharacterClass,
     CharacterType,
     PermissionsFreeTraitChanges,
@@ -16,7 +18,12 @@ from vapi.constants import (
     TraitModifyCurrency,
     UserRole,
 )
-from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterTrait,
+    CharacterTraitSpecialty,
+    WerewolfAttributes,
+)
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import CompanySettings
 from vapi.domain.controllers.character_trait.dto import (
@@ -49,6 +56,13 @@ if TYPE_CHECKING:
 # Derived-trait sync constants
 RENOWN_COMPONENTS = frozenset({"Honor", "Wisdom", "Glory"})
 
+SPECIALTY_NAME_MIN_LENGTH = 3
+SPECIALTY_NAME_MAX_LENGTH = 50
+
+
+class _BulkItemRejectedError(Exception):
+    """Abort a bulk item inside its transaction so the pre-created row rolls back."""
+
 
 class CharacterTraitService:
     """Service class for CharacterTrait business logic.
@@ -58,6 +72,10 @@ class CharacterTraitService:
     """
 
     _flaws_category_id: ClassVar[UUID | None] = None
+
+    def __init__(self) -> None:
+        # Names of specialties removed by the latest value change or delete, for audit enrichment.
+        self.removed_specialty_names: list[str] = []
 
     def _guard_is_safe_increase(self, character_trait: CharacterTrait, increase_by: int) -> None:
         """Check if increasing the trait value is safe.
@@ -536,7 +554,7 @@ class CharacterTraitService:
         werewolf_attrs.total_renown = total_renown
         await werewolf_attrs.save(update_fields=["total_renown", "date_modified"])
 
-    async def after_save(self, character_trait: CharacterTrait, character: Character) -> None:  # noqa: ARG002
+    async def after_save(self, character_trait: CharacterTrait, character: Character) -> None:
         """Perform all post-save operations for a trait.
 
         Args:
@@ -544,6 +562,84 @@ class CharacterTraitService:
             character: The character that owns the trait.
         """
         await self.update_werewolf_total_renown(character)
+        self.removed_specialty_names = await self._clear_specialties_for_zero_value(
+            character_trait=character_trait, character=character
+        )
+
+    async def _clear_specialties_for_zero_value(
+        self, *, character_trait: CharacterTrait, character: Character
+    ) -> list[str]:
+        """Refund and delete every specialty once an ability has no dots left.
+
+        Returns:
+            The names of the removed specialties, empty when the value is above zero.
+        """
+        if character_trait.value != 0:
+            return []
+
+        specialties = await CharacterTraitSpecialty.filter(
+            character_trait_id=character_trait.id, is_archived=False
+        )
+        if not specialties:
+            return []
+
+        settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
+        async with in_transaction():
+            return [
+                specialty.name
+                for specialty in specialties
+                if await self._delete_and_refund_specialty(
+                    character=character,
+                    specialty=specialty,
+                    recoup_setting=settings.permission_recoup_xp,
+                )
+            ]
+
+    async def _pending_specialty_refunds(
+        self, *, character_trait: CharacterTrait, character: Character
+    ) -> tuple[int, int]:
+        """Compute the XP and starting points that clearing the specialties would return.
+
+        Returns:
+            A tuple of (xp_refund, starting_points_refund).
+        """
+        specialties = await CharacterTraitSpecialty.filter(
+            character_trait_id=character_trait.id, is_archived=False
+        )
+        if not specialties:
+            return 0, 0
+
+        settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
+        refunds = [
+            self._specialty_refund_amounts(
+                specialty=specialty, recoup_setting=settings.permission_recoup_xp
+            )
+            for specialty in specialties
+        ]
+        return sum(xp for xp, _ in refunds), sum(sp for _, sp in refunds)
+
+    @staticmethod
+    def _specialty_refund_amounts(
+        *, specialty: CharacterTraitSpecialty, recoup_setting: PermissionsRecoupXP
+    ) -> tuple[int, int]:
+        """Compute what removing a specialty returns, in the currency it was paid with.
+
+        XP is withheld when the company denies XP recoup; starting points are always returned.
+
+        Returns:
+            A tuple of (xp_refund, starting_points_refund).
+        """
+        match specialty.currency_paid:
+            case TraitModifyCurrency.XP:
+                if recoup_setting == PermissionsRecoupXP.DENIED:
+                    return 0, 0
+                return specialty.cost_paid, 0
+            case TraitModifyCurrency.STARTING_POINTS:
+                return 0, specialty.cost_paid
+            case TraitModifyCurrency.NO_COST:
+                return 0, 0
+            case _ as unreachable:
+                assert_never(unreachable)
 
     async def _refetch_character_trait(self, character_trait_id: UUID) -> CharacterTrait:
         """Refetch a CharacterTrait with all relations prefetched for response serialization.
@@ -790,7 +886,9 @@ class CharacterTraitService:
 
         # Permission check once for the whole batch
         await self.guard_user_can_manage_character(character, user)
-        await self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(
+            company=company, character=character, user=user
+        )
 
         # Batch-fetch all Trait documents
         trait_ids = [item.trait_id for item in items]
@@ -908,13 +1006,8 @@ class CharacterTraitService:
                         is_flaw = await self._is_flaw_trait(character_trait)
 
                         if not is_flaw and running_xp < cost:
-                            failed.append(
-                                BulkAssignTraitFailure(
-                                    trait_id=trait_id,
-                                    error="Not enough XP to add trait",
-                                )
-                            )
-                            continue
+                            msg = "Not enough XP to add trait"
+                            raise _BulkItemRejectedError(msg)  # noqa: TRY301
 
                         result_ct = await self._apply_xp_change(
                             character=character,
@@ -941,13 +1034,8 @@ class CharacterTraitService:
                         is_flaw = await self._is_flaw_trait(character_trait)
 
                         if not is_flaw and running_starting_points < cost:
-                            failed.append(
-                                BulkAssignTraitFailure(
-                                    trait_id=trait_id,
-                                    error="Not enough starting points to add trait",
-                                )
-                            )
-                            continue
+                            msg = "Not enough starting points to add trait"
+                            raise _BulkItemRejectedError(msg)  # noqa: TRY301
 
                         result_ct = await self._apply_starting_points_change(
                             user=user,
@@ -976,6 +1064,8 @@ class CharacterTraitService:
                     # Track the newly added trait to prevent duplicates within the batch
                     existing_trait_ids.add(trait_id)
 
+            except _BulkItemRejectedError as e:
+                failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=str(e)))
             except (ValidationError, ConflictError, PermissionDeniedError, NotEnoughXPError) as e:
                 failed.append(BulkAssignTraitFailure(trait_id=trait_id, error=str(e)))
 
@@ -1108,11 +1198,14 @@ class CharacterTraitService:
             The character trait that was increased.
         """
         await self.guard_user_can_manage_character(character, user)
-        await self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(
+            company=company, character=character, user=user
+        )
         self._guard_is_safe_increase(character_trait, num_dots)
 
-        character_trait.value += num_dots
-        await character_trait.save(update_fields=["value", "date_modified"])
+        await self._set_value_if_unchanged(
+            character_trait=character_trait, new_value=character_trait.value + num_dots
+        )
         await self.after_save(character_trait, character)
         return character_trait
 
@@ -1142,13 +1235,37 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be lowered below min value.
         """
         await self.guard_user_can_manage_character(character, user)
-        await self._guard_permissions_free_trait_changes(company, character, user)
+        await self._guard_permissions_free_trait_changes(
+            company=company, character=character, user=user
+        )
         self._guard_is_safe_decrease(character_trait, num_dots)
 
-        character_trait.value -= num_dots
-        await character_trait.save(update_fields=["value", "date_modified"])
+        await self._set_value_if_unchanged(
+            character_trait=character_trait, new_value=character_trait.value - num_dots
+        )
         await self.after_save(character_trait, character)
         return character_trait
+
+    async def _set_value_if_unchanged(
+        self, *, character_trait: CharacterTrait, new_value: int
+    ) -> None:
+        """Write a new trait value only if the stored value still matches the one this request read.
+
+        Two requests changing the same trait both price their change from the value they
+        read, so without this check both would charge or refund for the same dots.
+
+        Raises:
+            ConflictError: If another request changed the value first.
+        """
+        now = time_now()
+        updated = await CharacterTrait.filter(
+            id=character_trait.id, value=character_trait.value
+        ).update(value=new_value, date_modified=now)
+        if updated != 1:
+            msg = "This trait was changed by another request. Reload it and try again."
+            raise ConflictError(detail=msg)
+        character_trait.value = new_value
+        character_trait.date_modified = now
 
     async def _apply_xp_change(
         self,
@@ -1197,22 +1314,33 @@ class CharacterTraitService:
 
         is_flaw = await self._is_flaw_trait(character_trait)
 
-        # XP ledger updates only apply to PLAYER characters; the boundary guard at
-        # modify_trait_value/add_constant_trait_to_character already rejects XP for
-        # NPC/STORYTELLER, so this guard is a defensive-depth safeguard.
-        if character.type == CharacterType.PLAYER:
-            user_svc = UserXPService()
-            user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
-            campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
-            # Flaw traits invert the currency direction
-            if is_increase == is_flaw:
-                await user_svc.add_xp(user_player_id, campaign_id, cost, update_total=False)
-            else:
-                await user_svc.spend_xp(user_player_id, campaign_id, cost)
+        async with in_transaction():
+            await self._set_value_if_unchanged(
+                character_trait=character_trait,
+                new_value=character_trait.value + (num_dots if is_increase else -num_dots),
+            )
 
-        character_trait.value += num_dots if is_increase else -num_dots
-        await character_trait.save(update_fields=["value", "date_modified"])
-        await self.after_save(character_trait, character)
+            # XP ledger updates only apply to PLAYER characters; the boundary guard at
+            # modify_trait_value/add_constant_trait_to_character already rejects XP for
+            # NPC/STORYTELLER, so this guard is a defensive-depth safeguard.
+            if character.type == CharacterType.PLAYER:
+                user_svc = UserXPService()
+                user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
+                campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
+                # Flaw traits invert the currency direction
+                if is_increase == is_flaw:
+                    await user_svc.add_xp(
+                        user_id=user_player_id,
+                        campaign_id=campaign_id,
+                        amount=cost,
+                        update_total=False,
+                    )
+                else:
+                    await user_svc.spend_xp(
+                        user_id=user_player_id, campaign_id=campaign_id, amount=cost
+                    )
+
+            await self.after_save(character_trait, character)
         return character_trait
 
     async def _apply_starting_points_change(
@@ -1262,19 +1390,37 @@ class CharacterTraitService:
 
         is_flaw = await self._is_flaw_trait(character_trait)
 
-        # Flaw traits invert the currency direction
-        if is_increase == is_flaw:
-            character.starting_points += cost
-        else:
-            if character.starting_points < cost:
-                raise ValidationError(detail="Not enough starting points")
-            character.starting_points -= cost
-        await character.save(update_fields=["starting_points", "date_modified"])
-
-        character_trait.value += num_dots if is_increase else -num_dots
-        await character_trait.save(update_fields=["value", "date_modified"])
-        await self.after_save(character_trait, character)
+        async with in_transaction():
+            await self._set_value_if_unchanged(
+                character_trait=character_trait,
+                new_value=character_trait.value + (num_dots if is_increase else -num_dots),
+            )
+            # Flaw traits invert the currency direction
+            await self._change_starting_points(
+                character=character, amount=cost if is_increase == is_flaw else -cost
+            )
+            await self.after_save(character_trait, character)
         return character_trait
+
+    async def _change_starting_points(self, *, character: Character, amount: int) -> None:
+        """Add (positive) or spend (negative) starting points against the stored balance.
+
+        The balance check and the write are one conditional update, so concurrent spends
+        cannot overdraw the balance or overwrite each other's changes. The character
+        instance is refreshed afterward.
+
+        Raises:
+            ValidationError: If a spend exceeds the stored balance.
+        """
+        query = Character.filter(id=character.id)
+        if amount < 0:
+            query = query.filter(starting_points__gte=-amount)
+        updated = await query.update(
+            starting_points=F("starting_points") + amount, date_modified=time_now()
+        )
+        if updated != 1:
+            raise ValidationError(detail="Not enough starting points")
+        await character.refresh_from_db(fields=["starting_points", "date_modified"])
 
     async def list_character_traits(
         self,
@@ -1348,12 +1494,17 @@ class CharacterTraitService:
             )
             xp_current = campaign_experience.xp_current
 
-        is_flaw, upgrade_costs, downgrade_savings = await asyncio.gather(
+        (
+            is_flaw,
+            upgrade_costs,
+            downgrade_savings,
+            (xp_refund, starting_points_refund),
+        ) = await asyncio.gather(
             self._is_flaw_trait(character_trait),
             self.calculate_all_upgrade_costs(character_trait),
             self.calculate_all_downgrade_savings(character_trait),
+            self._pending_specialty_refunds(character_trait=character_trait, character=character),
         )
-
         options: dict[str, TraitValueOptionDetail] = {}
 
         for num_dots_str, cost in upgrade_costs.items():
@@ -1380,6 +1531,9 @@ class CharacterTraitService:
             sign = -1 if is_flaw else 1
             xp_after = xp_current + savings * sign
             starting_points_after = starting_points_current + savings * sign
+            if target_value == 0 or num_dots_str == "DELETE":
+                xp_after += xp_refund
+                starting_points_after += starting_points_refund
             key = str(target_value) if num_dots_str != "DELETE" else "DELETE"
 
             options[key] = TraitValueOptionDetail(
@@ -1400,7 +1554,7 @@ class CharacterTraitService:
             options=options,
         )
 
-    async def modify_trait_value(  # noqa: PLR0911, PLR0913
+    async def modify_trait_value(  # noqa: PLR0913
         self,
         *,
         company: "Company",
@@ -1413,6 +1567,8 @@ class CharacterTraitService:
         recoup_store: Store | None = None,
     ) -> CharacterTrait:
         """Modify a trait to a target value using the specified currency.
+
+        The value change and any specialty refunds it triggers commit together.
 
         Args:
             company: The company to check permissions for.
@@ -1432,6 +1588,43 @@ class CharacterTraitService:
             ValidationError: If the target value is invalid or unaffordable.
             PermissionDeniedError: If the user lacks required permissions, including
                 recoup-XP enforcement.
+            ConflictError: If another request changed the trait value concurrently.
+        """
+        self.removed_specialty_names = []
+        async with in_transaction():
+            result = await self._modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=character_trait,
+                target_value=target_value,
+                currency=currency,
+                deleting_trait=deleting_trait,
+                recoup_store=recoup_store,
+            )
+        # The caller's instance may have specialties prefetched that are now deleted.
+        if self.removed_specialty_names and not deleting_trait:
+            return await self._refetch_character_trait(result.id)
+        return result
+
+    async def _modify_trait_value(  # noqa: PLR0911, PLR0913
+        self,
+        *,
+        company: "Company",
+        user: "User",
+        character: Character,
+        character_trait: CharacterTrait,
+        target_value: int,
+        currency: TraitModifyCurrency,
+        deleting_trait: bool = False,
+        recoup_store: Store | None = None,
+    ) -> CharacterTrait:
+        """Dispatch a trait value change to the handler for its currency and direction.
+
+        Arguments and errors match ``modify_trait_value``, which wraps this in a transaction.
+
+        Returns:
+            The updated CharacterTrait.
         """
         self._assert_currency_allowed_for_type(character, currency)
         current_value = character_trait.value
@@ -1531,20 +1724,235 @@ class CharacterTraitService:
             PermissionDeniedError: If the user does not have permissions to delete the trait.
             ValidationError: If the trait cannot be deleted.
         """
+        self.removed_specialty_names = []
         await self.guard_user_can_manage_character(character, user)
 
-        if currency and currency != TraitModifyCurrency.NO_COST:
-            character_trait = await self.modify_trait_value(
-                company=company,
-                user=user,
-                character=character,
+        async with in_transaction():
+            if currency and currency != TraitModifyCurrency.NO_COST:
+                character_trait = await self.modify_trait_value(
+                    company=company,
+                    user=user,
+                    character=character,
+                    character_trait=character_trait,
+                    target_value=0,
+                    currency=currency,
+                    deleting_trait=True,
+                    recoup_store=recoup_store,
+                )
+
+            character_trait.value = 0
+            removed = await self._clear_specialties_for_zero_value(
+                character_trait=character_trait, character=character
+            )
+            # The currency path may already have cleared and recorded them.
+            if removed:
+                self.removed_specialty_names = removed
+
+            if character_trait.trait.custom_for_character_id is not None:  # ty:ignore[unresolved-attribute]
+                await character_trait.trait.delete()
+            await character_trait.delete()
+
+    # ------------------------------------------------------------------
+    # Specialties
+    # ------------------------------------------------------------------
+
+    def _guard_trait_accepts_specialties(self, character_trait: CharacterTrait) -> None:
+        """Reject specialties on traits outside the Abilities section or at value 0."""
+        if character_trait.trait.sheet_section.name != "Abilities":
+            msg = "Specialties can only be added to ability traits"
+            raise ValidationError(detail=msg)
+        if character_trait.value < 1:
+            msg = "Specialties require the ability to have at least one dot"
+            raise ValidationError(detail=msg)
+
+    async def _lock_character_trait_value(self, character_trait: CharacterTrait) -> None:
+        """Lock the trait row and reload its value so specialty checks see committed state.
+
+        Value changes update this row, so holding the lock serializes specialty writes
+        against them and against each other, keeping the value and name-uniqueness checks
+        valid until the transaction commits. Call inside a transaction.
+        """
+        locked = (
+            await CharacterTrait.filter(id=character_trait.id)
+            .select_for_update()
+            .only("id", "value")
+            .first()
+        )
+        if locked is None:
+            msg = "Character trait not found"
+            raise ValidationError(detail=msg)
+        character_trait.value = locked.value
+
+    async def _validate_specialty_name(
+        self, *, character_trait: CharacterTrait, name: str, exclude_id: UUID | None = None
+    ) -> str:
+        """Clean a specialty name and enforce length and per-trait uniqueness.
+
+        Returns:
+            The stripped name.
+        """
+        cleaned = name.strip()
+        if not SPECIALTY_NAME_MIN_LENGTH <= len(cleaned) <= SPECIALTY_NAME_MAX_LENGTH:
+            msg = (
+                f"Specialty name must be {SPECIALTY_NAME_MIN_LENGTH} to "
+                f"{SPECIALTY_NAME_MAX_LENGTH} characters, got {len(cleaned)}"
+            )
+            raise ValidationError(detail=msg)
+
+        query = CharacterTraitSpecialty.filter(
+            character_trait_id=character_trait.id, name__iexact=cleaned, is_archived=False
+        )
+        if exclude_id is not None:
+            query = query.exclude(id=exclude_id)
+        if await query.exists():
+            msg = f"Specialty '{cleaned}' already exists on this trait"
+            raise ValidationError(detail=msg)
+        return cleaned
+
+    async def add_specialty(
+        self,
+        *,
+        company: "Company",
+        user: "User",
+        character: Character,
+        character_trait: CharacterTrait,
+        name: str,
+        currency: TraitModifyCurrency,
+    ) -> CharacterTrait:
+        """Add a specialty to an ability trait, charging the cost when the company enables it.
+
+        Returns:
+            The refetched character trait including its specialties.
+
+        Raises:
+            ValidationError: If the trait is ineligible, the name is invalid, or starting
+                points are insufficient.
+        """
+        await self.guard_user_can_manage_character(character, user)
+
+        # company.settings is prefetched by the DI provider (provide_company_by_id).
+        settings = company.settings
+        cost_paid = 0
+        currency_paid = TraitModifyCurrency.NO_COST
+
+        async with in_transaction():
+            await self._lock_character_trait_value(character_trait)
+            self._guard_trait_accepts_specialties(character_trait)
+            cleaned = await self._validate_specialty_name(
+                character_trait=character_trait, name=name
+            )
+            if settings.specialty_xp_cost_enabled:
+                self._assert_currency_allowed_for_type(character, currency)
+                match currency:
+                    case TraitModifyCurrency.NO_COST:
+                        await self._guard_permissions_free_trait_changes(
+                            company=company, character=character, user=user
+                        )
+                    case TraitModifyCurrency.XP:
+                        await UserXPService().spend_xp(
+                            user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
+                            campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
+                            amount=SPECIALTY_XP_COST,
+                        )
+                        cost_paid, currency_paid = SPECIALTY_XP_COST, TraitModifyCurrency.XP
+                    case TraitModifyCurrency.STARTING_POINTS:
+                        await self._change_starting_points(
+                            character=character, amount=-SPECIALTY_XP_COST
+                        )
+                        cost_paid = SPECIALTY_XP_COST
+                        currency_paid = TraitModifyCurrency.STARTING_POINTS
+                    case _ as unreachable:
+                        assert_never(unreachable)
+
+            await CharacterTraitSpecialty.create(
                 character_trait=character_trait,
-                target_value=0,
-                currency=currency,
-                deleting_trait=True,
-                recoup_store=recoup_store,
+                name=cleaned,
+                cost_paid=cost_paid,
+                currency_paid=currency_paid,
             )
 
-        if character_trait.trait.custom_for_character_id is not None:  # ty:ignore[unresolved-attribute]
-            await character_trait.trait.delete()
-        await character_trait.delete()
+        return await self._refetch_character_trait(character_trait.id)
+
+    async def rename_specialty(
+        self,
+        *,
+        user: "User",
+        character: Character,
+        character_trait: CharacterTrait,
+        specialty: CharacterTraitSpecialty,
+        name: str,
+    ) -> CharacterTrait:
+        """Rename a specialty without changing what was paid for it.
+
+        Returns:
+            The refetched character trait including its specialties.
+        """
+        await self.guard_user_can_manage_character(character, user)
+        async with in_transaction():
+            await self._lock_character_trait_value(character_trait)
+            specialty.name = await self._validate_specialty_name(
+                character_trait=character_trait, name=name, exclude_id=specialty.id
+            )
+            await specialty.save(update_fields=["name", "date_modified"])
+        return await self._refetch_character_trait(character_trait.id)
+
+    async def _refund_specialty(
+        self,
+        *,
+        character: Character,
+        specialty: CharacterTraitSpecialty,
+        recoup_setting: PermissionsRecoupXP,
+    ) -> None:
+        """Return what a specialty cost, in the currency it was paid with."""
+        xp_refund, starting_points_refund = self._specialty_refund_amounts(
+            specialty=specialty, recoup_setting=recoup_setting
+        )
+        if xp_refund:
+            await UserXPService().add_xp(
+                user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
+                campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
+                amount=xp_refund,
+                update_total=False,
+            )
+        if starting_points_refund:
+            await self._change_starting_points(character=character, amount=starting_points_refund)
+
+    async def _delete_and_refund_specialty(
+        self,
+        *,
+        character: Character,
+        specialty: CharacterTraitSpecialty,
+        recoup_setting: PermissionsRecoupXP,
+    ) -> bool:
+        """Delete a specialty and refund it only when this call removed the row.
+
+        Gating the refund on the delete count stops concurrent removals of the same
+        specialty from refunding it twice. Call inside a transaction.
+
+        Returns:
+            True when this call deleted the specialty.
+        """
+        deleted = await CharacterTraitSpecialty.filter(id=specialty.id).delete()
+        if deleted != 1:
+            return False
+        await self._refund_specialty(
+            character=character, specialty=specialty, recoup_setting=recoup_setting
+        )
+        return True
+
+    async def remove_specialty(
+        self,
+        *,
+        company: "Company",
+        user: "User",
+        character: Character,
+        specialty: CharacterTraitSpecialty,
+    ) -> None:
+        """Delete a specialty and refund its cost according to the company's recoup setting."""
+        await self.guard_user_can_manage_character(character, user)
+        async with in_transaction():
+            await self._delete_and_refund_specialty(
+                character=character,
+                specialty=specialty,
+                recoup_setting=company.settings.permission_recoup_xp,
+            )

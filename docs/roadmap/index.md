@@ -7,7 +7,6 @@ Valentina Noir supports the core functionality needed to manage World of Darknes
 | Feature                      | Description                                          | Status  |
 | ---------------------------- | ---------------------------------------------------- | ------- |
 | Full Mage Support            | Complete `Spheres` and `Traditions` implementation   | Planned |
-| Character Specialties        | Improved handling and validation of specialty traits | Planned |
 | Caitiff Support              | Full support for clanless vampires                   | Planned |
 | Thin Blood Support           | Complete thin-blooded vampire mechanics              | Planned |
 | Loresheets                   | Vampire 5th Edition loresheet integration            | Planned |

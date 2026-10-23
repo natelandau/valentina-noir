@@ -74,6 +74,7 @@ class CharacterSheetService:
                 "trait__gift_tribe",
                 "trait__gift_auspice",
                 "trait__powers",
+                "specialties",
             ),
         ]
         if include_available_traits:
@@ -200,6 +201,7 @@ class CharacterSheetService:
                 "trait__gift_tribe",
                 "trait__gift_auspice",
                 "trait__powers",
+                "specialties",
             ),
         ]
 

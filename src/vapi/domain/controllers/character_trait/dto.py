@@ -9,7 +9,7 @@ from vapi.constants import TraitModifyCurrency
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
 
 if TYPE_CHECKING:
-    from vapi.db.sql_models.character import CharacterTrait
+    from vapi.db.sql_models.character import CharacterTrait, CharacterTraitSpecialty
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +40,19 @@ class CharacterTraitCreateCustom(msgspec.Struct):
     upgrade_cost: int | None = None
 
 
+class CharacterTraitSpecialtyCreate(msgspec.Struct):
+    """Request body for adding a specialty to an ability trait."""
+
+    name: str
+    currency: TraitModifyCurrency = TraitModifyCurrency.NO_COST
+
+
+class CharacterTraitSpecialtyUpdate(msgspec.Struct):
+    """Request body for renaming a specialty."""
+
+    name: str
+
+
 class TraitModifyRequest(msgspec.Struct):
     """Request body for modifying a trait's value."""
 
@@ -52,6 +65,40 @@ class TraitModifyRequest(msgspec.Struct):
 # ---------------------------------------------------------------------------
 
 
+class CharacterTraitSpecialtyResponse(msgspec.Struct):
+    """Response body for a character trait specialty."""
+
+    id: UUID
+    name: str
+    date_created: str
+    date_modified: str
+
+    @classmethod
+    def from_model(cls, m: "CharacterTraitSpecialty") -> "CharacterTraitSpecialtyResponse":
+        """Convert a Tortoise CharacterTraitSpecialty to a response Struct."""
+        return cls(
+            id=m.id,
+            name=m.name,
+            date_created=m.date_created.isoformat(),
+            date_modified=m.date_modified.isoformat(),
+        )
+
+
+def active_specialties(ct: "CharacterTrait") -> list["CharacterTraitSpecialty"]:
+    """Return a character trait's non-archived specialties, oldest first.
+
+    Returns an empty list when the relation was not prefetched so callers that do not
+    embed specialties get no ``NoValuesFetched`` error. Archived rows are dropped here so the
+    archive-filter policy holds regardless of which prefetch loaded them.
+    """
+    if not ct.specialties._fetched:  # noqa: SLF001
+        return []
+    return sorted(
+        (s for s in ct.specialties if not s.is_archived),
+        key=lambda s: s.date_created,
+    )
+
+
 class CharacterTraitResponse(msgspec.Struct):
     """Response body for a character trait."""
 
@@ -59,6 +106,7 @@ class CharacterTraitResponse(msgspec.Struct):
     character_id: UUID
     value: int
     trait: TraitResponse
+    specialties: list[CharacterTraitSpecialtyResponse]
     date_created: str
     date_modified: str
 
@@ -73,6 +121,9 @@ class CharacterTraitResponse(msgspec.Struct):
             character_id=m.character_id,  # ty:ignore[unresolved-attribute]
             value=m.value,
             trait=TraitResponse.from_model(m.trait),
+            specialties=[
+                CharacterTraitSpecialtyResponse.from_model(s) for s in active_specialties(m)
+            ],
             date_created=m.date_created.isoformat(),
             date_modified=m.date_modified.isoformat(),
         )
@@ -86,6 +137,7 @@ CHARACTER_TRAIT_PREFETCH = [
     "trait__gift_tribe",
     "trait__gift_auspice",
     "trait__powers",
+    "specialties",
 ]
 
 

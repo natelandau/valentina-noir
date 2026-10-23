@@ -21,6 +21,7 @@ from vapi.db.sql_models.character import (
     Character,
     CharacterInventory,
     CharacterTrait,
+    CharacterTraitSpecialty,
     Specialty,
     VampireAttributes,
     WerewolfAttributes,
@@ -597,7 +598,11 @@ async def character_trait_factory(character_factory):
         ct = (
             await CharacterTrait.filter(id=ct.id)
             .prefetch_related(
-                "trait", "trait__category", "trait__subcategory", "trait__sheet_section"
+                "trait",
+                "trait__category",
+                "trait__subcategory",
+                "trait__sheet_section",
+                "specialties",
             )
             .first()
         )
@@ -609,6 +614,31 @@ async def character_trait_factory(character_factory):
     for ct in created:
         with contextlib.suppress(Exception):
             await ct.delete()
+
+
+@pytest.fixture
+async def character_trait_specialty_factory():
+    """Return a factory that creates Tortoise CharacterTraitSpecialty instances."""
+    created: list[CharacterTraitSpecialty] = []
+    _counter = 0
+
+    async def _factory(**kwargs: Any) -> CharacterTraitSpecialty:
+        nonlocal _counter
+        _counter += 1
+        if "character_trait" not in kwargs and "character_trait_id" not in kwargs:
+            msg = "character_trait_specialty_factory requires character_trait"
+            raise ValueError(msg)
+        defaults: dict[str, Any] = {"name": f"Test Specialty {_counter}"}
+        defaults.update(kwargs)
+        specialty = await CharacterTraitSpecialty.create(**defaults)
+        created.append(specialty)
+        return specialty
+
+    yield _factory
+
+    for specialty in created:
+        with contextlib.suppress(Exception):
+            await specialty.delete()
 
 
 @pytest.fixture

@@ -239,3 +239,26 @@ class TestPermissionManageNpcDefault:
 
         # Then permission_manage_npc defaults to UNRESTRICTED
         assert settings.permission_manage_npc == PermissionManageNPC.UNRESTRICTED
+
+
+class TestApplySettingsPatchSpecialtyXpCost:
+    """Test the specialty_xp_cost_enabled boolean setting."""
+
+    async def test_specialty_xp_cost_enabled_persists(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify patching specialty_xp_cost_enabled persists and is reported as a change."""
+        # Given a company with default settings
+        company = await company_factory()
+        settings = await CompanySettings.filter(company=company).first()
+
+        # When enabling the setting
+        changes = await _apply_settings_patch(
+            settings, CompanySettingsPatch(specialty_xp_cost_enabled=True)
+        )
+
+        # Then the change is reported and persisted
+        assert changes["settings.specialty_xp_cost_enabled"] == {"old": False, "new": True}
+        refreshed = await CompanySettings.get(id=settings.id)
+        assert refreshed.specialty_xp_cost_enabled is True
