@@ -8,28 +8,37 @@ Valentina Noir is a REST API for managing World of Darkness tabletop role-playin
 
 ```bash
 # Development
-duty run                      # Start dev server (requires PostgreSQL + Redis)
+duty run                      # Start containers if needed, apply migrations, start dev server
+duty stack                    # Build and run the full stack (API, PostgreSQL, Redis) in Docker
+duty docs                     # Serve the docs site at http://localhost:8100
 uv run app                    # Full CLI with all options
 duty lint                     # Run all linters (ruff, ty, typos, prek)
+duty fix                      # Apply ruff autofixes and formatting
 duty format                   # Check code formatting with ruff
 duty test                     # Run tests with coverage
 duty test -- -n 0             # Run tests serially (for debugging)
 duty test -- -n 0 -v -s -x    # Serial, verbose, show output, stop on first failure
+duty check                    # Run lint + full test suite (what the pre-push hook runs)
 # NOTE: Docker must be running for tests (PostgreSQL + Redis containers)
 # NOTE: lint/test checks run through gate-cache and skip when they already passed on identical
 #       content. Force a re-run with GATE_CACHE_DISABLE=1 (e.g. `GATE_CACHE_DISABLE=1 duty test`)
 
-# Database
-docker compose -f compose-db.yml up -d   # Start PostgreSQL + Redis
-duty migrate                             # Apply pending database migrations
-duty seed                                # Seed reference data (traits, concepts, etc.)
-duty makemigrations                      # Generate migration files from model changes
-duty populate                            # Delete existing data and populate with test data
+# Database (each task starts the PostgreSQL + Redis containers if needed)
+duty db-up                    # Start PostgreSQL + Redis containers if not running
+duty db-down                  # Stop the containers, keeping their data
+duty db-logs                  # Follow container logs
+duty psql                     # psql shell in the PostgreSQL container
+duty redis-cli                # redis-cli shell in the Redis container
+duty migrate                  # Apply pending database migrations
+duty seed                     # Seed reference data (traits, concepts, etc.)
+duty makemigrations           # Generate migration files from model changes
+duty populate                 # Delete existing data and populate with test data
+duty reset                    # Drop, recreate, and seed the database without test data
 
 # Maintenance
-duty clean                    # Clean project artifacts
+duty clean                    # Remove build artifacts, coverage, caches, and dev logs
 duty update                   # Update dependencies and pre-commit hooks
-duty dev-setup                # Initialize development environment
+duty dev-setup                # Install deps + git hooks, create .env.secret, migrate and seed
 ```
 
 ## Workflow Rules

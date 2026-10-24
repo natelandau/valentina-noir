@@ -24,6 +24,8 @@ Set up the project in six steps:
 5. Install the [prek](https://prek.j178.dev/) git hooks: `prek install`. These run linters and formatters before each commit, and the test suite before each push.
 6. Configure your environment and database (see the next two sections).
 
+After step 4, `duty dev-setup` can do the rest for you. It installs the dependencies and git hooks, and creates `.env.secret` from `.env.example` if the file does not exist yet. Fill in `.env.secret` as the next two sections describe, including the encryption keys and `VAPI_REDIS__URL`, then run `duty dev-setup` again. When `.env.secret` already exists, it also starts the database containers, applies the migrations, and seeds the reference data.
+
 ## Configuring the environment
 
 The application reads configuration from environment variables. For local development, put them in a `.env.secret` file at the repository root.
@@ -41,7 +43,7 @@ The application reads configuration from environment variables. For local develo
 
 The app needs PostgreSQL and Redis. The quickest way to get both is the bundled Docker Compose file.
 
-1. Start PostgreSQL and Redis in Docker: `docker compose -f compose-db.yml up -d`. Their data is stored under the `.dev/` directory.
+1. Start PostgreSQL and Redis in Docker: `duty db-up`. Their data is stored under the `.dev/` directory.
 2. The Redis container requires a password, so add this line to `.env.secret`:
 
    ```bash
@@ -60,26 +62,39 @@ Start the local development server with a live reload watcher on `src/`:
 duty run
 ```
 
-For the full stack (API, PostgreSQL, and Redis) entirely in Docker, use `duty up`. This wraps `docker compose up --build`. Always let it rebuild: a plain `docker compose up` can serve stale code against a database whose schema has already moved on.
+`duty run` first starts the PostgreSQL and Redis containers if they are not already running and waits until PostgreSQL is healthy. Then it applies any pending migrations and starts the server. To start only the containers, run `duty db-up`.
+
+For the full stack (API, PostgreSQL, and Redis) entirely in Docker, use `duty stack`. This wraps `docker compose up --build`. Always let it rebuild: a plain `docker compose up` can serve stale code against a database whose schema has already moved on.
 
 ## Task runner
 
 We use [Duty](https://pawamoy.github.io/duty/) as the task runner. Run `duty --list` to see every task. The most common ones:
 
-| Task                  | What it does                                                             |
-| --------------------- | ------------------------------------------------------------------------ |
-| `duty run`            | Run the development server locally (needs PostgreSQL and Redis running)  |
-| `duty up`             | Build and run the full stack (API, PostgreSQL, Redis) in Docker          |
-| `duty lint`           | Run all linters (ruff, ty, typos, prek hooks)                            |
-| `duty format`         | Check code formatting with ruff                                          |
-| `duty test`           | Run the test suite with coverage                                         |
-| `duty migrate`        | Apply pending database migrations                                        |
-| `duty makemigrations` | Generate migration files from model changes                             |
-| `duty seed`           | Seed the database with reference data                                    |
-| `duty populate`       | Reset the database and fill it with varied test data                    |
-| `duty reset`          | Drop, recreate, and seed the database with no test data                 |
-| `duty update`         | Upgrade dependencies and prek hooks                                      |
-| `duty clean`          | Remove temporary files and caches                                        |
+| Task                  | What it does                                                                     |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `duty dev-setup`      | Install dependencies and git hooks, create `.env.secret`, then migrate and seed  |
+| `duty run`            | Start the database containers if needed, apply migrations, then run the server   |
+| `duty stack`          | Build and run the full stack (API, PostgreSQL, Redis) in Docker                  |
+| `duty docs`           | Serve the documentation site at `http://localhost:8100` with live reload         |
+| `duty lint`           | Run all linters (ruff, ty, typos, prek hooks)                                    |
+| `duty fix`            | Apply ruff's autofixes and format the code                                       |
+| `duty format`         | Check code formatting with ruff                                                  |
+| `duty test`           | Run the test suite with coverage                                                 |
+| `duty check`          | Run `duty lint` and `duty test`, the same checks as the pre-push hook            |
+| `duty db-up`          | Start the PostgreSQL and Redis containers if they are not already running        |
+| `duty db-down`        | Stop the PostgreSQL and Redis containers and keep their data                     |
+| `duty db-logs`        | Follow the PostgreSQL and Redis container logs                                   |
+| `duty psql`           | Open a `psql` shell in the PostgreSQL container                                  |
+| `duty redis-cli`      | Open a `redis-cli` shell in the Redis container                                  |
+| `duty migrate`        | Apply pending database migrations                                                |
+| `duty makemigrations` | Generate migration files from model changes                                      |
+| `duty seed`           | Seed the database with reference data                                            |
+| `duty populate`       | Reset the database and fill it with varied test data                             |
+| `duty reset`          | Drop, recreate, and seed the database with no test data                          |
+| `duty update`         | Upgrade dependencies and prek hooks                                              |
+| `duty clean`          | Remove build artifacts, coverage reports, caches, and development logs           |
+
+The database tasks start the containers first if they are not already running.
 
 Both `duty populate` and `duty reset` drop and recreate the database, so they prompt for confirmation first.
 
@@ -187,10 +202,21 @@ This runs `uv lock --upgrade`, re-syncs the environment, and updates the prek ho
 Docker isn't running, or the database containers aren't up. Start Docker Desktop (or your Docker daemon), then start the containers:
 
 ```bash
-docker compose -f compose-db.yml up -d
+duty db-up
 ```
 
 Confirm Docker is reachable with `docker info`.
+
+### Ports already in use by another project
+
+If another project already uses port 5432 or 8000, `duty run` fails with `Address already in use`, or connects to the other project's database. Pick free ports in `.env.secret`:
+
+```bash
+VAPI_SERVER__PORT=8001
+VAPI_POSTGRES__PORT=5434
+```
+
+`compose-db.yml` reads `VAPI_POSTGRES__PORT` from `.env.secret`. The next `duty run` or `duty db-up` recreates the PostgreSQL container to publish the new port. Your data is kept.
 
 ### Redis authentication errors
 

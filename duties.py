@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 import re
 import shutil
-import sys
-import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,33 +16,31 @@ if TYPE_CHECKING:
 
 
 console = Console()
-PYPROJECT = Path("pyproject.toml")
-PY_SRC_PATHS = (Path(_) for _ in ("src/", "tests/", "duties.py", "scripts/") if Path(_).exists())
-PY_SRC_LIST = tuple(str(_) for _ in PY_SRC_PATHS)
+PROJECT_ROOT = Path(__file__).parent
+PY_SRC_LIST = tuple(_ for _ in ("src/", "tests/", "duties.py", "scripts/") if Path(_).exists())
 # Matches gate-cache: CI is on unless unset, empty, "0", or "false"
 CI = os.environ.get("CI", "").strip().lower() not in {"", "0", "false"}
-PROJECT_ROOT = Path(__file__).parent
-VERSION = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
-DEV_DIR = PROJECT_ROOT / ".dev"
-DEV_DIRECTORIES = [
-    DEV_DIR / "logs",
-    DEV_DIR / "redis",
-]
+ENV_FILE = PROJECT_ROOT / ".env.secret"
+# Holds only disposable output; container data under .dev/ (postgres, redis) must survive cleaning
+DEV_DIRECTORIES = [PROJECT_ROOT / ".dev" / "logs"]
+# Directories never descended into when cleaning, so a sweep skips the virtualenv and git internals
+CLEAN_SKIP_DIRS = {".venv", ".git", ".dev", "node_modules"}
 
 
-def strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from a string.
+def compose(*args: str) -> list[str]:
+    """Build a `docker compose` command for the local PostgreSQL and Redis containers.
+
+    Compose interpolates `${VAR}` from `.env` only, so pass `.env.secret` when it exists to pick
+    up settings such as `VAPI_POSTGRES__PORT`.
 
     Args:
-        text (str): String to remove ANSI escape sequences from.
+        *args: Compose subcommand and its arguments.
 
     Returns:
-        str: String without ANSI escape sequences.
+        list[str]: The full command.
     """
-    ansi_chars = re.compile(r"(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]")
-
-    # Replace [ with \[ so rich doesn't interpret output as style tags
-    return ansi_chars.sub("", text).replace("[", r"\[")
+    env_args = ["--env-file", str(ENV_FILE)] if ENV_FILE.exists() else []
+    return ["docker", "compose", *env_args, "-f", "compose-db.yml", *args]
 
 
 def gated(name: str, cmd: list[str]) -> list[str]:
@@ -60,39 +56,48 @@ def gated(name: str, cmd: list[str]) -> list[str]:
     return ["gate-cache", "--name", name, "--", *cmd]
 
 
-def pyprefix(title: str) -> str:
-    """Add a prefix to the title if CI is true.
+def ensure_dev_dirs() -> None:
+    """Create the local development directories the app writes into."""
+    for directory in DEV_DIRECTORIES:
+        directory.mkdir(parents=True, exist_ok=True)
 
-    Returns:
-        str: Title with prefix if CI is true.
+
+def remove(path: Path) -> None:
+    """Delete a file or directory tree, ignoring paths that are already gone.
+
+    Args:
+        path (Path): File or directory to delete.
     """
-    if CI:
-        prefix = f"(python{sys.version_info.major}.{sys.version_info.minor})"
-        return f"{prefix:14}{title}"
-    return title
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path, ignore_errors=True)
+    else:
+        path.unlink(missing_ok=True)
 
 
 @duty()
 def dev_clean(ctx: Context) -> None:  # noqa: ARG001
-    """Clean the development environment."""
+    """Delete local development logs."""
     for directory in DEV_DIRECTORIES:
         if directory.exists():
             shutil.rmtree(directory)
             console.print(f"✓ Cleaned dev env in '{directory.name}/'")
 
 
-@duty(silent=True, post=[dev_clean])
-def clean(ctx: Context) -> None:
-    """Clean the project."""
-    ctx.run("rm -rf .coverage*")
-    ctx.run("rm -rf .cache")
-    ctx.run("rm -rf build")
-    ctx.run("rm -rf dist")
-    ctx.run("rm -rf pip-wheel-metadata")
-    ctx.run("rm *.log")
-    ctx.run("rm *.rdb")
-    ctx.run("find . -type d -name __pycache__ | xargs rm -rf")
-    ctx.run("find . -name '.DS_Store' -delete")
+@duty(post=[dev_clean])
+def clean(ctx: Context) -> None:  # noqa: ARG001
+    """Remove build artifacts, coverage reports, caches, and stray OS files."""
+    for pattern in (".coverage*", "coverage.xml", ".cache", "build", "dist", "*.log"):
+        for path in PROJECT_ROOT.glob(pattern):
+            remove(path)
+
+    for root, dirs, files in PROJECT_ROOT.walk():
+        dirs[:] = [d for d in dirs if d not in CLEAN_SKIP_DIRS]
+        if "__pycache__" in dirs:
+            remove(root / "__pycache__")
+            dirs.remove("__pycache__")
+        if ".DS_Store" in files:
+            remove(root / ".DS_Store")
+    console.print("✓ Cleaned project artifacts")
 
 
 @duty
@@ -100,35 +105,29 @@ def ruff(ctx: Context) -> None:
     """Check the code quality with ruff."""
     ctx.run(
         gated("ruff", ["ruff", "check", "--config", "pyproject.toml", "--no-fix", *PY_SRC_LIST]),
-        title=pyprefix("code quality check"),
+        title="code quality check",
     )
 
 
 @duty
 def format(ctx: Context) -> None:  # noqa: A001
-    """Format the code with ruff."""
+    """Check the code formatting with ruff."""
     ctx.run(
         gated("format", ["ruff", "format", "--check", "--config", "pyproject.toml", *PY_SRC_LIST]),
-        title=pyprefix("code formatting"),
+        title="code formatting",
     )
 
 
 @duty
 def ty(ctx: Context) -> None:
     """Type check the code with ty."""
-    ctx.run(
-        gated("ty", ["ty", "check"]),
-        title="ty check",
-    )
+    ctx.run(gated("ty", ["ty", "check"]), title="ty check")
 
 
 @duty
 def typos(ctx: Context) -> None:
     """Check the code with typos."""
-    ctx.run(
-        gated("typos", ["typos", "--config", ".typos.toml"]),
-        title=pyprefix("typos check"),
-    )
+    ctx.run(gated("typos", ["typos", "--config", ".typos.toml"]), title="typos check")
 
 
 @duty(skip_if=CI, skip_reason="skip prek in CI environments")
@@ -137,7 +136,7 @@ def precommit(ctx: Context) -> None:
     ctx.run(
         # Skip the hooks that call the duties above; lint runs those directly
         "PREK_SKIP=pytest,ruff,format,ty,typos gate-cache --name prek -- prek run --all-files",
-        title=pyprefix("prek hooks"),
+        title="prek hooks",
     )
 
 
@@ -146,11 +145,19 @@ def lint(ctx: Context) -> None:
     """Run all linting duties."""
 
 
+@duty
+def fix(ctx: Context) -> None:
+    """Apply ruff's autofixes and formatting so lint has less to complain about."""
+    ctx.run(
+        ["ruff", "check", "--config", "pyproject.toml", "--fix", *PY_SRC_LIST], title="ruff fix"
+    )
+    ctx.run(["ruff", "format", "--config", "pyproject.toml", *PY_SRC_LIST], title="ruff format")
+
+
 @duty()
 def update_dockerfile(ctx: Context) -> None:
-    """Update the Dockerfile with the uv version."""
+    """Pin the Dockerfile's uv image to the locally installed uv version."""
     dockerfile = PROJECT_ROOT / "Dockerfile"
-    version = ctx.run(["uv", "--version"], title="uv version", capture=True)
     version_output = ctx.run(["uv", "--version"], title="uv version", capture=True)
     match = re.search(r"(\d+\.\d+\.\d+)", version_output)
     if match is None:
@@ -158,7 +165,7 @@ def update_dockerfile(ctx: Context) -> None:
         raise RuntimeError(msg)
     version = match.group(1)
     dockerfile_content = dockerfile.read_text(encoding="utf-8")
-    if not re.search(rf"uv:{version}", dockerfile_content):
+    if not re.search(rf"uv:{re.escape(version)}\b", dockerfile_content):
         dockerfile_content = re.sub(r"uv:\d+\.\d+\.\d+", f"uv:{version}", dockerfile_content)
         dockerfile.write_text(dockerfile_content, encoding="utf-8")
         console.print(
@@ -168,7 +175,7 @@ def update_dockerfile(ctx: Context) -> None:
 
 @duty(capture=CI, post=[update_dockerfile])
 def update(ctx: Context) -> None:
-    """Update the project."""
+    """Upgrade dependencies and prek hooks."""
     ctx.run(["uv", "lock", "--upgrade"], title="update uv lock")
     ctx.run(["uv", "sync"], title="update uv sync")
     ctx.run(["prek", "autoupdate"], title="prek autoupdate")
@@ -195,39 +202,88 @@ def test(ctx: Context, *cli_args: str) -> None:
     # A marker covers the name, not the arguments, so a filtered pass must not skip the full suite
     ctx.run(
         cmd if cli_args else gated("test", cmd),
-        title=pyprefix("Running tests - this may take a while"),
+        title="Running tests - this may take a while",
         capture=CI,
     )
 
 
-@duty(pre=[dev_clean])
-def dev_setup(ctx: Context) -> None:  # noqa: ARG001
-    """Setup the development environment."""
-    for directory in DEV_DIRECTORIES:
-        if not directory.exists():
-            directory.mkdir(parents=True)
+@duty(pre=[lint, test])
+def check(ctx: Context) -> None:
+    """Run the linters and the full test suite, the same gates the pre-push hook runs."""
 
-    console.print(
-        """
-✓ Development environment setup complete.
-  Start the development environment with one of the following commands:
 
-  Run locally:
-    [green]duty run[/green]
-    or for full CLI options:
-    [green]uv run app[/green]
+@duty()
+def docs(ctx: Context, addr: str = "localhost:8100") -> None:
+    """Serve the documentation site with live reload.
 
-  Run everything from docker:
-    [green]duty up[/green]
-
-  or run the databases from docker and the bot from uv:
-    [green]docker compose -f compose-db.yml up -d[/green]
-    [green]uv run app run -r[/green]
-"""
+    Args:
+        ctx: The duty context.
+        addr: Address and port to serve on. Defaults off port 8000 so it can run beside the API.
+    """
+    ctx.run(
+        ["uv", "run", "--group", "docs", "zensical", "serve", "--dev-addr", addr],
+        title=f"serve docs at http://{addr}",
+        capture=False,
     )
 
 
 @duty()
+def db_up(ctx: Context) -> None:
+    """Start the PostgreSQL and Redis containers if they are not already running."""
+    ctx.run(compose("up", "-d", "--wait"), title="start database containers")
+
+
+@duty()
+def db_down(ctx: Context) -> None:
+    """Stop the PostgreSQL and Redis containers, keeping their data."""
+    ctx.run(compose("stop"), title="stop database containers")
+
+
+@duty()
+def db_logs(ctx: Context) -> None:
+    """Follow the PostgreSQL and Redis container logs."""
+    ctx.run(compose("logs", "--follow", "--tail", "100"), title="database logs", capture=False)
+
+
+@duty(pre=[db_up])
+def psql(ctx: Context) -> None:
+    """Open a psql shell in the PostgreSQL container."""
+    ctx.run(
+        compose("exec", "postgres", "psql", "-U", "valentina", "-d", "valentina-noir"),
+        title="psql",
+        capture=False,
+    )
+
+
+@duty(pre=[db_up])
+def redis_cli(ctx: Context) -> None:
+    """Open a redis-cli shell in the Redis container."""
+    ctx.run(
+        compose("exec", "redis", "redis-cli", "-a", "redispassword", "--no-auth-warning"),
+        title="redis-cli",
+        capture=False,
+    )
+
+
+@duty(pre=[db_up])
+def migrate(ctx: Context) -> None:
+    """Apply pending database migrations."""
+    ctx.run("uv run app migrate", title="apply database migrations", capture=False)
+
+
+@duty(pre=[db_up])
+def makemigrations(ctx: Context) -> None:
+    """Generate migration files from model changes."""
+    ctx.run("uv run app makemigrations", title="generate database migrations", capture=False)
+
+
+@duty(pre=[db_up])
+def seed(ctx: Context) -> None:
+    """Seed the database with reference data."""
+    ctx.run("uv run app seed", title="seed development database", capture=False)
+
+
+@duty(pre=[db_up])
 def populate(ctx: Context) -> None:
     """Reset and populate the development database with varied test data."""
     ctx.run(
@@ -237,7 +293,7 @@ def populate(ctx: Context) -> None:
     )
 
 
-@duty()
+@duty(pre=[db_up])
 def reset(ctx: Context) -> None:
     """Drop, recreate, and seed the development database without test data."""
     ctx.run(
@@ -248,34 +304,44 @@ def reset(ctx: Context) -> None:
 
 
 @duty()
-def seed(ctx: Context) -> None:
-    """Seed the database with reference data."""
-    ctx.run("uv run app seed", title="seed development database", capture=False)
+def dev_setup(ctx: Context) -> None:
+    """Install dependencies and git hooks, then prepare the local database."""
+    ctx.run(["uv", "sync", "--all-groups"], title="install dependencies")
+    ctx.run(["prek", "install"], title="install git hooks")
+    ensure_dev_dirs()
+
+    if not ENV_FILE.exists():
+        shutil.copyfile(PROJECT_ROOT / ".env.example", ENV_FILE)
+        console.print(
+            f"""
+[yellow]Created {ENV_FILE.name} from .env.example.[/yellow]
+  Fill in the required values (see CONTRIBUTING.md), then run [green]duty dev-setup[/green] again.
+"""
+        )
+        return
+
+    migrate(ctx)
+    seed(ctx)
+    console.print(
+        """
+✓ Development environment setup complete.
+
+  Run the API locally:          [green]duty run[/green]
+  Fill the database with data:  [green]duty populate[/green]
+  Run the full stack in Docker: [green]duty stack[/green]
+"""
+    )
 
 
-@duty()
-def migrate(ctx: Context) -> None:
-    """Apply pending database migrations."""
-    ctx.run("uv run app migrate", title="apply database migrations", capture=False)
-
-
-@duty()
-def makemigrations(ctx: Context) -> None:
-    """Generate migration files from model changes."""
-    ctx.run("uv run app makemigrations", title="generate database migrations", capture=False)
-
-
-@duty()
+@duty(pre=[migrate])
 def run(ctx: Context) -> None:
     """Run the application locally in development mode."""
-    for directory in DEV_DIRECTORIES:
-        if not directory.exists():
-            directory.mkdir(parents=True)
+    ensure_dev_dirs()
     ctx.run("uv run app run -r --reload-paths=src/", title="run application locally", capture=False)
 
 
 @duty()
-def up(ctx: Context) -> None:
+def stack(ctx: Context) -> None:
     """Build and start the full application stack (API, PostgreSQL, Redis) in Docker."""
     # Always --build: a plain `docker compose up` reuses the cached image and can serve
     # stale code against a database whose schema has moved on, breaking startup migrations/seed.

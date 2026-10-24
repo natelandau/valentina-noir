@@ -27,7 +27,7 @@ The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The contai
 To build and start the full stack (API, PostgreSQL, Redis) locally, use:
 
 ```bash
-duty up
+duty stack
 ```
 
 This wraps `docker compose up --build`. Always build when starting the stack: a plain `docker compose up` reuses the cached image and can serve stale code against a database whose schema has already moved on (via `duty run` or a newer container), which fails during the startup migrations and seed.

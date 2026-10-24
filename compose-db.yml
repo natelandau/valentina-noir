@@ -13,7 +13,7 @@ services:
   postgres:
     image: postgres:18
     ports:
-      - "5432:5432"
+      - "${VAPI_POSTGRES__PORT:-5432}:5432"
     environment:
       POSTGRES_USER: valentina
       POSTGRES_PASSWORD: valentina
