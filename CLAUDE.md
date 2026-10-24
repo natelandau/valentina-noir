@@ -39,6 +39,11 @@ duty reset                    # Drop, recreate, and seed the database without te
 duty clean                    # Remove build artifacts, coverage, caches, and dev logs
 duty update                   # Update dependencies and pre-commit hooks
 duty dev-setup                # Install deps + git hooks, create .env.secret, migrate and seed
+
+# Worktrees (each gets its own PostgreSQL database, Redis database, and API port)
+duty worktree branch=<name>   # Create .worktrees/<name>; then `cd` there and `duty run`
+duty worktree-teardown        # Remove this worktree (or branch=<name>) and its databases
+duty worktree-prune           # Drop databases of worktrees that no longer exist
 ```
 
 ## Workflow Rules

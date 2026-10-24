@@ -66,33 +66,76 @@ duty run
 
 For the full stack (API, PostgreSQL, and Redis) entirely in Docker, use `duty stack`. This wraps `docker compose up --build`. Always let it rebuild: a plain `docker compose up` can serve stale code against a database whose schema has already moved on.
 
+## Working in several worktrees at once
+
+To work on more than one branch at the same time, give each branch its own [git worktree](https://git-scm.com/docs/git-worktree). Each worktree gets its own copy of the database, its own Redis database, and its own API port, so branches cannot overwrite each other's data or migrations.
+
+Create a worktree from any checkout:
+
+```bash
+duty worktree branch=my-feature
+```
+
+This command does these steps:
+
+1. Creates `.worktrees/my-feature` on a new branch `my-feature`, started from the current commit.
+2. Copies `.env.secret` (and `CLAUDE.local.md`, if you have one) from the main checkout.
+3. Creates a PostgreSQL database for the worktree as a copy of the main checkout's database, and gives the worktree its own Redis database and API port. It writes all three to the worktree's `.env.secret`.
+4. Installs the dependencies in the worktree and applies its migrations.
+5. Deletes the databases of worktrees that no longer exist.
+
+Then start the API from inside the worktree. It runs the worktree's code against the worktree's database, on the port that `duty worktree` printed:
+
+```bash
+cd .worktrees/my-feature
+duty run
+```
+
+All worktrees share the main checkout's PostgreSQL and Redis containers. `duty db-down` stops them for every worktree. Inside a worktree, `duty psql`, `duty redis-cli`, `duty populate`, and `duty reset` act on that worktree's databases only.
+
+When you finish with a worktree, remove it and its databases. Run this inside the worktree, or from any checkout with the branch name:
+
+```bash
+duty worktree-teardown
+duty worktree-teardown branch=my-feature
+```
+
+The branch is kept. git refuses to remove a worktree that has uncommitted or untracked files, and then nothing is deleted. To delete the databases of worktrees that you removed some other way, run `duty worktree-prune`.
+
+A worktree's database is a copy of the main checkout's database at the time you create the worktree. If the main database has a migration from another branch applied, the copy has it too. The database is named `vapi_wt_<branch>_<hash>`, and `duty worktree` prints the name, the Redis database number, and the port.
+
+Up to 15 worktrees can exist at the same time, because each one uses one of Redis's 16 logical databases and the main checkout keeps one.
+
 ## Task runner
 
 We use [Duty](https://pawamoy.github.io/duty/) as the task runner. Run `duty --list` to see every task. The most common ones:
 
-| Task                  | What it does                                                                     |
-| --------------------- | -------------------------------------------------------------------------------- |
-| `duty dev-setup`      | Install dependencies and git hooks, create `.env.secret`, then migrate and seed  |
-| `duty run`            | Start the database containers if needed, apply migrations, then run the server   |
-| `duty stack`          | Build and run the full stack (API, PostgreSQL, Redis) in Docker                  |
-| `duty docs`           | Serve the documentation site at `http://localhost:8100` with live reload         |
-| `duty lint`           | Run all linters (ruff, ty, typos, prek hooks)                                    |
-| `duty fix`            | Apply ruff's autofixes and format the code                                       |
-| `duty format`         | Check code formatting with ruff                                                  |
-| `duty test`           | Run the test suite with coverage                                                 |
-| `duty check`          | Run `duty lint` and `duty test`, the same checks as the pre-push hook            |
-| `duty db-up`          | Start the PostgreSQL and Redis containers if they are not already running        |
-| `duty db-down`        | Stop the PostgreSQL and Redis containers and keep their data                     |
-| `duty db-logs`        | Follow the PostgreSQL and Redis container logs                                   |
-| `duty psql`           | Open a `psql` shell in the PostgreSQL container                                  |
-| `duty redis-cli`      | Open a `redis-cli` shell in the Redis container                                  |
-| `duty migrate`        | Apply pending database migrations                                                |
-| `duty makemigrations` | Generate migration files from model changes                                      |
-| `duty seed`           | Seed the database with reference data                                            |
-| `duty populate`       | Reset the database and fill it with varied test data                             |
-| `duty reset`          | Drop, recreate, and seed the database with no test data                          |
-| `duty update`         | Upgrade dependencies and prek hooks                                              |
-| `duty clean`          | Remove build artifacts, coverage reports, caches, and development logs           |
+| Task                     | What it does                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `duty dev-setup`         | Install dependencies and git hooks, create `.env.secret`, then migrate and seed |
+| `duty run`               | Start the database containers if needed, apply migrations, then run the server  |
+| `duty stack`             | Build and run the full stack (API, PostgreSQL, Redis) in Docker                 |
+| `duty docs`              | Serve the documentation site at `http://localhost:8100` with live reload        |
+| `duty lint`              | Run all linters (ruff, ty, typos, prek hooks)                                   |
+| `duty fix`               | Apply ruff's autofixes and format the code                                      |
+| `duty format`            | Check code formatting with ruff                                                 |
+| `duty test`              | Run the test suite with coverage                                                |
+| `duty check`             | Run `duty lint` and `duty test`, the same checks as the pre-push hook           |
+| `duty db-up`             | Start the PostgreSQL and Redis containers if they are not already running       |
+| `duty db-down`           | Stop the PostgreSQL and Redis containers and keep their data                    |
+| `duty db-logs`           | Follow the PostgreSQL and Redis container logs                                  |
+| `duty psql`              | Open a `psql` shell in the PostgreSQL container                                 |
+| `duty redis-cli`         | Open a `redis-cli` shell in the Redis container                                 |
+| `duty migrate`           | Apply pending database migrations                                               |
+| `duty makemigrations`    | Generate migration files from model changes                                     |
+| `duty seed`              | Seed the database with reference data                                           |
+| `duty populate`          | Reset the database and fill it with varied test data                            |
+| `duty reset`             | Drop, recreate, and seed the database with no test data                         |
+| `duty worktree`          | Create a worktree with its own database, Redis database, and API port           |
+| `duty worktree-teardown` | Remove a worktree and delete its databases                                      |
+| `duty worktree-prune`    | Delete the databases of worktrees that no longer exist                          |
+| `duty update`            | Upgrade dependencies and prek hooks                                             |
+| `duty clean`             | Remove build artifacts, coverage reports, caches, and development logs          |
 
 The database tasks start the containers first if they are not already running.
 

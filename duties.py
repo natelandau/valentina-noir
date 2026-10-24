@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -16,22 +18,61 @@ if TYPE_CHECKING:
 
 
 console = Console()
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.resolve()
+# duty loads this file by path, so the project root is not importable until added
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.worktree import (  # noqa: E402
+    CONTAINER_POSTGRES_USER,
+    CONTAINER_REDIS_PASSWORD,
+    DEFAULT_DATABASE,
+    DEFAULT_REDIS_URL,
+    KEY_DATABASE,
+    KEY_REDIS_URL,
+    LocalServices,
+    read_env,
+    redis_db,
+)
+
+
+def _main_checkout() -> Path:
+    """Return the main checkout, which is PROJECT_ROOT unless this file runs from a worktree."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],  # noqa: S607
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return Path(result.stdout.strip()).parent.resolve() if result.returncode == 0 else PROJECT_ROOT
+
+
+# Every worktree shares the main checkout's containers, so compose always runs against its files
+MAIN_ROOT = _main_checkout()
+IN_WORKTREE = PROJECT_ROOT != MAIN_ROOT
 PY_SRC_LIST = tuple(_ for _ in ("src/", "tests/", "duties.py", "scripts/") if Path(_).exists())
 # Matches gate-cache: CI is on unless unset, empty, "0", or "false"
 CI = os.environ.get("CI", "").strip().lower() not in {"", "0", "false"}
 ENV_FILE = PROJECT_ROOT / ".env.secret"
+WORKTREE_SCRIPT = ["uv", "run", "python", "-m", "scripts.worktree"]
+MAIN_WORKTREE_SCRIPT = [
+    "uv",
+    "run",
+    "--project",
+    str(MAIN_ROOT),
+    "python",
+    "-m",
+    "scripts.worktree",
+]
 # Holds only disposable output; container data under .dev/ (postgres, redis) must survive cleaning
 DEV_DIRECTORIES = [PROJECT_ROOT / ".dev" / "logs"]
-# Directories never descended into when cleaning, so a sweep skips the virtualenv and git internals
-CLEAN_SKIP_DIRS = {".venv", ".git", ".dev", "node_modules"}
+# Directories never descended into when cleaning, so a sweep skips the virtualenv, git internals,
+# and other worktrees
+CLEAN_SKIP_DIRS = {".venv", ".git", ".dev", ".worktrees", "node_modules"}
 
 
 def compose(*args: str) -> list[str]:
-    """Build a `docker compose` command for the local PostgreSQL and Redis containers.
-
-    Compose interpolates `${VAR}` from `.env` only, so pass `.env.secret` when it exists to pick
-    up settings such as `VAPI_POSTGRES__PORT`.
+    """Build a `docker compose` command for the main checkout's PostgreSQL and Redis containers.
 
     Args:
         *args: Compose subcommand and its arguments.
@@ -39,8 +80,20 @@ def compose(*args: str) -> list[str]:
     Returns:
         list[str]: The full command.
     """
-    env_args = ["--env-file", str(ENV_FILE)] if ENV_FILE.exists() else []
-    return ["docker", "compose", *env_args, "-f", "compose-db.yml", *args]
+    return [*LocalServices(MAIN_ROOT).compose, *args]
+
+
+def local_env(key: str, default: str) -> str:
+    """Read one setting from this checkout's `.env.secret`, which a worktree points at its own databases.
+
+    Args:
+        key (str): The environment variable to read.
+        default (str): The application default when the file does not set it.
+
+    Returns:
+        str: The configured value.
+    """
+    return read_env(ENV_FILE).get(key, default)
 
 
 def gated(name: str, cmd: list[str]) -> list[str]:
@@ -229,13 +282,17 @@ def docs(ctx: Context, addr: str = "localhost:8100") -> None:
 
 @duty()
 def db_up(ctx: Context) -> None:
-    """Start the PostgreSQL and Redis containers if they are not already running."""
+    """Start the PostgreSQL and Redis containers if needed, and in a worktree, its own databases."""
     ctx.run(compose("up", "-d", "--wait"), title="start database containers")
+    if IN_WORKTREE:
+        ctx.run(
+            [*WORKTREE_SCRIPT, "provision"], title="provision worktree databases", capture=False
+        )
 
 
 @duty()
 def db_down(ctx: Context) -> None:
-    """Stop the PostgreSQL and Redis containers, keeping their data."""
+    """Stop the PostgreSQL and Redis containers that every worktree shares, keeping their data."""
     ctx.run(compose("stop"), title="stop database containers")
 
 
@@ -249,7 +306,15 @@ def db_logs(ctx: Context) -> None:
 def psql(ctx: Context) -> None:
     """Open a psql shell in the PostgreSQL container."""
     ctx.run(
-        compose("exec", "postgres", "psql", "-U", "valentina", "-d", "valentina-noir"),
+        compose(
+            "exec",
+            "postgres",
+            "psql",
+            "-U",
+            CONTAINER_POSTGRES_USER,
+            "-d",
+            local_env(KEY_DATABASE, DEFAULT_DATABASE),
+        ),
         title="psql",
         capture=False,
     )
@@ -259,7 +324,16 @@ def psql(ctx: Context) -> None:
 def redis_cli(ctx: Context) -> None:
     """Open a redis-cli shell in the Redis container."""
     ctx.run(
-        compose("exec", "redis", "redis-cli", "-a", "redispassword", "--no-auth-warning"),
+        compose(
+            "exec",
+            "redis",
+            "redis-cli",
+            "-a",
+            CONTAINER_REDIS_PASSWORD,
+            "--no-auth-warning",
+            "-n",
+            str(redis_db(local_env(KEY_REDIS_URL, DEFAULT_REDIS_URL))),
+        ),
         title="redis-cli",
         capture=False,
     )
@@ -346,3 +420,63 @@ def stack(ctx: Context) -> None:
     # Always --build: a plain `docker compose up` reuses the cached image and can serve
     # stale code against a database whose schema has moved on, breaking startup migrations/seed.
     ctx.run("docker compose up --build", title="build and start full docker stack", capture=False)
+
+
+@duty()
+def worktree(ctx: Context, branch: str) -> None:
+    """Create .worktrees/<branch> with its own database, Redis database, and API port.
+
+    Args:
+        ctx: The duty context.
+        branch: The new branch, which also names the worktree directory.
+    """
+    path = MAIN_ROOT / ".worktrees" / branch
+    # This checkout's script, not the new worktree's: a branch cut from an older commit may lack it
+    with ctx.cd(str(MAIN_ROOT)):
+        ctx.run([*MAIN_WORKTREE_SCRIPT, "create", branch], title=f"create worktree {branch}")
+        ctx.run(
+            [*MAIN_WORKTREE_SCRIPT, "provision", str(path)],
+            title="provision worktree databases",
+            capture=False,
+        )
+    with ctx.cd(str(path)):
+        ctx.run(["uv", "sync", "--all-groups"], title="install worktree dependencies")
+        ctx.run(["uv", "run", "app", "migrate"], title="apply worktree migrations")
+    worktree_prune(ctx)
+    console.print(f"\n[green]✓[/green] Worktree ready. Start it with: cd {path} && duty run")
+
+
+@duty()
+def worktree_teardown(ctx: Context, branch: str = "") -> None:
+    """Remove a worktree and drop its database and Redis data; the branch is kept.
+
+    Args:
+        ctx: The duty context.
+        branch: The worktree's branch. Defaults to the worktree this runs in.
+    """
+    if branch:
+        target = MAIN_ROOT / ".worktrees" / branch
+    elif IN_WORKTREE:
+        target = PROJECT_ROOT
+    else:
+        console.print(
+            "[red]Name the worktree to remove: duty worktree-teardown branch=<branch>[/red]"
+        )
+        raise SystemExit(1)
+    # The worktree directory disappears, so move to the main checkout for good rather than
+    # with ctx.cd, which would change back into the deleted directory afterward
+    os.chdir(MAIN_ROOT)
+    ctx.run(
+        [*MAIN_WORKTREE_SCRIPT, "teardown", str(target)],
+        title=f"tear down worktree {target.name}",
+    )
+
+
+@duty()
+def worktree_prune(ctx: Context) -> None:
+    """Drop the databases and Redis data of worktrees that no longer exist."""
+    with ctx.cd(str(MAIN_ROOT)):
+        ctx.run(
+            [*MAIN_WORKTREE_SCRIPT, "prune"],
+            title="prune databases of removed worktrees",
+        )
