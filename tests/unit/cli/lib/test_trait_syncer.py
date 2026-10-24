@@ -3,6 +3,7 @@
 import pytest
 
 from vapi.cli.lib.trait_syncer import TraitSyncer
+from vapi.constants import TrackerType
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait
 
 pytestmark = pytest.mark.anyio
@@ -48,3 +49,54 @@ async def test_sync_trait_leaves_a_characters_custom_trait_untouched(
     assert seeded is not None
     assert seeded.description == "Fixture description"
     await seeded.delete()
+
+
+async def test_sync_trait_creates_trait_with_tracker_types(trait_category_factory):
+    """Verify syncing a fixture row with tracker keys stores them on a new trait."""
+    # Given a category and a fixture row carrying tracker types
+    category = await trait_category_factory(name="ZZ Tracker Category")
+    section = await CharSheetSection.get(id=category.sheet_section_id)
+
+    # When the syncer creates the trait
+    syncer = TraitSyncer()
+    syncer._traits_fast_path = False
+    trait, created, _ = await syncer._sync_trait(
+        {"name": "ZZ Tracked", "tracker_type_v4": "COUNTER", "tracker_type_v5": "DAMAGE"},
+        category=category,
+        section=section,
+    )
+
+    # Then the stored trait carries both tracker types
+    stored = await Trait.get(id=trait.id)
+    try:
+        assert created
+        assert stored.tracker_type_v4 == TrackerType.COUNTER
+        assert stored.tracker_type_v5 == TrackerType.DAMAGE
+    finally:
+        await stored.delete()
+
+
+async def test_sync_trait_updates_existing_trait_with_tracker_types(
+    trait_category_factory, trait_factory
+):
+    """Verify syncing a fixture row with tracker keys updates a trait that had none."""
+    # Given an existing global trait without tracker types
+    category = await trait_category_factory(name="ZZ Tracker Update Category")
+    section = await CharSheetSection.get(id=category.sheet_section_id)
+    existing = await trait_factory(name="ZZ Tracked", category=category, sheet_section=section)
+
+    # When the syncer processes a fixture row that now carries tracker types
+    syncer = TraitSyncer()
+    syncer._traits_fast_path = False
+    _, created, updated = await syncer._sync_trait(
+        {"name": "ZZ Tracked", "tracker_type_v4": None, "tracker_type_v5": "STAINS"},
+        category=category,
+        section=section,
+    )
+
+    # Then the existing row gains the tracker type
+    assert not created
+    assert updated
+    await existing.refresh_from_db()
+    assert existing.tracker_type_v4 is None
+    assert existing.tracker_type_v5 == TrackerType.STAINS

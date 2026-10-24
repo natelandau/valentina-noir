@@ -11,6 +11,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
     Character,
+    CharacterHealth,
     CharacterInventory,
     CharacterTrait,
     CharacterTraitSpecialty,
@@ -356,6 +357,30 @@ class TestCharacterArchiveHandler:
 
         # And the global trait's power is untouched
         assert not (await TraitPower.get(id=global_power.id)).is_archived
+
+    async def test_archive_character_archives_health(
+        self,
+        character_factory: Callable[..., Character],
+        character_health_factory: Callable[..., CharacterHealth],
+    ) -> None:
+        """Verify a character's health row is archived under the same batch."""
+        # Given a character with a health row and another character's health row
+        character = await character_factory(health=False)
+        health = await character_health_factory(character=character)
+        other_health = await character_health_factory(
+            character=await character_factory(health=False)
+        )
+
+        # When we archive the character
+        ctx = await archive_character(character=character)
+
+        # Then the health row is archived under the batch
+        refreshed = await CharacterHealth.get(id=health.id)
+        assert refreshed.is_archived
+        assert refreshed.archive_batch_id == ctx.batch_id
+
+        # And the other character's health row is untouched
+        assert not (await CharacterHealth.get(id=other_health.id)).is_archived
 
     async def test_archive_character_archives_trait_specialties(
         self,

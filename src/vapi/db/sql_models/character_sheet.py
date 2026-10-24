@@ -8,7 +8,7 @@ from tortoise import fields
 from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
 
-from vapi.constants import HunterEdgeType, WerewolfRenown
+from vapi.constants import HunterEdgeType, TrackerType, WerewolfRenown
 from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import validate_character_classes, validate_game_versions
 
@@ -167,6 +167,8 @@ class Trait(BaseModel):
     pool = fields.TextField(null=True)
     opposing_pool = fields.TextField(null=True)
     system = fields.TextField(null=True)
+    tracker_type_v4 = fields.CharEnumField(TrackerType, null=True)
+    tracker_type_v5 = fields.CharEnumField(TrackerType, null=True)
 
     # FK relationships
     # A custom trait exists only for its character, so it dies with it. Null on the
