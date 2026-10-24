@@ -148,6 +148,8 @@ POST /api/v1/companies/{company_id}/characters
 }
 ```
 
+You can also set the starting `health` of the character and a `tracker` on each trait. See [Create a Character with Health and Trackers](./trackers_and_health.md#create-a-character-with-health-and-trackers).
+
 ## Fetching a Character
 
 Retrieve a single character by ID.
@@ -157,6 +159,8 @@ GET /api/v1/companies/{company_id}/characters/{character_id}
 ```
 
 The response includes the character's core properties, class-specific attributes, and specialties. By default, it doesn't include related collections like traits, inventory, notes, or assets. To embed those in a single request, use the `include` query parameter.
+
+The response always contains a `health` object with the character's health track. See [Health](./trackers_and_health.md#health).
 
 ### Embedding Related Resources
 
@@ -201,10 +205,51 @@ When a requested collection is empty, the response contains an empty array (`[]`
                     "sheet_section_name": "Attributes"
                 },
                 "specialties": [],
+                "tracker": null,
+                "date_created": "2026-01-15T10:30:00Z",
+                "date_modified": "2026-03-20T14:00:00Z"
+            },
+            {
+                "id": "t2-...",
+                "character_id": "a1b2c3d4-...",
+                "value": 5,
+                "trait": {
+                    "name": "Willpower",
+                    "max_value": 10,
+                    "min_value": 0,
+                    "tracker_type_v5": "DAMAGE",
+                    ...
+                },
+                "specialties": [],
+                "tracker": {
+                    "type": "DAMAGE",
+                    "size": 5,
+                    "superficial": 1,
+                    "aggravated": 0,
+                    "boxes": ["SUPERFICIAL", null, null, null, null],
+                    "is_impaired": false,
+                    "bashing": null,
+                    "lethal": null,
+                    "levels": null,
+                    "current_penalty": null
+                },
                 "date_created": "2026-01-15T10:30:00Z",
                 "date_modified": "2026-03-20T14:00:00Z"
             }
         ],
+        "health": {
+            "type": "DAMAGE",
+            "size": 6,
+            "superficial": 2,
+            "aggravated": 0,
+            "boxes": ["SUPERFICIAL", "SUPERFICIAL", null, null, null, null],
+            "is_impaired": false,
+            "bashing": null,
+            "lethal": null,
+            "levels": null,
+            "current_penalty": null,
+            "extra_levels": 0
+        },
         "inventory": [],
         "specialties": [],
         "vampire_attributes": {
@@ -280,7 +325,8 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
                                             "min_value": 0,
                                             ...
                                         },
-                                        "specialties": []
+                                        "specialties": [],
+                                        "tracker": null
                                     }
                                 ]
                             }
@@ -295,7 +341,8 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
                                     "min_value": 0,
                                     ...
                                 },
-                                "specialties": []
+                                "specialties": [],
+                                "tracker": null
                             }
                         ]
                     }
@@ -310,7 +357,7 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
     - `subcategories[].character_traits` - Traits grouped under a subcategory
     - `character_traits` - Traits that belong directly to the category without a subcategory
 
-    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array. Each character trait also carries its ability [`specialties`](./character_traits.md#specialties), which is empty for traits outside the Abilities section.
+    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array. Each character trait also carries its ability [`specialties`](./character_traits.md#specialties), which is empty for traits outside the Abilities section, and its in-play `tracker`, which is `null` for traits without one. A trait with a tracker, such as Willpower, has the same `tracker` object as in the [character trait response](./trackers_and_health.md#tracker-types).
 
 ## Character Sub-Resources
 

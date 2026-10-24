@@ -32,8 +32,9 @@ Adding new entity types:
     1. Add the value to AuditEntityType in constants.py.
     2. If the entity has its own path param (e.g., "widget_id"), add an entry to
        PARAM_ENTITY_MAP in this module.
-    3. If the entity is only created via POST to a parent URL (no ID in path), add
-       an entry to OPERATION_ID_ENTITY_MAP.
+    3. If the entity has no ID of its own in the path (it is created via POST to a
+       parent URL, or is a singleton written through its parent's URL), add an entry
+       to OPERATION_ID_ENTITY_MAP.
 """
 
 from __future__ import annotations
@@ -73,8 +74,8 @@ PARAM_ENTITY_MAP: list[tuple[str, AuditEntityType, str | None]] = [
 # Derived from PARAM_ENTITY_MAP: path param keys that have a direct FK on AuditLog
 _FK_PARAM_KEYS: dict[str, str] = {pk: fk for pk, _, fk in PARAM_ENTITY_MAP if fk is not None}
 
-# Maps operation_id to entity type for POST (create) requests where the deepest
-# path param is a parent, not the target being created.
+# Maps operation_id to entity type for requests where the deepest path param is a
+# parent, not the target (POST creates, and writes to singleton child resources).
 OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "createUser": AuditEntityType.USER,
     "globalAdminCreateUser": AuditEntityType.USER,
@@ -95,6 +96,8 @@ OPERATION_ID_ENTITY_MAP: dict[str, AuditEntityType] = {
     "bulkAssignTraitsToCharacter": AuditEntityType.CHARACTER_TRAIT,
     "addCharacterTraitSpecialty": AuditEntityType.CHARACTER_TRAIT_SPECIALTY,
     "createCharacterInventoryItem": AuditEntityType.CHARACTER_INVENTORY,
+    "setCharacterHealth": AuditEntityType.CHARACTER_HEALTH,
+    "applyCharacterHealthAction": AuditEntityType.CHARACTER_HEALTH,
     "createDictionaryTerm": AuditEntityType.DICTIONARY_TERM,
     "createCampaignNote": AuditEntityType.NOTE,
     "createUserNote": AuditEntityType.NOTE,
@@ -153,7 +156,6 @@ def _resolve_operation(method: str, operation_id: str | None) -> AuditOperation 
 
 def _resolve_entity_and_fks(
     path_params: dict[str, str],
-    method: str,
     operation_id: str | None,
 ) -> tuple[AuditEntityType | None, str | None, dict[str, str]]:
     """Derive entity_type, target_entity_id, and FK values from path params.
@@ -177,11 +179,11 @@ def _resolve_entity_and_fks(
             target_entity_id = path_params[param_key]
             break
 
-    # For POST requests, the deepest param may be a parent — disambiguate via operation_id
-    if method == "POST" and operation_id and operation_id in OPERATION_ID_ENTITY_MAP:
+    # The deepest param may be a parent rather than the target, so disambiguate via operation_id
+    if operation_id and operation_id in OPERATION_ID_ENTITY_MAP:
         entity_type = OPERATION_ID_ENTITY_MAP[operation_id]
         # target_entity_id stays as the deepest path param (the parent's ID);
-        # the created entity's ID isn't in the path for POST requests
+        # the target entity's ID isn't in the path
 
     return entity_type, target_entity_id, fk_values
 
@@ -275,9 +277,7 @@ def build_audit_entry(
     operation = getattr(request.state, "audit_operation", None) or _resolve_operation(
         method, operation_id
     )
-    entity_type, target_entity_id, fk_values = _resolve_entity_and_fks(
-        path_params, method, operation_id
-    )
+    entity_type, target_entity_id, fk_values = _resolve_entity_and_fks(path_params, operation_id)
     acting_user_id = _resolve_acting_user(request, path_params, operation_id)
 
     description: str | None = getattr(request.state, "audit_description", None)

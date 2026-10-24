@@ -26,6 +26,7 @@
             { "Experience" = "concepts/experience.md" },
             { "Quick Rolls" = "concepts/quick_rolls.md" },
             { "Storytellers" = "concepts/storytellers.md" },
+            { "Trackers and Health" = "concepts/trackers_and_health.md" },
         ] },
         { "Technical Details" = [
             "technical/index.md",
@@ -122,3 +123,5 @@
             { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
         ]
     [project.markdown_extensions.pymdownx.inlinehilite]
+    [project.markdown_extensions.pymdownx.tabbed]
+        alternate_style = true

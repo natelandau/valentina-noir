@@ -1481,3 +1481,148 @@ class TestNpcTraitManagementPermission:
 
         # Then the response status matches the expectation
         assert response.status_code == expected_status
+
+
+class TestTraitTracker:
+    """Test trait tracker endpoints."""
+
+    async def test_trait_tracker_action_round_trip(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify spending from a counter tracker lowers current and a GET returns the same state."""
+        # Given a V4 character with Willpower 5
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            game_version="V4",
+        )
+        willpower = await Trait.get(
+            name="Willpower", custom_for_character_id=None, is_archived=False
+        )
+        character_trait = await character_trait_factory(
+            character=character, trait=willpower, value=5
+        )
+        url = build_url(
+            Characters.TRAIT_TRACKER,
+            company_id=session_company.id,
+            character_id=character.id,
+            character_trait_id=character_trait.id,
+        )
+        headers = token_global_admin | on_behalf_of_header
+
+        # When spending 2
+        response = await client.post(
+            build_url(
+                Characters.TRAIT_TRACKER_ACTIONS,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=headers,
+            json={"action": "spend", "amount": 2},
+        )
+
+        # Then current is lowered and a GET returns the same tracker
+        assert response.status_code == HTTP_200_OK
+        assert response.json()["type"] == "COUNTER"
+        assert response.json()["current"] == 3
+        fetched = await client.get(url, headers=headers)
+        assert fetched.status_code == HTTP_200_OK
+        assert fetched.json() == response.json()
+
+    async def test_trait_tracker_404_for_other_version(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a trait whose tracker exists only in another game version returns 404."""
+        # Given a V4 character with Humanity, which only has a tracker in V5
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            game_version="V4",
+        )
+        humanity = await Trait.get(name="Humanity", custom_for_character_id=None, is_archived=False)
+        character_trait = await character_trait_factory(
+            character=character, trait=humanity, value=7
+        )
+
+        # When fetching the tracker
+        response = await client.get(
+            build_url(
+                Characters.TRAIT_TRACKER,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+        )
+
+        # Then the response is a 404
+        assert response.status_code == HTTP_404_NOT_FOUND
+
+    async def test_trait_tracker_rejects_wrong_damage_type(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Any,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a damage type the game version does not accept returns 400."""
+        # Given a V5 character with a Willpower damage track
+        character = await character_factory(
+            company=session_company,
+            user_player=session_user,
+            user_creator=session_user,
+            campaign=session_campaign,
+            game_version="V5",
+        )
+        willpower = await Trait.get(
+            name="Willpower", custom_for_character_id=None, is_archived=False
+        )
+        character_trait = await character_trait_factory(
+            character=character, trait=willpower, value=5
+        )
+
+        # When dealing bashing damage, which V5 does not have
+        response = await client.post(
+            build_url(
+                Characters.TRAIT_TRACKER_ACTIONS,
+                company_id=session_company.id,
+                character_id=character.id,
+                character_trait_id=character_trait.id,
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+            json={"action": "damage", "amount": 1, "damage_type": "BASHING"},
+        )
+
+        # Then the response is a 400
+        assert response.status_code == HTTP_400_BAD_REQUEST

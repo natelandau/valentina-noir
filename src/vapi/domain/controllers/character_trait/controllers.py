@@ -10,18 +10,19 @@ from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
 
 from vapi.config import settings
-from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
+from vapi.constants import MAX_BULK_TRAIT_ASSIGN, AuditOperation, TraitModifyCurrency
 from vapi.db.sql_models.character import Character, CharacterTrait, CharacterTraitSpecialty
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import CharacterTraitService
-from vapi.lib.exceptions import ValidationError
+from vapi.domain.services import CharacterTraitService, TrackerService
+from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
     developer_company_user_guard,
     storyteller_character_access_guard,
     user_active_guard,
+    user_character_player_or_storyteller_guard,
 )
 from vapi.openapi.tags import APITags
 
@@ -33,8 +34,12 @@ from .dto import (
     CharacterTraitResponse,
     CharacterTraitSpecialtyCreate,
     CharacterTraitSpecialtyUpdate,
+    TrackerActionRequest,
+    TrackerResponse,
+    TrackerStateSet,
     TraitModifyRequest,
     TraitValueOptionsResponse,
+    build_tracker_response,
 )
 
 
@@ -78,7 +83,10 @@ class CharacterTraitController(Controller):
             is_rollable=is_rollable,
         )
         return OffsetPagination(
-            items=[CharacterTraitResponse.from_model(t) for t in traits],
+            items=[
+                CharacterTraitResponse.from_model(t, game_version=character.game_version)
+                for t in traits
+            ],
             limit=limit,
             offset=offset,
             total=count,
@@ -91,9 +99,13 @@ class CharacterTraitController(Controller):
         description=docs.GET_CHARACTER_TRAIT_DESCRIPTION,
         cache=True,
     )
-    async def get_character_trait(self, character_trait: CharacterTrait) -> CharacterTraitResponse:
+    async def get_character_trait(
+        self, character: Character, character_trait: CharacterTrait
+    ) -> CharacterTraitResponse:
         """Get a character trait by Character Trait ID or Trait ID."""
-        return CharacterTraitResponse.from_model(character_trait)
+        return CharacterTraitResponse.from_model(
+            character_trait, game_version=character.game_version
+        )
 
     @post(
         path=urls.Characters.TRAIT_ASSIGN,
@@ -121,7 +133,7 @@ class CharacterTraitController(Controller):
             currency=data.currency,
         )
         request.state.audit_description = f"Assign trait '{ct.trait.name}' at value {ct.value} to character '{character.name_first} {character.name_last}'"
-        return CharacterTraitResponse.from_model(ct)
+        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
 
     @post(
         path=urls.Characters.TRAIT_BULK_ASSIGN,
@@ -177,7 +189,7 @@ class CharacterTraitController(Controller):
             data=data,
         )
         request.state.audit_description = f"Create custom trait '{ct.trait.name}' at value {ct.value} for character '{character.name_first} {character.name_last}'"
-        return CharacterTraitResponse.from_model(ct)
+        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
 
     @get(
         path=urls.Characters.TRAIT_VALUE_OPTIONS,
@@ -232,7 +244,7 @@ class CharacterTraitController(Controller):
             request.state.audit_changes = {
                 "specialties": {"old": service.removed_specialty_names, "new": []}
             }
-        return CharacterTraitResponse.from_model(ct)
+        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
 
     @delete(
         path=urls.Characters.TRAIT_DELETE,
@@ -300,7 +312,7 @@ class CharacterTraitController(Controller):
             currency=data.currency,
         )
         request.state.audit_description = f"Add specialty '{data.name.strip()}' to trait '{ct.trait.name}' for character '{character.name_first} {character.name_last}'"
-        return CharacterTraitResponse.from_model(ct)
+        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
 
     @patch(
         path=urls.Characters.TRAIT_SPECIALTY_DETAIL,
@@ -330,7 +342,7 @@ class CharacterTraitController(Controller):
         )
         request.state.audit_description = f"Rename specialty '{old_name}' to '{specialty.name}' on trait '{ct.trait.name}' for character '{character.name_first} {character.name_last}'"
         request.state.audit_changes = {"name": {"old": old_name, "new": specialty.name}}
-        return CharacterTraitResponse.from_model(ct)
+        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
 
     @delete(
         path=urls.Characters.TRAIT_SPECIALTY_DETAIL,
@@ -358,3 +370,72 @@ class CharacterTraitController(Controller):
             character=character,
             specialty=specialty,
         )
+
+    @get(
+        path=urls.Characters.TRAIT_TRACKER,
+        summary="Get trait tracker",
+        operation_id="getTraitTracker",
+        description=docs.GET_TRAIT_TRACKER_DESCRIPTION,
+        cache=True,
+    )
+    async def get_trait_tracker(
+        self, character: Character, character_trait: CharacterTrait
+    ) -> TrackerResponse:
+        """Get the in-play tracker state of a character trait."""
+        tracker = build_tracker_response(character_trait, game_version=character.game_version)
+        if tracker is None:
+            raise NotFoundError(detail="Trait has no tracker")
+        return tracker
+
+    @put(
+        path=urls.Characters.TRAIT_TRACKER,
+        summary="Set trait tracker",
+        operation_id="setTraitTracker",
+        description=docs.SET_TRAIT_TRACKER_DESCRIPTION,
+        guards=[user_character_player_or_storyteller_guard],
+        after_response=hooks.post_data_update_hook,
+        status_code=200,
+    )
+    async def set_trait_tracker(
+        self,
+        request: Request,
+        character: Character,
+        character_trait: CharacterTrait,
+        acting_user: User,  # noqa: ARG002
+        data: TrackerStateSet,
+    ) -> TrackerResponse:
+        """Set the full in-play tracker state of a character trait."""
+        service = TrackerService()
+        response = await service.set_trait_state(
+            character=character, character_trait=character_trait, data=data
+        )
+        request.state.audit_description = service.audit_description
+        request.state.audit_changes = service.audit_changes
+        return response
+
+    @post(
+        path=urls.Characters.TRAIT_TRACKER_ACTIONS,
+        summary="Apply trait tracker action",
+        operation_id="applyTraitTrackerAction",
+        description=docs.APPLY_TRAIT_TRACKER_ACTION_DESCRIPTION,
+        guards=[user_character_player_or_storyteller_guard],
+        after_response=hooks.post_data_update_hook,
+        status_code=200,
+    )
+    async def apply_trait_tracker_action(
+        self,
+        request: Request,
+        character: Character,
+        character_trait: CharacterTrait,
+        acting_user: User,  # noqa: ARG002
+        data: TrackerActionRequest,
+    ) -> TrackerResponse:
+        """Apply one in-play action to a character trait tracker."""
+        service = TrackerService()
+        response = await service.apply_trait_action(
+            character=character, character_trait=character_trait, data=data
+        )
+        request.state.audit_operation = AuditOperation.UPDATE
+        request.state.audit_description = service.audit_description
+        request.state.audit_changes = service.audit_changes
+        return response

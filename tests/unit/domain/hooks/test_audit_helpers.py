@@ -181,6 +181,24 @@ class TestResolveEntityType:
         assert result["entity_type"] == AuditEntityType.CHARACTER_TRAIT_SPECIALTY
         assert result["operation"] == AuditOperation.CREATE
 
+    def test_put_operation_id_maps_to_entity(self) -> None:
+        """Verify a PUT operation id in the map overrides the path-derived entity."""
+        # Given a PUT request on a character with the set health operation id
+        character_id = str(uuid4())
+        request = _make_request(
+            method="PUT",
+            path_params={"company_id": str(uuid4()), "character_id": character_id},
+            operation_id="setCharacterHealth",
+        )
+
+        # When building the audit entry
+        result = build_audit_entry(request)
+
+        # Then the entity type is CHARACTER_HEALTH and the operation is UPDATE
+        assert result["entity_type"] == AuditEntityType.CHARACTER_HEALTH
+        assert result["operation"] == AuditOperation.UPDATE
+        assert result["target_entity_id"] == character_id
+
     def test_create_user_disambiguates_via_operation_id(self) -> None:
         """Verify POST to parent path uses operation_id to resolve entity type."""
         # Given a POST request to a company path with operation_id "createUser"

@@ -15,6 +15,7 @@ from .campaign import (
 from .character.controllers import CharacterController
 from .character_blueprint.controllers import CharacterBlueprintSectionController
 from .character_generation.controllers import CharacterGenerationController
+from .character_health.controllers import CharacterHealthController
 from .character_inventory.controllers import CharacterInventoryController
 from .character_trait.controllers import CharacterTraitController
 from .company.audit_log import CompanyAuditLogController
@@ -60,6 +61,7 @@ __all__ = (
     "CharacterBlueprintSectionController",
     "CharacterController",
     "CharacterGenerationController",
+    "CharacterHealthController",
     "CharacterInventoryController",
     "CharacterNoteController",
     "CharacterTraitController",

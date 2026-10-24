@@ -71,7 +71,9 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
         "subcategory_name": null, // (15)!
         "pool": null, // (16)!
         "system": null, // (17)!
-        "powers": [] // (18)!
+        "tracker_type_v4": null, // (18)!
+        "tracker_type_v5": null, // (19)!
+        "powers": [] // (20)!
     }
     ```
 
@@ -92,7 +94,9 @@ Valentina Noir represents traits in two categories: `Core Traits` and `Custom Tr
     15. The name of the subcategory, if the trait belongs to one.
     16. A string describing the dice pool associated with this trait, if applicable (e.g., hunter edges).
     17. A string describing the system description for this trait, if applicable (e.g., hunter edges).
-    18. The trait's dot-level powers. Empty for most traits. See [Trait Powers](#trait-powers).
+    18. The kind of in-play tracker the trait has on a V4 character (`COUNTER`, `DAMAGE`, or `STAINS`), or `null` when it has none. For example, V4 Willpower is `COUNTER`. See [Trackers and Health](./trackers_and_health.md).
+    19. The kind of in-play tracker the trait has on a V5 character, or `null` when it has none. For example, V5 Willpower is `DAMAGE` and Humanity is `STAINS`.
+    20. The trait's dot-level powers. Empty for most traits. See [Trait Powers](#trait-powers).
 
 ### Trait Powers
 
