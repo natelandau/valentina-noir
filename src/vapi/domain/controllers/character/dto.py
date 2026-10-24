@@ -21,9 +21,13 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import CharacterInventory, CharacterTrait
 from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
+from vapi.domain.controllers.character_health.dto import HealthResponse, HealthStateSet
 from vapi.domain.controllers.character_trait.dto import (
     CharacterTraitSpecialtyResponse,
+    TrackerResponse,
+    TrackerStateSet,
     active_specialties,
+    build_tracker_response,
 )
 from vapi.lib.detail_includes import active_prefetch
 
@@ -185,6 +189,7 @@ CHARACTER_RESPONSE_PREFETCH: list[str] = [
     "hunter_attributes",
     "specialties",
     "chapters",
+    "health",
 ]
 
 
@@ -237,6 +242,7 @@ class CharacterResponse(msgspec.Struct):
     mage_attributes: MageAttributesResponse | None
     hunter_attributes: HunterAttributesResponse | None
     chapter_ids: list[UUID]
+    health: HealthResponse
     date_created: datetime
     date_modified: datetime
 
@@ -246,7 +252,7 @@ class CharacterResponse(msgspec.Struct):
 
         Requires prefetch_related('concept', 'vampire_attributes__clan',
         'werewolf_attributes__tribe', 'werewolf_attributes__auspice',
-        'mage_attributes', 'hunter_attributes', 'specialties', 'chapters').
+        'mage_attributes', 'hunter_attributes', 'specialties', 'chapters', 'health').
         """
         vampire_resp = None
         werewolf_resp = None
@@ -326,6 +332,7 @@ class CharacterResponse(msgspec.Struct):
             werewolf_attributes=werewolf_resp,
             mage_attributes=mage_resp,
             hunter_attributes=hunter_resp,
+            health=HealthResponse.from_model(m.health, game_version=m.game_version),
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -417,6 +424,7 @@ class CharacterTraitCreate(msgspec.Struct):
 
     trait_id: UUID
     value: int = 0
+    tracker: TrackerStateSet | None = None
 
 
 class CharacterCreate(msgspec.Struct):
@@ -441,6 +449,7 @@ class CharacterCreate(msgspec.Struct):
     hunter_attributes: HunterAttributesCreate | None = None
     traits: list[CharacterTraitCreate] = []
     user_player_id: UUID | None = None
+    health: HealthStateSet | None = None
 
 
 class CharacterPatch(msgspec.Struct):
@@ -481,10 +490,18 @@ class FullSheetCharacterTraitDTO(msgspec.Struct):
     character_id: UUID
     trait: TraitResponse
     specialties: list[CharacterTraitSpecialtyResponse]
+    tracker: TrackerResponse | None
 
     @classmethod
-    def from_model(cls, ct: "CharacterTrait") -> "FullSheetCharacterTraitDTO":
-        """Convert a Tortoise CharacterTrait (with prefetched trait) to a DTO."""
+    def from_model(
+        cls, ct: "CharacterTrait", *, game_version: GameVersion
+    ) -> "FullSheetCharacterTraitDTO":
+        """Convert a Tortoise CharacterTrait (with prefetched trait) to a DTO.
+
+        Args:
+            ct: The character trait to convert.
+            game_version: The owning character's game version, which picks the tracker.
+        """
         return cls(
             id=ct.id,
             value=ct.value,
@@ -493,6 +510,7 @@ class FullSheetCharacterTraitDTO(msgspec.Struct):
             specialties=[
                 CharacterTraitSpecialtyResponse.from_model(s) for s in active_specialties(ct)
             ],
+            tracker=build_tracker_response(ct, game_version=game_version),
         )
 
 
@@ -518,6 +536,7 @@ class FullSheetTraitSubcategoryDTO(msgspec.Struct):
         subcategory: "TraitSubcategory",
         character_traits: list["CharacterTrait"],
         available_traits: list["Trait"],
+        game_version: GameVersion,
     ) -> "FullSheetTraitSubcategoryDTO":
         """Build from a subcategory model, its character traits, and available traits."""
         return cls(
@@ -531,7 +550,10 @@ class FullSheetTraitSubcategoryDTO(msgspec.Struct):
             pool=subcategory.pool,
             system=subcategory.system,
             hunter_edge_type=subcategory.hunter_edge_type,
-            character_traits=[FullSheetCharacterTraitDTO.from_model(ct) for ct in character_traits],
+            character_traits=[
+                FullSheetCharacterTraitDTO.from_model(ct, game_version=game_version)
+                for ct in character_traits
+            ],
             available_traits=[TraitResponse.from_model(t) for t in available_traits],
         )
 
@@ -559,6 +581,7 @@ class FullSheetTraitCategoryDTO(msgspec.Struct):
         category_traits_no_sub: list["CharacterTrait"],
         available_by_subcategory: dict[UUID, list["Trait"]],
         available_by_category_no_sub: dict[UUID, list["Trait"]],
+        game_version: GameVersion,
     ) -> "FullSheetTraitCategoryDTO":
         """Build from a category model with all child data."""
         return cls(
@@ -574,11 +597,13 @@ class FullSheetTraitCategoryDTO(msgspec.Struct):
                     subcategory=sub,
                     character_traits=traits_by_subcategory.get(sub.id, []),
                     available_traits=available_by_subcategory.get(sub.id, []),
+                    game_version=game_version,
                 )
                 for sub in subcategories
             ],
             character_traits=[
-                FullSheetCharacterTraitDTO.from_model(ct) for ct in category_traits_no_sub
+                FullSheetCharacterTraitDTO.from_model(ct, game_version=game_version)
+                for ct in category_traits_no_sub
             ],
             available_traits=[
                 TraitResponse.from_model(t)
@@ -661,7 +686,9 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
         # Build base field dict, then overlay optional children
         fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
         if CharacterInclude.TRAITS in includes:
-            fields["traits"] = [CharacterTraitResponse.from_model(t) for t in m.traits]
+            fields["traits"] = [
+                CharacterTraitResponse.from_model(t, game_version=m.game_version) for t in m.traits
+            ]
         if CharacterInclude.INVENTORY in includes:
             fields["inventory"] = [InventoryItemResponse.from_model(i) for i in m.inventory]
         if CharacterInclude.NOTES in includes:

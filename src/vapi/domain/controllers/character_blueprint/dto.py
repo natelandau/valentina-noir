@@ -5,6 +5,7 @@ from uuid import UUID
 
 import msgspec
 
+from vapi.constants import TrackerType
 from vapi.db.sql_models.character_classes import (
     VampireClan,
     WerewolfAuspice,
@@ -213,6 +214,8 @@ class TraitResponse(msgspec.Struct):
     pool: str | None
     opposing_pool: str | None
     system: str | None
+    tracker_type_v4: TrackerType | None
+    tracker_type_v5: TrackerType | None
     gift_attributes: GiftAttributesResponse | None
     powers: list[TraitPowerResponse]
     date_created: datetime
@@ -274,6 +277,8 @@ class TraitResponse(msgspec.Struct):
             pool=m.pool,
             opposing_pool=m.opposing_pool,
             system=m.system,
+            tracker_type_v4=m.tracker_type_v4,
+            tracker_type_v5=m.tracker_type_v5,
             gift_attributes=gift_attrs,
             powers=powers,
             date_created=m.date_created,

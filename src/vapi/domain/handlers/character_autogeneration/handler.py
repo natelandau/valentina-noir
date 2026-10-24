@@ -29,6 +29,7 @@ from vapi.db.sql_models.character_sheet import (
     TraitSubcategory,
 )
 from vapi.domain.services import CharacterTraitService
+from vapi.domain.services.tracker_svc import TrackerService
 
 from .constants import (
     ABILITY_DOT_BONUS,
@@ -153,6 +154,7 @@ class CharacterAutogenerationHandler:
             await self._generate_merit_background_values(character)
             await self._generate_flaw_values(character)
             await self._generate_humanity_value(character)
+            await self._initialize_trackers(character)
 
             await character.refresh_from_db()
             return character
@@ -273,6 +275,10 @@ class CharacterAutogenerationHandler:
             character=character,
             trait=willpower_trait,
         )
+
+    async def _initialize_trackers(self, character: Character) -> None:
+        """Create the character's health and derived Willpower once all traits exist."""
+        await TrackerService().initialize_character(character=character)
 
     async def _generate_humanity_value(self, character: Character) -> None:
         """Randomly generate humanity value for the character.

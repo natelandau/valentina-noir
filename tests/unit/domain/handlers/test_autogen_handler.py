@@ -10,6 +10,7 @@ import pytest
 from vapi.constants import CharacterClass, CharacterType, GameVersion, HunterCreed
 from vapi.db.sql_models.character import (
     Character,
+    CharacterHealth,
     CharacterTrait,
     HunterAttributes,
     VampireAttributes,
@@ -1010,3 +1011,57 @@ class TestGenerateFlawValues:
         assert (
             sum([trait.value for trait in character_traits]) == FLAW_STARTING_DOTS[experience_level]
         )
+
+
+class TestGenerateCharacterHealth:
+    """Test that generated characters get sized health and V5 Willpower."""
+
+    async def test_autogenerate_v5_has_willpower_and_health(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a V5 character has Willpower, one health row, and health sized from Stamina."""
+        # Given a handler
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        chargen = CharacterAutogenerationHandler(company=company, user=user, campaign=campaign)
+
+        # When generating a V5 character
+        character = await chargen.generate_character(
+            character_type=CharacterType.PLAYER, char_class=CharacterClass.MORTAL
+        )
+
+        # Then Willpower is Composure + Resolve and health is Stamina + 3
+        values = {
+            ct.trait.name: ct.value
+            for ct in await CharacterTrait.filter(character=character).prefetch_related("trait")
+        }
+        healths = await CharacterHealth.filter(character_id=character.id)
+        assert values["Willpower"] == values["Composure"] + values["Resolve"]
+        assert len(healths) == 1
+        assert healths[0].size == values["Stamina"] + 3
+
+    async def test_autogenerate_v4_has_health(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a V4 character has exactly one health row."""
+        # Given a handler and a V4 base character
+        company = await company_factory()
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        chargen = CharacterAutogenerationHandler(company=company, user=user, campaign=campaign)
+        character = await chargen._generate_base_character(
+            character_type=CharacterType.PLAYER, game_version=GameVersion.V4
+        )
+
+        # When initializing as the generator does after traits exist
+        await chargen._initialize_trackers(character)
+
+        # Then one health row exists
+        assert await CharacterHealth.filter(character_id=character.id).count() == 1

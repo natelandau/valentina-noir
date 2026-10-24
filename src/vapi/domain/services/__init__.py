@@ -16,6 +16,7 @@ from .diceroll_svc import DiceRollService
 from .dictionary_svc import DictionaryService
 from .global_admin_user_svc import GlobalAdminUserService
 from .identity_svc import IdentityResolution, IdentityService
+from .tracker_svc import TrackerService
 from .user_lookup_svc import UserLookupService
 from .user_quickroll_svc import UserQuickRollService
 from .user_svc import UserService
@@ -38,6 +39,7 @@ __all__ = (
     "GlobalAdminUserService",
     "IdentityResolution",
     "IdentityService",
+    "TrackerService",
     "UserLookupService",
     "UserQuickRollService",
     "UserService",

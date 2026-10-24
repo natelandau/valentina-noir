@@ -7,6 +7,7 @@ import msgspec
 from tortoise.expressions import Q
 from tortoise.functions import Count
 from tortoise.queryset import QuerySet
+from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
 from vapi.db.sql_models.character import (
@@ -21,6 +22,8 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
+from vapi.domain.controllers.character_trait.dto import TrackerStateSet, tracker_type_for
+from vapi.domain.services.tracker_svc import TrackerService, is_derived_trait
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 from vapi.lib.guards import npc_management_permitted
 from vapi.lib.patch import apply_patch
@@ -351,6 +354,15 @@ class CharacterService:
             self.apply_concept_specialties(character),
         )
 
+    @staticmethod
+    def _assert_has_tracker(*, trait: Trait, character: Character) -> None:
+        """Reject tracker state on a trait that has no tracker for the character's version."""
+        if tracker_type_for(trait, game_version=character.game_version) is None:
+            msg = f"Trait '{trait.name}' has no tracker for {character.game_version.value}."
+            raise ValidationError(
+                detail=msg, invalid_parameters=[{"field": "tracker", "message": msg}]
+            )
+
     async def character_create_trait_to_character_traits(
         self, character: Character, trait_create_data: list["CharacterTraitCreate"]
     ) -> None:
@@ -367,14 +379,28 @@ class CharacterService:
             ValidationError: If a trait is not found.
         """
         trait_ids = [t.trait_id for t in trait_create_data]
+        if len(set(trait_ids)) != len(trait_ids):
+            msg = "Each trait can be listed only once."
+            raise ValidationError(
+                detail=msg, invalid_parameters=[{"field": "traits", "message": msg}]
+            )
         all_traits = await Trait.filter(id__in=trait_ids)
         trait_lookup: dict[UUID, Trait] = {t.id: t for t in all_traits}
 
         rows: list[CharacterTrait] = []
+        trackers: list[tuple[Trait, TrackerStateSet]] = []
         for trait_data in trait_create_data:
             trait_obj = trait_lookup.get(trait_data.trait_id)
             if trait_obj is None:
                 raise ValidationError(detail=f"Trait {trait_data.trait_id} not found")
+
+            if trait_data.tracker is not None:
+                self._assert_has_tracker(trait=trait_obj, character=character)
+                trackers.append((trait_obj, trait_data.tracker))
+
+            # The sync below computes derived V5 Willpower, so a supplied value is dropped
+            if is_derived_trait(trait=trait_obj, game_version=character.game_version):
+                continue
 
             rows.append(
                 CharacterTrait(
@@ -384,14 +410,27 @@ class CharacterService:
                 )
             )
 
-        if rows:
-            await CharacterTrait.bulk_create(rows)
+        async with in_transaction():
+            if rows:
+                await CharacterTrait.bulk_create(rows)
 
-            # Sync derived traits (total renown) now that all rows exist
+            # Sync derived values (renown, V5 Willpower, Health) now that all rows exist
             from vapi.domain.services.character_trait_svc import CharacterTraitService
 
-            trait_svc = CharacterTraitService()
-            await trait_svc.after_save(rows[0], character)
+            if rows:
+                await CharacterTraitService().after_save(rows[0], character, sync_all=True)
+            elif trackers:
+                await TrackerService().sync_character(character)
+
+            # Marks are set after values exist so they are checked against final sizes
+            for trait_obj, tracker in trackers:
+                character_trait = await CharacterTrait.get(
+                    character_id=character.id, trait_id=trait_obj.id, is_archived=False
+                )
+                character_trait.trait = trait_obj
+                await TrackerService().set_trait_state(
+                    character=character, character_trait=character_trait, data=tracker
+                )
 
     async def archive_character(self, character: Character) -> None:
         """Soft-delete a character and cascade the archive to its owned data.

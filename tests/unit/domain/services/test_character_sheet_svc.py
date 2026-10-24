@@ -686,6 +686,7 @@ class TestCharacterSheetService:
                     "mage_attributes",
                     "hunter_attributes",
                     "specialties",
+                    "health",
                 )
                 .first()
             )
@@ -795,6 +796,7 @@ class TestCharacterSheetService:
                     "mage_attributes",
                     "hunter_attributes",
                     "specialties",
+                    "health",
                 )
                 .first()
             )

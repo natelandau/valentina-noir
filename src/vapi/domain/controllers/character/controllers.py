@@ -10,6 +10,7 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
+from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
 from vapi.db.sql_models.character import (
@@ -24,7 +25,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import CharacterService, CharacterSheetService
+from vapi.domain.services import CharacterService, CharacterSheetService, TrackerService
 from vapi.domain.services.character_svc import annotate_character_counts
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.exceptions import NotFoundError, ValidationError
@@ -187,63 +188,66 @@ class CharacterController(Controller):
             if data.user_player_id is not None:
                 raise ValidationError(detail="NPC and STORYTELLER characters cannot have a player")
             user_player_id = None
-        character = await Character.create(
-            name_first=data.name_first,
-            name_last=data.name_last,
-            name_nick=data.name_nick,
-            character_class=data.character_class,
-            type=data.type,
-            game_version=data.game_version,
-            age=data.age,
-            date_of_birth=data.date_of_birth,
-            biography=data.biography,
-            demeanor=data.demeanor,
-            nature=data.nature,
-            concept_id=data.concept_id,
-            company=company,
-            campaign_id=data.campaign_id,
-            user_creator=acting_user,
-            user_player_id=user_player_id,
-        )
-
-        # Create OneToOne attribute rows for class-specific data
-        if data.vampire_attributes:
-            await VampireAttributes.create(
-                character=character,
-                clan_id=data.vampire_attributes.clan_id,
-                generation=data.vampire_attributes.generation,
-                sire=data.vampire_attributes.sire,
-                bane_name=data.vampire_attributes.bane_name,
-                bane_description=data.vampire_attributes.bane_description,
-                compulsion_name=data.vampire_attributes.compulsion_name,
-                compulsion_description=data.vampire_attributes.compulsion_description,
-            )
-        if data.werewolf_attributes:
-            await WerewolfAttributes.create(
-                character=character,
-                tribe_id=data.werewolf_attributes.tribe_id,
-                auspice_id=data.werewolf_attributes.auspice_id,
-                pack_name=data.werewolf_attributes.pack_name,
-            )
-        if data.mage_attributes:
-            await MageAttributes.create(
-                character=character,
-                sphere=data.mage_attributes.sphere,
-                tradition=data.mage_attributes.tradition,
-            )
-        if data.hunter_attributes:
-            await HunterAttributes.create(
-                character=character,
-                creed=data.hunter_attributes.creed,
+        async with in_transaction():
+            character = await Character.create(
+                name_first=data.name_first,
+                name_last=data.name_last,
+                name_nick=data.name_nick,
+                character_class=data.character_class,
+                type=data.type,
+                game_version=data.game_version,
+                age=data.age,
+                date_of_birth=data.date_of_birth,
+                biography=data.biography,
+                demeanor=data.demeanor,
+                nature=data.nature,
+                concept_id=data.concept_id,
+                company=company,
+                campaign_id=data.campaign_id,
+                user_creator=acting_user,
+                user_player_id=user_player_id,
             )
 
-        await service.prepare_for_save(character)
+            # Create OneToOne attribute rows for class-specific data
+            if data.vampire_attributes:
+                await VampireAttributes.create(
+                    character=character,
+                    clan_id=data.vampire_attributes.clan_id,
+                    generation=data.vampire_attributes.generation,
+                    sire=data.vampire_attributes.sire,
+                    bane_name=data.vampire_attributes.bane_name,
+                    bane_description=data.vampire_attributes.bane_description,
+                    compulsion_name=data.vampire_attributes.compulsion_name,
+                    compulsion_description=data.vampire_attributes.compulsion_description,
+                )
+            if data.werewolf_attributes:
+                await WerewolfAttributes.create(
+                    character=character,
+                    tribe_id=data.werewolf_attributes.tribe_id,
+                    auspice_id=data.werewolf_attributes.auspice_id,
+                    pack_name=data.werewolf_attributes.pack_name,
+                )
+            if data.mage_attributes:
+                await MageAttributes.create(
+                    character=character,
+                    sphere=data.mage_attributes.sphere,
+                    tradition=data.mage_attributes.tradition,
+                )
+            if data.hunter_attributes:
+                await HunterAttributes.create(
+                    character=character,
+                    creed=data.hunter_attributes.creed,
+                )
 
-        if data.traits:
-            await service.character_create_trait_to_character_traits(
-                character=character,
-                trait_create_data=data.traits,
-            )
+            await service.prepare_for_save(character)
+
+            if data.traits:
+                await service.character_create_trait_to_character_traits(
+                    character=character,
+                    trait_create_data=data.traits,
+                )
+
+            await TrackerService().initialize_character(character=character, health=data.health)
 
         character = await annotate_character_counts(
             Character.filter(id=character.id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)

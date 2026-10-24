@@ -39,6 +39,7 @@ from vapi.domain.controllers.character_trait.dto import (
     TraitValueOptionsResponse,
 )
 from vapi.domain.services.recoup_floor_store import RecoupFloorStore
+from vapi.domain.services.tracker_svc import TrackerService, is_derived_trait, load_trait
 from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.lib.exceptions import (
     ConflictError,
@@ -554,14 +555,22 @@ class CharacterTraitService:
         werewolf_attrs.total_renown = total_renown
         await werewolf_attrs.save(update_fields=["total_renown", "date_modified"])
 
-    async def after_save(self, character_trait: CharacterTrait, character: Character) -> None:
+    async def after_save(
+        self, character_trait: CharacterTrait, character: Character, *, sync_all: bool = False
+    ) -> None:
         """Perform all post-save operations for a trait.
 
         Args:
             character_trait: The trait that was saved.
             character: The character that owns the trait.
+            sync_all: Recompute V5 Willpower and Health even when the saved trait does not feed
+                them. Set it when one call stands in for many saved rows.
         """
         await self.update_werewolf_total_renown(character)
+        tracker_svc = TrackerService()
+        await tracker_svc.clamp_trait_tracker(character_trait=character_trait, character=character)
+        if sync_all or await tracker_svc.affects_derived_values(character_trait):
+            await tracker_svc.sync_character(character)
         self.removed_specialty_names = await self._clear_specialties_for_zero_value(
             character_trait=character_trait, character=character
         )
@@ -732,6 +741,12 @@ class CharacterTraitService:
             case _ as unreachable:
                 assert_never(unreachable)
 
+    @staticmethod
+    async def _is_derived(*, character: Character, character_trait: CharacterTrait) -> bool:
+        """Return whether the character trait's value is computed rather than purchased."""
+        trait = await load_trait(character_trait)
+        return is_derived_trait(trait=trait, game_version=character.game_version)
+
     async def add_constant_trait_to_character(
         self,
         *,
@@ -765,6 +780,16 @@ class CharacterTraitService:
             msg = "Trait not found"
             raise ValidationError(detail=msg)
 
+        # Check if the trait already exists on the character
+        existing = await CharacterTrait.filter(
+            character_id=character.id,
+            trait_id=trait_id,
+        ).first()
+        if existing:
+            raise ConflictError(
+                detail=f"Trait named '{trait.name}' already exists on character. Use modify trait value instead."
+            )
+
         if value > trait.max_value:
             msg = f"Value must be less than or equal to {trait.max_value}"
             raise ValidationError(
@@ -780,16 +805,6 @@ class CharacterTraitService:
         # NO_COST allows storytellers to bypass renown requirements
         if currency != TraitModifyCurrency.NO_COST:
             await self._guard_has_minimum_renown(trait, character)
-
-        # Check if the trait already exists on the character
-        existing = await CharacterTrait.filter(
-            character_id=character.id,
-            trait_id=trait_id,
-        ).first()
-        if existing:
-            raise ConflictError(
-                detail=f"Trait named '{trait.name}' already exists on character. Use modify trait value instead."
-            )
 
         if currency != TraitModifyCurrency.NO_COST:
             await self._guard_can_afford_new_trait(
@@ -1058,7 +1073,9 @@ class CharacterTraitService:
                     succeeded.append(
                         BulkAssignTraitSuccess(
                             trait_id=trait_id,
-                            character_trait=CharacterTraitResponse.from_model(result_ct),
+                            character_trait=CharacterTraitResponse.from_model(
+                                result_ct, game_version=character.game_version
+                            ),
                         )
                     )
                     # Track the newly added trait to prevent duplicates within the batch
@@ -1481,6 +1498,7 @@ class CharacterTraitService:
         """
         current_value = character_trait.value
         starting_points_current = character.starting_points
+        derived = await self._is_derived(character=character, character_trait=character_trait)
         # XP and starting-point currencies are only valid for PLAYER characters;
         # NPC/STORYTELLER are restricted to NO_COST, so report no spendable currency.
         is_player = character.type == CharacterType.PLAYER
@@ -1493,6 +1511,16 @@ class CharacterTraitService:
                 user_player_id, campaign_id
             )
             xp_current = campaign_experience.xp_current
+
+        if derived:
+            return TraitValueOptionsResponse(
+                name=character_trait.trait.name,
+                current_value=current_value,
+                trait=TraitResponse.from_model(character_trait.trait),
+                xp_current=xp_current,
+                starting_points_current=starting_points_current,
+                options={},
+            )
 
         (
             is_flaw,
@@ -1590,6 +1618,11 @@ class CharacterTraitService:
                 recoup-XP enforcement.
             ConflictError: If another request changed the trait value concurrently.
         """
+        if await self._is_derived(character=character, character_trait=character_trait):
+            msg = "V5 Willpower follows Composure + Resolve and cannot be changed directly"
+            raise ValidationError(
+                detail=msg, invalid_parameters=[{"field": "target_value", "message": msg}]
+            )
         self.removed_specialty_names = []
         async with in_transaction():
             result = await self._modify_trait_value(
@@ -1727,6 +1760,10 @@ class CharacterTraitService:
         self.removed_specialty_names = []
         await self.guard_user_can_manage_character(character, user)
 
+        if await self._is_derived(character=character, character_trait=character_trait):
+            msg = "V5 Willpower follows Composure + Resolve and cannot be deleted"
+            raise ValidationError(detail=msg)
+
         async with in_transaction():
             if currency and currency != TraitModifyCurrency.NO_COST:
                 character_trait = await self.modify_trait_value(
@@ -1748,9 +1785,15 @@ class CharacterTraitService:
             if removed:
                 self.removed_specialty_names = removed
 
+            tracker_svc = TrackerService()
+            affects_derived = await tracker_svc.affects_derived_values(character_trait)
             if character_trait.trait.custom_for_character_id is not None:  # ty:ignore[unresolved-attribute]
                 await character_trait.trait.delete()
             await character_trait.delete()
+
+            await self.update_werewolf_total_renown(character)
+            if affects_derived:
+                await tracker_svc.sync_character(character)
 
     # ------------------------------------------------------------------
     # Specialties
