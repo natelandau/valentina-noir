@@ -1503,10 +1503,105 @@ class TestCharacterCreate:
         assert data["name_last"] == "Character"
         assert data["character_class"] == CharacterClass.MORTAL.value
 
-        # And the traits are persisted
-
-        ct_count = await CharacterTrait.filter(character_id=data["id"]).count()
+        # And the traits are persisted, plus the derived V5 Willpower
+        ct_count = (
+            await CharacterTrait.filter(character_id=data["id"])
+            .exclude(trait__name="Willpower")
+            .count()
+        )
         assert ct_count == len(traits)
+        assert await CharacterTrait.filter(
+            character_id=data["id"], trait__name="Willpower"
+        ).exists()
+
+    async def test_create_character_health(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify health is created full, or in the requested state, sized from Stamina."""
+        # Given a Stamina trait
+        stamina = await Trait.get(name="Stamina", custom_for_character_id=None)
+        base = {
+            "name_first": "Hurt",
+            "name_last": "Test",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "campaign_id": str(session_campaign.id),
+            "traits": [{"trait_id": str(stamina.id), "value": 3}],
+        }
+        url = build_url(CharacterURL.CREATE, company_id=session_company.id)
+        headers = token_global_admin | on_behalf_of_header
+
+        # When creating without and with a health state
+        full = await client.post(url, headers=headers, json=base)
+        hurt = await client.post(
+            url,
+            headers=headers,
+            json=base | {"name_last": "Test2", "health": {"superficial": 2}},
+        )
+
+        # Then health is sized 6 and full, or carries the marks
+        assert full.status_code == HTTP_201_CREATED
+        assert hurt.status_code == HTTP_201_CREATED
+        assert full.json()["health"]["size"] == 6
+        assert full.json()["health"]["superficial"] == 0
+        assert hurt.json()["health"]["superficial"] == 2
+
+    @pytest.mark.parametrize(
+        "extra",
+        [
+            {"health": {"bashing": 1}},
+            {"health": {"superficial": 99}},
+            {"traits": [{"trait_id": "WILLPOWER", "value": 0, "tracker": {"current": 1}}]},
+            {"traits": [{"trait_id": "00000000-0000-0000-0000-000000000001", "value": 1}]},
+        ],
+        ids=["bad_health_field", "health_over_size", "tracker_wrong_type", "unknown_trait"],
+    )
+    async def test_create_character_failure_persists_nothing(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+        extra: dict,
+    ) -> None:
+        """Verify a create rejected with 400 leaves no character behind."""
+        # Given a request that fails validation after the character would be inserted
+        willpower = await Trait.get(name="Willpower", custom_for_character_id=None)
+        body = {
+            "name_first": "Atomic",
+            "name_last": f"Failure{uuid4().hex}",
+            "character_class": "MORTAL",
+            "game_version": "V5",
+            "campaign_id": str(session_campaign.id),
+        } | extra
+        if "traits" in extra:
+            body["traits"] = [
+                {
+                    **t,
+                    "trait_id": str(willpower.id)
+                    if t["trait_id"] == "WILLPOWER"
+                    else t["trait_id"],
+                }
+                for t in extra["traits"]
+            ]
+        # When creating the character
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            json=body,
+        )
+
+        # Then the request is rejected and no character row exists
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        assert not await Character.filter(name_last=body["name_last"]).exists()
 
     @pytest.mark.parametrize(
         "json_data",

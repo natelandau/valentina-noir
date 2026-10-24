@@ -18,10 +18,10 @@ Valentina Noir helps Storytellers and players manage World of Darkness campaigns
 !!! info "Session-Dependent Mechanics"
 These mechanics change frequently during live play and are best managed by the Storyteller:
 
-    - Blood pool / Hunger / Rouse checks
-    - Health levels and damage tracking
-    - Gnosis and other resource pools
+    - Rouse checks
     - Combat encounters
+
+    The API stores the current state of Willpower, Blood Pool, Health, Stains, and other resource pools, but it does not decide when they change. See [Trackers and Health](concepts/trackers_and_health.md).
 
 ## Features
 
@@ -29,7 +29,7 @@ These mechanics change frequently during live play and are best managed by the S
 | --------------------- | -------------------------------------------------------------- |
 | **Game Systems**      | World of Darkness v4 and v5 support                            |
 | **Character Classes** | Vampires, Werewolves, Hunters, Mortals (full); Mages (partial) |
-| **Gameplay**          | Dice rolling, character auto-generation, experience tracking   |
+| **Gameplay**          | Dice rolling, character auto-generation, experience tracking, Health and resource trackers |
 | **Campaign Tools**    | Books, chapters, notes, storyteller NPCs                       |
 | **Administration**    | Multi-tenant companies, user roles, configurable permissions   |
 | **Data**              | Statistics, analytics, custom dictionary terms                 |

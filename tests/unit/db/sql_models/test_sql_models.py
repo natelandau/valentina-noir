@@ -25,6 +25,7 @@ EXPECTED_TABLES = [
     "char_sheet_section",
     "character",
     "character_concept",
+    "character_health",
     "character_inventory",
     "character_trait",
     "character_trait_specialty",

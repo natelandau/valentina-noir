@@ -6,7 +6,7 @@ from uuid import UUID
 
 from tortoise.exceptions import NoValuesFetched
 
-from vapi.constants import CharacterClass
+from vapi.constants import CharacterClass, GameVersion
 from vapi.db.sql_models.character import CharacterTrait
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
@@ -158,6 +158,7 @@ class CharacterSheetService:
             traits_by_category_no_sub=traits_by_category_no_sub,
             available_by_subcategory=available_by_subcategory,
             available_by_category_no_sub=available_by_category_no_sub,
+            game_version=game_ver,
         )
 
         return CharacterFullSheetDTO.build(character=character, sections=sections)
@@ -253,6 +254,7 @@ class CharacterSheetService:
             category_traits_no_sub=category_traits_no_sub,
             available_by_subcategory=available_by_subcategory,
             available_by_category_no_sub=available_by_category_no_sub,
+            game_version=character.game_version,
         )
 
     @staticmethod
@@ -368,7 +370,7 @@ class CharacterSheetService:
         ]
 
     @staticmethod
-    def _assemble_sheet_sections(
+    def _assemble_sheet_sections(  # noqa: PLR0913
         *,
         sections_objects: list[CharSheetSection],
         categories_objects: list[TraitCategory],
@@ -377,6 +379,7 @@ class CharacterSheetService:
         traits_by_category_no_sub: dict[UUID, list[CharacterTrait]],
         available_by_subcategory: dict[UUID, list[Trait]],
         available_by_category_no_sub: dict[UUID, list[Trait]],
+        game_version: GameVersion,
     ) -> list["FullSheetTraitSectionDTO"]:
         """Assemble the nested section > category > subcategory > trait DTO hierarchy.
 
@@ -388,6 +391,7 @@ class CharacterSheetService:
             traits_by_category_no_sub: Character traits indexed by category ID (no subcategory).
             available_by_subcategory: Available traits indexed by subcategory ID.
             available_by_category_no_sub: Available traits indexed by category ID (no subcategory).
+            game_version: The character's game version, which picks each trait's tracker.
 
         Returns:
             list[FullSheetTraitSectionDTO]: The assembled section hierarchy.
@@ -433,11 +437,12 @@ class CharacterSheetService:
                                 subcategory=sub,
                                 character_traits=traits_by_subcategory.get(sub.id, []),
                                 available_traits=available_by_subcategory.get(sub.id, []),
+                                game_version=game_version,
                             )
                             for sub in subcategories_by_category.get(category.id, [])
                         ],
                         character_traits=[
-                            FullSheetCharacterTraitDTO.from_model(ct)
+                            FullSheetCharacterTraitDTO.from_model(ct, game_version=game_version)
                             for ct in traits_by_category_no_sub.get(category.id, [])
                         ],
                         available_traits=[

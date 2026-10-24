@@ -17,6 +17,7 @@ from vapi.constants import (
     CharacterStatus,
     CharacterType,
     CompanyPermission,
+    DamageType,
     DiceSize,
     GameVersion,
     HunterCreed,
@@ -30,6 +31,8 @@ from vapi.constants import (
     PermissionsRecoupXP,
     RollResultType,
     SpecialtyType,
+    TrackerAction,
+    TrackerType,
     TraitModifyCurrency,
     UserRole,
     WerewolfRenown,
@@ -42,6 +45,7 @@ from vapi.domain.handlers.character_autogeneration.constants import (
 from vapi.domain.handlers.character_autogeneration.utils import CLASS_PERCENTILE_TABLE
 from vapi.domain.services.identity_svc import IdentityResolution
 from vapi.lib.guards import developer_company_user_guard
+from vapi.lib.tracker_rules import TrackerRulesMap, tracker_rules_for_options
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -71,7 +75,9 @@ class OptionsController(Controller):
         description=docs.GET_OPTIONS_DESCRIPTION,
         cache=600,
     )
-    async def get_company_options(self) -> dict[str, dict[str, list[str | int] | dict[str, str]]]:
+    async def get_company_options(
+        self,
+    ) -> dict[str, dict[str, list[str | int] | dict[str, str] | TrackerRulesMap]]:
         """Get options for a company."""
         return {
             "companies": {
@@ -89,11 +95,15 @@ class OptionsController(Controller):
                 "CharacterClass": [x.value for x in CharacterClass],
                 "CharacterStatus": [x.value for x in CharacterStatus],
                 "CharacterType": [x.value for x in CharacterType],
+                "DamageType": [x.value for x in DamageType],
                 "GameVersion": [x.value for x in GameVersion],
                 "HunterCreed": [x.value for x in HunterCreed],
                 "HunterEdgeType": [x.value for x in HunterEdgeType],
                 "InventoryItemType": [x.value for x in InventoryItemType],
                 "SpecialtyType": [x.value for x in SpecialtyType],
+                "TrackerAction": [x.value for x in TrackerAction],
+                "TrackerRules": tracker_rules_for_options(),
+                "TrackerType": [x.value for x in TrackerType],
                 "TraitModifyCurrency": [x.value for x in TraitModifyCurrency],
                 "WerewolfRenown": [x.value for x in WerewolfRenown],
                 "_related": {

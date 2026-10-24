@@ -125,6 +125,9 @@ Assign an existing system trait to a character by providing the `trait_id`, star
 1. NO_COST is only available if the company settings allow it or for storytellers and admins.
 
 The system validates that the trait exists, the value falls within the trait's min/max bounds, and the trait isn't already assigned to the character.
+If a trait is both already assigned and out of range, the request returns `409 Conflict`.
+
+Every V5 character already has Willpower, so a request to assign it returns `409 Conflict`. Its value is computed from Composure and Resolve.
 
 ### Creating Custom Traits
 
@@ -273,6 +276,8 @@ The `value-options` endpoint reflects this reversal: increase options for flaws 
 Certain traits are automatically recalculated when their source traits change:
 
 - **Total Renown** (werewolves only) - Computed as `Honor + Wisdom + Glory`. Stored on the character's werewolf attributes.
+- **Willpower** (V5 only) - Computed as `Composure + Resolve`. Every V5 character has it. You cannot assign it again (`409`), change it, or delete it. See [V5 Willpower](./trackers_and_health.md#v5-willpower).
+- **Health size** (V5 only) - Computed as `Stamina + 3` plus any extra health levels. See [Health](./trackers_and_health.md#health).
 
 ## Specialties
 
@@ -461,6 +466,14 @@ Modify a trait to a target value using the specified currency. The system automa
 !!! warning "NPC and STORYTELLER characters"
 
     Trait modifications on `NPC` and `STORYTELLER` characters only accept `NO_COST`. Using `XP` or `STARTING_POINTS` on these character types returns `400 Bad Request`.
+
+### GET, PUT `/traits/{character_trait_id}/tracker`
+
+Retrieve or set the in-play tracker of a trait. See [Trackers and Health](./trackers_and_health.md).
+
+### POST `/traits/{character_trait_id}/tracker/actions`
+
+Apply one in-play action, such as `spend` or `damage`, to the tracker of a trait. See [Apply an action](./trackers_and_health.md#apply-an-action).
 
 ### DELETE `/traits/{character_trait_id}`
 

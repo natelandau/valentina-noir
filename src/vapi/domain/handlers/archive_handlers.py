@@ -21,6 +21,7 @@ from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
     Character,
+    CharacterHealth,
     CharacterInventory,
     CharacterTrait,
     CharacterTraitSpecialty,
@@ -106,6 +107,7 @@ async def _archive_character_children(character_id: UUID, ctx: ArchiveContext) -
         WerewolfAttributes,
         MageAttributes,
         HunterAttributes,
+        CharacterHealth,
     ):
         await _archive_where(attr_model, ctx, character_id=character_id)
     await _archive_where(Note, ctx, character_id=character_id)

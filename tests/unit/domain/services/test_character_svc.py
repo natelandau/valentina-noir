@@ -8,6 +8,7 @@ import pytest
 from vapi.constants import CharacterStatus, CharacterType, PermissionManageNPC
 from vapi.db.sql_models.character import (
     Character,
+    CharacterHealth,
     CharacterTrait,
     VampireAttributes,
     WerewolfAttributes,
@@ -15,7 +16,9 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.controllers.character.dto import CharacterTraitCreate
-from vapi.domain.services import CharacterService
+from vapi.domain.controllers.character_health.dto import HealthStateSet
+from vapi.domain.controllers.character_trait.dto import TrackerStateSet
+from vapi.domain.services import CharacterService, TrackerService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
@@ -595,7 +598,7 @@ class TestCharacterCreateTraitToCharacterTraits:
         # Given a character and two real traits
         company = await company_factory()
         character = await character_factory(character_class="MORTAL", company=company)
-        traits = await Trait.filter(is_archived=False).limit(2)
+        traits = await Trait.filter(is_archived=False).exclude(name="Willpower").limit(2)
         trait1, trait2 = traits[0], traits[1]
         trait_create_data = [
             CharacterTraitCreate(trait_id=trait1.id, value=2),
@@ -606,8 +609,12 @@ class TestCharacterCreateTraitToCharacterTraits:
         # When we create traits for the character
         await service.character_create_trait_to_character_traits(character, trait_create_data)
 
-        # Then the trait rows should exist with correct values
-        created_traits = await CharacterTrait.filter(character=character).prefetch_related("trait")
+        # Then the trait rows should exist with correct values, beside the derived V5 Willpower
+        created_traits = (
+            await CharacterTrait.filter(character=character)
+            .exclude(trait__name="Willpower")
+            .prefetch_related("trait")
+        )
         assert len(created_traits) == 2
         created_trait_ids = {ct.trait_id for ct in created_traits}
         assert trait1.id in created_trait_ids
@@ -631,6 +638,200 @@ class TestCharacterCreateTraitToCharacterTraits:
         # Then a ValidationError should be raised
         with pytest.raises(ValidationError, match=r"Trait.*not found"):
             await service.character_create_trait_to_character_traits(character, trait_create_data)
+
+
+class TestCreateTraitsWithTrackers:
+    """Test tracker state and derived Willpower when creating traits for a character."""
+
+    async def test_create_character_ignores_v5_willpower_value(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a supplied V5 Willpower value is replaced by Composure + Resolve."""
+        # Given a V5 character and request data with Composure 2, Resolve 3, Willpower 9
+        character = await character_factory(game_version="V5", character_class="MORTAL")
+        composure = await Trait.get(name="Composure", custom_for_character_id=None)
+        resolve = await Trait.get(name="Resolve", custom_for_character_id=None)
+        willpower = await Trait.get(name="Willpower", custom_for_character_id=None)
+        data = [
+            CharacterTraitCreate(trait_id=composure.id, value=2),
+            CharacterTraitCreate(trait_id=resolve.id, value=3),
+            CharacterTraitCreate(trait_id=willpower.id, value=9),
+        ]
+
+        # When creating the traits
+        await CharacterService().character_create_trait_to_character_traits(character, data)
+
+        # Then Willpower is 5, and there is a single Willpower row
+        rows = await CharacterTrait.filter(character_id=character.id, trait_id=willpower.id)
+        assert [r.value for r in rows] == [5]
+
+    async def test_create_trait_applies_tracker_to_v5_willpower(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a tracker on V5 Willpower is applied after the value is computed."""
+        # Given a V5 character with Composure 2 and Resolve 3
+        character = await character_factory(game_version="V5", character_class="MORTAL")
+        composure = await Trait.get(name="Composure", custom_for_character_id=None)
+        resolve = await Trait.get(name="Resolve", custom_for_character_id=None)
+        willpower = await Trait.get(name="Willpower", custom_for_character_id=None)
+        data = [
+            CharacterTraitCreate(trait_id=composure.id, value=2),
+            CharacterTraitCreate(trait_id=resolve.id, value=3),
+            CharacterTraitCreate(
+                trait_id=willpower.id, value=0, tracker=TrackerStateSet(superficial=2, aggravated=1)
+            ),
+        ]
+
+        # When creating the traits
+        await CharacterService().character_create_trait_to_character_traits(character, data)
+
+        # Then the damage track is stored on the computed Willpower
+        row = await CharacterTrait.get(character_id=character.id, trait_id=willpower.id)
+        assert (row.value, row.tracker_superficial, row.tracker_aggravated) == (5, 2, 1)
+
+    async def test_create_trait_applies_tracker_to_v4_willpower(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a counter tracker is stored on a V4 trait."""
+        # Given a V4 character
+        character = await character_factory(game_version="V4", character_class="MORTAL")
+        willpower = await Trait.get(name="Willpower", custom_for_character_id=None)
+        data = [
+            CharacterTraitCreate(trait_id=willpower.id, value=6, tracker=TrackerStateSet(current=4))
+        ]
+
+        # When creating the trait
+        await CharacterService().character_create_trait_to_character_traits(character, data)
+
+        # Then 2 points are spent
+        row = await CharacterTrait.get(character_id=character.id, trait_id=willpower.id)
+        assert row.tracker_spent == 2
+
+    async def test_create_trait_tracker_rejected_without_tracker(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a tracker on a trait without one is rejected before anything is saved."""
+        # Given a V5 character and a trait with no V5 tracker
+        character = await character_factory(game_version="V5", character_class="MORTAL")
+        plain = await Trait.filter(
+            tracker_type_v5__isnull=True, custom_for_character_id=None, is_archived=False
+        ).first()
+        composure = await Trait.get(name="Composure", custom_for_character_id=None)
+        data = [
+            CharacterTraitCreate(trait_id=composure.id, value=2),
+            CharacterTraitCreate(trait_id=plain.id, value=1, tracker=TrackerStateSet(current=1)),
+        ]
+
+        # When creating the traits
+        # Then a ValidationError is raised and no rows exist
+        with pytest.raises(ValidationError, match="no tracker"):
+            await CharacterService().character_create_trait_to_character_traits(character, data)
+        assert not await CharacterTrait.filter(character_id=character.id).exists()
+
+
+class TestCreateWithHealth:
+    """Test health state and validation applied while creating a character."""
+
+    async def test_create_character_with_health_state(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a starting health state is stored on a Stamina-sized track."""
+        # Given a V5 character with Stamina 3 and no health row
+        character = await character_factory(
+            game_version="V5", character_class="MORTAL", health=False
+        )
+        stamina = await Trait.get(name="Stamina", custom_for_character_id=None)
+        await CharacterService().character_create_trait_to_character_traits(
+            character, [CharacterTraitCreate(trait_id=stamina.id, value=3)]
+        )
+
+        # When initializing with 2 superficial and 1 aggravated damage
+        await TrackerService().initialize_character(
+            character=character, health=HealthStateSet(superficial=2, aggravated=1)
+        )
+
+        # Then the single health row is sized 6 and carries the marks
+        rows = await CharacterHealth.filter(character_id=character.id)
+        assert [(r.size, r.superficial, r.aggravated) for r in rows] == [(6, 2, 1)]
+
+    async def test_create_character_health_marks_over_size_rejected(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify marks over the computed size are rejected."""
+        # Given a V5 character with no Stamina (size 3)
+        character = await character_factory(
+            game_version="V5", character_class="MORTAL", health=False
+        )
+
+        # When initializing with 4 superficial marks
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError, match="at most"):
+            await TrackerService().initialize_character(
+                character=character, health=HealthStateSet(superficial=4)
+            )
+
+    async def test_create_character_health_field_for_wrong_version_rejected(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a V4-only health field on a V5 character is rejected."""
+        # Given a V5 character
+        character = await character_factory(
+            game_version="V5", character_class="MORTAL", health=False
+        )
+
+        # When initializing with bashing damage
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError, match="does not apply"):
+            await TrackerService().initialize_character(
+                character=character, health=HealthStateSet(bashing=1)
+            )
+
+    async def test_create_trait_tracker_over_size_rejected(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify tracker marks over the computed Willpower are rejected."""
+        # Given a V5 character with Composure 1 and Resolve 1 (Willpower 2)
+        character = await character_factory(game_version="V5", character_class="MORTAL")
+        composure = await Trait.get(name="Composure", custom_for_character_id=None)
+        resolve = await Trait.get(name="Resolve", custom_for_character_id=None)
+        willpower = await Trait.get(name="Willpower", custom_for_character_id=None)
+        data = [
+            CharacterTraitCreate(trait_id=composure.id, value=1),
+            CharacterTraitCreate(trait_id=resolve.id, value=1),
+            CharacterTraitCreate(trait_id=willpower.id, tracker=TrackerStateSet(superficial=3)),
+        ]
+
+        # When creating the traits
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError, match="at most"):
+            await CharacterService().character_create_trait_to_character_traits(character, data)
+
+    async def test_create_duplicate_trait_ids_rejected(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify listing the same trait twice is rejected before anything is saved."""
+        # Given a payload with Composure twice
+        character = await character_factory(game_version="V5", character_class="MORTAL")
+        composure = await Trait.get(name="Composure", custom_for_character_id=None)
+        data = [
+            CharacterTraitCreate(trait_id=composure.id, value=1),
+            CharacterTraitCreate(trait_id=composure.id, value=2),
+        ]
+
+        # When creating the traits
+        # Then a ValidationError is raised and no rows exist
+        with pytest.raises(ValidationError, match="only once"):
+            await CharacterService().character_create_trait_to_character_traits(character, data)
+        assert not await CharacterTrait.filter(character_id=character.id).exists()
 
 
 class TestArchiveCharacter:

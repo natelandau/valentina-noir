@@ -221,6 +221,8 @@ class TraitSyncer:
             "is_rollable": fixture_trait.get("is_rollable", True),
             "pool": fixture_trait.get("pool") or (subcategory.pool if subcategory else None),
             "system": fixture_trait.get("system") or (subcategory.system if subcategory else None),
+            "tracker_type_v4": fixture_trait.get("tracker_type_v4"),
+            "tracker_type_v5": fixture_trait.get("tracker_type_v5"),
             "sheet_section": section,
             "subcategory": subcategory,
             **gift_defaults,

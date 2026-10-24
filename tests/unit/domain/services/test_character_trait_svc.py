@@ -3310,8 +3310,234 @@ class TestModifyTraitValue:
         assert result.value == 1
 
 
+class TestDerivedV5Willpower:
+    """V5 Willpower follows Composure + Resolve and is not purchasable."""
+
+    @staticmethod
+    async def _v5_willpower(
+        *, character, character_trait_factory, value: int = 4
+    ) -> CharacterTrait:
+        return await character_trait_factory(
+            character=character,
+            trait=await Trait.get(name="Willpower", custom_for_character_id=None),
+            value=value,
+        )
+
+    async def test_modify_v5_willpower_rejected(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify changing V5 Willpower directly is refused."""
+        # Given a V5 character with Willpower
+        company, user, character = get_company_user_character
+        willpower = await self._v5_willpower(
+            character=character, character_trait_factory=character_trait_factory
+        )
+
+        # When modifying it
+        with pytest.raises(ValidationError) as exc_info:
+            await CharacterTraitService().modify_trait_value(
+                company=company,
+                user=user,
+                character=character,
+                character_trait=willpower,
+                target_value=5,
+                currency=TraitModifyCurrency.NO_COST,
+            )
+
+        # Then it is rejected and unchanged
+        assert exc_info.value.detail == (
+            "V5 Willpower follows Composure + Resolve and cannot be changed directly"
+        )
+        await willpower.refresh_from_db()
+        assert willpower.value == 4
+
+    async def test_delete_v5_willpower_rejected(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify deleting V5 Willpower is refused."""
+        # Given a V5 character with Willpower
+        company, user, character = get_company_user_character
+        willpower = await self._v5_willpower(
+            character=character, character_trait_factory=character_trait_factory
+        )
+
+        # When deleting it
+        with pytest.raises(ValidationError) as exc_info:
+            await CharacterTraitService().delete_trait(
+                company=company, user=user, character=character, character_trait=willpower
+            )
+
+        # Then it is rejected and still exists
+        assert exc_info.value.detail == (
+            "V5 Willpower follows Composure + Resolve and cannot be deleted"
+        )
+        assert await CharacterTrait.filter(id=willpower.id).exists()
+
+    async def test_modify_v4_willpower_still_allowed(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+    ) -> None:
+        """Verify V4 Willpower can still be changed directly."""
+        # Given a V4 character with Willpower
+        company = await company_factory()
+        user = await user_factory(company=company, role=UserRole.ADMIN)
+        character = await character_factory(company=company, user_player=user, game_version="V4")
+        willpower = await self._v5_willpower(
+            character=character, character_trait_factory=character_trait_factory, value=3
+        )
+
+        # When modifying it
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=willpower,
+            target_value=4,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+        # Then the change applies
+        assert result.value == 4
+
+    async def test_v5_willpower_value_options_empty(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify V5 Willpower offers no value options."""
+        # Given a V5 character with Willpower
+        _, _, character = get_company_user_character
+        willpower = await self._v5_willpower(
+            character=character, character_trait_factory=character_trait_factory
+        )
+
+        # When getting value options
+        result = await CharacterTraitService().get_value_options(
+            character=character, character_trait=willpower
+        )
+
+        # Then options are empty and the value is reported
+        assert result.options == {}
+        assert result.current_value == 4
+
+    async def test_delete_v4_willpower_allowed(
+        self,
+        company_factory,
+        user_factory,
+        character_factory,
+        character_trait_factory,
+    ) -> None:
+        """Verify V4 Willpower can still be deleted."""
+        # Given a V4 character with Willpower
+        company = await company_factory()
+        user = await user_factory(company=company, role=UserRole.ADMIN)
+        character = await character_factory(company=company, user_player=user, game_version="V4")
+        willpower = await self._v5_willpower(
+            character=character, character_trait_factory=character_trait_factory, value=3
+        )
+
+        # When deleting it
+        await CharacterTraitService().delete_trait(
+            company=company, user=user, character=character, character_trait=willpower
+        )
+
+        # Then it is gone
+        assert not await CharacterTrait.filter(id=willpower.id).exists()
+
+    async def test_modify_custom_willpower_on_v5_allowed(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+        trait_factory,
+    ) -> None:
+        """Verify a custom trait named Willpower is not derived."""
+        # Given a V5 character with a custom trait named Willpower
+        company, user, character = get_company_user_character
+        custom = await trait_factory(name="Willpower", custom_for_character_id=character.id)
+        character_trait = await character_trait_factory(character=character, trait=custom, value=1)
+
+        # When modifying it
+        result = await CharacterTraitService().modify_trait_value(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=character_trait,
+            target_value=2,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+        # Then the change applies
+        assert result.value == 2
+
+    async def test_assign_v5_willpower_already_owned_conflicts(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify assigning V5 Willpower the character already has raises a conflict."""
+        # Given a V5 character that already has Willpower
+        company, user, character = get_company_user_character
+        willpower = await self._v5_willpower(
+            character=character, character_trait_factory=character_trait_factory
+        )
+
+        # When assigning it again
+        with pytest.raises(ConflictError):
+            await CharacterTraitService().add_constant_trait_to_character(
+                company=company,
+                user=user,
+                character=character,
+                trait_id=willpower.trait_id,
+                value=1,
+                currency=TraitModifyCurrency.NO_COST,
+            )
+
+        # Then nothing else was created
+        assert await CharacterTrait.filter(character_id=character.id).count() == 1
+
+
 class TestDeleteTrait:
     """Test the delete_trait method."""
+
+    async def test_delete_composure_lowers_v5_willpower(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_trait_factory,
+    ) -> None:
+        """Verify deleting Composure at no cost resyncs V5 Willpower."""
+        # Given a V5 character with Composure 2, Resolve 3, and Willpower 5
+        company, user, character = get_company_user_character
+        composure = await character_trait_factory(
+            character=character,
+            trait=await Trait.get(name="Composure", custom_for_character_id=None),
+            value=2,
+        )
+        await character_trait_factory(
+            character=character,
+            trait=await Trait.get(name="Resolve", custom_for_character_id=None),
+            value=3,
+        )
+        willpower = await character_trait_factory(
+            character=character,
+            trait=await Trait.get(name="Willpower", custom_for_character_id=None),
+            value=5,
+        )
+
+        # When deleting Composure without currency
+        await CharacterTraitService().delete_trait(
+            company=company, user=user, character=character, character_trait=composure
+        )
+
+        # Then Willpower drops to Resolve alone
+        await willpower.refresh_from_db()
+        assert willpower.value == 3
 
     async def test_delete_non_custom_trait_no_currency(
         self,

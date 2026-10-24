@@ -88,6 +88,7 @@ class Character(BaseModel):
     specialties: fields.ReverseRelation[Specialty]
     vampire_attributes: fields.OneToOneRelation[VampireAttributes]
     werewolf_attributes: fields.OneToOneRelation[WerewolfAttributes]
+    health: fields.OneToOneRelation[CharacterHealth]
     mage_attributes: fields.OneToOneRelation[MageAttributes]
     hunter_attributes: fields.OneToOneRelation[HunterAttributes]
     notes: fields.ReverseRelation[Note]
@@ -223,6 +224,25 @@ class HunterAttributes(BaseModel):
         table = "hunter_attributes"
 
 
+class CharacterHealth(BaseModel):
+    """Health track of a character, one-to-one with Character."""
+
+    character: fields.OneToOneRelation[Character] = fields.OneToOneField(
+        "models.Character", related_name="health", on_delete=fields.OnDelete.CASCADE
+    )
+    size = fields.IntField(default=0)
+    extra_levels = fields.IntField(default=0)
+    bashing = fields.IntField(default=0)
+    lethal = fields.IntField(default=0)
+    superficial = fields.IntField(default=0)
+    aggravated = fields.IntField(default=0)
+
+    class Meta:
+        """Tortoise ORM meta options."""
+
+        table = "character_health"
+
+
 class CharacterTrait(BaseModel):
     """A trait assigned to a character with a numeric value."""
 
@@ -233,6 +253,10 @@ class CharacterTrait(BaseModel):
         "models.Trait", related_name="character_traits", on_delete=fields.OnDelete.CASCADE
     )
     value = fields.IntField(default=0)
+    tracker_spent = fields.IntField(default=0, db_default=0)
+    tracker_superficial = fields.IntField(default=0, db_default=0)
+    tracker_aggravated = fields.IntField(default=0, db_default=0)
+    tracker_stains = fields.IntField(default=0, db_default=0)
 
     specialties: fields.ReverseRelation[CharacterTraitSpecialty]
 

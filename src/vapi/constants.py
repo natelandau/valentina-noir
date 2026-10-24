@@ -249,6 +249,35 @@ class TraitModifyCurrency(StrEnum):
     STARTING_POINTS = "STARTING_POINTS"
 
 
+class TrackerType(StrEnum):
+    """Kind of in-play tracker attached to a trait."""
+
+    COUNTER = "COUNTER"
+    DAMAGE = "DAMAGE"
+    STAINS = "STAINS"
+
+
+class TrackerAction(StrEnum):
+    """Action applied to a tracker."""
+
+    SPEND = "spend"
+    GAIN = "gain"
+    DAMAGE = "damage"
+    HEAL = "heal"
+    ADD_STAIN = "add_stain"
+    REMOVE_STAIN = "remove_stain"
+    RESET = "reset"
+
+
+class DamageType(StrEnum):
+    """Damage types for damage tracks."""
+
+    SUPERFICIAL = "SUPERFICIAL"
+    AGGRAVATED = "AGGRAVATED"
+    BASHING = "BASHING"
+    LETHAL = "LETHAL"
+
+
 class IdentityProvider(StrEnum):
     """Third-party identity providers supported by the identify endpoint."""
 
@@ -333,6 +362,7 @@ class AuditEntityType(StrEnum):
     CAMPAIGN = "CAMPAIGN"
     CHAPTER = "CHAPTER"
     CHARACTER = "CHARACTER"
+    CHARACTER_HEALTH = "CHARACTER_HEALTH"
     CHARACTER_INVENTORY = "CHARACTER_INVENTORY"
     CHARACTER_TRAIT = "CHARACTER_TRAIT"
     CHARACTER_TRAIT_SPECIALTY = "CHARACTER_TRAIT_SPECIALTY"

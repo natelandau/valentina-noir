@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 import click
+from tortoise.transactions import in_transaction
 
 from vapi.cli.lib.dictionary import DictionaryService
 from vapi.cli.lib.fixture_syncer import (
@@ -23,16 +24,18 @@ logger = logging.getLogger("vapi")
 async def seed_async() -> None:
     """Seed PostgreSQL with all constant and reference data via Tortoise ORM.
 
-    Assumes Tortoise is already initialized.
+    Run every syncer in one transaction so a failure partway leaves the reference data exactly
+    as it was, never half-updated. Assumes Tortoise is already initialized.
     """
-    trait_syncer = TraitSyncer()
-    await trait_syncer.sync()
-    await VampireClanSyncer().sync()
-    await WerewolfAuspiceSyncer().sync()
-    await WerewolfTribeSyncer().sync()
-    await resolve_gift_trait_references(gift_fixture_map=trait_syncer.gift_fixture_map)
-    await CharacterConceptSyncer().sync()
-    await DictionaryService().sync_all()
+    async with in_transaction():
+        trait_syncer = TraitSyncer()
+        await trait_syncer.sync()
+        await VampireClanSyncer().sync()
+        await WerewolfAuspiceSyncer().sync()
+        await WerewolfTribeSyncer().sync()
+        await resolve_gift_trait_references(gift_fixture_map=trait_syncer.gift_fixture_map)
+        await CharacterConceptSyncer().sync()
+        await DictionaryService().sync_all()
 
 
 @click.command(

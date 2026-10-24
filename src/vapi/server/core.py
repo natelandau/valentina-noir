@@ -83,6 +83,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from vapi.middleware.rate_limit import rate_limit_middleware
         from vapi.middleware.request_id import request_id_middleware
         from vapi.openapi.config import create_openapi_config
+        from vapi.openapi.refine import refine_openapi_schema
         from vapi.server import plugins
 
         self.redis = settings.redis.get_client()
@@ -91,6 +92,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.request_max_body_size = settings.server.request_max_body_size
 
         app_config.openapi_config = create_openapi_config()
+        app_config.on_startup.append(refine_openapi_schema)
 
         app_config.plugins.extend([plugins.granian])
         if settings.saq.enabled:

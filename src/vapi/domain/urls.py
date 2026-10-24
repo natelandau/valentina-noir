@@ -229,6 +229,12 @@ class Characters:
     TRAIT_VALUE = f"{TRAIT_DETAIL}/value"
     TRAIT_SPECIALTIES = f"{TRAIT_DETAIL}/specialties"
     TRAIT_SPECIALTY_DETAIL = f"{TRAIT_SPECIALTIES}/{{specialty_id:str}}"
+    TRAIT_TRACKER = f"{TRAIT_DETAIL}/tracker"
+    TRAIT_TRACKER_ACTIONS = f"{TRAIT_TRACKER}/actions"
+
+    # Character health
+    HEALTH = f"{DETAIL}/health"
+    HEALTH_ACTIONS = f"{HEALTH}/actions"
 
     # Character inventory
     INVENTORY = f"{DETAIL}/inventory"

@@ -11114,6 +11114,8 @@
           },
           {
             "name": "Willpower",
+            "tracker_type_v4": "COUNTER",
+            "tracker_type_v5": "DAMAGE",
             "game_versions": [
               "V4",
               "V5"
@@ -11128,6 +11130,7 @@
           },
           {
             "name": "Humanity",
+            "tracker_type_v5": "STAINS",
             "character_classes": [
               "VAMPIRE",
               "GHOUL",
@@ -11148,6 +11151,7 @@
           },
           {
             "name": "Blood Pool",
+            "tracker_type_v4": "COUNTER",
             "character_classes": [
               "VAMPIRE",
               "GHOUL"
@@ -11197,6 +11201,7 @@
           },
           {
             "name": "Conviction",
+            "tracker_type_v4": "COUNTER",
             "character_classes": [
               "HUNTER"
             ],
@@ -11212,6 +11217,7 @@
           },
           {
             "name": "Gnosis",
+            "tracker_type_v4": "COUNTER",
             "character_classes": [
               "WEREWOLF"
             ],
@@ -11227,6 +11233,7 @@
           },
           {
             "name": "Rage",
+            "tracker_type_v4": "COUNTER",
             "description": "Rage is one of the most defining traits of the Garou. The hearts and souls of the Garou are consumed by Rage, and through it's manifestation is how they perform terrifying acts of brutality.",
             "link": "https://wta.paradoxwikis.com/Rage_system",
             "character_classes": [

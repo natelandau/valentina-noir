@@ -13,12 +13,20 @@ from typing import Any
 import pytest
 from uuid_utils import uuid7
 
-from vapi.constants import AssetType, CharacterType, DiceSize, RollResultType, SpecialtyType
+from vapi.constants import (
+    AssetType,
+    CharacterType,
+    DiceSize,
+    GameVersion,
+    RollResultType,
+    SpecialtyType,
+)
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
     Character,
+    CharacterHealth,
     CharacterInventory,
     CharacterTrait,
     CharacterTraitSpecialty,
@@ -40,6 +48,7 @@ from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import CampaignExperience, User
+from vapi.lib.tracker_rules import health_size
 from vapi.utils.time import time_now
 
 pytestmark = pytest.mark.anyio
@@ -471,7 +480,7 @@ async def character_factory(company_factory, user_factory, campaign_factory):
     created: list[Character] = []
     _counter = 0
 
-    async def _factory(**kwargs: Any) -> Character:
+    async def _factory(*, health: bool = True, **kwargs: Any) -> Character:
         nonlocal _counter
         _counter += 1
 
@@ -503,6 +512,13 @@ async def character_factory(company_factory, user_factory, campaign_factory):
         }
         defaults.update(kwargs)
         character = await Character.create(**defaults)
+        if health:
+            await CharacterHealth.create(
+                character=character,
+                size=health_size(
+                    game_version=GameVersion(defaults["game_version"]), stamina=0, extra_levels=0
+                ),
+            )
         character = (
             await Character.filter(id=character.id)
             .prefetch_related(
@@ -513,6 +529,7 @@ async def character_factory(company_factory, user_factory, campaign_factory):
                 "mage_attributes",
                 "hunter_attributes",
                 "specialties",
+                "health",
             )
             .first()
         )
@@ -598,6 +615,7 @@ async def character_trait_factory(character_factory):
         ct = (
             await CharacterTrait.filter(id=ct.id)
             .prefetch_related(
+                "character",
                 "trait",
                 "trait__category",
                 "trait__subcategory",
@@ -673,6 +691,23 @@ async def werewolf_attributes_factory():
     for attrs in created:
         with contextlib.suppress(Exception):
             await attrs.delete()
+
+
+@pytest.fixture
+async def character_health_factory():
+    """Return a factory that creates Tortoise CharacterHealth instances."""
+    created: list[CharacterHealth] = []
+
+    async def _factory(**kwargs: Any) -> CharacterHealth:
+        health = await CharacterHealth.create(**kwargs)
+        created.append(health)
+        return health
+
+    yield _factory
+
+    for health in created:
+        with contextlib.suppress(Exception):
+            await health.delete()
 
 
 @pytest.fixture

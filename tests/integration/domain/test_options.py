@@ -69,6 +69,22 @@ async def test_get_company_options(
         "RollResultType": [x.value for x in RollResultType],
     }
     assert "characters" in response.json()
+    characters = response.json()["characters"]
+    assert characters["TrackerType"] == ["COUNTER", "DAMAGE", "STAINS"]
+    assert characters["TrackerAction"] == [
+        "spend",
+        "gain",
+        "damage",
+        "heal",
+        "add_stain",
+        "remove_stain",
+        "reset",
+    ]
+    assert characters["DamageType"] == ["SUPERFICIAL", "AGGRAVATED", "BASHING", "LETHAL"]
+    assert characters["TrackerRules"]["V5"]["DAMAGE"]["damage_types"] == [
+        "SUPERFICIAL",
+        "AGGRAVATED",
+    ]
     assert (
         response.json()["characters"]["_related"]["traits"]
         == f"{settings.server.url}{urls.CharacterBlueprints.TRAITS.replace(':str', '')}"

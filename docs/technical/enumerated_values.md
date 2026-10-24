@@ -59,11 +59,25 @@ The response groups enumerations by domain. Each value is the exact string (or n
             "CharacterClass": ["VAMPIRE", "WEREWOLF", "MAGE", "HUNTER", "GHOUL", "MORTAL"],
             "CharacterStatus": ["ALIVE", "DEAD"],
             "CharacterType": ["PLAYER", "NPC", "STORYTELLER"],
+            "DamageType": ["SUPERFICIAL", "AGGRAVATED", "BASHING", "LETHAL"],
             "GameVersion": ["V4", "V5"],
             "HunterCreed": ["ENTREPRENEURIAL", "FAITHFUL", "INQUISITIVE", "MARTIAL", "UNDERGROUND"],
             "HunterEdgeType": ["ASSETS", "APTITUDES", "ENDOWMENTS"],
             "InventoryItemType": ["BOOK", "CONSUMABLE", "ENCHANTED", "EQUIPMENT", "OTHER", "WEAPON"],
             "SpecialtyType": ["ACTION", "OTHER", "PASSIVE", "RITUAL", "SPELL"],
+            "TrackerAction": ["spend", "gain", "damage", "heal", "add_stain", "remove_stain", "reset"],
+            "TrackerRules": {
+                "V4": {
+                    "COUNTER": {"actions": ["spend", "gain", "reset"], "damage_types": []},
+                    "HEALTH": {"actions": ["damage", "heal", "reset"], "damage_types": ["BASHING", "LETHAL", "AGGRAVATED"]}
+                },
+                "V5": {
+                    "DAMAGE": {"actions": ["damage", "heal", "reset"], "damage_types": ["SUPERFICIAL", "AGGRAVATED"]},
+                    "HEALTH": {"actions": ["damage", "heal", "reset"], "damage_types": ["SUPERFICIAL", "AGGRAVATED"]},
+                    "STAINS": {"actions": ["add_stain", "remove_stain", "reset"], "damage_types": []}
+                }
+            },
+            "TrackerType": ["COUNTER", "DAMAGE", "STAINS"],
             "TraitModifyCurrency": ["NO_COST", "XP", "STARTING_POINTS"],
             "WerewolfRenown": ["GLORY", "HONOR", "WISDOM"],
             "_related": {
@@ -105,12 +119,16 @@ Each top-level key groups the enumerations for one domain of the API.
 | Group                      | Holds enumerations for                                                          |
 | -------------------------- | ------------------------------------------------------------------------------- |
 | `companies`                | Developer permission levels and company permission settings                     |
-| `characters`               | Classes, types, statuses, game versions, and character-building options, plus `_related` catalog links |
+| `characters`               | Classes, types, statuses, game versions, tracker types, actions, and rules, damage types, and character-building options, plus `_related` catalog links |
 | `character_autogeneration` | The class-distribution table used by random character generation                |
 | `users`                    | User roles, identity providers, and identity resolution outcomes               |
 | `gameplay`                 | Dice sizes and dice-roll result types                                           |
 | `assets`                   | Uploadable asset types                                                          |
 | `audit_logs`               | Audit entity types and operations                                               |
+
+### Tracker rules
+
+`characters.TrackerRules` maps each game version to the trackers it supports, plus a `HEALTH` key for character health. `HEALTH` is a key in this map only. It is not a `TrackerType` value. For each one it lists the `actions` the tracker accepts and the `damage_types` that go with the `damage` and `heal` actions. Read it to decide which buttons to show: render a control only for the actions listed, and offer only the listed damage types. An empty `damage_types` list means the actions take no `damage_type`.
 
 ## Related Catalog Endpoints
 

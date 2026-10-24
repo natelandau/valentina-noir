@@ -24,6 +24,7 @@ Valentina Noir uses a customized version of World of Darkness. These changes evo
 
 - [Dice rolling system](./dice.md)
 - [Experience system](./experience.md)
+- [Trackers and health](./trackers_and_health.md) for in-play damage, stains, and spent points
 - [Dictionary terms](./dictionary.md) for looking up game terminology
 
 ## Supported Editions
