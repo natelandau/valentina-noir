@@ -102,3 +102,55 @@ async def test_trait_power_cascades_on_trait_delete(trait_factory, trait_power_f
 
     # Then the power is gone
     assert await TraitPower.filter(id=power.id).first() is None
+
+
+@pytest.mark.anyio
+async def test_trait_power_rejects_duplicate_nameless_power_at_same_level(
+    trait_factory, trait_power_factory
+) -> None:
+    """Verify a trait cannot hold two nameless descriptors at one level.
+
+    Postgres treats NULL names as distinct under the (trait, level, name) constraint,
+    so only the partial unique index stops concurrent seeds from duplicating them.
+    """
+    # Given a trait with a nameless descriptor at level 1
+    trait = await trait_factory()
+    await trait_power_factory(trait=trait, level=1, name=None)
+
+    # When a second nameless descriptor is created at the same level
+    # Then the database rejects it
+    with pytest.raises(IntegrityError):
+        await trait_power_factory(trait=trait, level=1, name=None)
+
+
+@pytest.mark.anyio
+async def test_trait_power_allows_nameless_powers_at_different_levels(
+    trait_factory, trait_power_factory
+) -> None:
+    """Verify the nameless-descriptor index is scoped to a single level."""
+    # Given a trait with a nameless descriptor at level 1
+    trait = await trait_factory()
+    await trait_power_factory(trait=trait, level=1, name=None)
+
+    # When a nameless descriptor is created at level 2
+    power = await trait_power_factory(trait=trait, level=2, name=None)
+
+    # Then it is stored
+    assert power.id is not None
+
+
+@pytest.mark.anyio
+async def test_trait_power_allows_named_powers_beside_nameless_one(
+    trait_factory, trait_power_factory
+) -> None:
+    """Verify several named powers can share a level with a nameless descriptor."""
+    # Given a trait with a nameless descriptor at level 1
+    trait = await trait_factory()
+    await trait_power_factory(trait=trait, level=1, name=None)
+
+    # When two named powers are created at the same level
+    first = await trait_power_factory(trait=trait, level=1, name="First")
+    second = await trait_power_factory(trait=trait, level=1, name="Second")
+
+    # Then both are stored
+    assert first.id != second.id

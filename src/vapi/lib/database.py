@@ -106,6 +106,28 @@ async def install_archive_stamp_trigger() -> None:
     await conn.execute_script(_ARCHIVE_TRIGGER_ATTACH_SQL)
 
 
+# Postgres treats NULLs as distinct, so TraitPower's (trait, level, name) unique_together
+# never constrains nameless per-dot descriptors. This partial index covers them. Migration
+# 0025 carries the same SQL for existing databases; keep the two in sync.
+_TRAIT_POWER_NAMELESS_UNIQUE_SQL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS uidx_trait_power_nameless_level "
+    "ON trait_power (trait_id, level) WHERE name IS NULL;"
+)
+
+
+async def install_schema_extras() -> None:
+    """Install the schema objects that ``generate_schemas`` cannot create from the models.
+
+    Covers the archive-stamp trigger and the partial unique index on nameless trait
+    powers. Call this immediately after ``generate_schemas`` so a fresh database matches
+    a migrated one. Idempotent.
+    """
+    from tortoise import Tortoise
+
+    await install_archive_stamp_trigger()
+    await Tortoise.get_connection("default").execute_script(_TRAIT_POWER_NAMELESS_UNIQUE_SQL)
+
+
 def __getattr__(name: str) -> dict[str, Any]:
     """Lazy module-level attribute for the `tortoise` CLI (e.g. `tortoise -c vapi.lib.database.TORTOISE_ORM`)."""
     if name == "TORTOISE_ORM":

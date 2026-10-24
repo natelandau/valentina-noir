@@ -260,7 +260,10 @@ class TraitPower(BaseModel):
     which carry a name and system) and nameless flavor descriptors for what a dot
     rating means on an Attribute or Skill (name is null). A level may grant several
     powers (Disciplines offer a choice per dot), so powers are unique per
-    (trait, level, name) rather than per (trait, level).
+    (trait, level, name) rather than per (trait, level). Postgres treats NULL names as
+    distinct under that constraint, so a partial unique index installed outside the
+    model (``uidx_trait_power_nameless_level``) limits nameless descriptors to one per
+    (trait, level).
     """
 
     level = fields.IntField(validators=[MinValueValidator(1), MaxValueValidator(100)])

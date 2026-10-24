@@ -11,7 +11,7 @@ from tortoise.migrations.api import migrate as tortoise_migrate
 from tortoise.migrations.loader import MigrationLoader
 from tortoise.migrations.recorder import MigrationRecorder
 
-from vapi.lib.database import install_archive_stamp_trigger, tortoise_config
+from vapi.lib.database import install_schema_extras, tortoise_config
 
 logger = logging.getLogger("vapi")
 
@@ -42,15 +42,15 @@ async def _apply_migrations() -> None:
         await tortoise_migrate(config=config)
         return
 
-    # Fresh database: generate the schema, install the trigger, and record the
+    # Fresh database: generate the schema, install its extras, and record the
     # migrations in one transaction so a crash never leaves a populated schema
     # without its markers (which would make the next migrate run try to re-apply
     # migrations against existing tables).
     async with in_transaction():
         await Tortoise.generate_schemas()
-        # generate_schemas skips migration RunSQL; install the archive-stamp
-        # trigger so fresh databases get the same DB-level backstop as migrated ones.
-        await install_archive_stamp_trigger()
+        # generate_schemas skips migration RunSQL; install the trigger and indexes it
+        # cannot express so fresh databases get the same DB-level backstops as migrated ones.
+        await install_schema_extras()
         tx_conn = Tortoise.get_connection("default")
         await tx_conn.execute_script(
             "CREATE TABLE IF NOT EXISTS tortoise_migrations ("
@@ -66,8 +66,8 @@ async def _apply_migrations() -> None:
         # migrate replayed them against the schema they had already produced
         # ("column ... already exists"). Skipping the SQL they carry is safe for the
         # same reason: a data migration has no rows to touch here, schema SQL only
-        # restates what generate_schemas already built, and the archive trigger is
-        # installed above.
+        # restates what generate_schemas already built, and the trigger and indexes
+        # it cannot express are installed above.
         recorder = MigrationRecorder(tx_conn)
         loader = MigrationLoader(config["apps"], recorder)
         loader.load_disk()

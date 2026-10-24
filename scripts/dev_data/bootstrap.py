@@ -6,18 +6,19 @@ from vapi.cli.seed import seed_async
 from vapi.lib.database import (
     drop_and_recreate_database,
     init_tortoise,
-    install_archive_stamp_trigger,
+    install_schema_extras,
 )
 
 
 async def reset_database() -> None:
-    """Drop and recreate the database, build the schema, install triggers, and seed.
+    """Drop and recreate the database, build the schema, install its extras, and seed.
 
     Mirrors a migrated production database: generate_schemas skips migration RunSQL, so
-    the archive-stamp trigger is installed explicitly. Leaves Tortoise initialized.
+    the trigger and indexes it cannot express are installed explicitly. Leaves Tortoise
+    initialized.
     """
     await drop_and_recreate_database()
     await init_tortoise()
     await Tortoise.generate_schemas(safe=True)
-    await install_archive_stamp_trigger()
+    await install_schema_extras()
     await seed_async()
