@@ -44,8 +44,6 @@ duty dev-setup                # Install deps + git hooks, create .env.secret, mi
 ## Workflow Rules
 
 - **Never commit plans, designs, or implementation specs written to docs/superpowers/** These are working documents only - do not stage or commit them to the repository.
-- **Work on branches, not worktrees.** All development is done on git branches in the main repo checkout unless the user gives explicit instructions to use worktrees.
-- All changes to the shape of the API must be documented in `api-changes.md`. api-changes.md is never committed to git.
 
 ## Architecture
 

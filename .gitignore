@@ -23,7 +23,6 @@ node_modules/
 docs/plans/
 docs/superpowers/
 .superpowers/
-api-changes.md
 
 # Claude Code
 .claude/
