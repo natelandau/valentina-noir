@@ -94,6 +94,7 @@ class CompanySettings(BaseModel):
     permission_recoup_xp = fields.CharEnumField(
         PermissionsRecoupXP, default=PermissionsRecoupXP.DENIED
     )
+    specialty_xp_cost_enabled = fields.BooleanField(default=False, db_default=False)
 
     class Meta:
         """Tortoise ORM meta options."""

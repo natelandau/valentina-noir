@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from vapi.constants import PermissionsGrantXP, UserRole
+from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import Company, CompanySettings
@@ -864,3 +864,110 @@ class TestUserXPService:
                 campaign_id=campaign.id,
                 amount=5,
             )
+
+
+class TestUserXPServiceStaleReads:
+    """Test that XP ledger writes apply to the stored balance, not a stale in-memory copy."""
+
+    @pytest.fixture
+    async def stale_experience(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_experience_factory: Callable[..., CampaignExperience],
+        mocker: Any,
+    ) -> tuple[UserXPService, CampaignExperience]:
+        """Return a service whose lookups hand back a copy read at 10/10 XP before the store moved to 5/20."""
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company)
+        experience = await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=10, xp_total=10
+        )
+        stale = await CampaignExperience.get(id=experience.id)
+        await CampaignExperience.filter(id=experience.id).update(xp_current=5, xp_total=20)
+        service = UserXPService()
+        mocker.patch.object(service, "get_or_create_campaign_experience", return_value=stale)
+        return service, stale
+
+    async def test_spend_xp_uses_stored_balance(
+        self, stale_experience: tuple[UserXPService, CampaignExperience]
+    ) -> None:
+        """Verify spending from a stale copy deducts from the stored balance."""
+        # Given a stale copy reading 10 XP while 5 is stored
+        service, stale = stale_experience
+
+        # When 4 XP is spent
+        result = await service.spend_xp(
+            user_id=stale.user_id, campaign_id=stale.campaign_id, amount=4
+        )
+
+        # Then the stored balance drops to 1 and the returned instance matches it
+        stored = await CampaignExperience.get(id=stale.id)
+        assert stored.xp_current == 1
+        assert result.xp_current == 1
+
+    async def test_spend_xp_rejects_when_stored_balance_short(
+        self, stale_experience: tuple[UserXPService, CampaignExperience]
+    ) -> None:
+        """Verify a stale copy showing enough XP cannot overdraw the stored balance."""
+        # Given a stale copy reading 10 XP while 5 is stored
+        service, stale = stale_experience
+
+        # When 6 XP is spent
+        # Then NotEnoughXPError is raised and the stored balance is untouched
+        with pytest.raises(NotEnoughXPError):
+            await service.spend_xp(user_id=stale.user_id, campaign_id=stale.campaign_id, amount=6)
+        assert (await CampaignExperience.get(id=stale.id)).xp_current == 5
+
+    async def test_add_xp_uses_stored_balance(
+        self, stale_experience: tuple[UserXPService, CampaignExperience]
+    ) -> None:
+        """Verify adding to a stale copy increments the stored balance and total."""
+        # Given a stale copy reading 10/10 while 5/20 is stored
+        service, stale = stale_experience
+
+        # When 3 XP is added
+        result = await service.add_xp(
+            user_id=stale.user_id, campaign_id=stale.campaign_id, amount=3
+        )
+
+        # Then the stored balance and total both grow by 3 and the instance matches
+        stored = await CampaignExperience.get(id=stale.id)
+        assert (stored.xp_current, stored.xp_total) == (8, 23)
+        assert (result.xp_current, result.xp_total) == (8, 23)
+
+    async def test_add_xp_without_total_leaves_stored_total(
+        self, stale_experience: tuple[UserXPService, CampaignExperience]
+    ) -> None:
+        """Verify update_total=False increments only the stored current balance."""
+        # Given a stale copy reading 10/10 while 5/20 is stored
+        service, stale = stale_experience
+
+        # When 3 XP is added without updating the total
+        await service.add_xp(
+            user_id=stale.user_id, campaign_id=stale.campaign_id, amount=3, update_total=False
+        )
+
+        # Then only the current balance grows
+        stored = await CampaignExperience.get(id=stale.id)
+        assert (stored.xp_current, stored.xp_total) == (8, 20)
+
+    async def test_add_cp_uses_stored_balance(
+        self, stale_experience: tuple[UserXPService, CampaignExperience]
+    ) -> None:
+        """Verify cool points added to a stale copy convert onto the stored balance."""
+        # Given a stale copy reading 10/10 while 5/20 is stored
+        service, stale = stale_experience
+
+        # When 1 cool point is added
+        result = await service.add_cp(
+            user_id=stale.user_id, campaign_id=stale.campaign_id, amount=1
+        )
+
+        # Then the stored XP grows by one cool point's worth and the instance matches
+        stored = await CampaignExperience.get(id=stale.id)
+        expected = (5 + COOL_POINT_VALUE, 20 + COOL_POINT_VALUE, 1)
+        assert (stored.xp_current, stored.xp_total, stored.cool_points) == expected
+        assert (result.xp_current, result.xp_total, result.cool_points) == expected

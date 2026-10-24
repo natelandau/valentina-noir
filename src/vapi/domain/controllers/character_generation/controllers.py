@@ -168,7 +168,9 @@ class CharacterGenerationController(Controller):
 
         xp_cost = settings.character_autogen_xp_cost or 0
         if xp_cost > 0:
-            await UserXPService().spend_xp(acting_user.id, campaign.id, xp_cost)
+            await UserXPService().spend_xp(
+                user_id=acting_user.id, campaign_id=campaign.id, amount=xp_cost
+            )
 
         chargen = CharacterAutogenerationHandler(
             company=company, user=acting_user, campaign=campaign

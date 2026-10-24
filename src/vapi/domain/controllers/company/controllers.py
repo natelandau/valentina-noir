@@ -78,6 +78,7 @@ async def _apply_settings_patch(
         ("permission_grant_xp", PermissionsGrantXP),
         ("permission_free_trait_changes", PermissionsFreeTraitChanges),
         ("permission_recoup_xp", PermissionsRecoupXP),
+        ("specialty_xp_cost_enabled", None),
     ):
         value = getattr(patch, field_name)
         if isinstance(value, msgspec.UnsetType):
@@ -174,6 +175,7 @@ class CompanyController(Controller):
                 "permission_grant_xp": data.settings.permission_grant_xp,
                 "permission_free_trait_changes": data.settings.permission_free_trait_changes,
                 "permission_recoup_xp": data.settings.permission_recoup_xp,
+                "specialty_xp_cost_enabled": data.settings.specialty_xp_cost_enabled,
             }
         await CompanySettings.create(company=company, **settings_kwargs)
 

@@ -27,6 +27,7 @@ EXPECTED_TABLES = [
     "character_concept",
     "character_inventory",
     "character_trait",
+    "character_trait_specialty",
     "chargen_session",
     "company",
     "company_settings",

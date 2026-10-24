@@ -114,7 +114,10 @@ Requested resource does not exist.
 
 ### 409 Conflict
 
-Request conflicts with current state, such as reusing an idempotency key with a different request body.
+Request conflicts with current state. Examples:
+
+- You reuse an idempotency key with a different request body.
+- You change a character trait's value after another request changed it. Fetch the trait again and retry. See [Modifying Trait Values](../concepts/character_traits.md#modifying-trait-values).
 
 ```json
 {

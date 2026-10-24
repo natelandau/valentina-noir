@@ -83,3 +83,42 @@ async def test_character_response_from_model_allows_null_player(
 
     # Then the player id is None after surviving JSON decode validation
     assert decoded.user_player_id is None
+
+
+async def test_character_detail_include_traits_loads_specialties(
+    character_factory: "Callable[..., Any]",
+    character_trait_factory: "Callable[..., Any]",
+    character_trait_specialty_factory: "Callable[..., Any]",
+) -> None:
+    """Verify include=traits embeds each trait's specialties."""
+    from vapi.db.sql_models.character import Character
+    from vapi.db.sql_models.character_sheet import Trait
+    from vapi.domain.controllers.character.dto import (
+        CHARACTER_RESPONSE_PREFETCH,
+        CharacterDetailResponse,
+        CharacterInclude,
+        get_character_include_prefetch_map,
+    )
+    from vapi.lib.detail_includes import apply_includes
+
+    # Given a character with an ability that has a specialty
+    character = await character_factory()
+    trait = await Trait.filter(
+        sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
+    ).first()
+    char_trait = await character_trait_factory(character=character, trait=trait, value=1)
+    await character_trait_specialty_factory(character_trait=char_trait, name="Sniping")
+    loaded = (
+        await Character.filter(id=character.id)
+        .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        .first()
+    )
+
+    # When applying the traits include and building the detail response
+    requested = await apply_includes(
+        loaded, [CharacterInclude.TRAITS], get_character_include_prefetch_map()
+    )
+    response = CharacterDetailResponse.from_model(loaded, requested)
+
+    # Then the embedded trait lists its specialty
+    assert [sp.name for sp in response.traits[0].specialties] == ["Sniping"]

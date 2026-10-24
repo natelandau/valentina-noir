@@ -227,6 +227,8 @@ class Characters:
     TRAIT_BULK_ASSIGN = f"{TRAITS}/bulk-assign"
     TRAIT_VALUE_OPTIONS = f"{TRAIT_DETAIL}/value-options"
     TRAIT_VALUE = f"{TRAIT_DETAIL}/value"
+    TRAIT_SPECIALTIES = f"{TRAIT_DETAIL}/specialties"
+    TRAIT_SPECIALTY_DETAIL = f"{TRAIT_SPECIALTIES}/{{specialty_id:str}}"
 
     # Character inventory
     INVENTORY = f"{DETAIL}/inventory"

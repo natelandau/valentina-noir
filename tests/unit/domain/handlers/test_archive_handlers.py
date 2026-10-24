@@ -13,6 +13,7 @@ from vapi.db.sql_models.character import (
     Character,
     CharacterInventory,
     CharacterTrait,
+    CharacterTraitSpecialty,
     Specialty,
     VampireAttributes,
 )
@@ -355,6 +356,38 @@ class TestCharacterArchiveHandler:
 
         # And the global trait's power is untouched
         assert not (await TraitPower.get(id=global_power.id)).is_archived
+
+    async def test_archive_character_archives_trait_specialties(
+        self,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., CharacterTrait],
+        character_trait_specialty_factory: Callable[..., CharacterTraitSpecialty],
+    ) -> None:
+        """Verify a character's trait specialties are archived under the same batch."""
+        # Given a character whose trait carries a specialty
+        character = await character_factory()
+        character_trait = await character_trait_factory(character=character)
+        specialty = await character_trait_specialty_factory(
+            character_trait=character_trait, name="Lockpicking"
+        )
+
+        # And another character's specialty
+        other_character = await character_factory()
+        other_trait = await character_trait_factory(character=other_character)
+        other_specialty = await character_trait_specialty_factory(
+            character_trait=other_trait, name="Pickpocketing"
+        )
+
+        # When we archive the character
+        ctx = await archive_character(character=character)
+
+        # Then the specialty is archived under the batch
+        refreshed = await CharacterTraitSpecialty.get(id=specialty.id)
+        assert refreshed.is_archived
+        assert refreshed.archive_batch_id == ctx.batch_id
+
+        # And the other character's specialty is untouched
+        assert not (await CharacterTraitSpecialty.get(id=other_specialty.id)).is_archived
 
 
 class TestUserArchiveHandler:

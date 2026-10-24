@@ -14,6 +14,7 @@ from vapi.constants import (
     GameVersion,
     InventoryItemType,
     SpecialtyType,
+    TraitModifyCurrency,
 )
 from vapi.db.sql_models.base import BaseModel
 
@@ -233,10 +234,31 @@ class CharacterTrait(BaseModel):
     )
     value = fields.IntField(default=0)
 
+    specialties: fields.ReverseRelation[CharacterTraitSpecialty]
+
     class Meta:
         """Tortoise ORM meta options."""
 
         table = "character_trait"
+
+
+class CharacterTraitSpecialty(BaseModel):
+    """A free-text specialty attached to a character's ability trait."""
+
+    character_trait: fields.ForeignKeyRelation[CharacterTrait] = fields.ForeignKeyField(
+        "models.CharacterTrait",
+        related_name="specialties",
+        on_delete=fields.OnDelete.CASCADE,
+        db_index=True,
+    )
+    name = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
+    cost_paid = fields.IntField(default=0)
+    currency_paid = fields.CharEnumField(TraitModifyCurrency, default=TraitModifyCurrency.NO_COST)
+
+    class Meta:
+        """Tortoise ORM meta options."""
+
+        table = "character_trait_specialty"
 
 
 class CharacterInventory(BaseModel):

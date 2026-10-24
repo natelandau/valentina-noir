@@ -6,12 +6,12 @@ from uuid import UUID
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
-from litestar.handlers import delete, get, post, put
+from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
 
 from vapi.config import settings
 from vapi.constants import MAX_BULK_TRAIT_ASSIGN, TraitModifyCurrency
-from vapi.db.sql_models.character import Character, CharacterTrait
+from vapi.db.sql_models.character import Character, CharacterTrait, CharacterTraitSpecialty
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
@@ -31,6 +31,8 @@ from .dto import (
     CharacterTraitAddConstant,
     CharacterTraitCreateCustom,
     CharacterTraitResponse,
+    CharacterTraitSpecialtyCreate,
+    CharacterTraitSpecialtyUpdate,
     TraitModifyRequest,
     TraitValueOptionsResponse,
 )
@@ -45,6 +47,7 @@ class CharacterTraitController(Controller):
         "acting_user": Provide(deps.provide_acting_user),
         "character": Provide(deps.provide_character_by_id_and_company),
         "character_trait": Provide(deps.provide_character_trait_by_id),
+        "specialty": Provide(deps.provide_character_trait_specialty_by_id),
         "developer": Provide(deps.provide_developer_from_request),
     }
     guards = [developer_company_user_guard, user_active_guard, storyteller_character_access_guard]
@@ -225,6 +228,10 @@ class CharacterTraitController(Controller):
             recoup_store=recoup_store,
         )
         request.state.audit_description = f"Modify trait '{ct.trait.name}' to {ct.value} for character '{character.name_first} {character.name_last}'"
+        if service.removed_specialty_names:
+            request.state.audit_changes = {
+                "specialties": {"old": service.removed_specialty_names, "new": []}
+            }
         return CharacterTraitResponse.from_model(ct)
 
     @delete(
@@ -258,4 +265,96 @@ class CharacterTraitController(Controller):
             character_trait=character_trait,
             currency=currency,
             recoup_store=recoup_store,
+        )
+        if service.removed_specialty_names:
+            request.state.audit_changes = {
+                "specialties": {"old": service.removed_specialty_names, "new": []}
+            }
+
+    @post(
+        path=urls.Characters.TRAIT_SPECIALTIES,
+        summary="Add trait specialty",
+        operation_id="addCharacterTraitSpecialty",
+        description=docs.ADD_SPECIALTY_DESCRIPTION,
+        tags=[APITags.CHARACTERS_TRAITS.name, APITags.EXPERIENCE.name],
+        after_response=hooks.post_data_update_hook,
+        status_code=201,
+    )
+    async def add_specialty(
+        self,
+        request: Request,
+        company: Company,
+        acting_user: User,
+        character: Character,
+        character_trait: CharacterTrait,
+        data: CharacterTraitSpecialtyCreate,
+    ) -> CharacterTraitResponse:
+        """Add a specialty to an ability trait."""
+        service = CharacterTraitService()
+        ct = await service.add_specialty(
+            company=company,
+            user=acting_user,
+            character=character,
+            character_trait=character_trait,
+            name=data.name,
+            currency=data.currency,
+        )
+        request.state.audit_description = f"Add specialty '{data.name.strip()}' to trait '{ct.trait.name}' for character '{character.name_first} {character.name_last}'"
+        return CharacterTraitResponse.from_model(ct)
+
+    @patch(
+        path=urls.Characters.TRAIT_SPECIALTY_DETAIL,
+        summary="Update trait specialty",
+        operation_id="updateCharacterTraitSpecialty",
+        description=docs.UPDATE_SPECIALTY_DESCRIPTION,
+        after_response=hooks.post_data_update_hook,
+    )
+    async def update_specialty(
+        self,
+        request: Request,
+        acting_user: User,
+        character: Character,
+        character_trait: CharacterTrait,
+        specialty: CharacterTraitSpecialty,
+        data: CharacterTraitSpecialtyUpdate,
+    ) -> CharacterTraitResponse:
+        """Rename a specialty."""
+        service = CharacterTraitService()
+        old_name = specialty.name
+        ct = await service.rename_specialty(
+            user=acting_user,
+            character=character,
+            character_trait=character_trait,
+            specialty=specialty,
+            name=data.name,
+        )
+        request.state.audit_description = f"Rename specialty '{old_name}' to '{specialty.name}' on trait '{ct.trait.name}' for character '{character.name_first} {character.name_last}'"
+        request.state.audit_changes = {"name": {"old": old_name, "new": specialty.name}}
+        return CharacterTraitResponse.from_model(ct)
+
+    @delete(
+        path=urls.Characters.TRAIT_SPECIALTY_DETAIL,
+        summary="Remove trait specialty",
+        operation_id="deleteCharacterTraitSpecialty",
+        description=docs.DELETE_SPECIALTY_DESCRIPTION,
+        tags=[APITags.CHARACTERS_TRAITS.name, APITags.EXPERIENCE.name],
+        after_response=hooks.post_data_update_hook,
+    )
+    async def delete_specialty(
+        self,
+        request: Request,
+        company: Company,
+        acting_user: User,
+        character: Character,
+        character_trait: CharacterTrait,
+        specialty: CharacterTraitSpecialty,
+    ) -> None:
+        """Remove a specialty from an ability trait."""
+        service = CharacterTraitService()
+        request.state.audit_description = f"Remove specialty '{specialty.name}' from trait '{character_trait.trait.name}' for character '{character.name_first} {character.name_last}'"
+        await service.remove_specialty(
+            company=company,
+            user=acting_user,
+            character=character,
+            specialty=specialty,
         )

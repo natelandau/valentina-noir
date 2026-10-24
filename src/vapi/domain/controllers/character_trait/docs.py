@@ -54,6 +54,10 @@ The direction (increase/decrease) is determined automatically from the current v
 **Note:** `NO_COST` requires storyteller privileges. `XP` and `STARTING_POINTS` are available to character owners and storytellers. Company settings may restrict these currencies, use the `GET /value-options` endpoint to check availability.
 
 **NPC and STORYTELLER characters** only accept `NO_COST`. Using `XP` or `STARTING_POINTS` on these character types returns 400.
+
+**Concurrent changes:** If another request changes the trait's value first, the change returns 409, leaves the value as the other request set it, and spends or refunds nothing. Fetch the trait again and retry.
+
+**Specialties:** When an ability reaches a value of 0, its specialties are refunded and removed.
 """
 
 DELETE_CHARACTER_TRAIT_DESCRIPTION = """\
@@ -61,7 +65,9 @@ Remove a trait from a character.
 
 **This action cannot be undone.**
 
-**Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400.
+Any specialties on the trait are refunded and removed with it.
+
+**Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. Returns 409 when another request changes the trait's value first while recouping `XP` or `STARTING_POINTS`.
 """
 
 BULK_ASSIGN_TRAITS_DESCRIPTION = """\
@@ -76,4 +82,37 @@ The response contains `succeeded` and `failed` lists. Retry only the failed item
 **Maximum batch size:** 200 items.
 
 **Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400.
+"""
+
+ADD_SPECIALTY_DESCRIPTION = """\
+Add a free-text specialty to an ability trait.
+
+Specialties are only available on ability traits (the Abilities section of the character sheet) that have a value of 1 or higher. An ability can have several specialties. The name must be 3 to 50 characters long and unique on the trait, ignoring case.
+
+**Currency options:**
+- `NO_COST`: Add the specialty without spending points (respects the company's free trait changes setting when the specialty XP cost setting is on)
+- `XP`: Spend 3 experience points when the company's specialty XP cost setting is on
+- `STARTING_POINTS`: Spend 3 starting points when the company's specialty XP cost setting is on
+
+When the specialty XP cost setting is off, specialties are free and the `currency` does not affect the cost. The response is the updated character trait.
+
+**Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. A cost the character cannot afford returns 400.
+"""
+
+UPDATE_SPECIALTY_DESCRIPTION = """\
+Rename a specialty on an ability trait.
+
+The name must be 3 to 50 characters long and unique on the trait, ignoring case. Renaming never changes the cost paid or the currency used. The response is the updated character trait.
+
+**Note:** Only storyteller users and character owners can use this endpoint.
+"""
+
+DELETE_SPECIALTY_DESCRIPTION = """\
+Remove a specialty from an ability trait.
+
+The cost paid for the specialty is refunded in the currency used to buy it. A refund in `XP` follows the company's XP recoup setting: it is given when the setting is `UNRESTRICTED` or `WITHIN_SESSION` and skipped when it is `DENIED`. Starting points are always refunded. Removing the specialty is never refused because of the recoup setting.
+
+**This action cannot be undone.**
+
+**Note:** Only storyteller users and character owners can use this endpoint.
 """

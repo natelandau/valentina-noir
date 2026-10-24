@@ -9,6 +9,7 @@ from tortoise.expressions import F
 from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.user import CampaignExperience, User
 from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError
+from vapi.utils.time import time_now
 
 from .user_svc import UserService
 from .validation_svc import GetModelByIdValidationService
@@ -65,13 +66,16 @@ class UserXPService:
             The updated CampaignExperience.
         """
         experience = await self.get_or_create_campaign_experience(user_id, campaign_id)
-        experience.xp_current += amount
+        updates = {"xp_current": F("xp_current") + amount}
 
         if update_total:
-            experience.xp_total += amount
+            updates["xp_total"] = F("xp_total") + amount
             await User.filter(id=user_id).update(lifetime_xp=F("lifetime_xp") + amount)
 
-        await experience.save()
+        await CampaignExperience.filter(id=experience.id).update(
+            **updates, date_modified=time_now()
+        )
+        await experience.refresh_from_db(fields=["xp_current", "xp_total", "date_modified"])
         return experience
 
     async def spend_xp(
@@ -92,11 +96,15 @@ class UserXPService:
         """
         experience = await self.get_or_create_campaign_experience(user_id, campaign_id)
 
-        if experience.xp_current < amount:
+        # The balance check and the deduction are one conditional update so concurrent
+        # spends cannot overdraw the balance or overwrite each other's changes.
+        updated = await CampaignExperience.filter(id=experience.id, xp_current__gte=amount).update(
+            xp_current=F("xp_current") - amount, date_modified=time_now()
+        )
+        if updated != 1:
             raise NotEnoughXPError
 
-        experience.xp_current -= amount
-        await experience.save()
+        await experience.refresh_from_db(fields=["xp_current", "date_modified"])
         return experience
 
     async def add_cp(
@@ -120,10 +128,15 @@ class UserXPService:
         xp_amount = amount * COOL_POINT_VALUE
         experience = await self.get_or_create_campaign_experience(user_id, campaign_id)
 
-        experience.cool_points += amount
-        experience.xp_current += xp_amount
-        experience.xp_total += xp_amount
-        await experience.save()
+        await CampaignExperience.filter(id=experience.id).update(
+            cool_points=F("cool_points") + amount,
+            xp_current=F("xp_current") + xp_amount,
+            xp_total=F("xp_total") + xp_amount,
+            date_modified=time_now(),
+        )
+        await experience.refresh_from_db(
+            fields=["cool_points", "xp_current", "xp_total", "date_modified"]
+        )
 
         await User.filter(id=user_id).update(
             lifetime_xp=F("lifetime_xp") + xp_amount,
@@ -180,7 +193,7 @@ class UserXPService:
             acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
-        return await self.add_xp(target_user.id, campaign_id, amount)
+        return await self.add_xp(user_id=target_user.id, campaign_id=campaign_id, amount=amount)
 
     async def remove_xp_from_campaign_experience(
         self,
@@ -198,7 +211,7 @@ class UserXPService:
             acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
-        return await self.spend_xp(target_user.id, campaign_id, amount)
+        return await self.spend_xp(user_id=target_user.id, campaign_id=campaign_id, amount=amount)
 
     async def add_cp_to_campaign_experience(
         self,

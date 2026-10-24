@@ -26,6 +26,7 @@ class CompanySettingsResponse(msgspec.Struct):
     permission_grant_xp: str
     permission_free_trait_changes: str
     permission_recoup_xp: str
+    specialty_xp_cost_enabled: bool
 
     @classmethod
     def from_model(cls, m: "CompanySettings") -> "CompanySettingsResponse":
@@ -40,6 +41,7 @@ class CompanySettingsResponse(msgspec.Struct):
             permission_grant_xp=m.permission_grant_xp.value,
             permission_free_trait_changes=m.permission_free_trait_changes.value,
             permission_recoup_xp=m.permission_recoup_xp.value,
+            specialty_xp_cost_enabled=m.specialty_xp_cost_enabled,
         )
 
 
@@ -147,6 +149,7 @@ class CompanySettingsCreate(msgspec.Struct):
     permission_grant_xp: str = "UNRESTRICTED"
     permission_free_trait_changes: str = "UNRESTRICTED"
     permission_recoup_xp: str = "DENIED"
+    specialty_xp_cost_enabled: bool = False
 
 
 class CompanyCreate(msgspec.Struct):
@@ -172,6 +175,7 @@ class CompanySettingsPatch(msgspec.Struct):
     permission_grant_xp: str | msgspec.UnsetType = msgspec.UNSET
     permission_free_trait_changes: str | msgspec.UnsetType = msgspec.UNSET
     permission_recoup_xp: str | msgspec.UnsetType = msgspec.UNSET
+    specialty_xp_cost_enabled: bool | msgspec.UnsetType = msgspec.UNSET
 
 
 class CompanyPatch(msgspec.Struct):
