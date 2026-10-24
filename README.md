@@ -47,7 +47,9 @@ These variables are used by the container entrypoint and are also available in `
 | `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer                                                                                                                          |
 | `VAPI_DOCKER_RESTORE`          | `false` | Set to `true` to restore the database from the most recent S3 backup on startup. Don't forget to set `VAPI_DOCKER_MIGRATE=true` to bring the schema up to date with the current code. |
 
-Run the seed after any migration that adds reference-data columns. For example, migration `0024` adds tracker types to traits, and only the seed fills them in, so set `VAPI_DOCKER_SEED=true` for the first start after the upgrade (or run `uv run app seed`). Until then, traits return `tracker: null`.
+Run the seed after every migration. Some migrations add reference-data columns that only the seed fills in. For example, migration `0024` adds tracker types to traits, and traits return `tracker: null` until a seed runs. The seed runs in one transaction, so a failed seed leaves the reference data unchanged.
+
+When several replicas share one database, run migrate and seed once per deploy rather than in every container. A pre-deploy command such as `sh -c 'app migrate && app seed'` does this, with `VAPI_DOCKER_MIGRATE` and `VAPI_DOCKER_SEED` left `false`. A failed pre-deploy command stops the deploy, and restarts never re-run it.
 
 Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues. Find your UID and GID with:
 

@@ -8,6 +8,8 @@ import pytest
 from click.testing import CliRunner
 
 from vapi.cli.lib.comparison import JSONWithCommentsDecoder
+from vapi.cli.lib.fixture_syncer import VampireClanSyncer
+from vapi.cli.lib.trait_syncer import TraitSyncer
 from vapi.cli.seed import seed, seed_async
 from vapi.constants import PROJECT_ROOT_PATH, GameVersion, WerewolfRenown
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
@@ -447,6 +449,32 @@ class TestSeedAsync:
         assert db_berserker.max_specialties == berserker_fixture["max_specialties"]
         assert len(db_berserker.specialties) == len(berserker_fixture["specialties"])
         assert db_berserker.specialties[0]["name"] == berserker_fixture["specialties"][0]["name"]
+
+
+async def test_seed_failure_rolls_back_earlier_writes(
+    monkeypatch: pytest.MonkeyPatch, trait_factory
+) -> None:
+    """Verify a syncer failure undoes the writes earlier syncers made in the same seed."""
+    # Given: a trait the first syncer renames, and a later syncer that fails
+    trait = await trait_factory(name="Seed Rollback Probe")
+
+    async def rename_trait(self: object) -> None:
+        await Trait.filter(id=trait.id).update(name="Renamed By Seed")
+
+    async def fail(self: object) -> None:
+        msg = "simulated seed failure"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(TraitSyncer, "sync", rename_trait)
+    monkeypatch.setattr(VampireClanSyncer, "sync", fail)
+
+    # When: seeding
+    with pytest.raises(RuntimeError, match="simulated seed failure"):
+        await seed_async()
+
+    # Then: the rename was rolled back
+    await trait.refresh_from_db()
+    assert trait.name == "Seed Rollback Probe"
 
 
 class TestSeedCommand:
