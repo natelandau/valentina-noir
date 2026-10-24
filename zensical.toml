@@ -7,7 +7,7 @@
     repo_url  = "https://github.com/natelandau/valentina-noir"
     site_dir  = "_site"
     site_name = "Valentina Noir"
-    site_url  = "https://valentina-noir.com"
+    site_url  = "https://docs.valentina-noir.com"
 
     # IMPORTANT: Do not let the formatter reorder these nav items.
     nav = [
