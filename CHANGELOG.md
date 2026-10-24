@@ -1,3 +1,20 @@
+## v0.29.0 (2026-10-24)
+
+### Feat
+
+- **trackers**: add trait trackers and character health (#169)
+- **dev**: give each worktree its own database, redis, and port
+- **traits**: add ability specialties with an optional xp cost (#168)
+
+### Fix
+
+- **traits**: enforce unique nameless trait powers per level
+- add missing postgres healthcheck to compose-db.yml (#162)
+
+### Refactor
+
+- **dev**: overhaul local development tasks
+
 ## v0.28.0 (2026-08-03)
 
 ### BREAKING CHANGE
