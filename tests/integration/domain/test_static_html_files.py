@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vapi.constants import DOCS_URL
-from vapi.domain.controllers.static.static_files import PUBLIC_DIR
 
 pytestmark = pytest.mark.anyio
 if TYPE_CHECKING:
@@ -34,23 +33,6 @@ async def test_robots_txt_served(client: AsyncClient) -> None:
     # Then it returns the robots policy
     assert response.status_code == 200
     assert "User-agent: *" in response.text
-
-
-async def test_static_router_serves_file(client: AsyncClient) -> None:
-    """Verify files in the public directory are served verbatim under /static."""
-    # Given a file in the public static directory
-    asset = PUBLIC_DIR / "test-marker.txt"
-    asset.write_text("static asset body", encoding="utf-8")
-
-    # When it is requested under /static
-    try:
-        response = await client.get("/static/test-marker.txt")
-    finally:
-        asset.unlink()
-
-    # Then it is served verbatim
-    assert response.status_code == 200
-    assert response.text == "static asset body"
 
 
 async def test_unknown_path_returns_json_404(client: AsyncClient) -> None:

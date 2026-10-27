@@ -36,16 +36,19 @@ def robots_txt() -> Response[str]:
     return Response(content=_ROBOTS_TXT, media_type=MediaType.TEXT)
 
 
-# Scope static asset serving to /static/ so unknown paths fall through to the standard JSON
-# 404 instead of every junk path being treated as a static-file lookup.
-_static_files_router = create_static_files_router(
-    path="/static",
-    directories=[PUBLIC_DIR],
-    include_in_schema=False,
-    opt={"exclude_from_auth": True},
-)
+def create_public_files_router(directory: Path) -> Router:
+    """Build the router that serves the files in `directory` verbatim under /static."""
+    # Scope static asset serving to /static/ so unknown paths fall through to the standard JSON
+    # 404 instead of every junk path being treated as a static-file lookup.
+    return create_static_files_router(
+        path="/static",
+        directories=[directory],
+        include_in_schema=False,
+        opt={"exclude_from_auth": True},
+    )
+
 
 static_router = Router(
     path="/",
-    route_handlers=[homepage, robots_txt, _static_files_router],
+    route_handlers=[homepage, robots_txt, create_public_files_router(PUBLIC_DIR)],
 )
