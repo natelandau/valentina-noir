@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from tortoise import Tortoise
 
 from vapi.lib.database import tortoise_config
+from vapi.lib.reference_data import warn_if_reference_data_stale
 
 logger = logging.getLogger("vapi")
 
@@ -26,6 +27,7 @@ async def tortoise_lifespan(_app: object) -> AsyncGenerator[None]:
     """
     await Tortoise.init(config=tortoise_config(), _enable_global_fallback=True)
     logger.info("PostgreSQL database initialized", extra={"component": "database"})
+    await warn_if_reference_data_stale()
     try:
         yield
     finally:

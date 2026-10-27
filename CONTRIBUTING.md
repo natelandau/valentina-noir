@@ -50,9 +50,8 @@ The app needs PostgreSQL and Redis. The quickest way to get both is the bundled 
    VAPI_REDIS__URL=redis://:redispassword@localhost:6379/0
    ```
 
-3. Apply the database migrations to create the schema: `duty migrate`
-4. Seed the reference data (traits, concepts, clans, and similar constants): `duty seed`
-5. Optional: fill the database with believable test data (companies, users of every role, campaigns, characters, dice rolls, and more): `duty populate`. This drops, recreates, and reseeds the database, then generates the test data. It prints generated API keys to the console and writes them to `.dev/api_keys.txt`.
+3. Apply the database migrations and seed the reference data (traits, concepts, clans, and similar constants): `duty migrate`
+4. Optional: fill the database with believable test data (companies, users of every role, campaigns, characters, dice rolls, and more): `duty populate`. This drops, recreates, and reseeds the database, then generates the test data. It prints generated API keys to the console and writes them to `.dev/api_keys.txt`.
 
 ## Running the development server
 
@@ -62,7 +61,7 @@ Start the local development server with a live reload watcher on `src/`:
 duty run
 ```
 
-`duty run` first starts the PostgreSQL and Redis containers if they are not already running and waits until PostgreSQL is healthy. Then it applies any pending migrations and starts the server. To start only the containers, run `duty db-up`.
+`duty run` first starts the PostgreSQL and Redis containers if they are not already running and waits until PostgreSQL is healthy. Then it applies any pending migrations, seeds the reference data, and starts the server. To start only the containers, run `duty db-up`.
 
 For the full stack (API, PostgreSQL, and Redis) entirely in Docker, use `duty stack`. This wraps `docker compose up --build`. Always let it rebuild: a plain `docker compose up` can serve stale code against a database whose schema has already moved on.
 
@@ -81,7 +80,7 @@ This command does these steps:
 1. Creates `.worktrees/my-feature` on a new branch `my-feature`, started from the current commit.
 2. Copies `.env.secret` (and `CLAUDE.local.md`, if you have one) from the main checkout.
 3. Creates a PostgreSQL database for the worktree as a copy of the main checkout's database, and gives the worktree its own Redis database and API port. It writes all three to the worktree's `.env.secret`.
-4. Installs the dependencies in the worktree and applies its migrations.
+4. Installs the dependencies in the worktree, applies its migrations, and seeds the reference data.
 5. Deletes the databases of worktrees that no longer exist.
 
 Then start the API from inside the worktree. It runs the worktree's code against the worktree's database, on the port that `duty worktree` printed:
@@ -113,7 +112,7 @@ We use [Duty](https://pawamoy.github.io/duty/) as the task runner. Run `duty --l
 | Task                     | What it does                                                                    |
 | ------------------------ | ------------------------------------------------------------------------------- |
 | `duty dev-setup`         | Install dependencies and git hooks, create `.env.secret`, then migrate and seed |
-| `duty run`               | Start the database containers if needed, apply migrations, then run the server  |
+| `duty run`               | Start the database containers if needed, migrate and seed, then run the server  |
 | `duty stack`             | Build and run the full stack (API, PostgreSQL, Redis) in Docker                 |
 | `duty docs`              | Serve the documentation site at `http://localhost:8100` with live reload        |
 | `duty lint`              | Run all linters (ruff, ty, typos, prek hooks)                                   |
@@ -126,7 +125,7 @@ We use [Duty](https://pawamoy.github.io/duty/) as the task runner. Run `duty --l
 | `duty db-logs`           | Follow the PostgreSQL and Redis container logs                                  |
 | `duty psql`              | Open a `psql` shell in the PostgreSQL container                                 |
 | `duty redis-cli`         | Open a `redis-cli` shell in the Redis container                                 |
-| `duty migrate`           | Apply pending database migrations                                               |
+| `duty migrate`           | Apply pending database migrations, then seed the reference data                 |
 | `duty makemigrations`    | Generate migration files from model changes                                     |
 | `duty seed`              | Seed the database with reference data                                           |
 | `duty populate`          | Reset the database and fill it with varied test data                            |
@@ -277,7 +276,7 @@ Your database schema is behind the current models. Apply the pending migrations:
 duty migrate
 ```
 
-If you also need the reference data, follow up with `duty seed`. To start completely fresh, run `duty reset`.
+This also seeds the reference data. To start completely fresh, run `duty reset`.
 
 ### prek hooks didn't run on commit or push
 

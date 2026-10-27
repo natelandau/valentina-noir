@@ -29,8 +29,8 @@ duty db-down                  # Stop the containers, keeping their data
 duty db-logs                  # Follow container logs
 duty psql                     # psql shell in the PostgreSQL container
 duty redis-cli                # redis-cli shell in the Redis container
-duty migrate                  # Apply pending database migrations
-duty seed                     # Seed reference data (traits, concepts, etc.)
+duty migrate                  # Apply pending database migrations, then seed reference data
+duty seed                     # Re-seed reference data (traits, concepts, etc.) without migrating
 duty makemigrations           # Generate migration files from model changes
 duty populate                 # Delete existing data and populate with test data
 duty reset                    # Drop, recreate, and seed the database without test data

@@ -17,6 +17,7 @@ from vapi.cli.lib.fixture_syncer import (
 from vapi.cli.lib.gift_syncer import resolve_gift_trait_references
 from vapi.cli.lib.runner import run_with_tortoise
 from vapi.cli.lib.trait_syncer import TraitSyncer
+from vapi.lib.reference_data import record_reference_data_seed
 
 logger = logging.getLogger("vapi")
 
@@ -36,11 +37,12 @@ async def seed_async() -> None:
         await resolve_gift_trait_references(gift_fixture_map=trait_syncer.gift_fixture_map)
         await CharacterConceptSyncer().sync()
         await DictionaryService().sync_all()
+        await record_reference_data_seed()
 
 
 @click.command(
     name="seed",
-    help="Seed the database with reference data. Run after migrations when fixture data changes.",
+    help="Seed the database with reference data. `app migrate` also runs this after migrating.",
 )
 def seed() -> None:
     """Seed everything."""

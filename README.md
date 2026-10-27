@@ -40,16 +40,18 @@ These variables are used by the container entrypoint and are also available in `
 | ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PUID`                         | `1000`  | UID for the application user inside the container                                                                                                                                     |
 | `PGID`                         | `1000`  | GID for the application user inside the container                                                                                                                                     |
-| `VAPI_DOCKER_MIGRATE`          | `false` | Set to `true` to run database migrations on startup                                                                                                                                   |
-| `VAPI_DOCKER_SEED`             | `false` | Set to `true` to seed reference data on startup                                                                                                                                       |
+| `VAPI_DOCKER_MIGRATE`          | `false` | Set to `true` to run database migrations and seed reference data on startup                                                                                                           |
+| `VAPI_DOCKER_SEED`             | `false` | Set to `true` to seed reference data on startup without migrating. Has no effect when `VAPI_DOCKER_MIGRATE` is `true`, which already seeds                                       |
 | `VAPI_APIUSER_USERNAME`        |         | Username for a developer account created on startup                                                                                                                                   |
 | `VAPI_APIUSER_EMAIL`           |         | Email for the developer account                                                                                                                                                       |
 | `VAPI_APIUSER_IS_GLOBAL_ADMIN` | `false` | Set to `true` to grant global admin to the startup developer                                                                                                                          |
 | `VAPI_DOCKER_RESTORE`          | `false` | Set to `true` to restore the database from the most recent S3 backup on startup. Don't forget to set `VAPI_DOCKER_MIGRATE=true` to bring the schema up to date with the current code. |
 
-Run the seed after every migration. Some migrations add reference-data columns that only the seed fills in. For example, migration `0024` adds tracker types to traits, and traits return `tracker: null` until a seed runs. The seed runs in one transaction, so a failed seed leaves the reference data unchanged.
+`app migrate` applies pending migrations and then seeds the reference data. Some migrations add reference-data columns that only the seed fills in, so the two always run together. The seed is idempotent and runs in one transaction, so a failed seed leaves the reference data unchanged and `app migrate` exits with an error. `app seed` still exists to re-seed without migrating.
 
-When several replicas share one database, run migrate and seed once per deploy rather than in every container. A pre-deploy command such as `sh -c 'app migrate && app seed'` does this, with `VAPI_DOCKER_MIGRATE` and `VAPI_DOCKER_SEED` left `false`. A failed pre-deploy command stops the deploy, and restarts never re-run it.
+Each seed records a fingerprint of the fixture files and migrations it ran against. At startup the server compares that fingerprint with its own build and logs an error when they differ, for example after deploying new code without running `app migrate`. The server still starts, but reference fields such as trait trackers can be missing until `app migrate` runs.
+
+When several replicas share one database, run migrate and seed once per deploy rather than in every container. A pre-deploy command such as `app migrate` does this, with `VAPI_DOCKER_MIGRATE` and `VAPI_DOCKER_SEED` left `false`. A failed pre-deploy command stops the deploy, and restarts never re-run it.
 
 Set `PUID` and `PGID` to match the host user's UID/GID when using bind-mounted volumes to avoid permission issues. Find your UID and GID with:
 

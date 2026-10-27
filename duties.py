@@ -341,7 +341,7 @@ def redis_cli(ctx: Context) -> None:
 
 @duty(pre=[db_up])
 def migrate(ctx: Context) -> None:
-    """Apply pending database migrations."""
+    """Apply pending database migrations, then seed reference data."""
     ctx.run("uv run app migrate", title="apply database migrations", capture=False)
 
 
@@ -395,7 +395,6 @@ def dev_setup(ctx: Context) -> None:
         return
 
     migrate(ctx)
-    seed(ctx)
     console.print(
         """
 ✓ Development environment setup complete.

@@ -11,6 +11,8 @@ from tortoise.migrations.api import migrate as tortoise_migrate
 from tortoise.migrations.loader import MigrationLoader
 from tortoise.migrations.recorder import MigrationRecorder
 
+from vapi.cli.lib.runner import run_with_tortoise
+from vapi.cli.seed import seed_async
 from vapi.lib.database import install_schema_extras, tortoise_config
 
 logger = logging.getLogger("vapi")
@@ -79,12 +81,18 @@ async def _apply_migrations() -> None:
 
 @click.command(
     name="migrate",
-    help="Apply pending database migrations.",
+    help="Apply pending database migrations, then seed reference data.",
 )
 def migrate() -> None:
-    """Apply all pending database migrations."""
+    """Apply all pending database migrations, then seed reference data.
+
+    Migrations can add reference-data columns that only the seed fills in, so a migrated
+    database is never correct until a seed runs. Seeding here makes that impossible to skip.
+    """
     asyncio.run(_apply_migrations())
     click.echo("Migrations applied successfully.")
+    run_with_tortoise(seed_async())
+    click.echo("Reference data seeded successfully.")
 
 
 @click.command(

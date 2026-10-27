@@ -35,14 +35,12 @@ if [[ "${VAPI_DOCKER_RESTORE:-}" == "true" ]]; then
     gosu appuser app restore --yes
 fi
 
-# Optional: run database migrations
+# Optional: run database migrations. `app migrate` also seeds reference data, so a
+# separate seed is only needed when migrations are skipped.
 if [[ "${VAPI_DOCKER_MIGRATE:-}" == "true" ]]; then
-    printf "VAPI_DOCKER_MIGRATE is set to true - running migrations\n"
+    printf "VAPI_DOCKER_MIGRATE is set to true - running migrations and seeding reference data\n"
     gosu appuser app migrate
-fi
-
-# Optional: seed reference data
-if [[ "${VAPI_DOCKER_SEED:-}" == "true" ]]; then
+elif [[ "${VAPI_DOCKER_SEED:-}" == "true" ]]; then
     printf "VAPI_DOCKER_SEED is set to true - seeding reference data\n"
     gosu appuser app seed
 fi

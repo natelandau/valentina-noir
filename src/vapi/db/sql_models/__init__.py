@@ -19,5 +19,6 @@ from vapi.db.sql_models.diceroll import *  # noqa: F403
 from vapi.db.sql_models.dictionary import *  # noqa: F403
 from vapi.db.sql_models.notes import *  # noqa: F403
 from vapi.db.sql_models.quickroll import *  # noqa: F403
+from vapi.db.sql_models.reference_data import *  # noqa: F403
 from vapi.db.sql_models.signals import *  # noqa: F403
 from vapi.db.sql_models.user import *  # noqa: F403

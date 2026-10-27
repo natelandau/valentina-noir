@@ -48,6 +48,7 @@ EXPECTED_TABLES = [
     "mage_attributes",
     "note",
     "quick_roll",
+    "reference_data_seed",
     "s3_asset",
     "specialty",
     "trait",
