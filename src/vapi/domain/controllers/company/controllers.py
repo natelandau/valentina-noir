@@ -10,6 +10,7 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
+from tortoise.transactions import in_transaction
 
 from vapi.constants import (
     CompanyPermission,
@@ -158,39 +159,41 @@ class CompanyController(Controller):
         self, request: Request, requesting_developer: Developer, data: CompanyCreate
     ) -> NewCompanyCreateResponse:
         """Create a company with an admin user and owner permission for the requesting developer."""
-        company = await Company.create(
-            name=data.name,
-            description=data.description,
-            email=data.email,
-        )
+        # Every company must have a settings row; reads assume it exists.
+        async with in_transaction():
+            company = await Company.create(
+                name=data.name,
+                description=data.description,
+                email=data.email,
+            )
 
-        settings_kwargs: dict = {}
-        if data.settings is not None:
-            settings_kwargs = {
-                "character_autogen_xp_cost": data.settings.character_autogen_xp_cost,
-                "character_autogen_num_choices": data.settings.character_autogen_num_choices,
-                "character_autogen_starting_points": data.settings.character_autogen_starting_points,
-                "permission_manage_campaign": data.settings.permission_manage_campaign,
-                "permission_manage_npc": data.settings.permission_manage_npc,
-                "permission_grant_xp": data.settings.permission_grant_xp,
-                "permission_free_trait_changes": data.settings.permission_free_trait_changes,
-                "permission_recoup_xp": data.settings.permission_recoup_xp,
-                "specialty_xp_cost_enabled": data.settings.specialty_xp_cost_enabled,
-            }
-        await CompanySettings.create(company=company, **settings_kwargs)
+            settings_kwargs: dict = {}
+            if data.settings is not None:
+                settings_kwargs = {
+                    "character_autogen_xp_cost": data.settings.character_autogen_xp_cost,
+                    "character_autogen_num_choices": data.settings.character_autogen_num_choices,
+                    "character_autogen_starting_points": data.settings.character_autogen_starting_points,
+                    "permission_manage_campaign": data.settings.permission_manage_campaign,
+                    "permission_manage_npc": data.settings.permission_manage_npc,
+                    "permission_grant_xp": data.settings.permission_grant_xp,
+                    "permission_free_trait_changes": data.settings.permission_free_trait_changes,
+                    "permission_recoup_xp": data.settings.permission_recoup_xp,
+                    "specialty_xp_cost_enabled": data.settings.specialty_xp_cost_enabled,
+                }
+            await CompanySettings.create(company=company, **settings_kwargs)
 
-        await DeveloperCompanyPermission.create(
-            developer_id=requesting_developer.id,
-            company=company,
-            permission=CompanyPermission.OWNER,
-        )
+            await DeveloperCompanyPermission.create(
+                developer_id=requesting_developer.id,
+                company=company,
+                permission=CompanyPermission.OWNER,
+            )
 
-        admin_user = await User.create(
-            username=requesting_developer.username,
-            email=requesting_developer.email,
-            role=UserRole.ADMIN,
-            company=company,
-        )
+            admin_user = await User.create(
+                username=requesting_developer.username,
+                email=requesting_developer.email,
+                role=UserRole.ADMIN,
+                company=company,
+            )
 
         company = await annotate_company_counts(
             Company.filter(id=company.id).prefetch_related("settings")
