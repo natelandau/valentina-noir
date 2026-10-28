@@ -258,7 +258,7 @@ async def _verify_oidc_token(
             key=public_key,
             algorithms=["RS256"],
             audience=audiences,
-            options={"verify_iss": False, "require": ["sub"]},
+            options={"verify_iss": False, "require": ["sub", "exp", "iat"]},
         )
     except jwt.InvalidTokenError as e:
         raise UnprocessableEntityError(

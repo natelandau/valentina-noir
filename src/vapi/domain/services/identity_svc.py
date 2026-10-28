@@ -114,7 +114,9 @@ class IdentityService:
             matches = await User.filter(
                 company_id=company.id, email__iexact=identity.email, is_archived=False
             )
-            if len(matches) == 1:
+            # A match that already holds a different identity from this provider is a
+            # different account, so create instead of overwriting that identity
+            if len(matches) == 1 and not getattr(matches[0], profile_field):
                 user = matches[0]
                 setattr(user, profile_field, identity.profile)
                 await user.save()

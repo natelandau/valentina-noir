@@ -104,6 +104,28 @@ class TestResolve:
         persisted = await User.get(id=resolved.id)
         assert persisted.apple_profile["id"] == "apple-sub-001"
 
+    async def test_auto_link_never_replaces_other_identity_from_same_provider(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify auto-link does not overwrite a different identity from the same provider."""
+        # Given a user with the same email who already holds a different apple identity
+        company = await company_factory()
+        user = await user_factory(
+            company=company,
+            email="person@example.com",
+            apple_profile={"id": "apple-sub-other", "email": "person@example.com"},
+        )
+
+        # When a new apple identity with that email is resolved
+        resolved, resolution, _ = await IdentityService().resolve(
+            company=company, identity=_identity()
+        )
+
+        # Then a new user is created and the existing identity is untouched
+        assert resolution == IdentityResolution.CREATED
+        assert resolved.id != user.id
+        assert (await User.get(id=user.id)).apple_profile["id"] == "apple-sub-other"
+
     async def test_unverified_email_does_not_link(
         self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
     ) -> None:
