@@ -13,7 +13,12 @@ wheels/
 .cache/
 .dev/
 tmp/
+.env
+.env.local
 .env.secret*
+*.pem
+*.key
+secrets/
 tmp.py
 bruno/
 _site/

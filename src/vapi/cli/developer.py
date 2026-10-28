@@ -79,12 +79,13 @@ async def _create_developer(*, email: str, username: str, global_admin: bool) ->
             "database_id": str(new_developer.id),
             "email": new_developer.email,
             "username": new_developer.username,
-            "api_key": api_key,
             "is_global_admin": new_developer.is_global_admin,
             "component": "cli",
             "command": "developer create",
         },
     )
+    # Print rather than log so the key never reaches log files or the server-log endpoints
+    click.echo(f"API key: {api_key}")
 
 
 @developer_group.command(name="create", help="Create a Developer")

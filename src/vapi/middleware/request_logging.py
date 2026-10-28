@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+import msgspec
 from litestar.constants import HTTP_RESPONSE_BODY, HTTP_RESPONSE_START
 from litestar.middleware.logging import (
     LoggingMiddleware,
@@ -87,6 +88,38 @@ _RESPONSE_OUTPUT_NAMES = {
     for name, target in LOG_FIELD_TARGETS.items()
     if target == "response"
 }
+
+
+# Body keys that carry credentials, such as identity-provider tokens on identify and link
+_REDACTED_BODY_KEYS = frozenset({"token", "id_token", "access_token", "api_key", "password"})
+_REDACTED = "********"
+
+
+def _redact_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of a request body with credential values masked for logging."""
+    return {
+        key: _REDACTED if key.lower() in _REDACTED_BODY_KEYS else value
+        for key, value in body.items()
+    }
+
+
+def _redact_request_body(body: object) -> object:
+    """Mask credentials in a logged request body, whether parsed or raw.
+
+    Litestar parses the body only for structlog loggers; the stdlib logger receives the raw
+    bytes, so a JSON object body is decoded here before redaction and re-encoded after.
+    """
+    if isinstance(body, dict):
+        return _redact_body(body)
+    if isinstance(body, bytes | str) and body:
+        try:
+            decoded = msgspec.json.decode(body)
+        except msgspec.DecodeError:
+            return body
+        if isinstance(decoded, dict):
+            redacted = msgspec.json.encode(_redact_body(decoded))
+            return redacted if isinstance(body, bytes) else redacted.decode()
+    return body
 
 
 # Scope fields read by a plain state lookup; the attribute-derived ones
@@ -169,6 +202,10 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             request_values = {
                 _REQUEST_OUTPUT_NAMES.get(key, key): value for key, value in extracted.items()
             }
+            if "request_body" in request_values:
+                request_values["request_body"] = _redact_request_body(
+                    request_values["request_body"]
+                )
 
         connection_state = ScopeState.from_scope(scope)
         status_code = 200

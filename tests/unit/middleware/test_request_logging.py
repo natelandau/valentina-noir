@@ -25,6 +25,8 @@ from vapi.middleware.request_logging import (
     CombinedLoggingMiddlewareConfig,
     _extract_scope_log_fields,
     _level_for_status,
+    _redact_body,
+    _redact_request_body,
     _render_value,
 )
 
@@ -605,3 +607,43 @@ def test_streaming_response_logs_single_entry() -> None:
     # Then exactly one entry is emitted despite the multiple body chunks
     entries = [message for message in messages if "path=/stream" in message]
     assert len(entries) == 1
+
+
+def test_redact_body_masks_credentials() -> None:
+    """Verify credential values in a logged request body are masked and other fields kept."""
+    # Given an identify request body
+    body = {"provider": "google", "token": "fake-id-token", "email": "a@example.com"}
+
+    # When redacting it
+    redacted = _redact_body(body)
+
+    # Then only the token is masked
+    assert redacted["token"] != body["token"]
+    assert redacted["provider"] == "google"
+    assert redacted["email"] == "a@example.com"
+
+
+def test_redact_request_body_masks_raw_json_bytes() -> None:
+    """Verify a raw JSON body, as the stdlib logger receives it, has credentials masked."""
+    # Given the raw bytes of an identify request body
+    body = b'{"provider": "google", "token": "fake-id-token"}'
+
+    # When redacting it
+    redacted = _redact_request_body(body)
+
+    # Then the token is masked and the other fields are kept
+    assert isinstance(redacted, bytes)
+    assert b"fake-id-token" not in redacted
+    assert b"google" in redacted
+
+
+def test_redact_request_body_keeps_non_json_bytes() -> None:
+    """Verify a body that is not a JSON object is logged unchanged."""
+    # Given a multipart body
+    body = b"--boundary\r\ncontent"
+
+    # When redacting it
+    redacted = _redact_request_body(body)
+
+    # Then it is unchanged
+    assert redacted == body

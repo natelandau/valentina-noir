@@ -13,12 +13,18 @@ pytestmark = pytest.mark.anyio
 class TestCreateDeveloper:
     """Integration tests for _create_developer."""
 
-    async def test_creates_new_developer_with_api_key(self) -> None:
+    async def test_creates_new_developer_with_api_key(
+        self, capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Verify a brand-new developer is created and issued an API key."""
         # Given: no developer with this identity exists
 
         # When: creating a developer
         await _create_developer(email="brand@new.com", username="brand-new", global_admin=False)
+
+        # Then: the key is printed to stdout and never attached to a log record
+        assert "API key: " in capsys.readouterr().out
+        assert not any(hasattr(record, "api_key") for record in caplog.records)
 
         # Then: the developer exists with a hashed API key stored
         dev = await Developer.get_or_none(email="brand@new.com")
