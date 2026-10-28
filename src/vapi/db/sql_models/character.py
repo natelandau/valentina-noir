@@ -232,10 +232,7 @@ class CharacterHealth(BaseModel):
     )
     size = fields.IntField(default=0)
     extra_levels = fields.IntField(default=0)
-    bashing = fields.IntField(default=0)
-    lethal = fields.IntField(default=0)
-    superficial = fields.IntField(default=0)
-    aggravated = fields.IntField(default=0)
+    damage = fields.IntField(default=0, db_default=0)
 
     class Meta:
         """Tortoise ORM meta options."""
@@ -254,8 +251,6 @@ class CharacterTrait(BaseModel):
     )
     value = fields.IntField(default=0)
     tracker_spent = fields.IntField(default=0, db_default=0)
-    tracker_superficial = fields.IntField(default=0, db_default=0)
-    tracker_aggravated = fields.IntField(default=0, db_default=0)
     tracker_stains = fields.IntField(default=0, db_default=0)
 
     specialties: fields.ReverseRelation[CharacterTraitSpecialty]

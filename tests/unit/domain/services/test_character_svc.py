@@ -680,16 +680,16 @@ class TestCreateTraitsWithTrackers:
             CharacterTraitCreate(trait_id=composure.id, value=2),
             CharacterTraitCreate(trait_id=resolve.id, value=3),
             CharacterTraitCreate(
-                trait_id=willpower.id, value=0, tracker=TrackerStateSet(superficial=2, aggravated=1)
+                trait_id=willpower.id, value=0, tracker=TrackerStateSet(current=3)
             ),
         ]
 
         # When creating the traits
         await CharacterService().character_create_trait_to_character_traits(character, data)
 
-        # Then the damage track is stored on the computed Willpower
+        # Then the counter is stored on the computed Willpower
         row = await CharacterTrait.get(character_id=character.id, trait_id=willpower.id)
-        assert (row.value, row.tracker_superficial, row.tracker_aggravated) == (5, 2, 1)
+        assert (row.value, row.tracker_spent) == (5, 2)
 
     async def test_create_trait_applies_tracker_to_v4_willpower(
         self,
@@ -750,54 +750,37 @@ class TestCreateWithHealth:
             character, [CharacterTraitCreate(trait_id=stamina.id, value=3)]
         )
 
-        # When initializing with 2 superficial and 1 aggravated damage
+        # When initializing with 3 damage
         await TrackerService().initialize_character(
-            character=character, health=HealthStateSet(superficial=2, aggravated=1)
+            character=character, health=HealthStateSet(damage=3)
         )
 
-        # Then the single health row is sized 6 and carries the marks
+        # Then the single health row is sized 6 and carries the damage
         rows = await CharacterHealth.filter(character_id=character.id)
-        assert [(r.size, r.superficial, r.aggravated) for r in rows] == [(6, 2, 1)]
+        assert [(r.size, r.damage) for r in rows] == [(6, 3)]
 
     async def test_create_character_health_marks_over_size_rejected(
         self,
         character_factory: "Callable[..., Any]",
     ) -> None:
-        """Verify marks over the computed size are rejected."""
+        """Verify damage over the computed size is rejected."""
         # Given a V5 character with no Stamina (size 3)
         character = await character_factory(
             game_version="V5", character_class="MORTAL", health=False
         )
 
-        # When initializing with 4 superficial marks
+        # When initializing with 4 damage
         # Then a ValidationError is raised
         with pytest.raises(ValidationError, match="at most"):
             await TrackerService().initialize_character(
-                character=character, health=HealthStateSet(superficial=4)
-            )
-
-    async def test_create_character_health_field_for_wrong_version_rejected(
-        self,
-        character_factory: "Callable[..., Any]",
-    ) -> None:
-        """Verify a V4-only health field on a V5 character is rejected."""
-        # Given a V5 character
-        character = await character_factory(
-            game_version="V5", character_class="MORTAL", health=False
-        )
-
-        # When initializing with bashing damage
-        # Then a ValidationError is raised
-        with pytest.raises(ValidationError, match="does not apply"):
-            await TrackerService().initialize_character(
-                character=character, health=HealthStateSet(bashing=1)
+                character=character, health=HealthStateSet(damage=4)
             )
 
     async def test_create_trait_tracker_over_size_rejected(
         self,
         character_factory: "Callable[..., Any]",
     ) -> None:
-        """Verify tracker marks over the computed Willpower are rejected."""
+        """Verify a counter above the computed Willpower is rejected."""
         # Given a V5 character with Composure 1 and Resolve 1 (Willpower 2)
         character = await character_factory(game_version="V5", character_class="MORTAL")
         composure = await Trait.get(name="Composure", custom_for_character_id=None)
@@ -806,7 +789,7 @@ class TestCreateWithHealth:
         data = [
             CharacterTraitCreate(trait_id=composure.id, value=1),
             CharacterTraitCreate(trait_id=resolve.id, value=1),
-            CharacterTraitCreate(trait_id=willpower.id, tracker=TrackerStateSet(superficial=3)),
+            CharacterTraitCreate(trait_id=willpower.id, tracker=TrackerStateSet(current=3)),
         ]
 
         # When creating the traits

@@ -122,11 +122,10 @@ Retrieve the in-play tracker state of a character trait, such as Willpower, Huma
 
 The `type` field says which shape the response has:
 
-- `COUNTER`: `size` and `current`, for pools that are spent and regained
-- `DAMAGE`: a damage track with `size`, `superficial`, `aggravated`, and `boxes`
-- `STAINS`: Humanity with `stains`, the Humanity track, and `is_impaired`
+- `COUNTER`: `size` and `current`, for pools that are spent and regained, such as Willpower and Humanity
+- `STAINS`: V5 vampire Humanity with `humanity`, `stain_capacity`, and `stains`
 
-Which trackers a trait has depends on the character's game version. Returns 404 with "Trait has no tracker" when the trait has none for that version, and for custom traits.
+Which trackers a trait has depends on the character's game version, and Humanity also depends on the class: V5 vampires track stains, every other character uses a counter. Returns 404 with "Trait has no tracker" when the trait has none for that version, and for custom traits.
 """
 
 SET_TRAIT_TRACKER_DESCRIPTION = """\
@@ -135,11 +134,10 @@ Set a trait tracker's full state in one request.
 Send only the fields that match the tracker's `type`:
 
 - `COUNTER`: `current` (required, from 0 up to the trait value)
-- `DAMAGE`: `superficial` and `aggravated` (together at most the trait value)
 - `STAINS`: `stains` (at most the Humanity track size)
 
 **Returns 400 when:**
-- A field does not apply to the tracker type
+- A field does not apply to the tracker type, or the body has any other field
 - A required field is missing
 - A value is negative or exceeds the limits above
 
@@ -154,18 +152,13 @@ Apply one in-play action to a trait tracker.
 **Body fields:**
 - `action`: The action to apply (see below)
 - `amount`: How much to change, at least 1 (default 1)
-- `damage_type`: Required for `damage` and `heal`, and not accepted for other actions
 
 **Actions by tracker type:**
 - `COUNTER`: `spend`, `gain`, `reset`
-- `DAMAGE`: `damage`, `heal`, `reset`
 - `STAINS`: `add_stain`, `remove_stain`, `reset`
-
-Stains that overflow the Humanity track are dealt as aggravated damage to Willpower. The response reports this in `willpower_damage_applied`.
 
 **Returns 400 when:**
 - The action is not accepted for the tracker type or game version
-- `damage_type` is missing, not accepted, or sent with an action that takes none
 - A `spend` is larger than the current value
 
 Returns 404 when the trait has no tracker for the character's game version.

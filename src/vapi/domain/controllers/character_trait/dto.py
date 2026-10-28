@@ -6,17 +6,15 @@ from uuid import UUID
 import msgspec
 
 from vapi.constants import (
-    DamageType,
-    GameVersion,
     TrackerAction,
     TrackerType,
     TraitModifyCurrency,
 )
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
-from vapi.lib.tracker_rules import HUMANITY_BOXES, DamageMarks, damage_track_fields
+from vapi.lib.tracker_rules import HUMANITY_BOXES, resolve_tracker_type
 
 if TYPE_CHECKING:
-    from vapi.db.sql_models.character import CharacterTrait, CharacterTraitSpecialty
+    from vapi.db.sql_models.character import Character, CharacterTrait, CharacterTraitSpecialty
     from vapi.db.sql_models.character_sheet import Trait
 
 
@@ -73,19 +71,17 @@ class TrackerActionRequest(msgspec.Struct):
 
     action: TrackerAction
     amount: Annotated[int, msgspec.Meta(ge=1)] = 1
-    damage_type: DamageType | None = None
 
 
-class TrackerStateSet(msgspec.Struct):
+class TrackerStateSet(msgspec.Struct, forbid_unknown_fields=True):
     """Request body for setting a trait tracker's full state.
 
-    Only the fields for the tracker's type are accepted: ``current`` for counters,
-    ``superficial`` and ``aggravated`` for damage tracks, ``stains`` for stains.
+    Only the field for the tracker's type is accepted: ``current`` for counters and
+    ``stains`` for stains. Unknown fields are rejected so that a stale or misspelled key
+    fails instead of being dropped.
     """
 
     current: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    superficial: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    aggravated: Annotated[int, msgspec.Meta(ge=0)] | None = None
     stains: Annotated[int, msgspec.Meta(ge=0)] | None = None
 
 
@@ -128,14 +124,6 @@ def active_specialties(ct: "CharacterTrait") -> list["CharacterTraitSpecialty"]:
     )
 
 
-class HealthLevelResponse(msgspec.Struct):
-    """One V4 health level with its dice penalty and the damage marked on it."""
-
-    name: str
-    penalty: int | None
-    mark: DamageType | None
-
-
 class CounterTrackerResponse(msgspec.Struct, tag_field="type", tag="COUNTER"):
     """A trait whose current value is spent and regained in play."""
 
@@ -143,85 +131,66 @@ class CounterTrackerResponse(msgspec.Struct, tag_field="type", tag="COUNTER"):
     current: int
 
 
-class DamageTrackResponse(msgspec.Struct, tag_field="type", tag="DAMAGE"):
-    """A damage track: V5 Willpower and Health for both game versions.
-
-    The V4-only fields (bashing, lethal, levels, current_penalty) are ``None`` for V5.
-    """
-
-    size: int
-    superficial: int
-    aggravated: int
-    boxes: list[DamageType | None]
-    is_impaired: bool
-    bashing: int | None = None
-    lethal: int | None = None
-    levels: list[HealthLevelResponse] | None = None
-    current_penalty: int | None = None
-
-
 class StainsTrackerResponse(msgspec.Struct, tag_field="type", tag="STAINS"):
-    """V5 Humanity stains."""
+    """V5 vampire Humanity stains."""
 
     humanity: int
     stain_capacity: int
     stains: int
-    is_impaired: bool
-    willpower_damage_applied: int | None = None
 
 
-TrackerResponse = CounterTrackerResponse | DamageTrackResponse | StainsTrackerResponse
+TrackerResponse = CounterTrackerResponse | StainsTrackerResponse
 
 
-def tracker_type_for(trait: "Trait", *, game_version: GameVersion) -> TrackerType | None:
-    """Return the tracker type a trait has for a game version, ``None`` when it has none.
+def tracker_type_for(trait: "Trait", *, character: "Character") -> TrackerType | None:
+    """Return the tracker type a trait has for a character, ``None`` when it has none.
 
-    Custom traits never have a tracker.
+    The character's game version picks the trait's configured type, and its class decides
+    whether Humanity tracks stains. Custom traits never have a tracker.
     """
     if trait.custom_for_character_id:  # ty:ignore[unresolved-attribute]
         return None
-    if game_version == GameVersion.V4:
-        return trait.tracker_type_v4
-    return trait.tracker_type_v5
+    return resolve_tracker_type(
+        tracker_type_v4=trait.tracker_type_v4,
+        tracker_type_v5=trait.tracker_type_v5,
+        game_version=character.game_version,
+        character_class=character.character_class,
+    )
 
 
-def trait_marks(ct: "CharacterTrait") -> DamageMarks:
-    """Return the damage marks stored on a character trait's tracker."""
-    return DamageMarks(superficial=ct.tracker_superficial, aggravated=ct.tracker_aggravated)
+def tracker_response_for(ct: "CharacterTrait", *, tracker_type: TrackerType) -> TrackerResponse:
+    """Build the tracker state of a character trait whose tracker type is already known.
+
+    Raises:
+        ValueError: If the type is not a trait tracker type.
+    """
+    match tracker_type:
+        case TrackerType.COUNTER:
+            return CounterTrackerResponse(
+                size=ct.value, current=max(0, ct.value - ct.tracker_spent)
+            )
+        case TrackerType.STAINS:
+            return StainsTrackerResponse(
+                humanity=ct.value,
+                stain_capacity=HUMANITY_BOXES - ct.value,
+                stains=ct.tracker_stains,
+            )
+        case TrackerType.DAMAGE:
+            msg = "DAMAGE is the health track, not a trait tracker"
+            raise ValueError(msg)
 
 
 def build_tracker_response(
-    ct: "CharacterTrait", *, game_version: GameVersion
+    ct: "CharacterTrait", *, character: "Character"
 ) -> TrackerResponse | None:
     """Build the tracker state for a character trait, ``None`` when the trait has no tracker.
 
     Requires the ``trait`` relation to be loaded.
     """
-    match tracker_type_for(ct.trait, game_version=game_version):
-        case TrackerType.COUNTER:
-            return CounterTrackerResponse(
-                size=ct.value, current=max(0, ct.value - ct.tracker_spent)
-            )
-        case TrackerType.DAMAGE:
-            marks = trait_marks(ct)
-            boxes, is_impaired = damage_track_fields(marks=marks, size=ct.value)
-            return DamageTrackResponse(
-                size=ct.value,
-                superficial=marks.superficial,
-                aggravated=marks.aggravated,
-                boxes=boxes,
-                is_impaired=is_impaired,
-            )
-        case TrackerType.STAINS:
-            capacity = HUMANITY_BOXES - ct.value
-            return StainsTrackerResponse(
-                humanity=ct.value,
-                stain_capacity=capacity,
-                stains=ct.tracker_stains,
-                is_impaired=ct.tracker_stains > capacity,
-            )
-        case _:
-            return None
+    tracker_type = tracker_type_for(ct.trait, character=character)
+    if tracker_type is None:
+        return None
+    return tracker_response_for(ct, tracker_type=tracker_type)
 
 
 class CharacterTraitResponse(msgspec.Struct):
@@ -237,16 +206,14 @@ class CharacterTraitResponse(msgspec.Struct):
     date_modified: str
 
     @classmethod
-    def from_model(
-        cls, m: "CharacterTrait", *, game_version: GameVersion
-    ) -> "CharacterTraitResponse":
+    def from_model(cls, m: "CharacterTrait", *, character: "Character") -> "CharacterTraitResponse":
         """Convert a Tortoise CharacterTrait to a response Struct.
 
         Requires prefetch_related(*CHARACTER_TRAIT_PREFETCH).
 
         Args:
             m: The character trait to convert.
-            game_version: The owning character's game version, which picks the tracker.
+            character: The owning character, whose version and class pick the tracker.
         """
         return cls(
             id=m.id,
@@ -256,7 +223,7 @@ class CharacterTraitResponse(msgspec.Struct):
             specialties=[
                 CharacterTraitSpecialtyResponse.from_model(s) for s in active_specialties(m)
             ],
-            tracker=build_tracker_response(m, game_version=game_version),
+            tracker=build_tracker_response(m, character=character),
             date_created=m.date_created.isoformat(),
             date_modified=m.date_modified.isoformat(),
         )

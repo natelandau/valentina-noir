@@ -2,13 +2,13 @@
 
 import pytest
 
-from vapi.constants import DamageType, GameVersion, TrackerAction
+from tests.fixtures import global_trait
+from vapi.constants import CharacterClass, GameVersion, TrackerAction
 from vapi.db.sql_models.character import Character, CharacterHealth, CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.controllers.character_health.dto import HealthStateSet
 from vapi.domain.controllers.character_trait.dto import (
     CounterTrackerResponse,
-    DamageTrackResponse,
     StainsTrackerResponse,
     TrackerActionRequest,
     TrackerStateSet,
@@ -18,10 +18,6 @@ from vapi.domain.services import CharacterTraitService, TrackerService
 from vapi.lib.exceptions import NotFoundError, ValidationError
 
 pytestmark = pytest.mark.anyio
-
-
-async def _global_trait(name: str) -> Trait:
-    return await Trait.get(name=name, custom_for_character_id=None, is_archived=False)
 
 
 async def _character_trait(character: Character, name: str) -> CharacterTrait | None:
@@ -39,7 +35,7 @@ async def test_spend_willpower_v4(character_factory, character_trait_factory) ->
     # Given a V4 character with Willpower 5
     character = await character_factory(game_version=GameVersion.V4)
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=5
+        character=character, trait=await global_trait("Willpower"), value=5
     )
     svc = TrackerService()
 
@@ -58,46 +54,40 @@ async def test_spend_willpower_v4(character_factory, character_trait_factory) ->
     assert svc.audit_changes == {"tracker_spent": {"old": 0, "new": 2}}
 
 
-async def test_damage_v5_willpower(character_factory, character_trait_factory) -> None:
-    """Verify superficial damage marks the V5 Willpower track."""
+async def test_spend_v5_willpower(character_factory, character_trait_factory) -> None:
+    """Verify V5 Willpower is a counter that spends like V4 Willpower."""
     # Given a V5 character with Willpower 4
     character = await character_factory(game_version=GameVersion.V5)
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=4
+        character=character, trait=await global_trait("Willpower"), value=4
     )
-    svc = TrackerService()
 
-    # When taking 2 superficial damage
-    result = await svc.apply_trait_action(
+    # When spending 2
+    result = await TrackerService().apply_trait_action(
         character=character,
         character_trait=ct,
-        data=TrackerActionRequest(
-            action=TrackerAction.DAMAGE, amount=2, damage_type=DamageType.SUPERFICIAL
-        ),
+        data=TrackerActionRequest(action=TrackerAction.SPEND, amount=2),
     )
 
-    # Then two boxes are superficial
+    # Then current is 2 and the row stores 2 spent
     await ct.refresh_from_db()
-    assert isinstance(result, DamageTrackResponse)
-    assert result.superficial == 2
-    assert result.aggravated == 0
-    assert ct.tracker_superficial == 2
-    assert svc.audit_description == (
-        f"Took 2 Superficial damage to Willpower for character '{character.name}'"
-    )
+    assert result == CounterTrackerResponse(size=4, current=2)
+    assert ct.tracker_spent == 2
 
 
-async def test_stains_overflow_damages_willpower(
+async def test_stains_overflow_kept_without_willpower_damage(
     character_factory, character_trait_factory
 ) -> None:
-    """Verify stains beyond capacity deal aggravated damage to V5 Willpower."""
-    # Given a V5 character with Humanity 8 (capacity 2) and Willpower 4
-    character = await character_factory(game_version=GameVersion.V5)
+    """Verify stains beyond capacity are kept and leave Willpower untouched."""
+    # Given a V5 vampire with Humanity 8 (capacity 2) and Willpower 4
+    character = await character_factory(
+        game_version=GameVersion.V5, character_class=CharacterClass.VAMPIRE
+    )
     humanity = await character_trait_factory(
-        character=character, trait=await _global_trait("Humanity"), value=8
+        character=character, trait=await global_trait("Humanity"), value=8
     )
     willpower = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=4
+        character=character, trait=await global_trait("Willpower"), value=4
     )
     svc = TrackerService()
 
@@ -108,45 +98,69 @@ async def test_stains_overflow_damages_willpower(
         data=TrackerActionRequest(action=TrackerAction.ADD_STAIN, amount=3),
     )
 
-    # Then 3 stains record, 1 overflows into aggravated Willpower damage
+    # Then 3 stains record and Willpower is unspent
     await willpower.refresh_from_db()
-    assert isinstance(result, StainsTrackerResponse)
-    assert result.stains == 3
-    assert result.is_impaired is True
-    assert result.willpower_damage_applied == 1
-    assert willpower.tracker_aggravated == 1
-    assert "Willpower" in svc.audit_description
+    assert result == StainsTrackerResponse(humanity=8, stain_capacity=2, stains=3)
+    assert willpower.tracker_spent == 0
+    assert svc.audit_description == (f"Added 3 stains to Humanity for character '{character.name}'")
 
 
-async def test_stains_overflow_without_willpower_row(
-    character_factory, character_trait_factory
+@pytest.mark.parametrize(
+    ("game_version", "character_class"),
+    [
+        (GameVersion.V5, CharacterClass.MORTAL),
+        (GameVersion.V5, CharacterClass.GHOUL),
+        (GameVersion.V5, CharacterClass.HUNTER),
+        (GameVersion.V4, CharacterClass.VAMPIRE),
+        (GameVersion.V4, CharacterClass.MORTAL),
+    ],
+)
+async def test_humanity_is_counter_except_v5_vampire(
+    character_factory, character_trait_factory, game_version, character_class
 ) -> None:
-    """Verify stain overflow records stains when the character has no Willpower."""
-    # Given a V5 character with Humanity 9 and no Willpower row
-    character = await character_factory(game_version=GameVersion.V5)
+    """Verify Humanity spends like Willpower for every character but a V5 vampire."""
+    # Given a character with Humanity 7
+    character = await character_factory(game_version=game_version, character_class=character_class)
     humanity = await character_trait_factory(
-        character=character, trait=await _global_trait("Humanity"), value=9
+        character=character, trait=await global_trait("Humanity"), value=7
     )
 
-    # When adding 2 stains
+    # When spending 1 Humanity
     result = await TrackerService().apply_trait_action(
         character=character,
         character_trait=humanity,
-        data=TrackerActionRequest(action=TrackerAction.ADD_STAIN, amount=2),
+        data=TrackerActionRequest(action=TrackerAction.SPEND),
     )
 
-    # Then the stains record and no Willpower damage is applied
-    await humanity.refresh_from_db()
-    assert isinstance(result, StainsTrackerResponse)
-    assert humanity.tracker_stains == 2
-    assert result.willpower_damage_applied == 0
+    # Then Humanity is a counter with 6 remaining
+    assert result == CounterTrackerResponse(size=7, current=6)
+
+
+async def test_add_stain_rejected_on_humanity_counter(
+    character_factory, character_trait_factory
+) -> None:
+    """Verify a stains action is refused on a non-vampire's Humanity counter."""
+    # Given a V5 mortal with Humanity 7
+    character = await character_factory(game_version=GameVersion.V5)
+    humanity = await character_trait_factory(
+        character=character, trait=await global_trait("Humanity"), value=7
+    )
+
+    # When adding a stain
+    # Then the action is rejected
+    with pytest.raises(ValidationError, match="add_stain"):
+        await TrackerService().apply_trait_action(
+            character=character,
+            character_trait=humanity,
+            data=TrackerActionRequest(action=TrackerAction.ADD_STAIN),
+        )
 
 
 async def test_reset_health(character_factory, character_health_factory) -> None:
     """Verify reset clears every health mark."""
     # Given a V5 character with damaged health
     character = await character_factory(game_version=GameVersion.V5, health=False)
-    await character_health_factory(character=character, size=3, superficial=2, aggravated=1)
+    await character_health_factory(character=character, size=3, damage=3)
     svc = TrackerService()
 
     # When resetting health
@@ -154,17 +168,12 @@ async def test_reset_health(character_factory, character_health_factory) -> None
         character=character, data=TrackerActionRequest(action=TrackerAction.RESET)
     )
 
-    # Then no marks remain
+    # Then no damage remains
     health = await _health(character)
-    assert result.superficial == 0
-    assert result.aggravated == 0
-    assert health.superficial == 0
-    assert health.aggravated == 0
+    assert result.damage == 0
+    assert health.damage == 0
     assert svc.audit_description == f"Reset Health for character '{character.name}'"
-    assert svc.audit_changes == {
-        "superficial": {"old": 2, "new": 0},
-        "aggravated": {"old": 1, "new": 0},
-    }
+    assert svc.audit_changes == {"damage": {"old": 3, "new": 0}}
 
 
 async def test_take_health_damage_audit(character_factory) -> None:
@@ -173,37 +182,34 @@ async def test_take_health_damage_audit(character_factory) -> None:
     character = await character_factory(game_version=GameVersion.V5)
     svc = TrackerService()
 
-    # When taking 2 superficial damage
-    await svc.apply_health_action(
+    # When taking 2 damage
+    result = await svc.apply_health_action(
         character=character,
-        data=TrackerActionRequest(
-            action=TrackerAction.DAMAGE, amount=2, damage_type=DamageType.SUPERFICIAL
-        ),
+        data=TrackerActionRequest(action=TrackerAction.DAMAGE, amount=2),
     )
 
-    # Then the audit names the damage
-    assert svc.audit_description == (
-        f"Took 2 Superficial damage to Health for character '{character.name}'"
-    )
+    # Then the damage is stored and the audit names it
+    assert result.damage == 2
+    assert svc.audit_description == f"Took 2 damage to Health for character '{character.name}'"
 
 
 async def test_set_state_rejects_inapplicable_field(
     character_factory, character_trait_factory
 ) -> None:
-    """Verify a counter state body may not carry damage fields."""
+    """Verify a counter state body may not carry stains."""
     # Given a V4 Willpower counter
     character = await character_factory(game_version=GameVersion.V4)
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=5
+        character=character, trait=await global_trait("Willpower"), value=5
     )
 
-    # When setting a state with a superficial field
+    # When setting a state with a stains field
     # Then it raises a validation error
-    with pytest.raises(ValidationError, match="superficial"):
+    with pytest.raises(ValidationError, match="stains"):
         await TrackerService().set_trait_state(
             character=character,
             character_trait=ct,
-            data=TrackerStateSet(current=3, superficial=1),
+            data=TrackerStateSet(current=3, stains=1),
         )
 
 
@@ -211,19 +217,21 @@ async def test_set_state_rejects_inapplicable_zero_field(
     character_factory, character_trait_factory
 ) -> None:
     """Verify an inapplicable state field is rejected even when it is 0."""
-    # Given a V5 Willpower damage track
-    character = await character_factory(game_version=GameVersion.V5)
+    # Given a V5 vampire's Humanity stains tracker
+    character = await character_factory(
+        game_version=GameVersion.V5, character_class=CharacterClass.VAMPIRE
+    )
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=5
+        character=character, trait=await global_trait("Humanity"), value=7
     )
 
-    # When setting a state with stains 0
+    # When setting a state with current 0
     # Then it raises a validation error
-    with pytest.raises(ValidationError, match="stains"):
+    with pytest.raises(ValidationError, match="current"):
         await TrackerService().set_trait_state(
             character=character,
             character_trait=ct,
-            data=TrackerStateSet(superficial=1, stains=0),
+            data=TrackerStateSet(current=0, stains=1),
         )
 
 
@@ -248,7 +256,7 @@ async def test_bulk_after_save_syncs(character_factory, character_trait_factory)
     # Given a V5 character with Composure 2 and an ability
     character = await character_factory(game_version=GameVersion.V5)
     await character_trait_factory(
-        character=character, trait=await _global_trait("Composure"), value=2
+        character=character, trait=await global_trait("Composure"), value=2
     )
     ability = await Trait.filter(
         sheet_section__name="Abilities", is_archived=False, custom_for_character_id=None
@@ -264,43 +272,12 @@ async def test_bulk_after_save_syncs(character_factory, character_trait_factory)
     assert willpower.value == 2
 
 
-async def test_stains_overflow_skips_save_when_willpower_full(
-    character_factory, character_trait_factory
-) -> None:
-    """Verify overflow onto an all-aggravated Willpower changes nothing."""
-    # Given a V5 Humanity 10 and a Willpower 2 that is fully aggravated
-    character = await character_factory(game_version=GameVersion.V5)
-    humanity = await character_trait_factory(
-        character=character, trait=await _global_trait("Humanity"), value=10
-    )
-    willpower = await character_trait_factory(
-        character=character,
-        trait=await _global_trait("Willpower"),
-        value=2,
-        tracker_aggravated=2,
-    )
-    modified = willpower.date_modified
-
-    # When adding a stain
-    result = await TrackerService().apply_trait_action(
-        character=character,
-        character_trait=humanity,
-        data=TrackerActionRequest(action=TrackerAction.ADD_STAIN),
-    )
-
-    # Then no damage is applied and Willpower is not rewritten
-    await willpower.refresh_from_db()
-    assert isinstance(result, StainsTrackerResponse)
-    assert result.willpower_damage_applied == 0
-    assert willpower.date_modified == modified
-
-
 async def test_set_state_counter(character_factory, character_trait_factory) -> None:
     """Verify setting a counter state stores the spent amount."""
     # Given a V4 Willpower counter of 5
     character = await character_factory(game_version=GameVersion.V4)
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=5
+        character=character, trait=await global_trait("Willpower"), value=5
     )
 
     # When setting current to 2
@@ -315,27 +292,14 @@ async def test_set_state_counter(character_factory, character_trait_factory) -> 
 
 
 async def test_set_health_rejects_marks_over_size(character_factory) -> None:
-    """Verify a health state with more marks than boxes is rejected."""
+    """Verify a health state with more damage than boxes is rejected."""
     # Given a V5 character with no Stamina (size 3)
     character = await character_factory(game_version=GameVersion.V5)
 
-    # When setting 3 superficial and 2 aggravated
+    # When setting 4 damage
     # Then it raises a validation error
-    with pytest.raises(ValidationError):
-        await TrackerService().set_health_state(
-            character=character, data=HealthStateSet(superficial=3, aggravated=2)
-        )
-
-
-async def test_set_health_rejects_inapplicable_field(character_factory) -> None:
-    """Verify V5 health rejects V4 damage fields."""
-    # Given a V5 character
-    character = await character_factory(game_version=GameVersion.V5)
-
-    # When setting bashing damage
-    # Then it raises a validation error
-    with pytest.raises(ValidationError, match="bashing"):
-        await TrackerService().set_health_state(character=character, data=HealthStateSet(bashing=1))
+    with pytest.raises(ValidationError, match="damage"):
+        await TrackerService().set_health_state(character=character, data=HealthStateSet(damage=4))
 
 
 async def test_set_health_extra_levels_resizes(character_factory) -> None:
@@ -343,15 +307,15 @@ async def test_set_health_extra_levels_resizes(character_factory) -> None:
     # Given a V4 character
     character = await character_factory(game_version=GameVersion.V4)
 
-    # When setting 1 extra level and 2 lethal
+    # When setting 1 extra level and 2 damage
     result = await TrackerService().set_health_state(
-        character=character, data=HealthStateSet(extra_levels=1, lethal=2)
+        character=character, data=HealthStateSet(extra_levels=1, damage=2)
     )
 
-    # Then the track has 8 boxes and 2 lethal
+    # Then the track has 8 boxes and 2 damage
     health = await _health(character)
     assert health.size == 8
-    assert health.lethal == 2
+    assert health.damage == 2
     assert result.size == 8
 
 
@@ -360,7 +324,7 @@ async def test_lowering_willpower_clamps_spent(character_factory, character_trai
     # Given a V4 Willpower lowered from 5 to 2 while 4 were spent
     character = await character_factory(game_version=GameVersion.V4)
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=2, tracker_spent=4
+        character=character, trait=await global_trait("Willpower"), value=2, tracker_spent=4
     )
 
     # When the trait service runs its post-save hook
@@ -371,46 +335,44 @@ async def test_lowering_willpower_clamps_spent(character_factory, character_trai
     assert ct.tracker_spent == 2
 
 
-async def test_raising_humanity_recomputes_impaired(
-    character_factory, character_trait_factory
-) -> None:
-    """Verify raising Humanity keeps stains and shrinks capacity so impairment follows."""
-    # Given a V5 Humanity raised from 7 to 8 with 3 stains
-    character = await character_factory(game_version=GameVersion.V5)
+async def test_raising_humanity_keeps_stains(character_factory, character_trait_factory) -> None:
+    """Verify raising Humanity keeps stains and shrinks the capacity."""
+    # Given a V5 vampire's Humanity raised from 7 to 8 with 3 stains
+    character = await character_factory(
+        game_version=GameVersion.V5, character_class=CharacterClass.VAMPIRE
+    )
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Humanity"), value=8, tracker_stains=3
+        character=character, trait=await global_trait("Humanity"), value=8, tracker_stains=3
     )
 
     # When the post-save hook runs and the tracker is rebuilt
     await CharacterTraitService().after_save(ct, character)
     await ct.refresh_from_db()
-    result = build_tracker_response(ct, game_version=character.game_version)
+    result = build_tracker_response(ct, character=character)
 
-    # Then the stains remain and the character is impaired
+    # Then the stains remain and the capacity is 2
     assert ct.tracker_stains == 3
-    assert isinstance(result, StainsTrackerResponse)
-    assert result.stain_capacity == 2
-    assert result.is_impaired is True
+    assert result == StainsTrackerResponse(humanity=8, stain_capacity=2, stains=3)
 
 
 async def test_stamina_change_resizes_v5_health(
     character_factory, character_trait_factory, character_health_factory
 ) -> None:
-    """Verify Stamina changes resize V5 health and clamp its marks."""
-    # Given a V5 character whose Stamina dropped from 3 to 1 with 6 full superficial boxes
+    """Verify Stamina changes resize V5 health and clamp its damage."""
+    # Given a V5 character whose Stamina dropped from 3 to 1 with a full track of 6
     character = await character_factory(game_version=GameVersion.V5, health=False)
-    await character_health_factory(character=character, size=6, superficial=6)
+    await character_health_factory(character=character, size=6, damage=6)
     stamina = await character_trait_factory(
-        character=character, trait=await _global_trait("Stamina"), value=1
+        character=character, trait=await global_trait("Stamina"), value=1
     )
 
     # When the post-save hook runs for Stamina
     await CharacterTraitService().after_save(stamina, character)
 
-    # Then health has 4 boxes and 4 superficial
+    # Then health has 4 boxes and 4 damage
     health = await _health(character)
     assert health.size == 4
-    assert health.superficial == 4
+    assert health.damage == 4
 
 
 async def test_composure_change_syncs_v5_willpower(
@@ -420,13 +382,11 @@ async def test_composure_change_syncs_v5_willpower(
     # Given a V5 character with Composure 2, Resolve 3, and Willpower 1
     character = await character_factory(game_version=GameVersion.V5)
     composure = await character_trait_factory(
-        character=character, trait=await _global_trait("Composure"), value=2
+        character=character, trait=await global_trait("Composure"), value=2
     )
-    await character_trait_factory(
-        character=character, trait=await _global_trait("Resolve"), value=3
-    )
+    await character_trait_factory(character=character, trait=await global_trait("Resolve"), value=3)
     willpower = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=1
+        character=character, trait=await global_trait("Willpower"), value=1
     )
 
     # When the post-save hook runs for Composure
@@ -440,31 +400,27 @@ async def test_composure_change_syncs_v5_willpower(
 async def test_v5_willpower_clamped_when_attributes_drop(
     character_factory, character_trait_factory
 ) -> None:
-    """Verify a lowered derived Willpower trims its damage marks."""
-    # Given a V5 Willpower 5 fully superficial, with Composure 1 and Resolve 1
+    """Verify a lowered derived Willpower trims its spent points."""
+    # Given a V5 Willpower 5 fully spent, with Composure 1 and Resolve 1
     character = await character_factory(game_version=GameVersion.V5)
     await character_trait_factory(
-        character=character, trait=await _global_trait("Composure"), value=1
+        character=character, trait=await global_trait("Composure"), value=1
     )
-    await character_trait_factory(
-        character=character, trait=await _global_trait("Resolve"), value=1
-    )
+    await character_trait_factory(character=character, trait=await global_trait("Resolve"), value=1)
     willpower = await character_trait_factory(
         character=character,
-        trait=await _global_trait("Willpower"),
+        trait=await global_trait("Willpower"),
         value=5,
-        tracker_superficial=4,
-        tracker_aggravated=1,
+        tracker_spent=5,
     )
 
     # When syncing the character
     await TrackerService().sync_character(character)
 
-    # Then Willpower is 2 with superficial trimmed first
+    # Then Willpower is 2 and fully spent
     await willpower.refresh_from_db()
     assert willpower.value == 2
-    assert willpower.tracker_superficial == 1
-    assert willpower.tracker_aggravated == 1
+    assert willpower.tracker_spent == 2
 
 
 async def test_v5_willpower_created_when_missing(
@@ -475,7 +431,7 @@ async def test_v5_willpower_created_when_missing(
     character = await character_factory(game_version=GameVersion.V5)
     for name, value in (("Composure", 2), ("Resolve", 3)):
         await character_trait_factory(
-            character=character, trait=await _global_trait(name), value=value
+            character=character, trait=await global_trait(name), value=value
         )
 
     # When syncing the character
@@ -492,7 +448,7 @@ async def test_v4_sync_leaves_willpower_alone(character_factory, character_trait
     # Given a V4 character with Willpower 6
     character = await character_factory(game_version=GameVersion.V4)
     willpower = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=6
+        character=character, trait=await global_trait("Willpower"), value=6
     )
 
     # When syncing the character
@@ -513,14 +469,12 @@ async def test_initialize_character_creates_health_once(character_factory) -> No
 
     # When initializing twice, the second time with a health state
     await svc.initialize_character(character=character)
-    health = await svc.initialize_character(
-        character=character, health=HealthStateSet(superficial=1)
-    )
+    health = await svc.initialize_character(character=character, health=HealthStateSet(damage=1))
 
     # Then one health row exists with the applied state
     assert await CharacterHealth.filter(character_id=character.id).count() == 1
     assert health.size == 3
-    assert health.superficial == 1
+    assert health.damage == 1
 
 
 async def test_action_never_changes_xp(
@@ -543,7 +497,7 @@ async def test_action_never_changes_xp(
         user=user, campaign=campaign, xp_current=10, xp_total=10
     )
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=5
+        character=character, trait=await global_trait("Willpower"), value=5
     )
 
     # When spending 1 Willpower
@@ -566,7 +520,7 @@ async def test_trait_action_reads_fresh_marks(character_factory, character_trait
     # Given a V4 character with Willpower 5 loaded twice before any spend
     character = await character_factory(game_version=GameVersion.V4)
     ct = await character_trait_factory(
-        character=character, trait=await _global_trait("Willpower"), value=5
+        character=character, trait=await global_trait("Willpower"), value=5
     )
     first = await CharacterTrait.get(id=ct.id).prefetch_related("trait")
     second = await CharacterTrait.get(id=ct.id).prefetch_related("trait")
@@ -591,7 +545,7 @@ async def test_health_action_without_row_not_found(character_factory) -> None:
     """Verify a health action returns not found when the character has no health row."""
     # Given a V5 character without a health row
     character = await character_factory(game_version=GameVersion.V5, health=False)
-    data = TrackerActionRequest(action=TrackerAction.DAMAGE, damage_type=DamageType.SUPERFICIAL)
+    data = TrackerActionRequest(action=TrackerAction.DAMAGE)
 
     # When applying damage
     with pytest.raises(NotFoundError) as exc_info:
@@ -609,9 +563,7 @@ async def test_set_health_without_row_not_found(character_factory) -> None:
 
     # When setting the health state
     with pytest.raises(NotFoundError) as exc_info:
-        await TrackerService().set_health_state(
-            character=character, data=HealthStateSet(superficial=1)
-        )
+        await TrackerService().set_health_state(character=character, data=HealthStateSet(damage=1))
 
     # Then the request is refused and no row is created
     assert exc_info.value.detail == "Character health not found"

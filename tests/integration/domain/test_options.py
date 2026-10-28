@@ -80,11 +80,9 @@ async def test_get_company_options(
         "remove_stain",
         "reset",
     ]
-    assert characters["DamageType"] == ["SUPERFICIAL", "AGGRAVATED", "BASHING", "LETHAL"]
-    assert characters["TrackerRules"]["V5"]["DAMAGE"]["damage_types"] == [
-        "SUPERFICIAL",
-        "AGGRAVATED",
-    ]
+    assert "DamageType" not in characters
+    assert "HealthCondition" not in characters
+    assert characters["TrackerRules"]["V5"]["COUNTER"] == {"actions": ["spend", "gain", "reset"]}
     assert (
         response.json()["characters"]["_related"]["traits"]
         == f"{settings.server.url}{urls.CharacterBlueprints.TRAITS.replace(':str', '')}"

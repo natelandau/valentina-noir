@@ -217,21 +217,14 @@ When a requested collection is empty, the response contains an empty array (`[]`
                     "name": "Willpower",
                     "max_value": 10,
                     "min_value": 0,
-                    "tracker_type_v5": "DAMAGE",
+                    "tracker_type_v5": "COUNTER",
                     ...
                 },
                 "specialties": [],
                 "tracker": {
-                    "type": "DAMAGE",
+                    "type": "COUNTER",
                     "size": 5,
-                    "superficial": 1,
-                    "aggravated": 0,
-                    "boxes": ["SUPERFICIAL", null, null, null, null],
-                    "is_impaired": false,
-                    "bashing": null,
-                    "lethal": null,
-                    "levels": null,
-                    "current_penalty": null
+                    "current": 4
                 },
                 "date_created": "2026-01-15T10:30:00Z",
                 "date_modified": "2026-03-20T14:00:00Z"
@@ -240,15 +233,9 @@ When a requested collection is empty, the response contains an empty array (`[]`
         "health": {
             "type": "DAMAGE",
             "size": 6,
-            "superficial": 2,
-            "aggravated": 0,
-            "boxes": ["SUPERFICIAL", "SUPERFICIAL", null, null, null, null],
-            "is_impaired": false,
-            "bashing": null,
-            "lethal": null,
-            "levels": null,
-            "current_penalty": null,
-            "extra_levels": 0
+            "damage": 2,
+            "extra_levels": 0,
+            "levels": null
         },
         "inventory": [],
         "specialties": [],

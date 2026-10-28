@@ -4,28 +4,23 @@ from typing import Any
 
 from tortoise.transactions import in_transaction
 
-from vapi.constants import DamageType, GameVersion, TrackerAction, TrackerType
+from vapi.constants import GameVersion, TrackerAction, TrackerType
 from vapi.db.sql_models.character import Character, CharacterHealth, CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.domain.controllers.character_health.dto import HealthResponse, HealthStateSet
 from vapi.domain.controllers.character_trait.dto import (
-    StainsTrackerResponse,
     TrackerActionRequest,
     TrackerResponse,
     TrackerStateSet,
-    build_tracker_response,
+    tracker_response_for,
     tracker_type_for,
-    trait_marks,
 )
 from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.tracker_rules import (
-    HEALTH_RULE_KEY,
     HUMANITY_BOXES,
-    DamageMarks,
     apply_counter,
     apply_damage,
     apply_stains,
-    clamp_marks,
     health_size,
     validate_action,
 )
@@ -37,22 +32,11 @@ _SYNC_TRIGGER_TRAIT_NAMES = frozenset(
     {*V5_WILLPOWER_SOURCES, HEALTH_SIZE_SOURCE, WILLPOWER_TRAIT_NAME}
 )
 
-_TRACKER_FIELDS: dict[TrackerType, tuple[str, ...]] = {
-    TrackerType.COUNTER: ("current",),
-    TrackerType.DAMAGE: ("superficial", "aggravated"),
-    TrackerType.STAINS: ("stains",),
+_TRACKER_FIELDS: dict[TrackerType, str] = {
+    TrackerType.COUNTER: "current",
+    TrackerType.STAINS: "stains",
 }
-_HEALTH_FIELDS: dict[GameVersion, tuple[str, ...]] = {
-    GameVersion.V4: ("bashing", "lethal", "aggravated"),
-    GameVersion.V5: ("superficial", "aggravated"),
-}
-_TRAIT_MARK_FIELDS = (
-    "tracker_spent",
-    "tracker_superficial",
-    "tracker_aggravated",
-    "tracker_stains",
-)
-_HEALTH_MARK_FIELDS = ("bashing", "lethal", "superficial", "aggravated")
+_TRAIT_MARK_FIELDS = ("tracker_spent", "tracker_stains")
 
 
 def is_derived_trait(*, trait: Trait, game_version: GameVersion) -> bool:
@@ -95,61 +79,32 @@ def _snapshot(obj: object, fields: tuple[str, ...]) -> dict[str, Any]:
     return {field: getattr(obj, field) for field in fields}
 
 
-def _health_marks(health: CharacterHealth, game_version: GameVersion) -> DamageMarks:
-    if game_version == GameVersion.V4:
-        return DamageMarks(
-            bashing=health.bashing, lethal=health.lethal, aggravated=health.aggravated
-        )
-    return DamageMarks(superficial=health.superficial, aggravated=health.aggravated)
-
-
-def _store_health_marks(health: CharacterHealth, marks: DamageMarks) -> None:
-    health.bashing = marks.bashing
-    health.lethal = marks.lethal
-    health.superficial = marks.superficial
-    health.aggravated = marks.aggravated
-
-
 _ACTION_PHRASES: dict[TrackerAction, str] = {
     TrackerAction.SPEND: "Spent {amount}",
     TrackerAction.GAIN: "Gained {amount}",
-    TrackerAction.DAMAGE: "Took {amount} {damage} damage to",
-    TrackerAction.HEAL: "Healed {amount} {damage} damage on",
+    TrackerAction.DAMAGE: "Took {amount} damage to",
+    TrackerAction.HEAL: "Healed {amount} damage on",
     TrackerAction.ADD_STAIN: "Added {amount} stains to",
     TrackerAction.REMOVE_STAIN: "Removed {amount} stains from",
     TrackerAction.RESET: "Reset",
 }
 
 
-def _action_phrase(*, action: TrackerAction, amount: int, damage_type: DamageType | None) -> str:
-    """Return the verb phrase for an audit description, e.g. "Took 2 Superficial damage to"."""
-    damage = damage_type.value.title() if damage_type else ""
-    return _ACTION_PHRASES[action].format(amount=amount, damage=damage)
+def _action_phrase(*, action: TrackerAction, amount: int) -> str:
+    """Return the verb phrase for an audit description, e.g. "Took 2 damage to"."""
+    return _ACTION_PHRASES[action].format(amount=amount)
 
 
-def _check_fields(
-    *,
-    data: object,
-    fields: tuple[str, ...],
-    allowed: tuple[str, ...],
-    label: str,
-    zero_is_unset: bool = False,
-) -> None:
-    """Reject negative values and set values for fields that do not apply to the tracker.
-
-    A field counts as set when it is not ``None``, and also not 0 when ``zero_is_unset``
-    is true (for bodies whose fields default to 0).
-    """
-    for field in fields:
-        value = getattr(data, field)
-        if value is None:
-            continue
-        if value < 0:
-            msg = f"{field} must be at least 0, got {value}."
-            raise _invalid(field=field, msg=msg)
-        if field not in allowed and (value or not zero_is_unset):
-            msg = f"{field} does not apply to {label}. Accepted fields: {', '.join(allowed)}."
-            raise _invalid(field=field, msg=msg)
+def _health_size(
+    *, character: Character, extra_levels: int, sources: dict[str, CharacterTrait]
+) -> int:
+    """Return a character's health size from the Stamina among its derived sources."""
+    stamina = sources.get(HEALTH_SIZE_SOURCE)
+    return health_size(
+        game_version=character.game_version,
+        extra_levels=extra_levels,
+        stamina=stamina.value if stamina else 0,
+    )
 
 
 def _set_trait_marks(
@@ -158,8 +113,15 @@ def _set_trait_marks(
     """Store a validated tracker state on a character trait.
 
     Raises:
-        ValidationError: If a required field is missing or the state does not fit the tracker.
+        ValidationError: If a field does not apply, a required field is missing, or the state
+            does not fit the tracker.
     """
+    accepted = _TRACKER_FIELDS[tracker_type]
+    for field, value in (("current", data.current), ("stains", data.stains)):
+        if field != accepted and value is not None:
+            msg = f"{field} does not apply to a {tracker_type.value} tracker. Accepted fields: {accepted}."
+            raise _invalid(field=field, msg=msg)
+
     size = character_trait.value
     match tracker_type:
         case TrackerType.COUNTER:
@@ -170,14 +132,6 @@ def _set_trait_marks(
                 msg = f"current must be at most {size}, got {data.current}."
                 raise _invalid(field="current", msg=msg)
             character_trait.tracker_spent = size - data.current
-        case TrackerType.DAMAGE:
-            superficial = data.superficial or 0
-            aggravated = data.aggravated or 0
-            if superficial + aggravated > size:
-                msg = f"superficial + aggravated must be at most {size}, got {superficial + aggravated}."
-                raise _invalid(field="superficial", msg=msg)
-            character_trait.tracker_superficial = superficial
-            character_trait.tracker_aggravated = aggravated
         case TrackerType.STAINS:
             stains = data.stains or 0
             if stains > HUMANITY_BOXES:
@@ -213,7 +167,7 @@ class TrackerService:
         self, *, character_trait: CharacterTrait, character: Character
     ) -> tuple[Trait, TrackerType]:
         trait = await load_trait(character_trait)
-        tracker_type = tracker_type_for(trait, game_version=character.game_version)
+        tracker_type = tracker_type_for(trait, character=character)
         if tracker_type is None:
             msg = f"Trait '{trait.name}' has no tracker for {character.game_version.value}."
             raise NotFoundError(detail=msg)
@@ -319,19 +273,15 @@ class TrackerService:
 
             if health is None:
                 return
-            stamina = sources.get(HEALTH_SIZE_SOURCE)
-            size = health_size(
-                game_version=character.game_version,
-                extra_levels=health.extra_levels,
-                stamina=stamina.value if stamina else 0,
+            size = _health_size(
+                character=character, extra_levels=health.extra_levels, sources=sources
             )
-            marks = _health_marks(health, character.game_version)
-            clamped = clamp_marks(marks=marks, size=size)
-            if size == health.size and clamped == marks:
+            damage = min(health.damage, size)
+            if size == health.size and damage == health.damage:
                 return
             health.size = size
-            _store_health_marks(health, clamped)
-            await health.save(update_fields=["size", *_HEALTH_MARK_FIELDS, "date_modified"])
+            health.damage = damage
+            await health.save(update_fields=["size", "damage", "date_modified"])
 
     async def _sync_v5_willpower(
         self, *, character: Character, sources: dict[str, CharacterTrait]
@@ -357,29 +307,20 @@ class TrackerService:
     async def clamp_trait_tracker(
         self, *, character_trait: CharacterTrait, character: Character
     ) -> None:
-        """Trim a trait tracker's marks to fit its current value.
+        """Trim a counter's spent points to fit its current value.
 
         Stains are stored up to the Humanity track size and never clamp on a value change.
         """
         trait = await load_trait(character_trait)
-        tracker_type = tracker_type_for(trait, game_version=character.game_version)
-        if tracker_type not in (TrackerType.COUNTER, TrackerType.DAMAGE):
+        if tracker_type_for(trait, character=character) != TrackerType.COUNTER:
             return
 
         async with in_transaction():
             await self._lock_trait_marks(character_trait)
             size = max(0, character_trait.value)
-            if tracker_type == TrackerType.COUNTER:
-                if character_trait.tracker_spent <= size:
-                    return
-                character_trait.tracker_spent = size
-            else:
-                marks = trait_marks(character_trait)
-                clamped = clamp_marks(marks=marks, size=size)
-                if clamped == marks:
-                    return
-                character_trait.tracker_superficial = clamped.superficial
-                character_trait.tracker_aggravated = clamped.aggravated
+            if character_trait.tracker_spent <= size:
+                return
+            character_trait.tracker_spent = size
             await character_trait.save(update_fields=[*_TRAIT_MARK_FIELDS, "date_modified"])
 
     # ------------------------------------------------------------------
@@ -398,31 +339,23 @@ class TrackerService:
         Args:
             character: The character that owns the trait.
             character_trait: The trait whose tracker is changed.
-            data: The action, amount, and damage type.
+            data: The action and amount.
 
         Returns:
             The tracker state after the action.
 
         Raises:
-            ValidationError: If the action or damage type is not accepted, or a spend exceeds
-                the current value.
+            ValidationError: If the action is not accepted, or a spend exceeds the current value.
         """
         trait, tracker_type = await self._tracker_type(
             character_trait=character_trait, character=character
         )
-        game_version = character.game_version
         validate_action(
-            game_version=game_version,
-            rule_key=tracker_type.value,
+            game_version=character.game_version,
+            tracker_type=tracker_type,
             action=data.action,
-            damage_type=data.damage_type,
         )
-        phrase = _action_phrase(
-            action=data.action, amount=data.amount, damage_type=data.damage_type
-        )
-        description = f"{phrase} {trait.name} for character '{character.name}'"
-        willpower_applied: int | None = None
-        willpower_changes: dict[str, dict[str, Any]] = {}
+        phrase = _action_phrase(action=data.action, amount=data.amount)
 
         async with in_transaction():
             await self._lock_trait_marks(character_trait)
@@ -435,85 +368,18 @@ class TrackerService:
                         action=data.action,
                         amount=data.amount,
                     )
-                case TrackerType.DAMAGE:
-                    marks = apply_damage(
-                        marks=trait_marks(character_trait),
-                        size=character_trait.value,
-                        game_version=game_version,
-                        action=data.action,
-                        amount=data.amount,
-                        damage_type=data.damage_type,
-                    )
-                    character_trait.tracker_superficial = marks.superficial
-                    character_trait.tracker_aggravated = marks.aggravated
                 case TrackerType.STAINS:
-                    character_trait.tracker_stains, overflow = apply_stains(
+                    character_trait.tracker_stains = apply_stains(
                         stains=character_trait.tracker_stains,
-                        humanity=character_trait.value,
                         action=data.action,
                         amount=data.amount,
                     )
-                    willpower_applied, willpower_changes = await self._apply_willpower_overflow(
-                        character=character, overflow=overflow
-                    )
-                    if willpower_applied:
-                        description += (
-                            f" and dealt {willpower_applied} Aggravated damage to "
-                            f"{WILLPOWER_TRAIT_NAME}"
-                        )
 
             await character_trait.save(update_fields=[*_TRAIT_MARK_FIELDS, "date_modified"])
 
-        self.audit_description = description
-        self.audit_changes = {**_changes(before, character_trait), **willpower_changes}
-
-        response = self._tracker_response(character_trait=character_trait, character=character)
-        if isinstance(response, StainsTrackerResponse):
-            response.willpower_damage_applied = willpower_applied
-        return response
-
-    async def _apply_willpower_overflow(
-        self, *, character: Character, overflow: int
-    ) -> tuple[int, dict[str, dict[str, Any]]]:
-        """Deal stain overflow as aggravated damage to V5 Willpower.
-
-        Returns:
-            The number of boxes that became aggravated and the audit changes for Willpower.
-        """
-        if overflow == 0:
-            return 0, {}
-        willpower = (await self._derived_sources(character)).get(WILLPOWER_TRAIT_NAME)
-        if willpower is None:
-            return 0, {}
-
-        await self._lock_trait_marks(willpower)
-        before = willpower.tracker_aggravated
-        marks = apply_damage(
-            marks=trait_marks(willpower),
-            size=willpower.value,
-            game_version=character.game_version,
-            action=TrackerAction.DAMAGE,
-            amount=overflow,
-            damage_type=DamageType.AGGRAVATED,
-        )
-        applied = marks.aggravated - before
-        if not applied:
-            return 0, {}
-
-        willpower.tracker_superficial = marks.superficial
-        willpower.tracker_aggravated = marks.aggravated
-        await willpower.save(update_fields=[*_TRAIT_MARK_FIELDS, "date_modified"])
-        return applied, {"willpower_aggravated": {"old": before, "new": marks.aggravated}}
-
-    @staticmethod
-    def _tracker_response(
-        *, character_trait: CharacterTrait, character: Character
-    ) -> TrackerResponse:
-        response = build_tracker_response(character_trait, game_version=character.game_version)
-        if response is None:
-            msg = f"Trait has no tracker for {character.game_version.value}."
-            raise NotFoundError(detail=msg)
-        return response
+        self.audit_description = f"{phrase} {trait.name} for character '{character.name}'"
+        self.audit_changes = _changes(before, character_trait)
+        return tracker_response_for(character_trait, tracker_type=tracker_type)
 
     async def set_trait_state(
         self,
@@ -538,12 +404,6 @@ class TrackerService:
         trait, tracker_type = await self._tracker_type(
             character_trait=character_trait, character=character
         )
-        _check_fields(
-            data=data,
-            fields=("current", "superficial", "aggravated", "stains"),
-            allowed=_TRACKER_FIELDS[tracker_type],
-            label=f"a {tracker_type.value} tracker",
-        )
         async with in_transaction():
             await self._lock_trait_marks(character_trait)
             before = _snapshot(character_trait, _TRAIT_MARK_FIELDS)
@@ -552,7 +412,7 @@ class TrackerService:
 
         self.audit_description = f"Set {trait.name} tracker for character '{character.name}'"
         self.audit_changes = _changes(before, character_trait)
-        return self._tracker_response(character_trait=character_trait, character=character)
+        return tracker_response_for(character_trait, tracker_type=tracker_type)
 
     # ------------------------------------------------------------------
     # Health
@@ -565,7 +425,7 @@ class TrackerService:
 
         Args:
             character: The character whose health changes.
-            data: The action, amount, and damage type.
+            data: The action and amount.
 
         Returns:
             The health state after the action.
@@ -573,33 +433,21 @@ class TrackerService:
         Raises:
             NotFoundError: If the character has no health row.
         """
-        game_version = character.game_version
         validate_action(
-            game_version=game_version,
-            rule_key=HEALTH_RULE_KEY,
-            action=data.action,
-            damage_type=data.damage_type,
+            game_version=character.game_version, tracker_type=TrackerType.DAMAGE, action=data.action
         )
         async with in_transaction():
             health = await self._lock_health(character)
-            before = _snapshot(health, _HEALTH_MARK_FIELDS)
-            marks = apply_damage(
-                marks=_health_marks(health, game_version),
-                size=health.size,
-                game_version=game_version,
-                action=data.action,
-                amount=data.amount,
-                damage_type=data.damage_type,
+            before = _snapshot(health, ("damage",))
+            health.damage = apply_damage(
+                damage=health.damage, size=health.size, action=data.action, amount=data.amount
             )
-            _store_health_marks(health, marks)
-            await health.save(update_fields=[*_HEALTH_MARK_FIELDS, "date_modified"])
+            await health.save(update_fields=["damage", "date_modified"])
 
-        phrase = _action_phrase(
-            action=data.action, amount=data.amount, damage_type=data.damage_type
-        )
+        phrase = _action_phrase(action=data.action, amount=data.amount)
         self.audit_description = f"{phrase} Health for character '{character.name}'"
         self.audit_changes = _changes(before, health)
-        return HealthResponse.from_model(health, game_version=game_version)
+        return HealthResponse.from_model(health, character=character)
 
     async def set_health_state(
         self, *, character: Character, data: HealthStateSet
@@ -608,57 +456,34 @@ class TrackerService:
 
         Args:
             character: The character whose health is set.
-            data: The new state; only the version's damage fields may be nonzero.
+            data: The new extra levels and damage.
 
         Returns:
             The health state after the change.
 
         Raises:
             NotFoundError: If the character has no health row.
-            ValidationError: If a field does not apply to the version, is negative, or the
-                marks exceed the resulting size.
+            ValidationError: If the damage exceeds the resulting size.
         """
-        game_version = character.game_version
-        allowed = _HEALTH_FIELDS[game_version]
-        _check_fields(
-            data=data,
-            fields=("extra_levels", *_HEALTH_MARK_FIELDS),
-            allowed=("extra_levels", *allowed),
-            label=f"{game_version.value} health",
-            zero_is_unset=True,
-        )
-
         async with in_transaction():
             # Size from Stamina read under the health lock so a concurrent sync cannot resize
             # the track between the bounds check and the write.
             health = await self._lock_health(character)
-            stamina = (await self._derived_sources(character)).get(HEALTH_SIZE_SOURCE)
-            size = health_size(
-                game_version=game_version,
+            size = _health_size(
+                character=character,
                 extra_levels=data.extra_levels,
-                stamina=stamina.value if stamina else 0,
+                sources=await self._derived_sources(character),
             )
-            total = sum(getattr(data, field) for field in allowed)
-            if total > size:
-                msg = f"Total marks must be at most {size}, got {total}."
-                raise _invalid(field=allowed[0], msg=msg)
+            if data.damage > size:
+                msg = f"damage must be at most {size}, got {data.damage}."
+                raise _invalid(field="damage", msg=msg)
 
-            before = _snapshot(health, ("size", "extra_levels", *_HEALTH_MARK_FIELDS))
+            before = _snapshot(health, ("size", "extra_levels", "damage"))
             health.size = size
             health.extra_levels = data.extra_levels
-            _store_health_marks(
-                health,
-                DamageMarks(
-                    bashing=data.bashing,
-                    lethal=data.lethal,
-                    superficial=data.superficial,
-                    aggravated=data.aggravated,
-                ),
-            )
-            await health.save(
-                update_fields=["size", "extra_levels", *_HEALTH_MARK_FIELDS, "date_modified"]
-            )
+            health.damage = data.damage
+            await health.save(update_fields=["size", "extra_levels", "damage", "date_modified"])
 
         self.audit_description = f"Set Health for character '{character.name}'"
         self.audit_changes = _changes(before, health)
-        return HealthResponse.from_model(health, game_version=game_version)
+        return HealthResponse.from_model(health, character=character)

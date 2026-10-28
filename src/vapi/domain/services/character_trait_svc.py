@@ -1074,7 +1074,7 @@ class CharacterTraitService:
                         BulkAssignTraitSuccess(
                             trait_id=trait_id,
                             character_trait=CharacterTraitResponse.from_model(
-                                result_ct, game_version=character.game_version
+                                result_ct, character=character
                             ),
                         )
                     )

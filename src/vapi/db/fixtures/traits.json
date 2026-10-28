@@ -11115,7 +11115,7 @@
           {
             "name": "Willpower",
             "tracker_type_v4": "COUNTER",
-            "tracker_type_v5": "DAMAGE",
+            "tracker_type_v5": "COUNTER",
             "game_versions": [
               "V4",
               "V5"
@@ -11130,6 +11130,7 @@
           },
           {
             "name": "Humanity",
+            "tracker_type_v4": "COUNTER",
             "tracker_type_v5": "STAINS",
             "character_classes": [
               "VAMPIRE",

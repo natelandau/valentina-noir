@@ -5,71 +5,54 @@ from typing import TYPE_CHECKING, Annotated
 import msgspec
 
 from vapi.constants import GameVersion
-from vapi.domain.controllers.character_trait.dto import DamageTrackResponse, HealthLevelResponse
-from vapi.lib.tracker_rules import (
-    DamageMarks,
-    damage_track_fields,
-    v4_levels,
-    v4_penalty_from_levels,
-)
+from vapi.lib.tracker_rules import v4_levels
 
 if TYPE_CHECKING:
-    from vapi.db.sql_models.character import CharacterHealth
+    from vapi.db.sql_models.character import Character, CharacterHealth
 
 
 NonNegativeInt = Annotated[int, msgspec.Meta(ge=0)]
 
 
-class HealthStateSet(msgspec.Struct):
+class HealthStateSet(msgspec.Struct, forbid_unknown_fields=True):
     """Request body for setting a character's full health state.
 
-    V4 uses bashing, lethal, and aggravated; V5 uses superficial and aggravated.
+    Unknown fields are rejected so that a stale or misspelled key fails instead of
+    being dropped.
     """
 
     extra_levels: NonNegativeInt = 0
-    superficial: NonNegativeInt = 0
-    aggravated: NonNegativeInt = 0
-    bashing: NonNegativeInt = 0
-    lethal: NonNegativeInt = 0
+    damage: NonNegativeInt = 0
 
 
-class HealthResponse(DamageTrackResponse, tag_field="type", tag="DAMAGE"):
-    """A character's health track, a damage track plus its extra V4 levels."""
+class HealthLevelResponse(msgspec.Struct):
+    """One V4 health level and whether it is marked."""
 
+    name: str
+    marked: bool
+
+
+class HealthResponse(msgspec.Struct, tag_field="type", tag="DAMAGE"):
+    """A character's health track: one damage count, plus named levels in V4.
+
+    ``levels`` is ``None`` for V5.
+    """
+
+    size: int
+    damage: int
     extra_levels: int = 0
+    levels: list[HealthLevelResponse] | None = None
 
     @classmethod
-    def from_model(cls, m: "CharacterHealth", *, game_version: GameVersion) -> "HealthResponse":
-        """Convert a Tortoise CharacterHealth to a response Struct for a game version."""
-        if game_version == GameVersion.V4:
-            marks = DamageMarks(
-                bashing=m.bashing, lethal=m.lethal, superficial=0, aggravated=m.aggravated
-            )
-            levels = v4_levels(marks=marks, extra_levels=m.extra_levels)
-            boxes = [mark for _, _, mark in levels]
-            return cls(
-                size=m.size,
-                superficial=0,
-                aggravated=m.aggravated,
-                boxes=boxes,
-                is_impaired=levels[-1][2] is not None,
-                bashing=m.bashing,
-                lethal=m.lethal,
-                levels=[
-                    HealthLevelResponse(name=name, penalty=penalty, mark=mark)
-                    for name, penalty, mark in levels
-                ],
-                current_penalty=v4_penalty_from_levels(levels),
-                extra_levels=m.extra_levels,
-            )
+    def from_model(cls, m: "CharacterHealth", *, character: "Character") -> "HealthResponse":
+        """Convert a Tortoise CharacterHealth to a response Struct for its character.
 
-        marks = DamageMarks(superficial=m.superficial, aggravated=m.aggravated)
-        boxes, is_impaired = damage_track_fields(marks=marks, size=m.size)
-        return cls(
-            size=m.size,
-            superficial=m.superficial,
-            aggravated=m.aggravated,
-            boxes=boxes,
-            is_impaired=is_impaired,
-            extra_levels=m.extra_levels,
-        )
+        The character's game version decides whether the track has named V4 levels.
+        """
+        levels: list[HealthLevelResponse] | None = None
+        if character.game_version == GameVersion.V4:
+            levels = [
+                HealthLevelResponse(name=name, marked=marked)
+                for name, marked in v4_levels(damage=m.damage, extra_levels=m.extra_levels)
+            ]
+        return cls(size=m.size, damage=m.damage, extra_levels=m.extra_levels, levels=levels)

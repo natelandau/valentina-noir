@@ -9,7 +9,6 @@ pytestmark = pytest.mark.anyio
 
 _TRACKER_MAPPING = {
     "COUNTER": "#/components/schemas/CounterTrackerResponse",
-    "DAMAGE": "#/components/schemas/DamageTrackResponse",
     "STAINS": "#/components/schemas/StainsTrackerResponse",
 }
 _TRACKER_PATH = (
@@ -63,7 +62,7 @@ async def test_optional_constrained_fields_keep_minimum(schema: dict) -> None:
     }
 
     # Then every field has a minimum of 0
-    assert minimums == dict.fromkeys(("current", "superficial", "aggravated", "stains"), 0.0)
+    assert minimums == dict.fromkeys(("current", "stains"), 0.0)
 
 
 def test_app_registers_refine_hook() -> None:

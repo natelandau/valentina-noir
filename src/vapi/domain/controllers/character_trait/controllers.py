@@ -83,10 +83,7 @@ class CharacterTraitController(Controller):
             is_rollable=is_rollable,
         )
         return OffsetPagination(
-            items=[
-                CharacterTraitResponse.from_model(t, game_version=character.game_version)
-                for t in traits
-            ],
+            items=[CharacterTraitResponse.from_model(t, character=character) for t in traits],
             limit=limit,
             offset=offset,
             total=count,
@@ -103,9 +100,7 @@ class CharacterTraitController(Controller):
         self, character: Character, character_trait: CharacterTrait
     ) -> CharacterTraitResponse:
         """Get a character trait by Character Trait ID or Trait ID."""
-        return CharacterTraitResponse.from_model(
-            character_trait, game_version=character.game_version
-        )
+        return CharacterTraitResponse.from_model(character_trait, character=character)
 
     @post(
         path=urls.Characters.TRAIT_ASSIGN,
@@ -133,7 +128,7 @@ class CharacterTraitController(Controller):
             currency=data.currency,
         )
         request.state.audit_description = f"Assign trait '{ct.trait.name}' at value {ct.value} to character '{character.name_first} {character.name_last}'"
-        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
+        return CharacterTraitResponse.from_model(ct, character=character)
 
     @post(
         path=urls.Characters.TRAIT_BULK_ASSIGN,
@@ -189,7 +184,7 @@ class CharacterTraitController(Controller):
             data=data,
         )
         request.state.audit_description = f"Create custom trait '{ct.trait.name}' at value {ct.value} for character '{character.name_first} {character.name_last}'"
-        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
+        return CharacterTraitResponse.from_model(ct, character=character)
 
     @get(
         path=urls.Characters.TRAIT_VALUE_OPTIONS,
@@ -244,7 +239,7 @@ class CharacterTraitController(Controller):
             request.state.audit_changes = {
                 "specialties": {"old": service.removed_specialty_names, "new": []}
             }
-        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
+        return CharacterTraitResponse.from_model(ct, character=character)
 
     @delete(
         path=urls.Characters.TRAIT_DELETE,
@@ -312,7 +307,7 @@ class CharacterTraitController(Controller):
             currency=data.currency,
         )
         request.state.audit_description = f"Add specialty '{data.name.strip()}' to trait '{ct.trait.name}' for character '{character.name_first} {character.name_last}'"
-        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
+        return CharacterTraitResponse.from_model(ct, character=character)
 
     @patch(
         path=urls.Characters.TRAIT_SPECIALTY_DETAIL,
@@ -342,7 +337,7 @@ class CharacterTraitController(Controller):
         )
         request.state.audit_description = f"Rename specialty '{old_name}' to '{specialty.name}' on trait '{ct.trait.name}' for character '{character.name_first} {character.name_last}'"
         request.state.audit_changes = {"name": {"old": old_name, "new": specialty.name}}
-        return CharacterTraitResponse.from_model(ct, game_version=character.game_version)
+        return CharacterTraitResponse.from_model(ct, character=character)
 
     @delete(
         path=urls.Characters.TRAIT_SPECIALTY_DETAIL,
@@ -382,7 +377,7 @@ class CharacterTraitController(Controller):
         self, character: Character, character_trait: CharacterTrait
     ) -> TrackerResponse:
         """Get the in-play tracker state of a character trait."""
-        tracker = build_tracker_response(character_trait, game_version=character.game_version)
+        tracker = build_tracker_response(character_trait, character=character)
         if tracker is None:
             raise NotFoundError(detail="Trait has no tracker")
         return tracker

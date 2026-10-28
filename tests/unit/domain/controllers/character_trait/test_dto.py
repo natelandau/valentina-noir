@@ -1,7 +1,6 @@
 """Tests for character trait DTOs."""
 
-from vapi.constants import GameVersion
-from vapi.db.sql_models.character import CharacterTrait
+from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.domain.controllers.character.dto import FullSheetCharacterTraitDTO
 from vapi.domain.controllers.character_trait.dto import (
     CHARACTER_TRAIT_PREFETCH,
@@ -20,7 +19,9 @@ async def test_character_trait_response_includes_active_specialties(
     ct = await CharacterTrait.get(id=ct.id).prefetch_related(*CHARACTER_TRAIT_PREFETCH)
 
     # When serializing
-    response = CharacterTraitResponse.from_model(ct, game_version=GameVersion.V5)
+    response = CharacterTraitResponse.from_model(
+        ct, character=await Character.get(id=ct.character_id)
+    )
 
     # Then only the active specialty is returned
     assert [s.name for s in response.specialties] == ["Sniping"]
@@ -37,7 +38,9 @@ async def test_character_trait_response_specialties_ordered_by_creation(
     ct = await CharacterTrait.get(id=ct.id).prefetch_related(*CHARACTER_TRAIT_PREFETCH)
 
     # When serializing
-    response = CharacterTraitResponse.from_model(ct, game_version=GameVersion.V5)
+    response = CharacterTraitResponse.from_model(
+        ct, character=await Character.get(id=ct.character_id)
+    )
 
     # Then they are ordered by creation time
     assert [s.name for s in response.specialties] == ["First", "Second"]
@@ -60,7 +63,9 @@ async def test_character_trait_response_specialties_empty_when_not_prefetched(
     )
 
     # When serializing
-    response = CharacterTraitResponse.from_model(ct, game_version=GameVersion.V5)
+    response = CharacterTraitResponse.from_model(
+        ct, character=await Character.get(id=ct.character_id)
+    )
 
     # Then specialties is an empty list rather than an error
     assert response.specialties == []
@@ -77,7 +82,9 @@ async def test_full_sheet_character_trait_dto_includes_active_specialties(
     ct = await CharacterTrait.get(id=ct.id).prefetch_related(*CHARACTER_TRAIT_PREFETCH)
 
     # When serializing
-    dto = FullSheetCharacterTraitDTO.from_model(ct, game_version=GameVersion.V5)
+    dto = FullSheetCharacterTraitDTO.from_model(
+        ct, character=await Character.get(id=ct.character_id)
+    )
 
     # Then only the active specialty is returned
     assert [s.name for s in dto.specialties] == ["Sniping"]

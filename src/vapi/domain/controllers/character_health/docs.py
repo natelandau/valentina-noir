@@ -3,10 +3,10 @@
 GET_HEALTH_DESCRIPTION = """\
 Retrieve a character's current health track.
 
-The response shape follows the character's game version:
+Damage is one count with no damage types. The response shape follows the character's game version:
 
-- **V4:** bashing, lethal, and aggravated damage marked across the named health levels, each with its dice penalty, plus `extra_levels` and the `current_penalty`.
-- **V5:** superficial and aggravated damage marked across a track sized by Stamina plus three, plus any `extra_levels`.
+- **V4:** `damage` marked down the named health `levels` from Bruised, plus `extra_levels`.
+- **V5:** `damage` on a track sized by Stamina plus three, plus any `extra_levels`.
 
 The track size updates automatically when the character's Stamina changes.
 
@@ -20,13 +20,12 @@ Send every field you want stored. Omitted fields reset to 0.
 
 **Body fields:**
 - `extra_levels`: Additional health levels beyond the base track
-- V4: `bashing`, `lethal`, `aggravated`
-- V5: `superficial`, `aggravated`
+- `damage`: Boxes of damage
 
 **Returns 400 when:**
-- A damage field does not apply to the character's game version and is non-zero
+- The body has any other field
 - A value is negative
-- The marks added together exceed the resulting track size
+- `damage` exceeds the resulting track size
 
 **Returns 404 when:** the character has no health track.
 
@@ -39,11 +38,11 @@ Apply one in-play action to a character's health.
 **Body fields:**
 - `action`: `damage`, `heal`, or `reset`
 - `amount`: How many boxes to change, at least 1 (default 1)
-- `damage_type`: Required for `damage` and `heal`, and not accepted for `reset`. V4 accepts `BASHING`, `LETHAL`, and `AGGRAVATED`. V5 accepts `SUPERFICIAL` and `AGGRAVATED`.
+
+Damage past a full track and healing past zero are dropped.
 
 **Returns 400 when:**
-- The action is not accepted for the character's game version
-- `damage_type` is missing, not accepted for the game version, or sent with an action that takes none
+- The action is not `damage`, `heal`, or `reset`
 
 **Returns 404 when:** the character has no health track.
 

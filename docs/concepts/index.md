@@ -20,7 +20,7 @@ Understanding these core concepts helps you build clients that integrate with th
 
 ## Customized World of Darkness System
 
-Valentina Noir uses a customized version of World of Darkness. These changes evolved from a 30+ year campaign and include:
+Valentina Noir uses a customized version of World of Darkness. These changes evolved from a 30+ year campaign. [House Rules](./house_rules.md) lists every difference from the published games. The changes include:
 
 - [Dice rolling system](./dice.md)
 - [Experience system](./experience.md)

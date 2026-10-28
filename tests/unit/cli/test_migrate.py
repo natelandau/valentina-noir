@@ -5,8 +5,8 @@ import importlib
 import pytest
 from click.testing import CliRunner
 from tortoise import Tortoise
-from tortoise.transactions import in_transaction
 
+from tests.fixtures import rolled_back_transaction
 from vapi.cli.migrate import migrate
 from vapi.cli.seed import seed_async
 from vapi.constants import TrackerType
@@ -14,10 +14,6 @@ from vapi.db.sql_models.character_sheet import Trait
 
 # `vapi.cli.migrate` resolves to the re-exported click command, not the module
 migrate_module = importlib.import_module("vapi.cli.migrate")
-
-
-class _Rollback(Exception):  # noqa: N818
-    """Raised to roll back a transaction on purpose."""
 
 
 def test_migrate_seeds_after_applying_migrations(mocker) -> None:
@@ -43,20 +39,17 @@ async def test_seed_fills_tracker_types_left_null_by_migration_0024() -> None:
     # Given tracker types are null, as migration 0024 leaves them
     # When the seed step of `app migrate` runs, inside a transaction rolled back to restore the traits
     found: dict[str, Trait] = {}
-    try:
-        async with in_transaction():
-            await Tortoise.get_connection("default").execute_script(
-                "UPDATE trait SET tracker_type_v4 = NULL, tracker_type_v5 = NULL;"
-            )
-            await seed_async()
-            for name in ("Willpower", "Humanity", "Blood Pool"):
-                found[name] = await Trait.get(name=name, custom_for_character_id=None)
-            raise _Rollback  # noqa: TRY301
-    except _Rollback:
-        pass
+    async with rolled_back_transaction():
+        await Tortoise.get_connection("default").execute_script(
+            "UPDATE trait SET tracker_type_v4 = NULL, tracker_type_v5 = NULL;"
+        )
+        await seed_async()
+        for name in ("Willpower", "Humanity", "Blood Pool"):
+            found[name] = await Trait.get(name=name, custom_for_character_id=None)
 
     # Then fixture tracker types are filled in
     assert found["Willpower"].tracker_type_v4 == TrackerType.COUNTER
-    assert found["Willpower"].tracker_type_v5 == TrackerType.DAMAGE
+    assert found["Willpower"].tracker_type_v5 == TrackerType.COUNTER
+    assert found["Humanity"].tracker_type_v4 == TrackerType.COUNTER
     assert found["Humanity"].tracker_type_v5 == TrackerType.STAINS
     assert found["Blood Pool"].tracker_type_v4 == TrackerType.COUNTER
