@@ -223,9 +223,9 @@ class AWSS3Service:
         Raises:
             ValidationError: If the bytes are not an accepted image format.
         """
-        mime_type = validate_image_upload(
-            data=data
-        )  # Detected MIME; client-declared type is ignored.
+        # Detected MIME; client-declared type is ignored. Decoding is CPU-bound, so keep it
+        # off the event loop.
+        mime_type = await asyncio.to_thread(validate_image_upload, data=data)
         asset_type = AssetType.IMAGE
         extension = mime_type.split("/", maxsplit=1)[1]  # e.g. "image/png" -> "png"
         filename = sanitize_filename(filename)
@@ -248,12 +248,17 @@ class AWSS3Service:
             "original_filename": filename,
             parent_fk_field: parent_id,
         }
-        asset = await S3Asset.create(**create_kwargs)  # ty:ignore[invalid-argument-type]
+        asset = S3Asset(**create_kwargs)
 
+        # Save only after the object exists, so a failed or cancelled upload never leaves
+        # a row whose public URL points at nothing
+        await self._upload_to_s3(asset=asset, data=data)
         try:
-            await self._upload_to_s3(asset=asset, data=data)
-        except AWSS3Error:
-            await asset.delete()
+            await asset.save()
+        except BaseException:
+            # The purge only finds objects through their rows, so an object without one
+            # would never be removed
+            await self.delete_key(key=s3_key)
             raise
 
         return asset

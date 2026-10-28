@@ -1,5 +1,6 @@
 """Avatar service: normalize, store, and manage user avatar assets."""
 
+import asyncio
 from uuid import UUID
 
 from vapi.db.sql_models.aws import S3Asset
@@ -51,7 +52,8 @@ class AvatarService:
         Returns:
             The updated user with avatar_url and avatar_asset_id set.
         """
-        webp_bytes = normalize_avatar(data)
+        # Decoding is CPU-bound; keep it off the event loop so other requests keep flowing
+        webp_bytes = await asyncio.to_thread(normalize_avatar, data)
 
         asset = await AWSS3Service().upload_asset(
             company_id=company_id,

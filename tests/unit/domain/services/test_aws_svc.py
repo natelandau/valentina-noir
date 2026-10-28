@@ -538,6 +538,64 @@ class TestUploadAsset:
         # Then no orphaned S3Asset row remains
         assert await S3Asset.filter(company_id=company.id).count() == 0
 
+    async def test_upload_asset_creates_no_row_when_upload_is_interrupted(
+        self,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify an upload that fails for any reason leaves no S3Asset row behind."""
+        # Given an _upload_to_s3 that fails with a non-S3 error, such as a cancellation
+        company = await company_factory()
+        character = await character_factory(company=company)
+        user = await user_factory(company=company)
+        mocker.patch.object(AWSS3Service, "_upload_to_s3", side_effect=RuntimeError("interrupted"))
+
+        # When uploading an asset
+        with pytest.raises(RuntimeError):
+            await AWSS3Service().upload_asset(
+                company_id=company.id,
+                uploaded_by_id=user.id,
+                parent_id=character.id,
+                parent_fk_field="character_id",
+                data=_img_bytes("PNG"),
+                filename="portrait.png",
+            )
+
+        # Then no S3Asset row exists
+        assert await S3Asset.filter(company_id=company.id).count() == 0
+
+    async def test_upload_asset_deletes_object_when_save_fails(
+        self,
+        character_factory: Callable,
+        user_factory: Callable,
+        company_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a failed row save removes the uploaded object so it is not orphaned."""
+        # Given an upload that succeeds and a row save that fails
+        company = await company_factory()
+        character = await character_factory(company=company)
+        user = await user_factory(company=company)
+        mocker.patch.object(AWSS3Service, "_upload_to_s3", return_value=None)
+        mocker.patch.object(S3Asset, "save", side_effect=RuntimeError("db down"))
+        mock_delete_key = mocker.patch.object(AWSS3Service, "delete_key", return_value=None)
+
+        # When uploading an asset
+        with pytest.raises(RuntimeError):
+            await AWSS3Service().upload_asset(
+                company_id=company.id,
+                uploaded_by_id=user.id,
+                parent_id=character.id,
+                parent_fk_field="character_id",
+                data=_img_bytes("PNG"),
+                filename="portrait.png",
+            )
+
+        # Then the uploaded object is deleted
+        mock_delete_key.assert_called_once()
+
 
 class TestUploadFile:
     """Test the upload_file method."""

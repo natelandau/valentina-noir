@@ -1,6 +1,7 @@
 """Tests for avatar image normalization."""
 
 import io
+import warnings
 
 import pytest
 from PIL import Image
@@ -8,6 +9,7 @@ from PIL import Image
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.images import (
     AVATAR_SIZE,
+    MAX_IMAGE_PIXELS,
     MAX_UPLOAD_BYTES,
     normalize_avatar,
     validate_image_upload,
@@ -117,6 +119,37 @@ def test_normalize_avatar_rejects_decompression_bomb() -> None:
         normalize_avatar(data)
 
 
+def _over_budget_png() -> bytes:
+    """Build a small PNG just over the pixel budget, below Pillow's 2x hard error."""
+    buf = io.BytesIO()
+    Image.new("L", (5000, MAX_IMAGE_PIXELS // 5000 + 1)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_normalize_avatar_rejects_image_over_pixel_budget() -> None:
+    """Verify an image over the pixel budget is rejected even when Pillow only warns."""
+    # Given a PNG over the budget, with the bomb warning not escalated, as in production
+    data = _over_budget_png()
+
+    # When/Then normalizing raises ValidationError
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+        with pytest.raises(ValidationError):
+            normalize_avatar(data)
+
+
+def test_validate_image_upload_rejects_image_over_pixel_budget() -> None:
+    """Verify an asset upload over the pixel budget is rejected even when Pillow only warns."""
+    # Given a PNG over the budget, with the bomb warning not escalated, as in production
+    data = _over_budget_png()
+
+    # When/Then validation raises ValidationError
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+        with pytest.raises(ValidationError):
+            validate_image_upload(data=data)
+
+
 @pytest.mark.parametrize(
     ("fmt", "expected_mime"),
     [
@@ -196,3 +229,14 @@ def test_validate_image_upload_rejects_corrupt_image_without_crashing() -> None:
     # When/Then validation surfaces a clean ValidationError instead of leaking SyntaxError
     with pytest.raises(ValidationError):
         validate_image_upload(data=data)
+
+
+def test_validate_image_upload_rejects_truncated_image() -> None:
+    """Verify an image whose pixel data is cut short is rejected."""
+    # Given a JPEG with its tail removed
+    data = _img_bytes("JPEG", size=(256, 256))
+    truncated = data[: len(data) // 2]
+
+    # When/Then validation raises ValidationError
+    with pytest.raises(ValidationError):
+        validate_image_upload(data=truncated)

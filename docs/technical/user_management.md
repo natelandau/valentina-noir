@@ -262,6 +262,7 @@ Send the image as `multipart/form-data` with a single image file part.
 | Body            | `multipart/form-data` with one image file part                        |
 | Accepted types  | PNG, JPEG, WEBP, GIF (only the first frame of an animated GIF is used) |
 | Maximum size    | 5 MB                                                                   |
+| Maximum pixels  | 24 megapixels (width × height)                                         |
 
 This endpoint requires both `X-API-KEY` and the `On-Behalf-Of` header. A user may set their own avatar, and an admin may set any user's avatar.
 

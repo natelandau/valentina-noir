@@ -50,6 +50,8 @@ class TestSanitizeFilename:
             ("..", "upload"),
             # Extension is preserved and lowercased
             ("PHOTO.JPG", "photo.jpg"),
+            # Extension keeps only ASCII letters and digits
+            ('photo.png";x=1', "photo.pngx1"),
         ],
     )
     def test_sanitize_filename_basic(self, filename: str, expected: str) -> None:
