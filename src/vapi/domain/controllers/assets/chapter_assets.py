@@ -107,6 +107,11 @@ class ChapterAssetsController(BaseAssetsController):
         after_response=hooks.post_data_update_hook,
         guards=[user_can_manage_campaign],
     )
-    async def delete_chapter_asset(self, asset: S3Asset, acting_user: User) -> None:  # noqa: ARG002
+    async def delete_chapter_asset(
+        self,
+        chapter: CampaignChapter,
+        asset: S3Asset,
+        acting_user: User,  # noqa: ARG002
+    ) -> None:
         """Delete a chapter asset."""
-        await self._delete_asset(asset=asset)
+        await self._delete_asset(asset=asset, parent_id=chapter.id)

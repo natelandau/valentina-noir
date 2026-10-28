@@ -17,7 +17,11 @@ from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.domain.services.campaign_svc import annotate_campaign_counts
 from vapi.lib.exceptions import NotFoundError
-from vapi.lib.guards import developer_company_user_guard, user_can_manage_campaign
+from vapi.lib.guards import (
+    developer_company_user_guard,
+    user_active_guard,
+    user_can_manage_campaign,
+)
 from vapi.lib.patch import apply_patch
 from vapi.openapi.tags import APITags
 
@@ -35,7 +39,7 @@ class CampaignController(Controller):
         "campaign": Provide(deps.provide_campaign_by_id),
         "developer": Provide(deps.provide_developer_from_request),
     }
-    guards = [developer_company_user_guard]
+    guards = [developer_company_user_guard, user_active_guard]
 
     @get(
         path=urls.Campaigns.LIST,

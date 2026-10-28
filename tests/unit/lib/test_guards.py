@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import pytest
 
-from vapi.constants import CharacterType, PermissionManageCampaign, PermissionManageNPC, UserRole
+from vapi.constants import (
+    CharacterType,
+    CompanyPermission,
+    PermissionManageCampaign,
+    PermissionManageNPC,
+    UserRole,
+)
 from vapi.lib.exceptions import (
     ClientError,
     NotFoundError,
@@ -17,12 +23,14 @@ from vapi.lib.exceptions import (
 from vapi.lib.guards import (
     developer_company_user_guard,
     npc_management_permitted,
+    storyteller_character_access_guard,
     user_active_guard,
     user_can_manage_campaign,
     user_character_player_or_storyteller_guard,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from unittest.mock import MagicMock
 
     from pytest_mock import MockerFixture
@@ -423,6 +431,27 @@ class TestDeveloperCompanyPermission:
         with pytest.raises(PermissionDeniedError, match="No rights"):
             await developer_company_user_guard(connection, _mock_handler(mocker))
 
+    async def test_revoke_permission_is_denied(
+        self,
+        mocker: MockerFixture,
+        company_factory: Callable[..., Any],
+        developer_factory: Callable[..., Any],
+        developer_company_permission_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a REVOKE permission row does not grant company access."""
+        # Given a developer whose only permission on the company is REVOKE
+        company = await company_factory()
+        developer = await developer_factory(is_global_admin=False)
+        await developer_company_permission_factory(
+            developer=developer, company=company, permission=CompanyPermission.REVOKE
+        )
+        connection = _mock_connection(mocker, {"company_id": str(company.id)})
+        connection.user = mocker.MagicMock(is_global_admin=False, id=developer.id)
+
+        # When/Then the guard raises
+        with pytest.raises(PermissionDeniedError, match="No rights"):
+            await developer_company_user_guard(connection, _mock_handler(mocker))
+
 
 def _setup_campaign_db_mocks(
     mocker: MockerFixture,
@@ -536,11 +565,11 @@ class TestUserCanManageCampaignLookup:
 class TestUserCanManageCampaignUnrestricted:
     """Test UNRESTRICTED permission mode."""
 
-    @pytest.mark.parametrize("role", list(UserRole))
-    async def test_unrestricted_allows_any_role(
+    @pytest.mark.parametrize("role", [UserRole.PLAYER, UserRole.STORYTELLER, UserRole.ADMIN])
+    async def test_unrestricted_allows_any_active_role(
         self, role: UserRole, mocker: MockerFixture
     ) -> None:
-        """Verify UNRESTRICTED permission allows all user roles."""
+        """Verify UNRESTRICTED permission allows every active user role."""
         # Given a company with UNRESTRICTED permission and a user with the given role
         connection = _mock_connection(
             mocker,
@@ -554,6 +583,23 @@ class TestUserCanManageCampaignUnrestricted:
         # When calling the guard
         # Then it returns without raising
         await user_can_manage_campaign(connection, _mock_handler(mocker))
+
+    @pytest.mark.parametrize("role", [UserRole.UNAPPROVED, UserRole.DEACTIVATED])
+    async def test_unrestricted_permission_denies_inactive_users(
+        self, role: UserRole, mocker: MockerFixture
+    ) -> None:
+        """Verify UNRESTRICTED campaign management still rejects unapproved and deactivated users."""
+        # Given an UNRESTRICTED company and an inactive acting user
+        _setup_campaign_db_mocks(
+            mocker, permission=PermissionManageCampaign.UNRESTRICTED, user_role=role
+        )
+        connection = _mock_connection(
+            mocker, {"company_id": str(uuid4())}, headers={"On-Behalf-Of": str(uuid4())}
+        )
+
+        # When/Then the guard raises
+        with pytest.raises(PermissionDeniedError):
+            await user_can_manage_campaign(connection, _mock_handler(mocker))
 
 
 class TestUserCanManageCampaignStoryteller:
@@ -629,3 +675,24 @@ class TestNpcManagementPermitted:
 
         # Then the result matches the expectation
         assert result is expected
+
+
+class TestStorytellerCharacterAccessGuard:
+    """Test the storyteller character visibility guard."""
+
+    async def test_missing_on_behalf_of_header_is_denied(
+        self,
+        mocker: MockerFixture,
+        character_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a character route without On-Behalf-Of is denied instead of skipping the role check."""
+        # Given a STORYTELLER character and a request without On-Behalf-Of
+        character = await character_factory(type=CharacterType.STORYTELLER, user_player=None)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character.id), "company_id": str(character.company_id)},
+        )
+
+        # When/Then the guard raises
+        with pytest.raises(PermissionDeniedError, match="On-Behalf-Of header is required"):
+            await storyteller_character_access_guard(connection, _mock_handler(mocker))

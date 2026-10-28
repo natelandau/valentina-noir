@@ -193,6 +193,7 @@ class UserXPService:
             acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
+        await GetModelByIdValidationService().get_campaign_by_id(campaign_id, company_id=company.id)
         return await self.add_xp(user_id=target_user.id, campaign_id=campaign_id, amount=amount)
 
     async def remove_xp_from_campaign_experience(
@@ -211,6 +212,7 @@ class UserXPService:
             acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
+        await GetModelByIdValidationService().get_campaign_by_id(campaign_id, company_id=company.id)
         return await self.spend_xp(user_id=target_user.id, campaign_id=campaign_id, amount=amount)
 
     async def add_cp_to_campaign_experience(
@@ -229,4 +231,5 @@ class UserXPService:
             acting_user_id=acting_user_id,
             target_user_id=target_user.id,
         )
+        await GetModelByIdValidationService().get_campaign_by_id(campaign_id, company_id=company.id)
         return await self.add_cp(target_user.id, campaign_id, amount)

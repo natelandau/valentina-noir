@@ -5,7 +5,7 @@ allowing access to protected endpoints.
 """
 
 import asyncio
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 from uuid import UUID
 
 from vapi.constants import (
@@ -103,7 +103,12 @@ async def _resolve_acting_user_from_header(
     except ValueError as e:
         raise NotFoundError(detail=f"User '{user_id_str}' not found") from e
 
-    user = await User.filter(id=user_uuid, is_archived=False).first()
+    filters: dict[str, Any] = {"id": user_uuid, "is_archived": False}
+    company_id_str = connection.path_params.get("company_id")
+    if company_id_str is not None:
+        filters["company_id"] = company_id_str
+
+    user = await User.filter(**filters).first()
     if not user:
         raise NotFoundError(detail=f"User '{user_id_str}' not found")
 
@@ -130,11 +135,15 @@ async def _check_developer_company_permission(
 
     # Skip separate company existence check — the DI provider already validates
     # the company, and the permission query implicitly proves it exists
-    perm = await DeveloperCompanyPermission.filter(
-        developer_id=developer.id,
-        company_id=company_uuid,
-        company__is_archived=False,
-    ).first()
+    perm = (
+        await DeveloperCompanyPermission.filter(
+            developer_id=developer.id,
+            company_id=company_uuid,
+            company__is_archived=False,
+        )
+        .exclude(permission=CompanyPermission.REVOKE)
+        .first()
+    )
 
     if perm and (allowed_permissions is None or perm.permission in allowed_permissions):
         return
@@ -319,6 +328,9 @@ async def user_can_manage_campaign(connection: "ASGIConnection", _: "BaseRouteHa
     )
     if not company:
         raise NotFoundError(detail=f"Company '{company_id}' not found")
+
+    if user and user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        raise PermissionDeniedError(detail="No rights to access this resource")
 
     match company.settings.permission_manage_campaign:
         case PermissionManageCampaign.UNRESTRICTED:

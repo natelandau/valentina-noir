@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import pytest
 
@@ -532,7 +533,7 @@ class TestUserQuickRollService:
 
         # When we validate the trait IDs
         service = UserQuickRollService()
-        result = await service.validate_quickroll_traits(trait_ids)
+        result = await service.validate_quickroll_traits(trait_ids, company_id=uuid4())
 
         # Then the validated Trait objects are returned
         assert len(result) == 2
@@ -545,18 +546,17 @@ class TestUserQuickRollService:
 
         # When/Then a ValidationError is raised
         with pytest.raises(ValidationError, match="Quick roll must have at least one trait"):
-            await service.validate_quickroll_traits([])
+            await service.validate_quickroll_traits([], company_id=uuid4())
 
     async def test_validate_quickroll_traits_invalid_ids(self) -> None:
         """Verify validate_quickroll_traits raises ValidationError for invalid IDs."""
         # Given one valid trait and one non-existent UUID
         trait = await Trait.filter(is_archived=False).first()
-        from uuid import uuid4
 
         # When/Then a ValidationError is raised for the invalid ID
         service = UserQuickRollService()
         with pytest.raises(ValidationError, match="Trait not found"):
-            await service.validate_quickroll_traits([trait.id, uuid4()])
+            await service.validate_quickroll_traits([trait.id, uuid4()], company_id=uuid4())
 
 
 class TestUserXPService:
@@ -659,6 +659,29 @@ class TestUserXPService:
         # Then the user's lifetime XP is incremented
         user = await User.get(id=target_user.id)
         assert user.lifetime_xp == initial_lifetime_xp + 10
+
+    async def test_add_xp_to_campaign_experience_rejects_other_company_campaign(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+    ) -> None:
+        """Verify XP cannot be added against another company's campaign."""
+        # Given a user in one company and a campaign in another
+        company = await company_factory()
+        company = await Company.filter(id=company.id).prefetch_related("settings").first()
+        target_user = await user_factory(company=company)
+        foreign_campaign = await campaign_factory(company=await company_factory())
+
+        # When/Then adding XP against the foreign campaign raises ValidationError
+        with pytest.raises(ValidationError, match=r"Campaign.*not found"):
+            await UserXPService().add_xp_to_campaign_experience(
+                company=company,
+                acting_user_id=target_user.id,
+                target_user=target_user,
+                campaign_id=foreign_campaign.id,
+                amount=10,
+            )
 
     async def test_add_xp_to_campaign_experience_no_lifetime_update(
         self,

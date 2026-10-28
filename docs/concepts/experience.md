@@ -61,6 +61,8 @@ The Experience API provides endpoints for managing player experience:
 | Remove XP       | `POST /users/{user_id}/experience/xp/remove`    | Deduct experience points (when spending)             |
 | Add Cool Points | `POST /users/{user_id}/experience/cp/add`       | Award Cool Points to a player                        |
 
+The add and remove endpoints take a request body with `amount` and `campaign_id`. The `amount` must be a positive whole number, and the campaign must belong to the company. Otherwise the request returns `400`.
+
 ## Permission Controls
 
 Who can grant experience is controlled by the `permission_grant_xp` company setting. See [Company Settings](./company_settings.md) for details.

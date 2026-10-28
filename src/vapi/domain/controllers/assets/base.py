@@ -49,10 +49,14 @@ class BaseAssetsController(Controller, ABC):
             total=count,
         )
 
-    async def _get_asset(self, asset: S3Asset, parent_id: UUID) -> dto.S3AssetResponse:
-        """Get an asset, verifying it belongs to the parent."""
+    def _assert_belongs_to_parent(self, asset: S3Asset, parent_id: UUID) -> None:
+        """Treat an asset owned by a different parent as not found."""
         if getattr(asset, self.parent_fk_field) != parent_id:
             raise NotFoundError(detail="Asset not found")
+
+    async def _get_asset(self, asset: S3Asset, parent_id: UUID) -> dto.S3AssetResponse:
+        """Get an asset, verifying it belongs to the parent."""
+        self._assert_belongs_to_parent(asset=asset, parent_id=parent_id)
         return dto.S3AssetResponse.from_model(asset)
 
     async def _create_asset(
@@ -74,6 +78,7 @@ class BaseAssetsController(Controller, ABC):
         )
         return dto.S3AssetResponse.from_model(asset)
 
-    async def _delete_asset(self, asset: S3Asset) -> None:
-        """Delete an asset from S3 and the database."""
+    async def _delete_asset(self, asset: S3Asset, parent_id: UUID) -> None:
+        """Delete an asset from S3 and the database, verifying it belongs to the parent."""
+        self._assert_belongs_to_parent(asset=asset, parent_id=parent_id)
         await AWSS3Service().delete_asset(asset)

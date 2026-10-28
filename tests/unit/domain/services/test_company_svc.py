@@ -118,6 +118,27 @@ class TestListCompanies:
         assert count == 1
         assert {x.id for x in companies} == {company.id}
 
+    async def test_list_companies_excludes_revoked(
+        self,
+        developers_and_companies: DevelopersAndCompanies,
+        developer_company_permission_factory: Callable[..., DeveloperCompanyPermission],
+    ) -> None:
+        """Verify a company where the developer holds only REVOKE is not listed."""
+        # Given a developer with USER on one company and REVOKE on another
+        developer_user = developers_and_companies.developer_user
+        await developer_company_permission_factory(
+            developer=developer_user,
+            company=developers_and_companies.other_company,
+            permission=CompanyPermission.REVOKE,
+        )
+
+        # When the method is called
+        count, companies = await CompanyService().list_companies(developer_user)
+
+        # Then only the USER company is listed
+        assert count == 1
+        assert {x.id for x in companies} == {developers_and_companies.company.id}
+
 
 class TestCanDeveloperAccessCompany:
     """Test the can_developer_access_company method."""
@@ -399,6 +420,30 @@ class TestControlCompanyPermissions:
             developer_id=developer_user.id, company_id=company.id
         ).first()
         assert remaining is None
+
+    async def test_control_company_permissions_revoke_without_existing_row(
+        self, developers_and_companies: DevelopersAndCompanies
+    ) -> None:
+        """Verify revoking a developer with no permission row stores nothing."""
+        # Given a developer with no permission on the company
+        company = developers_and_companies.company
+        outsider = developers_and_companies.global_admin
+
+        # When the owner revokes them twice
+        service = CompanyService()
+        for _ in range(2):
+            result = await service.control_company_permissions(
+                company=company,
+                requesting_developer=developers_and_companies.developer_owner,
+                target_developer_id=outsider.id,
+                new_permission=CompanyPermission.REVOKE,
+            )
+
+        # Then a synthetic REVOKE is returned and no row exists
+        assert result.permission == CompanyPermission.REVOKE
+        assert not await DeveloperCompanyPermission.filter(
+            developer_id=outsider.id, company_id=company.id
+        ).exists()
 
     async def test_control_company_permissions_revoke_owner_success(
         self,

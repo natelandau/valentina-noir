@@ -40,11 +40,15 @@ class DiceRollService:
 
         coros: list = []
         if data.campaign_id:
-            coros.append(validation_svc.get_campaign_by_id(data.campaign_id))
+            coros.append(validation_svc.get_campaign_by_id(data.campaign_id, company_id=company_id))
         if data.character_id:
-            coros.append(validation_svc.get_character_by_id(data.character_id))
+            coros.append(
+                validation_svc.get_character_by_id(data.character_id, company_id=company_id)
+            )
         if data.trait_ids:
-            coros.append(validate_trait_ids_from_mixed_sources(data.trait_ids))
+            coros.append(
+                validate_trait_ids_from_mixed_sources(data.trait_ids, company_id=company_id)
+            )
 
         results = await asyncio.gather(*coros) if coros else []
 
@@ -99,8 +103,8 @@ class DiceRollService:
         """Roll a quick roll."""
         validation_svc = GetModelByIdValidationService()
         quickroll, character = await asyncio.gather(
-            validation_svc.get_quickroll_by_id(data.quickroll_id),
-            validation_svc.get_character_by_id(data.character_id),
+            validation_svc.get_quickroll_by_id(data.quickroll_id, company_id=company.id),
+            validation_svc.get_character_by_id(data.character_id, company_id=company.id),
         )
 
         await quickroll.fetch_related("traits")

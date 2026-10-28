@@ -275,7 +275,7 @@ async def provide_acting_user(
         NotFoundError: If the user does not exist, is archived, or is not in the company.
     """
     cached: User | None = getattr(request.state, "acting_user", None)
-    if cached is not None:
+    if cached is not None and cached.company_id == company.id:  # ty:ignore[unresolved-attribute]
         return cached
 
     try:
@@ -345,9 +345,9 @@ async def provide_campaign_chapter_by_id(chapter_id: UUID, book: CampaignBook) -
     )
 
 
-async def provide_campaign_by_id_for_experience(campaign_id: UUID) -> Campaign:
-    """Provide a Campaign by ID for experience controller FK resolution."""
-    return await _find_or_404(Campaign, "Campaign", doc_id=campaign_id)
+async def provide_campaign_by_id_for_experience(campaign_id: UUID, company: Company) -> Campaign:
+    """Provide a Campaign by ID, scoped to a company, for experience controller FK resolution."""
+    return await _find_or_404(Campaign, "Campaign", Q(company_id=company.id), doc_id=campaign_id)
 
 
 async def provide_character_by_id_and_company(character_id: UUID, company: Company) -> Character:
@@ -411,11 +411,12 @@ async def provide_note_by_id(note_id: UUID) -> Note:
     return await _find_or_404(Note, "Note", doc_id=note_id)
 
 
-async def provide_quickroll_by_id(quickroll_id: UUID) -> QuickRoll:
-    """Provide a QuickRoll by ID, prefetching traits for M2M."""
+async def provide_quickroll_by_id(quickroll_id: UUID, target_user: User) -> QuickRoll:
+    """Provide a QuickRoll by ID, scoped to the path user, prefetching traits for M2M."""
     return await _find_or_404(
         QuickRoll,
         "Quick roll",
+        Q(user_id=target_user.id),
         doc_id=quickroll_id,
         prefetch=["traits"],
     )
@@ -431,6 +432,6 @@ async def provide_diceroll_by_id(diceroll_id: UUID) -> DiceRoll:
     )
 
 
-async def provide_s3_asset_by_id(asset_id: UUID) -> S3Asset:
-    """Provide an S3Asset by ID."""
-    return await _find_or_404(S3Asset, "Asset", doc_id=asset_id)
+async def provide_s3_asset_by_id(asset_id: UUID, company: Company) -> S3Asset:
+    """Provide an S3Asset by ID, scoped to a company."""
+    return await _find_or_404(S3Asset, "Asset", Q(company_id=company.id), doc_id=asset_id)
