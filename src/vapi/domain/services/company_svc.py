@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from tortoise.expressions import Q
+from tortoise.expressions import Q, Subquery
 from tortoise.functions import Count
 
 from vapi.constants import CharacterType, CompanyPermission
@@ -122,7 +122,12 @@ class CompanyService:
         qs = Company.filter(is_archived=False)
 
         if not requesting_developer.is_global_admin:
-            qs = qs.filter(developer_permissions__developer_id=requesting_developer.id)
+            permitted_company_ids = (
+                DeveloperCompanyPermission.filter(developer_id=requesting_developer.id)
+                .exclude(permission=CompanyPermission.REVOKE)
+                .values_list("company_id", flat=True)
+            )
+            qs = qs.filter(id__in=Subquery(permitted_company_ids))
 
         count, companies = await asyncio.gather(
             qs.count(),
@@ -170,8 +175,8 @@ class CompanyService:
             developer_id=target_developer_id, company_id=company.id
         )
 
-        # Idempotent
-        if existing and existing.permission == new_permission:
+        # Idempotent. REVOKE falls through so a stored REVOKE row is deleted below.
+        if existing and existing.permission == new_permission != CompanyPermission.REVOKE:
             await existing.fetch_related("company")
             return existing
 
@@ -181,9 +186,10 @@ class CompanyService:
             if num_owners < 2:  # noqa: PLR2004
                 raise ValidationError(detail="Every company must have at least one owner.")
 
-        # Revoke
-        if new_permission == CompanyPermission.REVOKE and existing:
-            await existing.delete()
+        # Revoke never stores a row: access is the presence of a non-REVOKE row
+        if new_permission == CompanyPermission.REVOKE:
+            if existing:
+                await existing.delete()
             return DeveloperCompanyPermission(
                 developer=target_developer,
                 company=company,

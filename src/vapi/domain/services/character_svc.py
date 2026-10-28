@@ -10,6 +10,7 @@ from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterClass, CharacterStatus, CharacterType
+from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import (
     Character,
     CharacterTrait,
@@ -22,6 +23,7 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet, tracker_type_for
 from vapi.domain.services.tracker_svc import TrackerService, is_derived_trait
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
@@ -33,7 +35,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from vapi.db.sql_models.company import Company
-    from vapi.db.sql_models.user import User
     from vapi.domain.controllers.character.dto import CharacterPatch, CharacterTraitCreate
 
 
@@ -338,6 +339,39 @@ class CharacterService:
 
         return changes
 
+    async def validate_company_references(self, character: Character) -> None:
+        """Reject a campaign or player that belongs to another company.
+
+        XP spending and refunds key off the character's campaign and player, so a foreign
+        reference would let one company change another company's XP ledger.
+
+        Args:
+            character: The character whose references to check.
+
+        Raises:
+            ValidationError: If the campaign or player is not an active record in the
+                character's company.
+        """
+        company_id = character.company_id  # ty:ignore[unresolved-attribute]
+        campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
+        user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
+
+        if (
+            campaign_id is not None
+            and not await Campaign.filter(
+                id=campaign_id, company_id=company_id, is_archived=False
+            ).exists()
+        ):
+            raise ValidationError(detail=f"Campaign {campaign_id} not found")
+
+        if (
+            user_player_id is not None
+            and not await User.filter(
+                id=user_player_id, company_id=company_id, is_archived=False
+            ).exists()
+        ):
+            raise ValidationError(detail=f"User {user_player_id} not found")
+
     async def prepare_for_save(self, character: Character) -> None:
         """Perform all pre-save validations and updates.
 
@@ -348,6 +382,7 @@ class CharacterService:
             character: The character to prepare.
         """
         self.update_date_killed(character)
+        await self.validate_company_references(character)
         await asyncio.gather(
             self.validate_unique_name(character),
             self.validate_class_attributes(character),

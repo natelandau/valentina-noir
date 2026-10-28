@@ -84,7 +84,10 @@ class QuickRollController(Controller):
             user_to_manage_id=target_user.id,
         )
         service = UserQuickRollService()
-        traits = await service.validate_quickroll_traits(data.trait_ids)
+        traits = await service.validate_quickroll_traits(
+            data.trait_ids,
+            company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+        )
 
         quickroll = await QuickRoll.create(
             user=target_user,
@@ -124,7 +127,10 @@ class QuickRollController(Controller):
         if not isinstance(data.trait_ids, msgspec.UnsetType):
             old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
             service = UserQuickRollService()
-            traits = await service.validate_quickroll_traits(data.trait_ids)
+            traits = await service.validate_quickroll_traits(
+                data.trait_ids,
+                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+            )
             await quickroll.traits.clear()
             await quickroll.traits.add(*traits)
             new_trait_ids = sorted(str(tid) for tid in data.trait_ids)

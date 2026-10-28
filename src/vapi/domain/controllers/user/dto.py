@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 import msgspec
@@ -277,7 +277,7 @@ class UserMerge(msgspec.Struct):
 class ExperienceAddRemove(msgspec.Struct):
     """Request body for adding or removing XP/CP."""
 
-    amount: int
+    amount: Annotated[int, msgspec.Meta(ge=1)]
     campaign_id: UUID
 
 

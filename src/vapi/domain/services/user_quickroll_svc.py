@@ -16,11 +16,14 @@ if TYPE_CHECKING:
 class UserQuickRollService:
     """Quick roll service."""
 
-    async def validate_quickroll_traits(self, trait_ids: list[UUID]) -> list[Trait]:
+    async def validate_quickroll_traits(
+        self, trait_ids: list[UUID], *, company_id: UUID
+    ) -> list[Trait]:
         """Validate trait IDs and return the Trait objects for M2M assignment.
 
         Args:
             trait_ids: The list of trait UUIDs to validate.
+            company_id: The company whose custom traits and character traits may be used.
 
         Returns:
             The list of validated Trait objects.
@@ -28,7 +31,9 @@ class UserQuickRollService:
         Raises:
             ValidationError: If no traits remain after validation or any ID is invalid.
         """
-        validated_ids = await validate_trait_ids_from_mixed_sources(trait_ids)
+        validated_ids = await validate_trait_ids_from_mixed_sources(
+            trait_ids, company_id=company_id
+        )
 
         if not validated_ids:
             raise ValidationError(
