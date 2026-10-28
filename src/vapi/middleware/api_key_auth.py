@@ -15,6 +15,7 @@ from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY
 from vapi.db.sql_models.developer import Developer
 from vapi.domain.services.developer_svc import DeveloperService
+from vapi.lib.auth_throttle import AuthFailureThrottle
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import NotAuthorizedError
 from vapi.utils.authentication import log_auth_failure
@@ -51,11 +52,16 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
         store = connection.app.stores.get(settings.stores.authentication_cache_key)
         cache_key = fingerprint
 
-        # Try cache first
-        cached = await store.get(cache_key, renew_for=settings.stores.ttl)
+        # No renew_for: a fixed expiry bounds how long a missed invalidation can grant access
+        cached = await store.get(cache_key)
         if cached is not None:
             developer = msgspec.json.decode(cached, type=CachedDeveloper)
             return AuthenticationResult(user=developer, auth=auth_header)
+
+        # Cache miss: refuse a client that keeps guessing before paying for the lookup.
+        # Checked only here, since a guessed key never hits the cache.
+        throttle = AuthFailureThrottle(connection)
+        await throttle.check()
 
         # Cache miss: DB lookup and verify
         db_developer = await Developer.filter(
@@ -78,6 +84,7 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
                 return AuthenticationResult(user=cached_dev, auth=auth_header)
 
         log_auth_failure(connection, "invalid API key")
+        await throttle.record_failure()
         raise NotAuthorizedError(detail="Unauthorized API key")
 
 

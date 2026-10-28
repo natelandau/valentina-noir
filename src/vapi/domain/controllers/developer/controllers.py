@@ -12,7 +12,7 @@ from vapi.domain.services import DeveloperService
 from vapi.domain.services.developer_svc import validate_provider_audiences
 from vapi.lib.patch import apply_patch
 from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
-from vapi.lib.stores import delete_authentication_cache_for_api_key
+from vapi.lib.stores import delete_authentication_cache_for_developer
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -48,9 +48,14 @@ class DeveloperController(Controller):
     )
     async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
         """Generate a new API key for a developer."""
+        # Evict after the new key is saved: evicting first lets a concurrent request with
+        # the old key re-cache it for the full TTL
+        old_fingerprint = developer.api_key_fingerprint
         new_key = await DeveloperService().generate_api_key(developer)
+        await delete_authentication_cache_for_developer(
+            request.app, developer, fingerprint=old_fingerprint
+        )
 
-        await delete_authentication_cache_for_api_key(request)
         request.state.audit_description = f"Regenerate API key for developer '{developer.username}'"
         if developer.key_generated is None:
             msg = f"key_generated not set after generating API key for developer {developer.id}"
