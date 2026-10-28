@@ -20,6 +20,8 @@ duty test -- -n 0             # Run tests serially (for debugging)
 duty test -- -n 0 -v -s -x    # Serial, verbose, show output, stop on first failure
 duty check                    # Run lint + full test suite (what the pre-push hook runs)
 # NOTE: Docker must be running for tests (PostgreSQL + Redis containers)
+# NOTE: In a worktree, run `uv run duty ...`. A bare `duty` can resolve to the main checkout's
+#       .venv and silently lint and test the main checkout's source instead of the worktree's
 # NOTE: lint/test checks run through gate-cache and skip when they already passed on identical
 #       content. Force a re-run with GATE_CACHE_DISABLE=1 (e.g. `GATE_CACHE_DISABLE=1 duty test`)
 

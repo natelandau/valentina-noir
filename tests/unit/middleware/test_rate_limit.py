@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import math
 import time
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 from litestar.serialization import decode_json, encode_json
 
+from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY, IGNORE_RATE_LIMIT_HEADER_KEY
 from vapi.lib.exceptions import TooManyRequestsError
 from vapi.middleware.rate_limit import (
@@ -77,6 +81,7 @@ def _make_request(
     mock_request = MagicMock()
     mock_request.headers = MagicMock()
     mock_request.headers.get = lambda key, default=None: _headers.get(key, default)
+    mock_request.scope = {}
     if client_host is None:
         mock_request.client = None
     else:
@@ -435,6 +440,21 @@ class TestGetRequestIdentifier:
         ).hexdigest()[:16]
         assert result == expected
 
+    def test_identifier_from_authenticated_developer(self) -> None:
+        """Verify an authenticated request is keyed by developer, so rotating keys keeps the bucket."""
+        # Given two requests from the same developer with different API keys
+        middleware = RateLimitMiddleware.__new__(RateLimitMiddleware)
+        developer = SimpleNamespace(id=uuid4())
+        first = _make_request(headers={AUTH_HEADER_KEY: "old-key"})
+        second = _make_request(headers={AUTH_HEADER_KEY: "new-key"})
+        first.scope = {"user": developer}
+        second.scope = {"user": developer}
+
+        # When getting the identifiers / Then they match
+        assert middleware._get_request_identifier(first) == middleware._get_request_identifier(
+            second
+        )
+
     @pytest.mark.parametrize(
         ("client_host", "expected"),
         [
@@ -456,6 +476,58 @@ class TestGetRequestIdentifier:
 
         # Then the expected identifier is returned
         assert result == expected
+
+
+class TestConcurrentRequests:
+    """Test token consumption under concurrency."""
+
+    async def test_concurrent_requests_cannot_share_one_token(self, redis: Any) -> None:
+        """Verify concurrent requests against a one-token bucket allow exactly one."""
+        # Given a one-token policy and a Redis-backed store
+        from litestar.stores.redis import RedisStore
+
+        store = RedisStore(redis=redis, namespace="test-rate-limit")
+        policy = _make_policy(name="single", capacity=1, refill_rate=0.0001)
+        middleware = RateLimitMiddleware(global_limits=[])
+        request = _make_request()
+
+        async def _attempt() -> bool:
+            try:
+                await middleware._handle_limit(
+                    limit_policy=policy,
+                    request=request,
+                    store=store,
+                    request_identifier="concurrency",
+                )
+            except TooManyRequestsError:
+                return False
+            return True
+
+        # When five requests race for the token
+        results = await asyncio.gather(*(_attempt() for _ in range(5)))
+
+        # Then exactly one is allowed
+        assert sum(results) == 1
+
+    async def test_atomic_path_reads_and_writes_the_stored_state_format(self, redis: Any) -> None:
+        """Verify the Redis script uses the same stored state as the Python path."""
+        # Given an empty bucket stored in the existing format
+        from litestar.stores.redis import RedisStore
+
+        store = RedisStore(redis=redis, namespace="test-rate-limit")
+        policy = _make_policy(name="format", capacity=5, refill_rate=0.0001)
+        await store.set("fmt:format", encode_json(BucketState(tokens=0.0, last_refill=time.time())))
+        bucket = await TokenBucket.from_store_or_new(
+            store=store, storage_key="fmt:format", request_identifier="fmt", limit_policy=policy
+        )
+
+        # When a request tries to spend a token
+        allowed = await bucket.allow_request()
+
+        # Then it is refused and the stored state still decodes as BucketState
+        assert allowed is False
+        stored = decode_json(await store.get("fmt:format"), target_type=BucketState)
+        assert stored.tokens < 1
 
 
 # ---------------------------------------------------------------------------
@@ -536,9 +608,10 @@ class TestWrapSend:
 class TestRateLimitMiddlewareHandle:
     """Test the full middleware handle flow."""
 
-    async def test_bypass_when_ignore_header_present(self) -> None:
-        """Verify rate limiting is skipped when the ignore header is set."""
-        # Given a scope with the ignore header
+    async def test_bypass_when_ignore_header_present(self, mocker: MockerFixture) -> None:
+        """Verify rate limiting is skipped when the ignore header is set and allowed."""
+        # Given the ignore header is allowed and the scope carries it
+        mocker.patch.object(settings.rate_limit, "allow_ignore_header", new=True)
         scope = _make_scope(headers={IGNORE_RATE_LIMIT_HEADER_KEY: "true"})
 
         middleware = RateLimitMiddleware(global_limits=[])
@@ -549,6 +622,25 @@ class TestRateLimitMiddlewareHandle:
 
         # Then the next app is called without rate limiting
         next_app.assert_awaited_once()
+
+    async def test_ignore_header_has_no_effect_when_not_allowed(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verify the ignore header cannot skip rate limiting unless the setting allows it."""
+        # Given the ignore header is not allowed, an exhausted policy, and a scope with the header
+        mocker.patch.object(settings.rate_limit, "allow_ignore_header", new=False)
+        policy = _make_policy(capacity=0, refill_rate=1.0)
+        scope = _make_scope(headers={IGNORE_RATE_LIMIT_HEADER_KEY: "true"})
+        mocker.patch(
+            "vapi.middleware.rate_limit.TokenBucket.from_store_or_new",
+            new_callable=AsyncMock,
+            return_value=_make_bucket(tokens=0.0, capacity=0, last_refill=time.time()),
+        )
+        middleware = RateLimitMiddleware(global_limits=[policy])
+
+        # When/Then the request is still rate limited
+        with pytest.raises(TooManyRequestsError):
+            await middleware.handle(scope, AsyncMock(), AsyncMock(), AsyncMock())
 
     async def test_raises_too_many_requests_when_bucket_empty(self, mocker: MockerFixture) -> None:
         """Verify TooManyRequestsError is raised when rate limit is exceeded."""

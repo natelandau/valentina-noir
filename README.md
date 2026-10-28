@@ -62,6 +62,12 @@ id -g  # GID
 
 All application configuration variables from `.env.example` are also supported and should be passed to the container via an env file or environment variables.
 
+### Behind a reverse proxy
+
+The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address. Callers can send any header, so set this to a header your edge proxy overwrites: Railway's edge overwrites `X-Real-IP`, and Cloudflare sets `CF-Connecting-IP`. Set it to an empty value when no proxy sits in front, so the connecting peer's address is used.
+
+`VAPI_RATE_LIMIT__ALLOW_IGNORE_HEADER` lets requests skip rate limiting with the `X-Testing-Ignore-Rate-Limit` header. It defaults to `false`. Keep it `false` in production, because any caller can send that header. The test suite enables it.
+
 ## Populate dev data
 
 Fill a local development database with believable, varied test data (companies, users with every role, campaigns/books/chapters, a vampire/werewolf/mortal/hunter character mix, dice rolls, quick rolls, notes, inventory, and placeholder image assets). This is dev-only tooling and is not shipped in the production image.
