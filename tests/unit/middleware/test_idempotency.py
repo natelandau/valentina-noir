@@ -13,7 +13,11 @@ from vapi.constants import (
     IDEMPOTENCY_KEY_STATE_KEY,
     IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
 )
-from vapi.middleware.idempotency import ResponseCapture, idempotency_middleware
+from vapi.middleware.idempotency import (
+    IdempotencyMiddleware,
+    ResponseCapture,
+    idempotency_middleware,
+)
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -110,3 +114,29 @@ class TestResponseCaptureCaching:
 
         # Then it is written to the store exactly once
         store.set.assert_awaited_once()
+
+
+def test_cache_key_separates_acting_users_and_query_strings() -> None:
+    """Verify the replay key differs per On-Behalf-Of user and per query string."""
+
+    # Given requests that differ only in acting user or query string
+    def _request(path: str, on_behalf_of: str) -> Request:
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": path.split("?", maxsplit=1)[0],
+            "query_string": path.partition("?")[2].encode(),
+            "headers": [(b"x-api-key", b"key"), (b"on-behalf-of", on_behalf_of.encode())],
+        }
+        return Request(scope)
+
+    middleware = IdempotencyMiddleware()
+
+    def _key(path: str, on_behalf_of: str) -> str:
+        return middleware._build_cache_key(
+            _request(path, on_behalf_of), idempotency_key="k", method="POST"
+        )
+
+    # When building cache keys / Then each difference yields a distinct key
+    assert _key("/thing", "user-a") != _key("/thing", "user-b")
+    assert _key("/thing?a=1", "user-a") != _key("/thing?a=2", "user-a")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from litestar.stores.redis import RedisStore as LitestarRedisStore
@@ -21,6 +22,8 @@ logger = logging.getLogger("vapi")
 
 
 __all__ = ("RedisStore",)
+
+_COMPANY_PATH = re.compile(r"/companies/([0-9a-fA-F-]{36})")
 
 
 class RedisStore(LitestarRedisStore):
@@ -47,16 +50,46 @@ class RedisStore(LitestarRedisStore):
 
         await pipe.execute()
 
-    async def delete_by_prefix(self, match: str) -> None:
-        """Delete a value from the session storage by prefix.
+    async def set(
+        self, key: str, value: str | bytes, expires_in: int | timedelta | None = None
+    ) -> None:
+        """Set a value, and index response-cache entries by developer and company.
+
+        The indexes let a write delete exactly the affected cached responses instead of
+        scanning the whole keyspace.
 
         Args:
-            match (str): The prefix to use for the session storage.
+            key (str): Key to associate the value with.
+            value (str | bytes): Value to store.
+            expires_in (int | timedelta | None): Time in seconds before the key is considered expired.
         """
-        i = 0
-        async for key in self._redis.scan_iter(match=f"{settings.slug}:{match}:*", count=500):
-            await self._redis.delete(key)
-            i += 1
+        await super().set(key, value, expires_in)
+        if self.namespace != f"{settings.slug}:{settings.stores.response_cache_key}":
+            return
 
-        msg = f"Deleted {i} keys"
-        logger.debug(msg, extra={"component": "cache"})
+        # Response-cache keys start with the API key fingerprint (see response_cache_key_builder)
+        index_keys = [_index_key("developer", key.split(":", 1)[0])]
+        if company := _COMPANY_PATH.search(key):
+            index_keys.append(_index_key("company", company.group(1)))
+
+        ttl = expires_in if expires_in is not None else settings.stores.ttl
+        pipe = self._redis.pipeline(transaction=False)
+        for index_key in index_keys:
+            pipe.sadd(index_key, self._make_key(key))
+            pipe.expire(index_key, ttl)
+        await pipe.execute()
+
+    async def delete_indexed(self, kind: str, value: str) -> None:
+        """Delete every response-cache entry indexed under one developer or company.
+
+        Args:
+            kind (str): ``developer`` (an API key fingerprint) or ``company`` (a company ID).
+            value (str): The fingerprint or company ID.
+        """
+        index_key = _index_key(kind, value)
+        members = await self._redis.smembers(index_key)  # ty:ignore[invalid-await]
+        await self._redis.unlink(index_key, *members)
+
+
+def _index_key(kind: str, value: str) -> str:
+    return f"{settings.slug}:{settings.stores.response_cache_key}_index:{kind}:{value}"

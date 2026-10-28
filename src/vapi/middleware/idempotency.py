@@ -30,6 +30,7 @@ from vapi.constants import (
     IDEMPOTENCY_KEY_STATE_KEY,
     IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
     IDEMPOTENCY_TTL_SECONDS,
+    ON_BEHALF_OF_HEADER_KEY,
 )
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import ConflictError
@@ -221,8 +222,9 @@ class IdempotencyMiddleware(ASGIMiddleware):
     ) -> str:
         """Build a unique cache key for the idempotency cache.
 
-        The cache key combines the API key fingerprint, idempotency key, method, and path
-        to ensure uniqueness per user and request.
+        The cache key combines the API key fingerprint, the On-Behalf-Of user, the
+        idempotency key, the method, and the path with its query string, so one acting
+        user's cached response is never replayed to another.
 
         Args:
             request (Request): The incoming request object.
@@ -234,8 +236,10 @@ class IdempotencyMiddleware(ASGIMiddleware):
         """
         api_key = request.headers.get(AUTH_HEADER_KEY, "anonymous")
         fingerprint = hmac_sha256_hex(data=api_key)[:16]
+        acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY, "")
         path = request.url.path
-        return f"{fingerprint}:{idempotency_key}:{method}:{path}"
+        query = request.url.query
+        return f"{fingerprint}:{acting_user}:{idempotency_key}:{method}:{path}?{query}"
 
     async def _send_cached_response(self, send: Send, cached: CachedResponse) -> None:
         """Send a cached response to the client.
