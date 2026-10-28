@@ -1,3 +1,14 @@
+## v0.30.0 (2026-10-28)
+
+### Feat
+
+- **trackers**: simplify health, Willpower, and Humanity tracking (#171)
+
+### Fix
+
+- **auth**: anchor the API key auth exclude patterns (#170)
+- **companies**: guarantee every company has a settings row
+
 ## v0.29.0 (2026-10-24)
 
 ### Feat
