@@ -21,7 +21,7 @@ You can upload these image formats:
 | GIF    | `.gif`    | `image/gif`  |
 | WEBP   | `.webp`   | `image/webp` |
 
-The API detects the format from the file's actual contents, not from the filename or the `Content-Type` you send. The `mime_type` on the response reflects the detected format, so a file named `art.txt` that is really a PNG is stored as `image/png`. Any upload that is not one of these four formats, including SVG, is rejected with a `400`.
+The API detects the format from the file's actual contents, not from the filename or the `Content-Type` you send. The `mime_type` on the response reflects the detected format, so a file named `art.txt` that is really a PNG is stored as `image/png`. Any upload that is not one of these four formats, including SVG, is rejected with a `400`. Images larger than 24 megapixels (width × height) are also rejected with a `400`.
 
 ## Objects that hold assets
 
@@ -35,7 +35,7 @@ Five object types accept image assets. Each has the same four endpoints under an
 | Chapter   | `/companies/{company_id}/campaigns/{campaign_id}/books/{book_id}/chapters/{chapter_id}/assets` |
 | User      | `/companies/{company_id}/users/{user_id}/assets`                                          |
 
-Every asset endpoint requires the `X-API-KEY` header and the [`On-Behalf-Of`](authentication.md#the-on-behalf-of-header) header that identifies the acting user. Uploading and deleting also require that user to have permission to manage the parent object (for example, a campaign manager for campaign assets, or the character's player or a storyteller for character assets).
+Every asset endpoint requires the `X-API-KEY` header and the [`On-Behalf-Of`](authentication.md#the-on-behalf-of-header) header that identifies the acting user. Uploading and deleting also require that user to have permission to manage the parent object (for example, a campaign manager for campaign assets, the character's player or a storyteller for character assets, or the user themself or a company admin for user assets).
 
 ## Upload an image
 

@@ -10,13 +10,16 @@ from vapi.lib.exceptions import ValidationError
 
 __all__ = (
     "AVATAR_SIZE",
+    "MAX_IMAGE_PIXELS",
     "MAX_UPLOAD_BYTES",
     "normalize_avatar",
     "validate_image_upload",
 )
 
-# Reject decompression bombs: refuse to decode images above this pixel count.
-Image.MAX_IMAGE_PIXELS = 24_000_000  # ~24 MP
+# Reject decompression bombs: refuse to decode images above this pixel count. Pillow only
+# warns between 1x and 2x its own limit, so _check_pixel_budget enforces the cap explicitly.
+MAX_IMAGE_PIXELS = 24_000_000  # ~24 MP
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 AVATAR_SIZE = 512
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -49,6 +52,12 @@ def _invalid(message: str) -> ValidationError:
     )
 
 
+def _check_pixel_budget(img: Image.Image, message: str) -> None:
+    """Reject an opened image whose dimensions exceed the pixel budget, before decoding it."""
+    if img.width * img.height > MAX_IMAGE_PIXELS:
+        raise _invalid(message)
+
+
 def normalize_avatar(data: bytes) -> bytes:
     """Validate and normalize an uploaded avatar to a 512x512 WebP image.
 
@@ -77,6 +86,7 @@ def normalize_avatar(data: bytes) -> bytes:
             if src.format not in _ALLOWED_FORMATS:
                 msg = "Avatar must be a PNG, JPEG, WEBP, or GIF image."
                 raise _invalid(msg)
+            _check_pixel_budget(src, "Avatar image is too large.")
 
             src.seek(0)  # First frame only; flattens animated GIFs.
             img = ImageOps.exif_transpose(src)  # Honor orientation, then drop EXIF.
@@ -115,7 +125,12 @@ def validate_image_upload(*, data: bytes) -> str:
     try:
         with Image.open(io.BytesIO(data)) as img:
             detected_format = img.format
-            img.verify()  # Parse the full stream to confirm a valid, non-bomb raster image.
+            _check_pixel_budget(img, "Upload image is too large.")
+            img.verify()  # Check stream structure and checksums
+        # verify() leaves the image unusable and skips pixel data, so decode a fresh copy
+        # to reject truncated or corrupt rasters
+        with Image.open(io.BytesIO(data)) as img:
+            img.load()
     except _DECODE_ERRORS as e:
         msg = "Upload must be a PNG, JPEG, GIF, or WEBP image."
         raise _invalid(msg) from e

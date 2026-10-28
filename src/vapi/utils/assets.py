@@ -28,7 +28,7 @@ def sanitize_filename(filename: str) -> str:
     """
     path = Path(Path(filename).name)
     stem = path.stem
-    ext = path.suffix.lstrip(".").lower()
+    ext = re.sub(r"[^a-z0-9]", "", path.suffix.lstrip(".").lower())
 
     stem = unicodedata.normalize("NFKD", stem).encode("ascii", errors="ignore").decode("ascii")
     stem = stem.lower()
