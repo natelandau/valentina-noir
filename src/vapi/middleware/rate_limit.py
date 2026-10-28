@@ -21,6 +21,7 @@ from litestar.datastructures import MutableScopeHeaders
 from litestar.enums import ScopeType
 from litestar.middleware import ASGIMiddleware
 from litestar.serialization import decode_json, encode_json
+from litestar.stores.redis import RedisStore
 from msgspec import Struct, field
 
 from vapi.config import settings
@@ -89,6 +90,34 @@ class BucketState(Struct, frozen=True):
 # This can be a normal class as well, but since we already have msgspec as a dependency and
 # Struct's are faster to create, and there is no need of **kwargs or something which makes
 # it necessary to use a class, we are fine with a struct.
+
+
+# Same arithmetic as TokenBucket.allow_request, run atomically in Redis. Floats are
+# returned as strings because Redis truncates Lua numbers to integers.
+_ALLOW_REQUEST_SCRIPT = """
+local capacity = tonumber(ARGV[1])
+local refill_rate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local tokens = capacity
+local last_refill = now
+local raw = redis.call('GET', KEYS[1])
+if raw then
+  local state = cjson.decode(raw)
+  tokens = tonumber(state.tokens)
+  last_refill = tonumber(state.last_refill)
+end
+tokens = math.min(capacity, math.max(0, tokens + math.max(0, now - last_refill) * refill_rate))
+last_refill = math.max(last_refill, now)
+local allowed = 0
+if tokens >= 1 then
+  allowed = 1
+  tokens = tokens - 1
+end
+redis.call('SET', KEYS[1], cjson.encode({tokens = tokens, last_refill = last_refill}), 'EX', ARGV[4])
+return {allowed, tostring(tokens), tostring(last_refill)}
+"""
+
+
 class TokenBucket(Struct):
     """Implement the token bucket algorithm for rate limiting.
 
@@ -126,6 +155,9 @@ class TokenBucket(Struct):
         Returns:
             bool: True if a token was consumed, False if no tokens were available.
         """
+        if isinstance(self.store, RedisStore):
+            return await self._allow_request_atomic()
+
         now = time.time()
         # Floor elapsed at 0: wall clock can move backward (NTP step, or a peer
         # worker whose clock is ahead wrote a future last_refill). A negative
@@ -146,6 +178,18 @@ class TokenBucket(Struct):
         await self.save()
 
         return allowed
+
+    async def _allow_request_atomic(self) -> bool:
+        """Refill and spend a token in one Redis script so concurrent requests cannot share it."""
+        redis = self.store._redis  # ty:ignore[unresolved-attribute]  # noqa: SLF001
+        script = redis.register_script(_ALLOW_REQUEST_SCRIPT)
+        allowed, tokens, last_refill = await script(
+            keys=[self.store._make_key(self.storage_key)],  # ty:ignore[unresolved-attribute]  # noqa: SLF001
+            args=[self.capacity, self.refill_rate, time.time(), self.expires_in],
+        )
+        self.tokens = float(tokens)
+        self.last_refill = float(last_refill)
+        return bool(allowed)
 
     async def save(self) -> None:
         """Persist the current state of the bucket."""
@@ -182,7 +226,8 @@ class TokenBucket(Struct):
             "set_headers": limit_policy.set_headers,
             "set_429_headers": limit_policy.set_429_headers,
         }
-        cached = await store.get(storage_key)
+        # The Redis script reads the stored state itself, so skip a separate read
+        cached = None if isinstance(store, RedisStore) else await store.get(storage_key)
 
         if cached is not None:
             stored = decode_json(cached, target_type=BucketState)
@@ -285,7 +330,10 @@ class RateLimitMiddleware(ASGIMiddleware):
         app = scope["litestar_app"]
         request: Request[Any, Any, Any] = app.request_class(scope)
 
-        if request.headers.get(IGNORE_RATE_LIMIT_HEADER_KEY) == "true":
+        if (
+            settings.rate_limit.allow_ignore_header
+            and request.headers.get(IGNORE_RATE_LIMIT_HEADER_KEY) == "true"
+        ):
             await next_app(scope, receive, send)
             return
 
@@ -293,8 +341,9 @@ class RateLimitMiddleware(ASGIMiddleware):
         request_identifier = self._get_request_identifier(request)
 
         route_handler = scope["route_handler"]
-        route_limits: list[RateLimitPolicy] = route_handler.opt.get(self.route_limits_key, [])
-        route_limits.sort()
+        route_limits: list[RateLimitPolicy] = sorted(
+            route_handler.opt.get(self.route_limits_key, [])
+        )
 
         allowed_buckets: list[TokenBucket] = []
         for limit_policy in chain(self.global_limits, route_limits):
@@ -330,8 +379,9 @@ class RateLimitMiddleware(ASGIMiddleware):
             request_identifier=request_identifier,
             limit_policy=limit_policy,
         )
+        allowed = await bucket.allow_request()
 
-        if not await bucket.allow_request():
+        if not allowed:
             kwargs: dict[str, Any] = {}
 
             if limit_policy.set_429_headers:
@@ -364,6 +414,11 @@ class RateLimitMiddleware(ASGIMiddleware):
         Returns:
             str: The identifier for the request.
         """
+        # Key on the developer, not the key, so rotating keys does not reset the buckets
+        developer = request.scope.get("user")
+        if developer is not None and getattr(developer, "id", None) is not None:
+            return f"developer:{developer.id}"
+
         api_key = request.headers.get(AUTH_HEADER_KEY, None)
         if api_key:
             encryption_key = (

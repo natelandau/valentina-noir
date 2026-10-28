@@ -134,6 +134,9 @@ class Server(BaseModel):
     reload: bool = Field(default=False)
     reload_dirs: CsvList = Field(default_factory=lambda: [str(MODULE_ROOT_PATH)])
     request_max_body_size: int = Field(default=5_242_880)  # 5MB
+    # The one header that carries the real client IP. Trust only a header the edge
+    # proxy overwrites, since callers can send any header; empty trusts none.
+    client_ip_header: str = Field(default="X-Real-IP")
 
     @computed_field
     @property
@@ -209,6 +212,9 @@ class RateLimitSettings(BaseModel):
 
     encryption_key: str | None = Field(default=None)
     policies: dict[str, RateLimitPolicy] = Field(default_factory=dict)
+    # Honor the X-Testing-Ignore-Rate-Limit header. Any caller can send it, so enable only
+    # for tests and local development.
+    allow_ignore_header: bool = Field(default=False)
 
 
 class OAuthSettings(BaseModel):

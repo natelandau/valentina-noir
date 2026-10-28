@@ -208,6 +208,12 @@ This example applies two policies:
 
     Your request is rejected if you exceed **any** applicable policy.
 
+## Failed Authentication
+
+Rate limits count requests per developer, which covers requests that authenticate. Failed authentication has its own limit, counted per client address. After 20 requests with an invalid API key from one address within 5 minutes, further requests from that address return `429 Too Many Requests` with a `Retry-After` header until the 5-minute window ends. A key that authenticated successfully within the last minute keeps working.
+
+Rotating your API key does not reset your rate limits, because limits follow the developer account rather than the key.
+
 ## Best Practices
 
 !!! danger "Avoid Tight Loops"

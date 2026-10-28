@@ -141,6 +141,7 @@
     VAPI_POSTGRES__PASSWORD            = "valentina"
     VAPI_POSTGRES__PORT                = "5432"
     VAPI_POSTGRES__USER                = "valentina"
+    VAPI_RATE_LIMIT__ALLOW_IGNORE_HEADER = "true"
     VAPI_RATE_LIMIT__ENCRYPTION_KEY    = "MOCK_AUTHENTICATION_ENCRYPTION_KEY"
     VAPI_SAQ__ADMIN_PASSWORD           = "test_password"
     VAPI_SAQ__ADMIN_USERNAME           = "test_admin"
