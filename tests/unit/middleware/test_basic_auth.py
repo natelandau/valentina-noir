@@ -199,6 +199,23 @@ class TestBasicAuthMiddlewareAuthentication:
 
         assert "Invalid credentials" in exc_info.value.detail
 
+    async def test_non_ascii_credentials_are_rejected_cleanly(
+        self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify non-ASCII credentials get a 401 instead of crashing the comparison."""
+        # Given SAQ admin credentials and a request with non-ASCII credentials
+        from vapi.config import settings
+
+        monkeypatch.setattr(settings.saq, "admin_username", "admin")
+        monkeypatch.setattr(settings.saq, "admin_password", "secret123")
+        middleware = BasicAuthMiddleware(app=mocker.MagicMock())
+        auth_header = _encode_basic_auth("admïn", "sécret")
+        connection = _create_mock_connection(mocker, path="/saq/", authorization=auth_header)
+
+        # When/Then authenticating raises NotAuthorizedException, not TypeError
+        with pytest.raises(NotAuthorizedException):
+            await middleware.authenticate_request(connection)
+
     async def test_empty_admin_username_rejects_all(
         self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
     ) -> None:

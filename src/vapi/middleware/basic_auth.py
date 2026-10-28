@@ -15,6 +15,7 @@ from litestar.middleware.authentication import (
 )
 
 from vapi.config import settings
+from vapi.lib.auth_throttle import AuthFailureThrottle
 from vapi.utils.authentication import log_auth_failure
 
 if TYPE_CHECKING:
@@ -42,6 +43,9 @@ class BasicAuthMiddleware(AbstractAuthenticationMiddleware):
                 headers={"WWW-Authenticate": 'Basic realm="SAQ Admin"'},
             )
 
+        throttle = AuthFailureThrottle(connection)
+        await throttle.check()
+
         try:
             encoded_credentials = auth_header.split(" ", 1)[1]
             decoded = base64.b64decode(encoded_credentials).decode("utf-8")
@@ -58,13 +62,15 @@ class BasicAuthMiddleware(AbstractAuthenticationMiddleware):
         valid_username = settings.saq.admin_username or ""
         valid_password = settings.saq.admin_password or ""
 
-        username_matches = secrets.compare_digest(username, valid_username)
-        password_matches = secrets.compare_digest(password, valid_password)
+        # Compare bytes: compare_digest raises TypeError on non-ASCII str input
+        username_matches = secrets.compare_digest(username.encode(), valid_username.encode())
+        password_matches = secrets.compare_digest(password.encode(), valid_password.encode())
 
         if not (username_matches and password_matches) or not valid_username:
             # Log only genuine credential failures, not the initial no-header 401 challenge
             # (which fires on every normal browser auth handshake and would be pure noise).
             log_auth_failure(connection, "invalid basic-auth credentials")
+            await throttle.record_failure()
             raise NotAuthorizedException(
                 detail="Invalid credentials",
                 headers={"WWW-Authenticate": 'Basic realm="SAQ Admin"'},

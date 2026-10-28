@@ -5,12 +5,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from litestar.status_codes import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
+from litestar.status_codes import (
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
+    HTTP_429_TOO_MANY_REQUESTS,
+)
 
 from vapi.constants import AUTH_HEADER_KEY, IGNORE_RATE_LIMIT_HEADER_KEY
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import urls as vapi_urls
 from vapi.domain.services.developer_svc import DeveloperService
+from vapi.lib.auth_throttle import AUTH_FAILURE_LIMIT
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -161,3 +166,37 @@ async def test_no_company_permission(
                 headers={AUTH_HEADER_KEY: api_key, IGNORE_RATE_LIMIT_HEADER_KEY: "true"},
             )
             assert response.status_code == HTTP_403_FORBIDDEN
+
+
+async def test_repeated_invalid_api_keys_are_throttled(client: AsyncClient) -> None:
+    """Verify a client that keeps sending invalid API keys is refused with 429."""
+    # Given a client that has sent invalid keys up to the failure limit
+    url = vapi_urls.Developers.ME
+    for attempt in range(AUTH_FAILURE_LIMIT):
+        response = await client.get(url, headers={AUTH_HEADER_KEY: f"wrong-key-{attempt}"})
+        assert response.status_code == HTTP_401_UNAUTHORIZED
+
+    # When it tries another key
+    response = await client.get(url, headers={AUTH_HEADER_KEY: "wrong-key-final"})
+
+    # Then the request is throttled
+    assert response.status_code == HTTP_429_TOO_MANY_REQUESTS
+
+
+async def test_recently_used_key_keeps_working_while_throttled(
+    client: AsyncClient, token_company_user: dict[str, str]
+) -> None:
+    """Verify a key that authenticated in the last minute is not blocked by failed guesses."""
+    # Given a valid key that just authenticated, then failed guesses up to the limit
+    url = vapi_urls.Developers.ME
+    assert (await client.get(url, headers=token_company_user)).status_code != (
+        HTTP_401_UNAUTHORIZED
+    )
+    for attempt in range(AUTH_FAILURE_LIMIT):
+        await client.get(url, headers={AUTH_HEADER_KEY: f"wrong-key-{attempt}"})
+
+    # When the valid key is used again
+    response = await client.get(url, headers=token_company_user)
+
+    # Then it is not throttled
+    assert response.status_code != HTTP_429_TOO_MANY_REQUESTS

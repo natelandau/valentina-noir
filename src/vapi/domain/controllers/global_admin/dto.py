@@ -6,6 +6,7 @@ from uuid import UUID
 
 import msgspec
 
+from vapi.constants import CompanyPermission
 from vapi.domain.controllers.company.dto import CompanyPermissionResponse
 from vapi.domain.controllers.user.dto import UserResponse
 
@@ -53,7 +54,12 @@ class DeveloperAdminResponse(msgspec.Struct):
             is_global_admin=m.is_global_admin,
             key_generated=m.key_generated,
             provider_audiences=m.provider_audiences,
-            companies=[CompanyPermissionResponse.from_model(p) for p in m.permissions],
+            # A REVOKE row means no access, so it is not one of the developer's companies
+            companies=[
+                CompanyPermissionResponse.from_model(p)
+                for p in m.permissions
+                if p.permission != CompanyPermission.REVOKE
+            ],
         )
 
 

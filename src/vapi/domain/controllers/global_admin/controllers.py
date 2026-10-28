@@ -16,7 +16,7 @@ from vapi.domain.services import DeveloperService
 from vapi.domain.services.developer_svc import validate_provider_audiences
 from vapi.lib.guards import global_admin_guard
 from vapi.lib.patch import apply_patch
-from vapi.lib.stores import delete_authentication_cache_for_api_key
+from vapi.lib.stores import delete_authentication_cache_for_developer
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -130,6 +130,7 @@ class GlobalAdminController(Controller):
 
         request.state.audit_changes = changes
         await developer.save()
+        await delete_authentication_cache_for_developer(request.app, developer)
 
         updated_developer = (
             await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
@@ -149,9 +150,8 @@ class GlobalAdminController(Controller):
     async def delete_developer(self, *, developer: Developer, request: Request) -> None:
         """Delete a Developer by ID."""
         developer.is_archived = True
-
-        await delete_authentication_cache_for_api_key(request)
         await developer.save()
+        await delete_authentication_cache_for_developer(request.app, developer)
 
     @post(
         path=urls.GlobalAdmin.DEVELOPER_NEW_KEY,
@@ -164,9 +164,13 @@ class GlobalAdminController(Controller):
         self, *, developer: Developer, request: Request
     ) -> dict[str, str | list[dict[str, str]]]:
         """Generate a new API key for a Developer."""
+        # Evict after the new key is saved: evicting first lets a concurrent request with
+        # the old key re-cache it for the full TTL
+        old_fingerprint = developer.api_key_fingerprint
         new_key = await DeveloperService().generate_api_key(developer)
-
-        await delete_authentication_cache_for_api_key(request)
+        await delete_authentication_cache_for_developer(
+            request.app, developer, fingerprint=old_fingerprint
+        )
 
         # Re-fetch with prefetched relations for the companies field
         updated_developer = (
