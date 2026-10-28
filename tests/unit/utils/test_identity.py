@@ -143,6 +143,18 @@ class TestOIDCVerification:
         with pytest.raises(UnprocessableEntityError):
             await verify_provider_token(provider=IdentityProvider.APPLE, token=token)
 
+    @pytest.mark.parametrize("missing_claim", ["exp", "iat"])
+    async def test_token_without_time_claim_is_rejected(
+        self, missing_claim: str, rsa_keypair: tuple[Any, dict[str, Any]]
+    ) -> None:
+        """Verify a token without an expiry or issued-at claim is rejected."""
+        # Given a token missing a time claim
+        token = _sign_token(rsa_keypair[0], **{missing_claim: None})
+
+        # When/Then verification fails
+        with pytest.raises(UnprocessableEntityError):
+            await verify_provider_token(provider=IdentityProvider.APPLE, token=token)
+
     async def test_wrong_audience(self, rsa_keypair: tuple[Any, dict[str, Any]]) -> None:
         """Verify a token for an unknown client app is rejected."""
         # Given a token minted for a different audience
