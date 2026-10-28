@@ -95,6 +95,9 @@ class TestPostDataUpdateHook:
         delete_cache = mocker.patch.object(
             after_response, "delete_response_cache_for_api_key", autospec=True
         )
+        delete_company_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_company", autospec=True
+        )
         company = mocker.patch.object(after_response, "Company")
         company.filter.return_value.update = mocker.AsyncMock()
         request = mocker.MagicMock()
@@ -107,5 +110,6 @@ class TestPostDataUpdateHook:
         # Then the cache is flushed and the company timestamp is bumped
         add_audit.assert_awaited_once_with(request)
         delete_cache.assert_awaited_once_with(request)
+        delete_company_cache.assert_awaited_once_with(request, "abc")
         company.filter.assert_called_once_with(id="abc")
         company.filter.return_value.update.assert_awaited_once()

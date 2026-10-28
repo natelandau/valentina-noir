@@ -35,6 +35,44 @@ pytestmark = pytest.mark.anyio
 class TestAfterResponseHooks:
     """Test the after response hooks."""
 
+    async def test_mutation_flushes_other_developers_company_cache(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_owner: dict[str, str],
+        token_company_admin: dict[str, str],
+        redis: Redis,
+        session_company: Company,
+        user_factory: Callable[..., User],
+    ) -> None:
+        """Verify a write by one developer clears another developer's cached company responses."""
+        # Given a second developer with a cached response for this company
+        reader_fingerprint = hmac_sha256_hex(data=token_company_admin[AUTH_HEADER_KEY])
+        response = await client.get(
+            build_url(UsersURL.LIST, company_id=session_company.id), headers=token_company_admin
+        )
+        assert response.status_code == HTTP_200_OK
+        reader_prefix = f"{settings.slug}:{settings.stores.response_cache_key}:{reader_fingerprint}"
+        assert [key async for key in redis.scan_iter(match=f"{reader_prefix}:*")]
+
+        # When another developer creates a user in the company
+        admin = await user_factory(company=session_company, role="ADMIN")
+        response = await client.post(
+            build_url(UsersURL.CREATE, company_id=session_company.id),
+            headers=token_company_owner | {"On-Behalf-Of": str(admin.id)},
+            json={
+                "name_first": "Cache",
+                "name_last": "Reader",
+                "username": "cache_reader",
+                "email": "cache-reader@test.com",
+                "role": "PLAYER",
+            },
+        )
+        assert response.status_code == HTTP_201_CREATED
+
+        # Then the reader's cached company responses are gone
+        assert not [key async for key in redis.scan_iter(match=f"{reader_prefix}:*")]
+
     async def test_post_data_update_hook(
         self,
         client: AsyncClient,

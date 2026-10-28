@@ -44,7 +44,10 @@ from vapi.constants import REQUEST_ID_STATE_KEY
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
 from vapi.domain.hooks.audit_helpers import build_audit_entry
-from vapi.lib.stores import delete_response_cache_for_api_key
+from vapi.lib.stores import (
+    delete_response_cache_for_api_key,
+    delete_response_cache_for_company,
+)
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -155,6 +158,7 @@ async def post_data_update_hook(request: Request) -> None:
 
     await delete_response_cache_for_api_key(request)
     if "company_id" in request.path_params:
+        await delete_response_cache_for_company(request, str(request.path_params["company_id"]))
         await Company.filter(id=request.path_params["company_id"]).update(
             resources_modified_at=time_now()
         )
