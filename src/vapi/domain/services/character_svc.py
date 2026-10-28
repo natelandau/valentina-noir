@@ -357,7 +357,7 @@ class CharacterService:
     @staticmethod
     def _assert_has_tracker(*, trait: Trait, character: Character) -> None:
         """Reject tracker state on a trait that has no tracker for the character's version."""
-        if tracker_type_for(trait, game_version=character.game_version) is None:
+        if tracker_type_for(trait, character=character) is None:
             msg = f"Trait '{trait.name}' has no tracker for {character.game_version.value}."
             raise ValidationError(
                 detail=msg, invalid_parameters=[{"field": "tracker", "message": msg}]

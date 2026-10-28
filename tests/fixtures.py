@@ -4,18 +4,46 @@ from __future__ import annotations
 
 import re
 import uuid
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from tortoise.transactions import in_transaction
 
 from vapi.constants import GameVersion
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
 from vapi.utils.identity import VerifiedIdentity
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Callable
+
+    from tortoise.backends.base.client import BaseDBAsyncClient
 
 pytestmark = pytest.mark.anyio
+
+
+class _Rollback(Exception):  # noqa: N818
+    """Raised to roll back a transaction on purpose."""
+
+
+@asynccontextmanager
+async def rolled_back_transaction() -> AsyncIterator[BaseDBAsyncClient]:
+    """Run the block in a transaction that always rolls back.
+
+    Use it to change constant data or the schema in a test without leaking the change.
+    An exception from the block, such as a failed assertion, still propagates.
+    """
+    try:
+        async with in_transaction() as conn:
+            yield conn
+            raise _Rollback  # noqa: TRY301
+    except _Rollback:
+        pass
+
+
+async def global_trait(name: str) -> Trait:
+    """Return the seeded, non-archived global trait with a name."""
+    return await Trait.get(name=name, custom_for_character_id=None, is_archived=False)
 
 
 def build_verified_identity(**overrides: Any) -> VerifiedIdentity:

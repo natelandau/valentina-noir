@@ -1542,22 +1542,22 @@ class TestCharacterCreate:
         hurt = await client.post(
             url,
             headers=headers,
-            json=base | {"name_last": "Test2", "health": {"superficial": 2}},
+            json=base | {"name_last": "Test2", "health": {"damage": 2}},
         )
 
-        # Then health is sized 6 and full, or carries the marks
+        # Then health is sized 6 and full, or carries the damage
         assert full.status_code == HTTP_201_CREATED
         assert hurt.status_code == HTTP_201_CREATED
         assert full.json()["health"]["size"] == 6
-        assert full.json()["health"]["superficial"] == 0
-        assert hurt.json()["health"]["superficial"] == 2
+        assert full.json()["health"]["damage"] == 0
+        assert hurt.json()["health"]["damage"] == 2
 
     @pytest.mark.parametrize(
         "extra",
         [
             {"health": {"bashing": 1}},
-            {"health": {"superficial": 99}},
-            {"traits": [{"trait_id": "WILLPOWER", "value": 0, "tracker": {"current": 1}}]},
+            {"health": {"damage": 99}},
+            {"traits": [{"trait_id": "WILLPOWER", "value": 0, "tracker": {"stains": 1}}]},
             {"traits": [{"trait_id": "00000000-0000-0000-0000-000000000001", "value": 1}]},
         ],
         ids=["bad_health_field", "health_over_size", "tracker_wrong_type", "unknown_trait"],

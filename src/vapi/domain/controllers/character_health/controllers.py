@@ -48,7 +48,7 @@ class CharacterHealthController(Controller):
         health = await CharacterHealth.get_or_none(character_id=character.id, is_archived=False)
         if health is None:
             raise NotFoundError(detail="Character health not found")
-        return HealthResponse.from_model(health, game_version=character.game_version)
+        return HealthResponse.from_model(health, character=character)
 
     @put(
         path=urls.Characters.HEALTH,

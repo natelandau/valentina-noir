@@ -1556,17 +1556,19 @@ class TestTraitTracker:
         on_behalf_of_header: dict[str, str],
     ) -> None:
         """Verify a trait whose tracker exists only in another game version returns 404."""
-        # Given a V4 character with Humanity, which only has a tracker in V5
+        # Given a V5 character with Blood Pool, which only has a tracker in V4
         character = await character_factory(
             company=session_company,
             user_player=session_user,
             user_creator=session_user,
             campaign=session_campaign,
-            game_version="V4",
+            game_version="V5",
         )
-        humanity = await Trait.get(name="Humanity", custom_for_character_id=None, is_archived=False)
+        blood_pool = await Trait.get(
+            name="Blood Pool", custom_for_character_id=None, is_archived=False
+        )
         character_trait = await character_trait_factory(
-            character=character, trait=humanity, value=7
+            character=character, trait=blood_pool, value=10
         )
 
         # When fetching the tracker
@@ -1583,7 +1585,7 @@ class TestTraitTracker:
         # Then the response is a 404
         assert response.status_code == HTTP_404_NOT_FOUND
 
-    async def test_trait_tracker_rejects_wrong_damage_type(
+    async def test_trait_tracker_rejects_action_for_tracker(
         self,
         client: AsyncClient,
         build_url: Callable[..., str],
@@ -1596,8 +1598,8 @@ class TestTraitTracker:
         token_global_admin: dict[str, str],
         on_behalf_of_header: dict[str, str],
     ) -> None:
-        """Verify a damage type the game version does not accept returns 400."""
-        # Given a V5 character with a Willpower damage track
+        """Verify an action the tracker does not accept returns 400."""
+        # Given a V5 mortal, whose Humanity is a counter rather than stains
         character = await character_factory(
             company=session_company,
             user_player=session_user,
@@ -1605,14 +1607,12 @@ class TestTraitTracker:
             campaign=session_campaign,
             game_version="V5",
         )
-        willpower = await Trait.get(
-            name="Willpower", custom_for_character_id=None, is_archived=False
-        )
+        humanity = await Trait.get(name="Humanity", custom_for_character_id=None, is_archived=False)
         character_trait = await character_trait_factory(
-            character=character, trait=willpower, value=5
+            character=character, trait=humanity, value=7
         )
 
-        # When dealing bashing damage, which V5 does not have
+        # When adding a stain
         response = await client.post(
             build_url(
                 Characters.TRAIT_TRACKER_ACTIONS,
@@ -1621,7 +1621,7 @@ class TestTraitTracker:
                 character_trait_id=character_trait.id,
             ),
             headers=token_global_admin | on_behalf_of_header,
-            json={"action": "damage", "amount": 1, "damage_type": "BASHING"},
+            json={"action": "add_stain", "amount": 1},
         )
 
         # Then the response is a 400

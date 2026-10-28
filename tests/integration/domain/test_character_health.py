@@ -46,21 +46,21 @@ class TestCharacterHealth:
         await AuditLog.all().delete()
 
         # When setting health and then dealing damage
-        put_response = await client.put(url, headers=headers, json={"superficial": 1})
+        put_response = await client.put(url, headers=headers, json={"damage": 1})
         action_response = await client.post(
             build_url(
                 Characters.HEALTH_ACTIONS, company_id=session_company.id, character_id=character.id
             ),
             headers=headers,
-            json={"action": "damage", "amount": 1, "damage_type": "SUPERFICIAL"},
+            json={"action": "damage", "amount": 1},
         )
         get_response = await client.get(url, headers=headers)
 
         # Then both writes succeed, the GET reflects them, and both audit entries are health entries
         assert put_response.status_code == HTTP_200_OK
-        assert put_response.json()["superficial"] == 1
+        assert put_response.json()["damage"] == 1
         assert action_response.status_code == HTTP_200_OK
-        assert action_response.json()["superficial"] == 2
+        assert action_response.json()["damage"] == 2
         assert get_response.json() == action_response.json()
         for operation_id in ("setCharacterHealth", "applyCharacterHealthAction"):
             audit = await AuditLog.filter(operation_id=operation_id).first()
@@ -92,7 +92,7 @@ class TestCharacterHealth:
         response = await client.put(
             build_url(Characters.HEALTH, company_id=session_company.id, character_id=character.id),
             headers=token_global_admin | {"On-Behalf-Of": str(other.id)},
-            json={"superficial": 1},
+            json={"damage": 1},
         )
 
         # Then the response is forbidden

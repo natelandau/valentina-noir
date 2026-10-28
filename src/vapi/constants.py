@@ -250,7 +250,7 @@ class TraitModifyCurrency(StrEnum):
 
 
 class TrackerType(StrEnum):
-    """Kind of in-play tracker attached to a trait."""
+    """Kind of in-play tracker. `DAMAGE` is the character health track; no trait uses it."""
 
     COUNTER = "COUNTER"
     DAMAGE = "DAMAGE"
@@ -267,15 +267,6 @@ class TrackerAction(StrEnum):
     ADD_STAIN = "add_stain"
     REMOVE_STAIN = "remove_stain"
     RESET = "reset"
-
-
-class DamageType(StrEnum):
-    """Damage types for damage tracks."""
-
-    SUPERFICIAL = "SUPERFICIAL"
-    AGGRAVATED = "AGGRAVATED"
-    BASHING = "BASHING"
-    LETHAL = "LETHAL"
 
 
 class IdentityProvider(StrEnum):

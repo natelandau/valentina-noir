@@ -1,11 +1,10 @@
 """Test reference-data staleness detection."""
 
 import logging
-from collections.abc import Awaitable, Callable
 
 import pytest
-from tortoise.transactions import in_transaction
 
+from tests.fixtures import rolled_back_transaction
 from vapi.cli.seed import seed_async
 from vapi.db.sql_models.reference_data import ReferenceDataSeed
 from vapi.lib import reference_data
@@ -16,10 +15,6 @@ from vapi.lib.reference_data import (
 )
 
 pytestmark = pytest.mark.anyio
-
-
-class _Rollback(Exception):  # noqa: N818
-    """Raised to roll back a transaction on purpose."""
 
 
 def test_fingerprint_changes_when_a_fixture_changes(tmp_path, mocker) -> None:
@@ -55,16 +50,6 @@ def test_fingerprint_changes_when_a_migration_is_added(tmp_path, mocker) -> None
     assert reference_data_fingerprint() != before
 
 
-async def _rolled_back(scenario: Callable[[], Awaitable[None]]) -> None:
-    """Run a scenario in a transaction that is always rolled back to protect constant data."""
-    try:
-        async with in_transaction():
-            await scenario()
-            raise _Rollback  # noqa: TRY301
-    except _Rollback:
-        pass
-
-
 async def test_reference_data_is_current_after_seed() -> None:
     """Verify a completed seed records a fingerprint that matches this build."""
     results: dict[str, object] = {}
@@ -76,7 +61,8 @@ async def test_reference_data_is_current_after_seed() -> None:
         results["current"] = await reference_data_is_current()
         results["records"] = await ReferenceDataSeed.all().count()
 
-    await _rolled_back(scenario)
+    async with rolled_back_transaction():
+        await scenario()
 
     # Then the reference data is current and recorded once
     assert results == {"current": True, "records": 1}
@@ -97,7 +83,8 @@ async def test_warn_if_reference_data_stale_logs_error(caplog, record_fingerprin
             await warn_if_reference_data_stale()
         results["current"] = await reference_data_is_current()
 
-    await _rolled_back(scenario)
+    async with rolled_back_transaction():
+        await scenario()
 
     # Then it reports stale reference data
     assert results["current"] is False
@@ -115,7 +102,8 @@ async def test_warn_if_reference_data_stale_quiet_when_current(caplog) -> None:
         with caplog.at_level(logging.ERROR, logger="vapi"):
             await warn_if_reference_data_stale()
 
-    await _rolled_back(scenario)
+    async with rolled_back_transaction():
+        await scenario()
 
     # Then nothing is logged
     assert "Reference data" not in caplog.text

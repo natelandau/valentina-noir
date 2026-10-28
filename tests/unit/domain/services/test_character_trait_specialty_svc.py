@@ -727,7 +727,7 @@ class TestSpecialtiesAtZeroValue:
         )
 
         # Then the serialized trait has no specialties
-        response = CharacterTraitResponse.from_model(result, game_version=s.character.game_version)
+        response = CharacterTraitResponse.from_model(result, character=s.character)
         assert response.value == 0
         assert response.specialties == []
 
