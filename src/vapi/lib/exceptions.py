@@ -205,19 +205,19 @@ class HTTPError(ApplicationError):
 class ImproperlyConfiguredError(HTTPError):
     """Raised when the application is improperly configured."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_500_INTERNAL_SERVER_ERROR
+    _default_status_code = status_codes.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 class ClientError(HTTPError):
     """Raised when a client-side error occurs."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_400_BAD_REQUEST
+    _default_status_code = status_codes.HTTP_400_BAD_REQUEST
 
 
 class ValidationError(ClientError):
     """Raised when client data validation fails."""
 
-    _default_detail: ClassVar[str] = "A validation error occurred."
+    _default_detail = "A validation error occurred."
 
     def __init__(
         self,
@@ -237,7 +237,7 @@ class ValidationError(ClientError):
 class NoFieldsToUpdateError(ValidationError):
     """Raised when no fields are provided for an update operation."""
 
-    _default_detail: ClassVar[str] = "No fields provided to update."
+    _default_detail = "No fields provided to update."
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         invalid_parameters = [
@@ -252,38 +252,38 @@ class NoFieldsToUpdateError(ValidationError):
 class NotAuthorizedError(ClientError):
     """Raised when the request lacks valid authentication credentials."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_401_UNAUTHORIZED
+    _default_status_code = status_codes.HTTP_401_UNAUTHORIZED
 
 
 class PermissionDeniedError(ClientError):
     """Raised when the request is understood but not authorized."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_403_FORBIDDEN
+    _default_status_code = status_codes.HTTP_403_FORBIDDEN
 
 
 class NotFoundError(ClientError):
     """Raised when the requested resource cannot be found."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_404_NOT_FOUND
+    _default_status_code = status_codes.HTTP_404_NOT_FOUND
 
 
 class UnprocessableEntityError(ClientError):
     """Raised when a request is well-formed but cannot be processed."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_422_UNPROCESSABLE_ENTITY
+    _default_status_code = status_codes.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TooManyRequestsError(ClientError):
     """Raised when request rate limits have been exceeded."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_429_TOO_MANY_REQUESTS
+    _default_status_code = status_codes.HTTP_429_TOO_MANY_REQUESTS
 
 
 class InternalServerError(HTTPError):
     """Raised when the server encounters an unexpected internal error."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_500_INTERNAL_SERVER_ERROR
-    _default_detail: ClassVar[str] = (
+    _default_status_code = status_codes.HTTP_500_INTERNAL_SERVER_ERROR
+    _default_detail = (
         "Something went wrong on our end. Please contact support if the issue persists."
     )
 
@@ -291,19 +291,19 @@ class InternalServerError(HTTPError):
 class ServiceUnavailableError(HTTPError):
     """Raised when an upstream dependency required by the request is unavailable."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_503_SERVICE_UNAVAILABLE
+    _default_status_code = status_codes.HTTP_503_SERVICE_UNAVAILABLE
 
 
 class ConflictError(ClientError):
     """Raised when a request results in a conflict with the current state."""
 
-    _default_status_code: ClassVar[int] = status_codes.HTTP_409_CONFLICT
+    _default_status_code = status_codes.HTTP_409_CONFLICT
 
 
 class NotEnoughXPError(ClientError):
     """Raised when the user does not have enough XP to spend."""
 
-    _default_detail: ClassVar[str] = "User does not have enough XP to complete the action."
+    _default_detail = "User does not have enough XP to complete the action."
 
 
 class AWSS3Error(InternalServerError):
