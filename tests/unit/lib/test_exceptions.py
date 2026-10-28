@@ -11,11 +11,13 @@ from litestar.exceptions import (
     NotFoundException,
     ValidationException,
 )
+from tortoise.exceptions import IntegrityError
 
 from vapi.lib.exceptions import (
     NoFieldsToUpdateError,
     ServiceUnavailableError,
     UnprocessableEntityError,
+    integrity_error_to_http_response,
     litestar_http_exc_to_http_response,
 )
 
@@ -157,3 +159,21 @@ class TestLitestarOtherExceptionMapping:
         # Then the status and detail are passed through unchanged
         assert response.status_code == status_codes.HTTP_404_NOT_FOUND
         assert response.content["detail"] == "Thing not found"
+
+
+class TestIntegrityErrorMapping:
+    """Tests for mapping database IntegrityError into the API error format."""
+
+    def test_detail_hides_database_message(self, mocker: MockerFixture) -> None:
+        """Verify the response detail never echoes the raw database message."""
+        # Given an IntegrityError carrying a constraint name
+        exception = IntegrityError(
+            'duplicate key value violates unique constraint "developer_email_key"'
+        )
+
+        # When converting it to a response
+        response = integrity_error_to_http_response(_mock_request(mocker), exception)
+
+        # Then the response is a 409 with a generic detail
+        assert response.status_code == status_codes.HTTP_409_CONFLICT
+        assert "developer_email_key" not in response.content["detail"]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
 
     from litestar import Request
     from litestar.exceptions import HTTPException
+
+logger = logging.getLogger("vapi")
 
 
 __all__ = (
@@ -422,7 +425,9 @@ def integrity_error_to_http_response(
     Returns:
         Response[dict[str, Any]]: A properly formatted HTTP 409 response.
     """
-    app_exc = ConflictError(detail=str(exc))
+    # The raw message names database constraints and columns; keep it in the logs only
+    logger.info("Integrity error", extra={"error": str(exc), "component": "database"})
+    app_exc = ConflictError(detail="A record with these values already exists.")
     return app_exc.to_response(request)
 
 
