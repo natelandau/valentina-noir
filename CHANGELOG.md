@@ -1,3 +1,15 @@
+## v0.30.1 (2026-10-28)
+
+### Fix
+
+- **security**: stop exposing database errors and secrets in logs
+- **identity**: require token expiry and keep linked identities
+- **uploads**: validate images fully and keep S3 and asset rows in sync
+- **rate-limit**: spend tokens atomically and trust one client IP
+- **api**: bind object lookups to the path company and owner
+- **auth**: revoke cached key auth at once and throttle failed logins
+- **cache**: scope cached responses by user and flush them by index
+
 ## v0.30.0 (2026-10-28)
 
 ### Feat
