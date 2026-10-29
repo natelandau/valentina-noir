@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import boto3
@@ -49,11 +49,19 @@ class AWSS3Service:
             msg = "AWS"
             raise MissingConfigurationError(msg)
 
+        config_kwargs: dict[str, Any] = {"retries": {"max_attempts": 10, "mode": "standard"}}
+        client_kwargs: dict[str, Any] = {}
+        if endpoint_url := settings.aws.endpoint_url:
+            # S3-compatible stores generally lack virtual-hosted bucket DNS, so use path-style URLs
+            config_kwargs["s3"] = {"addressing_style": "path"}
+            client_kwargs["endpoint_url"] = endpoint_url
+
         self.s3 = boto3.client(
             "s3",
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
-            config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+            config=Config(**config_kwargs),
+            **client_kwargs,
         )
 
     def _generate_aws_key(

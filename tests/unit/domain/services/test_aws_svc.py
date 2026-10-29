@@ -855,3 +855,40 @@ class TestDeleteAsset:
         service = AWSS3Service()
         with pytest.raises(AWSS3Error):
             await service.delete_asset(asset)
+
+
+class TestClientEndpoint:
+    """Test the S3 client endpoint configuration."""
+
+    def test_client_uses_endpoint_and_path_style_when_set(
+        self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify a configured endpoint is passed to boto3 with path-style addressing."""
+        # Given: an S3-compatible endpoint is configured
+        monkeypatch.setattr(settings.aws, "endpoint_url", "http://s3:9000")
+        mock_client = mocker.patch("vapi.domain.services.aws_svc.boto3.client")
+
+        # When: Creating the service
+        AWSS3Service()
+
+        # Then: the client gets the endpoint, path addressing, and the retry config
+        kwargs = mock_client.call_args.kwargs
+        assert kwargs["endpoint_url"] == "http://s3:9000"
+        assert kwargs["config"].s3 == {"addressing_style": "path"}
+        assert kwargs["config"].retries["max_attempts"] == 10
+
+    def test_client_has_no_endpoint_when_unset(
+        self, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify no endpoint or path addressing is configured by default."""
+        # Given: no endpoint is configured
+        monkeypatch.setattr(settings.aws, "endpoint_url", None)
+        mock_client = mocker.patch("vapi.domain.services.aws_svc.boto3.client")
+
+        # When: Creating the service
+        AWSS3Service()
+
+        # Then: the client is built without an endpoint or path addressing
+        kwargs = mock_client.call_args.kwargs
+        assert "endpoint_url" not in kwargs
+        assert kwargs["config"].s3 is None
