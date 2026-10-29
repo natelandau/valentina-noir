@@ -5,7 +5,7 @@ from typing import Literal
 
 from vapi import __version__ as current_version
 
-__all__ = ("SystemHealth",)
+__all__ = ("Liveness", "SystemHealth")
 
 
 @dataclass
@@ -18,3 +18,10 @@ class SystemHealth:
     cache_latency_ms: float | None
     uptime: str
     version: str = current_version
+
+
+@dataclass
+class Liveness:
+    """Process liveness."""
+
+    status: Literal["ok"]

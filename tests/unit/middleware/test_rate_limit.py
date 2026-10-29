@@ -13,16 +13,19 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from litestar import Litestar, get
 from litestar.serialization import decode_json, encode_json
+from litestar.testing import AsyncTestClient
 
 from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY, IGNORE_RATE_LIMIT_HEADER_KEY
-from vapi.lib.exceptions import TooManyRequestsError
+from vapi.lib.exceptions import HTTPError, TooManyRequestsError, http_error_to_http_response
 from vapi.middleware.rate_limit import (
     BucketState,
     RateLimitMiddleware,
     RateLimitPolicy,
     TokenBucket,
+    rate_limit_middleware,
 )
 
 if TYPE_CHECKING:
@@ -730,3 +733,53 @@ class TestRateLimitMiddlewareHandle:
         headers_dict = _extract_headers(start_msg)
         assert "global" in headers_dict.get("ratelimit-policy", "")
         assert "route" in headers_dict.get("ratelimit-policy", "")
+
+
+# ---------------------------------------------------------------------------
+# Liveness probe exclusion
+# ---------------------------------------------------------------------------
+
+
+class TestHealthzExclusion:
+    """Test that the liveness probe bypasses rate limiting."""
+
+    def test_app_middleware_excludes_healthz(self) -> None:
+        """Verify the middleware the app installs exempts only the liveness probe path."""
+        # Given / When / Then
+        assert rate_limit_middleware.exclude_path_pattern == "^/healthz$"
+
+    async def test_healthz_passes_when_limit_is_exhausted(self, mocker: MockerFixture) -> None:
+        """Verify the liveness probe is never limited while other paths get 429."""
+        # Given an app whose only policy allows one request, and no ignore header
+
+        @get("/healthz", sync_to_thread=False)
+        def healthz() -> dict[str, str]:
+            return {"status": "ok"}
+
+        @get("/other", sync_to_thread=False)
+        def other() -> dict[str, str]:
+            return {"status": "ok"}
+
+        mocker.patch.object(settings.rate_limit, "allow_ignore_header", new=False)
+        middleware = RateLimitMiddleware(
+            exclude_path_pattern="^/healthz$",
+            global_limits=[_make_policy(capacity=1, refill_rate=0.0001)],
+        )
+        app = Litestar(
+            route_handlers=[healthz, other],
+            middleware=[middleware],
+            exception_handlers={HTTPError: http_error_to_http_response},
+        )
+
+        async with AsyncTestClient(app=app) as client:
+            # When the liveness probe and another path are each called twice
+            healthz_responses = [await client.get("/healthz") for _ in range(2)]
+            other_responses = [await client.get("/other") for _ in range(2)]
+
+        # Then every probe succeeds without rate-limit headers
+        assert [r.status_code for r in healthz_responses] == [200, 200]
+        assert all("RateLimit" not in r.headers for r in healthz_responses)
+        assert all("RateLimit-Policy" not in r.headers for r in healthz_responses)
+
+        # Then the other path is limited after its one allowed request
+        assert [r.status_code for r in other_responses] == [200, 429]

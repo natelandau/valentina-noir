@@ -31,6 +31,10 @@ Host: api.valentina-noir.com
 X-API-KEY: your-api-key-here
 ```
 
+## Endpoints Without Authentication
+
+`GET /healthz` is a liveness probe. It needs no API key, is not rate limited, and returns `200` with `{"status": "ok"}` while the API process runs. It does not check the database or cache. Use it for hosting healthchecks, and use `GET /api/v1/health` to verify dependencies.
+
 ## The On-Behalf-Of Header
 
 Most endpoints operate in the context of a specific end-user. The `On-Behalf-Of` header tells the API which user is performing the action.

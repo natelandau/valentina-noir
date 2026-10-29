@@ -1,7 +1,5 @@
 """System health controllers."""
 
-from __future__ import annotations
-
 import logging
 import time
 from datetime import UTC, datetime
@@ -26,6 +24,18 @@ class SystemController(Controller):
     """System health controller."""
 
     tags = [APITags.SYSTEM.name]
+
+    @get(
+        path=urls.System.HEALTHZ,
+        operation_id="checkLiveness",
+        media_type=MediaType.JSON,
+        cache=False,
+        summary="Check liveness",
+        description=docs.LIVENESS_DESCRIPTION,
+    )
+    async def check_liveness(self) -> dto.Liveness:
+        """Report that the process is up without touching dependencies."""
+        return dto.Liveness(status="ok")
 
     @get(
         path=urls.System.HEALTH,

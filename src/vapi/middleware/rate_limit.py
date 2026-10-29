@@ -459,6 +459,7 @@ class RateLimitMiddleware(ASGIMiddleware):
 
 
 rate_limit_middleware = RateLimitMiddleware(
+    exclude_path_pattern="^/healthz$",
     global_limits=[
         RateLimitPolicy(
             name=v.name,

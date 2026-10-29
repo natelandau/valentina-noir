@@ -175,6 +175,7 @@ def get_logging_config() -> LoggingConfig:
 
 
 middleware_logging_config = CombinedLoggingMiddlewareConfig(
+    exclude=["^/healthz$"],
     log_fields=settings.log.log_fields,
     response_headers_to_obfuscate=settings.log.obfuscate_headers,
     response_cookies_to_obfuscate=settings.log.obfuscate_cookies,

@@ -29,3 +29,15 @@ async def test_health(client: AsyncClient, token_company_admin: dict[str, str]) 
     assert isinstance(data["uptime"], str)
     assert "d" in data["uptime"]
     assert "h" in data["uptime"]
+
+
+async def test_healthz_needs_no_api_key(client: AsyncClient) -> None:
+    """Verify the liveness probe answers without credentials."""
+    # Given an unauthenticated client
+
+    # When requesting the liveness endpoint with no headers
+    response = await client.get(urls.System.HEALTHZ)
+
+    # Then the response is a bare ok status
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
