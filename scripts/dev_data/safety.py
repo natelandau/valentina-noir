@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "postgres"})
 
 
 class _PostgresLike(Protocol):

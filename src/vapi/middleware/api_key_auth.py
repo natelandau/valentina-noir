@@ -90,4 +90,6 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
 
 # Anchor each pattern: Litestar searches the whole path, so a bare substring would skip auth
 # for any API path that happens to contain it.
-api_key_auth_mw = DefineMiddleware(TokenAuthMiddleware, exclude=["^/docs(/|$)", "^/saq(/|$)"])
+api_key_auth_mw = DefineMiddleware(
+    TokenAuthMiddleware, exclude=["^/docs(/|$)", "^/saq(/|$)", "^/healthz$"]
+)

@@ -1,6 +1,9 @@
 ---
 name: "Create Release"
 
+# Railway deploys production from the `production` branch. After the tests pass and the
+# GitHub release exists, this workflow moves that branch to the tagged commit. Only a
+# version tag or the rollback workflow moves production.
 on:
     workflow_dispatch:
         inputs:
@@ -9,20 +12,22 @@ on:
                 required: true
                 type: string
     push:
+        # Final versions only; a prerelease tag such as v1.2.0rc1 never reaches production
         tags:
-            - "v*"
-
-concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+            - "v[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
     contents: write
+
+env:
+    TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
     run-tests:
         uses: ./.github/workflows/reusable-tests.yml
         secrets: inherit
+        with:
+            ref: ${{ inputs.tag || github.ref }}
 
     autorelease:
         name: Create Release
@@ -32,6 +37,7 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v7
               with:
+                  ref: ${{ env.TAG }}
                   fetch-depth: 0
 
             - name: Setup Python, uv, and the package
@@ -42,31 +48,23 @@ jobs:
             - name: Add version to environment vars
               run: |
                   PROJECT_VERSION=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-                  echo "PROJECT_VERSION=$PROJECT_VERSION" >> $GITHUB_ENV
+                  echo "PROJECT_VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV"
 
             - name: Check if tag version matches project version
               shell: bash
               run: |
-                  # Use input tag if workflow_dispatch, otherwise find it
-                  if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-                      TAG="${{ github.event.inputs.tag }}"
-                      # Verify the tag exists
-                      if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+                  if ! git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
                       echo "::error::Tag $TAG does not exist"
                       exit 1
-                      fi
-                  else
-                      TAG=$(git describe HEAD --tags --abbrev=0)
                   fi
 
-                  echo "TAG=$TAG" >> $GITHUB_ENV
-                  echo $TAG
-                  echo $PROJECT_VERSION
+                  echo "$TAG"
+                  echo "$PROJECT_VERSION"
                   if [[ "$TAG" != "v$PROJECT_VERSION" ]]; then
                       echo "::error::Tag $TAG does not match project version v$PROJECT_VERSION"
                       exit 1
                   fi
-                  echo "CURRENT_TAG=refs/tags/${TAG}" >> $GITHUB_ENV
+                  echo "CURRENT_TAG=refs/tags/${TAG}" >> "$GITHUB_ENV"
 
             # DEPRECATED: We do not offer valentina-noir as a package
             # - name: Build the package
@@ -87,6 +85,7 @@ jobs:
             - name: Create Release
               uses: softprops/action-gh-release@v3
               with:
+                  tag_name: ${{ env.TAG }}
                   body: ${{join(fromJson(steps.generate_notes.outputs.notes).notes, '')}}
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,18 +102,23 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7
+              with:
+                  ref: ${{ env.TAG }}
 
+            # Tags come from the TAG value rather than the event ref, so a manual run
+            # started from a branch still tags the image with the release version.
             - name: Extract metadata (tags, labels) for Docker
               id: meta
               uses: docker/metadata-action@v6
               with:
                   images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-                  flavor: latest=true
+                  # Only a tag push moves `latest`; a manual run may rebuild an older tag
+                  flavor: latest=${{ github.event_name == 'push' }}
                   tags: |
-                      type=ref,event=tag
-                      type=semver,pattern={{version}}
-                      type=semver,pattern={{major}}.{{minor}}
-                      type=semver,pattern={{major}}
+                      type=raw,value=${{ env.TAG }}
+                      type=semver,pattern={{version}},value=${{ env.TAG }}
+                      type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
+                      type=semver,pattern={{major}},value=${{ env.TAG }}
 
             - name: Set up QEMU
               uses: docker/setup-qemu-action@v4
@@ -140,17 +144,57 @@ jobs:
                   labels: ${{ steps.meta.outputs.labels }}
                   outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Valentina Noir API
 
-
-    deploy-railway:
-        name: Deploy to Railway
-        needs: publish-container
+    # Production builds from source, so this does not wait on the GHCR image.
+    promote:
+        name: Move the production branch to the tag
+        needs: [run-tests, autorelease]
         runs-on: ubuntu-latest
-        if: github.event_name != 'pull_request'
+        # Only this job joins the group shared with the rollback workflow, so a queued
+        # promotion never cancels another run's release or image. GitHub keeps only the
+        # newest pending job in a group, so the guard below, not the queue, keeps
+        # production from moving to an older tag.
+        concurrency:
+            group: production-promotion
+            cancel-in-progress: false
+        permissions:
+            contents: write
         steps:
-            - name: Install Railway CLI
-              run: npm install -g @railway/cli
+            - name: Checkout repository
+              uses: actions/checkout@v7
+              with:
+                  ref: ${{ env.TAG }}
+                  fetch-depth: 0
 
-            - name: Trigger Railway redeploy
-              env:
-                  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-              run: railway redeploy -s ${{ secrets.RAILWAY_SERVICE_NAME }} -y
+            # Accepts only a final vX.Y.Z tag, because `sort -V` ranks a prerelease such as
+            # 1.2.0rc1 above 1.2.0. Refuses to move production backward, so a slow run for an
+            # older tag never overtakes a newer release. The rollback workflow is the only
+            # backward path.
+            - name: Move production to the tag
+              shell: bash
+              run: |
+                  if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "::error::$TAG is not a final version tag (vX.Y.Z)"
+                      exit 1
+                  fi
+                  git fetch --force --tags origin
+                  current=""
+                  # Exit code 2 means the branch does not exist yet; anything else nonzero is a real failure.
+                  found=0
+                  git ls-remote --exit-code --heads origin production >/dev/null || found=$?
+                  if [[ "$found" == 0 ]]; then
+                      git fetch --force origin "+refs/heads/production:refs/remotes/origin/production"
+                      current=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*[!0-9.]*' origin/production 2>/dev/null || true)
+                  elif [[ "$found" != 2 ]]; then
+                      echo "::error::Could not read the production branch from origin"
+                      exit 1
+                  fi
+
+                  if [[ -n "$current" ]]; then
+                      newest=$(printf '%s\n%s\n' "${current#v}" "${TAG#v}" | sort -V | tail -n 1)
+                      if [[ "${TAG#v}" == "${current#v}" || "$newest" != "${TAG#v}" ]]; then
+                          echo "::notice::production is at $current, which is not older than $TAG. Leaving it in place."
+                          exit 0
+                      fi
+                  fi
+
+                  git push --force origin "refs/tags/$TAG^{commit}:refs/heads/production"

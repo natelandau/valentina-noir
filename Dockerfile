@@ -21,9 +21,16 @@ COPY src/ ./src/
 RUN uv sync --locked --no-dev --no-cache
 
 # ============================================================
-# Stage 2: Runtime - lean production image
+# Stage 2: Builder-dev - add the dev dependency group for local stacks
 # ============================================================
-FROM python:3.13-slim-trixie
+FROM builder AS builder-dev
+
+RUN uv sync --locked --group dev --no-cache
+
+# ============================================================
+# Stage 3: Base - runtime OS layers shared by dev and runtime
+# ============================================================
+FROM python:3.13-slim-trixie AS base
 
 # Runtime-only system deps
 # Install PGDG apt repo to get postgresql-client-18 (Debian trixie ships v17,
@@ -46,20 +53,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone
 RUN groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
 
-# PUID/PGID defaults (overridden at runtime via env vars)
-ENV PUID=1000
-ENV PGID=1000
-
 WORKDIR /app
-
-# Copy the built venv from builder
-COPY --from=builder /app/.venv .venv
-
-# Copy source and the docker entrypoint only.
-# Dev-only scripts (populate_dev_db.py, dev_data/) are intentionally excluded from the image.
-COPY src/ ./src/
-COPY scripts/docker_entry.sh ./scripts/docker_entry.sh
-RUN chmod +x scripts/docker_entry.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -71,4 +65,41 @@ LABEL org.opencontainers.image.url=https://github.com/natelandau/valentina-noir
 LABEL org.opencontainers.image.title="Valentina Noir"
 
 ENTRYPOINT ["tini", "--"]
+
+# ============================================================
+# Stage 4: Dev - local Compose stacks
+# ============================================================
+# Compose runs this stage as the host user and bind-mounts src/ and scripts/ over the copies
+# below, so files the app writes stay owned by the developer. The copies let the image start
+# without the mounts.
+FROM base AS dev
+
+# An arbitrary host UID has no home directory in the image
+ENV HOME=/tmp
+
+COPY --from=builder-dev /app/.venv .venv
+COPY src/ ./src/
+COPY scripts/devenv/dev_entry.sh ./scripts/devenv/dev_entry.sh
+RUN chmod +x scripts/devenv/dev_entry.sh
+
+CMD ["scripts/devenv/dev_entry.sh"]
+
+# ============================================================
+# Stage 5: Runtime - lean production image (the default target, so it must stay last)
+# ============================================================
+FROM base AS runtime
+
+# PUID/PGID defaults (overridden at runtime via env vars)
+ENV PUID=1000
+ENV PGID=1000
+
+# Copy the built venv from builder
+COPY --from=builder /app/.venv .venv
+
+# Copy source and the docker entrypoint only.
+# Dev-only scripts (populate_dev_db.py, dev_data/) are intentionally excluded from the image.
+COPY src/ ./src/
+COPY scripts/docker_entry.sh ./scripts/docker_entry.sh
+RUN chmod +x scripts/docker_entry.sh
+
 CMD ["scripts/docker_entry.sh"]

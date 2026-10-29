@@ -97,6 +97,7 @@ class AWSSettings(BaseModel):
     s3_bucket_name: str | None = Field(default=None)
     cloudfront_origin_path: str | None = Field(default=None)
     cloudfront_url: str | None = Field(default=None)
+    endpoint_url: str | None = Field(default=None)
 
 
 def parse_str_collection(value: str | list[str] | set[str] | None) -> list[str]:
@@ -310,8 +311,6 @@ class Settings(BaseSettings):
         env_prefix=ENVAR_PREFIX,
         extra="ignore",
         case_sensitive=False,
-        env_file=[".env.secret"],
-        env_file_encoding="utf-8",
         env_nested_delimiter="__",
     )
 

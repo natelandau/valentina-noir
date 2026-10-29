@@ -1,8 +1,8 @@
 """Dev-only: reset, seed, and populate the development database with varied test data.
 
-Run as a module so scripts.dev_data resolves consistently:
+Runs as a module inside the stack's `api` container, started by the populate duty:
 
-    uv run python -m scripts.populate_dev_db [--companies N ...] [--reset-only] [--force] [--yes]
+    uv run duty populate -- [--companies N ...] [--reset-only] [--force]
 """
 
 import asyncio
@@ -12,11 +12,12 @@ from rich.console import Console
 from rich.prompt import Confirm
 from tortoise import Tortoise
 
-from scripts.dev_data.api_keys import write_api_keys_to_file, write_api_keys_to_stdout
+from scripts.dev_data.api_keys import write_api_keys_to_stdout
 from scripts.dev_data.bootstrap import reset_database
 from scripts.dev_data.config import PopulateConfig
 from scripts.dev_data.generators import build_api_keys, populate_data
 from scripts.dev_data.safety import production_warning
+from scripts.devenv.keys import record_keys
 from vapi.config import settings
 
 console = Console()
@@ -32,7 +33,7 @@ async def _run(*, cfg: PopulateConfig, reset_only: bool) -> None:
         developers = await populate_data(cfg)
         keys = await build_api_keys(developers)
         write_api_keys_to_stdout(keys)
-        write_api_keys_to_file(keys)
+        record_keys(keys, replace=True)
     finally:
         # Close in all paths, including a failure inside reset_database after Tortoise init.
         await Tortoise.close_connections()

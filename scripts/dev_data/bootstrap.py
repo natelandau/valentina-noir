@@ -1,24 +1,17 @@
 """Destructive database reset for dev-data population. Never called from tests."""
 
-from tortoise import Tortoise
-
+from vapi.cli.migrate import build_fresh_schema
 from vapi.cli.seed import seed_async
-from vapi.lib.database import (
-    drop_and_recreate_database,
-    init_tortoise,
-    install_schema_extras,
-)
+from vapi.lib.database import drop_and_recreate_database, init_tortoise, tortoise_config
 
 
 async def reset_database() -> None:
-    """Drop and recreate the database, build the schema, install its extras, and seed.
+    """Drop and recreate the database, build the schema as `app migrate` would, and seed.
 
-    Mirrors a migrated production database: generate_schemas skips migration RunSQL, so
-    the trigger and indexes it cannot express are installed explicitly. Leaves Tortoise
-    initialized.
+    Every migration is recorded as applied, so a later `app migrate` only runs newer ones.
+    Leaves Tortoise initialized.
     """
     await drop_and_recreate_database()
     await init_tortoise()
-    await Tortoise.generate_schemas(safe=True)
-    await install_schema_extras()
+    await build_fresh_schema(tortoise_config())
     await seed_async()

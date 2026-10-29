@@ -14,6 +14,8 @@ from duty import duty
 from rich.console import Console
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from duty.context import Context
 
 
@@ -22,17 +24,10 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 # duty loads this file by path, so the project root is not importable until added
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.worktree import (  # noqa: E402
-    CONTAINER_POSTGRES_USER,
-    CONTAINER_REDIS_PASSWORD,
-    DEFAULT_DATABASE,
-    DEFAULT_REDIS_URL,
-    KEY_DATABASE,
-    KEY_REDIS_URL,
-    LocalServices,
-    read_env,
-    redis_db,
-)
+from scripts.devenv import stack as devstack  # noqa: E402
+from scripts.devenv import worktrees  # noqa: E402
+from scripts.devenv.compose import StackError  # noqa: E402
+from scripts.devenv.registry import RegistryFormatError, SlotConflictError  # noqa: E402
 
 
 def _main_checkout() -> Path:
@@ -47,53 +42,19 @@ def _main_checkout() -> Path:
     return Path(result.stdout.strip()).parent.resolve() if result.returncode == 0 else PROJECT_ROOT
 
 
-# Every worktree shares the main checkout's containers, so compose always runs against its files
 MAIN_ROOT = _main_checkout()
 IN_WORKTREE = PROJECT_ROOT != MAIN_ROOT
 PY_SRC_LIST = tuple(_ for _ in ("src/", "tests/", "duties.py", "scripts/") if Path(_).exists())
 # Matches gate-cache: CI is on unless unset, empty, "0", or "false"
 CI = os.environ.get("CI", "").strip().lower() not in {"", "0", "false"}
-ENV_FILE = PROJECT_ROOT / ".env.secret"
-WORKTREE_SCRIPT = ["uv", "run", "python", "-m", "scripts.worktree"]
-MAIN_WORKTREE_SCRIPT = [
-    "uv",
-    "run",
-    "--project",
-    str(MAIN_ROOT),
-    "python",
-    "-m",
-    "scripts.worktree",
-]
-# Holds only disposable output; container data under .dev/ (postgres, redis) must survive cleaning
+_GATE_CACHE_DISABLE = os.environ.get("GATE_CACHE_DISABLE", "").strip().lower()
+# Matches gate-cache: GATE_CACHE_DISABLE decides when set, otherwise CI does
+GATE_CACHE_ON = _GATE_CACHE_DISABLE in {"0", "false"} or (not _GATE_CACHE_DISABLE and not CI)
+# Holds only disposable output; the rest of .dev/ (keys, generated secrets) must survive cleaning
 DEV_DIRECTORIES = [PROJECT_ROOT / ".dev" / "logs"]
 # Directories never descended into when cleaning, so a sweep skips the virtualenv, git internals,
 # and other worktrees
 CLEAN_SKIP_DIRS = {".venv", ".git", ".dev", ".worktrees", "node_modules"}
-
-
-def compose(*args: str) -> list[str]:
-    """Build a `docker compose` command for the main checkout's PostgreSQL and Redis containers.
-
-    Args:
-        *args: Compose subcommand and its arguments.
-
-    Returns:
-        list[str]: The full command.
-    """
-    return [*LocalServices(MAIN_ROOT).compose, *args]
-
-
-def local_env(key: str, default: str) -> str:
-    """Read one setting from this checkout's `.env.secret`, which a worktree points at its own databases.
-
-    Args:
-        key (str): The environment variable to read.
-        default (str): The application default when the file does not set it.
-
-    Returns:
-        str: The configured value.
-    """
-    return read_env(ENV_FILE).get(key, default)
 
 
 def gated(name: str, cmd: list[str]) -> list[str]:
@@ -109,10 +70,28 @@ def gated(name: str, cmd: list[str]) -> list[str]:
     return ["gate-cache", "--name", name, "--", *cmd]
 
 
-def ensure_dev_dirs() -> None:
-    """Create the local development directories the app writes into."""
-    for directory in DEV_DIRECTORIES:
-        directory.mkdir(parents=True, exist_ok=True)
+def gate_passed(name: str) -> bool:
+    """Report whether a gate would skip because it already passed on the current tree.
+
+    Use it to avoid setup, such as starting servers, that only a gate that runs needs.
+
+    Args:
+        name (str): Marker name for the gate.
+
+    Returns:
+        bool: True when gate-cache is on and holds a pass for this tree.
+    """
+    if not GATE_CACHE_ON:
+        return False
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["gate-cache", "status", "--name", name],  # noqa: S607
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0
 
 
 def remove(path: Path) -> None:
@@ -237,8 +216,14 @@ def update(ctx: Context) -> None:
 
 @duty()
 def test(ctx: Context, *cli_args: str) -> None:
-    """Test package and generate coverage reports."""
-    ctx.run("docker info", title="Run `docker info` to check if docker is running")
+    """Start this checkout's test servers, then test the package and generate coverage reports."""
+    # A cached pass skips pytest, so a push on a tested tree needs neither Docker nor the servers
+    if cli_args or not gate_passed("test"):
+        ctx.run("docker info", title="Run `docker info` to check if docker is running")
+        # pytest inherits the environment, which points it at this checkout's slot
+        os.environ.update(
+            devstack.run_task(devstack.start_test_services, cwd=PROJECT_ROOT, claim=True)
+        )
 
     cmd = [
         "pytest",
@@ -281,173 +266,156 @@ def docs(ctx: Context, addr: str = "localhost:8100") -> None:
 
 
 @duty()
-def db_up(ctx: Context) -> None:
-    """Start the PostgreSQL and Redis containers if needed, and in a worktree, its own databases."""
-    ctx.run(compose("up", "-d", "--wait"), title="start database containers")
-    if IN_WORKTREE:
-        ctx.run(
-            [*WORKTREE_SCRIPT, "provision"], title="provision worktree databases", capture=False
-        )
+def up(ctx: Context, debug: bool = False) -> None:  # noqa: ARG001, FBT001, FBT002
+    """Build and start this checkout's stack, fill an empty database, migrate, and register it.
+
+    Args:
+        ctx: The duty context.
+        debug: Start the API under debugpy instead of the auto-reloading server.
+    """
+    devstack.run_task(lambda stack: devstack.up(stack, debug=debug), cwd=PROJECT_ROOT, claim=True)
 
 
 @duty()
-def db_down(ctx: Context) -> None:
-    """Stop the PostgreSQL and Redis containers that every worktree shares, keeping their data."""
-    ctx.run(compose("stop"), title="stop database containers")
+def down(ctx: Context) -> None:  # noqa: ARG001
+    """Stop this checkout's stack, keeping its data."""
+    devstack.run_task(devstack.down, cwd=PROJECT_ROOT)
 
 
 @duty()
-def db_logs(ctx: Context) -> None:
-    """Follow the PostgreSQL and Redis container logs."""
-    ctx.run(compose("logs", "--follow", "--tail", "100"), title="database logs", capture=False)
+def reset(ctx: Context, debug: bool = False, fresh: bool = False) -> None:  # noqa: ARG001, FBT001, FBT002
+    """Delete this checkout's stack data and rebuild it, after a confirmation prompt.
 
-
-@duty(pre=[db_up])
-def psql(ctx: Context) -> None:
-    """Open a psql shell in the PostgreSQL container."""
-    ctx.run(
-        compose(
-            "exec",
-            "postgres",
-            "psql",
-            "-U",
-            CONTAINER_POSTGRES_USER,
-            "-d",
-            local_env(KEY_DATABASE, DEFAULT_DATABASE),
-        ),
-        title="psql",
-        capture=False,
+    Args:
+        ctx: The duty context.
+        debug: Start the rebuilt API under debugpy, as `up debug=true` does.
+        fresh: In a worktree, rebuild from populate with new IDs and keys instead of recopying
+            main. Main always rebuilds from populate.
+    """
+    devstack.run_task(
+        lambda stack: devstack.reset(stack, debug=debug, fresh=fresh), cwd=PROJECT_ROOT, claim=True
     )
 
 
-@duty(pre=[db_up])
-def redis_cli(ctx: Context) -> None:
-    """Open a redis-cli shell in the Redis container."""
-    ctx.run(
-        compose(
-            "exec",
-            "redis",
-            "redis-cli",
-            "-a",
-            CONTAINER_REDIS_PASSWORD,
-            "--no-auth-warning",
-            "-n",
-            str(redis_db(local_env(KEY_REDIS_URL, DEFAULT_REDIS_URL))),
-        ),
-        title="redis-cli",
-        capture=False,
-    )
+@duty()
+def logs(ctx: Context) -> None:  # noqa: ARG001
+    """Follow this checkout's stack logs."""
+    devstack.run_task(devstack.logs, cwd=PROJECT_ROOT)
 
 
-@duty(pre=[db_up])
-def migrate(ctx: Context) -> None:
+@duty()
+def info(ctx: Context) -> None:  # noqa: ARG001
+    """Print this checkout's connection sheet."""
+    devstack.run_task(devstack.info, cwd=PROJECT_ROOT)
+
+
+@duty()
+def envs(ctx: Context) -> None:  # noqa: ARG001
+    """List every registered stack on this machine."""
+    _registry_task(devstack.envs)
+
+
+@duty()
+def psql(ctx: Context) -> None:  # noqa: ARG001
+    """Open a psql shell on this checkout's database."""
+    devstack.run_task(devstack.psql, cwd=PROJECT_ROOT)
+
+
+@duty()
+def redis_cli(ctx: Context) -> None:  # noqa: ARG001
+    """Open a redis-cli shell on this checkout's Redis."""
+    devstack.run_task(devstack.redis_cli, cwd=PROJECT_ROOT)
+
+
+@duty()
+def migrate(ctx: Context) -> None:  # noqa: ARG001
     """Apply pending database migrations, then seed reference data."""
-    ctx.run("uv run app migrate", title="apply database migrations", capture=False)
+    devstack.run_task(lambda stack: devstack.app_command(stack, "migrate"), cwd=PROJECT_ROOT)
 
 
-@duty(pre=[db_up])
-def makemigrations(ctx: Context) -> None:
+@duty()
+def makemigrations(ctx: Context) -> None:  # noqa: ARG001
     """Generate migration files from model changes."""
-    ctx.run("uv run app makemigrations", title="generate database migrations", capture=False)
+    devstack.run_task(lambda stack: devstack.app_command(stack, "makemigrations"), cwd=PROJECT_ROOT)
 
 
-@duty(pre=[db_up])
-def seed(ctx: Context) -> None:
+@duty()
+def seed(ctx: Context) -> None:  # noqa: ARG001
     """Seed the database with reference data."""
-    ctx.run("uv run app seed", title="seed development database", capture=False)
+    devstack.run_task(lambda stack: devstack.app_command(stack, "seed"), cwd=PROJECT_ROOT)
 
 
-@duty(pre=[db_up])
-def populate(ctx: Context) -> None:
-    """Reset and populate the development database with varied test data."""
-    ctx.run(
-        "uv run python -m scripts.populate_dev_db",
-        title="populate development database",
-        capture=False,
-    )
+@duty()
+def populate(ctx: Context, *cli_args: str) -> None:  # noqa: ARG001
+    """Replace this checkout's data with varied test data and new keys, after a prompt.
+
+    Args:
+        ctx: The duty context.
+        *cli_args: Options for `scripts.populate_dev_db` after `--`, such as `-- --companies 3`.
+    """
+    devstack.run_task(lambda stack: devstack.populate(stack, *cli_args), cwd=PROJECT_ROOT)
 
 
-@duty(pre=[db_up])
-def reset(ctx: Context) -> None:
-    """Drop, recreate, and seed the development database without test data."""
-    ctx.run(
-        "uv run python -m scripts.populate_dev_db --reset-only",
-        title="reset development database",
-        capture=False,
+@duty()
+def developer(ctx: Context, username: str, email: str, admin: bool = False) -> None:  # noqa: ARG001, FBT001, FBT002
+    """Create a developer in this checkout's database and record its API key.
+
+    Args:
+        ctx: The duty context.
+        username: The developer's username.
+        email: The developer's email.
+        admin: Make the developer a global admin.
+    """
+    devstack.run_task(
+        lambda stack: devstack.developer(stack, username=username, email=email, admin=admin),
+        cwd=PROJECT_ROOT,
     )
 
 
 @duty()
 def dev_setup(ctx: Context) -> None:
-    """Install dependencies and git hooks, then prepare the local database."""
+    """Install dependencies and git hooks."""
     ctx.run(["uv", "sync", "--all-groups"], title="install dependencies")
     ctx.run(["prek", "install"], title="install git hooks")
-    ensure_dev_dirs()
-
-    if not ENV_FILE.exists():
-        shutil.copyfile(PROJECT_ROOT / ".env.example", ENV_FILE)
-        console.print(
-            f"""
-[yellow]Created {ENV_FILE.name} from .env.example.[/yellow]
-  Fill in the required values (see CONTRIBUTING.md), then run [green]duty dev-setup[/green] again.
-"""
-        )
-        return
-
-    migrate(ctx)
     console.print(
         """
 ✓ Development environment setup complete.
 
-  Run the API locally:          [green]duty run[/green]
-  Fill the database with data:  [green]duty populate[/green]
-  Run the full stack in Docker: [green]duty stack[/green]
+  Start this checkout's stack: [green]uv run duty up[/green]
 """
     )
 
 
-@duty(pre=[migrate])
-def run(ctx: Context) -> None:
-    """Run the application locally in development mode."""
-    ensure_dev_dirs()
-    ctx.run("uv run app run -r --reload-paths=src/", title="run application locally", capture=False)
+def _registry_task[T](action: Callable[[], T]) -> T:
+    """Run an action that needs no checkout stack, turning a failure into a message and exit 1."""
+    try:
+        return action()
+    except (StackError, SlotConflictError) as error:
+        console.print(f"[red]{error}[/red]")
+        raise SystemExit(1) from error
+    except RegistryFormatError as error:
+        devstack.report_bad_registry(error)
+        raise SystemExit(1) from error
+    except FileNotFoundError as error:
+        console.print(f"[red]`{error.filename}` was not found. Install it and try again.[/red]")
+        raise SystemExit(1) from error
 
 
 @duty()
-def stack(ctx: Context) -> None:
-    """Build and start the full application stack (API, PostgreSQL, Redis) in Docker."""
-    # Always --build: a plain `docker compose up` reuses the cached image and can serve
-    # stale code against a database whose schema has moved on, breaking startup migrations/seed.
-    ctx.run("docker compose up --build", title="build and start full docker stack", capture=False)
-
-
-@duty()
-def worktree(ctx: Context, branch: str) -> None:
-    """Create .worktrees/<branch> with its own database, Redis database, and API port.
+def worktree(ctx: Context, branch: str) -> None:  # noqa: ARG001
+    """Create .worktrees/<branch> on a new branch with its own stack slot.
 
     Args:
         ctx: The duty context.
         branch: The new branch, which also names the worktree directory.
     """
-    path = MAIN_ROOT / ".worktrees" / branch
-    # This checkout's script, not the new worktree's: a branch cut from an older commit may lack it
-    with ctx.cd(str(MAIN_ROOT)):
-        ctx.run([*MAIN_WORKTREE_SCRIPT, "create", branch], title=f"create worktree {branch}")
-        ctx.run(
-            [*MAIN_WORKTREE_SCRIPT, "provision", str(path)],
-            title="provision worktree databases",
-            capture=False,
-        )
-    with ctx.cd(str(path)):
-        ctx.run(["uv", "sync", "--all-groups"], title="install worktree dependencies")
-        ctx.run(["uv", "run", "app", "migrate"], title="apply worktree migrations")
-    worktree_prune(ctx)
-    console.print(f"\n[green]✓[/green] Worktree ready. Start it with: cd {path} && duty run")
+    path = _registry_task(lambda: worktrees.create(main=MAIN_ROOT, branch=branch))
+    console.print(f"\n[green]✓[/green] Worktree ready. Start it with: cd {path} && uv run duty up")
 
 
 @duty()
-def worktree_teardown(ctx: Context, branch: str = "") -> None:
-    """Remove a worktree and drop its database and Redis data; the branch is kept.
+def worktree_teardown(ctx: Context, branch: str = "") -> None:  # noqa: ARG001
+    """Remove a worktree, its stack containers and volumes, and its slot; the branch is kept.
 
     Args:
         ctx: The duty context.
@@ -462,20 +430,14 @@ def worktree_teardown(ctx: Context, branch: str = "") -> None:
             "[red]Name the worktree to remove: duty worktree-teardown branch=<branch>[/red]"
         )
         raise SystemExit(1)
-    # The worktree directory disappears, so move to the main checkout for good rather than
+    # The worktree directory may disappear under this process, so leave it for good rather than
     # with ctx.cd, which would change back into the deleted directory afterward
     os.chdir(MAIN_ROOT)
-    ctx.run(
-        [*MAIN_WORKTREE_SCRIPT, "teardown", str(target)],
-        title=f"tear down worktree {target.name}",
-    )
+    _registry_task(lambda: worktrees.teardown(main=MAIN_ROOT, target=target))
 
 
 @duty()
-def worktree_prune(ctx: Context) -> None:
-    """Drop the databases and Redis data of worktrees that no longer exist."""
-    with ctx.cd(str(MAIN_ROOT)):
-        ctx.run(
-            [*MAIN_WORKTREE_SCRIPT, "prune"],
-            title="prune databases of removed worktrees",
-        )
+def worktree_prune(ctx: Context) -> None:  # noqa: ARG001
+    """Remove the stacks of worktrees that no longer exist."""
+    pruned = _registry_task(lambda: worktrees.prune(main=MAIN_ROOT))
+    console.print(f"Pruned {len(pruned)} stack(s): {', '.join(pruned) or 'none'}")

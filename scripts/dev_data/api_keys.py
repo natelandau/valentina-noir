@@ -5,8 +5,6 @@ from uuid import UUID
 
 from rich.console import Console
 
-from scripts.dev_data.constants import API_KEYS_FILE, DEV_FOLDER
-
 _console = Console()
 
 
@@ -47,20 +45,3 @@ def write_api_keys_to_stdout(keys: list[DevApiKey]) -> None:
         for line in key.access_lines():
             _console.print(line)
         _console.print()
-
-
-def write_api_keys_to_file(keys: list[DevApiKey]) -> None:
-    """Write every generated developer's key and access tier to the dev keys file."""
-    DEV_FOLDER.mkdir(parents=True, exist_ok=True)
-    with API_KEYS_FILE.open("w") as f:
-        for key in keys:
-            access = "\n".join(key.access_lines())
-            f.write(
-                f"id:              {key.developer_id}\n"
-                f"Name:            {key.username}\n"
-                f"Email:           {key.email}\n"
-                f"API key:         {key.api_key}\n"
-                f"Is global admin: {key.is_global_admin}\n"
-                f"{access}\n\n"
-            )
-    _console.print(f"API keys saved to [green bold]{API_KEYS_FILE}[/green bold]\n")

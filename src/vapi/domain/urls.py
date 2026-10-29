@@ -316,5 +316,6 @@ class System:
 
     BASE = f"{URL_ROOT_PATH}/system"
     HEALTH = f"{URL_ROOT_PATH}/health"
+    HEALTHZ = "/healthz"
     METADATA = f"{URL_ROOT_PATH}/metadata"
     INFO = f"{BASE}/info"
