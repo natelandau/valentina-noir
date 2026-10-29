@@ -1,5 +1,7 @@
 """Tests for shared config parsing in base settings."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import BaseModel
 
@@ -8,8 +10,23 @@ from vapi.config.base import (
     CORSSettings,
     LoggingSettings,
     OAuthSettings,
+    Settings,
     parse_str_collection,
 )
+
+
+def test_settings_ignore_env_secret_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify settings come only from the environment, never from a `.env.secret` file."""
+    # Given a `.env.secret` in the working directory that sets a variable the environment does not
+    (tmp_path / ".env.secret").write_text("VAPI_DOCKER_MIGRATE=true\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("VAPI_DOCKER_MIGRATE", raising=False)
+
+    # When the settings are built
+    loaded = Settings()
+
+    # Then the file's value is not applied
+    assert loaded.docker_migrate is False
 
 
 class TestParseStrCollection:
