@@ -1,0 +1,48 @@
+---
+name: "Rollback Production"
+
+# Moves the `production` branch to an existing tag, older or newer, and Railway deploys
+# it. It skips tests, the GitHub release, and the image publish, because the tag already
+# passed them when it was released.
+on:
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Existing tag to deploy (e.g., v0.2.0)"
+                required: true
+                type: string
+
+concurrency:
+    group: production-promotion
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    rollback:
+        name: Move the production branch to the tag
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        env:
+            TAG: ${{ inputs.tag }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+
+            - name: Move production to the tag
+              shell: bash
+              run: |
+                  if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "::error::$TAG is not a final version tag (vX.Y.Z)"
+                      exit 1
+                  fi
+                  git fetch --force --tags origin
+                  if ! git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" >/dev/null; then
+                      echo "::error::Tag $TAG does not exist"
+                      exit 1
+                  fi
+                  git push --force origin "refs/tags/$TAG^{commit}:refs/heads/production"

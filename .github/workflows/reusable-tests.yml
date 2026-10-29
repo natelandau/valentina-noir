@@ -9,6 +9,11 @@ on:
                 required: false
                 type: boolean
                 default: false
+            ref:
+                description: "Git ref to test. Empty tests the commit that triggered the caller"
+                required: false
+                type: string
+                default: ""
 
 env:
     # CI-specific overrides (pytest-env in pyproject.toml provides base test config)
@@ -29,6 +34,8 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7
+              with:
+                  ref: ${{ inputs.ref }}
 
             - name: Setup Python, uv, and the package
               uses: ./.github/actions/setup_python_env
@@ -73,6 +80,8 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7
+              with:
+                  ref: ${{ inputs.ref }}
 
             - uses: actions/cache@v6
               with:
