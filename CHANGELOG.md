@@ -1,3 +1,9 @@
+## v0.31.0 (2026-10-29)
+
+### Feat
+
+- isolate local dev stacks and deploy from a production branch (#173)
+
 ## v0.30.1 (2026-10-28)
 
 ### Fix
