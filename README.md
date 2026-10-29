@@ -22,7 +22,7 @@ The rest of this README covers how to deploy and operate Valentina Noir as a ser
 
 ## Deploying
 
-Production runs on [Railway](https://railway.com/). Railway builds and deploys the `production` branch with the settings in `railway.toml`: a build of the `Dockerfile`, the pre-deploy command `app migrate`, a healthcheck on `/healthz`, and a restart when the container fails. A push to `main` does not deploy.
+Production runs on [Railway](https://railway.com/). Railway builds and deploys the `production` branch with settings kept in the Railway service: a build of the `Dockerfile`, the pre-deploy command `app migrate`, a healthcheck on `/healthz`, and a restart when the container fails. A push to `main` does not deploy.
 
 A version tag deploys production:
 
