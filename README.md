@@ -16,25 +16,29 @@ Valentina is built using the following core technologies:
 
 ## Local development
 
-To set up a local development environment, run the app, and run the tests, see [CONTRIBUTING.md](CONTRIBUTING.md). It covers prerequisites, database setup, the task runner, and troubleshooting for developers new to the tooling.
+To run the API on your computer with its own database, Redis, and storage, and to run the tests, read [CONTRIBUTING.md](CONTRIBUTING.md). One command, `uv run duty up`, starts a complete local stack with test data. No credentials or settings file are necessary.
 
-The rest of this README covers running Valentina Noir as a deployed service: Docker, seed and test data, database backups, and request logging.
+The rest of this README covers how to deploy and operate Valentina Noir as a service: deploys, the Docker image, database backups, and request logging.
+
+## Deploying
+
+Production runs on [Railway](https://railway.com/). Railway builds and deploys the `production` branch with the settings in `railway.toml`: a build of the `Dockerfile`, the pre-deploy command `app migrate`, a healthcheck on `/healthz`, and a restart when the container fails. A push to `main` does not deploy.
+
+A version tag deploys production:
+
+1. Push a tag `vX.Y.Z` whose version matches the version in `pyproject.toml`. Only a final version deploys. A prerelease tag, such as `v1.2.0rc1`, does not start the workflow.
+2. The `Create Release` workflow (`.github/workflows/create-release.yml`) runs the tests, creates the GitHub release, and publishes the image to GHCR. Then it moves the `production` branch to the tagged commit. It never moves `production` to an older version.
+3. Railway builds the commit and runs `app migrate`. If the pre-deploy command or the healthcheck fails, the deploy stops and the running container continues to serve.
+
+To deploy an earlier version, run the `Rollback Production` workflow (`.github/workflows/rollback.yml`) with an existing `vX.Y.Z` tag. It moves `production` to that tag and skips the tests, the release, and the image. A rollback does not reverse database migrations.
 
 ## Running with Docker
 
-The Docker image is available at `ghcr.io/natelandau/valentina-noir`. The container requires PostgreSQL and Redis to be available. See `compose.yml` for a full stack example.
-
-To build and start the full stack (API, PostgreSQL, Redis) locally, use:
-
-```bash
-duty stack
-```
-
-This wraps `docker compose up --build`. Always build when starting the stack: a plain `docker compose up` reuses the cached image and can serve stale code against a database whose schema has already moved on (via `duty run` or a newer container), which fails during the startup migrations and seed.
+The Docker image is available at `ghcr.io/natelandau/valentina-noir`. Each release publishes the version tags, and a tag push also moves `latest`. The container requires PostgreSQL and Redis. The image is the last stage of the `Dockerfile`. The `compose.yml` in the repository builds the `dev` stage for local development and is not an example of a deployment.
 
 ### Docker-Specific Environment Variables
 
-These variables are used by the container entrypoint and are also available in `.env.example`.
+The container entrypoint reads these variables. They are also in `.env.example`. The local development stacks do not use them.
 
 | Variable                       | Default | Description                                                                                                                                                                           |
 | ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -67,24 +71,6 @@ All application configuration variables from `.env.example` are also supported a
 The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address. Callers can send any header, so set this to a header your edge proxy overwrites: Railway's edge overwrites `X-Real-IP`, and Cloudflare sets `CF-Connecting-IP`. Set it to an empty value when no proxy sits in front, so the connecting peer's address is used.
 
 `VAPI_RATE_LIMIT__ALLOW_IGNORE_HEADER` lets requests skip rate limiting with the `X-Testing-Ignore-Rate-Limit` header. It defaults to `false`. Keep it `false` in production, because any caller can send that header. The test suite enables it.
-
-## Populate dev data
-
-Fill a local development database with believable, varied test data (companies, users with every role, campaigns/books/chapters, a vampire/werewolf/mortal/hunter character mix, dice rolls, quick rolls, notes, inventory, and placeholder image assets). This is dev-only tooling and is not shipped in the production image.
-
-Image assets are not uploaded anywhere: they are database rows whose public URL points at `picsum.photos`, attached to characters, books, and chapters.
-
-```bash
-duty populate                 # reset + seed + populate (prompts to confirm)
-duty reset                    # reset + seed only, no test data (prompts to confirm)
-
-# Direct invocation with custom counts:
-uv run python -m scripts.populate_dev_db --companies 3 --users 5 --campaigns 2 --characters 8
-```
-
-Both `duty populate` and `duty reset` drop and recreate the configured database, and prompt for confirmation first. The script refuses to run against a production-like target (when the Postgres host is not local); pass `--force` to override, or `--yes` to skip the confirmation prompt in non-interactive use.
-
-Generated API keys (one global-admin developer, one company-admin, one non-admin) are printed to the console and written to `<project-root>/.dev/api_keys.txt`, each annotated with its access tier so you can pick the right key when testing different permission levels.
 
 ## Database Backups
 

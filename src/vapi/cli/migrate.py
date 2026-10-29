@@ -1,10 +1,11 @@
-"""Migration CLI — apply and generate database migrations."""
+"""Migration CLI: apply and generate database migrations."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import subprocess
+from typing import Any
 
 import click
 from tortoise.migrations.api import migrate as tortoise_migrate
@@ -26,7 +27,6 @@ async def _apply_migrations() -> None:
     schema exists, subsequent migrations work correctly.
     """
     from tortoise import Tortoise
-    from tortoise.transactions import in_transaction
 
     config = tortoise_config()
     await Tortoise.init(config=config)
@@ -44,10 +44,25 @@ async def _apply_migrations() -> None:
         await tortoise_migrate(config=config)
         return
 
-    # Fresh database: generate the schema, install its extras, and record the
-    # migrations in one transaction so a crash never leaves a populated schema
-    # without its markers (which would make the next migrate run try to re-apply
-    # migrations against existing tables).
+    await build_fresh_schema(config)
+    await Tortoise.close_connections()
+
+
+async def build_fresh_schema(config: dict[str, Any]) -> None:
+    """Build an empty database's schema from the models and mark every migration applied.
+
+    Use this instead of ``generate_schemas`` alone on an empty database, so a later
+    ``migrate`` does not replay migrations against tables that already exist. Tortoise must
+    already be initialized.
+
+    Args:
+        config: The Tortoise config the migrations are loaded with.
+    """
+    from tortoise import Tortoise
+    from tortoise.transactions import in_transaction
+
+    # One transaction so a crash never leaves a populated schema without its markers, which
+    # would make the next migrate run try to re-apply migrations against existing tables.
     async with in_transaction():
         await Tortoise.generate_schemas()
         # generate_schemas skips migration RunSQL; install the trigger and indexes it
@@ -64,19 +79,16 @@ async def _apply_migrations() -> None:
         )
         # generate_schemas builds the schema from the current models, so a fresh
         # database already reflects every migration, not just 0001_initial. Record
-        # them all: recording only the baseline left the rest pending, and the next
-        # migrate replayed them against the schema they had already produced
-        # ("column ... already exists"). Skipping the SQL they carry is safe for the
-        # same reason: a data migration has no rows to touch here, schema SQL only
-        # restates what generate_schemas already built, and the trigger and indexes
-        # it cannot express are installed above.
+        # them all, or the next migrate replays them against the schema they already
+        # produced. Skipping the SQL they carry is safe for the same reason: a data
+        # migration has no rows to touch here, schema SQL only restates what
+        # generate_schemas already built, and the trigger and indexes it cannot
+        # express are installed above.
         recorder = MigrationRecorder(tx_conn)
         loader = MigrationLoader(config["apps"], recorder)
         loader.load_disk()
         for key in loader.disk_migrations:
             await recorder.record_applied(key.app_label, key.name)
-
-    await Tortoise.close_connections()
 
 
 @click.command(

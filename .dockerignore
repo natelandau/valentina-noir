@@ -12,4 +12,6 @@ docs/
 .pytest_cache
 *.egg-info
 compose*.yml
+compose.dev.env
+.env.local
 duties.py

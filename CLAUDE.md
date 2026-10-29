@@ -7,45 +7,48 @@ Valentina Noir is a REST API for managing World of Darkness tabletop role-playin
 ## Commands
 
 ```bash
-# Development
-duty run                      # Start containers if needed, apply migrations, start dev server
-duty stack                    # Build and run the full stack (API, PostgreSQL, Redis) in Docker
-duty docs                     # Serve the docs site at http://localhost:8100
-uv run app                    # Full CLI with all options
-duty lint                     # Run all linters (ruff, ty, typos, prek)
-duty fix                      # Apply ruff autofixes and formatting
-duty format                   # Check code formatting with ruff
-duty test                     # Run tests with coverage
-duty test -- -n 0             # Run tests serially (for debugging)
-duty test -- -n 0 -v -s -x    # Serial, verbose, show output, stop on first failure
-duty check                    # Run lint + full test suite (what the pre-push hook runs)
-# NOTE: Docker must be running for tests (PostgreSQL + Redis containers)
-# NOTE: In a worktree, run `uv run duty ...`. A bare `duty` can resolve to the main checkout's
-#       .venv and silently lint and test the main checkout's source instead of the worktree's
+# Always run tasks as `uv run duty ...`. A bare `duty` can resolve to another checkout's .venv
+# and silently lint and test that checkout's source instead of this one's.
+
+# Stack (each checkout has its own Compose stack: api, postgres, redis, s3 on its slot's ports)
+uv run duty up                # Build and start, fill an empty db (main populates, worktree copies main), migrate
+uv run duty up debug=true     # Same, API under debugpy on port +7 (no reload)
+uv run duty down              # Stop the stack and its test servers, keep data
+uv run duty reset             # Delete data and rebuild (main: populate, worktree: recopy main)
+uv run duty reset fresh=true  # Worktree: rebuild from populate with new IDs and keys
+uv run duty info              # Print .dev/connection.md (URLs, ports, API keys, company/user IDs)
+uv run duty envs              # List every stack on this machine
+uv run duty logs              # Follow stack logs
+uv run duty psql              # psql on this checkout's database
+uv run duty redis-cli         # redis-cli on this checkout's Redis
+uv run duty migrate           # Apply migrations, then seed reference data (in the api container)
+uv run duty seed              # Re-seed reference data without migrating
+uv run duty makemigrations    # Generate migration files from model changes
+uv run duty populate          # Replace all data with test data and new keys (script options after `--`)
+uv run duty developer username=<u> email=<e> [admin=true]  # Create a developer, record its key
+# NOTE: The app runs only in the api container. migrate/seed/makemigrations/populate/developer need
+#       the stack up. Ports: 24100 + 10 * slot (main is slot 0), offsets in CONTRIBUTING.md
+
+# Worktrees (each gets its own slot, stack, and copy of main's data)
+uv run duty worktree branch=<name>          # Create .worktrees/<name>; then `cd` there and `uv run duty up`
+uv run duty worktree-teardown [branch=<name>]  # Remove the worktree, its containers and volumes; keeps the branch
+uv run duty worktree-prune                  # Remove stacks of worktrees that no longer exist
+
+# Quality
+uv run duty lint              # Run all linters (ruff, ty, typos, prek)
+uv run duty fix               # Apply ruff autofixes and formatting
+uv run duty format            # Check code formatting with ruff
+uv run duty test              # Start this checkout's test servers, run tests with coverage
+uv run duty test -- -n 0 -v -s -x  # Serial, verbose, show output, stop on first failure
+uv run duty check             # Run lint + full test suite (what the pre-push hook runs)
 # NOTE: lint/test checks run through gate-cache and skip when they already passed on identical
-#       content. Force a re-run with GATE_CACHE_DISABLE=1 (e.g. `GATE_CACHE_DISABLE=1 duty test`)
+#       content. Force a re-run with GATE_CACHE_DISABLE=1 (e.g. `GATE_CACHE_DISABLE=1 uv run duty test`)
 
-# Database (each task starts the PostgreSQL + Redis containers if needed)
-duty db-up                    # Start PostgreSQL + Redis containers if not running
-duty db-down                  # Stop the containers, keeping their data
-duty db-logs                  # Follow container logs
-duty psql                     # psql shell in the PostgreSQL container
-duty redis-cli                # redis-cli shell in the Redis container
-duty migrate                  # Apply pending database migrations, then seed reference data
-duty seed                     # Re-seed reference data (traits, concepts, etc.) without migrating
-duty makemigrations           # Generate migration files from model changes
-duty populate                 # Delete existing data and populate with test data
-duty reset                    # Drop, recreate, and seed the database without test data
-
-# Maintenance
-duty clean                    # Remove build artifacts, coverage, caches, and dev logs
-duty update                   # Update dependencies and pre-commit hooks
-duty dev-setup                # Install deps + git hooks, create .env.secret, migrate and seed
-
-# Worktrees (each gets its own PostgreSQL database, Redis database, and API port)
-duty worktree branch=<name>   # Create .worktrees/<name>; then `cd` there and `duty run`
-duty worktree-teardown        # Remove this worktree (or branch=<name>) and its databases
-duty worktree-prune           # Drop databases of worktrees that no longer exist
+# Other
+uv run duty docs              # Serve the docs site at http://localhost:8100
+uv run duty dev-setup         # Install deps and git hooks
+uv run duty update            # Update dependencies and pre-commit hooks
+uv run duty clean             # Remove build artifacts, coverage, caches, and dev logs
 ```
 
 ## Workflow Rules
@@ -94,10 +97,10 @@ duty worktree-prune           # Drop databases of worktrees that no longer exist
 
 ## Testing
 
-- Docker required (PostgreSQL + Redis run in containers via pytest-databases)
+- Docker required: `uv run duty test` starts this checkout's own `postgres-test` and `redis-test` Compose services and leaves them running. A bare `uv run pytest <file>` finds this checkout's test services by itself, but `uv run duty test` must have run once in the checkout to start them (and again after `uv run duty down`). `VAPI_TEST_POSTGRES_PORT` and `VAPI_TEST_REDIS_PORT` (set both or neither) point the suite at other servers
 - Tests run in parallel by default (`-n auto --dist loadfile`)
 - Custom markers: `@pytest.mark.serial`
-- The full test suite is slow. During development on a branch with multiple commits, run individual test files (e.g., `uv run pytest tests/unit/domain/services/test_character_trait_svc.py -v -n 0`). The full suite runs in the pre-push hook, not on commit, so commit normally. Run `duty test` once at the end of the session before finalizing; a pass on the same tree lets the push hook skip it.
+- The full test suite is slow. During development on a branch with multiple commits, run individual test files (e.g., `uv run pytest tests/unit/domain/services/test_character_trait_svc.py -v -n 0`). The full suite runs in the pre-push hook, not on commit, so commit normally. Run `uv run duty test` once at the end of the session before finalizing; a pass on the same tree lets the push hook skip it.
 - **Never use `pytest.skip()` or `pytest.mark.skip`.** All seed data is expected to be present. If a query for seed data returns nothing, the test should fail - not skip. Only assert in the `# Then` section, not to guard seed data existence.
 - **Always use factories to create database objects in tests.** Never call `Model.create()` or `Model.save()` directly in test bodies. Use the factory fixtures in `tests/fixture_models.py`. Factories that create constant data (traits, concepts, or any other data created when bootstrapping the database.) must clean up after themselves since the per-test cleanup only deletes non-constant tables.
 - **Minimize integration tests; prefer unit tests.** Integration tests are slow, so reserve them for verifying an entire endpoint (routing, auth/guards, status codes, overall request/response wiring). Test specifics within an endpoint (individual field behavior, defaults, normalization, DTO serialization, patch logic) with unit tests against the model, DTO, or service instead. When an endpoint is already covered by an integration test, add unit tests for new field-level behavior rather than new integration tests.

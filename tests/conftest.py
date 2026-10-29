@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
 
-import asyncpg
-import asyncpg.exceptions
 import pytest
 from redis.asyncio import Redis
 from tortoise import Tortoise
@@ -19,13 +16,12 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
 
     from httpx import AsyncClient
-    from pytest_databases.docker.postgres import PostgresService
-    from pytest_databases.docker.redis import RedisService
+
+    from tests.services import PostgresService, RedisService
 
 
 pytest_plugins = (
-    "pytest_databases.docker.redis",
-    "pytest_databases.docker.postgres",
+    "tests.services",
     "tests.fixtures",
     "tests.fixture_models",
     "tests.mocks",
@@ -53,7 +49,10 @@ async def init_test_postgres(
     postgres_service: PostgresService,
     worker_id: str,
 ) -> AsyncGenerator[None]:
-    """Initialize TortoiseORM against the test PostgreSQL container."""
+    """Initialize TortoiseORM against a fresh database for this xdist worker."""
+    # Imported here: a top-level import loads the plugin before pytest can assert-rewrite it
+    from tests.services import admin_connection
+
     db_name = f"vapi_pytest_{worker_id}" if worker_id != "master" else "vapi_pytest"
 
     # Update settings to point at the test container
@@ -63,16 +62,10 @@ async def init_test_postgres(
     settings.postgres.password = postgres_service.password
     settings.postgres.database = db_name
 
-    # Use asyncpg directly to create the test DB, avoiding Tortoise admin connection
-    admin_conn = await asyncpg.connect(
-        host=postgres_service.host,
-        port=postgres_service.port,
-        user=postgres_service.user,
-        password=postgres_service.password,
-        database="postgres",
-    )
-    with contextlib.suppress(asyncpg.exceptions.DuplicateDatabaseError):
-        await admin_conn.execute(f"CREATE DATABASE {db_name}")
+    # The server outlives test runs, so a database left by an interrupted run is replaced
+    admin_conn = await admin_connection(postgres_service)
+    await admin_conn.execute(f"DROP DATABASE IF EXISTS {db_name} WITH (FORCE)")
+    await admin_conn.execute(f"CREATE DATABASE {db_name}")
     await admin_conn.close()
 
     # Now connect to the actual test database
@@ -89,6 +82,9 @@ async def init_test_postgres(
     yield
 
     await Tortoise.close_connections()
+    admin_conn = await admin_connection(postgres_service)
+    await admin_conn.execute(f"DROP DATABASE IF EXISTS {db_name} WITH (FORCE)")
+    await admin_conn.close()
 
 
 # Registry of row IDs that session-scoped fixtures own. These rows survive
@@ -182,16 +178,9 @@ async def cleanup_pg_database() -> AsyncGenerator[None]:
 
 
 @pytest.fixture(name="redis", autouse=True)
-async def fx_redis(redis_service: RedisService, worker_id: str) -> AsyncGenerator[Redis]:
-    """Redis instance for testing.
-
-    Each xdist worker gets its own Redis database (0-15) to prevent data leaks
-    between parallel workers sharing the same Redis server.
-    """
-    # Map worker IDs to Redis database numbers (gw0→1, gw1→2, ...; master→0)
-    db = 0 if worker_id == "master" else int(worker_id.replace("gw", "")) + 1
-
-    redis_client = Redis(host=redis_service.host, port=redis_service.port, db=db)
+async def fx_redis(redis_service: RedisService) -> AsyncGenerator[Redis]:
+    """Redis instance for testing, on this xdist worker's own database."""
+    redis_client = Redis(host=redis_service.host, port=redis_service.port, db=redis_service.db)
     yield redis_client
     await redis_client.flushdb()
     await redis_client.aclose()

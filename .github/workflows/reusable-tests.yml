@@ -21,8 +21,11 @@ env:
     VAPI_DEBUG: false
     VAPI_AUTHENTICATION_ENCRYPTION_KEY: 95bfffc1521e76be955aa786f623f996c85f49e6a5788e126b85d1d630c30245 # gitleaks:allow
     VAPI_RATE_LIMIT__ENCRYPTION_KEY: 95bfffc1521e76be955aa786f623f996c85f49e6a5788e126b85d1d630c30245 # gitleaks:allow
-    VAPI_REDIS__URL: "redis://localhost:6379/0"
     VAPI_SERVER__HOST: 0.0.0.0
+    # Slot 0 ports of the vapi-ci test servers, so the suite never consults the stack registry
+    VAPI_TEST_SERVICES_HOST: 127.0.0.1
+    VAPI_TEST_POSTGRES_PORT: 24105
+    VAPI_TEST_REDIS_PORT: 24106
 
 jobs:
     test-python-code:
@@ -61,6 +64,10 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install -y --no-install-recommends postgresql-client-18
                   pg_dump --version
+
+            - name: Start the test servers
+              shell: bash
+              run: docker compose -p vapi-ci --profile test up -d --wait postgres-test redis-test
 
             - name: Run tests
               shell: bash

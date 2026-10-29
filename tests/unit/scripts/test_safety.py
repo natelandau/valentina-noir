@@ -18,6 +18,12 @@ def test_local_host_is_not_production() -> None:
     assert production_warning(_settings(host="::1")) is None
 
 
+def test_compose_service_host_is_not_production() -> None:
+    """The Compose `postgres` service name is local, so populate runs in the container."""
+    # Given / When / Then
+    assert production_warning(_settings(host="postgres")) is None
+
+
 def test_non_local_host_is_flagged() -> None:
     """A non-local Postgres host is flagged as production-like."""
     # Given: a remote host

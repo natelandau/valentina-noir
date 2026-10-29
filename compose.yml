@@ -1,64 +1,135 @@
 ---
+# One local dev stack per checkout. The project name (`-p`) and the VAPI_DEV_* port variables
+# come from the devenv tooling; the defaults below are slot 0, so `docker compose config` and CI
+# work with no environment set. Every port binds 127.0.0.1 only.
+
+x-postgres-env: &postgres-env
+  POSTGRES_USER: valentina
+  POSTGRES_PASSWORD: valentina
+  POSTGRES_DB: valentina-noir
+
+x-postgres-healthcheck: &postgres-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U valentina -d valentina-noir"]
+  interval: 2s
+  timeout: 5s
+  retries: 15
+
 services:
   api:
-    build: .
-    hostname: vapi
-    container_name: vapi
+    build:
+      context: .
+      target: dev
+    # Run as the host user so files written to the bind mounts stay owned by the developer
+    user: "${VAPI_DEV_UID:-1000}:${VAPI_DEV_GID:-1000}"
     env_file:
-      - .env.secret
+      - compose.dev.env
+      - path: .dev/generated.env
+        required: false
+      - path: .env.local
+        required: false
     environment:
-      - VAPI_REDIS__URL=redis://:redispassword@redis:6379/0
-      - VAPI_POSTGRES__HOST=postgres
-      - VAPI_POSTGRES__PORT=5432
-      - VAPI_POSTGRES__USER=valentina
-      - VAPI_POSTGRES__PASSWORD=valentina
-      - VAPI_POSTGRES__DATABASE=valentina-noir
+      VAPI_DEV_DEBUGPY: "${VAPI_DEV_DEBUGPY:-0}"
+      VAPI_POSTGRES__HOST: postgres
+      VAPI_POSTGRES__PORT: "5432"
+      VAPI_REDIS__URL: "redis://redis:6379/0"
+      VAPI_AWS__ENDPOINT_URL: "http://s3:9000"
+      VAPI_AWS__ACCESS_KEY_ID: vapi
+      VAPI_AWS__SECRET_ACCESS_KEY: vapi-local-secret
+      VAPI_AWS__S3_BUCKET_NAME: vapi-dev
+      VAPI_AWS__CLOUDFRONT_ORIGIN_PATH: cdn
+      VAPI_AWS__CLOUDFRONT_URL: "http://127.0.0.1:${VAPI_DEV_S3_PORT:-24103}/vapi-dev/cdn"
+      VAPI_SERVER__HOST: 0.0.0.0
+      VAPI_SERVER__PORT: "8000"
     volumes:
-      - .dev:/app/.dev
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+      - ./.dev:/app/.dev
+    ports:
+      - "127.0.0.1:${VAPI_DEV_API_PORT:-24100}:8000"
+      - "127.0.0.1:${VAPI_DEV_DEBUGPY_PORT:-24107}:5678"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     depends_on:
-      redis:
-        condition: service_started
       postgres:
         condition: service_healthy
-    ports:
-      - 8000:8000
-    develop:
-      watch:
-        - action: rebuild
-          path: ./src
-          target: /app/src
-        - action: rebuild
-          path: ./uv.lock
-          target: /app/uv.lock
-        - action: rebuild
-          path: ./pyproject.toml
-          target: /app/pyproject.toml
-        - action: rebuild
-          path: ./Dockerfile
-
-  redis:
-    image: redis:alpine
-    restart: always
-    ports:
-      - "6379:6379"
-    command: redis-server --save 20 1 --loglevel warning --requirepass redispassword
-    volumes:
-      - .dev/redis:/data
-    attach: false # suppress logs to console
+      redis:
+        condition: service_started
+      s3:
+        condition: service_started
 
   postgres:
     image: postgres:18
+    environment: *postgres-env
     ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: valentina
-      POSTGRES_PASSWORD: valentina
-      POSTGRES_DB: valentina-noir
+      - "127.0.0.1:${VAPI_DEV_POSTGRES_PORT:-24101}:5432"
     volumes:
-      - .dev/postgres:/var/lib/postgresql
+      - postgres-data:/var/lib/postgresql
+    healthcheck: *postgres-healthcheck
+
+  # Password-less because it only listens on loopback and the Compose network
+  redis:
+    image: redis:8.4.0
+    command: ["redis-server", "--save", "20", "1", "--loglevel", "warning"]
+    ports:
+      - "127.0.0.1:${VAPI_DEV_REDIS_PORT:-24102}:6379"
+    volumes:
+      - redis-data:/data
+
+  # S3-compatible storage so local uploads never reach a hosted bucket or CDN
+  s3:
+    image: ghcr.io/rustfs/rustfs:1.0.1
+    command: ["/data"]
+    environment:
+      RUSTFS_ACCESS_KEY: vapi
+      RUSTFS_SECRET_KEY: vapi-local-secret
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "127.0.0.1:${VAPI_DEV_S3_PORT:-24103}:9000"
+      - "127.0.0.1:${VAPI_DEV_S3_CONSOLE_PORT:-24104}:9001"
+    volumes:
+      - s3-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U valentina -d valentina-noir"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
       interval: 2s
       timeout: 5s
-      retries: 10
-    attach: false # suppress logs to console
+      retries: 15
+
+  # Test servers hold nothing worth keeping, so they skip durability for speed
+  postgres-test:
+    image: postgres:18
+    profiles: [test]
+    command:
+      - postgres
+      - -c
+      - max_connections=300
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+    environment: *postgres-env
+    ports:
+      - "127.0.0.1:${VAPI_DEV_POSTGRES_TEST_PORT:-24105}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck: *postgres-healthcheck
+
+  redis-test:
+    image: redis:8.4.0
+    profiles: [test]
+    # One database per pytest-xdist worker
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--databases", "64"]
+    ports:
+      - "127.0.0.1:${VAPI_DEV_REDIS_TEST_PORT:-24106}:6379"
+
+volumes:
+  postgres-data:
+  redis-data:
+  s3-data:
