@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -15,8 +16,10 @@ from litestar.status_codes import (
 )
 
 from vapi.db.sql_models.audit_log import AuditLog
+from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain.urls import GlobalAdmin
+from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -131,8 +134,9 @@ async def test_admin_create_user(
     company_factory: Callable[..., Any],
 ) -> None:
     """Verify the admin can create a user with company_id in the body."""
-    # Given a company
-    company = await company_factory()
+    # Given a company whose resources were last modified a day ago
+    before = time_now() - timedelta(days=1)
+    company = await company_factory(resources_modified_at=before)
 
     # When creating a user
     response = await client.post(
@@ -146,13 +150,14 @@ async def test_admin_create_user(
         },
     )
 
-    # Then the user is created in that company
+    # Then the user is created in that company, and the company is marked modified
     assert response.status_code == HTTP_201_CREATED
     data = response.json()
     assert data["username"] == "new-admin-user"
     assert data["company_id"] == str(company.id)
     db_user = await User.get(id=data["id"])
     assert db_user.email == "new-admin-user@example.com"
+    assert (await Company.get(id=company.id)).resources_modified_at > before
 
 
 async def test_admin_create_user_rejects_unapproved_role(
@@ -374,3 +379,40 @@ async def test_admin_create_user_rejects_deactivated_role(
 
     # Then the request is rejected (service-level ValidationError -> 400)
     assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.parametrize(
+    ("method", "url_name", "body"),
+    [
+        ("PATCH", "USER_UPDATE", {"role": "STORYTELLER"}),
+        ("DELETE", "USER_DELETE", None),
+    ],
+    ids=["update", "delete"],
+)
+async def test_admin_user_mutation_marks_target_company_modified(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    build_url: Callable[..., str],
+    company_factory: Callable[..., Any],
+    user_factory: Callable[..., Any],
+    method: str,
+    url_name: str,
+    body: dict[str, Any] | None,
+) -> None:
+    """Verify admin user edits bump the target company's resources timestamp."""
+    # Given a user in a company whose resources were last modified a day ago
+    before = time_now() - timedelta(days=1)
+    company = await company_factory(resources_modified_at=before)
+    user = await user_factory(company=company, role="PLAYER")
+
+    # When a global admin mutates the user through the admin route
+    response = await client.request(
+        method,
+        build_url(getattr(GlobalAdmin, url_name), user_id=user.id),
+        headers=token_global_admin,
+        json=body,
+    )
+
+    # Then the request succeeds and the user's company is marked modified
+    assert response.status_code in {HTTP_200_OK, HTTP_204_NO_CONTENT}
+    assert (await Company.get(id=company.id)).resources_modified_at > before

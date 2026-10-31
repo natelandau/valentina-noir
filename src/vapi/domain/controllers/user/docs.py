@@ -57,18 +57,22 @@ ADD_XP_DESCRIPTION = """\
 Award experience points to a user for a specific campaign.
 
 The XP is added to both the current XP pool (available for spending) and the total XP tracker (lifetime earned).
+
+The `amount` must be between 1 and 10,000. Returns `400` if the grant would push a stored total above 2,147,483,647.
 """
 
 REMOVE_XP_DESCRIPTION = """\
 Deduct experience points from a user's current XP pool.
 
-Returns an error if the user has insufficient XP to complete the deduction.
+The `amount` must be between 1 and 10,000. Returns an error if the user has insufficient XP to complete the deduction.
 """
 
 ADD_CP_DESCRIPTION = """\
 Award cool points to a user for a specific campaign.
 
-Cool points are converted to XP automatically based on the company's configured exchange rate.
+Each cool point is converted to 10 XP automatically.
+
+The `amount` must be between 1 and 10,000. Returns `400` if the grant would push a stored total above 2,147,483,647.
 """
 
 # Quick Roll Controller

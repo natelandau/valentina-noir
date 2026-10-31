@@ -198,3 +198,45 @@ async def test_update_user_restore_refused_while_company_archived(
     # When/Then restoring the user via update raises ConflictError
     with pytest.raises(ConflictError):
         await GlobalAdminUserService().update_user(user, AdminUserPatch(is_archived=False))
+
+
+async def test_update_user_restore_refused_when_provider_id_held(
+    company_factory: Any, user_factory: Any
+) -> None:
+    """Verify restoring a user is refused while an active user holds one of its provider IDs."""
+    # Given an archived user and an active user in the same company with the same Google ID
+    company = await company_factory()
+    archived = await user_factory(
+        company=company,
+        is_archived=True,
+        google_profile={"id": "google-sub-1", "email": "a@example.com"},
+    )
+    await user_factory(company=company, google_profile={"id": "google-sub-1"})
+
+    # When restoring the archived user
+    with pytest.raises(ConflictError) as exc_info:
+        await GlobalAdminUserService().update_user(archived, AdminUserPatch(is_archived=False))
+
+    # Then the restore is refused and the user stays archived
+    assert "same google account" in exc_info.value.detail
+    assert (await User.get(id=archived.id)).is_archived is True
+
+
+async def test_update_user_restore_allowed_when_provider_id_only_held_elsewhere(
+    company_factory: Any, user_factory: Any
+) -> None:
+    """Verify a provider ID held by an archived user or another company does not block restore."""
+    # Given an archived user whose GitHub ID is held only by an archived user and another company
+    company = await company_factory()
+    other_company = await company_factory()
+    archived = await user_factory(company=company, is_archived=True, github_profile={"id": 42})
+    await user_factory(company=company, is_archived=True, github_profile={"id": 42})
+    await user_factory(company=other_company, github_profile={"id": 42})
+
+    # When restoring the archived user
+    updated, _ = await GlobalAdminUserService().update_user(
+        archived, AdminUserPatch(is_archived=False)
+    )
+
+    # Then the restore succeeds
+    assert updated.is_archived is False

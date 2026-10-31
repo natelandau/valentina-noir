@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from tortoise.expressions import Q, Subquery
 from tortoise.functions import Count
+from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterType, CompanyPermission
 from vapi.db.sql_models.company import Company
@@ -161,53 +162,61 @@ class CompanyService:
             PermissionDeniedError: If the requesting developer lacks owner access.
             ValidationError: If the target developer is not found or removing the last owner.
         """
-        await self.can_developer_access_company(
-            developer=requesting_developer,
-            company_id=company.id,
-            minimum_permission=CompanyPermission.OWNER,
-        )
+        async with in_transaction():
+            # Lock the owner rows so concurrent demotions serialize on the last-owner check
+            await DeveloperCompanyPermission.filter(
+                company_id=company.id, permission=CompanyPermission.OWNER
+            ).select_for_update()
 
-        target_developer = await Developer.filter(id=target_developer_id, is_archived=False).first()
-        if not target_developer:
-            raise ValidationError(detail=f"Developer {target_developer_id} not found")
-
-        existing = await self._get_developer_permission(
-            developer_id=target_developer_id, company_id=company.id
-        )
-
-        # Idempotent. REVOKE falls through so a stored REVOKE row is deleted below.
-        if existing and existing.permission == new_permission != CompanyPermission.REVOKE:
-            await existing.fetch_related("company")
-            return existing
-
-        # Guard: cannot demote/revoke the last owner
-        if existing and existing.permission == CompanyPermission.OWNER:
-            num_owners = await self._count_company_owners(company_id=company.id)
-            if num_owners < 2:  # noqa: PLR2004
-                raise ValidationError(detail="Every company must have at least one owner.")
-
-        # Revoke never stores a row: access is the presence of a non-REVOKE row
-        if new_permission == CompanyPermission.REVOKE:
-            if existing:
-                await existing.delete()
-            return DeveloperCompanyPermission(
-                developer=target_developer,
-                company=company,
-                permission=CompanyPermission.REVOKE,
+            # Checked under the lock so an owner demoted concurrently cannot still act
+            await self.can_developer_access_company(
+                developer=requesting_developer,
+                company_id=company.id,
+                minimum_permission=CompanyPermission.OWNER,
             )
 
-        # Update
-        if existing:
-            existing.permission = new_permission
-            await existing.save()
-            await existing.fetch_related("company")
-            return existing
+            target_developer = await Developer.filter(
+                id=target_developer_id, is_archived=False
+            ).first()
+            if not target_developer:
+                raise ValidationError(detail=f"Developer {target_developer_id} not found")
 
-        # Create
-        new_perm = await DeveloperCompanyPermission.create(
-            developer=target_developer,
-            company=company,
-            permission=new_permission,
-        )
-        await new_perm.fetch_related("company")
-        return new_perm
+            existing = await self._get_developer_permission(
+                developer_id=target_developer_id, company_id=company.id
+            )
+
+            # Idempotent. REVOKE falls through so a stored REVOKE row is deleted below.
+            if existing and existing.permission == new_permission != CompanyPermission.REVOKE:
+                await existing.fetch_related("company")
+                return existing
+
+            if existing and existing.permission == CompanyPermission.OWNER:
+                num_owners = await self._count_company_owners(company_id=company.id)
+                if num_owners < 2:  # noqa: PLR2004
+                    raise ValidationError(detail="Every company must have at least one owner.")
+
+            # Revoke never stores a row: access is the presence of a non-REVOKE row
+            if new_permission == CompanyPermission.REVOKE:
+                if existing:
+                    await existing.delete()
+                return DeveloperCompanyPermission(
+                    developer=target_developer,
+                    company=company,
+                    permission=CompanyPermission.REVOKE,
+                )
+
+            # Update
+            if existing:
+                existing.permission = new_permission
+                await existing.save()
+                await existing.fetch_related("company")
+                return existing
+
+            # Create
+            new_perm = await DeveloperCompanyPermission.create(
+                developer=target_developer,
+                company=company,
+                permission=new_permission,
+            )
+            await new_perm.fetch_related("company")
+            return new_perm

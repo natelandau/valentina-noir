@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
+from vapi.constants import COOL_POINT_VALUE, MAX_INT_FIELD_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import Company, CompanySettings
@@ -1023,3 +1023,81 @@ class TestUserXPServiceStaleReads:
 
         # Then trust depends on who set the new email
         assert updated.email_trusted is expected_trusted
+
+
+class TestUserXPServiceCounterLimits:
+    """Test that grants cannot push a stored counter past its column limit."""
+
+    async def test_add_xp_over_limit_rolls_back_lifetime(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_experience_factory: Callable[..., CampaignExperience],
+    ) -> None:
+        """Verify an XP grant that overflows the campaign total leaves lifetime XP unchanged."""
+        # Given a campaign balance one below the limit and a low lifetime total
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company, lifetime_xp=5)
+        experience = await campaign_experience_factory(
+            user=user,
+            campaign=campaign,
+            xp_current=MAX_INT_FIELD_VALUE - 1,
+            xp_total=MAX_INT_FIELD_VALUE - 1,
+        )
+
+        # When 2 XP is added
+        # Then a ValidationError is raised and neither counter moves
+        with pytest.raises(ValidationError):
+            await UserXPService().add_xp(user_id=user.id, campaign_id=campaign.id, amount=2)
+        stored = await CampaignExperience.get(id=experience.id)
+        assert stored.xp_current == MAX_INT_FIELD_VALUE - 1
+        assert (await User.get(id=user.id)).lifetime_xp == 5
+
+    async def test_add_cp_over_lifetime_limit_rolls_back_campaign(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_experience_factory: Callable[..., CampaignExperience],
+    ) -> None:
+        """Verify a cool point grant that overflows lifetime XP leaves the campaign counters unchanged."""
+        # Given a lifetime XP total just below the limit and an empty campaign balance
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company, lifetime_xp=MAX_INT_FIELD_VALUE - 1)
+        experience = await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=0, xp_total=0
+        )
+
+        # When 1 cool point is added
+        # Then a ValidationError is raised and neither record moves
+        with pytest.raises(ValidationError):
+            await UserXPService().add_cp(user_id=user.id, campaign_id=campaign.id, amount=1)
+        stored = await CampaignExperience.get(id=experience.id)
+        assert (stored.xp_current, stored.xp_total, stored.cool_points) == (0, 0, 0)
+        assert (await User.get(id=user.id)).lifetime_xp == MAX_INT_FIELD_VALUE - 1
+
+    async def test_add_xp_without_total_rejects_current_overflow(
+        self,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_experience_factory: Callable[..., CampaignExperience],
+    ) -> None:
+        """Verify a refund that overflows the current balance is rejected."""
+        # Given a current balance at the limit
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        user = await user_factory(company=company)
+        await campaign_experience_factory(
+            user=user, campaign=campaign, xp_current=MAX_INT_FIELD_VALUE, xp_total=0
+        )
+
+        # When 1 XP is refunded without updating totals
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError):
+            await UserXPService().add_xp(
+                user_id=user.id, campaign_id=campaign.id, amount=1, update_total=False
+            )

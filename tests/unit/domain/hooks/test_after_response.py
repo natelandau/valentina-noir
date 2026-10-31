@@ -198,3 +198,45 @@ class TestPostDataUpdateHook:
         delete_cache.assert_awaited_once_with(request)
         delete_company_cache.assert_awaited_once_with(request, "abc")
         company.filter.return_value.update.assert_awaited_once()
+
+    async def test_invalidates_affected_company_without_company_path_param(self, mocker) -> None:
+        """Verify a route without company_id clears the company named in request state."""
+        # Given a global-admin style request that names the affected company in state
+        mocker.patch.object(after_response, "add_audit_log", autospec=True)
+        mocker.patch.object(after_response, "delete_response_cache_for_api_key", autospec=True)
+        delete_company_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_company", autospec=True
+        )
+        company = mocker.patch.object(after_response, "Company")
+        company.filter.return_value.update = mocker.AsyncMock()
+        request = mocker.MagicMock()
+        request.state = SimpleNamespace(affected_company_id="def")
+        request.path_params = {"user_id": "u1"}
+
+        # When the hook runs
+        await after_response.post_data_update_hook(request)
+
+        # Then the named company's cache is cleared and its timestamp is bumped
+        delete_company_cache.assert_awaited_once_with(request, "def")
+        company.filter.assert_called_once_with(id="def")
+        company.filter.return_value.update.assert_awaited_once()
+
+    async def test_skips_company_invalidation_without_company(self, mocker) -> None:
+        """Verify a route with no company path param or state skips the company flush."""
+        # Given a request that names no company
+        mocker.patch.object(after_response, "add_audit_log", autospec=True)
+        mocker.patch.object(after_response, "delete_response_cache_for_api_key", autospec=True)
+        delete_company_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_company", autospec=True
+        )
+        company = mocker.patch.object(after_response, "Company")
+        request = mocker.MagicMock()
+        request.state = SimpleNamespace()
+        request.path_params = {}
+
+        # When the hook runs
+        await after_response.post_data_update_hook(request)
+
+        # Then no company cache is cleared
+        delete_company_cache.assert_not_awaited()
+        company.filter.assert_not_called()

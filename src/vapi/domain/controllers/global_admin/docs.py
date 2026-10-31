@@ -91,7 +91,9 @@ ADMIN_UPDATE_USER_DESCRIPTION = """\
 Update any user by ID with no role-matrix restrictions. Set `is_archived` to false \
 to restore a soft-deleted user, which reverses the archive cascade and restores the \
 data archived with them. Restoring is refused with a 409 while the user's company is \
-archived; restore the company first. Requires global admin privileges.
+archived; restore the company first. Restoring is also refused with a 409 when another \
+active user in the company is linked to the same Apple, Google, GitHub, or Discord account. \
+Requires global admin privileges.
 """
 
 ADMIN_DELETE_USER_DESCRIPTION = """\

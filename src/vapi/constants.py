@@ -17,6 +17,8 @@ AUTH_HEADER_KEY: Final[str] = "X-API-KEY"
 ON_BEHALF_OF_HEADER_KEY: Final[str] = "On-Behalf-Of"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
 COOL_POINT_VALUE: Final[int] = 10
+MAX_EXPERIENCE_GRANT: Final[int] = 10_000  # max XP or CP amount per add/remove request
+MAX_INT_FIELD_VALUE: Final[int] = 2_147_483_647  # upper bound of a 32-bit IntField column
 MAX_BULK_TRAIT_ASSIGN: Final[int] = 200
 # Max page size for reference/catalog list endpoints; higher than the standard 100 cap so a
 # whole bounded catalog (e.g. all blueprint traits) can be fetched in a single request.

@@ -153,10 +153,12 @@ async def cache_authenticated_developer(
 
 
 async def delete_response_cache_for_company(request: Request, company_id: str) -> None:
-    """Delete every developer's cached responses for a company's routes.
+    """Delete every developer's cached responses for a company's routes and company lists.
 
     Several developers can share a company, so a write by one must also clear the
-    others' cached copies of that company's data.
+    others' cached copies of that company's data. Company lists embed each company's
+    data and resource counts, and are indexed only by developer, so every cached
+    company list is cleared too. That also drops a revoked developer's list.
 
     Args:
         request (Request): Current request instance.
@@ -164,6 +166,7 @@ async def delete_response_cache_for_company(request: Request, company_id: str) -
     """
     store = request.app.stores.get(settings.stores.response_cache_key)
     await store.delete_indexed("company", company_id)  # ty:ignore[unresolved-attribute]
+    await store.delete_indexed("company_list", "all")  # ty:ignore[unresolved-attribute]
 
 
 async def delete_response_cache_for_api_key(request: Request) -> None:

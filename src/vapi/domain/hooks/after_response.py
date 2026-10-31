@@ -28,6 +28,12 @@ Each named key anywhere in the parsed request JSON, including inside nested
 objects and arrays, will have its value replaced with "[REDACTED]" before the
 entry is written.
 
+A route without a ``company_id`` path parameter that changes a company's
+resources (e.g. a global-admin user edit) names that company so its cached
+responses are flushed and its timestamp is bumped:
+
+    request.state.affected_company_id = user.company_id
+
 A mutating endpoint that did not actually change client-visible resources can
 suppress the response-cache flush and the company timestamp bump (but not the
 audit entry) by setting:
@@ -177,8 +183,9 @@ async def _invalidate_after_mutation(request: Request) -> None:
         return
 
     await delete_response_cache_for_api_key(request)
-    if "company_id" in request.path_params:
-        await delete_response_cache_for_company(request, str(request.path_params["company_id"]))
-        await Company.filter(id=request.path_params["company_id"]).update(
-            resources_modified_at=time_now()
-        )
+    company_id = request.path_params.get("company_id") or getattr(
+        request.state, "affected_company_id", None
+    )
+    if company_id:
+        await delete_response_cache_for_company(request, str(company_id))
+        await Company.filter(id=company_id).update(resources_modified_at=time_now())

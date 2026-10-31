@@ -61,7 +61,9 @@ The Experience API provides endpoints for managing player experience:
 | Remove XP       | `POST /users/{user_id}/experience/xp/remove`    | Deduct experience points (when spending)             |
 | Add Cool Points | `POST /users/{user_id}/experience/cp/add`       | Award Cool Points to a player                        |
 
-The add and remove endpoints take a request body with `amount` and `campaign_id`. The `amount` must be a positive whole number, and the campaign must belong to the company. Otherwise the request returns `400`.
+The add and remove endpoints take a request body with `amount` and `campaign_id`. The `amount` must be a whole number from 1 to 10,000, and the campaign must belong to the company. Otherwise the request returns `400`.
+
+Each stored total (`xp_current`, `xp_total`, `cool_points`, and the user's lifetime totals) has a maximum of 2,147,483,647. A grant that would push any of them above that maximum returns `400` and changes nothing.
 
 ## Permission Controls
 

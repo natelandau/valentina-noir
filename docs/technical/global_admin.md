@@ -133,7 +133,7 @@ Create a user. Supply the target `company_id` in the request body along with `us
 PATCH /api/v1/admin/users/{user_id}
 ```
 
-Update any user by ID. Include only the fields that need to change. The role-assignment matrix does not apply, so a global admin may set any role. Setting `is_archived: false` restores a soft-deleted user, reversing the archive cascade so the data archived with them is restored as well. Restoring is refused (409 Conflict) while the user's company is archived; restore the company first.
+Update any user by ID. Include only the fields that need to change. The role-assignment matrix does not apply, so a global admin may set any role. Setting `is_archived: false` restores a soft-deleted user, reversing the archive cascade so the data archived with them is restored as well. Restoring is refused (409 Conflict) while the user's company is archived; restore the company first. Restoring is also refused (409 Conflict) when another active user in the same company is linked to the same Apple, Google, GitHub, or Discord account as the user being restored. Data inside a campaign, book, chapter, or character that was deleted after the user stays archived, and comes back when that parent is restored.
 
 ### Delete user
 

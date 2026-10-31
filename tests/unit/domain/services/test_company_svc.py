@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,7 @@ from vapi.lib.exceptions import PermissionDeniedError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from uuid import UUID
 
     from vapi.db.sql_models.company import Company
 
@@ -521,3 +523,127 @@ class TestControlCompanyPermissions:
         # Then the result should still have the same permission
         assert result.permission == CompanyPermission.ADMIN
         assert result.company_id == company.id
+
+    async def test_control_company_permissions_sequential_demotions_keep_one_owner(
+        self, developers_and_companies: DevelopersAndCompanies
+    ) -> None:
+        """Verify owners demoting each other in turn always leave one owner."""
+        # Given a company with two owners
+        developer_owner = developers_and_companies.developer_owner
+        developer_admin = developers_and_companies.developer_admin
+        company = developers_and_companies.company
+        service = CompanyService()
+        await service.control_company_permissions(
+            company=company,
+            requesting_developer=developer_owner,
+            target_developer_id=developer_admin.id,
+            new_permission=CompanyPermission.OWNER,
+        )
+
+        # When the second owner revokes the first, then tries to demote itself
+        await service.control_company_permissions(
+            company=company,
+            requesting_developer=developer_admin,
+            target_developer_id=developer_owner.id,
+            new_permission=CompanyPermission.REVOKE,
+        )
+        with pytest.raises(ValidationError, match="at least one owner"):
+            await service.control_company_permissions(
+                company=company,
+                requesting_developer=developer_admin,
+                target_developer_id=developer_admin.id,
+                new_permission=CompanyPermission.USER,
+            )
+
+        # Then exactly one owner remains
+        assert await service._count_company_owners(company_id=company.id) == 1
+
+    async def test_control_company_permissions_demoted_owner_cannot_act(
+        self, developers_and_companies: DevelopersAndCompanies
+    ) -> None:
+        """Verify an owner demoted by another owner can no longer change permissions."""
+        # Given two owners, where the second demotes the first
+        developer_owner = developers_and_companies.developer_owner
+        developer_admin = developers_and_companies.developer_admin
+        company = developers_and_companies.company
+        service = CompanyService()
+        await service.control_company_permissions(
+            company=company,
+            requesting_developer=developer_owner,
+            target_developer_id=developer_admin.id,
+            new_permission=CompanyPermission.OWNER,
+        )
+        await service.control_company_permissions(
+            company=company,
+            requesting_developer=developer_admin,
+            target_developer_id=developer_owner.id,
+            new_permission=CompanyPermission.USER,
+        )
+
+        # When the demoted developer tries to revoke the remaining owner
+        # Then the request is denied
+        with pytest.raises(PermissionDeniedError):
+            await service.control_company_permissions(
+                company=company,
+                requesting_developer=developer_owner,
+                target_developer_id=developer_admin.id,
+                new_permission=CompanyPermission.REVOKE,
+            )
+
+    async def test_control_company_permissions_concurrent_revocations_keep_one_owner(
+        self, developers_and_companies: DevelopersAndCompanies
+    ) -> None:
+        """Verify two owners revoking each other at once still leave one owner."""
+        # Given two owners and a service whose first owner count pauses until released
+        developer_owner = developers_and_companies.developer_owner
+        developer_admin = developers_and_companies.developer_admin
+        company = developers_and_companies.company
+        service = CompanyService()
+        await service.control_company_permissions(
+            company=company,
+            requesting_developer=developer_owner,
+            target_developer_id=developer_admin.id,
+            new_permission=CompanyPermission.OWNER,
+        )
+
+        first_counted = asyncio.Event()
+        release_first = asyncio.Event()
+        real_count = service._count_company_owners
+
+        async def paused_count(company_id: UUID) -> int:
+            count = await real_count(company_id=company_id)
+            if not first_counted.is_set():
+                first_counted.set()
+                await release_first.wait()
+            return count
+
+        service._count_company_owners = paused_count  # type: ignore[method-assign]
+
+        # When each owner revokes the other while the first revocation is mid-check
+        first = asyncio.create_task(
+            service.control_company_permissions(
+                company=company,
+                requesting_developer=developer_owner,
+                target_developer_id=developer_admin.id,
+                new_permission=CompanyPermission.REVOKE,
+            )
+        )
+        await asyncio.wait_for(first_counted.wait(), timeout=5)
+        second = asyncio.create_task(
+            service.control_company_permissions(
+                company=company,
+                requesting_developer=developer_admin,
+                target_developer_id=developer_owner.id,
+                new_permission=CompanyPermission.REVOKE,
+            )
+        )
+        await asyncio.sleep(0.2)
+        release_first.set()
+        results = await asyncio.wait_for(
+            asyncio.gather(first, second, return_exceptions=True), timeout=5
+        )
+
+        # Then the first revocation wins, the second is denied, and one owner remains
+        assert not isinstance(results[0], BaseException)
+        assert isinstance(results[1], PermissionDeniedError)
+        assert await real_count(company_id=company.id) == 1
