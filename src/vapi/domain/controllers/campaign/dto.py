@@ -9,6 +9,7 @@ from uuid import UUID
 import msgspec
 from tortoise.queryset import Prefetch
 
+from vapi.constants import CharacterType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.character import Character
@@ -60,22 +61,34 @@ def get_chapter_include_prefetch_map() -> dict[ChapterInclude, list[str | Prefet
 
 
 @cache
-def chapter_characters_prefetch() -> Prefetch:
-    """Prefetch a chapter's non-archived associated characters for ``character_ids``."""
-    return active_prefetch("characters", Character)
+def chapter_characters_prefetch(*, include_storyteller: bool) -> Prefetch:
+    """Prefetch a chapter's non-archived associated characters for ``character_ids``.
+
+    Args:
+        include_storyteller: Whether to keep STORYTELLER-type characters, which only
+            storytellers and admins may see.
+    """
+    queryset = Character.filter(is_archived=False)
+    if not include_storyteller:
+        queryset = queryset.exclude(type=CharacterType.STORYTELLER)
+    return Prefetch("characters", queryset=queryset)
 
 
 @cache
-def book_chapters_with_characters_prefetch() -> Prefetch:
+def book_chapters_with_characters_prefetch(*, include_storyteller: bool) -> Prefetch:
     """Prefetch a book's active chapters, each with their active characters.
 
     Powers the book ``character_ids`` rollup and the ``?include=chapters`` embed,
     keeping archived chapters and archived characters out of both.
+
+    Args:
+        include_storyteller: Whether to keep STORYTELLER-type characters, which only
+            storytellers and admins may see.
     """
     return Prefetch(
         "chapters",
         queryset=CampaignChapter.filter(is_archived=False).prefetch_related(
-            chapter_characters_prefetch()
+            chapter_characters_prefetch(include_storyteller=include_storyteller)
         ),
     )
 

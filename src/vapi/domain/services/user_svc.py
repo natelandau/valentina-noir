@@ -57,9 +57,12 @@ class UserService:
     async def _assert_requester_active(self, requesting_user_id: UUID) -> User:
         """Reject requesters that cannot act on any endpoint and return the fetched user.
 
-        Called from every user-surface mutation path because route guards
-        cannot inspect body-supplied requesting_user_id. Returns the loaded User
-        so callers can reuse it (e.g. for role-matrix checks) without a second fetch.
+        Called from every user-surface mutation path so the check holds even for
+        a caller that bypasses the route guards. Returns the loaded User so callers
+        can reuse it (e.g. for role-matrix checks) without a second fetch.
+
+        Args:
+            requesting_user_id: ID of the acting user, already bound to the company.
 
         Raises:
             PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.

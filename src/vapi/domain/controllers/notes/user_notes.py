@@ -12,6 +12,7 @@ from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.guards import user_self_or_admin_guard
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -27,6 +28,7 @@ class UserNoteController(BaseNoteController):
         "target_user": Provide(deps.provide_target_user),
         "developer": Provide(deps.provide_developer_from_request),
         "note": Provide(deps.provide_note_by_id),
+        "acting_user": Provide(deps.provide_acting_user),
     }
 
     @property
@@ -68,9 +70,16 @@ class UserNoteController(BaseNoteController):
         operation_id="createUserNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_self_or_admin_guard],
     )
     async def create_user_note(
-        self, *, request: Request, company: Company, target_user: User, data: dto.NoteCreate
+        self,
+        *,
+        request: Request,
+        company: Company,
+        target_user: User,
+        data: dto.NoteCreate,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Create a user note."""
         return await self._create_note(
@@ -83,9 +92,15 @@ class UserNoteController(BaseNoteController):
         operation_id="updateUserNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_self_or_admin_guard],
     )
     async def update_user_note(
-        self, request: Request, target_user: User, note: Note, data: dto.NotePatch
+        self,
+        request: Request,
+        target_user: User,
+        note: Note,
+        data: dto.NotePatch,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Update a user note by ID."""
         return await self._update_note(
@@ -98,7 +113,15 @@ class UserNoteController(BaseNoteController):
         operation_id="deleteUserNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_self_or_admin_guard],
     )
-    async def delete_user_note(self, *, request: Request, target_user: User, note: Note) -> None:
+    async def delete_user_note(
+        self,
+        *,
+        request: Request,
+        target_user: User,
+        note: Note,
+        acting_user: User,  # noqa: ARG002
+    ) -> None:
         """Delete a user note by ID."""
         await self._delete_note(request=request, note=note, parent_id=target_user.id)

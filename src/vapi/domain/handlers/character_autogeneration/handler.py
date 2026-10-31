@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from numpy import int32
 from numpy.random import default_rng
-from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterClass, CharacterType, GameVersion, HunterCreed
@@ -21,7 +20,7 @@ from vapi.db.sql_models.character import (
     WerewolfAttributes,
 )
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
-from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
@@ -191,7 +190,7 @@ class CharacterAutogenerationHandler:
 
         if concept is None:
             concepts = await CharacterConcept.filter(
-                Q(company_id=self.company.id) | Q(company_id__isnull=True),
+                concept_visible_to_company_q(self.company.id),
                 is_archived=False,
             )
             concept = random.choice(list(concepts))

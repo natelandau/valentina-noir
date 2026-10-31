@@ -11,6 +11,7 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
 )
 
+from vapi.constants import CharacterType, UserRole
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
@@ -443,3 +444,58 @@ async def test_book_character_rollup(
     assert sorted(listed["character_ids"]) == sorted(
         [str(shared.id), str(only_one.id), str(only_two.id)]
     )
+
+
+@pytest.mark.parametrize(
+    ("role", "sees_storyteller_character"),
+    [(UserRole.PLAYER, False), (UserRole.STORYTELLER, True)],
+)
+async def test_book_and_chapter_character_ids_hide_storyteller_characters(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    user_factory: Callable[..., User],
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+    role: UserRole,
+    sees_storyteller_character: bool,
+) -> None:
+    """Verify book and chapter character_ids include STORYTELLER characters only for storytellers."""
+    # Given a chapter linked to a player character and a STORYTELLER character
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+    visible = await character_factory(company=session_company, campaign=campaign)
+    hidden = await character_factory(
+        company=session_company, campaign=campaign, type=CharacterType.STORYTELLER
+    )
+    await chapter.characters.add(visible, hidden)
+    actor = await user_factory(company=session_company, role=role.value)
+    headers = token_global_admin | {"On-Behalf-Of": str(actor.id)}
+    ids = {"company_id": session_company.id, "campaign_id": campaign.id, "book_id": book.id}
+
+    # When the user reads the book and chapter through every endpoint that reports characters
+    book_detail = await client.get(
+        build_url(Campaigns.BOOK_DETAIL, **ids), headers=headers, params={"include": ["chapters"]}
+    )
+    book_list = await client.get(build_url(Campaigns.BOOKS, **ids), headers=headers)
+    chapter_detail = await client.get(
+        build_url(Campaigns.CHAPTER_DETAIL, chapter_id=chapter.id, **ids), headers=headers
+    )
+    chapter_list = await client.get(build_url(Campaigns.CHAPTERS, **ids), headers=headers)
+
+    # Then every character_ids list matches the user's visibility
+    expected = sorted(
+        [str(visible.id), str(hidden.id)] if sees_storyteller_character else [str(visible.id)]
+    )
+    listed_book = next(b for b in book_list.json()["items"] if b["id"] == str(book.id))
+    listed_chapter = next(c for c in chapter_list.json()["items"] if c["id"] == str(chapter.id))
+    assert sorted(book_detail.json()["character_ids"]) == expected
+    assert sorted(book_detail.json()["chapters"][0]["character_ids"]) == expected
+    assert sorted(listed_book["character_ids"]) == expected
+    assert sorted(chapter_detail.json()["character_ids"]) == expected
+    assert sorted(listed_chapter["character_ids"]) == expected

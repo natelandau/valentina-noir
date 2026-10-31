@@ -10,8 +10,10 @@ from litestar.params import Parameter
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.guards import user_can_manage_campaign
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -28,6 +30,7 @@ class CampaignChapterNoteController(BaseNoteController):
         "book": Provide(deps.provide_campaign_book_by_id),
         "chapter": Provide(deps.provide_campaign_chapter_by_id),
         "note": Provide(deps.provide_note_by_id),
+        "acting_user": Provide(deps.provide_acting_user),
     }
 
     @property
@@ -69,9 +72,16 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="createChapterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
     async def create_chapter_note(
-        self, *, request: Request, company: Company, chapter: CampaignChapter, data: dto.NoteCreate
+        self,
+        *,
+        request: Request,
+        company: Company,
+        chapter: CampaignChapter,
+        data: dto.NoteCreate,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Create a chapter note."""
         return await self._create_note(
@@ -84,9 +94,15 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="updateChapterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
     async def update_chapter_note(
-        self, request: Request, chapter: CampaignChapter, note: Note, data: dto.NotePatch
+        self,
+        request: Request,
+        chapter: CampaignChapter,
+        note: Note,
+        data: dto.NotePatch,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Update a chapter note by ID."""
         return await self._update_note(request=request, note=note, parent_id=chapter.id, data=data)
@@ -97,9 +113,15 @@ class CampaignChapterNoteController(BaseNoteController):
         operation_id="deleteChapterNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
     async def delete_chapter_note(
-        self, *, request: Request, chapter: CampaignChapter, note: Note
+        self,
+        *,
+        request: Request,
+        chapter: CampaignChapter,
+        note: Note,
+        acting_user: User,  # noqa: ARG002
     ) -> None:
         """Delete a chapter note by ID."""
         await self._delete_note(request=request, note=note, parent_id=chapter.id)

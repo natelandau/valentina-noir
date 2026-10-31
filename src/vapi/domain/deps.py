@@ -21,7 +21,7 @@ from vapi.db.sql_models.character import (
     CharacterTraitSpecialty,
 )
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
-from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
@@ -106,11 +106,12 @@ async def provide_trait_subcategory_by_id(subcategory_id: UUID) -> TraitSubcateg
     )
 
 
-async def provide_trait_by_id(trait_id: UUID) -> Trait:
-    """Provide a trait by ID."""
+async def provide_trait_by_id(trait_id: UUID, company_id: UUID) -> Trait:
+    """Provide a shared trait, or a custom trait owned by a character in the company."""
     return await _find_or_404(
         Trait,
         "Trait",
+        Q(custom_for_character_id__isnull=True) | Q(custom_for_character__company_id=company_id),
         doc_id=trait_id,
         prefetch=[
             "category",
@@ -123,11 +124,12 @@ async def provide_trait_by_id(trait_id: UUID) -> Trait:
     )
 
 
-async def provide_character_concept_by_id(concept_id: UUID) -> CharacterConcept:
-    """Provide a character concept by ID."""
+async def provide_character_concept_by_id(company: Company, concept_id: UUID) -> CharacterConcept:
+    """Provide a shared character concept or one owned by the requesting company."""
     return await _find_or_404(
         CharacterConcept,
         "Character concept",
+        concept_visible_to_company_q(company.id),
         doc_id=concept_id,
     )
 

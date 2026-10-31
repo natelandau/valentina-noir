@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from vapi.constants import BlueprintTraitOrderBy, CharacterClass, GameVersion
+from vapi.constants import REFERENCE_MAX_LIMIT, BlueprintTraitOrderBy, CharacterClass, GameVersion
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import (
@@ -620,42 +620,76 @@ class TestListAllTraits:
 class TestListConcepts:
     """Test the list_concepts method."""
 
-    async def test_list_concepts(self) -> None:
-        """Verify that list_concepts returns all non-archived concepts."""
-        # Given all non-archived concepts
-        all_concepts = list(await CharacterConcept.filter(is_archived=False).order_by("name"))
+    async def test_list_concepts(self, company_factory: Callable[..., Any]) -> None:
+        """Verify that list_concepts returns all non-archived shared concepts."""
+        # Given a company and all non-archived shared concepts
+        company = await company_factory()
+        all_concepts = list(
+            await CharacterConcept.filter(is_archived=False, company_id=None).order_by("name")
+        )
 
         # When listing concepts
         service = CharacterBlueprintService()
-        count, concepts = await service.list_concepts()
+        count, concepts = await service.list_concepts(company_id=company.id)
 
         # Then the count matches all concepts
         assert count == len(all_concepts)
         assert concepts == all_concepts[:10]
 
-    async def test_list_concepts_pagination(self) -> None:
+    async def test_list_concepts_pagination(self, company_factory: Callable[..., Any]) -> None:
         """Verify that list_concepts respects limit and offset."""
-        # Given all non-archived concepts
-        all_concepts = list(await CharacterConcept.filter(is_archived=False).order_by("name"))
+        # Given a company and all non-archived shared concepts
+        company = await company_factory()
+        all_concepts = list(
+            await CharacterConcept.filter(is_archived=False, company_id=None).order_by("name")
+        )
 
         # When listing concepts with pagination
         service = CharacterBlueprintService()
-        count, concepts = await service.list_concepts(limit=2, offset=1)
+        count, concepts = await service.list_concepts(company_id=company.id, limit=2, offset=1)
 
         # Then the total count matches but results are paginated
         assert count == len(all_concepts)
         assert len(concepts) <= 2
         assert concepts == all_concepts[1:3]
 
-    async def test_list_concepts_sorted_by_name(self) -> None:
+    async def test_list_concepts_sorted_by_name(self, company_factory: Callable[..., Any]) -> None:
         """Verify that list_concepts returns results sorted by name."""
+        # Given a company
+        company = await company_factory()
+
         # When listing concepts
         service = CharacterBlueprintService()
-        _count, concepts = await service.list_concepts(limit=100)
+        _count, concepts = await service.list_concepts(company_id=company.id, limit=100)
 
         # Then the results are sorted by name
         names = [c.name for c in concepts]
         assert names == sorted(names)
+
+    async def test_list_concepts_scoped_to_company(
+        self,
+        company_factory: Callable[..., Any],
+        character_concept_factory: Callable[..., Any],
+    ) -> None:
+        """Verify that list_concepts includes the company's concepts and hides other companies'."""
+        # Given a concept owned by the company and one owned by another company
+        company = await company_factory()
+        other_company = await company_factory()
+        own = await character_concept_factory(name="Own Concept", company_id=company.id)
+        foreign = await character_concept_factory(
+            name="Foreign Concept", company_id=other_company.id
+        )
+
+        # When listing concepts for the company
+        service = CharacterBlueprintService()
+        _count, concepts = await service.list_concepts(
+            company_id=company.id, limit=REFERENCE_MAX_LIMIT
+        )
+
+        # Then only the company's own concept appears
+        ids = {c.id for c in concepts}
+        assert own.id in ids
+        assert foreign.id not in ids
 
 
 class TestListVampireClans:

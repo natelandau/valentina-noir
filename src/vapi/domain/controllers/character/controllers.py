@@ -183,6 +183,10 @@ class CharacterController(Controller):
         )
         if data.type == CharacterType.PLAYER:
             user_player_id = data.user_player_id or acting_user.id
+            if data.user_player_id is not None:
+                await service.validate_player_assignment(
+                    user_player_id=data.user_player_id, company_id=company.id
+                )
         else:
             # NPC and STORYTELLER characters are storyteller-managed and have no player
             if data.user_player_id is not None:
@@ -282,6 +286,14 @@ class CharacterController(Controller):
                 company=company, user=acting_user, requested_type=data.type
             )
         service.reconcile_type_and_player(character, data)
+        if (
+            data.user_player_id is not msgspec.UNSET
+            and data.user_player_id is not None
+            and data.user_player_id != character.user_player_id  # ty:ignore[unresolved-attribute]
+        ):
+            await service.validate_player_assignment(
+                user_player_id=data.user_player_id, company_id=company.id
+            )
         changes = await service.apply_character_patch(character, data)
         await service.prepare_for_save(character)
         await character.save()

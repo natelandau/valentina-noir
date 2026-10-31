@@ -1,6 +1,7 @@
 """Unit tests for validation services."""
 
 from collections.abc import Callable
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -139,23 +140,43 @@ class TestValidationService:
         with pytest.raises(ValidationError, match=r"Quick roll.*not found"):
             await service.get_quickroll_by_id(quickroll.id, company_id=(await company_factory()).id)
 
-    async def test_get_concept_by_id(self) -> None:
+    async def test_get_concept_by_id(self, company_factory: Callable[..., Any]) -> None:
         """Verify get_concept_by_id returns a Tortoise CharacterConcept."""
-        # Given a Tortoise concept exists (seed data)
-        concept = await CharacterConcept.filter(is_archived=False).first()
+        # Given a shared concept exists (seed data)
+        company = await company_factory()
+        concept = await CharacterConcept.filter(is_archived=False, company_id=None).first()
 
         # When we get the concept by id
         service = GetModelByIdValidationService()
-        result = await service.get_concept_by_id(concept.id)
+        result = await service.get_concept_by_id(concept.id, company_id=company.id)
 
         # Then the concept is returned
         assert str(result.id) == str(concept.id)
 
-    async def test_get_concept_by_id_not_found(self) -> None:
+    async def test_get_concept_by_id_not_found(self, company_factory: Callable[..., Any]) -> None:
         """Verify get_concept_by_id raises ValidationError for missing record."""
+        # Given a company
+        company = await company_factory()
+
+        # When/Then looking up a missing concept raises ValidationError
         service = GetModelByIdValidationService()
         with pytest.raises(ValidationError, match=r"Concept.*not found"):
-            await service.get_concept_by_id(uuid4())
+            await service.get_concept_by_id(uuid4(), company_id=company.id)
+
+    async def test_get_concept_by_id_other_company(
+        self,
+        company_factory: Callable[..., Any],
+        character_concept_factory: Callable[..., Any],
+    ) -> None:
+        """Verify get_concept_by_id rejects a concept owned by another company."""
+        # Given a concept owned by another company
+        company = await company_factory()
+        concept = await character_concept_factory(company_id=(await company_factory()).id)
+
+        # When/Then looking it up for the company raises ValidationError
+        service = GetModelByIdValidationService()
+        with pytest.raises(ValidationError, match=r"Concept.*not found"):
+            await service.get_concept_by_id(concept.id, company_id=company.id)
 
     async def test_get_vampire_clan_by_id(self) -> None:
         """Verify get_vampire_clan_by_id returns a Tortoise VampireClan."""

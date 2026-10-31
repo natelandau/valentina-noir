@@ -178,6 +178,28 @@ class TestCharacterPlayerOrStorytellerGuard:
         with pytest.raises(PermissionDeniedError, match="No rights"):
             await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
 
+    async def test_character_from_other_company_is_not_found(
+        self,
+        mocker: MockerFixture,
+        character_factory: Callable[..., Any],
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a character outside the path company is treated as not found."""
+        # Given a character in one company and a storyteller in another
+        character = await character_factory()
+        other_company = await company_factory()
+        storyteller = await user_factory(company=other_company, role=UserRole.STORYTELLER)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(character.id), "company_id": str(other_company.id)},
+            headers={"On-Behalf-Of": str(storyteller.id)},
+        )
+
+        # When/Then the guard raises NotFoundError
+        with pytest.raises(NotFoundError):
+            await user_character_player_or_storyteller_guard(connection, _mock_handler(mocker))
+
     async def test_missing_character_id_raises_validation_error(
         self, mocker: MockerFixture
     ) -> None:

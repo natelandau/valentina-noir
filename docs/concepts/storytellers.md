@@ -19,10 +19,12 @@ Storyteller and admin users have access to actions that players don't. The exact
 | Make free trait changes | Depends | Always | `permission_free_trait_changes` |
 | View storyteller-type characters | No | Yes | — |
 | Edit any character | No | Yes | — |
-| Archive or kill characters | No | Yes | — |
+| Archive or kill any character | Own only | Yes | — |
 | Autogenerate characters (single) | No | Yes | — |
 
 When a company setting is `UNRESTRICTED`, players gain that capability too. When set to `STORYTELLER`, only storytellers and admins can perform the action. Check the company settings to determine which UI elements to show each user.
+
+Players can always edit, archive, or kill their own characters. They can do the same to `NPC` characters when the company's [`permission_manage_npc`](./company_settings.md) setting allows it.
 
 ## Hidden Characters
 

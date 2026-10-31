@@ -53,7 +53,8 @@ class UserLookupService:
                 detail="Exactly one lookup identifier is required: email, discord_id, google_id, github_id, or apple_id."
             )
 
-        qs = User.filter(is_archived=False)
+        # Archiving a company cascades to its users, but the lookup must not depend on that
+        qs = User.filter(is_archived=False, company__is_archived=False)
 
         # Scope to developer's permitted companies
         if not developer.is_global_admin:

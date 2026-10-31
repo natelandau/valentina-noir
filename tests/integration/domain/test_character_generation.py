@@ -117,7 +117,7 @@ class TestAutogenerateCharacter:
             },
         )
 
-        spy1.assert_any_call(ANY, concept.id)
+        spy1.assert_any_call(ANY, concept.id, company_id=session_company.id)
         spy2.assert_any_call(ANY, clan.id)
         spy3.assert_any_call(ANY, tribe.id)
         spy4.assert_any_call(ANY, auspice.id)
@@ -627,6 +627,90 @@ class TestChargenSessions:
         )
 
         # Then we get a 400 error
+        assert response.status_code == HTTP_400_BAD_REQUEST
+
+    @pytest.mark.parametrize("owner", ["other_user", "expired"])
+    async def test_finalize_chargen_rejects_foreign_or_expired_session(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Campaign,
+        user_factory: Any,
+        character_factory: Any,
+        chargen_session_factory: Any,
+        owner: str,
+    ) -> None:
+        """Verify finalize rejects another user's session and an expired session."""
+        # Given a session that belongs to another user, or an expired session of the acting user
+        session_owner = (
+            await user_factory(company=session_company) if owner == "other_user" else session_user
+        )
+        expires_at = (
+            time_now() - timedelta(hours=1)
+            if owner == "expired"
+            else time_now() + timedelta(hours=1)
+        )
+        chargen_session = await chargen_session_factory(
+            user=session_owner,
+            company=session_company,
+            campaign=session_campaign,
+            expires_at=expires_at,
+        )
+        character = await character_factory(
+            company=session_company, campaign=session_campaign, is_chargen=True
+        )
+        await chargen_session.characters.add(character)
+
+        # When the acting user finalizes it
+        response = await client.post(
+            build_url(CharacterURL.CHARGEN_FINALIZE, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            json={
+                "session_id": str(chargen_session.id),
+                "selected_character_id": str(character.id),
+            },
+        )
+
+        # Then the request is rejected and the session and character are untouched
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        assert await ChargenSession.filter(id=chargen_session.id).exists()
+        stored = await Character.get(id=character.id)
+        assert stored.is_chargen is True
+
+    async def test_get_chargen_session_of_other_user_is_rejected(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Campaign,
+        user_factory: Any,
+        chargen_session_factory: Any,
+    ) -> None:
+        """Verify the detail endpoint does not return another user's session."""
+        # Given an active session that belongs to another user
+        other_user = await user_factory(company=session_company)
+        chargen_session = await chargen_session_factory(
+            user=other_user, company=session_company, campaign=session_campaign
+        )
+
+        # When the acting user requests it
+        response = await client.get(
+            build_url(
+                CharacterURL.CHARGEN_SESSION_DETAIL,
+                company_id=session_company.id,
+                session_id=str(chargen_session.id),
+            ),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+        )
+
+        # Then the request is rejected
         assert response.status_code == HTTP_400_BAD_REQUEST
 
     async def test_start_chargen_creates_session_document(
