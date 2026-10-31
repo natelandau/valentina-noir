@@ -1,7 +1,12 @@
 """Image upload validation and avatar normalization utilities."""
 
+import asyncio
+import contextvars
+import functools
 import io
 import struct
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -13,6 +18,7 @@ __all__ = (
     "MAX_IMAGE_PIXELS",
     "MAX_UPLOAD_BYTES",
     "normalize_avatar",
+    "run_image_decode",
     "validate_image_upload",
 )
 
@@ -25,6 +31,13 @@ AVATAR_SIZE = 512
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 _ALLOWED_FORMATS = frozenset(ALLOWED_IMAGE_UPLOAD_FORMATS)
 _WEBP_QUALITY = 85
+
+# A tiny upload can declare a raster that takes hundreds of MB to decode, so decodes run on
+# their own small pool: a burst of uploads queues instead of decoding all at once.
+MAX_CONCURRENT_IMAGE_DECODES = 2
+_DECODE_EXECUTOR = ThreadPoolExecutor(
+    max_workers=MAX_CONCURRENT_IMAGE_DECODES, thread_name_prefix="image-decode"
+)
 
 # Pillow raises a wide spread of exception types from open()/verify()/decode on
 # malformed input: format plugins surface SyntaxError, EOFError, and struct.error
@@ -42,6 +55,25 @@ _DECODE_ERRORS = (
     Image.DecompressionBombError,
     Image.DecompressionBombWarning,
 )
+
+
+async def run_image_decode[T](func: Callable[..., T], /, *args: object, **kwargs: object) -> T:
+    """Run a Pillow decode off the event loop with bounded concurrency.
+
+    Use this instead of ``asyncio.to_thread`` for any function that decodes untrusted image
+    bytes, so concurrent uploads cannot multiply decode memory across the default pool.
+
+    Args:
+        func: The blocking decode function to run.
+        *args: Positional arguments for ``func``.
+        **kwargs: Keyword arguments for ``func``.
+
+    Returns:
+        The return value of ``func``.
+    """
+    loop = asyncio.get_running_loop()
+    call = functools.partial(contextvars.copy_context().run, func, *args, **kwargs)
+    return await loop.run_in_executor(_DECODE_EXECUTOR, call)
 
 
 def _invalid(message: str) -> ValidationError:
@@ -88,6 +120,10 @@ def normalize_avatar(data: bytes) -> bytes:
                 raise _invalid(msg)
             _check_pixel_budget(src, "Avatar image is too large.")
 
+            if src.format == "JPEG":
+                # Let the decoder scale down by up to 8x, which cuts decode memory for the
+                # common case of a large photo while keeping enough pixels for the fit.
+                src.draft("RGB", (AVATAR_SIZE * 2, AVATAR_SIZE * 2))
             src.seek(0)  # First frame only; flattens animated GIFs.
             img = ImageOps.exif_transpose(src)  # Honor orientation, then drop EXIF.
             img = img.convert("RGBA")

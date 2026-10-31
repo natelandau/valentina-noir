@@ -13,5 +13,8 @@ docs/
 *.egg-info
 compose*.yml
 compose.dev.env
-.env.local
+.env
+.env.*
+!.env.example
+secrets/
 duties.py

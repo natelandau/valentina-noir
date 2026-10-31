@@ -14,8 +14,8 @@ wheels/
 .dev/
 tmp/
 .env
-.env.local
-.env.secret*
+.env.*
+!.env.example
 *.pem
 *.key
 secrets/

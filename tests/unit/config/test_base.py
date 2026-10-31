@@ -3,13 +3,15 @@
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from vapi.config.base import (
     AllowedHostsSettings,
     CORSSettings,
     LoggingSettings,
     OAuthSettings,
+    PostgresSettings,
+    RateLimitSettings,
     Settings,
     parse_str_collection,
 )
@@ -27,6 +29,58 @@ def test_settings_ignore_env_secret_file(tmp_path: Path, monkeypatch: pytest.Mon
 
     # Then the file's value is not applied
     assert loaded.docker_migrate is False
+
+
+def test_settings_require_postgres_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify settings fail to load when the database password is not set."""
+    # Given an environment with no database password
+    monkeypatch.delenv("VAPI_POSTGRES__PASSWORD", raising=False)
+
+    # When the settings are built
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+
+    # Then validation names the missing password
+    assert ("postgres", "password") in [error["loc"] for error in exc_info.value.errors()]
+
+
+def test_postgres_settings_have_no_default_password() -> None:
+    """Verify the database settings never fall back to a built-in password."""
+    # Given no password argument
+
+    # When the database settings are built
+    with pytest.raises(ValidationError) as exc_info:
+        PostgresSettings()
+
+    # Then validation reports the password as required
+    assert [error["loc"] for error in exc_info.value.errors()] == [("password",)]
+
+
+def test_rate_limit_policies_default_to_hourly_and_burst() -> None:
+    """Verify the global rate limits are enforced when no policy is configured."""
+    # Given no configured rate limit policies
+
+    # When the rate limit settings are built
+    loaded = RateLimitSettings()
+
+    # Then the hourly and burst policies apply
+    assert {
+        policy.name: (policy.capacity, policy.refill_rate) for policy in loaded.policies.values()
+    } == {"hourly": (1000, 0.28), "burst": (60, 1.0)}
+
+
+def test_rate_limit_policies_from_env_replace_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify configured policies replace the defaults instead of merging with them."""
+    # Given one policy configured in the environment
+    monkeypatch.setenv("VAPI_RATE_LIMIT__POLICIES__0__NAME", "custom")
+    monkeypatch.setenv("VAPI_RATE_LIMIT__POLICIES__0__CAPACITY", "5")
+    monkeypatch.setenv("VAPI_RATE_LIMIT__POLICIES__0__REFILL_RATE", "0.1")
+
+    # When the settings are built
+    loaded = Settings()
+
+    # Then only the configured policy applies
+    assert [policy.name for policy in loaded.rate_limit.policies.values()] == ["custom"]
 
 
 class TestParseStrCollection:

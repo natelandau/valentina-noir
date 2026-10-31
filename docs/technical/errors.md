@@ -41,6 +41,7 @@ All error responses use the `application/problem+json` media type with these fie
 | 403  | Forbidden               | Valid API key but insufficient permissions                         |
 | 404  | Not Found               | Requested resource does not exist                                  |
 | 409  | Conflict                | Request conflicts with current state                               |
+| 413  | Content Too Large       | Request body is larger than 5 MB                                   |
 | 429  | Too Many Requests       | Rate limit exceeded                                                |
 | 500  | Internal Server Error   | Unexpected server error                                            |
 

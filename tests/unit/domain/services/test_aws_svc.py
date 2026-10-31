@@ -20,7 +20,7 @@ from vapi.constants import (
 )
 from vapi.db.sql_models.aws import S3Asset
 from vapi.domain.services.aws_svc import AWSS3Service
-from vapi.lib.exceptions import AWSS3Error, ValidationError
+from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -75,35 +75,18 @@ class TestGenerateAwsKey:
         )
         assert self.FILENAME_PATTERN.match(filename) is not None
 
-    async def test_generate_aws_key_without_origin_path(self, debug: Callable[[...], None]) -> None:
-        """Verify generating a full key without the origin path."""
-        original_origin_path = settings.aws.cloudfront_origin_path
-        settings.aws.cloudfront_origin_path = None
+    @pytest.mark.parametrize("origin_path", [None, "", "/", "db_backups", "db_backups/cdn"])
+    async def test_rejects_origin_path_shared_with_backups(
+        self, mocker: MockerFixture, origin_path: str | None
+    ) -> None:
+        """Verify the service refuses an origin path that would let the CDN serve backups."""
+        # Given an origin path that is unset or falls under the backup prefix
+        mocker.patch.object(settings.aws, "cloudfront_origin_path", origin_path)
 
-        service = AWSS3Service()
-        company_id = uuid4()
-        parent_id = uuid4()
-        asset_type = AssetType.IMAGE
-
-        # When: Generating the AWS key
-        aws_key = service._generate_aws_key(
-            company_id=company_id,
-            parent_id=parent_id,
-            extension=self.EXTENSION,
-            asset_type=asset_type,
-        )
-
-        # Then: The key should be the expected value
-        match = self.SPLIT_KEY_PATTERN.match(aws_key)
-        assert match is not None
-        key_prefix = match.group(1)
-        filename = match.group(2)
-
-        assert key_prefix == f"{company_id}/{parent_id}/{asset_type.value}"
-        assert self.FILENAME_PATTERN.match(filename) is not None
-
-        # Restore the original origin path to avoid affecting other tests
-        settings.aws.cloudfront_origin_path = original_origin_path
+        # When creating the service
+        # Then it refuses to start
+        with pytest.raises(MissingConfigurationError, match="origin path"):
+            AWSS3Service()
 
 
 class TestGetUrl:

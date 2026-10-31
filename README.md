@@ -70,11 +70,22 @@ All application configuration variables from `.env.example` are also supported a
 
 The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address. Callers can send any header, so set this to a header your edge proxy overwrites: Railway's edge overwrites `X-Real-IP`, and Cloudflare sets `CF-Connecting-IP`. Set it to an empty value when no proxy sits in front, so the connecting peer's address is used.
 
+### Rate limits
+
+Every request counts against two global token-bucket policies, kept per API key (or per client address when no key is sent):
+
+| Policy   | Capacity | Refill rate         |
+| -------- | -------- | ------------------- |
+| `hourly` | 1000     | 0.28 tokens/second  |
+| `burst`  | 60       | 1 token/second      |
+
+To change them, define numbered `VAPI_RATE_LIMIT__POLICIES__<n>__*` blocks as shown in `.env.example`. Setting any policy variable replaces both defaults, so define every policy you want to keep, each with at least `NAME` and `REFILL_RATE`. Set `VAPI_RATE_LIMIT__POLICIES={}` to turn off the global limits. The per-route limits on key rotation, user registration, and asset uploads do not depend on these settings.
+
 `VAPI_RATE_LIMIT__ALLOW_IGNORE_HEADER` lets requests skip rate limiting with the `X-Testing-Ignore-Rate-Limit` header. It defaults to `false`. Keep it `false` in production, because any caller can send that header. The test suite enables it.
 
 ## Database Backups
 
-Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket.
+Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket. Point the CloudFront distribution's origin path at `VAPI_AWS__CLOUDFRONT_ORIGIN_PATH`, and grant CloudFront read access to that prefix only, so the CDN never serves `db_backups/`. The API refuses to start S3 work when the origin path is empty or falls under `db_backups/`.
 
 **Requirements:**
 

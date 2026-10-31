@@ -7,8 +7,9 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 
-# Mirror the s3 service in compose.yml
+# Mirror the s3 service and the API's VAPI_AWS__CLOUDFRONT_ORIGIN_PATH in compose.yml
 BUCKET = "vapi-dev"
+CDN_PREFIX = "cdn"
 ACCESS_KEY = "vapi"
 SECRET_KEY = "vapi-local-secret"  # noqa: S105
 REGION = "us-east-1"
@@ -35,10 +36,11 @@ def s3_client(endpoint: str) -> Any:
 
 
 def ensure_bucket(*, endpoint: str, bucket: str) -> None:
-    """Create the bucket when missing and let anyone read its objects.
+    """Create the bucket when missing and let anyone read the objects under the CDN prefix.
 
     The API returns asset URLs that point straight at the bucket, standing in for a CDN, so
-    objects must be readable without credentials.
+    asset objects must be readable without credentials. Database backups share the bucket
+    outside that prefix and stay private.
 
     Args:
         endpoint: Base URL of the storage on the host.
@@ -59,7 +61,7 @@ def ensure_bucket(*, endpoint: str, bucket: str) -> None:
                 "Effect": "Allow",
                 "Principal": {"AWS": ["*"]},
                 "Action": ["s3:GetObject"],
-                "Resource": [f"arn:aws:s3:::{bucket}/*"],
+                "Resource": [f"arn:aws:s3:::{bucket}/{CDN_PREFIX}/*"],
             }
         ],
     }
