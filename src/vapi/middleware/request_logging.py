@@ -30,6 +30,7 @@ from vapi.constants import (
     INVALID_PARAMETERS_STATE_KEY,
     LOG_FIELD_TARGETS,
     REQUEST_ID_STATE_KEY,
+    SENSITIVE_RESPONSE_OPT_KEY,
 )
 from vapi.lib.log_formatters import render_log_value
 
@@ -237,6 +238,13 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
             response_data.pop("message", None)
             for key, value in response_data.items():
                 merged[_RESPONSE_OUTPUT_NAMES.get(key, key)] = value
+            route_handler = scope.get("route_handler")
+            if (
+                "response_body" in merged
+                and route_handler is not None
+                and route_handler.opt.get(SENSITIVE_RESPONSE_OPT_KEY)
+            ):
+                merged["response_body"] = _REDACTED
 
         # Read scope-derived fields here (not at request start) so route-resolution fields
         # like operation_id, populated by the router after this middleware runs, are present

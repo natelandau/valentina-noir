@@ -164,6 +164,8 @@ Available fields:
 | Computed | `duration_ms`                                                                                                              |
 | Scope    | `request_id`, `developer_id`, `operation_id`, `idempotency_key`, `acting_user_id`, `error_type`, `error_detail`, `invalid_parameters` |
 
+`request_body` masks credential keys (`token`, `api_key`, `password`, and similar). `response_body` is masked whole on routes that set the `SENSITIVE_RESPONSE_OPT_KEY` route opt, such as the API key endpoints. The idempotency cache skips those routes too.
+
 The entry's log level follows the response status, so a failed request is one line at the right severity rather than a separate error line:
 
 - `< 400` and routine 4xx (validation, not-found, conflict) → **INFO**

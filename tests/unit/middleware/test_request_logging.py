@@ -10,7 +10,7 @@ from litestar.logging import LoggingConfig
 from litestar.response import Stream
 from litestar.testing import TestClient
 
-from vapi.constants import LOG_FIELD_TARGETS, LOG_FIELDS_CATALOG
+from vapi.constants import LOG_FIELD_TARGETS, LOG_FIELDS_CATALOG, SENSITIVE_RESPONSE_OPT_KEY
 from vapi.lib.exceptions import (
     ConflictError,
     HTTPError,
@@ -571,6 +571,34 @@ def test_collision_fields_are_prefixed_by_side() -> None:
     assert len(entries) == 1
     assert "request_body=" in entries[0]
     assert "response_body=" in entries[0]
+
+
+def test_sensitive_route_response_body_is_masked() -> None:
+    """Mask the logged response body of a route flagged as returning a secret."""
+
+    # Given a sensitive route that returns a secret and response_body logging enabled
+    @post("/mint", opt={SENSITIVE_RESPONSE_OPT_KEY: True})
+    async def mint(data: dict) -> dict:
+        """Return a secret value."""
+        return {"api_key": "plaintext-secret-key"}
+
+    config = CombinedLoggingMiddlewareConfig(log_fields=["response_body", "status_code"])
+    app = Litestar(
+        route_handlers=[mint],
+        middleware=[config.middleware],
+        logging_config=LoggingConfig(
+            loggers={"litestar": {"level": "INFO", "handlers": [], "propagate": True}}
+        ),
+    )
+
+    # When the route is called
+    messages = _capture(app, lambda client: client.post("/mint", json={"x": 1}))
+
+    # Then the entry logs a masked body instead of the secret
+    entries = [m for m in messages if "status_code=" in m]
+    assert len(entries) == 1
+    assert "plaintext-secret-key" not in entries[0]
+    assert "response_body=********" in entries[0]
 
 
 def test_sensitive_request_header_is_obfuscated() -> None:

@@ -16,6 +16,9 @@ DOCS_URL: Final[str] = "https://docs.valentina-noir.com"
 AUTH_HEADER_KEY: Final[str] = "X-API-KEY"
 ON_BEHALF_OF_HEADER_KEY: Final[str] = "On-Behalf-Of"
 EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
+# Route opt flag for responses that carry a secret (a freshly minted API key): the idempotency
+# cache never stores them and request logging masks their body.
+SENSITIVE_RESPONSE_OPT_KEY: Final[str] = "sensitive_response"
 COOL_POINT_VALUE: Final[int] = 10
 MAX_EXPERIENCE_GRANT: Final[int] = 10_000  # max XP or CP amount per add/remove request
 MAX_INT_FIELD_VALUE: Final[int] = 2_147_483_647  # upper bound of a 32-bit IntField column
@@ -27,7 +30,10 @@ MAX_DANGER: Final[int] = 5
 MAX_DESPERATION: Final[int] = 5
 IGNORE_RATE_LIMIT_HEADER_KEY: Final[str] = "X-Testing-Ignore-Rate-Limit"
 IDEMPOTENCY_KEY_HEADER: Final[str] = "Idempotency-Key"
+IDEMPOTENCY_KEY_MAX_LENGTH: Final[int] = 255
 IDEMPOTENCY_TTL_SECONDS: Final[int] = 3600  # 1 hour
+# Safety net for the in-flight marker if a worker dies before removing it
+IDEMPOTENCY_IN_FLIGHT_TTL_SECONDS: Final[int] = 60
 IDEMPOTENCY_MAX_CACHED_BODY_BYTES: Final[int] = 1024 * 1024  # 1 MB
 TEMPORARY_CHARACTER_RETENTION_HOURS: Final[int] = 24
 CHARGEN_SESSION_RETENTION_HOURS: Final[int] = 24

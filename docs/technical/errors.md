@@ -118,6 +118,7 @@ Requested resource does not exist.
 Request conflicts with current state. Examples:
 
 - You reuse an idempotency key with a different request body.
+- You send a request while an earlier request with the same idempotency key is still running. Wait, then retry. See [Concurrent Requests](idempotency.md#concurrent-requests).
 - You change a character trait's value after another request changed it. Fetch the trait again and retry. See [Modifying Trait Values](../concepts/character_traits.md#modifying-trait-values).
 
 ```json

@@ -29,6 +29,8 @@ Generate a new API key for a developer. Their current key will be immediately in
 
 **Be certain to save the API key as it will not be displayed again.**
 
+This endpoint ignores the `Idempotency-Key` header. The response is never cached, so a retry generates another new key.
+
 Requires global admin privileges.
 """
 

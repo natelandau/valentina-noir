@@ -54,6 +54,21 @@ class RedisStore(LitestarRedisStore):
 
         await pipe.execute()
 
+    async def set_if_absent(self, key: str, value: str | bytes, *, expires_in: int) -> bool:
+        """Set a value only if the key does not exist, atomically (Redis ``SET NX``).
+
+        Use to claim a key across concurrent requests or processes: exactly one caller wins.
+
+        Args:
+            key (str): Key to claim.
+            value (str | bytes): Value to store.
+            expires_in (int): Seconds before the key expires.
+
+        Returns:
+            bool: True if this call set the key, False if it already existed.
+        """
+        return bool(await self._redis.set(self._make_key(key), value, ex=expires_in, nx=True))
+
     async def set(
         self, key: str, value: str | bytes, expires_in: int | timedelta | None = None
     ) -> None:
