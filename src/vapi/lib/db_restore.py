@@ -17,6 +17,7 @@ from vapi.lib.exceptions import (
     DatabaseRestoreError,
     MissingConfigurationError,
 )
+from vapi.lib.scheduled_tasks import parse_dated_backup_keys
 
 logger = logging.getLogger("vapi")
 
@@ -39,7 +40,7 @@ class LocalFileSource:
 
 @dataclass(frozen=True)
 class S3Source:
-    """A dump stored in S3. ``key=None`` means use the most recent backup."""
+    """A dump stored in S3. ``key=None`` means use the most recent dated backup."""
 
     key: str | None
 
@@ -70,10 +71,11 @@ class DatabaseRestoreService:
             raise DatabaseRestoreError(_CREDS_HINT) from e
 
         if source.key is None:
-            keys = await aws.list_keys(prefix=BACKUP_S3_PREFIX)
-            if not keys:
+            # Only dated backups qualify, so a stray key under the prefix is never restored
+            dated = parse_dated_backup_keys(await aws.list_keys(prefix=BACKUP_S3_PREFIX))
+            if not dated:
                 raise DatabaseRestoreError(_EMPTY_PREFIX_HINT)
-            selected_key = max(keys)
+            selected_key = dated[0][1]
         else:
             selected_key = source.key
 

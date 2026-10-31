@@ -146,7 +146,7 @@ requests.patch(
 
 Chapter responses (both the list and the detail endpoints) include a `character_ids` array listing the associated characters.
 
-Book responses also include a `character_ids` array, but it is **read-only**. It reports the distinct union of the characters across all of the book's chapters and cannot be set on a book directly. Manage character associations through the chapters instead. Archived characters are excluded from every `character_ids` field.
+Book responses also include a `character_ids` array, but it is **read-only**. It reports the distinct union of the characters across all of the book's chapters and cannot be set on a book directly. Manage character associations through the chapters instead. Archived characters are excluded from every `character_ids` field. `STORYTELLER` characters appear in book and chapter `character_ids` only when the acting user in `On-Behalf-Of` is a storyteller or admin.
 
 The association is also visible from the other direction: character responses include a **read-only** `chapter_ids` array listing the non-archived chapters the character is associated with. Like the book rollup, it cannot be set on a character directly. Manage it through the chapters.
 

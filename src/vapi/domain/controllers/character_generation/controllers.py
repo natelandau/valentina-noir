@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
+from functools import partial
 from typing import Annotated, TypeVar
 from uuid import UUID
 
@@ -104,7 +105,10 @@ class CharacterGenerationController(Controller):
             return await coro_fn(val) if val else None
 
         concept, vampire_clan, werewolf_tribe, werewolf_auspice = await asyncio.gather(
-            _resolve_optional(validation_service.get_concept_by_id, data.concept_id),
+            _resolve_optional(
+                partial(validation_service.get_concept_by_id, company_id=company.id),
+                data.concept_id,
+            ),
             _resolve_optional(validation_service.get_vampire_clan_by_id, data.vampire_clan_id),
             _resolve_optional(validation_service.get_werewolf_tribe_by_id, data.werewolf_tribe_id),
             _resolve_optional(
@@ -217,19 +221,27 @@ class CharacterGenerationController(Controller):
     async def finalize_chargen(
         self,
         company: Company,
+        acting_user: User,
         data: ChargenSessionFinalizeRequest,
         request: Request,
     ) -> CharacterResponse:
         """Finalize character selection from a chargen session and cleanup unselected options."""
         session = (
-            await ChargenSession.filter(id=data.session_id, company=company)
+            await ChargenSession.filter(
+                id=data.session_id,
+                company=company,
+                user=acting_user,
+                expires_at__gt=time_now(),
+            )
             .prefetch_related(*CHARGEN_SESSION_PREFETCH)
             .first()
         )
 
         if not session:
             raise ValidationError(
-                invalid_parameters=[{"field": "session_id", "message": "Session not found"}]
+                invalid_parameters=[
+                    {"field": "session_id", "message": "Session not found or expired"}
+                ]
             )
 
         selected_character = next(
@@ -299,6 +311,7 @@ class CharacterGenerationController(Controller):
     async def get_chargen_session(
         self,
         company: Company,
+        acting_user: User,
         session_id: UUID,
     ) -> ChargenSessionResponse:
         """Retrieve a specific chargen session by its ID."""
@@ -306,6 +319,7 @@ class CharacterGenerationController(Controller):
             await ChargenSession.filter(
                 id=session_id,
                 company=company,
+                user=acting_user,
                 expires_at__gt=time_now(),
             )
             .prefetch_related(*CHARGEN_SESSION_PREFETCH)

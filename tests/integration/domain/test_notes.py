@@ -10,19 +10,23 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
+from vapi.constants import PermissionManageCampaign, UserRole
+from vapi.db.sql_models.company import CompanySettings
 from vapi.domain.urls import Campaigns, Characters, Users
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncGenerator, Callable
 
     from httpx import AsyncClient
 
     from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
     from vapi.db.sql_models.company import Company
     from vapi.db.sql_models.developer import Developer
+    from vapi.db.sql_models.notes import Note
     from vapi.db.sql_models.user import User
 
 pytestmark = pytest.mark.anyio
@@ -537,3 +541,267 @@ class TestAllNoteControllersSmoke:
         assert list_response.status_code == HTTP_200_OK
         note_ids = [item["id"] for item in list_response.json()["items"]]
         assert note_id in note_ids
+
+
+async def _write_notes(
+    *,
+    client: AsyncClient,
+    build_url: Callable[..., str],
+    urls: Any,
+    prefix: str,
+    path_ids: dict[str, Any],
+    note: Note,
+    headers: dict[str, str],
+) -> tuple[int, int, int]:
+    """Create, patch, and delete a note on one parent and return the three status codes."""
+    create = await client.post(
+        build_url(getattr(urls, f"{prefix}NOTE_CREATE"), **path_ids),
+        headers=headers,
+        json={"title": "Guarded Note", "content": "Guarded content"},
+    )
+    update = await client.patch(
+        build_url(getattr(urls, f"{prefix}NOTE_UPDATE"), note_id=note.id, **path_ids),
+        headers=headers,
+        json={"content": "Overwritten"},
+    )
+    delete = await client.delete(
+        build_url(getattr(urls, f"{prefix}NOTE_DELETE"), note_id=note.id, **path_ids),
+        headers=headers,
+    )
+    return create.status_code, update.status_code, delete.status_code
+
+
+ALLOWED = (HTTP_201_CREATED, HTTP_200_OK, HTTP_204_NO_CONTENT)
+DENIED = (HTTP_403_FORBIDDEN, HTTP_403_FORBIDDEN, HTTP_403_FORBIDDEN)
+
+
+class TestNoteWriteGuards:
+    """Verify note writes enforce the parent resource's write permissions while reads stay open."""
+
+    @pytest.fixture(autouse=True)
+    async def _reset_campaign_permission(self, session_company: Company) -> AsyncGenerator[None]:
+        """Reset campaign permission to default after each test."""
+        yield
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=PermissionManageCampaign.UNRESTRICTED
+        )
+
+    @pytest.mark.parametrize(
+        ("actor_role", "actor_is_player", "expected"),
+        [
+            (UserRole.PLAYER, False, DENIED),
+            (UserRole.PLAYER, True, ALLOWED),
+            (UserRole.STORYTELLER, False, ALLOWED),
+        ],
+    )
+    async def test_character_note_writes(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_campaign: Campaign,
+        user_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable,
+        actor_role: UserRole,
+        actor_is_player: bool,
+        expected: tuple[int, int, int],
+    ) -> None:
+        """Verify only the character's player or a storyteller can write its notes."""
+        # Given a character, a note on it, and an acting user
+        owner = await user_factory(company=session_company, role=UserRole.PLAYER.value)
+        actor = (
+            owner
+            if actor_is_player
+            else await user_factory(company=session_company, role=actor_role.value)
+        )
+        character = await character_factory(
+            company=session_company,
+            user_player=owner,
+            user_creator=owner,
+            campaign=session_campaign,
+        )
+        note = await note_factory(company=session_company, character=character, content="Original")
+
+        # When the acting user creates, updates, and deletes notes
+        statuses = await _write_notes(
+            client=client,
+            build_url=build_url,
+            urls=Characters,
+            prefix="",
+            path_ids={"company_id": session_company.id, "character_id": character.id},
+            note=note,
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+        )
+
+        # Then each write gets the expected status
+        assert statuses == expected
+        if expected == DENIED:
+            await note.refresh_from_db()
+            assert note.content == "Original"
+            assert note.is_archived is False
+
+    @pytest.mark.parametrize(
+        ("actor_role", "actor_is_target", "expected"),
+        [
+            (UserRole.PLAYER, False, DENIED),
+            (UserRole.STORYTELLER, False, DENIED),
+            (UserRole.PLAYER, True, ALLOWED),
+            (UserRole.ADMIN, False, ALLOWED),
+        ],
+    )
+    async def test_user_note_writes(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        user_factory: Callable,
+        note_factory: Callable,
+        actor_role: UserRole,
+        actor_is_target: bool,
+        expected: tuple[int, int, int],
+    ) -> None:
+        """Verify only the user or an admin can write a user's notes."""
+        # Given a user, a note on that user, and an acting user
+        target = await user_factory(company=session_company, role=UserRole.PLAYER.value)
+        actor = (
+            target
+            if actor_is_target
+            else await user_factory(company=session_company, role=actor_role.value)
+        )
+        note = await note_factory(company=session_company, user=target, content="Original")
+
+        # When the acting user creates, updates, and deletes notes
+        statuses = await _write_notes(
+            client=client,
+            build_url=build_url,
+            urls=Users,
+            prefix="",
+            path_ids={"company_id": session_company.id, "user_id": target.id},
+            note=note,
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+        )
+
+        # Then each write gets the expected status
+        assert statuses == expected
+        if expected == DENIED:
+            await note.refresh_from_db()
+            assert note.content == "Original"
+            assert note.is_archived is False
+
+    @pytest.mark.parametrize("parent", ["campaign", "book", "chapter"])
+    @pytest.mark.parametrize(
+        ("actor_role", "campaign_permission", "expected"),
+        [
+            (UserRole.PLAYER, PermissionManageCampaign.STORYTELLER, DENIED),
+            (UserRole.STORYTELLER, PermissionManageCampaign.STORYTELLER, ALLOWED),
+            (UserRole.PLAYER, PermissionManageCampaign.UNRESTRICTED, ALLOWED),
+        ],
+    )
+    async def test_campaign_tree_note_writes(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        campaign_factory: Callable,
+        campaign_book_factory: Callable,
+        campaign_chapter_factory: Callable,
+        user_factory: Callable,
+        note_factory: Callable,
+        parent: str,
+        actor_role: UserRole,
+        campaign_permission: PermissionManageCampaign,
+        expected: tuple[int, int, int],
+    ) -> None:
+        """Verify campaign, book, and chapter note writes follow the campaign permission."""
+        # Given a campaign tree, a note on the chosen parent, and a campaign permission
+        await CompanySettings.filter(company_id=session_company.id).update(
+            permission_manage_campaign=campaign_permission
+        )
+        actor = await user_factory(company=session_company, role=actor_role.value)
+        campaign = await campaign_factory(company=session_company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(book=book)
+        parents = {"campaign": campaign, "book": book, "chapter": chapter}
+        note = await note_factory(
+            company=session_company, content="Original", **{parent: parents[parent]}
+        )
+
+        # When the acting user creates, updates, and deletes notes
+        statuses = await _write_notes(
+            client=client,
+            build_url=build_url,
+            urls=Campaigns,
+            prefix="" if parent == "campaign" else f"{parent.upper()}_",
+            path_ids={
+                "company_id": session_company.id,
+                "campaign_id": campaign.id,
+                "book_id": book.id,
+                "chapter_id": chapter.id,
+            },
+            note=note,
+            headers=token_global_admin | {"On-Behalf-Of": str(actor.id)},
+        )
+
+        # Then each write gets the expected status
+        assert statuses == expected
+        if expected == DENIED:
+            await note.refresh_from_db()
+            assert note.content == "Original"
+            assert note.is_archived is False
+
+    async def test_other_player_can_read_character_and_user_notes(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Developer,
+        session_campaign: Campaign,
+        user_factory: Callable,
+        character_factory: Callable,
+        note_factory: Callable,
+    ) -> None:
+        """Verify reading notes stays open to any company user."""
+        # Given a player's character and user notes, and a different player
+        owner = await user_factory(company=session_company, role=UserRole.PLAYER.value)
+        reader = await user_factory(company=session_company, role=UserRole.PLAYER.value)
+        character = await character_factory(
+            company=session_company,
+            user_player=owner,
+            user_creator=owner,
+            campaign=session_campaign,
+        )
+        char_note = await note_factory(company=session_company, character=character)
+        user_note = await note_factory(company=session_company, user=owner)
+        headers = token_global_admin | {"On-Behalf-Of": str(reader.id)}
+
+        # When the other player reads both notes
+        char_response = await client.get(
+            build_url(
+                Characters.NOTE_DETAIL,
+                company_id=session_company.id,
+                character_id=character.id,
+                note_id=char_note.id,
+            ),
+            headers=headers,
+        )
+        user_response = await client.get(
+            build_url(
+                Users.NOTE_DETAIL,
+                company_id=session_company.id,
+                user_id=owner.id,
+                note_id=user_note.id,
+            ),
+            headers=headers,
+        )
+
+        # Then both reads succeed
+        assert char_response.status_code == HTTP_200_OK
+        assert user_response.status_code == HTTP_200_OK

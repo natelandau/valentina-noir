@@ -191,6 +191,7 @@ class CompanyController(Controller):
             admin_user = await User.create(
                 username=requesting_developer.username,
                 email=requesting_developer.email,
+                email_trusted=True,
                 role=UserRole.ADMIN,
                 company=company,
             )

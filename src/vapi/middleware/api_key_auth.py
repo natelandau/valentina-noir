@@ -18,6 +18,7 @@ from vapi.domain.services.developer_svc import DeveloperService
 from vapi.lib.auth_throttle import AuthFailureThrottle
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import NotAuthorizedError
+from vapi.lib.stores import cache_authenticated_developer, get_authentication_generation
 from vapi.utils.authentication import log_auth_failure
 
 if TYPE_CHECKING:
@@ -63,6 +64,8 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
         throttle = AuthFailureThrottle(connection)
         await throttle.check()
 
+        generation = await get_authentication_generation(store=store, fingerprint=fingerprint)
+
         # Cache miss: DB lookup and verify
         db_developer = await Developer.filter(
             api_key_fingerprint=fingerprint,
@@ -76,10 +79,11 @@ class TokenAuthMiddleware(AbstractAuthenticationMiddleware):
                     id=db_developer.id,
                     is_global_admin=db_developer.is_global_admin,
                 )
-                await store.set(
-                    cache_key,
-                    msgspec.json.encode(cached_dev),
-                    expires_in=settings.stores.ttl,
+                await cache_authenticated_developer(
+                    store=store,
+                    fingerprint=cache_key,
+                    value=msgspec.json.encode(cached_dev),
+                    generation=generation,
                 )
                 return AuthenticationResult(user=cached_dev, auth=auth_header)
 

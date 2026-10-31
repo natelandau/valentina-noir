@@ -25,7 +25,7 @@ If the character doesn't have one or more of the referenced traits, the roll fai
 |---|---|---|
 | `name` | string | Display name for the quick roll. 3-50 characters, unique per user. |
 | `description` | string or null | Optional description. 3+ characters if provided. |
-| `trait_ids` | list of strings | Trait IDs that make up the dice pool. At least one required. |
+| `trait_ids` | list of strings | Trait IDs that make up the dice pool. 1 to 20 traits. |
 | `user_id` | string | The owning user's ID. Set automatically by the API. |
 
 ## Managing Quick Rolls
@@ -100,8 +100,8 @@ POST /api/v1/companies/{company_id}/dicerolls/quickroll
 |---|---|---|---|
 | `quickroll_id` | string | required | ID of the saved quick roll |
 | `character_id` | string | required | Character whose trait values determine the dice pool |
-| `difficulty` | integer | 6 | Target number for each die (see [dice rolling](./dice.md)) |
-| `comment` | string or null | null | Optional note saved with the roll result. Defaults to "Quick roll: {name}" if omitted. |
+| `difficulty` | integer | 6 | Target number for each die, from 0 to 100 (see [dice rolling](./dice.md)) |
+| `comment` | string or null | null | Optional note saved with the roll result, up to 2000 characters. Defaults to "Quick roll: {name}" if omitted. |
 
 The API sums the character's values for all traits in the quick roll to determine how many D10s to roll. For example, if the character has `Firearms: 3` and `Dexterity: 4`, the quick roll produces a pool of 7 dice.
 

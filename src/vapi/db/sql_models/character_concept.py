@@ -5,10 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from tortoise import fields
+from tortoise.expressions import Q
 
 from vapi.db.sql_models.base import BaseModel
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from vapi.db.sql_models.character import Character
     from vapi.db.sql_models.company import Company
 
@@ -37,3 +40,15 @@ class CharacterConcept(BaseModel):
         """Tortoise ORM meta options."""
 
         table = "character_concept"
+
+
+def concept_visible_to_company_q(company_id: UUID) -> Q:
+    """Build the filter for concepts a company may use: the shared ones and its own.
+
+    Args:
+        company_id: The company whose concepts to include alongside the shared ones.
+
+    Returns:
+        Q: A filter matching shared concepts (no company) or the company's concepts.
+    """
+    return Q(company_id__isnull=True) | Q(company_id=company_id)

@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from tortoise.expressions import F
+from tortoise.transactions import in_transaction
 
-from vapi.constants import COOL_POINT_VALUE, PermissionsGrantXP, UserRole
+from vapi.constants import COOL_POINT_VALUE, MAX_INT_FIELD_VALUE, PermissionsGrantXP, UserRole
 from vapi.db.sql_models.user import CampaignExperience, User
-from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError
+from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
 from vapi.utils.time import time_now
 
 from .user_svc import UserService
@@ -18,6 +19,12 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from vapi.db.sql_models.company import Company
+
+
+def _counter_limit_error() -> ValidationError:
+    """Build the error returned when a grant would push an experience counter past its column limit."""
+    msg = f"Adding this amount would push an experience total above {MAX_INT_FIELD_VALUE}"
+    return ValidationError(detail=msg, invalid_parameters=[{"field": "amount", "message": msg}])
 
 
 class UserXPService:
@@ -66,15 +73,28 @@ class UserXPService:
             The updated CampaignExperience.
         """
         experience = await self.get_or_create_campaign_experience(user_id, campaign_id)
+        headroom = MAX_INT_FIELD_VALUE - amount
+        limits = {"xp_current__lte": headroom}
         updates = {"xp_current": F("xp_current") + amount}
 
-        if update_total:
-            updates["xp_total"] = F("xp_total") + amount
-            await User.filter(id=user_id).update(lifetime_xp=F("lifetime_xp") + amount)
+        # The limit checks are part of each conditional update, and the transaction keeps
+        # the user and campaign counters in step when either one is rejected.
+        async with in_transaction():
+            if update_total:
+                limits["xp_total__lte"] = headroom
+                updates["xp_total"] = F("xp_total") + amount
+                user_updated = await User.filter(id=user_id, lifetime_xp__lte=headroom).update(
+                    lifetime_xp=F("lifetime_xp") + amount
+                )
+                if user_updated != 1:
+                    raise _counter_limit_error()
 
-        await CampaignExperience.filter(id=experience.id).update(
-            **updates, date_modified=time_now()
-        )
+            updated = await CampaignExperience.filter(id=experience.id, **limits).update(
+                **updates, date_modified=time_now()
+            )
+            if updated != 1:
+                raise _counter_limit_error()
+
         await experience.refresh_from_db(fields=["xp_current", "xp_total", "date_modified"])
         return experience
 
@@ -128,21 +148,38 @@ class UserXPService:
         xp_amount = amount * COOL_POINT_VALUE
         experience = await self.get_or_create_campaign_experience(user_id, campaign_id)
 
-        await CampaignExperience.filter(id=experience.id).update(
-            cool_points=F("cool_points") + amount,
-            xp_current=F("xp_current") + xp_amount,
-            xp_total=F("xp_total") + xp_amount,
-            date_modified=time_now(),
-        )
+        xp_headroom = MAX_INT_FIELD_VALUE - xp_amount
+        cp_headroom = MAX_INT_FIELD_VALUE - amount
+
+        async with in_transaction():
+            updated = await CampaignExperience.filter(
+                id=experience.id,
+                cool_points__lte=cp_headroom,
+                xp_current__lte=xp_headroom,
+                xp_total__lte=xp_headroom,
+            ).update(
+                cool_points=F("cool_points") + amount,
+                xp_current=F("xp_current") + xp_amount,
+                xp_total=F("xp_total") + xp_amount,
+                date_modified=time_now(),
+            )
+            if updated != 1:
+                raise _counter_limit_error()
+
+            user_updated = await User.filter(
+                id=user_id,
+                lifetime_xp__lte=xp_headroom,
+                lifetime_cool_points__lte=cp_headroom,
+            ).update(
+                lifetime_xp=F("lifetime_xp") + xp_amount,
+                lifetime_cool_points=F("lifetime_cool_points") + amount,
+            )
+            if user_updated != 1:
+                raise _counter_limit_error()
+
         await experience.refresh_from_db(
             fields=["cool_points", "xp_current", "xp_total", "date_modified"]
         )
-
-        await User.filter(id=user_id).update(
-            lifetime_xp=F("lifetime_xp") + xp_amount,
-            lifetime_cool_points=F("lifetime_cool_points") + amount,
-        )
-
         return experience
 
     async def _validate_user_can_grant_xp(

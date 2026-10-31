@@ -56,7 +56,7 @@ class TestResolveSource:
         mocker: MockerFixture,
         tmp_path: Path,
     ) -> None:
-        """Verify S3 source with key=None downloads the lexicographically-largest key."""
+        """Verify S3 source with key=None downloads the most recent dated backup."""
         # Given an AWSS3Service that lists three keys out of order
         mock_aws = mocker.MagicMock()
         mock_aws.list_keys = mocker.AsyncMock(
@@ -84,6 +84,48 @@ class TestResolveSource:
         assert download_kwargs["key"] == "db_backups/2026-04-15.dump"
         assert should_cleanup is True
         assert resolved_path == tmp_path / "latest.dump"
+
+    async def test_s3_source_ignores_undated_keys_when_picking_latest(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """Verify a stray key that sorts after the dated backups is never restored."""
+        # Given dated backups and a manual upload whose name sorts after them
+        mock_aws = mocker.MagicMock()
+        mock_aws.list_keys = mocker.AsyncMock(
+            return_value=[
+                "db_backups/2026-04-10.dump",
+                "db_backups/manual-upload.dump",
+                "db_backups/2026-04-15.dump",
+            ]
+        )
+        mock_aws.download_file = mocker.AsyncMock()
+        mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
+        _mock_tempfile(mocker, tmp_path / "latest.dump")
+        service = DatabaseRestoreService()
+
+        # When resolving the source with no explicit key
+        await service.resolve_source(S3Source(key=None))
+
+        # Then the newest dated backup was downloaded
+        assert mock_aws.download_file.await_args.kwargs["key"] == "db_backups/2026-04-15.dump"
+
+    async def test_s3_source_raises_when_no_key_is_dated(
+        self,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a prefix holding only undated keys counts as having no backups."""
+        # Given an AWSS3Service that lists only an undated key
+        mock_aws = mocker.MagicMock()
+        mock_aws.list_keys = mocker.AsyncMock(return_value=["db_backups/manual-upload.dump"])
+        mocker.patch("vapi.lib.db_restore.AWSS3Service", return_value=mock_aws)
+        service = DatabaseRestoreService()
+
+        # When resolving latest-key source
+        # Then DatabaseRestoreError is raised
+        with pytest.raises(DatabaseRestoreError, match="No backups found"):
+            await service.resolve_source(S3Source(key=None))
 
     async def test_s3_source_with_explicit_key_downloads_that_key(
         self,

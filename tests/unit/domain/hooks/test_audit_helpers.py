@@ -219,27 +219,29 @@ class TestResolveEntityType:
 class TestActingUserResolution:
     """Test acting user ID resolution."""
 
-    def test_on_behalf_of_header_used_as_acting_user(self) -> None:
-        """Verify On-Behalf-Of header takes precedence over path user_id."""
-        # Given a request with user_id in the path and an On-Behalf-Of header
-        company_id = str(uuid4())
-        target_user_id = str(uuid4())
-        acting_user_id = str(uuid4())
+    @pytest.mark.parametrize(
+        "header_value",
+        ["0b1e4a52-8f3c-4d6e-9a7b-2c5d8e1f3a64", "not-a-uuid"],
+        ids=["uuid", "not-uuid"],
+    )
+    def test_unresolved_on_behalf_of_header_is_not_recorded(self, header_value: str) -> None:
+        """Verify an On-Behalf-Of header no guard resolved records no acting user."""
+        # Given a request with user_id in the path and an unresolved On-Behalf-Of header
         request = _make_request(
             method="POST",
-            path_params={"company_id": company_id, "user_id": target_user_id},
+            path_params={"company_id": str(uuid4()), "user_id": str(uuid4())},
             operation_id="createUser",
-            headers={"On-Behalf-Of": acting_user_id},
+            headers={"On-Behalf-Of": header_value},
         )
 
         # When building the audit entry
         result = build_audit_entry(request)
 
-        # Then the acting_user_id comes from the header, not the path
-        assert result["acting_user_id"] == acting_user_id
+        # Then neither the raw header nor the path's target user is recorded as the actor
+        assert result["acting_user_id"] is None
 
     def test_request_state_acting_user_takes_highest_priority(self) -> None:
-        """Verify request.state.acting_user takes priority over header and path params."""
+        """Verify request.state.acting_user is recorded over the header and path params."""
         # Given a request with acting_user on state, an On-Behalf-Of header, and user_id in path
         company_id = str(uuid4())
         path_user_id = str(uuid4())

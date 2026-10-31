@@ -9,6 +9,7 @@ from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 
+from vapi.constants import SENSITIVE_RESPONSE_OPT_KEY
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
@@ -159,6 +160,7 @@ class GlobalAdminController(Controller):
         operation_id="globalAdminCreateDeveloperApiKey",
         description=docs.CREATE_API_KEY_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        opt={SENSITIVE_RESPONSE_OPT_KEY: True},
     )
     async def new_api_key(
         self, *, developer: Developer, request: Request

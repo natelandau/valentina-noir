@@ -177,7 +177,7 @@ async def _purge_temporary_characters() -> None:
         logger.exception("Failed to purge temporary Characters.", extra=_LOG_EXTRA)
 
 
-def _parse_dated_keys(keys: list[str]) -> list[tuple[date, str]]:
+def parse_dated_backup_keys(keys: list[str]) -> list[tuple[date, str]]:
     """Parse S3 keys into (date, key) pairs, silently skipping unparsable keys.
 
     Args:
@@ -238,7 +238,7 @@ def _compute_backups_to_delete(keys: list[str], backup_settings: BackupSettings)
     Returns:
         Keys that should be deleted.
     """
-    dated = _parse_dated_keys(keys)
+    dated = parse_dated_backup_keys(keys)
     if not dated:
         return []
 

@@ -3766,6 +3766,80 @@ class TestDeleteTrait:
                 character_trait=character_trait,
             )
 
+    @pytest.mark.parametrize("currency", [None, TraitModifyCurrency.NO_COST])
+    async def test_free_delete_respects_free_trait_changes_setting(
+        self,
+        character_factory,
+        character_trait_factory,
+        user_factory,
+        company_factory,
+        currency: TraitModifyCurrency | None,
+    ) -> None:
+        """Verify a player cannot delete a trait for free when free changes are storyteller-only."""
+        # Given a company that restricts free trait changes to storytellers
+        company = await company_factory()
+        settings = await CompanySettings.filter(company_id=company.id).first()
+        settings.permission_free_trait_changes = PermissionsFreeTraitChanges.STORYTELLER
+        await settings.save()
+        # And a player who owns an older player character with a trait
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+        character = await character_factory(
+            company=company,
+            user_player=player,
+            user_creator=player,
+            date_created=time_now() - timedelta(hours=45),
+        )
+        character_trait = await character_trait_factory(value=2, character=character)
+
+        # When the player deletes the trait without spending a currency
+        service = CharacterTraitService()
+        with pytest.raises(PermissionDeniedError):
+            await service.delete_trait(
+                company=company,
+                user=player,
+                character=character,
+                character_trait=character_trait,
+                currency=currency,
+            )
+
+        # Then the trait is still on the character
+        assert await CharacterTrait.filter(id=character_trait.id).exists()
+
+    async def test_storyteller_free_delete_allowed_when_free_changes_restricted(
+        self,
+        character_factory,
+        character_trait_factory,
+        user_factory,
+        company_factory,
+    ) -> None:
+        """Verify a storyteller can still delete a player's trait for free under storyteller-only."""
+        # Given a company that restricts free trait changes to storytellers
+        company = await company_factory()
+        settings = await CompanySettings.filter(company_id=company.id).first()
+        settings.permission_free_trait_changes = PermissionsFreeTraitChanges.STORYTELLER
+        await settings.save()
+        # And a storyteller and a player character with a trait
+        storyteller = await user_factory(company=company, role=UserRole.STORYTELLER)
+        player = await user_factory(company=company, role=UserRole.PLAYER)
+        character = await character_factory(
+            company=company,
+            user_player=player,
+            user_creator=player,
+            date_created=time_now() - timedelta(hours=45),
+        )
+        character_trait = await character_trait_factory(value=2, character=character)
+
+        # When the storyteller deletes the trait without a currency
+        await CharacterTraitService().delete_trait(
+            company=company,
+            user=storyteller,
+            character=character,
+            character_trait=character_trait,
+        )
+
+        # Then the trait is removed
+        assert not await CharacterTrait.filter(id=character_trait.id).exists()
+
 
 class TestDeleteCountBasedTrait:
     """Test deleting a count-based trait with count-based cost refund."""
@@ -5511,3 +5585,100 @@ class TestStaleStartingPoints:
         stored = await Character.get(id=character.id)
         assert stored.starting_points == 4 + savings
         assert character.starting_points == 4 + savings
+
+
+class TestCustomTraitOwnership:
+    """Verify custom traits stay bound to the character that owns them."""
+
+    async def test_assign_rejects_another_characters_custom_trait(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_factory,
+        company_factory,
+        trait_factory,
+    ) -> None:
+        """Verify assigning another character's custom trait reports it as not found."""
+        # Given a character and a custom trait owned by a character in another company
+        company, user, character = get_company_user_character
+        other_character = await character_factory(company=await company_factory())
+        foreign_trait = await trait_factory(
+            name="Foreign Custom Trait", custom_for_character_id=other_character.id
+        )
+
+        # When assigning the foreign trait
+        # Then it is treated as not found
+        with pytest.raises(ValidationError, match="Trait not found"):
+            await CharacterTraitService().add_constant_trait_to_character(
+                company=company,
+                character=character,
+                user=user,
+                trait_id=foreign_trait.id,
+                value=1,
+                currency=TraitModifyCurrency.NO_COST,
+            )
+
+    async def test_bulk_assign_rejects_another_characters_custom_trait(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_factory,
+        company_factory,
+        trait_factory,
+    ) -> None:
+        """Verify bulk assign reports another character's custom trait as not found."""
+        # Given a character and a custom trait owned by a character in another company
+        company, user, character = get_company_user_character
+        other_character = await character_factory(company=await company_factory())
+        foreign_trait = await trait_factory(
+            name="Foreign Custom Trait", custom_for_character_id=other_character.id
+        )
+
+        # When bulk assigning the foreign trait
+        result = await CharacterTraitService().bulk_add_constant_traits_to_character(
+            company=company,
+            character=character,
+            user=user,
+            items=[
+                CharacterTraitAddConstant(
+                    trait_id=foreign_trait.id, value=1, currency=TraitModifyCurrency.NO_COST
+                )
+            ],
+        )
+
+        # Then the item fails and nothing is attached
+        assert result.succeeded == []
+        assert [(f.trait_id, f.error) for f in result.failed] == [
+            (foreign_trait.id, "Trait not found")
+        ]
+        assert not await CharacterTrait.filter(
+            character_id=character.id, trait_id=foreign_trait.id
+        ).exists()
+
+    async def test_delete_keeps_custom_trait_owned_by_another_character(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+        character_factory,
+        character_trait_factory,
+        trait_factory,
+    ) -> None:
+        """Verify deleting a linked custom trait never removes another character's definition."""
+        # Given a custom trait owned by one character and also linked to a second character
+        company, user, character = get_company_user_character
+        owner = await character_factory(company=company)
+        custom_trait = await trait_factory(
+            name="Owner Custom Trait", custom_for_character_id=owner.id
+        )
+        owner_link = await character_trait_factory(character=owner, trait=custom_trait, value=1)
+        linked = await character_trait_factory(character=character, trait=custom_trait, value=1)
+
+        # When the second character deletes its link
+        await CharacterTraitService().delete_trait(
+            company=company,
+            user=user,
+            character=character,
+            character_trait=linked,
+        )
+
+        # Then the link is gone but the owner's trait and character trait remain
+        assert not await CharacterTrait.filter(id=linked.id).exists()
+        assert await Trait.filter(id=custom_trait.id).exists()
+        assert await CharacterTrait.filter(id=owner_link.id).exists()

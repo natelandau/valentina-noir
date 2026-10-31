@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from numpy import int32
 from numpy.random import default_rng
-from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterClass, CharacterType, GameVersion, HunterCreed
@@ -21,7 +20,7 @@ from vapi.db.sql_models.character import (
     WerewolfAttributes,
 )
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
-from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
@@ -191,7 +190,7 @@ class CharacterAutogenerationHandler:
 
         if concept is None:
             concepts = await CharacterConcept.filter(
-                Q(company_id=self.company.id) | Q(company_id__isnull=True),
+                concept_visible_to_company_q(self.company.id),
                 is_archived=False,
             )
             concept = random.choice(list(concepts))
@@ -269,7 +268,9 @@ class CharacterAutogenerationHandler:
         if character.game_version != GameVersion.V4:
             return
 
-        willpower_trait = await Trait.filter(name="Willpower").first()
+        willpower_trait = await Trait.filter(
+            name="Willpower", is_archived=False, custom_for_character_id__isnull=True
+        ).first()
         await CharacterTrait.create(
             value=random.randint(3, 7),
             character=character,
@@ -288,7 +289,9 @@ class CharacterAutogenerationHandler:
         Args:
             character (Character): The character for which to generate humanity value.
         """
-        humanity_trait = await Trait.filter(name="Humanity").first()
+        humanity_trait = await Trait.filter(
+            name="Humanity", is_archived=False, custom_for_character_id__isnull=True
+        ).first()
         if character.character_class not in humanity_trait.character_classes:  # ty:ignore[unresolved-attribute]
             return
 
@@ -490,6 +493,8 @@ class CharacterAutogenerationHandler:
 
         rage_and_renown = await Trait.filter(
             name__in=["Rage", "Honor", "Wisdom", "Glory"],
+            is_archived=False,
+            custom_for_character_id__isnull=True,
         )
         traits_by_name = {t.name: t for t in rage_and_renown}
 
@@ -561,6 +566,7 @@ class CharacterAutogenerationHandler:
             await Trait.filter(
                 subcategory_id__in=[x.id for x in selected_edges],
                 is_archived=False,
+                custom_for_character_id__isnull=True,
             )
         )
 
@@ -610,21 +616,37 @@ class CharacterAutogenerationHandler:
                 gift_tribe_id__isnull=False,
                 gift_tribe_id=tribe_id,
                 gift_minimum_renown__lte=total_renown,
+                is_archived=False,
+                custom_for_character_id__isnull=True,
             ).all(),
             Trait.filter(
                 gift_auspice_id__isnull=False,
                 gift_auspice_id=auspice_id,
                 gift_minimum_renown__lte=total_renown,
+                is_archived=False,
+                custom_for_character_id__isnull=True,
             ).all(),
             Trait.filter(
                 gift_is_native=True,
                 gift_minimum_renown__lte=total_renown,
+                is_archived=False,
+                custom_for_character_id__isnull=True,
             ).all(),
             TraitCategory.filter(name="Rites").first(),
             CharacterTrait.filter(character=character).prefetch_related("trait").all(),
         )
 
-        rites = list(await Trait.filter(category_id=rites_category.id)) if rites_category else []
+        rites = (
+            list(
+                await Trait.filter(
+                    category_id=rites_category.id,
+                    is_archived=False,
+                    custom_for_character_id__isnull=True,
+                )
+            )
+            if rites_category
+            else []
+        )
         existing_trait_ids: set[UUID] = {ct.trait.id for ct in existing_char_traits}
 
         value_modifiers = divide_total_randomly(

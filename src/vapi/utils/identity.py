@@ -16,6 +16,7 @@ import msgspec
 from vapi.config import settings
 from vapi.constants import IdentityProvider
 from vapi.lib.exceptions import ServiceUnavailableError, UnprocessableEntityError
+from vapi.lib.stores import claim_store_key
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -37,6 +38,7 @@ GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 GITHUB_OK_STATUS = 200
 GITHUB_UNAUTHORIZED_STATUS = 401
 GITHUB_SERVER_ERROR_STATUS = 500
+JWKS_FORCED_REFRESH_INTERVAL_SECONDS = 60
 DISCORD_USER_URL = "https://discord.com/api/users/@me"
 DISCORD_UNAUTHORIZED_STATUS = 401
 _DISCORD_IMAGE_BASE_URL = "https://cdn.discordapp.com/"
@@ -179,6 +181,27 @@ async def _get_jwks(
     return jwks
 
 
+async def _claim_forced_refresh(*, provider: str, store: "Store") -> bool:
+    """Allow at most one forced JWKS refresh per provider per interval.
+
+    Tokens with an unknown kid would otherwise trigger a provider fetch on every
+    request, so a caller can make the server hammer the provider's JWKS endpoint.
+
+    Args:
+        provider: The provider name, used as part of the marker key.
+        store: The JWKS cache store.
+
+    Returns:
+        True if the caller may force a refresh now, False if one ran recently.
+    """
+    return await claim_store_key(
+        store=store,
+        key=f"{provider}:forced_refresh",
+        value=b"1",
+        expires_in=JWKS_FORCED_REFRESH_INTERVAL_SECONDS,
+    )
+
+
 def _find_key(jwks: dict[str, Any], kid: str | None) -> dict[str, Any] | None:
     """Find the JWK matching the token's kid.
 
@@ -229,7 +252,11 @@ async def _verify_oidc_token(
 
     jwks = await _get_jwks(url=jwks_url, provider=provider.value, store=store)
     key_data = _find_key(jwks, kid)
-    if key_data is None and store is not None:
+    if (
+        key_data is None
+        and store is not None
+        and await _claim_forced_refresh(provider=provider.value, store=store)
+    ):
         # Key rotation: only refetch when a cache exists to bypass; without a
         # store the first fetch is always fresh, so a second call would be pointless.
         jwks = await _get_jwks(

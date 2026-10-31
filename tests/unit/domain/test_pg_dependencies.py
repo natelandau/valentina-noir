@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -96,11 +96,11 @@ class TestProvideTraitById:
 
     async def test_returns_trait_when_found(self) -> None:
         """Verify returning a trait with prefetched relations."""
-        # Given a trait exists (from bootstrap)
-        trait = await Trait.filter(is_archived=False).first()
+        # Given a shared trait exists (from bootstrap)
+        trait = await Trait.filter(is_archived=False, custom_for_character_id__isnull=True).first()
 
         # When we provide the trait by ID
-        result = await deps.provide_trait_by_id(trait.id)
+        result = await deps.provide_trait_by_id(trait_id=trait.id, company_id=new_uuid())
 
         # Then the trait is returned with category and sheet_section prefetched
         assert result.id == trait.id
@@ -110,7 +110,7 @@ class TestProvideTraitById:
     async def test_raises_not_found_when_missing(self) -> None:
         """Verify raising NotFoundError when trait does not exist."""
         with pytest.raises(NotFoundError, match="Trait not found"):
-            await deps.provide_trait_by_id(new_uuid())
+            await deps.provide_trait_by_id(trait_id=new_uuid(), company_id=new_uuid())
 
     async def test_raises_not_found_when_archived(
         self, trait_factory: Callable[..., Trait]
@@ -121,39 +121,117 @@ class TestProvideTraitById:
 
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Trait not found"):
-            await deps.provide_trait_by_id(trait.id)
+            await deps.provide_trait_by_id(trait_id=trait.id, company_id=new_uuid())
+
+    async def test_returns_custom_trait_owned_in_company(
+        self,
+        company_factory: Callable[..., Company],
+        character_factory: Callable[..., Any],
+        trait_factory: Callable[..., Trait],
+    ) -> None:
+        """Verify returning a custom trait owned by a character in the path company."""
+        # Given a custom trait owned by a character in the company
+        company = await company_factory()
+        character = await character_factory(company=company)
+        trait = await trait_factory(name="Company Custom", custom_for_character_id=character.id)
+
+        # When we provide the trait for that company
+        result = await deps.provide_trait_by_id(trait_id=trait.id, company_id=company.id)
+
+        # Then the trait is returned
+        assert result.id == trait.id
+
+    async def test_raises_not_found_for_other_company_custom_trait(
+        self,
+        company_factory: Callable[..., Company],
+        character_factory: Callable[..., Any],
+        trait_factory: Callable[..., Trait],
+    ) -> None:
+        """Verify hiding a custom trait owned by a character in another company."""
+        # Given a custom trait owned by a character in another company
+        owner_company = await company_factory()
+        character = await character_factory(company=owner_company)
+        trait = await trait_factory(name="Foreign Custom", custom_for_character_id=character.id)
+        caller_company = await company_factory()
+
+        # When/Then providing it for the caller's company raises NotFoundError
+        with pytest.raises(NotFoundError, match="Trait not found"):
+            await deps.provide_trait_by_id(trait_id=trait.id, company_id=caller_company.id)
 
 
 class TestProvideCharacterConceptById:
     """Test provide_character_concept_by_id dependency."""
 
-    async def test_returns_concept_when_found(self) -> None:
+    async def test_returns_concept_when_found(
+        self, company_factory: Callable[..., Company]
+    ) -> None:
         """Verify returning a character concept when found by ID."""
-        # Given a concept exists (from bootstrap)
-        concept = await CharacterConcept.filter(is_archived=False).first()
+        # Given a shared concept exists (from bootstrap)
+        company = await company_factory()
+        concept = await CharacterConcept.filter(is_archived=False, company_id=None).first()
 
         # When we provide the concept by ID
-        result = await deps.provide_character_concept_by_id(concept.id)
+        result = await deps.provide_character_concept_by_id(company=company, concept_id=concept.id)
 
         # Then the concept is returned
         assert result.id == concept.id
         assert result.name == concept.name
 
-    async def test_raises_not_found_when_missing(self) -> None:
+    async def test_raises_not_found_when_missing(
+        self, company_factory: Callable[..., Company]
+    ) -> None:
         """Verify raising NotFoundError when concept does not exist."""
+        # Given a company
+        company = await company_factory()
+
+        # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Character concept not found"):
-            await deps.provide_character_concept_by_id(new_uuid())
+            await deps.provide_character_concept_by_id(company=company, concept_id=new_uuid())
 
     async def test_raises_not_found_when_archived(
-        self, character_concept_factory: Callable[..., CharacterConcept]
+        self,
+        company_factory: Callable[..., Company],
+        character_concept_factory: Callable[..., CharacterConcept],
     ) -> None:
         """Verify raising NotFoundError when concept is archived."""
         # Given an archived concept exists
+        company = await company_factory()
         concept = await character_concept_factory(is_archived=True)
 
         # When/Then we expect a NotFoundError
         with pytest.raises(NotFoundError, match="Character concept not found"):
-            await deps.provide_character_concept_by_id(concept.id)
+            await deps.provide_character_concept_by_id(company=company, concept_id=concept.id)
+
+    async def test_returns_own_company_concept(
+        self,
+        company_factory: Callable[..., Company],
+        character_concept_factory: Callable[..., CharacterConcept],
+    ) -> None:
+        """Verify a concept owned by the requesting company is returned."""
+        # Given a concept owned by the company
+        company = await company_factory()
+        concept = await character_concept_factory(company_id=company.id)
+
+        # When we provide the concept by ID
+        result = await deps.provide_character_concept_by_id(company=company, concept_id=concept.id)
+
+        # Then the concept is returned
+        assert result.id == concept.id
+
+    async def test_raises_not_found_for_other_company_concept(
+        self,
+        company_factory: Callable[..., Company],
+        character_concept_factory: Callable[..., CharacterConcept],
+    ) -> None:
+        """Verify a concept owned by another company is not found."""
+        # Given a concept owned by a different company
+        company = await company_factory()
+        other_company = await company_factory()
+        concept = await character_concept_factory(company_id=other_company.id)
+
+        # When/Then we expect a NotFoundError
+        with pytest.raises(NotFoundError, match="Character concept not found"):
+            await deps.provide_character_concept_by_id(company=company, concept_id=concept.id)
 
 
 class TestProvideVampireClanById:

@@ -192,17 +192,19 @@ def check_rate_limit_status(response):
 
 ## Multiple Policies
 
-Some endpoints apply multiple rate limit policies simultaneously. Headers contain comma-separated values when this occurs.
+Most endpoints apply more than one rate limit policy at the same time. Headers contain comma-separated values when this occurs.
 
 ```
-RateLimit-Policy: "burst";q=10;w=1, "sustained";q=100;w=60
-RateLimit: "burst";r=8;t=0, "sustained";r=95;t=0
+RateLimit-Policy: "hourly";q=1000;w=3572, "burst";q=60;w=60
+RateLimit: "hourly";r=998;t=0, "burst";r=58;t=0
 ```
 
-This example applies two policies:
+This example shows the two global policies:
 
-- **Burst limit**: 10 requests per second
-- **Sustained limit**: 100 requests per minute
+- **hourly**: up to 1,000 requests at once, refilled at about 1,000 per hour
+- **burst**: up to 60 requests at once, refilled at 1 per second
+
+Read the `RateLimit-Policy` header for the limits that apply to each response, because some endpoints add their own policies.
 
 !!! warning "All Policies Must Pass"
 

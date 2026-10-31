@@ -2944,3 +2944,114 @@ class TestNpcManagementPermission:
 
         # Then the response status matches the expectation
         assert response.status_code == expected_status
+
+
+class TestCharacterPlayerMustBeActive:
+    """Test that a character's player must be an approved, active user when set."""
+
+    @pytest.mark.parametrize("role", [UserRole.UNAPPROVED, UserRole.DEACTIVATED])
+    async def test_create_rejects_inactive_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        user_factory: Callable[..., User],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+        role: UserRole,
+    ) -> None:
+        """Verify creating a character for an unapproved or deactivated player returns 400."""
+        # Given an inactive user in the company
+        inactive = await user_factory(company=session_company, role=role)
+
+        # When we create a PLAYER character for that user
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            json={
+                "name_first": "Inactive",
+                "name_last": "Player",
+                "character_class": "MORTAL",
+                "game_version": "V5",
+                "type": "PLAYER",
+                "campaign_id": str(session_campaign.id),
+                "user_player_id": str(inactive.id),
+            },
+        )
+
+        # Then the request is rejected on user_player_id
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        assert response.json()["invalid_parameters"][0]["field"] == "user_player_id"
+
+    async def test_patch_rejects_inactive_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify reassigning a character to a deactivated player returns 400."""
+        # Given a PLAYER character and a deactivated user in the company
+        character = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            user_creator=session_user,
+            user_player=session_user,
+            type=CharacterType.PLAYER,
+        )
+        deactivated = await user_factory(company=session_company, role=UserRole.DEACTIVATED)
+
+        # When we patch the player to the deactivated user
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE, company_id=session_company.id, character_id=character.id
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+            json={"user_player_id": str(deactivated.id)},
+        )
+
+        # Then the request is rejected and the player is unchanged
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        stored = await Character.get(id=character.id)
+        assert stored.user_player_id == session_user.id
+
+    async def test_patch_keeps_existing_deactivated_player(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        session_user: User,
+        user_factory: Callable[..., User],
+        character_factory: Callable[..., Character],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a character whose player was deactivated can still be edited."""
+        # Given a PLAYER character whose player is deactivated
+        deactivated = await user_factory(company=session_company, role=UserRole.DEACTIVATED)
+        character = await character_factory(
+            company=session_company,
+            campaign=session_campaign,
+            user_creator=session_user,
+            user_player=deactivated,
+            type=CharacterType.PLAYER,
+        )
+
+        # When a storyteller edits another field and resends the same player
+        response = await client.patch(
+            build_url(
+                CharacterURL.UPDATE, company_id=session_company.id, character_id=character.id
+            ),
+            headers=token_global_admin | on_behalf_of_header,
+            json={"biography": "Updated", "user_player_id": str(deactivated.id)},
+        )
+
+        # Then the update succeeds
+        assert response.status_code == HTTP_200_OK

@@ -31,6 +31,7 @@ services:
       VAPI_DEV_DEBUGPY: "${VAPI_DEV_DEBUGPY:-0}"
       VAPI_POSTGRES__HOST: postgres
       VAPI_POSTGRES__PORT: "5432"
+      VAPI_POSTGRES__PASSWORD: valentina
       VAPI_REDIS__URL: "redis://redis:6379/0"
       VAPI_AWS__ENDPOINT_URL: "http://s3:9000"
       VAPI_AWS__ACCESS_KEY_ID: vapi

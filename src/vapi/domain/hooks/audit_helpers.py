@@ -45,7 +45,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from vapi.constants import AuditEntityType, AuditOperation
+from vapi.constants import ON_BEHALF_OF_HEADER_KEY, AuditEntityType, AuditOperation
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -193,26 +193,29 @@ def _resolve_acting_user(
     path_params: dict[str, str],
     operation_id: str | None,
 ) -> str | None:
-    """Derive the acting user ID from request state, header, or path params.
+    """Derive the acting user ID from request state or path params.
 
     Priority:
     1. request.state.acting_user (stashed by guards/provider)
-    2. On-Behalf-Of header
-    3. user_id path param (fallback for user-domain endpoints)
+    2. user_id path param, only when no On-Behalf-Of header was sent (fallback for
+       user-domain endpoints)
+
+    The raw On-Behalf-Of header is never used: on routes where no guard or provider
+    resolved it, the value is unvalidated and may name no user, or a user in another
+    company.
 
     Global-admin user routes have no acting User -- the actor is the Developer,
     recorded separately as developer_id -- so the path-param fallback is skipped
     for them to avoid recording the target user as the actor.
     """
-    from vapi.constants import ON_BEHALF_OF_HEADER_KEY
-
     acting_user = getattr(request.state, "acting_user", None)
     if acting_user is not None:
         return str(acting_user.id)
 
-    header_value = request.headers.get(ON_BEHALF_OF_HEADER_KEY)
-    if header_value:
-        return header_value
+    # A request made on behalf of someone else must not fall through to the path's
+    # target user, which would record the wrong actor.
+    if request.headers.get(ON_BEHALF_OF_HEADER_KEY):
+        return None
 
     # Global-admin user routes have no acting User; suppress the path-param
     # fallback so the target user is never recorded as the actor (see the set's

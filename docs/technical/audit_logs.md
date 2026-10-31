@@ -104,7 +104,7 @@ Each audit log entry contains structured fields describing the change:
 | `description`      | `string|null` | Human-readable summary of the action            |
 | `changes`          | `object|null` | Field-level diff: `{"field": {"old": x, "new": y}}` |
 | `company_id`       | `UUID|null`   | Company where the action occurred               |
-| `acting_user_id`   | `UUID|null`   | User who performed the action                   |
+| `acting_user_id`   | `UUID|null`   | User who performed the action. `null` when the endpoint does not check `On-Behalf-Of`. |
 | `user_id`          | `UUID|null`   | User the action targeted                        |
 | `campaign_id`      | `UUID|null`   | Related campaign                                |
 | `book_id`          | `UUID|null`   | Related book                                    |

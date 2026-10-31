@@ -8,6 +8,8 @@ REGENERATE_API_KEY_DESCRIPTION = """\
 Generate a new API key for your account. The current key will be immediately invalidated and all cached authentication data will be cleared.
 
 **Be certain to save the API key from the response. It will not be displayed again.**
+
+This endpoint ignores the `Idempotency-Key` header, so the response is never cached. A retry after a successful call fails with 401, because the key it authenticates with was just replaced.
 """
 
 UPDATE_ME_DESCRIPTION = """\

@@ -15,13 +15,14 @@ from vapi.constants import (
     AWS_ONE_DAY_CACHE_HEADER,
     AWS_ONE_HOUR_CACHE_HEADER,
     AWS_ONE_YEAR_CACHE_HEADER,
+    BACKUP_S3_PREFIX,
     INLINE_SAFE_MIME_TYPES,
     AssetType,
 )
 from vapi.db.sql_models.aws import S3Asset
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
 from vapi.utils.assets import sanitize_filename
-from vapi.utils.images import validate_image_upload
+from vapi.utils.images import run_image_decode, validate_image_upload
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -39,15 +40,19 @@ class AWSS3Service:
         aws_access_key_id = settings.aws.access_key_id
         aws_secret_access_key = settings.aws.secret_access_key
         self.bucket_name = settings.aws.s3_bucket_name
-        self.prefix = (
-            settings.aws.cloudfront_origin_path.rstrip("/") + "/"
-            if settings.aws.cloudfront_origin_path
-            else ""
-        )
+        origin_path = (settings.aws.cloudfront_origin_path or "").strip("/")
 
         if not aws_access_key_id or not aws_secret_access_key or not self.bucket_name:
             msg = "AWS"
             raise MissingConfigurationError(msg)
+
+        # Asset keys must sit under the CDN origin path, apart from the database backups in
+        # the same bucket; otherwise the public CDN would also serve the backup dumps.
+        backup_root = BACKUP_S3_PREFIX.strip("/")
+        if not origin_path or origin_path.split("/")[0] == backup_root:
+            msg = "AWS CloudFront origin path (a prefix other than the backup prefix)"
+            raise MissingConfigurationError(msg)
+        self.prefix = f"{origin_path}/"
 
         config_kwargs: dict[str, Any] = {"retries": {"max_attempts": 10, "mode": "standard"}}
         client_kwargs: dict[str, Any] = {}
@@ -83,7 +88,7 @@ class AWSS3Service:
         if cloudfront_url is None:
             msg = "AWS CloudFront URL"
             raise MissingConfigurationError(msg)
-        key_for_url = key.replace(self.prefix, "") if settings.aws.cloudfront_origin_path else key
+        key_for_url = key.removeprefix(self.prefix)
         return f"{cloudfront_url.rstrip('/')}/{key_for_url}"
 
     def _get_cache_control(self, asset_type: AssetType) -> str:
@@ -233,7 +238,7 @@ class AWSS3Service:
         """
         # Detected MIME; client-declared type is ignored. Decoding is CPU-bound, so keep it
         # off the event loop.
-        mime_type = await asyncio.to_thread(validate_image_upload, data=data)
+        mime_type = await run_image_decode(validate_image_upload, data=data)
         asset_type = AssetType.IMAGE
         extension = mime_type.split("/", maxsplit=1)[1]  # e.g. "image/png" -> "png"
         filename = sanitize_filename(filename)

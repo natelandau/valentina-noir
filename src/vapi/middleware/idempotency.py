@@ -6,9 +6,12 @@ idempotency key, the cached response is returned instead of processing the reque
 
 If a request is received with the same idempotency key but a different request body,
 a ConflictError is raised to prevent unintended behavior from reusing idempotency keys.
+A request that arrives while another with the same key is still running also gets a
+ConflictError, so concurrent duplicates never both execute.
 
 This middleware automatically applies to all POST/PUT/PATCH requests that include an
-Idempotency-Key header. No per-route configuration is required.
+Idempotency-Key header. Routes flagged with the ``SENSITIVE_RESPONSE_OPT_KEY`` opt are
+skipped, so a secret in their response is never written to the cache.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ import base64
 import hashlib
 import logging
 from typing import TYPE_CHECKING, Any, cast
+from uuid import uuid4
 
 from litestar.enums import ScopeType
 from litestar.middleware import ASGIMiddleware
@@ -26,19 +30,24 @@ from msgspec import Struct
 from vapi.config import settings
 from vapi.constants import (
     AUTH_HEADER_KEY,
+    IDEMPOTENCY_IN_FLIGHT_TTL_SECONDS,
     IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_KEY_MAX_LENGTH,
     IDEMPOTENCY_KEY_STATE_KEY,
     IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
     IDEMPOTENCY_TTL_SECONDS,
     ON_BEHALF_OF_HEADER_KEY,
+    SENSITIVE_RESPONSE_OPT_KEY,
 )
 from vapi.lib.crypt import hmac_sha256_hex
-from vapi.lib.exceptions import ConflictError
+from vapi.lib.exceptions import ConflictError, ValidationError
+from vapi.lib.stores import claim_store_key
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from litestar import Request
+    from litestar.stores.base import Store
     from litestar.types import ASGIApp, Message, Receive, Scope, Send
     from litestar.types.asgi_types import (
         HTTPRequestEvent,
@@ -48,6 +57,49 @@ if TYPE_CHECKING:
 logger = logging.getLogger("vapi")
 
 __all__ = ("IdempotencyMiddleware", "idempotency_middleware")
+
+IN_PROGRESS_DETAIL = "A request with this idempotency key is still in progress."
+
+
+def _validate_idempotency_key(idempotency_key: str) -> None:
+    """Refuse an idempotency key that is too long or has non-visible characters.
+
+    The key becomes part of the cache key and the request log, so it is bounded to
+    visible ASCII (no whitespace or control characters).
+
+    Args:
+        idempotency_key (str): The Idempotency-Key header value.
+
+    Raises:
+        ValidationError: If the key is longer than the limit or has a disallowed character.
+    """
+    if len(idempotency_key) <= IDEMPOTENCY_KEY_MAX_LENGTH and all(
+        "!" <= char <= "~" for char in idempotency_key
+    ):
+        return
+    message = (
+        f"Must be 1 to {IDEMPOTENCY_KEY_MAX_LENGTH} visible ASCII characters "
+        "with no spaces or control characters."
+    )
+    raise ValidationError(
+        detail=f"Invalid {IDEMPOTENCY_KEY_HEADER} header",
+        invalid_parameters=[{"field": IDEMPOTENCY_KEY_HEADER, "message": message}],
+    )
+
+
+async def _release_in_flight(*, store: Store, key: str, token: bytes) -> None:
+    """Release an in-flight marker only while this request still holds it.
+
+    A request that outlives the marker's TTL must not delete a marker a later duplicate
+    has since claimed, or a third duplicate could run alongside that one.
+
+    Args:
+        store (Store): The idempotency store.
+        key (str): The in-flight marker key.
+        token (bytes): The value this request stored when it claimed the marker.
+    """
+    if await store.get(key) == token:
+        await store.delete(key)
 
 
 class CachedResponse(Struct, frozen=True):
@@ -95,17 +147,19 @@ class IdempotencyMiddleware(ASGIMiddleware):
             return
 
         # An unmatched route (404, etc.) has no handler to dedup, so pass through
-        if scope.get("route_handler") is None:  # pragma: no cover
+        route_handler = scope.get("route_handler")
+        if route_handler is None or route_handler.opt.get(SENSITIVE_RESPONSE_OPT_KEY):
             await next_app(scope, receive, send)
             return
 
         app = scope["litestar_app"]
-        request: Request[Any, Any, Any] = app.request_class(scope)
+        request: Request[Any, Any, Any] = app.request_class(scope, receive)
 
         idempotency_key = request.headers.get(IDEMPOTENCY_KEY_HEADER)
         if not idempotency_key:
             await next_app(scope, receive, send)
             return
+        _validate_idempotency_key(idempotency_key)
 
         # Stash on scope state so the request logger can surface it. Only the cache-miss path
         # reaches the inner logging middleware; cache hits short-circuit and aren't logged here.
@@ -116,45 +170,56 @@ class IdempotencyMiddleware(ASGIMiddleware):
 
         # Reading the ASGI stream consumes it, so buffer the body to replay to the handler;
         # the hash backs the same-key/different-body conflict check on a later duplicate.
-        full_body, request_body_hash = await self._read_and_hash_body(receive)
+        full_body, request_body_hash = await self._read_and_hash_body(request)
         replay_receive = self._create_body_replay(full_body)
 
         cached = await store.get(cache_key)
         if cached is not None:
             await self._handle_cache_hit(
-                send, cached, idempotency_key, request_body_hash, cache_key
+                send, cached, idempotency_key, request_body_hash, cache_key, request
             )
             return
+
+        in_flight_key = f"in_flight:{cache_key}"
+        in_flight_token = uuid4().hex.encode()
+        if not await claim_store_key(
+            store=store,
+            key=in_flight_key,
+            value=in_flight_token,
+            expires_in=IDEMPOTENCY_IN_FLIGHT_TTL_SECONDS,
+        ):
+            # The running request may have cached its response since the first lookup
+            cached = await store.get(cache_key)
+            if cached is not None:
+                await self._handle_cache_hit(
+                    send, cached, idempotency_key, request_body_hash, cache_key, request
+                )
+                return
+            raise ConflictError(detail=IN_PROGRESS_DETAIL)
 
         logger.debug(
             "Idempotency cache miss",
             extra={"cache_key": cache_key, "idempotency_key": idempotency_key},
         )
         response_capture = ResponseCapture(send, store, cache_key, request_body_hash)
-        await next_app(scope, replay_receive, response_capture)
+        try:
+            await next_app(scope, replay_receive, response_capture)
+        finally:
+            await _release_in_flight(store=store, key=in_flight_key, token=in_flight_token)
 
-    async def _read_and_hash_body(self, receive: Receive) -> tuple[bytes, str]:
-        """Read the full request body and compute its SHA256 hash.
+    async def _read_and_hash_body(self, request: Request[Any, Any, Any]) -> tuple[bytes, str]:
+        """Read the full request body within the route's size limit and hash it.
+
+        Reading through ``Request.body`` applies the route's ``request_max_body_size``, so an
+        oversized body is refused with 413 before it is fully buffered.
 
         Args:
-            receive (Receive): The ASGI receive function.
+            request (Request): The request wrapping the ASGI receive channel.
 
         Returns:
             tuple[bytes, str]: The full body bytes and its SHA256 hex digest.
         """
-        body_chunks: list[bytes] = []
-        while True:
-            message = await receive()
-            if message["type"] == "http.request":
-                body = message.get("body", b"")
-                if body:
-                    body_chunks.append(body)
-                if not message.get("more_body", False):
-                    break
-            elif message["type"] == "http.disconnect":  # pragma: no cover
-                break
-
-        full_body = b"".join(body_chunks)
+        full_body = await request.body()
         body_hash = hashlib.sha256(full_body).hexdigest()
         return full_body, body_hash
 
@@ -185,8 +250,13 @@ class IdempotencyMiddleware(ASGIMiddleware):
         idempotency_key: str,
         request_body_hash: str,
         cache_key: str,
+        request: Request[Any, Any, Any],
     ) -> None:
         """Handle a cache hit by validating body hash and sending cached response.
+
+        A replay skips the handler, so the route's guards run first: an acting user or
+        developer who lost access since the original request is refused exactly as a
+        live request would be.
 
         Args:
             send (Send): The ASGI send function.
@@ -194,10 +264,13 @@ class IdempotencyMiddleware(ASGIMiddleware):
             idempotency_key (str): The user-provided idempotency key.
             request_body_hash (str): SHA256 hash of the current request body.
             cache_key (str): The cache key for logging.
+            request (Request): The incoming request, used to rerun the route's guards.
 
         Raises:
             ConflictError: If the request body hash doesn't match the cached hash.
         """
+        await request.scope["route_handler"].authorize_connection(request)
+
         cached_response = decode_json(cached, target_type=CachedResponse)
 
         if cached_response.request_body_hash != request_body_hash:

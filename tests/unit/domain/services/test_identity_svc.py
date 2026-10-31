@@ -87,9 +87,9 @@ class TestResolve:
         self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
     ) -> None:
         """Verify a verified-email match links the new provider to the existing user."""
-        # Given a user with the same email but no apple identity
+        # Given a user with the same trusted email but no apple identity
         company = await company_factory()
-        user = await user_factory(company=company, email="person@example.com")
+        user = await user_factory(company=company, email="person@example.com", email_trusted=True)
 
         # When the identity is resolved
         service = IdentityService()
@@ -150,8 +150,8 @@ class TestResolve:
         """Verify an email matching multiple users skips auto-link."""
         # Given two users sharing the email
         company = await company_factory()
-        await user_factory(company=company, email="person@example.com")
-        await user_factory(company=company, email="person@example.com")
+        await user_factory(company=company, email="person@example.com", email_trusted=True)
+        await user_factory(company=company, email="person@example.com", email_trusted=True)
 
         # When the identity is resolved
         service = IdentityService()
@@ -219,6 +219,7 @@ class TestResolve:
         assert resolved.role == UserRole.UNAPPROVED
         assert resolved.username == "chosen-name"
         assert resolved.email == "person@example.com"
+        assert resolved.email_trusted is True
         assert resolved.apple_profile["id"] == "apple-sub-001"
 
         # Then the profile is persisted to the database
@@ -280,9 +281,10 @@ class TestResolve:
             fallback_email="fallback@example.com",
         )
 
-        # Then the user is created with the fallback email
+        # Then the user is created with the fallback email, which is not trusted
         assert resolution == IdentityResolution.CREATED
         assert resolved.email == "fallback@example.com"
+        assert resolved.email_trusted is False
 
     async def test_auto_link_onto_deactivated_user(
         self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
@@ -290,7 +292,9 @@ class TestResolve:
         """Verify auto-link attaches to a deactivated user rather than creating a duplicate."""
         # Given a deactivated user with the matching verified email
         company = await company_factory()
-        user = await user_factory(company=company, email="person@example.com", role="DEACTIVATED")
+        user = await user_factory(
+            company=company, email="person@example.com", email_trusted=True, role="DEACTIVATED"
+        )
 
         # When the identity is resolved
         service = IdentityService()
@@ -307,7 +311,7 @@ class TestResolve:
         """Verify auto-link matches regardless of email address case."""
         # Given a user whose stored email has mixed case
         company = await company_factory()
-        user = await user_factory(company=company, email="Person@Example.com")
+        user = await user_factory(company=company, email="Person@Example.com", email_trusted=True)
 
         # When an identity arrives with the same address in lower case
         service = IdentityService()
@@ -316,6 +320,49 @@ class TestResolve:
         # Then the identity links onto the existing user
         assert resolution == IdentityResolution.LINKED
         assert resolved.id == user.id
+
+    async def test_untrusted_email_does_not_link(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify a verified identity never links to a user whose stored email is untrusted."""
+        # Given a user who set someone else's address on their own account
+        company = await company_factory()
+        planted = await user_factory(
+            company=company, email="person@example.com", email_trusted=False
+        )
+
+        # When that person signs in with a verified email
+        resolved, resolution, _ = await IdentityService().resolve(
+            company=company, identity=_identity()
+        )
+
+        # Then a separate user is created and the planted account is untouched
+        assert resolution == IdentityResolution.CREATED
+        assert resolved.id != planted.id
+        assert (await User.get(id=planted.id)).apple_profile is None
+
+    async def test_match_with_verified_email_trusts_stored_email(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify a matched sign-in that verifies the stored email marks it trusted."""
+        # Given a user already linked to the identity, with an untrusted email
+        company = await company_factory()
+        user = await user_factory(
+            company=company,
+            email="Person@Example.com",
+            email_trusted=False,
+            apple_profile={"id": "apple-sub-001", "email": "person@example.com"},
+        )
+
+        # When the identity signs in again with that email verified
+        _, resolution, modified = await IdentityService().resolve(
+            company=company, identity=_identity()
+        )
+
+        # Then the stored email becomes trusted
+        assert resolution == IdentityResolution.MATCHED
+        assert modified is True
+        assert (await User.get(id=user.id)).email_trusted is True
 
 
 class TestLinkIdentity:
@@ -337,6 +384,20 @@ class TestLinkIdentity:
         assert linked.apple_profile["id"] == "apple-sub-001"
         persisted = await User.get(id=user.id)
         assert persisted.apple_profile["id"] == "apple-sub-001"
+
+    async def test_link_with_matching_verified_email_trusts_stored_email(
+        self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
+    ) -> None:
+        """Verify linking an identity that verifies the stored email marks it trusted."""
+        # Given a user with an untrusted email equal to the identity's verified email
+        company = await company_factory()
+        user = await user_factory(company=company, email="person@example.com", email_trusted=False)
+
+        # When the identity is linked
+        await IdentityService().link_identity(company=company, user=user, identity=_identity())
+
+        # Then the stored email is trusted
+        assert (await User.get(id=user.id)).email_trusted is True
 
     async def test_link_idempotent_same_provider_id(
         self, company_factory: Callable[..., Company], user_factory: Callable[..., User]

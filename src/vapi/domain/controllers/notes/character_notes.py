@@ -10,12 +10,14 @@ from litestar.params import Parameter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
     storyteller_character_access_guard,
     user_active_guard,
+    user_character_player_or_storyteller_guard,
 )
 from vapi.openapi.tags import APITags
 
@@ -36,6 +38,7 @@ class CharacterNoteController(BaseNoteController):
         "company": Provide(deps.provide_company_by_id),
         "character": Provide(deps.provide_character_by_id_and_company),
         "note": Provide(deps.provide_note_by_id),
+        "acting_user": Provide(deps.provide_acting_user),
     }
 
     @property
@@ -76,9 +79,16 @@ class CharacterNoteController(BaseNoteController):
         operation_id="createCharacterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def create_note(
-        self, *, request: Request, company: Company, character: Character, data: dto.NoteCreate
+        self,
+        *,
+        request: Request,
+        company: Company,
+        character: Character,
+        data: dto.NoteCreate,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Create a new note."""
         return await self._create_note(
@@ -91,9 +101,15 @@ class CharacterNoteController(BaseNoteController):
         operation_id="updateCharacterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_character_player_or_storyteller_guard],
     )
     async def update_note(
-        self, character: Character, note: Note, data: dto.NotePatch, request: Request
+        self,
+        character: Character,
+        note: Note,
+        data: dto.NotePatch,
+        request: Request,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Update a note by ID."""
         return await self._update_note(
@@ -106,7 +122,14 @@ class CharacterNoteController(BaseNoteController):
         operation_id="deleteCharacterNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_character_player_or_storyteller_guard],
     )
-    async def delete_note(self, request: Request, character: Character, note: Note) -> None:
+    async def delete_note(
+        self,
+        request: Request,
+        character: Character,
+        note: Note,
+        acting_user: User,  # noqa: ARG002
+    ) -> None:
         """Delete a note by ID."""
         await self._delete_note(request=request, note=note, parent_id=character.id)

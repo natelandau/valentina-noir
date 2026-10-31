@@ -16,6 +16,7 @@ from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
+from vapi.domain.urls import Companies
 from vapi.domain.urls import Users as UsersURL
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.utils.time import time_now
@@ -71,6 +72,34 @@ class TestAfterResponseHooks:
         assert response.status_code == HTTP_201_CREATED
 
         # Then the reader's cached company responses are gone
+        assert not [key async for key in redis.scan_iter(match=f"{reader_prefix}:*")]
+
+    async def test_company_write_flushes_other_developers_company_list(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_owner: dict[str, str],
+        token_company_admin: dict[str, str],
+        redis: Redis,
+        session_company: Company,
+    ) -> None:
+        """Verify a company write clears another developer's cached company list."""
+        # Given a second developer with a cached company list
+        reader_fingerprint = hmac_sha256_hex(data=token_company_admin[AUTH_HEADER_KEY])
+        response = await client.get(build_url(Companies.LIST), headers=token_company_admin)
+        assert response.status_code == HTTP_200_OK
+        reader_prefix = f"{settings.slug}:{settings.stores.response_cache_key}:{reader_fingerprint}"
+        assert [key async for key in redis.scan_iter(match=f"{reader_prefix}:*")]
+
+        # When the owner updates the company
+        response = await client.patch(
+            build_url(Companies.UPDATE, company_id=session_company.id),
+            headers=token_company_owner,
+            json={"description": "Updated for the company list cache"},
+        )
+        assert response.status_code == HTTP_200_OK
+
+        # Then the reader's cached company list is gone
         assert not [key async for key in redis.scan_iter(match=f"{reader_prefix}:*")]
 
     async def test_post_data_update_hook(

@@ -10,8 +10,10 @@ from litestar.params import Parameter
 from vapi.db.sql_models.campaign import CampaignBook
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
+from vapi.lib.guards import user_can_manage_campaign
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -27,6 +29,7 @@ class CampaignBookNoteController(BaseNoteController):
         "campaign": Provide(deps.provide_campaign_by_id),
         "book": Provide(deps.provide_campaign_book_by_id),
         "note": Provide(deps.provide_note_by_id),
+        "acting_user": Provide(deps.provide_acting_user),
     }
 
     @property
@@ -68,9 +71,16 @@ class CampaignBookNoteController(BaseNoteController):
         operation_id="createBookNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
     async def create_book_note(
-        self, *, request: Request, company: Company, book: CampaignBook, data: dto.NoteCreate
+        self,
+        *,
+        request: Request,
+        company: Company,
+        book: CampaignBook,
+        data: dto.NoteCreate,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Create a book note."""
         return await self._create_note(
@@ -83,9 +93,15 @@ class CampaignBookNoteController(BaseNoteController):
         operation_id="updateBookNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
     async def update_book_note(
-        self, book: CampaignBook, note: Note, data: dto.NotePatch, request: Request
+        self,
+        book: CampaignBook,
+        note: Note,
+        data: dto.NotePatch,
+        request: Request,
+        acting_user: User,  # noqa: ARG002
     ) -> dto.NoteResponse:
         """Update a book note by ID."""
         return await self._update_note(request=request, note=note, parent_id=book.id, data=data)
@@ -96,7 +112,15 @@ class CampaignBookNoteController(BaseNoteController):
         operation_id="deleteBookNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
         after_response=hooks.post_data_update_hook,
+        guards=[user_can_manage_campaign],
     )
-    async def delete_book_note(self, *, request: Request, book: CampaignBook, note: Note) -> None:
+    async def delete_book_note(
+        self,
+        *,
+        request: Request,
+        book: CampaignBook,
+        note: Note,
+        acting_user: User,  # noqa: ARG002
+    ) -> None:
         """Delete a book note by ID."""
         await self._delete_note(request=request, note=note, parent_id=book.id)

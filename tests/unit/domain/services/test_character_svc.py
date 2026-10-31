@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from vapi.constants import CharacterStatus, CharacterType, PermissionManageNPC
+from vapi.constants import CharacterStatus, CharacterType, PermissionManageNPC, UserRole
 from vapi.db.sql_models.character import (
     Character,
     CharacterHealth,
@@ -488,6 +488,29 @@ class TestApplyConceptSpecialties:
         assert "Intimidation" in specialty_names
 
 
+class TestApplyConceptSpecialtiesCompanyScope:
+    """Test that apply_concept_specialties only uses shared or same-company concepts."""
+
+    async def test_other_company_concept_rejected(
+        self,
+        character_factory: "Callable[..., Any]",
+        character_concept_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a concept owned by another company is treated as not found."""
+        # Given a character pointing at a concept owned by another company
+        company = await company_factory()
+        other_company = await company_factory()
+        concept = await character_concept_factory(company_id=other_company.id)
+        character = await character_factory(character_class="MORTAL", company=company)
+        character.concept_id = concept.id
+
+        # When we apply concept specialties
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError, match=r"Concept.*not found"):
+            await CharacterService().apply_concept_specialties(character)
+
+
 class TestValidateClassAttributes:
     """Test the validate_class_attributes routing method."""
 
@@ -621,6 +644,34 @@ class TestCharacterCreateTraitToCharacterTraits:
         assert trait2.id in created_trait_ids
         for ct in created_traits:
             assert ct.value == 2
+
+    @pytest.mark.parametrize("excluded", ["custom", "archived"])
+    async def test_character_create_rejects_custom_and_archived_traits(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        trait_factory: "Callable[..., Any]",
+        excluded: str,
+    ) -> None:
+        """Verify character creation rejects custom traits and archived traits."""
+        # Given a new character and a trait it may not use
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
+        if excluded == "custom":
+            other_character = await character_factory(company=await company_factory())
+            trait = await trait_factory(
+                name="Foreign Custom Trait", custom_for_character_id=other_character.id
+            )
+        else:
+            trait = await trait_factory(name="Retired Trait", is_archived=True)
+        trait_create_data = [CharacterTraitCreate(trait_id=trait.id, value=1)]
+
+        # When creating the character's traits with it
+        # Then the trait is treated as not found
+        with pytest.raises(ValidationError, match=r"Trait.*not found"):
+            await CharacterService().character_create_trait_to_character_traits(
+                character, trait_create_data
+            )
 
     async def test_character_create_trait_to_character_traits_trait_not_found(
         self,
@@ -949,4 +1000,45 @@ class TestAssertCanAssignNpcType:
         # Then no exception is raised
         CharacterService().assert_can_assign_npc_type(
             company=company, user=storyteller, requested_type=CharacterType.NPC
+        )
+
+
+class TestValidatePlayerAssignment:
+    """Test CharacterService.validate_player_assignment."""
+
+    @pytest.mark.parametrize("role", [UserRole.UNAPPROVED, UserRole.DEACTIVATED])
+    async def test_inactive_player_rejected(
+        self,
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+        role: UserRole,
+    ) -> None:
+        """Verify an unapproved or deactivated user cannot be assigned as a player."""
+        # Given an inactive user
+        company = await company_factory()
+        user = await user_factory(company=company, role=role)
+
+        # When validating the assignment
+        # Then a ValidationError is raised
+        with pytest.raises(ValidationError):
+            await CharacterService().validate_player_assignment(
+                user_player_id=user.id, company_id=company.id
+            )
+
+    @pytest.mark.parametrize("role", [UserRole.PLAYER, UserRole.STORYTELLER, UserRole.ADMIN])
+    async def test_active_player_accepted(
+        self,
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+        role: UserRole,
+    ) -> None:
+        """Verify an active user can be assigned as a player."""
+        # Given an active user
+        company = await company_factory()
+        user = await user_factory(company=company, role=role)
+
+        # When validating the assignment
+        # Then no exception is raised
+        await CharacterService().validate_player_assignment(
+            user_player_id=user.id, company_id=company.id
         )

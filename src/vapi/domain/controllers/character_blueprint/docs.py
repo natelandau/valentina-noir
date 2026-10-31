@@ -49,7 +49,7 @@ Excludes custom character-specific traits. Supports filtering by game version, c
 LIST_CONCEPTS_DESCRIPTION = """\
 Retrieve all character concepts available in the system.
 
-Concepts define character archetypes and provide narrative hooks for character creation. Includes both system-wide and company-specific concepts.
+Concepts define character archetypes and provide narrative hooks for character creation. Includes the system-wide concepts and the concepts of this company only.
 """
 
 GET_CONCEPT_DESCRIPTION = """\

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 import pytest
@@ -28,6 +29,24 @@ pytest_plugins = (
 )
 # Set anyio as the default async backend for all tests
 pytestmark = pytest.mark.anyio
+
+# Git sets these for hooks. A test that runs git in a temporary repository would inherit
+# them and act on this checkout's repository instead, rewriting its config.
+_GIT_REPOSITORY_ENV_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Drop git repository variables so tests never touch the repository under test."""
+    for name in _GIT_REPOSITORY_ENV_VARS:
+        os.environ.pop(name, None)
 
 
 @pytest.fixture(scope="session", autouse=True)

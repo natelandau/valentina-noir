@@ -27,7 +27,7 @@ by_name = {t["trait"]["name"]: t for t in traits}
 
 ## Build the pool and roll
 
-A trait-based roll combines one or more traits. Sum the values of the traits you want, then send that total as `num_dice`. Pass the same traits in `trait_ids` so the roll records which traits built the pool.
+A trait-based roll combines one or more traits. Sum the values of the traits you want, then send that total as `num_dice`. Pass the same traits in `trait_ids` so the roll records which traits built the pool. A pool can hold 0 to 100 dice, and a roll can add 0 to 5 desperation dice. A roll can list up to 20 `trait_ids`, and its `comment` can hold up to 2000 characters. Larger values return `400 Bad Request`.
 
 ```python
 strength = by_name["Strength"]

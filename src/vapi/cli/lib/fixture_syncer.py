@@ -198,7 +198,10 @@ class VampireClanSyncer(FixtureSyncer):
             return
 
         all_names = {name for _, names in self._discipline_links for name in names}
-        traits_by_name = {t.name: t for t in await Trait.filter(name__in=all_names)}
+        traits_by_name = {
+            t.name: t
+            for t in await Trait.filter(name__in=all_names, custom_for_character_id__isnull=True)
+        }
 
         for clan, discipline_names in self._discipline_links:
             await clan.disciplines.clear()

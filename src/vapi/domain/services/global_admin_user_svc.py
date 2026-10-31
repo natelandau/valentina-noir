@@ -12,9 +12,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import msgspec
+from tortoise.expressions import RawSQL
 from tortoise.transactions import in_transaction
 
-from vapi.constants import UserRole
+from vapi.constants import PROVIDER_PROFILE_FIELDS, UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain.handlers import cascade_archive_user, restore_archive_batch
@@ -63,6 +64,7 @@ class GlobalAdminUserService:
             name_last=data.name_last,
             username=data.username,
             email=data.email,
+            email_trusted=True,
             role=new_role,
             company=company,
         )
@@ -80,7 +82,8 @@ class GlobalAdminUserService:
         cascades to owned data exactly like delete_user; setting is_archived to
         false reverses that cascade, restoring the user and the data archived
         with them as a unit. Restoring is refused while the user's company is
-        archived (the company must be restored first).
+        archived (the company must be restored first), and while another active
+        user in the company holds one of the user's provider IDs.
 
         Args:
             user: The user to update.
@@ -92,13 +95,16 @@ class GlobalAdminUserService:
 
         Raises:
             ValidationError: If the patch sets an invalid role.
-            ConflictError: If restoring the user while their company is archived.
+            ConflictError: If restoring the user while their company is archived, or
+                while another active user in the company holds one of their provider IDs.
         """
         was_archived = user.is_archived
         # Capture before apply_patch/save clears it, so restore can reverse the batch.
         restore_batch_id = user.archive_batch_id if was_archived else None
 
         changes = apply_patch(user, data, exclude=frozenset({"role"}))
+        if "email" in changes:
+            user.email_trusted = True
 
         if not isinstance(data.role, msgspec.UnsetType):
             try:
@@ -120,6 +126,7 @@ class GlobalAdminUserService:
                     detail="Cannot restore a user while their company is archived; "
                     "restore the company first."
                 )
+            await self._assert_provider_ids_free(user)
 
         async with in_transaction():
             await user.save()
@@ -134,6 +141,41 @@ class GlobalAdminUserService:
 
         await user.fetch_related("campaign_experiences")
         return user, changes
+
+    @staticmethod
+    async def _assert_provider_ids_free(user: User) -> None:
+        """Refuse a restore that would give two active users the same provider identity.
+
+        Identity sign-in matches one active user per provider ID within a company, so
+        a duplicate makes the match arbitrary.
+
+        Args:
+            user: The archived user about to be restored.
+
+        Raises:
+            ConflictError: If an active user in the same company holds one of the
+                user's provider IDs.
+        """
+        for provider, profile_field in PROVIDER_PROFILE_FIELDS.items():
+            provider_id = (getattr(user, profile_field) or {}).get("id")
+            if provider_id is None:
+                continue
+            # profile_field comes from PROVIDER_PROFILE_FIELDS, never from user input
+            holder_exists = (
+                await User.filter(
+                    company_id=user.company_id,  # ty:ignore[unresolved-attribute]
+                    is_archived=False,
+                )
+                .exclude(id=user.id)
+                .annotate(_provider_id=RawSQL(f"{profile_field}->>'id'"))
+                .filter(_provider_id=str(provider_id))
+                .exists()
+            )
+            if holder_exists:
+                raise ConflictError(
+                    detail=f"Cannot restore this user: another active user in the company "
+                    f"is linked to the same {provider.value} account."
+                )
 
     async def delete_user(self, user: User) -> None:
         """Soft-delete a user and cascade archival to their owned data.

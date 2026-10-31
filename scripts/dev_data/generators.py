@@ -35,6 +35,7 @@ from vapi.domain.controllers.dicerolls.dto import DiceRollCreate
 from vapi.domain.handlers.character_autogeneration.handler import CharacterAutogenerationHandler
 from vapi.domain.services.developer_svc import DeveloperService
 from vapi.domain.services.diceroll_svc import DiceRollService
+from vapi.lib.guards import STORYTELLER_ROLES
 
 
 @dataclass
@@ -214,6 +215,10 @@ async def create_dice_rolls(
     dice_sizes = list(DiceSize)
     for character in characters:
         company_users = users_by_company[character.company_id]  # ty:ignore[unresolved-attribute]
+        if character.type == CharacterType.STORYTELLER:
+            company_users = [u for u in company_users if u.role in STORYTELLER_ROLES]
+            if not company_users:
+                continue
         company_id = character.company_id  # ty:ignore[unresolved-attribute]
         character_id = character.id
         campaign_id = character.campaign_id or None  # ty:ignore[unresolved-attribute]
@@ -228,9 +233,7 @@ async def create_dice_rolls(
                 campaign_id=campaign_id,
                 character_id=character_id,
             )
-            await service.create_complete_dice_roll(
-                data=data, company_id=company_id, user_id=user.id
-            )
+            await service.create_complete_dice_roll(data=data, company_id=company_id, user=user)
 
 
 async def create_quick_rolls(users_by_company: dict[UUID, list[User]], cfg: PopulateConfig) -> None:

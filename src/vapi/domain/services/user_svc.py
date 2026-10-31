@@ -57,9 +57,12 @@ class UserService:
     async def _assert_requester_active(self, requesting_user_id: UUID) -> User:
         """Reject requesters that cannot act on any endpoint and return the fetched user.
 
-        Called from every user-surface mutation path because route guards
-        cannot inspect body-supplied requesting_user_id. Returns the loaded User
-        so callers can reuse it (e.g. for role-matrix checks) without a second fetch.
+        Called from every user-surface mutation path so the check holds even for
+        a caller that bypasses the route guards. Returns the loaded User so callers
+        can reuse it (e.g. for role-matrix checks) without a second fetch.
+
+        Args:
+            requesting_user_id: ID of the acting user, already bound to the company.
 
         Raises:
             PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
@@ -127,7 +130,9 @@ class UserService:
     async def _assert_not_last_admin(self, target_user: User) -> None:
         """Block mutations that would leave a company with zero active admins.
 
-        No-op if the target is not currently ADMIN.
+        No-op if the target is not currently ADMIN. Call inside the transaction that
+        saves the change: the company's admin rows stay locked until it commits, so
+        concurrent demotions cannot each see another admin and leave none.
 
         Raises:
             ConflictError: If removing this user as admin would leave the company
@@ -136,17 +141,13 @@ class UserService:
         if target_user.role != UserRole.ADMIN:
             return
 
-        remaining = (
-            await User.filter(
-                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
-                role=UserRole.ADMIN,
-                is_archived=False,
-            )
-            .exclude(id=target_user.id)
-            .count()
-        )
+        admins = await User.filter(
+            company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+            role=UserRole.ADMIN,
+            is_archived=False,
+        ).select_for_update()
 
-        if remaining == 0:
+        if not any(admin.id != target_user.id for admin in admins):
             raise ConflictError(
                 detail="Cannot remove the last admin from the company",
             )
@@ -210,6 +211,7 @@ class UserService:
             name_last=data.name_last,
             username=data.username,
             email=data.email,
+            email_trusted=requesting_user.role == UserRole.ADMIN,
             role=new_role,
             company=company,
         )
@@ -306,30 +308,36 @@ class UserService:
         """
         requesting_user = await self._assert_requester_active(acting_user_id)
 
-        role_change: dict[str, dict[str, object]] = {}
-        if not isinstance(data.role, msgspec.UnsetType):
-            old_role = user.role
-            new_role = UserRole(data.role)
-            await self._validate_role_assignment(
-                requesting_user=requesting_user,
-                target_user=user,
-                new_role=new_role,
+        async with in_transaction():
+            role_change: dict[str, dict[str, object]] = {}
+            if not isinstance(data.role, msgspec.UnsetType):
+                old_role = user.role
+                new_role = UserRole(data.role)
+                await self._validate_role_assignment(
+                    requesting_user=requesting_user,
+                    target_user=user,
+                    new_role=new_role,
+                )
+                if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
+                    await self._assert_not_last_admin(user)
+                if old_role != new_role:
+                    role_change["role"] = {"old": old_role, "new": new_role}
+                user.role = new_role
+
+            await self.validate_user_can_manage_user(
+                requesting_user_id=acting_user_id,
+                user_to_manage_id=user.id,
             )
-            if user.role == UserRole.ADMIN and new_role != UserRole.ADMIN:
-                await self._assert_not_last_admin(user)
-            if old_role != new_role:
-                role_change["role"] = {"old": old_role, "new": new_role}
-            user.role = new_role
 
-        await self.validate_user_can_manage_user(
-            requesting_user_id=acting_user_id,
-            user_to_manage_id=user.id,
-        )
+            changes = apply_patch(user, data, exclude=frozenset({"role"}))
+            changes.update(role_change)
+            if "email" in changes:
+                # A self-edit is the planting path identity auto-link guards against
+                user.email_trusted = (
+                    requesting_user.role == UserRole.ADMIN and requesting_user.id != user.id
+                )
 
-        changes = apply_patch(user, data, exclude=frozenset({"role"}))
-        changes.update(role_change)
-
-        await user.save()
+            await user.save()
         await user.fetch_related("campaign_experiences")
         return user, changes
 
@@ -345,9 +353,8 @@ class UserService:
         # top-level handlers import would cycle.
         from vapi.domain.handlers import cascade_archive_user
 
-        await self._assert_not_last_admin(user)
-
         async with in_transaction():
+            await self._assert_not_last_admin(user)
             user.is_archived = True
             await user.save()
             await cascade_archive_user(user)

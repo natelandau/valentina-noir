@@ -18,6 +18,7 @@ from vapi.domain.services.campaign_svc import annotate_book_counts
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
+    acting_user_sees_storyteller_characters,
     developer_company_user_guard,
     user_active_guard,
     user_can_manage_campaign,
@@ -61,6 +62,7 @@ class CampaignBookController(Controller):
     async def list_books(
         self,
         *,
+        request: Request,
         campaign: Campaign,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
@@ -70,7 +72,11 @@ class CampaignBookController(Controller):
         count, books = await asyncio.gather(
             qs.count(),
             annotate_book_counts(qs.order_by("number"))
-            .prefetch_related(book_chapters_with_characters_prefetch())
+            .prefetch_related(
+                book_chapters_with_characters_prefetch(
+                    include_storyteller=acting_user_sees_storyteller_characters(request)
+                )
+            )
             .offset(offset)
             .limit(limit),
         )
@@ -91,13 +97,18 @@ class CampaignBookController(Controller):
     async def get_book(
         self,
         *,
+        request: Request,
         book: CampaignBook,
         include: list[BookInclude] | None = None,
     ) -> CampaignBookDetailResponse:
         """Get a book by ID with optional embedded children."""
         annotated = (
             await annotate_book_counts(CampaignBook.filter(id=book.id, is_archived=False))
-            .prefetch_related(book_chapters_with_characters_prefetch())
+            .prefetch_related(
+                book_chapters_with_characters_prefetch(
+                    include_storyteller=acting_user_sees_storyteller_characters(request)
+                )
+            )
             .first()
         )
         if not annotated:
@@ -135,7 +146,11 @@ class CampaignBookController(Controller):
         )
         annotated = (
             await annotate_book_counts(CampaignBook.filter(id=book.id))
-            .prefetch_related(book_chapters_with_characters_prefetch())
+            .prefetch_related(
+                book_chapters_with_characters_prefetch(
+                    include_storyteller=acting_user_sees_storyteller_characters(request)
+                )
+            )
             .first()
         )
         if not annotated:
@@ -164,7 +179,11 @@ class CampaignBookController(Controller):
         await book.save()
         annotated = (
             await annotate_book_counts(CampaignBook.filter(id=book.id))
-            .prefetch_related(book_chapters_with_characters_prefetch())
+            .prefetch_related(
+                book_chapters_with_characters_prefetch(
+                    include_storyteller=acting_user_sees_storyteller_characters(request)
+                )
+            )
             .first()
         )
         if not annotated:
@@ -216,7 +235,11 @@ class CampaignBookController(Controller):
         )
         annotated = (
             await annotate_book_counts(CampaignBook.filter(id=book.id))
-            .prefetch_related(book_chapters_with_characters_prefetch())
+            .prefetch_related(
+                book_chapters_with_characters_prefetch(
+                    include_storyteller=acting_user_sees_storyteller_characters(request)
+                )
+            )
             .first()
         )
         if not annotated:

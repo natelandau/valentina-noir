@@ -23,6 +23,7 @@ __all__ = (
     "LitestarJsonFormatter",
     "StandardFormatter",
     "StructuredMessageParser",
+    "render_log_value",
 )
 
 BINARY_CONTENT_PATTERN = re.compile(
@@ -40,6 +41,45 @@ _KV_VALUE_PATTERN = (
 )
 _STRUCTURED_KV_RE = re.compile(rf"(\w+)=({_KV_VALUE_PATTERN})")
 _STRUCTURED_KV_STRIP_RE = re.compile(rf"\s*\w+=(?:{_KV_VALUE_PATTERN})")
+
+# Characters that end an unquoted value or would let one value read as several fields.
+_NEEDS_QUOTING_RE = re.compile(r"[\s,=\"'\\{}\[\]]|[\x00-\x1f\x7f]")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+_NAMED_ESCAPES: dict[str, str] = {"\n": "n", "\r": "r", "\t": "t"}
+_REVERSE_NAMED_ESCAPES: dict[str, str] = {v: k for k, v in _NAMED_ESCAPES.items()}
+_ESCAPED_CHAR_RE = re.compile(r"\\(u[0-9a-fA-F]{4}|.)", re.DOTALL)
+
+
+def render_log_value(value: Any) -> str:
+    """Render a field value for a ``key=value`` log message so it parses back as one field.
+
+    Quote string values that are empty or contain whitespace, separators, quotes, or
+    brackets, and escape backslashes, quotes, and control characters. A caller-supplied
+    value such as a request path then cannot add fields or start a new log line.
+    """
+    if not isinstance(value, str):
+        return str(value)
+    if value and not _NEEDS_QUOTING_RE.search(value):
+        return value
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    escaped = _CONTROL_CHAR_RE.sub(
+        lambda m: "\\" + _NAMED_ESCAPES.get(m.group(), f"u{ord(m.group()):04x}"), escaped
+    )
+    return f'"{escaped}"'
+
+
+def _unescape_log_value(value: str) -> str:
+    """Reverse the escaping applied by ``render_log_value``."""
+
+    def _replace(match: re.Match[str]) -> str:
+        token = match.group(1)
+        if token in _REVERSE_NAMED_ESCAPES:
+            return _REVERSE_NAMED_ESCAPES[token]
+        if len(token) == 5 and token.startswith("u"):  # noqa: PLR2004
+            return chr(int(token[1:], 16))
+        return token
+
+    return _ESCAPED_CHAR_RE.sub(_replace, value)
 
 
 def _sanitize_binary_body(message: str) -> str:
@@ -102,8 +142,7 @@ class StructuredMessageParser:
     def _handle_quoted_strings(self, value: str) -> str | None:
         """Strip matching outer quotes from a quoted string, or return None if not quoted."""
         if len(value) >= 2 and value.startswith('"') and value.endswith('"'):  # noqa: PLR2004
-            # Reverse the writer's backslash-escaping of embedded quotes/backslashes
-            return re.sub(r"\\(.)", r"\1", value[1:-1])
+            return _unescape_log_value(value[1:-1])
         if len(value) >= 2 and value.startswith("'") and value.endswith("'"):  # noqa: PLR2004
             return value[1:-1]
         return None
@@ -256,7 +295,8 @@ class LitestarJsonFormatter(JsonFormatter):
         message = _sanitize_binary_body(record.getMessage())
         extracted = self._parser.parse(message)
         if extracted:
-            log_data.update(extracted)
+            # Parsed message text must never override the record's own fields.
+            log_data.update({k: v for k, v in extracted.items() if k not in log_data})
             log_data["message"] = self._parser.clean_message(message)
         else:
             log_data["message"] = message

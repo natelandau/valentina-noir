@@ -10,7 +10,7 @@ from tortoise.models import Model
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
-from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
@@ -111,9 +111,11 @@ class GetModelByIdValidationService:
         """Get a character by ID within a company."""
         return await _get_or_raise(Character, character_id, "Character", Q(company_id=company_id))
 
-    async def get_concept_by_id(self, concept_id: UUID) -> CharacterConcept:
-        """Get a concept by ID."""
-        return await _get_or_raise(CharacterConcept, concept_id, "Concept")
+    async def get_concept_by_id(self, concept_id: UUID, *, company_id: UUID) -> CharacterConcept:
+        """Get a shared concept or one owned by the company."""
+        return await _get_or_raise(
+            CharacterConcept, concept_id, "Concept", concept_visible_to_company_q(company_id)
+        )
 
     async def get_vampire_clan_by_id(self, vampire_clan_id: UUID) -> VampireClan:
         """Get a vampire clan by ID."""

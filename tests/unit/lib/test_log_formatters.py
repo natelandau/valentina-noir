@@ -239,6 +239,26 @@ def test_json_formatter_promotes_structured_fields(
     assert result["message"] == "HTTP Request"
 
 
+def test_json_formatter_never_overrides_record_fields(
+    make_log_record: Callable[..., logging.LogRecord],
+) -> None:
+    """Keep the record's own fields when the message carries pairs with the same names."""
+    # Given the production JSON formatter and a message that tries to forge record fields
+    formatter = LitestarJsonFormatter(
+        "{levelname}{name}{message}{asctime}",
+        style="{",
+        rename_fields={"levelname": "level", "asctime": "timestamp"},
+    )
+    record = make_log_record("HTTP Request: path=/v1/x level=DEBUG name=forged timestamp=0")
+    # When formatted and parsed as JSON
+    result = json.loads(formatter.format(record))
+    # Then the record's level, logger name, and timestamp win over the parsed pairs
+    assert result["level"] == record.levelname
+    assert result["name"] == record.name
+    assert result["timestamp"] != 0
+    assert result["path"] == "/v1/x"
+
+
 def test_json_formatter_keeps_plain_message_unchanged(
     make_log_record: Callable[..., logging.LogRecord],
 ) -> None:

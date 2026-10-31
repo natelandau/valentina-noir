@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from litestar.stores.redis import RedisStore as LitestarRedisStore
 
 from vapi.config import settings
+from vapi.domain.urls import Companies
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -24,6 +25,9 @@ logger = logging.getLogger("vapi")
 __all__ = ("RedisStore",)
 
 _COMPANY_PATH = re.compile(r"/companies/([0-9a-fA-F-]{36})")
+# The company list key is the method, path, and query string with no separator,
+# so the list is the company path not followed by a slash
+_COMPANY_LIST_PATH = re.compile(rf":GET{re.escape(Companies.LIST)}(?!/)")
 
 
 class RedisStore(LitestarRedisStore):
@@ -50,6 +54,21 @@ class RedisStore(LitestarRedisStore):
 
         await pipe.execute()
 
+    async def set_if_absent(self, key: str, value: str | bytes, *, expires_in: int) -> bool:
+        """Set a value only if the key does not exist, atomically (Redis ``SET NX``).
+
+        Use to claim a key across concurrent requests or processes: exactly one caller wins.
+
+        Args:
+            key (str): Key to claim.
+            value (str | bytes): Value to store.
+            expires_in (int): Seconds before the key expires.
+
+        Returns:
+            bool: True if this call set the key, False if it already existed.
+        """
+        return bool(await self._redis.set(self._make_key(key), value, ex=expires_in, nx=True))
+
     async def set(
         self, key: str, value: str | bytes, expires_in: int | timedelta | None = None
     ) -> None:
@@ -71,6 +90,10 @@ class RedisStore(LitestarRedisStore):
         index_keys = [_index_key("developer", key.split(":", 1)[0])]
         if company := _COMPANY_PATH.search(key):
             index_keys.append(_index_key("company", company.group(1)))
+        elif _COMPANY_LIST_PATH.search(key):
+            # Company lists embed every listed company's data and counts, so any
+            # company write must be able to clear every developer's cached list
+            index_keys.append(_index_key("company_list", "all"))
 
         ttl = expires_in if expires_in is not None else settings.stores.ttl
         pipe = self._redis.pipeline(transaction=False)
@@ -83,8 +106,9 @@ class RedisStore(LitestarRedisStore):
         """Delete every response-cache entry indexed under one developer or company.
 
         Args:
-            kind (str): ``developer`` (an API key fingerprint) or ``company`` (a company ID).
-            value (str): The fingerprint or company ID.
+            kind (str): ``developer`` (an API key fingerprint), ``company`` (a company ID,
+                in any letter case), or ``company_list`` (``all``, every cached company list).
+            value (str): The fingerprint, company ID, or ``all``.
         """
         index_key = _index_key(kind, value)
         members = await self._redis.smembers(index_key)  # ty:ignore[invalid-await]
@@ -92,4 +116,7 @@ class RedisStore(LitestarRedisStore):
 
 
 def _index_key(kind: str, value: str) -> str:
+    # UUIDs are case-insensitive in paths, so index every spelling of a company ID together
+    if kind == "company":
+        value = value.lower()
     return f"{settings.slug}:{settings.stores.response_cache_key}_index:{kind}:{value}"

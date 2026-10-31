@@ -9,7 +9,7 @@ from tortoise.functions import Count
 from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType, UserRole
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import (
     Character,
@@ -21,7 +21,7 @@ from vapi.db.sql_models.character import (
     WerewolfAttributes,
 )
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
-from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet, tracker_type_for
@@ -217,7 +217,11 @@ class CharacterService:
         if not concept_id:
             return
 
-        concept = await CharacterConcept.filter(id=concept_id, is_archived=False).first()
+        concept = await CharacterConcept.filter(
+            concept_visible_to_company_q(character.company_id),  # ty:ignore[unresolved-attribute]
+            id=concept_id,
+            is_archived=False,
+        ).first()
         if not concept:
             raise ValidationError(detail=f"Concept {concept_id} not found")
 
@@ -372,6 +376,31 @@ class CharacterService:
         ):
             raise ValidationError(detail=f"User {user_player_id} not found")
 
+    async def validate_player_assignment(
+        self, *, user_player_id: "UUID", company_id: "UUID"
+    ) -> None:
+        """Reject assigning a character to a user who is not an active company member.
+
+        Call only when the request sets or changes the player. Running it on every save
+        would block edits to characters whose existing player was later deactivated.
+
+        Args:
+            user_player_id: The user the request assigns as the character's player.
+            company_id: The character's company.
+
+        Raises:
+            ValidationError: If the user is UNAPPROVED or DEACTIVATED.
+        """
+        if await User.filter(
+            id=user_player_id,
+            company_id=company_id,
+            role__in=[UserRole.UNAPPROVED, UserRole.DEACTIVATED],
+        ).exists():
+            msg = "The player must be an approved, active user"
+            raise ValidationError(
+                detail=msg, invalid_parameters=[{"field": "user_player_id", "message": msg}]
+            )
+
     async def prepare_for_save(self, character: Character) -> None:
         """Perform all pre-save validations and updates.
 
@@ -419,7 +448,9 @@ class CharacterService:
             raise ValidationError(
                 detail=msg, invalid_parameters=[{"field": "traits", "message": msg}]
             )
-        all_traits = await Trait.filter(id__in=trait_ids)
+        all_traits = await Trait.filter(
+            id__in=trait_ids, is_archived=False, custom_for_character_id__isnull=True
+        )
         trait_lookup: dict[UUID, Trait] = {t.id: t for t in all_traits}
 
         rows: list[CharacterTrait] = []

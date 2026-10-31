@@ -101,6 +101,10 @@ class IdentityService:
             user_modified = getattr(user, profile_field) != identity.profile
             if user_modified:
                 setattr(user, profile_field, identity.profile)
+            if self._proves_email(user=user, identity=identity) and not user.email_trusted:
+                user.email_trusted = True
+                user_modified = True
+            if user_modified:
                 await user.save()
             return user, IdentityResolution.MATCHED, user_modified
 
@@ -111,8 +115,13 @@ class IdentityService:
             # email, creating a duplicate that bypasses deactivation if an admin
             # later approves it. Linking keeps the identity unified while role
             # guards still block the user from acting.
+            # Only a trusted email can receive the link. An untrusted one may have been set
+            # by its holder to someone else's address to capture that person's sign-in.
             matches = await User.filter(
-                company_id=company.id, email__iexact=identity.email, is_archived=False
+                company_id=company.id,
+                email__iexact=identity.email,
+                email_trusted=True,
+                is_archived=False,
             )
             # A match that already holds a different identity from this provider is a
             # different account, so create instead of overwriting that identity
@@ -131,6 +140,23 @@ class IdentityService:
             fallback_email=fallback_email,
         )
         return user, IdentityResolution.CREATED, True
+
+    @staticmethod
+    def _proves_email(*, user: User, identity: "VerifiedIdentity") -> bool:
+        """Report whether a verified identity proves ownership of the user's stored email.
+
+        Args:
+            user: The user whose stored email is checked.
+            identity: The verified provider identity.
+
+        Returns:
+            True when the provider verified an email equal to the stored one.
+        """
+        return bool(
+            identity.email
+            and identity.email_verified
+            and identity.email.lower() == user.email.lower()
+        )
 
     async def link_identity(
         self, *, company: "Company", user: User, identity: "VerifiedIdentity"
@@ -171,6 +197,8 @@ class IdentityService:
             )
 
         setattr(user, profile_field, identity.profile)
+        if self._proves_email(user=user, identity=identity):
+            user.email_trusted = True
         await user.save()
         await user.fetch_related("campaign_experiences")
         return user
@@ -256,6 +284,7 @@ class IdentityService:
         user = User(
             username=resolved_username,
             email=email,
+            email_trusted=bool(identity.email_verified and email == identity.email),
             role=UserRole.UNAPPROVED,
             company_id=company.id,
         )

@@ -24,9 +24,15 @@ the response returns:
 
     request.state.audit_redact_fields = ["token", "password"]
 
-Each named key at the top level of the parsed request JSON will have its value
-replaced with "[REDACTED]" before the entry is written. Only top-level keys
-are redacted; nested values are not traversed.
+Each named key anywhere in the parsed request JSON, including inside nested
+objects and arrays, will have its value replaced with "[REDACTED]" before the
+entry is written.
+
+A route without a ``company_id`` path parameter that changes a company's
+resources (e.g. a global-admin user edit) names that company so its cached
+responses are flushed and its timestamp is bumped:
+
+    request.state.affected_company_id = user.company_id
 
 A mutating endpoint that did not actually change client-visible resources can
 suppress the response-cache flush and the company timestamp bump (but not the
@@ -38,7 +44,7 @@ audit entry) by setting:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from vapi.constants import REQUEST_ID_STATE_KEY
 from vapi.db.sql_models.audit_log import AuditLog
@@ -58,7 +64,7 @@ if TYPE_CHECKING:
 _DEFAULT_REDACT_FIELDS: frozenset[str] = frozenset({"token", "password", "secret", "api_key"})
 
 
-async def _parse_request_body(request: Request) -> tuple[str | None, dict | None]:
+async def _parse_request_body(request: Request) -> tuple[str | None, Any]:
     """Extract raw request body and parsed JSON from the request."""
     content_type = request.headers.get("content-type", "")
     is_multipart = "multipart/form-data" in content_type
@@ -79,31 +85,43 @@ async def _parse_request_body(request: Request) -> tuple[str | None, dict | None
     return request_body, request_json
 
 
+def _redact_value(value: Any, redact_fields: frozenset[str]) -> Any:
+    """Return a copy of a parsed JSON value with sensitive keys redacted at any depth."""
+    if isinstance(value, dict):
+        return {
+            k: "[REDACTED]" if k in redact_fields else _redact_value(v, redact_fields)
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_value(item, redact_fields) for item in value]
+    return value
+
+
 def _apply_redactions(
     request_body: str | None,
-    request_json: dict | None,
+    request_json: Any,
     redact_fields: list[str],
-) -> tuple[str | None, dict | None]:
-    """Replace sensitive top-level keys in the persisted request body with [REDACTED].
+) -> tuple[str | None, Any]:
+    """Replace sensitive keys in the persisted request body with [REDACTED].
 
     Use when a request body contains credentials (e.g. provider tokens) that must
-    not be stored in the audit log. Only top-level keys are redacted; nested values
-    are not traversed.
+    not be stored in the audit log. Keys are matched at every depth, inside nested
+    objects and arrays alike.
 
     Args:
         request_body: Raw request body string.
-        request_json: Parsed request JSON dict, or None if not JSON.
-        redact_fields: List of top-level key names whose values to redact.
+        request_json: Parsed request JSON, or None if not JSON.
+        redact_fields: Key names whose values to redact.
 
     Returns:
         Tuple of (redacted_body, redacted_json).
     """
-    # json.loads can yield non-dict bodies (e.g. bulk endpoints post arrays); only
-    # dict bodies have top-level keys to redact
-    if not redact_fields or not isinstance(request_json, dict):
+    if not redact_fields or not isinstance(request_json, dict | list):
         return request_body, request_json
 
-    redacted_json = {k: "[REDACTED]" if k in redact_fields else v for k, v in request_json.items()}
+    redacted_json = _redact_value(request_json, frozenset(redact_fields))
+    if redacted_json == request_json:
+        return request_body, request_json
     # Re-serialize so request_body stays consistent with request_json
     redacted_body = json.dumps(redacted_json)
     return redacted_body, redacted_json
@@ -147,18 +165,27 @@ async def add_audit_log(request: Request) -> None:
 
 async def post_data_update_hook(request: Request) -> None:
     """Create an audit log, invalidate response cache, and update company timestamp."""
-    await add_audit_log(request)
+    # The mutation is already committed, so a failed audit insert must not leave
+    # caches and the staleness timestamp out of date.
+    try:
+        await add_audit_log(request)
+    finally:
+        await _invalidate_after_mutation(request)
 
+
+async def _invalidate_after_mutation(request: Request) -> None:
+    """Flush cached responses and bump the company timestamp after a mutation."""
     # A mutating endpoint that left client-visible resources unchanged (e.g. a
     # matched login through identify) sets this flag so a routine request does not
     # flush the developer's entire response cache or bump the company timestamp.
-    # The audit entry above is always written regardless.
+    # The audit entry is always written regardless.
     if getattr(request.state, "resources_unmodified", False):
         return
 
     await delete_response_cache_for_api_key(request)
-    if "company_id" in request.path_params:
-        await delete_response_cache_for_company(request, str(request.path_params["company_id"]))
-        await Company.filter(id=request.path_params["company_id"]).update(
-            resources_modified_at=time_now()
-        )
+    company_id = request.path_params.get("company_id") or getattr(
+        request.state, "affected_company_id", None
+    )
+    if company_id:
+        await delete_response_cache_for_company(request, str(company_id))
+        await Company.filter(id=company_id).update(resources_modified_at=time_now())

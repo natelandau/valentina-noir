@@ -179,7 +179,7 @@ class PostgresSettings(BaseModel):
     host: str = Field(default="localhost")
     port: int = Field(default=5432)
     user: str = Field(default="valentina")
-    password: str = Field(default="valentina")
+    password: str
     database: str = Field(default="valentina-noir")
 
 
@@ -212,7 +212,14 @@ class RateLimitSettings(BaseModel):
     """Rate limit settings."""
 
     encryption_key: str | None = Field(default=None)
-    policies: dict[str, RateLimitPolicy] = Field(default_factory=dict)
+    # Keyed by the numbered block in VAPI_RATE_LIMIT__POLICIES__<n>__*. Setting any policy
+    # variable replaces these defaults entirely.
+    policies: dict[str, RateLimitPolicy] = Field(
+        default_factory=lambda: {
+            "0": RateLimitPolicy(name="hourly", capacity=1000, refill_rate=0.28),
+            "1": RateLimitPolicy(name="burst", capacity=60, refill_rate=1),
+        }
+    )
     # Honor the X-Testing-Ignore-Rate-Limit header. Any caller can send it, so enable only
     # for tests and local development.
     allow_ignore_header: bool = Field(default=False)
@@ -325,7 +332,7 @@ class Settings(BaseSettings):
     log: LoggingSettings = LoggingSettings()
     cors: CORSSettings = CORSSettings()
     allowed_hosts: AllowedHostsSettings = AllowedHostsSettings()
-    postgres: PostgresSettings = PostgresSettings()
+    postgres: PostgresSettings
     oauth: OAuthSettings = OAuthSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     redis: RedisSettings = RedisSettings()

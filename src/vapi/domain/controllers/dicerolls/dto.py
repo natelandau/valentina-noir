@@ -1,24 +1,38 @@
 """Gameplay DTOs."""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
 import msgspec
 
-from vapi.constants import DiceSize, RollResultType
+from vapi.constants import (
+    MAX_DESPERATION,
+    MAX_DICE_ROLL_COMMENT_LENGTH,
+    MAX_DICE_ROLL_TRAITS,
+    MAX_NUM_DICE,
+    DiceSize,
+    RollResultType,
+)
 from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
 from vapi.utils.strings import convert_int_to_emoji
+
+DiceCount = Annotated[int, msgspec.Meta(ge=0, le=MAX_NUM_DICE)]
+DesperationDiceCount = Annotated[int, msgspec.Meta(ge=0, le=MAX_DESPERATION)]
+RollComment = Annotated[str, msgspec.Meta(max_length=MAX_DICE_ROLL_COMMENT_LENGTH)]
+RollTraitIds = Annotated[list[UUID], msgspec.Meta(max_length=MAX_DICE_ROLL_TRAITS)]
+RollDifficulty = Annotated[int, msgspec.Meta(ge=0, le=int(max(DiceSize)))]
 
 
 class DiceRollCreate(msgspec.Struct):
     """Request body for creating a dice roll."""
 
-    difficulty: int | None = None
+    difficulty: RollDifficulty | None = None
     dice_size: DiceSize = DiceSize.D10
-    num_dice: int = 1
-    num_desperation_dice: int = 0
-    comment: str | None = None
-    trait_ids: list[UUID] = []
+    num_dice: DiceCount = 1
+    num_desperation_dice: DesperationDiceCount = 0
+    comment: RollComment | None = None
+    trait_ids: RollTraitIds = []
     campaign_id: UUID | None = None
     character_id: UUID | None = None
 
@@ -28,9 +42,9 @@ class QuickRollRequest(msgspec.Struct):
 
     quickroll_id: UUID
     character_id: UUID
-    comment: str | None = None
-    difficulty: int = 6
-    num_desperation_dice: int = 0
+    comment: RollComment | None = None
+    difficulty: RollDifficulty = 6
+    num_desperation_dice: DesperationDiceCount = 0
 
 
 class DiceRollResultResponse(msgspec.Struct):

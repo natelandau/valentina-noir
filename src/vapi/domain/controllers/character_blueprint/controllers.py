@@ -25,6 +25,7 @@ from vapi.db.sql_models.character_sheet import (
     TraitCategory,
     TraitSubcategory,
 )
+from vapi.db.sql_models.company import Company
 from vapi.domain import deps, urls
 from vapi.domain.paginator import OffsetPagination, ReferenceLimit
 from vapi.domain.services import CharacterBlueprintService
@@ -323,12 +324,15 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_concepts(
         self,
         *,
+        company: Company,
         limit: ReferenceLimit = 10,
         offset: Annotated[int, Parameter(ge=0)] = 0,
     ) -> OffsetPagination[CharacterConceptResponse]:
-        """List all concepts."""
+        """List the shared concepts and the company's own concepts."""
         service = CharacterBlueprintService()
-        count, concepts = await service.list_concepts(limit=limit, offset=offset)
+        count, concepts = await service.list_concepts(
+            company_id=company.id, limit=limit, offset=offset
+        )
         return OffsetPagination(
             items=[CharacterConceptResponse.from_model(c) for c in concepts],
             limit=limit,

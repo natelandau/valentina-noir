@@ -9,7 +9,7 @@ from tortoise.expressions import Q
 
 from vapi.constants import BlueprintTraitOrderBy
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
-from vapi.db.sql_models.character_concept import CharacterConcept
+from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
@@ -185,21 +185,21 @@ class CharacterBlueprintService:
     async def list_concepts(
         self,
         *,
+        company_id: UUID,
         limit: int = 10,
         offset: int = 0,
     ) -> tuple[int, list[CharacterConcept]]:
-        """List all non-archived character concepts.
-
-        Company-scoped filtering will be added when the Company model migrates to PostgreSQL.
+        """List the non-archived character concepts a company may use.
 
         Args:
+            company_id: The company whose own concepts are listed alongside the shared ones.
             limit: The limit of concepts to return.
             offset: The offset of the concepts to return.
 
         Returns:
             A tuple containing the total number of concepts and the list of concepts.
         """
-        qs = CharacterConcept.filter(is_archived=False)
+        qs = CharacterConcept.filter(concept_visible_to_company_q(company_id), is_archived=False)
         return await self._paginated_query(qs, order_by="name", limit=limit, offset=offset)
 
     async def list_vampire_clans(

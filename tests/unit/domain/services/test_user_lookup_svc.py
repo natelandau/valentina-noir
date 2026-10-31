@@ -133,6 +133,30 @@ class TestUserLookupService:
         # Then no results are returned
         assert results == []
 
+    @pytest.mark.parametrize("is_global_admin", [False, True])
+    async def test_lookup_excludes_users_of_archived_companies(
+        self,
+        company_factory,
+        user_factory,
+        developer_factory,
+        developer_company_permission_factory,
+        is_global_admin,
+    ) -> None:
+        """Verify an unarchived user in an archived company is excluded from results."""
+        # Given an archived company that still holds an unarchived user
+        company = await company_factory(name="Closed Co", email="closed@co.com", is_archived=True)
+        developer = await developer_factory(is_global_admin=is_global_admin)
+        await developer_company_permission_factory(
+            developer=developer, company=company, permission=CompanyPermission.USER
+        )
+        await user_factory(company=company, email="orphan@example.com")
+
+        # When looking up by email
+        results = await UserLookupService().lookup(developer=developer, email="orphan@example.com")
+
+        # Then no results are returned
+        assert results == []
+
     @pytest.mark.parametrize("role", ["UNAPPROVED", "DEACTIVATED"])
     async def test_lookup_includes_non_active_role(
         self,

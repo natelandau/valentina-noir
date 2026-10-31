@@ -104,6 +104,7 @@ class GlobalAdminUserController(Controller):
     async def create_user(self, *, data: AdminUserCreate, request: Request) -> AdminUserResponse:
         """Create a user in the company named by company_id in the body."""
         user = await GlobalAdminUserService().create_user(data)
+        request.state.affected_company_id = user.company_id  # ty:ignore[unresolved-attribute]
         request.state.audit_description = (
             f"created user {user.username} in company {user.company_id}"  # ty:ignore[unresolved-attribute]
         )
@@ -127,6 +128,7 @@ class GlobalAdminUserController(Controller):
         """Update any user by ID with no role-matrix restrictions."""
         user, changes = await GlobalAdminUserService().update_user(target_user, data)
         request.state.audit_changes = changes
+        request.state.affected_company_id = user.company_id  # ty:ignore[unresolved-attribute]
         user = await annotate_user_counts(
             User.filter(id=user.id).prefetch_related("campaign_experiences")
         ).first()
@@ -146,3 +148,4 @@ class GlobalAdminUserController(Controller):
         """Soft-delete a user by ID."""
         request.state.audit_description = f"archived user {target_user.username}"
         await GlobalAdminUserService().delete_user(target_user)
+        request.state.affected_company_id = target_user.company_id  # ty:ignore[unresolved-attribute]

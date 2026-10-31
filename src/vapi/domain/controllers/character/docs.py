@@ -18,13 +18,15 @@ and must be fetched via their dedicated endpoints.
 CREATE_CHARACTER_DESCRIPTION = """\
 Create a new character within a campaign.
 
-Provide character details and initial trait values. The character is associated with a creator user (who made the character). For `PLAYER` characters, a player user (who controls the character) is also required; if no player is specified, the creator becomes the player. `NPC` and `STORYTELLER` characters have no player — providing a `user_player_id` for these types returns 400.
+Provide character details and initial trait values. The character is associated with a creator user (who made the character). For `PLAYER` characters, a player user (who controls the character) is also required; if no player is specified, the creator becomes the player. `NPC` and `STORYTELLER` characters have no player — providing a `user_player_id` for these types returns 400. The player must be an active company member: a `user_player_id` that names an `UNAPPROVED` or `DEACTIVATED` user returns 400.
 """
 
 UPDATE_CHARACTER_DESCRIPTION = """\
 Modify a character's properties such as name, biography, or other details.
 
 Only include fields that need to be changed; omitted fields remain unchanged. Use trait-specific endpoints to modify character traits.
+
+Changing `user_player_id` to an `UNAPPROVED` or `DEACTIVATED` user returns 400.
 
 **Note:** Only the character's player or a storyteller can update the character.
 """
@@ -34,7 +36,7 @@ Remove a character from the campaign.
 
 The character will no longer be accessible.
 
-**Note:** Only the character's player or a storyteller can delete the character.
+**Note:** Only the character's player, a storyteller, or an admin can delete the character. `NPC` characters follow the company's `permission_manage_npc` setting.
 """
 
 GET_CHARACTER_FULL_SHEET_DESCRIPTION = """\

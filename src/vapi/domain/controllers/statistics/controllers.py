@@ -1,10 +1,13 @@
 """Statistics controllers."""
 
+from typing import Annotated
+
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get
+from litestar.params import Parameter
 
-from vapi.constants import DiceSize
+from vapi.constants import MAX_STATISTICS_TOP_TRAITS, DiceSize
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
@@ -18,6 +21,15 @@ from vapi.lib.guards import (
 from vapi.openapi.tags import APITags
 
 from . import calculations, docs, dto
+
+NumTopTraits = Annotated[
+    int,
+    Parameter(
+        ge=0,
+        le=MAX_STATISTICS_TOP_TRAITS,
+        description="Number of most-used traits to return.",
+    ),
+]
 
 
 class StatisticsController(Controller):
@@ -40,7 +52,7 @@ class StatisticsController(Controller):
         description=docs.GET_COMPANY_STATISTICS_DESCRIPTION,
     )
     async def get_company_statistics(
-        self, company: Company, num_top_traits: int = 5
+        self, company: Company, num_top_traits: NumTopTraits = 5
     ) -> dto.RollStatistics:
         """Get company roll statistics."""
         return await calculations.calculate_roll_statistics(
@@ -55,7 +67,7 @@ class StatisticsController(Controller):
         description=docs.GET_USER_STATISTICS_DESCRIPTION,
     )
     async def get_user_statistics(
-        self, target_user: User, num_top_traits: int = 5
+        self, target_user: User, num_top_traits: NumTopTraits = 5
     ) -> dto.RollStatistics:
         """Get user roll statistics."""
         return await calculations.calculate_roll_statistics(
@@ -70,7 +82,7 @@ class StatisticsController(Controller):
         description=docs.GET_CHARACTER_STATISTICS_DESCRIPTION,
     )
     async def get_character_statistics(
-        self, character: Character, num_top_traits: int = 5
+        self, character: Character, num_top_traits: NumTopTraits = 5
     ) -> dto.RollStatistics:
         """Get character roll statistics."""
         return await calculations.calculate_roll_statistics(
@@ -85,7 +97,7 @@ class StatisticsController(Controller):
         description=docs.GET_CAMPAIGN_STATISTICS_DESCRIPTION,
     )
     async def get_campaign_statistics(
-        self, campaign: Campaign, num_top_traits: int = 5
+        self, campaign: Campaign, num_top_traits: NumTopTraits = 5
     ) -> dto.RollStatistics:
         """Get campaign roll statistics."""
         return await calculations.calculate_roll_statistics(

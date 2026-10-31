@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 __all__ = (
     "STORYTELLER_ROLES",
+    "acting_user_sees_storyteller_characters",
     "assert_can_assign_storyteller_type",
     "developer_company_admin_guard",
     "developer_company_owner_guard",
@@ -43,6 +44,17 @@ __all__ = (
 # Roles permitted to see and manage storyteller-type characters. Single source of
 # truth so the list filter, the access guard, and the create/update check stay in sync.
 STORYTELLER_ROLES: frozenset[UserRole] = frozenset({UserRole.STORYTELLER, UserRole.ADMIN})
+
+
+def acting_user_sees_storyteller_characters(connection: "ASGIConnection") -> bool:
+    """Return whether the request's acting user may see STORYTELLER-type characters.
+
+    Read the acting user a guard already resolved from the On-Behalf-Of header. A request
+    without that header has no end-user role, so it gets the player view.
+    """
+    state = connection.scope.get("state")
+    user = state.get("acting_user") if isinstance(state, dict) else None
+    return isinstance(user, User) and user.role in STORYTELLER_ROLES
 
 
 def npc_management_permitted(permission: PermissionManageNPC, user: User) -> bool:
@@ -252,6 +264,21 @@ async def user_self_or_admin_guard(connection: "ASGIConnection", _: "BaseRouteHa
     raise PermissionDeniedError(detail="No rights to access this resource")
 
 
+async def _find_active_character(
+    connection: "ASGIConnection", character_uuid: UUID
+) -> Character | None:
+    """Load a non-archived character, scoped to the path company when the route has one.
+
+    The company scope makes a character from another company not-found (matching
+    provide_character_by_id_and_company) instead of leaking its existence via a 403.
+    """
+    char_filter: dict[str, object] = {"id": character_uuid, "is_archived": False}
+    company_id_str = connection.path_params.get("company_id")
+    if company_id_str:
+        char_filter["company_id"] = company_id_str
+    return await Character.filter(**char_filter).first()
+
+
 async def user_character_player_or_storyteller_guard(
     connection: "ASGIConnection", _: "BaseRouteHandler"
 ) -> None:
@@ -276,7 +303,7 @@ async def user_character_player_or_storyteller_guard(
         raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
 
     # Fetch character and acting user in parallel since they are independent lookups
-    character_coro = Character.filter(id=character_uuid, is_archived=False).first()
+    character_coro = _find_active_character(connection, character_uuid)
     user_coro = _resolve_acting_user_from_header(connection)
 
     character, user = await asyncio.gather(character_coro, user_coro)
@@ -365,16 +392,8 @@ async def storyteller_character_access_guard(
     except ValueError as e:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found") from e
 
-    # Scope the lookup to the company so a character from another company is treated
-    # as not-found (matching provide_character_by_id_and_company), rather than leaking
-    # its existence via a 403 instead of a 404.
-    char_filter: dict[str, object] = {"id": character_uuid, "is_archived": False}
-    company_id_str = connection.path_params.get("company_id")
-    if company_id_str:
-        char_filter["company_id"] = company_id_str
-
     # Fetch character and acting user in parallel since they are independent lookups
-    character_coro = Character.filter(**char_filter).first()
+    character_coro = _find_active_character(connection, character_uuid)
     user_coro = _resolve_acting_user_from_header(connection)
     character, user = await asyncio.gather(character_coro, user_coro)
 

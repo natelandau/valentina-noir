@@ -36,7 +36,8 @@ user.
 | `STORYTELLER` | Storytellers and admins only | Storytellers and admins only |
 
 - **`PLAYER`** is the primary type. Each player character is tied to a specific
-  user through `user_player_id`.
+  user through `user_player_id`. When you set or change `user_player_id`, it must name an
+  active company member. An `UNAPPROVED` or `DEACTIVATED` user returns `400`.
 - **`NPC`** characters are non-player characters. They have no player (`user_player_id` is always `null`). Anyone in the company can see and roll dice for them. Who may create, edit, or delete them (and manage their traits, inventory, and images) depends on the company's [`permission_manage_npc`](./company_settings.md#npc-management) setting: any approved member when `UNRESTRICTED` (the default), or storytellers and admins only when `STORYTELLER`. Storytellers and admins may always manage NPCs.
 - **`STORYTELLER`** characters are hidden from players. They have no player (`user_player_id` is always `null`). They never appear in a
   player's character list, and a player who requests one by ID receives a `403`
@@ -104,6 +105,8 @@ The multiple autogeneration flow works as follows:
 1. Start a chargen session. The API returns a session object containing an `id` and a list of generated characters. The session expires after 24 hours.
 2. Optionally retrieve active sessions later using the list or detail session endpoints.
 3. Finalize the session by selecting your preferred character. The system keeps your selection and removes the others.
+
+A session belongs to the user who started it. The detail and finalize endpoints accept only a session that the acting user in `On-Behalf-Of` started and that has not expired. Otherwise they return `400`.
 
 !!! info "Experience Cost"
 
@@ -371,7 +374,9 @@ Track items a character carries or owns. Each inventory item has a name, descrip
 
 ### Notes
 
-Attach free-form text notes to a character for tracking backstory, session recaps, or storyteller-only details. Each note has a title and content field.
+Attach free-form text notes to a character for tracking backstory or session recaps. Each note has a title and content field.
+
+Any user in the company can read a character's notes. Only the character's player, a storyteller, or an admin can create, update, or delete them. Don't store details in notes that players must not see.
 
 ### Assets
 

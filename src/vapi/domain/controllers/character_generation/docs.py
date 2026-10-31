@@ -38,8 +38,10 @@ Complete a character generation session by selecting one character to keep.
 All other characters from the session will be deleted.
 
 **Prerequisites:**
-- Must have an active chargen session
+- Must have an active (non-expired) chargen session started by the acting user in `On-Behalf-Of`
 - The selected character must belong to the provided session
+
+Returns `400` if the session does not exist, has expired, or belongs to another user.
 """
 
 CHARGEN_SESSIONS_LIST_DOCUMENTATION = """\
@@ -51,5 +53,5 @@ Returns sessions with their associated character options populated.
 CHARGEN_SESSION_DETAIL_DOCUMENTATION = """\
 Retrieve a specific character generation session by its ID.
 
-Returns the session with its associated character options populated. Returns an error if the session is not found or has expired.
+Returns the session with its associated character options populated. Returns `400` if the session does not exist, has expired, or belongs to a user other than the acting user in `On-Behalf-Of`.
 """

@@ -1,6 +1,9 @@
 """Tests for avatar image normalization."""
 
+import asyncio
 import io
+import threading
+import time
 import warnings
 
 import pytest
@@ -9,9 +12,11 @@ from PIL import Image
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.images import (
     AVATAR_SIZE,
+    MAX_CONCURRENT_IMAGE_DECODES,
     MAX_IMAGE_PIXELS,
     MAX_UPLOAD_BYTES,
     normalize_avatar,
+    run_image_decode,
     validate_image_upload,
 )
 
@@ -240,3 +245,43 @@ def test_validate_image_upload_rejects_truncated_image() -> None:
     # When/Then validation raises ValidationError
     with pytest.raises(ValidationError):
         validate_image_upload(data=truncated)
+
+
+def test_normalize_avatar_scales_down_large_jpeg() -> None:
+    """Verify a large JPEG avatar still normalizes to a 512x512 WebP after draft decoding."""
+    # Given a 4000x3000 JPEG photo
+    data = _img_bytes("JPEG", size=(4000, 3000))
+
+    # When normalizing
+    result = normalize_avatar(data)
+
+    # Then the result is a 512x512 WebP
+    with Image.open(io.BytesIO(result)) as out:
+        assert out.format == "WEBP"
+        assert out.size == (AVATAR_SIZE, AVATAR_SIZE)
+
+
+@pytest.mark.anyio
+async def test_run_image_decode_bounds_concurrency() -> None:
+    """Verify image decodes never run more than the configured number at once."""
+    # Given a decode stand-in that records how many copies run at the same time
+    lock = threading.Lock()
+    active = 0
+    peak = 0
+
+    def _decode(value: int) -> int:
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.05)
+        with lock:
+            active -= 1
+        return value
+
+    # When many decodes are started together
+    results = await asyncio.gather(*(run_image_decode(_decode, i) for i in range(8)))
+
+    # Then every result comes back and concurrency stays within the bound
+    assert results == list(range(8))
+    assert peak <= MAX_CONCURRENT_IMAGE_DECODES

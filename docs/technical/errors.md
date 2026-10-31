@@ -17,7 +17,7 @@ All error responses use the `application/problem+json` media type with these fie
 | `status`   | integer | HTTP status code                                                               |
 | `title`    | string  | Short, human-readable summary of the problem type                              |
 | `detail`   | string  | Human-readable explanation specific to this occurrence                         |
-| `instance` | string  | URI reference identifying the specific occurrence (typically the request path) |
+| `instance` | string  | The request path, without host or query string                                 |
 | `request_id` | string  | Unique request identifier (matches the `X-Request-Id` response header) |
 
 ## Standard Error Response
@@ -41,6 +41,7 @@ All error responses use the `application/problem+json` media type with these fie
 | 403  | Forbidden               | Valid API key but insufficient permissions                         |
 | 404  | Not Found               | Requested resource does not exist                                  |
 | 409  | Conflict                | Request conflicts with current state                               |
+| 413  | Content Too Large       | Request body is larger than 5 MB                                   |
 | 429  | Too Many Requests       | Rate limit exceeded                                                |
 | 500  | Internal Server Error   | Unexpected server error                                            |
 
@@ -117,6 +118,7 @@ Requested resource does not exist.
 Request conflicts with current state. Examples:
 
 - You reuse an idempotency key with a different request body.
+- You send a request while an earlier request with the same idempotency key is still running. Wait, then retry. See [Concurrent Requests](idempotency.md#concurrent-requests).
 - You change a character trait's value after another request changed it. Fetch the trait again and retry. See [Modifying Trait Values](../concepts/character_traits.md#modifying-trait-values).
 
 ```json

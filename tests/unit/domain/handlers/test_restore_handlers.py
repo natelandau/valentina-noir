@@ -5,7 +5,14 @@ import pytest
 from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.character import Character, CharacterTraitSpecialty, Specialty
 from vapi.db.sql_models.character_sheet import Trait, TraitPower
-from vapi.domain.handlers import archive_character, restore_archive_batch
+from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.user import CampaignExperience
+from vapi.domain.handlers import (
+    archive_campaign,
+    archive_character,
+    archive_user,
+    restore_archive_batch,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -122,3 +129,47 @@ async def test_restore_character_restores_trait_specialties(
     assert refreshed.is_archived is False
     assert refreshed.archive_date is None
     assert refreshed.archive_batch_id is None
+
+
+async def test_restore_user_keeps_rows_inside_archived_campaign_archived(
+    company_factory,
+    user_factory,
+    campaign_factory,
+    character_factory,
+    note_factory,
+    campaign_experience_factory,
+) -> None:
+    """Verify restoring a user leaves their data in a since-archived campaign archived."""
+    # Given a player with characters in two campaigns, a character note, and campaign XP
+    company = await company_factory()
+    user = await user_factory(company=company)
+    archived_campaign = await campaign_factory(company=company)
+    live_campaign = await campaign_factory(company=company)
+    stranded = await character_factory(
+        company=company, user_player=user, user_creator=user, campaign=archived_campaign
+    )
+    kept = await character_factory(
+        company=company, user_player=user, user_creator=user, campaign=live_campaign
+    )
+    note = await note_factory(company=company, character=stranded)
+    experience = await campaign_experience_factory(user=user, campaign=archived_campaign)
+    # And the user is archived, then one campaign is archived on its own
+    user_ctx = await archive_user(user=user)
+    campaign_ctx = await archive_campaign(campaign=archived_campaign)
+
+    # When the user's batch is restored
+    await restore_archive_batch(batch_id=user_ctx.batch_id)
+
+    # Then data under the live campaign is back, and data under the archived one moves to its batch
+    assert (await Character.get(id=kept.id)).is_archived is False
+    for model, obj in [(Character, stranded), (Note, note), (CampaignExperience, experience)]:
+        refreshed = await model.get(id=obj.id)
+        assert refreshed.is_archived is True
+        assert refreshed.archive_batch_id == campaign_ctx.batch_id
+
+    # When the campaign is restored later
+    await restore_archive_batch(batch_id=campaign_ctx.batch_id)
+
+    # Then the stranded character and its data come back with it
+    for model, obj in [(Character, stranded), (Note, note), (CampaignExperience, experience)]:
+        assert (await model.get(id=obj.id)).is_archived is False
