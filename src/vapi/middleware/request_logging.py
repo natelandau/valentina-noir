@@ -31,6 +31,7 @@ from vapi.constants import (
     LOG_FIELD_TARGETS,
     REQUEST_ID_STATE_KEY,
 )
+from vapi.lib.log_formatters import render_log_value
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -46,21 +47,6 @@ __all__ = ("CombinedLoggingMiddleware", "CombinedLoggingMiddlewareConfig")
 _WARNING_STATUS_CODES = frozenset({401, 403, 429})
 
 _LEVEL_METHODS = {logging.INFO: "info", logging.WARNING: "warning", logging.ERROR: "error"}
-
-
-def _render_value(value: Any) -> str:
-    """Render a field value for the ``key=value`` message, quoting free-text when needed.
-
-    The JSON formatter re-parses ``key=value`` pairs out of the message, and its parser
-    stops an unquoted value at the first space or comma. Quote string values containing
-    either so multi-word fields like ``error_detail`` survive the round trip intact, and
-    backslash-escape embedded quotes/backslashes so a value like a DB constraint name in
-    double quotes is not truncated at the first inner quote.
-    """
-    if isinstance(value, str) and (" " in value or "," in value):
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    return str(value)
 
 
 def _level_for_status(status_code: int) -> int:
@@ -286,7 +272,7 @@ class CombinedLoggingMiddleware(LoggingMiddleware):
         if self.is_struct_logger:
             log(message, **values)
         else:
-            value_strings = [f"{key}={_render_value(value)}" for key, value in values.items()]
+            value_strings = [f"{key}={render_log_value(value)}" for key, value in values.items()]
             rendered = f"{message}: {', '.join(value_strings)}"
             log(rendered)
 

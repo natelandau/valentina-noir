@@ -175,7 +175,8 @@ class HTTPError(ApplicationError):
         if self.detail is not None:
             problem_details["detail"] = self.detail
 
-        problem_details["instance"] = self.instance or str(request.url)
+        # The path alone avoids echoing the caller-supplied Host header
+        problem_details["instance"] = self.instance or request.url.path
 
         request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
         if request_id:
@@ -403,7 +404,9 @@ def does_not_exist_to_http_response(
     Returns:
         Response[dict[str, Any]]: A properly formatted HTTP 404 response.
     """
-    app_exc = NotFoundError(detail=str(exc))
+    # The raw message names ORM models and lookup fields; keep it in the logs only
+    logger.info("Object does not exist", extra={"error": str(exc), "component": "database"})
+    app_exc = NotFoundError(detail="Resource not found.")
     return app_exc.to_response(request)
 
 
@@ -449,7 +452,9 @@ def tortoise_validation_to_http_response(
     Returns:
         Response[dict[str, Any]]: A properly formatted HTTP 400 response.
     """
-    app_exc = ValidationError(detail=str(exc))
+    # The raw message names ORM fields; keep it in the logs only
+    logger.info("Model validation failed", extra={"error": str(exc), "component": "database"})
+    app_exc = ValidationError(detail="One or more values are not valid.")
     return app_exc.to_response(request)
 
 

@@ -17,7 +17,7 @@ All error responses use the `application/problem+json` media type with these fie
 | `status`   | integer | HTTP status code                                                               |
 | `title`    | string  | Short, human-readable summary of the problem type                              |
 | `detail`   | string  | Human-readable explanation specific to this occurrence                         |
-| `instance` | string  | URI reference identifying the specific occurrence (typically the request path) |
+| `instance` | string  | The request path, without host or query string                                 |
 | `request_id` | string  | Unique request identifier (matches the `X-Request-Id` response header) |
 
 ## Standard Error Response

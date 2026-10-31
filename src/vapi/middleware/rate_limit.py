@@ -31,6 +31,7 @@ from vapi.constants import (
     IGNORE_RATE_LIMIT_HEADER_KEY,
 )
 from vapi.lib.exceptions import TooManyRequestsError
+from vapi.lib.log_formatters import render_log_value
 from vapi.utils.math import round_up
 
 logger = logging.getLogger("vapi")
@@ -393,7 +394,7 @@ class RateLimitMiddleware(ASGIMiddleware):
                 "rate_limit_rejected policy=%s identifier=%s path=%s method=%s retry_after=%s",
                 limit_policy.name,
                 request_identifier,
-                request.url.path,
+                render_log_value(request.url.path),
                 request.method,
                 round_up(bucket.reset_after),
             )

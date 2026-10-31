@@ -6,19 +6,24 @@ from typing import TYPE_CHECKING
 
 import pytest
 from litestar import status_codes
+from litestar.datastructures import URL
 from litestar.exceptions import (
     InternalServerException,
     NotFoundException,
     ValidationException,
 )
-from tortoise.exceptions import IntegrityError
+from tortoise.exceptions import DoesNotExist, IntegrityError
+from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from vapi.lib.exceptions import (
     NoFieldsToUpdateError,
+    NotFoundError,
     ServiceUnavailableError,
     UnprocessableEntityError,
+    does_not_exist_to_http_response,
     integrity_error_to_http_response,
     litestar_http_exc_to_http_response,
+    tortoise_validation_to_http_response,
 )
 
 if TYPE_CHECKING:
@@ -33,7 +38,7 @@ def _mock_request(mocker: MockerFixture) -> MagicMock:
     """Build a mock Litestar request with a real scope state dict for to_response()."""
     request = mocker.MagicMock()
     request.scope = {"state": {}}
-    request.url = "http://testserver/v1/things"
+    request.url = URL("http://evil.example/v1/things?page=2")
     return request
 
 
@@ -177,3 +182,50 @@ class TestIntegrityErrorMapping:
         # Then the response is a 409 with a generic detail
         assert response.status_code == status_codes.HTTP_409_CONFLICT
         assert "developer_email_key" not in response.content["detail"]
+
+
+class TestDoesNotExistMapping:
+    """Tests for mapping Tortoise DoesNotExist into the API error format."""
+
+    def test_detail_hides_orm_message(self, mocker: MockerFixture) -> None:
+        """Verify the response detail never echoes the ORM model name."""
+        # Given a DoesNotExist naming an ORM model
+        exception = DoesNotExist("CharacterConcept has no object with id=1")
+
+        # When converting it to a response
+        response = does_not_exist_to_http_response(_mock_request(mocker), exception)
+
+        # Then the response is a 404 with a fixed detail
+        assert response.status_code == status_codes.HTTP_404_NOT_FOUND
+        assert response.content["detail"] == "Resource not found."
+
+
+class TestTortoiseValidationErrorMapping:
+    """Tests for mapping Tortoise ValidationError into the API error format."""
+
+    def test_detail_hides_orm_message(self, mocker: MockerFixture) -> None:
+        """Verify the response detail never echoes the ORM field name."""
+        # Given a Tortoise ValidationError naming a model field
+        exception = TortoiseValidationError("name_first: Length of 'a' 1 < 3")
+
+        # When converting it to a response
+        response = tortoise_validation_to_http_response(_mock_request(mocker), exception)
+
+        # Then the response is a 400 with a fixed detail
+        assert response.status_code == status_codes.HTTP_400_BAD_REQUEST
+        assert response.content["detail"] == "One or more values are not valid."
+
+
+class TestProblemDetailInstance:
+    """Tests for the problem-detail instance member."""
+
+    def test_instance_is_request_path(self, mocker: MockerFixture) -> None:
+        """Verify instance holds the request path without host or query."""
+        # Given a request whose URL carries a caller-supplied host and a query
+        request = _mock_request(mocker)
+
+        # When converting an error to a response
+        response = NotFoundError(detail="Thing not found").to_response(request)
+
+        # Then instance is the path only
+        assert response.content["instance"] == "/v1/things"

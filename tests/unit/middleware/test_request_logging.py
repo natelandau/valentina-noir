@@ -18,7 +18,7 @@ from vapi.lib.exceptions import (
     http_error_to_http_response,
 )
 from vapi.lib.log_config import log_uncaught_exception
-from vapi.lib.log_formatters import StructuredMessageParser
+from vapi.lib.log_formatters import StructuredMessageParser, render_log_value
 from vapi.middleware.request_id import request_id_middleware
 from vapi.middleware.request_logging import (
     CombinedLoggingMiddleware,
@@ -27,7 +27,6 @@ from vapi.middleware.request_logging import (
     _level_for_status,
     _redact_body,
     _redact_request_body,
-    _render_value,
 )
 
 # Public log-field names that carry a request_/response_ prefix because their
@@ -324,14 +323,18 @@ def test_combined_entry_level_follows_status(status_code: int, expected_level: i
         (409, "409"),
         ("already exists", '"already exists"'),
         ("a,b", '"a,b"'),
+        ("", '""'),
+        ("a=b", '"a=b"'),
+        ("/x\tlevel=DEBUG", '"/x\\tlevel=DEBUG"'),
+        ("/x\nforged", '"/x\\nforged"'),
     ],
 )
 def test_render_value_quotes_only_when_needed(value: object, expected: str) -> None:
-    """Verify string values with spaces/commas are quoted so the key=value parser keeps them whole."""
+    """Verify values that would split into several fields are quoted so the parser keeps them whole."""
     # Given a field value
     # When it is rendered for the key=value message
-    rendered = _render_value(value)
-    # Then it is quoted only when it contains a space or comma
+    rendered = render_log_value(value)
+    # Then it is quoted, with control characters escaped, only when it needs to be
     assert rendered == expected
 
 
@@ -340,10 +343,26 @@ def test_render_value_round_trips_embedded_quotes() -> None:
     # Given free-text with spaces and embedded double-quotes (e.g. a Postgres constraint name)
     value = 'constraint "users_name_key" violated'
     # When rendered into a key=value pair and parsed back by the JSON formatter's parser
-    message = f"error_detail={_render_value(value)}"
+    message = f"error_detail={render_log_value(value)}"
     parsed = StructuredMessageParser().parse(message)
     # Then the full value is preserved, not truncated at the first embedded quote
     assert parsed["error_detail"] == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["/api/v1/x\tlevel=DEBUG\tname=forged", "/api/v1/x\nERROR forged line", "/x\x00\x1b[31m"],
+)
+def test_render_value_round_trips_control_characters(value: str) -> None:
+    """Verify a value with control characters stays on one line and parses back unchanged."""
+    # Given a caller-controlled path holding tabs, newlines, or other control characters
+    # When it is rendered into a key=value pair and parsed back
+    message = f"path={render_log_value(value)}, method=GET"
+    parsed = StructuredMessageParser().parse(message)
+
+    # Then the message is a single line and only the real fields are extracted
+    assert "\n" not in message
+    assert parsed == {"path": value, "method": "GET"}
 
 
 def test_log_message_tolerates_unmapped_level() -> None:

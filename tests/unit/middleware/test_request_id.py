@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from litestar.datastructures import URL
 
 from vapi.constants import REQUEST_ID_HEADER, REQUEST_ID_STATE_KEY
 
@@ -196,7 +197,7 @@ class TestRequestIdInErrorResponses:
         request_id = "req_test123abc"
         mock_request = MagicMock()
         mock_request.scope = {"state": {REQUEST_ID_STATE_KEY: request_id}}
-        mock_request.url = "http://localhost/api/v1/test"
+        mock_request.url = URL("http://localhost/api/v1/test")
 
         # When an error response is generated
         error = NotFoundError(detail="Resource not found")
@@ -212,7 +213,7 @@ class TestRequestIdInErrorResponses:
         # Given a request with no request ID in scope state
         mock_request = MagicMock()
         mock_request.scope = {"state": {}}
-        mock_request.url = "http://localhost/api/v1/test"
+        mock_request.url = URL("http://localhost/api/v1/test")
 
         # When an error response is generated
         error = NotFoundError(detail="Resource not found")
@@ -229,7 +230,7 @@ class TestRequestIdInErrorResponses:
         request_id = "req_validation456"
         mock_request = MagicMock()
         mock_request.scope = {"state": {REQUEST_ID_STATE_KEY: request_id}}
-        mock_request.url = "http://localhost/api/v1/test"
+        mock_request.url = URL("http://localhost/api/v1/test")
         mock_request.headers = MagicMock()
         mock_request.headers.get = MagicMock(return_value=None)
 

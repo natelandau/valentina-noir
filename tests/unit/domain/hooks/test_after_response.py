@@ -30,8 +30,8 @@ class TestApplyRedactions:
         assert body is not None
         assert "live-credential" not in body
 
-    def test_list_body_passes_through_unchanged(self) -> None:
-        """Verify non-dict JSON bodies (e.g. bulk-endpoint arrays) are untouched."""
+    def test_list_body_without_sensitive_keys_passes_through_unchanged(self) -> None:
+        """Verify array bodies (e.g. bulk-endpoint arrays) with no sensitive keys are untouched."""
         # Given a list request body, as posted by bulk endpoints
         request_json = [{"trait_id": "abc", "value": 3}]
         request_body = json.dumps(request_json)
@@ -46,6 +46,64 @@ class TestApplyRedactions:
         # Then the body is returned unchanged without raising
         assert body == request_body
         assert parsed == request_json
+
+    def test_redacts_keys_in_nested_objects(self) -> None:
+        """Verify sensitive keys inside nested objects are replaced."""
+        # Given a body with a credential nested two levels deep
+        request_json = {"provider": "apple", "auth": {"meta": {"secret": "s3cr3t"}, "ok": 1}}
+        request_body = json.dumps(request_json)
+
+        # When redactions are applied
+        body, parsed = _apply_redactions(
+            request_body=request_body,
+            request_json=request_json,
+            redact_fields=["secret"],
+        )
+
+        # Then the nested value is replaced and the raw body no longer carries it
+        assert parsed == {"provider": "apple", "auth": {"meta": {"secret": "[REDACTED]"}, "ok": 1}}
+        assert body is not None
+        assert "s3cr3t" not in body
+
+    def test_redacts_keys_inside_array_bodies(self) -> None:
+        """Verify sensitive keys in objects inside arrays, including nested arrays, are replaced."""
+        # Given an array body whose items carry credentials at different depths
+        request_json = [
+            {"name": "a", "token": "t1"},
+            {"name": "b", "items": [{"api_key": "k1"}, "plain"]},
+        ]
+        request_body = json.dumps(request_json)
+
+        # When redactions are applied
+        body, parsed = _apply_redactions(
+            request_body=request_body,
+            request_json=request_json,
+            redact_fields=["token", "api_key"],
+        )
+
+        # Then every sensitive value is replaced and other values are kept
+        assert parsed == [
+            {"name": "a", "token": "[REDACTED]"},
+            {"name": "b", "items": [{"api_key": "[REDACTED]"}, "plain"]},
+        ]
+        assert body is not None
+        assert "t1" not in body
+        assert "k1" not in body
+
+    def test_redacts_whole_value_of_sensitive_key(self) -> None:
+        """Verify a sensitive key holding an object is replaced as a whole."""
+        # Given a sensitive key whose value is itself an object
+        request_json = {"secret": {"inner": "value"}}
+
+        # When redactions are applied
+        _, parsed = _apply_redactions(
+            request_body=json.dumps(request_json),
+            request_json=request_json,
+            redact_fields=["secret"],
+        )
+
+        # Then the whole value is redacted
+        assert parsed == {"secret": "[REDACTED]"}
 
     def test_none_body_passes_through_unchanged(self) -> None:
         """Verify non-JSON bodies are untouched."""
@@ -112,4 +170,31 @@ class TestPostDataUpdateHook:
         delete_cache.assert_awaited_once_with(request)
         delete_company_cache.assert_awaited_once_with(request, "abc")
         company.filter.assert_called_once_with(id="abc")
+        company.filter.return_value.update.assert_awaited_once()
+
+    async def test_invalidates_cache_when_audit_write_fails(self, mocker) -> None:
+        """Verify a failed audit insert still flushes the cache and bumps the company timestamp."""
+        # Given an audit write that fails and a request that modified resources
+        mocker.patch.object(
+            after_response, "add_audit_log", autospec=True, side_effect=ValueError("bad id")
+        )
+        delete_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_api_key", autospec=True
+        )
+        delete_company_cache = mocker.patch.object(
+            after_response, "delete_response_cache_for_company", autospec=True
+        )
+        company = mocker.patch.object(after_response, "Company")
+        company.filter.return_value.update = mocker.AsyncMock()
+        request = mocker.MagicMock()
+        request.state = SimpleNamespace()
+        request.path_params = {"company_id": "abc"}
+
+        # When the hook runs
+        with pytest.raises(ValueError, match="bad id"):
+            await after_response.post_data_update_hook(request)
+
+        # Then the cache flush and timestamp bump still happen
+        delete_cache.assert_awaited_once_with(request)
+        delete_company_cache.assert_awaited_once_with(request, "abc")
         company.filter.return_value.update.assert_awaited_once()
