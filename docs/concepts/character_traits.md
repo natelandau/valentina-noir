@@ -324,6 +324,8 @@ When an ability drops to a value of 0, all of its specialties are removed and re
 
 Delete a trait from a character with an optional refund. Specify a `currency` to receive a refund based on the trait's current value, or use `NO_COST` to delete without a refund.
 
+A delete without a `currency`, or with `NO_COST`, is a free change. The company's [Free Trait Updates](#company-settings) setting decides whether a player may make it. Deleting a [flaw](#flaw-traits) with `XP` or `STARTING_POINTS` spends that currency instead.
+
 Any [specialties](#specialties) on the trait are refunded and removed with it.
 
 ## Company Settings

@@ -622,6 +622,34 @@ class TestCharacterCreateTraitToCharacterTraits:
         for ct in created_traits:
             assert ct.value == 2
 
+    @pytest.mark.parametrize("excluded", ["custom", "archived"])
+    async def test_character_create_rejects_custom_and_archived_traits(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        trait_factory: "Callable[..., Any]",
+        excluded: str,
+    ) -> None:
+        """Verify character creation rejects custom traits and archived traits."""
+        # Given a new character and a trait it may not use
+        company = await company_factory()
+        character = await character_factory(character_class="MORTAL", company=company)
+        if excluded == "custom":
+            other_character = await character_factory(company=await company_factory())
+            trait = await trait_factory(
+                name="Foreign Custom Trait", custom_for_character_id=other_character.id
+            )
+        else:
+            trait = await trait_factory(name="Retired Trait", is_archived=True)
+        trait_create_data = [CharacterTraitCreate(trait_id=trait.id, value=1)]
+
+        # When creating the character's traits with it
+        # Then the trait is treated as not found
+        with pytest.raises(ValidationError, match=r"Trait.*not found"):
+            await CharacterService().character_create_trait_to_character_traits(
+                character, trait_create_data
+            )
+
     async def test_character_create_trait_to_character_traits_trait_not_found(
         self,
         character_factory: "Callable[..., Any]",

@@ -67,6 +67,8 @@ Remove a trait from a character.
 
 Any specialties on the trait are refunded and removed with it.
 
+Omitting `currency` is the same as `NO_COST`. Free deletes follow the company's free trait changes setting, so a player may get 403 where a storyteller would not.
+
 **Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. Returns 409 when another request changes the trait's value first while recouping `XP` or `STARTING_POINTS`.
 """
 
@@ -80,6 +82,8 @@ The response contains `succeeded` and `failed` lists. Retry only the failed item
 **Currency balances are tracked across the batch.** If early traits in the list spend XP or starting points, later traits see the reduced balance. Flaw traits (which grant currency) increase the running balance.
 
 **Maximum batch size:** 200 items.
+
+Omitting `currency` is the same as `NO_COST`. Free deletes follow the company's free trait changes setting, so a player may get 403 where a storyteller would not.
 
 **Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400.
 """
@@ -95,6 +99,8 @@ Specialties are only available on ability traits (the Abilities section of the c
 - `STARTING_POINTS`: Spend 3 starting points when the company's specialty XP cost setting is on
 
 When the specialty XP cost setting is off, specialties are free and the `currency` does not affect the cost. The response is the updated character trait.
+
+Omitting `currency` is the same as `NO_COST`. Free deletes follow the company's free trait changes setting, so a player may get 403 where a storyteller would not.
 
 **Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. A cost the character cannot afford returns 400.
 """

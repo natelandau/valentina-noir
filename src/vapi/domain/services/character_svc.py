@@ -419,7 +419,9 @@ class CharacterService:
             raise ValidationError(
                 detail=msg, invalid_parameters=[{"field": "traits", "message": msg}]
             )
-        all_traits = await Trait.filter(id__in=trait_ids)
+        all_traits = await Trait.filter(
+            id__in=trait_ids, is_archived=False, custom_for_character_id__isnull=True
+        )
         trait_lookup: dict[UUID, Trait] = {t.id: t for t in all_traits}
 
         rows: list[CharacterTrait] = []

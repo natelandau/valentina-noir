@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar, assert_never
 from uuid import UUID
 
 from litestar.stores.base import Store
-from tortoise.expressions import F
+from tortoise.expressions import F, Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
@@ -63,6 +63,11 @@ SPECIALTY_NAME_MAX_LENGTH = 50
 
 class _BulkItemRejectedError(Exception):
     """Abort a bulk item inside its transaction so the pre-created row rolls back."""
+
+
+def _shared_or_owned_by(character: Character) -> Q:
+    """Match shared traits and the custom traits that belong to the given character."""
+    return Q(custom_for_character_id__isnull=True) | Q(custom_for_character_id=character.id)
 
 
 class CharacterTraitService:
@@ -775,7 +780,9 @@ class CharacterTraitService:
             ValidationError: If the trait cannot be added.
         """
         self._assert_currency_allowed_for_type(character, currency)
-        trait = await Trait.filter(id=trait_id, is_archived=False).first()
+        trait = await Trait.filter(
+            _shared_or_owned_by(character), id=trait_id, is_archived=False
+        ).first()
         if trait is None:
             msg = "Trait not found"
             raise ValidationError(detail=msg)
@@ -907,7 +914,9 @@ class CharacterTraitService:
 
         # Batch-fetch all Trait documents
         trait_ids = [item.trait_id for item in items]
-        all_traits = await Trait.filter(id__in=trait_ids, is_archived=False)
+        all_traits = await Trait.filter(
+            _shared_or_owned_by(character), id__in=trait_ids, is_archived=False
+        )
         trait_lookup: dict[UUID, Trait] = {t.id: t for t in all_traits}
 
         # Batch-fetch existing CharacterTraits for conflict detection
@@ -1764,8 +1773,14 @@ class CharacterTraitService:
             msg = "V5 Willpower follows Composure + Resolve and cannot be deleted"
             raise ValidationError(detail=msg)
 
+        is_free_delete = currency is None or currency == TraitModifyCurrency.NO_COST
+        if is_free_delete:
+            await self._guard_permissions_free_trait_changes(
+                company=company, character=character, user=user
+            )
+
         async with in_transaction():
-            if currency and currency != TraitModifyCurrency.NO_COST:
+            if not is_free_delete:
                 character_trait = await self.modify_trait_value(
                     company=company,
                     user=user,
@@ -1787,7 +1802,7 @@ class CharacterTraitService:
 
             tracker_svc = TrackerService()
             affects_derived = await tracker_svc.affects_derived_values(character_trait)
-            if character_trait.trait.custom_for_character_id is not None:  # ty:ignore[unresolved-attribute]
+            if character_trait.trait.custom_for_character_id == character.id:  # ty:ignore[unresolved-attribute]
                 await character_trait.trait.delete()
             await character_trait.delete()
 

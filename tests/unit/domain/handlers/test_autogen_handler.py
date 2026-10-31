@@ -835,6 +835,77 @@ class TestGenerateWerewolfAttributes:
         assert len(gift_char_traits) == 3 + gift_id_modifiers[experience_level]
         assert len(rite_char_traits) == NUM_WEREWOLF_RITE_MAP[experience_level]
 
+    async def test_werewolf_rites_and_gifts_skip_custom_and_archived_traits(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        trait_factory: Callable[..., Any],
+        mocker: Any,
+    ) -> None:
+        """Verify autogeneration never assigns custom traits or archived rites."""
+        # Given another company's character with custom rites and gifts, and an archived rite
+        rites_category = await TraitCategory.filter(name="Rites").first()
+        tribe = await WerewolfTribe.filter(name="Black Furies").first()
+        other_character = await character_factory(company=await company_factory())
+        excluded_ids = {
+            (
+                await trait_factory(
+                    name="Planted Rite",
+                    category=rites_category,
+                    custom_for_character_id=other_character.id,
+                )
+            ).id,
+            (
+                await trait_factory(
+                    name="Planted Native Gift",
+                    gift_is_native=True,
+                    gift_minimum_renown=0,
+                    custom_for_character_id=other_character.id,
+                )
+            ).id,
+            (
+                await trait_factory(
+                    name="Planted Tribe Gift",
+                    gift_tribe_id=tribe.id,
+                    gift_minimum_renown=0,
+                    custom_for_character_id=other_character.id,
+                )
+            ).id,
+            (
+                await trait_factory(name="Retired Rite", category=rites_category, is_archived=True)
+            ).id,
+        }
+        # And a werewolf being generated, with every candidate in each pool chosen
+        company = await company_factory()
+        chargen = CharacterAutogenerationHandler(
+            company=company,
+            user=await user_factory(company=company),
+            campaign=await campaign_factory(company=company),
+        )
+        character = await chargen._generate_base_character(
+            character_type=CharacterType.PLAYER,
+            char_class=CharacterClass.WEREWOLF,
+            experience_level=AutoGenExperienceLevel.ELITE,
+        )
+        await chargen._generate_werewolf_attributes(
+            character,
+            werewolf_tribe=tribe,
+            werewolf_auspice=await WerewolfAuspice.filter(name="Ahroun").first(),
+        )
+        mocker.patch.object(random, "sample", side_effect=lambda population, _k: list(population))
+
+        # When generating gifts and rites
+        await chargen._generate_werewolf_gifts_and_rites(character)
+
+        # Then none of the custom or archived traits are on the character
+        assigned_ids = set(
+            await CharacterTrait.filter(character=character).values_list("trait_id", flat=True)
+        )
+        assert assigned_ids
+        assert not assigned_ids & excluded_ids
+
 
 class TestGenerateHunterAttributes:
     """Test the generate_hunter_attributes method."""
