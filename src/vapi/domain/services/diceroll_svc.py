@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from vapi.constants import DiceSize
-from vapi.db.sql_models.character import CharacterTrait
+from vapi.constants import MAX_NUM_DICE, CharacterType, DiceSize
+from vapi.db.sql_models.character import Character, CharacterTrait
 from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.diceroll import DiceRoll, DiceRollResult
 from vapi.domain.handlers.diceroll_handlers import roll_dice
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.guards import STORYTELLER_ROLES
 
 from .validation_svc import (
     GetModelByIdValidationService,
@@ -25,6 +26,26 @@ if TYPE_CHECKING:
     from vapi.domain.controllers.dicerolls import dto
 
 
+def _assert_can_roll_for_character(*, character: Character, user: User) -> None:
+    """Reject rolls against STORYTELLER characters unless the user is a storyteller or admin.
+
+    Path guards cannot see a ``character_id`` sent in the request body, so the service enforces
+    the same visibility rule they apply.
+    """
+    if character.type == CharacterType.STORYTELLER and user.role not in STORYTELLER_ROLES:
+        raise PermissionDeniedError(detail="No rights to access this resource")
+
+
+def _assert_campaign_matches_character(*, character: Character, campaign_id: UUID | None) -> None:
+    """Reject a roll filed under a campaign other than its character's campaign."""
+    character_campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
+    if campaign_id and character_campaign_id and campaign_id != character_campaign_id:
+        msg = "campaign_id must match the character's campaign"
+        raise ValidationError(
+            detail=msg, invalid_parameters=[{"field": "campaign_id", "message": msg}]
+        )
+
+
 class DiceRollService:
     """Diceroll service."""
 
@@ -33,7 +54,7 @@ class DiceRollService:
         *,
         data: dto.DiceRollCreate,
         company_id: UUID,
-        user_id: UUID,
+        user: User,
     ) -> DiceRoll:
         """Create a dice roll with validation and result generation."""
         validation_svc = GetModelByIdValidationService()
@@ -56,6 +77,10 @@ class DiceRollService:
             (r for r in results if isinstance(r, list)),
             [],
         )
+        character = next((r for r in results if isinstance(r, Character)), None)
+        if character is not None:
+            _assert_can_roll_for_character(character=character, user=user)
+            _assert_campaign_matches_character(character=character, campaign_id=data.campaign_id)
 
         result = roll_dice(
             num_dice=data.num_dice,
@@ -71,7 +96,7 @@ class DiceRollService:
             num_desperation_dice=data.num_desperation_dice,
             comment=data.comment,
             company_id=company_id,
-            user_id=user_id,
+            user_id=user.id,
             campaign_id=data.campaign_id,
             character_id=data.character_id,
         )
@@ -107,6 +132,8 @@ class DiceRollService:
             validation_svc.get_character_by_id(data.character_id, company_id=company.id),
         )
 
+        _assert_can_roll_for_character(character=character, user=user)
+
         await quickroll.fetch_related("traits")
         quickroll_trait_ids = [t.id for t in quickroll.traits]
 
@@ -121,6 +148,10 @@ class DiceRollService:
             )
 
         total_dice = sum(trait.value for trait in traits_to_roll)
+        if total_dice > MAX_NUM_DICE:
+            raise ValidationError(
+                detail=f"This quick roll builds a pool of {total_dice} dice; the maximum is {MAX_NUM_DICE}"
+            )
 
         result = roll_dice(
             num_dice=total_dice,

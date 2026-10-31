@@ -133,7 +133,7 @@ class DiceRollController(Controller):
         """Create a dice roll."""
         service = DiceRollService()
         dice_roll = await service.create_complete_dice_roll(
-            data=data, company_id=company.id, user_id=acting_user.id
+            data=data, company_id=company.id, user=acting_user
         )
         return dto.DiceRollResponse.from_model(dice_roll)
 

@@ -10,7 +10,7 @@ import msgspec
 from tortoise.exceptions import NoValuesFetched
 from tortoise.queryset import Prefetch
 
-from vapi.constants import CharacterType
+from vapi.constants import MAX_DICE_ROLL_TRAITS, CharacterType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
@@ -286,12 +286,15 @@ class ExperienceAddRemove(msgspec.Struct):
 # ---------------------------------------------------------------------------
 
 
+QuickRollTraitIds = Annotated[list[UUID], msgspec.Meta(max_length=MAX_DICE_ROLL_TRAITS)]
+
+
 class QuickRollCreate(msgspec.Struct):
     """Request body for creating a quick roll."""
 
     name: str
     description: str = ""
-    trait_ids: list[UUID] = []
+    trait_ids: QuickRollTraitIds = []
 
 
 class QuickRollPatch(msgspec.Struct):
@@ -299,7 +302,7 @@ class QuickRollPatch(msgspec.Struct):
 
     name: str | msgspec.UnsetType = msgspec.UNSET
     description: str | msgspec.UnsetType = msgspec.UNSET
-    trait_ids: list[UUID] | msgspec.UnsetType = msgspec.UNSET
+    trait_ids: QuickRollTraitIds | msgspec.UnsetType = msgspec.UNSET
 
 
 class QuickRollResponse(msgspec.Struct):
