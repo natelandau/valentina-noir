@@ -115,7 +115,9 @@ class TestIdentifyEndpoint:
     ) -> None:
         """Verify a verified-email match auto-links the provider to the existing user."""
         # Given a user with the matching email and no apple identity
-        user = await user_factory(company=session_company, email="person@example.com")
+        user = await user_factory(
+            company=session_company, email="person@example.com", email_trusted=True
+        )
 
         # When the client identifies the login
         response = await client.post(

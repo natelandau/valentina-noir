@@ -6,8 +6,10 @@ from typing import Any
 
 import httpx
 import jwt
+import msgspec
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from litestar.stores.memory import MemoryStore
 from pytest_mock import MockerFixture
 
 from vapi.config import settings
@@ -232,6 +234,59 @@ class TestOIDCVerification:
 
         # And exactly one network fetch happened (the cache was checked first, then one refetch)
         assert fetch_mock.call_count == 1
+
+    async def test_unknown_kid_forced_refresh_is_rate_limited(
+        self,
+        rsa_keypair: tuple[Any, dict[str, Any]],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify repeated unknown-kid tokens force at most one JWKS refresh per interval."""
+        # Given a cached JWKS and a token whose kid is in neither the cache nor the provider JWKS
+        store = MemoryStore()
+        await store.set("apple", msgspec.json.encode(rsa_keypair[1]))
+        fetch_mock = mocker.AsyncMock(return_value=rsa_keypair[1])
+        mocker.patch("vapi.utils.identity._fetch_jwks", new=fetch_mock)
+        token = _sign_token(rsa_keypair[0], kid="unknown-kid")
+
+        # When the token is verified three times
+        failures = 0
+        for _ in range(3):
+            try:
+                await verify_provider_token(
+                    provider=IdentityProvider.APPLE, token=token, store=store
+                )
+            except UnprocessableEntityError:
+                failures += 1
+
+        # Then every attempt fails and only the first forced a provider fetch
+        assert failures == 3
+        assert fetch_mock.call_count == 1
+
+    async def test_unknown_kid_forced_refresh_allowed_after_interval(
+        self,
+        rsa_keypair: tuple[Any, dict[str, Any]],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a forced JWKS refresh is allowed again once the interval has passed."""
+        # Given a forced refresh already ran, and its marker has since expired
+        store = MemoryStore()
+        await store.set("apple", msgspec.json.encode({"keys": []}))
+        fetch_mock = mocker.AsyncMock(return_value={"keys": []})
+        mocker.patch("vapi.utils.identity._fetch_jwks", new=fetch_mock)
+        token = _sign_token(rsa_keypair[0])
+        with pytest.raises(UnprocessableEntityError):
+            await verify_provider_token(provider=IdentityProvider.APPLE, token=token, store=store)
+        await store.delete("apple:forced_refresh")
+
+        # When the provider now serves the key and the token is verified again
+        fetch_mock.return_value = rsa_keypair[1]
+        identity = await verify_provider_token(
+            provider=IdentityProvider.APPLE, token=token, store=store
+        )
+
+        # Then the second forced refresh ran and found the key
+        assert identity.provider_id == "apple-sub-001"
+        assert fetch_mock.call_count == 2
 
     async def test_empty_audience_allowlist_fails_closed(
         self, mocker: MockerFixture, rsa_keypair: tuple[Any, dict[str, Any]]

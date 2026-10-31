@@ -31,9 +31,10 @@ async def test_create_user_with_valid_role(company_factory: Any) -> None:
     # When creating the user via the service
     user = await GlobalAdminUserService().create_user(data)
 
-    # Then the user has the requested role and company
+    # Then the user has the requested role and company, and its email is trusted
     assert user.role == UserRole.PLAYER
     assert user.company_id == company.id
+    assert user.email_trusted is True
 
     # Cleanup: service-created users are not factory-tracked
     await user.delete()

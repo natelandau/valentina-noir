@@ -29,6 +29,10 @@ class User(BaseModel):
     name_last = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(2)])
     username = fields.CharField(max_length=50, validators=[MinLengthValidator(3)])
     email = fields.CharField(max_length=255, validators=[validate_email_format])
+    # True only when the email came from a provider-verified identity or was set by an admin.
+    # Identity auto-link trusts only these emails, so a user cannot plant someone else's
+    # address on their own account and receive that person's later sign-in.
+    email_trusted = fields.BooleanField(default=False, db_default=False)
     role = fields.CharEnumField(UserRole)
     lifetime_xp = fields.IntField(default=0)
     lifetime_cool_points = fields.IntField(default=0)

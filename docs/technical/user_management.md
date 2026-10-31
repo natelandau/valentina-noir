@@ -51,7 +51,7 @@ flowchart LR
 `POST /companies/{company_id}/auth/identify` is the recommended way to handle logins when your users authenticate with a provider (Apple, Google, Discord, or GitHub). Your client obtains the provider credential during the sign-in flow, then forwards it to this endpoint. Valentina verifies it with the provider and resolves the user in order:
 
 1. **Provider ID match** - finds the user whose stored provider profile has the same subject ID.
-2. **Verified email auto-link** - if the provider's verified email matches exactly one non-archived user (including `DEACTIVATED`), that user is linked to the provider profile.
+2. **Verified email auto-link** - if the provider's verified email matches the trusted email of exactly one non-archived user (including `DEACTIVATED`), that user is linked to the provider profile.
 3. **Create** - a new `UNAPPROVED` user is created when no match is found.
 
 The response always returns `200 OK`:
@@ -85,6 +85,13 @@ Use `user.id` as the value of `On-Behalf-Of` from that point on.
 When a new user is created, include `username` and (if the provider does not supply an email) `email` in the request body. If the provider supplies no email and you don't include one, the endpoint returns `422 EMAIL_REQUIRED`. For provider token types and audience configuration, see [Verified Identity](authentication.md#verified-identity).
 
 Auto-link by email requires a provider-verified email and exactly one matching user. When there are zero or two or more matches, the endpoint falls through to create a new user. Merge the duplicate afterwards if needed.
+
+A stored email is trusted only when Valentina knows the account owner controls it:
+
+- A provider verified that address for this user (on identify or link).
+- A company `ADMIN` set it on another user, or the user was created by an `ADMIN` or by company creation.
+
+An email a user sets on their own account, a client-supplied fallback `email`, or a provider email that was not verified is not trusted. Such an account is never auto-linked, so nobody can claim another person's future sign-in by entering their address. It becomes trusted the next time the user signs in or links a provider that verifies the same address.
 
 !!! note "DEACTIVATED users are auto-linked deliberately"
 

@@ -146,6 +146,7 @@ class TestUserService:
         assert new_user.email == "test@example.com"
         assert new_user.role == UserRole.PLAYER
         assert new_user.company_id == company.id
+        assert new_user.email_trusted is True
         spy.assert_called_once()
 
     async def test_update_user_success(
@@ -994,3 +995,31 @@ class TestUserXPServiceStaleReads:
         expected = (5 + COOL_POINT_VALUE, 20 + COOL_POINT_VALUE, 1)
         assert (stored.xp_current, stored.xp_total, stored.cool_points) == expected
         assert (result.xp_current, result.xp_total, result.cool_points) == expected
+
+    @pytest.mark.parametrize(
+        ("actor_is_self", "expected_trusted"),
+        [(True, False), (False, True)],
+    )
+    async def test_update_user_email_sets_trust_by_who_changed_it(
+        self,
+        user_factory: Callable[..., User],
+        company_factory: Callable[..., Company],
+        actor_is_self: bool,
+        expected_trusted: bool,
+    ) -> None:
+        """Verify a self-edited email is untrusted and an admin-set email is trusted."""
+        # Given an admin whose email is trusted, and another admin in the same company
+        company = await company_factory()
+        target = await user_factory(
+            company=company, role=UserRole.ADMIN, email="old@example.com", email_trusted=True
+        )
+        other_admin = await user_factory(company=company, role=UserRole.ADMIN)
+        actor = target if actor_is_self else other_admin
+
+        # When the email is changed
+        updated, _changes = await UserService().update_user(
+            user=target, data=UserPatch(email="new@example.com"), acting_user_id=actor.id
+        )
+
+        # Then trust depends on who set the new email
+        assert updated.email_trusted is expected_trusted

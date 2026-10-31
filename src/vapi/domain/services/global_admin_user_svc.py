@@ -63,6 +63,7 @@ class GlobalAdminUserService:
             name_last=data.name_last,
             username=data.username,
             email=data.email,
+            email_trusted=True,
             role=new_role,
             company=company,
         )
@@ -99,6 +100,8 @@ class GlobalAdminUserService:
         restore_batch_id = user.archive_batch_id if was_archived else None
 
         changes = apply_patch(user, data, exclude=frozenset({"role"}))
+        if "email" in changes:
+            user.email_trusted = True
 
         if not isinstance(data.role, msgspec.UnsetType):
             try:

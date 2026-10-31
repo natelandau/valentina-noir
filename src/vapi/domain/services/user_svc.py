@@ -213,6 +213,7 @@ class UserService:
             name_last=data.name_last,
             username=data.username,
             email=data.email,
+            email_trusted=requesting_user.role == UserRole.ADMIN,
             role=new_role,
             company=company,
         )
@@ -331,6 +332,11 @@ class UserService:
 
         changes = apply_patch(user, data, exclude=frozenset({"role"}))
         changes.update(role_change)
+        if "email" in changes:
+            # A self-edit is the planting path identity auto-link guards against
+            user.email_trusted = (
+                requesting_user.role == UserRole.ADMIN and requesting_user.id != user.id
+            )
 
         await user.save()
         await user.fetch_related("campaign_experiences")
