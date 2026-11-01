@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from http import HTTPStatus
 from typing import TYPE_CHECKING, cast
 
@@ -281,6 +282,14 @@ class TooManyRequestsError(ClientError):
     """Raised when request rate limits have been exceeded."""
 
     _default_status_code = status_codes.HTTP_429_TOO_MANY_REQUESTS
+
+    def __init__(self, *args: Any, retry_after: float | None = None, **kwargs: Any) -> None:
+        if retry_after is not None:
+            # Retry-After takes whole seconds (RFC 9110)
+            seconds = max(math.ceil(retry_after), 1)
+            kwargs["headers"] = {**(kwargs.get("headers") or {}), "Retry-After": str(seconds)}
+            kwargs["retry_after"] = seconds
+        super().__init__(*args, **kwargs)
 
 
 class InternalServerError(HTTPError):
