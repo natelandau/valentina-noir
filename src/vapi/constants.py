@@ -34,6 +34,9 @@ IDEMPOTENCY_KEY_MAX_LENGTH: Final[int] = 255
 IDEMPOTENCY_TTL_SECONDS: Final[int] = 3600  # 1 hour
 # Safety net for the in-flight marker if a worker dies before removing it
 IDEMPOTENCY_IN_FLIGHT_TTL_SECONDS: Final[int] = 60
+IDEMPOTENCY_IN_PROGRESS_CODE: Final[str] = "IDEMPOTENCY_IN_PROGRESS"
+# The in-flight TTL is a worst-case bound; most duplicates finish within a second
+IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS: Final[int] = 1
 IDEMPOTENCY_MAX_CACHED_BODY_BYTES: Final[int] = 1024 * 1024  # 1 MB
 TEMPORARY_CHARACTER_RETENTION_HOURS: Final[int] = 24
 CHARGEN_SESSION_RETENTION_HOURS: Final[int] = 24

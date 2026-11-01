@@ -31,6 +31,8 @@ from vapi.config import settings
 from vapi.constants import (
     AUTH_HEADER_KEY,
     IDEMPOTENCY_IN_FLIGHT_TTL_SECONDS,
+    IDEMPOTENCY_IN_PROGRESS_CODE,
+    IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS,
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_KEY_MAX_LENGTH,
     IDEMPOTENCY_KEY_STATE_KEY,
@@ -195,7 +197,11 @@ class IdempotencyMiddleware(ASGIMiddleware):
                     send, cached, idempotency_key, request_body_hash, cache_key, request
                 )
                 return
-            raise ConflictError(detail=IN_PROGRESS_DETAIL)
+            raise ConflictError(
+                detail=IN_PROGRESS_DETAIL,
+                code=IDEMPOTENCY_IN_PROGRESS_CODE,
+                headers={"Retry-After": str(IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS)},
+            )
 
         logger.debug(
             "Idempotency cache miss",

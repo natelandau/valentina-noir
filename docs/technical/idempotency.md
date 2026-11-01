@@ -102,12 +102,13 @@ The API runs only one request at a time for each idempotency key. If you send a 
     "status": 409,
     "title": "Conflict",
     "detail": "A request with this idempotency key is still in progress.",
+    "code": "IDEMPOTENCY_IN_PROGRESS",
     "instance": "/api/v1/...",
     "request_id": "req_z5A6b7C8d9E0f1G2"
 }
 ```
 
-Wait, then retry with the same key and body. When the first request succeeded, the retry returns its cached response. When the first request failed, the retry runs again.
+The response has a `Retry-After` header. Wait the number of seconds in `Retry-After`, then retry with the same key and body. When the first request succeeded, the retry returns its cached response. When the first request failed, the retry runs again.
 
 ## Examples
 
@@ -120,7 +121,7 @@ import requests
 
 
 def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3):
-    """Create a campaign with automatic retry on server errors."""
+    """Create a campaign with automatic retry on server errors and in-progress conflicts."""
     idempotency_key = str(uuid.uuid4())
 
     for attempt in range(max_retries):
@@ -134,6 +135,14 @@ def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3
             },
             json=data,
         )
+
+        if (
+            response.status_code == 409
+            and response.json().get("code") == "IDEMPOTENCY_IN_PROGRESS"
+        ):
+            # The first request is still running - wait, then retry with the same key
+            time.sleep(int(response.headers.get("Retry-After", 1)))
+            continue
 
         if response.status_code < 500:
             return response
