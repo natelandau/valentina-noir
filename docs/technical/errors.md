@@ -19,6 +19,7 @@ All error responses use the `application/problem+json` media type with these fie
 | `detail`   | string  | Human-readable explanation specific to this occurrence                         |
 | `instance` | string  | The request path, without host or query string                                 |
 | `request_id` | string  | Unique request identifier (matches the `X-Request-Id` response header) |
+| `code`     | string  | Optional. A stable, machine-readable identifier for errors that clients handle in code. Match on this, not on `detail`. |
 
 ## Standard Error Response
 
@@ -118,8 +119,10 @@ Requested resource does not exist.
 Request conflicts with current state. Examples:
 
 - You reuse an idempotency key with a different request body.
-- You send a request while an earlier request with the same idempotency key is still running. Wait, then retry. See [Concurrent Requests](idempotency.md#concurrent-requests).
+- You send a request while an earlier request with the same idempotency key is still running. This response has `code: "IDEMPOTENCY_IN_PROGRESS"` and a `Retry-After` header. Wait that many seconds, then retry with the same key and body. See [Concurrent Requests](idempotency.md#concurrent-requests).
 - You change a character trait's value after another request changed it. Fetch the trait again and retry. See [Modifying Trait Values](../concepts/character_traits.md#modifying-trait-values).
+
+Only the in-progress conflict carries a `code`. Do not resend any other 409 unchanged: fix the request or reload the resource first.
 
 ```json
 {

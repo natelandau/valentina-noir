@@ -12,6 +12,8 @@ from litestar.stores.registry import StoreRegistry
 from litestar.testing import TestClient
 
 from vapi.constants import (
+    IDEMPOTENCY_IN_PROGRESS_CODE,
+    IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS,
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_KEY_MAX_LENGTH,
     IDEMPOTENCY_KEY_STATE_KEY,
@@ -254,9 +256,29 @@ class TestInFlightMarker:
         # and the marker is gone
         assert duplicate.status_code == 409
         assert duplicate.json()["detail"] == IN_PROGRESS_DETAIL
+        assert duplicate.json()["code"] == IDEMPOTENCY_IN_PROGRESS_CODE
+        assert duplicate.headers["Retry-After"] == str(IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS)
         assert first_response.status_code == 201
         assert replay.json() == first_response.json() == {"call": 1}
         assert not await redis.keys("test-inflight:*in_flight:*")
+
+    async def test_reused_key_with_different_body_has_no_in_progress_code(self, redis: Any) -> None:
+        """Verify a body-mismatch 409 carries neither the in-progress code nor Retry-After."""
+        # Given a completed request with an idempotency key
+        entered, release = asyncio.Event(), asyncio.Event()
+        release.set()
+        app = self._build_blocking_app(redis, entered=entered, release=release, status=[201])
+        headers = {IDEMPOTENCY_KEY_HEADER: "idem-mismatch"}
+        async with self._client(app) as client:
+            await client.post("/slow", json={"x": 1}, headers=headers)
+
+            # When the key is reused with a different body
+            response = await client.post("/slow", json={"x": 2}, headers=headers)
+
+        # Then the 409 is not marked as retryable
+        assert response.status_code == 409
+        assert "code" not in response.json()
+        assert "Retry-After" not in response.headers
 
     async def test_marker_removed_after_failed_request(self, redis: Any) -> None:
         """Verify a failed request releases its key so a retry runs the handler again."""

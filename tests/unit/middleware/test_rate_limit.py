@@ -783,3 +783,7 @@ class TestHealthzExclusion:
 
         # Then the other path is limited after its one allowed request
         assert [r.status_code for r in other_responses] == [200, 429]
+        assert int(other_responses[1].headers["Retry-After"]) >= 1
+        assert other_responses[1].json()["retry_after"] == int(
+            other_responses[1].headers["Retry-After"]
+        )

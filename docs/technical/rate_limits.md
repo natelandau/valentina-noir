@@ -95,7 +95,7 @@ The API returns a `429 Too Many Requests` status when you exceed your rate limit
 }
 ```
 
-The response includes `RateLimit` headers showing when to retry.
+The response has a `Retry-After` header with the number of seconds to wait before you retry. The `RateLimit` headers show the state of each policy.
 
 ## Retry Strategy (Python)
 
