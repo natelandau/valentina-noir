@@ -18,8 +18,11 @@ from redis.asyncio import Redis
 from vapi.constants import (
     AUTH_HEADER_KEY,
     ENVAR_PREFIX,
+    IDEMPOTENCY_KEY_HEADER,
     LOG_FIELDS_CATALOG,
     MODULE_ROOT_PATH,
+    ON_BEHALF_OF_HEADER_KEY,
+    REQUEST_ID_HEADER,
     LogLevel,
 )
 from vapi.utils.strings import slugify
@@ -245,7 +248,22 @@ class CORSSettings(BaseModel):
     allow_methods: CsvList = Field(
         default_factory=lambda: ["GET", "POST", "PUT", "PATCH", "DELETE"]
     )
-    allow_headers: CsvList = Field(default_factory=lambda: ["Content-Type", AUTH_HEADER_KEY])
+    allow_headers: CsvList = Field(
+        default_factory=lambda: [
+            "Content-Type",
+            AUTH_HEADER_KEY,
+            ON_BEHALF_OF_HEADER_KEY,
+            IDEMPOTENCY_KEY_HEADER,
+        ]
+    )
+    expose_headers: CsvList = Field(
+        default_factory=lambda: [
+            "Retry-After",
+            REQUEST_ID_HEADER,
+            "RateLimit",
+            "RateLimit-Policy",
+        ]
+    )
     max_age: int = Field(default=3600)
 
 
