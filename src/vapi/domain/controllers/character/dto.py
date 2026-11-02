@@ -29,6 +29,7 @@ from vapi.domain.controllers.character_trait.dto import (
     active_specialties,
     build_tracker_response,
 )
+from vapi.domain.controllers.request_types import Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -348,10 +349,10 @@ class VampireAttributesCreate(msgspec.Struct):
 
     clan_id: UUID
     generation: int | None = None
-    sire: str | None = None
-    bane_name: str | None = None
+    sire: NameMax50 | None = None
+    bane_name: NameMax50 | None = None
     bane_description: str | None = None
-    compulsion_name: str | None = None
+    compulsion_name: NameMax50 | None = None
     compulsion_description: str | None = None
 
 
@@ -360,20 +361,20 @@ class WerewolfAttributesCreate(msgspec.Struct):
 
     tribe_id: UUID
     auspice_id: UUID
-    pack_name: str | None = None
+    pack_name: NameMax50 | None = None
 
 
 class MageAttributesCreate(msgspec.Struct):
     """Mage attributes for character creation."""
 
-    sphere: str | None = None
-    tradition: str | None = None
+    sphere: NameMax50 | None = None
+    tradition: NameMax50 | None = None
 
 
 class HunterAttributesCreate(msgspec.Struct):
     """Hunter attributes for character creation."""
 
-    creed: str | None = None
+    creed: NameMax50 | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -386,10 +387,10 @@ class VampireAttributesPatch(msgspec.Struct):
 
     clan_id: UUID | msgspec.UnsetType = msgspec.UNSET
     generation: int | msgspec.UnsetType | None = msgspec.UNSET
-    sire: str | msgspec.UnsetType | None = msgspec.UNSET
-    bane_name: str | msgspec.UnsetType | None = msgspec.UNSET
+    sire: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
+    bane_name: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     bane_description: str | msgspec.UnsetType | None = msgspec.UNSET
-    compulsion_name: str | msgspec.UnsetType | None = msgspec.UNSET
+    compulsion_name: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     compulsion_description: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
@@ -398,20 +399,20 @@ class WerewolfAttributesPatch(msgspec.Struct):
 
     tribe_id: UUID | msgspec.UnsetType = msgspec.UNSET
     auspice_id: UUID | msgspec.UnsetType = msgspec.UNSET
-    pack_name: str | msgspec.UnsetType | None = msgspec.UNSET
+    pack_name: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class MageAttributesPatch(msgspec.Struct):
     """Mage attributes for character patch."""
 
-    sphere: str | msgspec.UnsetType | None = msgspec.UNSET
-    tradition: str | msgspec.UnsetType | None = msgspec.UNSET
+    sphere: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
+    tradition: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class HunterAttributesPatch(msgspec.Struct):
     """Hunter attributes for character patch."""
 
-    creed: str | msgspec.UnsetType | None = msgspec.UNSET
+    creed: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
 
 
 # ---------------------------------------------------------------------------
@@ -430,18 +431,18 @@ class CharacterTraitCreate(msgspec.Struct):
 class CharacterCreate(msgspec.Struct):
     """Request body for creating a character."""
 
-    name_first: str
-    name_last: str
+    name_first: Name3to50
+    name_last: Name3to50
     character_class: CharacterClass
     game_version: GameVersion
     campaign_id: UUID
-    name_nick: str | None = None
+    name_nick: NameMax50 | None = None
     type: CharacterType = CharacterType.PLAYER
     age: int | None = None
     date_of_birth: date | None = None
     biography: str | None = None
-    demeanor: str | None = None
-    nature: str | None = None
+    demeanor: NameMax50 | None = None
+    nature: NameMax50 | None = None
     concept_id: UUID | None = None
     vampire_attributes: VampireAttributesCreate | None = None
     werewolf_attributes: WerewolfAttributesCreate | None = None
@@ -458,16 +459,16 @@ class CharacterPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    name_first: str | msgspec.UnsetType = msgspec.UNSET
-    name_last: str | msgspec.UnsetType = msgspec.UNSET
-    name_nick: str | msgspec.UnsetType | None = msgspec.UNSET
+    name_first: Name3to50 | msgspec.UnsetType = msgspec.UNSET
+    name_last: Name3to50 | msgspec.UnsetType = msgspec.UNSET
+    name_nick: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     type: CharacterType | msgspec.UnsetType = msgspec.UNSET
     status: CharacterStatus | msgspec.UnsetType = msgspec.UNSET
     age: int | msgspec.UnsetType | None = msgspec.UNSET
     date_of_birth: date | msgspec.UnsetType | None = msgspec.UNSET
     biography: str | msgspec.UnsetType | None = msgspec.UNSET
-    demeanor: str | msgspec.UnsetType | None = msgspec.UNSET
-    nature: str | msgspec.UnsetType | None = msgspec.UNSET
+    demeanor: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
+    nature: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     concept_id: UUID | msgspec.UnsetType | None = msgspec.UNSET
     is_temporary: bool | msgspec.UnsetType = msgspec.UNSET
     user_player_id: UUID | msgspec.UnsetType | None = msgspec.UNSET

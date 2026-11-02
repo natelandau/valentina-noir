@@ -12,15 +12,7 @@ from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
 from tortoise.transactions import in_transaction
 
-from vapi.constants import (
-    CompanyPermission,
-    PermissionManageCampaign,
-    PermissionManageNPC,
-    PermissionsFreeTraitChanges,
-    PermissionsGrantXP,
-    PermissionsRecoupXP,
-    UserRole,
-)
+from vapi.constants import CompanyPermission, UserRole
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
@@ -68,28 +60,7 @@ async def _apply_settings_patch(
     Returns:
         dict[str, dict[str, object]]: A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed field.
     """
-    changes: dict[str, dict[str, object]] = {}
-
-    for field_name, enum_cls in (
-        ("character_autogen_xp_cost", None),
-        ("character_autogen_num_choices", None),
-        ("character_autogen_starting_points", None),
-        ("permission_manage_campaign", PermissionManageCampaign),
-        ("permission_manage_npc", PermissionManageNPC),
-        ("permission_grant_xp", PermissionsGrantXP),
-        ("permission_free_trait_changes", PermissionsFreeTraitChanges),
-        ("permission_recoup_xp", PermissionsRecoupXP),
-        ("specialty_xp_cost_enabled", None),
-    ):
-        value = getattr(patch, field_name)
-        if isinstance(value, msgspec.UnsetType):
-            continue
-        new_value = enum_cls(value) if enum_cls else value
-        old = getattr(settings, field_name)
-        if old != new_value:
-            changes[f"settings.{field_name}"] = {"old": old, "new": new_value}
-            setattr(settings, field_name, new_value)
-
+    changes = apply_patch(settings, patch, prefix="settings.")
     await settings.save()
     return changes
 

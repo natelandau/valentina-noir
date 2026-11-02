@@ -1,4 +1,4 @@
-"""Character inventory DTOs — msgspec Structs for request/response bodies."""
+"""Character inventory DTOs: msgspec Structs for request and response bodies."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -7,6 +7,7 @@ from uuid import UUID
 import msgspec
 
 from vapi.constants import InventoryItemType
+from vapi.domain.controllers.request_types import NameMax50
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.character import CharacterInventory
@@ -40,7 +41,7 @@ class InventoryItemResponse(msgspec.Struct):
 class InventoryItemCreate(msgspec.Struct):
     """Request body for creating an inventory item."""
 
-    name: str
+    name: NameMax50
     type: InventoryItemType
     description: str | None = None
 
@@ -48,6 +49,6 @@ class InventoryItemCreate(msgspec.Struct):
 class InventoryItemPatch(msgspec.Struct):
     """Request body for partially updating an inventory item."""
 
-    name: str | msgspec.UnsetType = msgspec.UNSET
+    name: NameMax50 | msgspec.UnsetType = msgspec.UNSET
     description: str | msgspec.UnsetType | None = msgspec.UNSET
     type: InventoryItemType | msgspec.UnsetType = msgspec.UNSET

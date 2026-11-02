@@ -62,10 +62,12 @@ Host: api.valentina-noir.com
 X-API-KEY: your-api-key-here
 Content-Type: application/json
 {
-    "name": "My Gaming Group"
-    ...
+    "name": "My Gaming Group",
+    "email": "storyteller@example.com"
 }
 ```
+
+`name` and `email` are required. `name` is 3 to 50 characters. `email` is at most 255 characters. The optional `description` is at least 3 characters.
 
 The response includes both the company and an admin user account:
 

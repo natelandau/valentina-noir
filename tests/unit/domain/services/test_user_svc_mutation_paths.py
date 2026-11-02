@@ -19,7 +19,7 @@ async def test_create_user_rejects_storyteller_creating_admin(user_factory, comp
     data = UserCreate(
         username="new",
         email="new@example.com",
-        role="ADMIN",
+        role=UserRole.ADMIN,
     )
     with pytest.raises(PermissionDeniedError):
         await UserService().create_user(company=company, data=data, acting_user_id=storyteller.id)
@@ -27,11 +27,11 @@ async def test_create_user_rejects_storyteller_creating_admin(user_factory, comp
 
 @pytest.mark.parametrize(
     "initial_role",
-    ["DEACTIVATED", "UNAPPROVED"],
+    [UserRole.DEACTIVATED, UserRole.UNAPPROVED],
     ids=["deactivated", "unapproved"],
 )
 async def test_create_user_forbids_invalid_initial_role(
-    user_factory, company_factory, initial_role: str
+    user_factory, company_factory, initial_role: UserRole
 ):
     """Verify user creation rejects DEACTIVATED and UNAPPROVED as the initial role."""
     # Given an admin and a creation payload with a forbidden initial role

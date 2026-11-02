@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import msgspec
 from tortoise.expressions import RawSQL
 from tortoise.transactions import in_transaction
 
@@ -43,17 +42,13 @@ class GlobalAdminUserService:
 
         Raises:
             NotFoundError: If the target company does not exist or is archived.
-            ValidationError: If the role is invalid or is UNAPPROVED/DEACTIVATED.
+            ValidationError: If the role is UNAPPROVED or DEACTIVATED.
         """
         company = await Company.filter(id=data.company_id, is_archived=False).first()
         if not company:
             raise NotFoundError(detail="Company not found")
 
-        try:
-            new_role = UserRole(data.role)
-        except ValueError as e:
-            raise ValidationError(detail=f"Invalid role: {data.role}") from e
-
+        new_role = data.role
         if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
             raise ValidationError(
                 detail=f"Cannot create a user with initial role {new_role.value}",
@@ -76,9 +71,7 @@ class GlobalAdminUserService:
     ) -> tuple[User, dict[str, dict[str, object]]]:
         """Update any field with no role-matrix restrictions.
 
-        ``role`` is handled explicitly (not via apply_patch) so it is stored as a
-        UserRole enum rather than a bare string -- UserResponse.from_model reads
-        ``role.value``. Archiving via this patch (is_archived false -> true)
+        Archiving via this patch (is_archived false -> true)
         cascades to owned data exactly like delete_user; setting is_archived to
         false reverses that cascade, restoring the user and the data archived
         with them as a unit. Restoring is refused while the user's company is
@@ -94,7 +87,6 @@ class GlobalAdminUserService:
             changed fields for audit logging.
 
         Raises:
-            ValidationError: If the patch sets an invalid role.
             ConflictError: If restoring the user while their company is archived, or
                 while another active user in the company holds one of their provider IDs.
         """
@@ -102,18 +94,9 @@ class GlobalAdminUserService:
         # Capture before apply_patch/save clears it, so restore can reverse the batch.
         restore_batch_id = user.archive_batch_id if was_archived else None
 
-        changes = apply_patch(user, data, exclude=frozenset({"role"}))
+        changes = apply_patch(user, data)
         if "email" in changes:
             user.email_trusted = True
-
-        if not isinstance(data.role, msgspec.UnsetType):
-            try:
-                new_role = UserRole(data.role)
-            except ValueError as e:
-                raise ValidationError(detail=f"Invalid role: {data.role}") from e
-            if user.role != new_role:
-                changes["role"] = {"old": user.role, "new": new_role}
-                user.role = new_role
 
         going_to_restore = was_archived and not user.is_archived
         if going_to_restore:

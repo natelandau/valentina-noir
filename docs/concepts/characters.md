@@ -374,7 +374,7 @@ Track items a character carries or owns. Each inventory item has a name, descrip
 
 ### Notes
 
-Attach free-form text notes to a character for tracking backstory or session recaps. Each note has a title and content field.
+Attach free-form text notes to a character for tracking backstory or session recaps. Each note has a `title` and a `content` field. Both are required when you create a note. `title` is 3 to 50 characters. `content` is at least 3 characters.
 
 Any user in the company can read a character's notes. Only the character's player, a storyteller, or an admin can create, update, or delete them. Don't store details in notes that players must not see.
 

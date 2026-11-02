@@ -90,16 +90,18 @@ class TestApplySettingsPatchEnums:
         self,
         company_factory: Callable[..., Any],
     ) -> None:
-        """Verify enum fields are wrapped correctly and diffs contain enum instances."""
+        """Verify enum field changes are applied and diffs contain enum instances."""
         # Given a company with default settings (UNRESTRICTED)
         company = await company_factory()
         settings = await CompanySettings.filter(company=company).first()
 
         # When patching permission_manage_campaign to a different value
-        patch = CompanySettingsPatch(permission_manage_campaign="STORYTELLER")
+        patch = CompanySettingsPatch(
+            permission_manage_campaign=PermissionManageCampaign.STORYTELLER
+        )
         changes = await _apply_settings_patch(settings, patch)
 
-        # Then the change is recorded with the correct enum wrapper
+        # Then the change is recorded with enum values
         assert "settings.permission_manage_campaign" in changes
         assert (
             changes["settings.permission_manage_campaign"]["old"]
@@ -177,9 +179,9 @@ class TestApplySettingsPatchMixed:
         # When patching both scalar and enum fields
         patch = CompanySettingsPatch(
             character_autogen_xp_cost=15,
-            permission_grant_xp="STORYTELLER",
-            permission_free_trait_changes="WITHIN_24_HOURS",
-            permission_recoup_xp="UNRESTRICTED",
+            permission_grant_xp=PermissionsGrantXP.STORYTELLER,
+            permission_free_trait_changes=PermissionsFreeTraitChanges.WITHIN_24_HOURS,
+            permission_recoup_xp=PermissionsRecoupXP.UNRESTRICTED,
         )
         changes = await _apply_settings_patch(settings, patch)
 
@@ -214,7 +216,7 @@ class TestApplySettingsPatchManageNpc:
         settings = await CompanySettings.filter(company=company).first()
 
         # When patching permission_manage_npc to STORYTELLER
-        patch = CompanySettingsPatch(permission_manage_npc="STORYTELLER")
+        patch = CompanySettingsPatch(permission_manage_npc=PermissionManageNPC.STORYTELLER)
         changes = await _apply_settings_patch(settings, patch)
 
         # Then the change is tracked and applied to the model as an enum

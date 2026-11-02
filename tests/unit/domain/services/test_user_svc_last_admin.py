@@ -54,11 +54,11 @@ async def test_update_user_sequential_demotions_keep_one_admin(user_factory, com
 
     # When admin A demotes admin B, then tries to demote itself
     await service.update_user(
-        user=admin_b, data=UserPatch(role=UserRole.PLAYER.value), acting_user_id=admin_a.id
+        user=admin_b, data=UserPatch(role=UserRole.PLAYER), acting_user_id=admin_a.id
     )
     with pytest.raises(ConflictError, match="last admin"):
         await service.update_user(
-            user=admin_a, data=UserPatch(role=UserRole.PLAYER.value), acting_user_id=admin_a.id
+            user=admin_a, data=UserPatch(role=UserRole.PLAYER), acting_user_id=admin_a.id
         )
 
     # Then the self-demotion is refused and one admin remains

@@ -127,7 +127,7 @@ class TestUserService:
             name_last="User",
             username="test_user",
             email="test@example.com",
-            role="PLAYER",
+            role=UserRole.PLAYER,
         )
         # create_user now routes authorization through _validate_role_assignment,
         # not validate_user_can_manage_user, so we spy on the matrix helper instead.

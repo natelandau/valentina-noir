@@ -10,12 +10,13 @@ import msgspec
 from tortoise.exceptions import NoValuesFetched
 from tortoise.queryset import Prefetch
 
-from vapi.constants import MAX_DICE_ROLL_TRAITS, MAX_EXPERIENCE_GRANT, CharacterType
+from vapi.constants import MAX_DICE_ROLL_TRAITS, MAX_EXPERIENCE_GRANT, CharacterType, UserRole
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
+from vapi.domain.controllers.request_types import Email, Name3to50, PersonName
 from vapi.lib.detail_includes import active_prefetch
 from vapi.utils.identity import get_discord_avatar_url
 
@@ -237,11 +238,11 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
 class UserCreate(msgspec.Struct):
     """Request body for creating a user."""
 
-    username: str
-    email: str
-    role: str
-    name_first: str | None = None
-    name_last: str | None = None
+    username: Name3to50
+    email: Email
+    role: UserRole
+    name_first: PersonName | None = None
+    name_last: PersonName | None = None
 
 
 class UserPatch(msgspec.Struct):
@@ -254,17 +255,17 @@ class UserPatch(msgspec.Struct):
     can never reach the identity-matching columns.
     """
 
-    name_first: str | msgspec.UnsetType | None = msgspec.UNSET
-    name_last: str | msgspec.UnsetType | None = msgspec.UNSET
-    username: str | msgspec.UnsetType = msgspec.UNSET
-    email: str | msgspec.UnsetType = msgspec.UNSET
-    role: str | msgspec.UnsetType = msgspec.UNSET
+    name_first: PersonName | msgspec.UnsetType | None = msgspec.UNSET
+    name_last: PersonName | msgspec.UnsetType | None = msgspec.UNSET
+    username: Name3to50 | msgspec.UnsetType = msgspec.UNSET
+    email: Email | msgspec.UnsetType = msgspec.UNSET
+    role: UserRole | msgspec.UnsetType = msgspec.UNSET
 
 
 class UserApprove(msgspec.Struct):
     """Request body for approving an unapproved user."""
 
-    role: str
+    role: UserRole
 
 
 class UserMerge(msgspec.Struct):
@@ -292,7 +293,7 @@ QuickRollTraitIds = Annotated[list[UUID], msgspec.Meta(max_length=MAX_DICE_ROLL_
 class QuickRollCreate(msgspec.Struct):
     """Request body for creating a quick roll."""
 
-    name: str
+    name: Name3to50
     description: str = ""
     trait_ids: QuickRollTraitIds = []
 
@@ -300,7 +301,7 @@ class QuickRollCreate(msgspec.Struct):
 class QuickRollPatch(msgspec.Struct):
     """Request body for updating a quick roll."""
 
-    name: str | msgspec.UnsetType = msgspec.UNSET
+    name: Name3to50 | msgspec.UnsetType = msgspec.UNSET
     description: str | msgspec.UnsetType = msgspec.UNSET
     trait_ids: QuickRollTraitIds | msgspec.UnsetType = msgspec.UNSET
 

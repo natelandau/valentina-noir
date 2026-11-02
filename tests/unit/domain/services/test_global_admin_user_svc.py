@@ -3,6 +3,7 @@
 from typing import Any
 from uuid import uuid4
 
+import msgspec
 import pytest
 
 from vapi.constants import UserRole
@@ -25,7 +26,7 @@ async def test_create_user_with_valid_role(company_factory: Any) -> None:
         company_id=company.id,
         username="svc-create-user",
         email="svc-create-user@example.com",
-        role="PLAYER",
+        role=UserRole.PLAYER,
     )
 
     # When creating the user via the service
@@ -40,8 +41,10 @@ async def test_create_user_with_valid_role(company_factory: Any) -> None:
     await user.delete()
 
 
-@pytest.mark.parametrize("bad_role", ["UNAPPROVED", "DEACTIVATED"])
-async def test_create_user_rejects_unassignable_roles(company_factory: Any, bad_role: str) -> None:
+@pytest.mark.parametrize("bad_role", [UserRole.UNAPPROVED, UserRole.DEACTIVATED])
+async def test_create_user_rejects_unassignable_roles(
+    company_factory: Any, bad_role: UserRole
+) -> None:
     """Verify the service rejects UNAPPROVED and DEACTIVATED as initial roles."""
     # Given a company and a create payload with a non-assignable role
     company = await company_factory()
@@ -57,20 +60,20 @@ async def test_create_user_rejects_unassignable_roles(company_factory: Any, bad_
         await GlobalAdminUserService().create_user(data)
 
 
-async def test_create_user_rejects_invalid_role(company_factory: Any) -> None:
-    """Verify the service rejects a role that is not a UserRole."""
-    # Given a company and a create payload with a nonsense role
-    company = await company_factory()
-    data = AdminUserCreate(
-        company_id=company.id,
-        username="svc-invalid-role",
-        email="svc-invalid-role@example.com",
-        role="WIZARD",
-    )
+def test_create_payload_rejects_invalid_role() -> None:
+    """Verify a role that is not a UserRole fails request validation."""
+    # Given a create payload with a nonsense role
+    payload = {
+        "company_id": str(uuid4()),
+        "username": "svc-invalid-role",
+        "email": "svc-invalid-role@example.com",
+        "role": "WIZARD",
+    }
 
-    # When/Then creating the user raises ValidationError
-    with pytest.raises(ValidationError):
-        await GlobalAdminUserService().create_user(data)
+    # When converting it to the request struct
+    # Then msgspec rejects the role
+    with pytest.raises(msgspec.ValidationError, match=r"Invalid enum value 'WIZARD'"):
+        msgspec.convert(payload, AdminUserCreate)
 
 
 async def test_create_user_unknown_company_raises(company_factory: Any) -> None:
@@ -80,7 +83,7 @@ async def test_create_user_unknown_company_raises(company_factory: Any) -> None:
         company_id=uuid4(),
         username="svc-no-company",
         email="svc-no-company@example.com",
-        role="PLAYER",
+        role=UserRole.PLAYER,
     )
 
     # When/Then creating the user raises NotFoundError
@@ -98,7 +101,7 @@ async def test_update_user_changes_role_and_returns_diff(
 
     # When updating the role via the service
     updated, changes = await GlobalAdminUserService().update_user(
-        user, AdminUserPatch(role="ADMIN")
+        user, AdminUserPatch(role=UserRole.ADMIN)
     )
 
     # Then the role is the new enum and the diff records the change

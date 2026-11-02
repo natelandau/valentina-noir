@@ -14,6 +14,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
+from vapi.domain.controllers.request_types import Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -281,16 +282,17 @@ class CampaignChapterDetailResponse(CampaignChapterResponse, omit_defaults=True)
 # ---------------------------------------------------------------------------
 # Request Structs
 # ---------------------------------------------------------------------------
+Rating0to5 = Annotated[int, msgspec.Meta(ge=0, le=5)]
 
 
 class CampaignCreate(msgspec.Struct):
     """Request body for creating a campaign."""
 
-    name: str
+    name: Name3to50
     description: str | None = None
     in_game_date: date | None = None
-    desperation: int = 0
-    danger: int = 0
+    desperation: Rating0to5 = 0
+    danger: Rating0to5 = 0
 
 
 class CampaignPatch(msgspec.Struct):
@@ -299,17 +301,17 @@ class CampaignPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    name: str | msgspec.UnsetType = msgspec.UNSET
+    name: Name3to50 | msgspec.UnsetType = msgspec.UNSET
     description: str | msgspec.UnsetType | None = msgspec.UNSET
     in_game_date: date | msgspec.UnsetType | None = msgspec.UNSET
-    desperation: int | msgspec.UnsetType = msgspec.UNSET
-    danger: int | msgspec.UnsetType = msgspec.UNSET
+    desperation: Rating0to5 | msgspec.UnsetType = msgspec.UNSET
+    danger: Rating0to5 | msgspec.UnsetType = msgspec.UNSET
 
 
 class CampaignBookCreate(msgspec.Struct):
     """Request body for creating a campaign book."""
 
-    name: str
+    name: NameMax50
     description: str | None = None
 
 
@@ -319,14 +321,14 @@ class CampaignBookPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    name: str | msgspec.UnsetType = msgspec.UNSET
+    name: NameMax50 | msgspec.UnsetType = msgspec.UNSET
     description: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class CampaignChapterCreate(msgspec.Struct):
     """Request body for creating a campaign chapter."""
 
-    name: str
+    name: NameMax50
     description: str | None = None
     character_ids: list[UUID] = []
 
@@ -337,7 +339,7 @@ class CampaignChapterPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    name: str | msgspec.UnsetType = msgspec.UNSET
+    name: NameMax50 | msgspec.UnsetType = msgspec.UNSET
     description: str | msgspec.UnsetType | None = msgspec.UNSET
     character_ids: list[UUID] | msgspec.UnsetType = msgspec.UNSET
 

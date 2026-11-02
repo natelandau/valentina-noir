@@ -73,3 +73,18 @@ def test_app_registers_refine_hook() -> None:
 
     # Then the refinement hook is registered as a startup handler
     assert refine_openapi_schema in app.on_startup
+
+
+async def test_optional_string_bounds_render(schema: dict) -> None:
+    """Verify bounds on optional patch fields reach the published schema."""
+    # Given the refined schema
+    properties = schema["components"]["schemas"]["CampaignPatch"]["properties"]
+
+    # When reading the optional name and danger fields
+    name = properties["name"]
+    danger = next(b for b in properties["danger"]["oneOf"] if b.get("type") == "integer")
+
+    # Then the string bounds sit on the property and the integer bounds only on its branch
+    assert (name["minLength"], name["maxLength"]) == (3, 50)
+    assert (danger["minimum"], danger["maximum"]) == (0.0, 5.0)
+    assert not {"minimum", "maximum"} & properties["danger"].keys()

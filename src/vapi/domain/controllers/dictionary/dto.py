@@ -9,12 +9,13 @@ import msgspec
 from vapi.db.sql_models.character_sheet import TraitPower
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain.controllers.character_blueprint.dto import TraitPowerResponse
+from vapi.domain.controllers.request_types import Name3to50
 
 
 class DictionaryTermCreate(msgspec.Struct):
     """Request body for creating a dictionary term."""
 
-    term: str
+    term: Name3to50
     definition: str | None = None
     link: str | None = None
     synonyms: list[str] = []
@@ -26,7 +27,7 @@ class DictionaryTermPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    term: str | msgspec.UnsetType = msgspec.UNSET
+    term: Name3to50 | msgspec.UnsetType = msgspec.UNSET
     definition: str | msgspec.UnsetType | None = msgspec.UNSET
     link: str | msgspec.UnsetType | None = msgspec.UNSET
     synonyms: list[str] | msgspec.UnsetType = msgspec.UNSET

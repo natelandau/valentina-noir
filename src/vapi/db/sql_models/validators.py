@@ -8,14 +8,14 @@ from tortoise.exceptions import ValidationError
 
 from vapi.constants import CharacterClass, GameVersion
 
-_NUM_CHOICES_MAX: int = 10
-_NUM_CHOICES_MIN: int = 1
-_STARTING_POINTS_MAX: int = 100
-_STARTING_POINTS_MIN: int = 0
+NUM_CHOICES_MAX: int = 10
+NUM_CHOICES_MIN: int = 1
+STARTING_POINTS_MAX: int = 100
+STARTING_POINTS_MIN: int = 0
 _VALID_CHARACTER_CLASSES: frozenset[str] = frozenset(e.value for e in CharacterClass)
 _VALID_GAME_VERSIONS: frozenset[str] = frozenset(e.value for e in GameVersion)
-_XP_COST_MAX: int = 100
-_XP_COST_MIN: int = 0
+XP_COST_MAX: int = 100
+XP_COST_MIN: int = 0
 
 
 def _validate_enum_list(value: list[str], valid: frozenset[str], label: str) -> None:
@@ -77,8 +77,8 @@ def validate_company_settings_starting_points(value: int) -> None:
     Raises:
         ValidationError: If value is outside the range 0-100.
     """
-    if not (_STARTING_POINTS_MIN <= value <= _STARTING_POINTS_MAX):
-        msg = f"character_autogen_starting_points must be between {_STARTING_POINTS_MIN} and {_STARTING_POINTS_MAX}, got {value}"
+    if not (STARTING_POINTS_MIN <= value <= STARTING_POINTS_MAX):
+        msg = f"character_autogen_starting_points must be between {STARTING_POINTS_MIN} and {STARTING_POINTS_MAX}, got {value}"
         raise ValidationError(msg)
 
 
@@ -94,8 +94,8 @@ def validate_company_settings_xp_cost(value: int) -> None:
     Raises:
         ValidationError: If value is outside the range 0-100.
     """
-    if not (_XP_COST_MIN <= value <= _XP_COST_MAX):
-        msg = f"character_autogen_xp_cost must be between {_XP_COST_MIN} and {_XP_COST_MAX}, got {value}"
+    if not (XP_COST_MIN <= value <= XP_COST_MAX):
+        msg = f"character_autogen_xp_cost must be between {XP_COST_MIN} and {XP_COST_MAX}, got {value}"
         raise ValidationError(msg)
 
 
@@ -111,12 +111,13 @@ def validate_company_settings_num_choices(value: int) -> None:
     Raises:
         ValidationError: If value is outside the range 1-10.
     """
-    if not (_NUM_CHOICES_MIN <= value <= _NUM_CHOICES_MAX):
-        msg = f"character_autogen_num_choices must be between {_NUM_CHOICES_MIN} and {_NUM_CHOICES_MAX}, got {value}"
+    if not (NUM_CHOICES_MIN <= value <= NUM_CHOICES_MAX):
+        msg = f"character_autogen_num_choices must be between {NUM_CHOICES_MIN} and {NUM_CHOICES_MAX}, got {value}"
         raise ValidationError(msg)
 
 
-_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_PATTERN: str = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+_EMAIL_RE = re.compile(EMAIL_PATTERN)
 
 
 def validate_email_format(value: str) -> None:
@@ -132,6 +133,6 @@ def validate_email_format(value: str) -> None:
     Raises:
         ValidationError: If the value does not match basic email format.
     """
-    if not _EMAIL_PATTERN.match(value):
+    if not _EMAIL_RE.match(value):
         msg = f"Invalid email format: {value}"
         raise ValidationError(msg)

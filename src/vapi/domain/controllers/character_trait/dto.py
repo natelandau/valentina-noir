@@ -1,4 +1,4 @@
-"""Character trait DTOs — msgspec Structs for request/response bodies."""
+"""Character trait DTOs: msgspec Structs for request and response bodies."""
 
 from typing import TYPE_CHECKING, Annotated, Literal
 from uuid import UUID
@@ -11,6 +11,7 @@ from vapi.constants import (
     TraitModifyCurrency,
 )
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
+from vapi.domain.controllers.request_types import Name3to50
 from vapi.lib.tracker_rules import HUMANITY_BOXES, resolve_tracker_type
 
 if TYPE_CHECKING:
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Request Structs
 # ---------------------------------------------------------------------------
+TraitScore = Annotated[int, msgspec.Meta(ge=0, le=100)]
 
 
 class CharacterTraitAddConstant(msgspec.Struct):
@@ -34,29 +36,29 @@ class CharacterTraitAddConstant(msgspec.Struct):
 class CharacterTraitCreateCustom(msgspec.Struct):
     """Request body for creating a custom trait on a character."""
 
-    name: str
+    name: Name3to50
     category_id: UUID
     currency: TraitModifyCurrency
     description: str | None = None
-    max_value: int = 5
-    min_value: int = 0
+    max_value: TraitScore = 5
+    min_value: TraitScore = 0
     show_when_zero: bool = True
     is_rollable: bool = True
-    initial_cost: int | None = None
-    upgrade_cost: int | None = None
+    initial_cost: TraitScore | None = None
+    upgrade_cost: TraitScore | None = None
 
 
 class CharacterTraitSpecialtyCreate(msgspec.Struct):
     """Request body for adding a specialty to an ability trait."""
 
-    name: str
+    name: Name3to50
     currency: TraitModifyCurrency = TraitModifyCurrency.NO_COST
 
 
 class CharacterTraitSpecialtyUpdate(msgspec.Struct):
     """Request body for renaming a specialty."""
 
-    name: str
+    name: Name3to50
 
 
 class TraitModifyRequest(msgspec.Struct):

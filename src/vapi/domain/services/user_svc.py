@@ -192,7 +192,7 @@ class UserService:
             The created user with campaign_experiences prefetched.
         """
         requesting_user = await self._assert_requester_active(acting_user_id)
-        new_role = UserRole(data.role)
+        new_role = data.role
 
         if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
             raise ValidationError(detail=f"Cannot create a user with initial role {new_role.value}")
@@ -312,7 +312,7 @@ class UserService:
             role_change: dict[str, dict[str, object]] = {}
             if not isinstance(data.role, msgspec.UnsetType):
                 old_role = user.role
-                new_role = UserRole(data.role)
+                new_role = data.role
                 await self._validate_role_assignment(
                     requesting_user=requesting_user,
                     target_user=user,
