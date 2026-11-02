@@ -8,6 +8,7 @@ import msgspec
 
 from vapi.constants import CompanyPermission
 from vapi.domain.controllers.company.dto import CompanyPermissionResponse
+from vapi.domain.controllers.request_types import Email, NameMax50
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.developer import Developer
@@ -54,6 +55,6 @@ class DeveloperPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    username: str | msgspec.UnsetType = msgspec.UNSET
-    email: str | msgspec.UnsetType = msgspec.UNSET
+    username: NameMax50 | msgspec.UnsetType = msgspec.UNSET
+    email: Email | msgspec.UnsetType = msgspec.UNSET
     provider_audiences: Any | msgspec.UnsetType = msgspec.UNSET

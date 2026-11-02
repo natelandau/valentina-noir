@@ -64,7 +64,7 @@ async def test_player_cannot_self_escalate_to_admin(user_factory, company_factor
 
     company = await company_factory()
     player = await user_factory(role=UserRole.PLAYER, company=company)
-    patch = UserPatch(role="ADMIN")
+    patch = UserPatch(role=UserRole.ADMIN)
     with pytest.raises(PermissionDeniedError):
         await UserService().update_user(user=player, data=patch, acting_user_id=player.id)
 

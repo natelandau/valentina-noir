@@ -207,7 +207,7 @@ class UserController(Controller):
         service = UserService()
         target_user = await service.approve_user(
             user=target_user,
-            role=UserRole(data.role),
+            role=data.role,
             acting_user_id=acting_user.id,
         )
         request.state.audit_description = f"Approve user '{target_user.username}'"

@@ -6,8 +6,9 @@ from uuid import UUID
 
 import msgspec
 
-from vapi.constants import CompanyPermission
+from vapi.constants import CompanyPermission, UserRole
 from vapi.domain.controllers.company.dto import CompanyPermissionResponse
+from vapi.domain.controllers.request_types import Email, Name3to50, NameMax50, PersonName
 from vapi.domain.controllers.user.dto import UserResponse
 
 if TYPE_CHECKING:
@@ -18,8 +19,8 @@ if TYPE_CHECKING:
 class DeveloperCreate(msgspec.Struct):
     """Request body for creating a developer."""
 
-    username: str
-    email: str
+    username: NameMax50
+    email: Email
     is_global_admin: bool = False
 
 
@@ -66,8 +67,8 @@ class DeveloperAdminResponse(msgspec.Struct):
 class AdminDeveloperPatch(msgspec.Struct):
     """Request body for partially updating a developer as global admin."""
 
-    username: str | msgspec.UnsetType = msgspec.UNSET
-    email: str | msgspec.UnsetType = msgspec.UNSET
+    username: NameMax50 | msgspec.UnsetType = msgspec.UNSET
+    email: Email | msgspec.UnsetType = msgspec.UNSET
     is_global_admin: bool | msgspec.UnsetType = msgspec.UNSET
     provider_audiences: Any | msgspec.UnsetType = msgspec.UNSET
 
@@ -80,11 +81,11 @@ class AdminUserCreate(msgspec.Struct):
     """
 
     company_id: UUID
-    username: str
-    email: str
-    role: str
-    name_first: str | None = None
-    name_last: str | None = None
+    username: Name3to50
+    email: Email
+    role: UserRole
+    name_first: PersonName | None = None
+    name_last: PersonName | None = None
 
 
 class AdminUserPatch(msgspec.Struct):
@@ -95,11 +96,11 @@ class AdminUserPatch(msgspec.Struct):
     refused while the user's company is archived.
     """
 
-    name_first: str | msgspec.UnsetType | None = msgspec.UNSET
-    name_last: str | msgspec.UnsetType | None = msgspec.UNSET
-    username: str | msgspec.UnsetType = msgspec.UNSET
-    email: str | msgspec.UnsetType = msgspec.UNSET
-    role: str | msgspec.UnsetType = msgspec.UNSET
+    name_first: PersonName | msgspec.UnsetType | None = msgspec.UNSET
+    name_last: PersonName | msgspec.UnsetType | None = msgspec.UNSET
+    username: Name3to50 | msgspec.UnsetType = msgspec.UNSET
+    email: Email | msgspec.UnsetType = msgspec.UNSET
+    role: UserRole | msgspec.UnsetType = msgspec.UNSET
     is_archived: bool | msgspec.UnsetType = msgspec.UNSET
 
 

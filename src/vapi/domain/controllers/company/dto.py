@@ -1,12 +1,28 @@
 """Company DTOs."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 import msgspec
 
-from vapi.constants import CompanyPermission
+from vapi.constants import (
+    CompanyPermission,
+    PermissionManageCampaign,
+    PermissionManageNPC,
+    PermissionsFreeTraitChanges,
+    PermissionsGrantXP,
+    PermissionsRecoupXP,
+)
+from vapi.db.sql_models.validators import (
+    NUM_CHOICES_MAX,
+    NUM_CHOICES_MIN,
+    STARTING_POINTS_MAX,
+    STARTING_POINTS_MIN,
+    XP_COST_MAX,
+    XP_COST_MIN,
+)
+from vapi.domain.controllers.request_types import Email, Name3to50
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.company import Company, CompanySettings
@@ -138,26 +154,34 @@ class NewCompanyCreateResponse(msgspec.Struct):
     admin_user: UserResponse
 
 
+Description3 = Annotated[str, msgspec.Meta(min_length=3)]
+XpCost = Annotated[int, msgspec.Meta(ge=XP_COST_MIN, le=XP_COST_MAX)]
+NumChoices = Annotated[int, msgspec.Meta(ge=NUM_CHOICES_MIN, le=NUM_CHOICES_MAX)]
+StartingPoints = Annotated[int, msgspec.Meta(ge=STARTING_POINTS_MIN, le=STARTING_POINTS_MAX)]
+
+
 class CompanySettingsCreate(msgspec.Struct):
     """Request body for creating company settings."""
 
-    character_autogen_xp_cost: int = 10
-    character_autogen_num_choices: int = 3
-    character_autogen_starting_points: int = 0
-    permission_manage_campaign: str = "UNRESTRICTED"
-    permission_manage_npc: str = "UNRESTRICTED"
-    permission_grant_xp: str = "UNRESTRICTED"
-    permission_free_trait_changes: str = "UNRESTRICTED"
-    permission_recoup_xp: str = "DENIED"
+    character_autogen_xp_cost: XpCost = 10
+    character_autogen_num_choices: NumChoices = 3
+    character_autogen_starting_points: StartingPoints = 0
+    permission_manage_campaign: PermissionManageCampaign = PermissionManageCampaign.UNRESTRICTED
+    permission_manage_npc: PermissionManageNPC = PermissionManageNPC.UNRESTRICTED
+    permission_grant_xp: PermissionsGrantXP = PermissionsGrantXP.UNRESTRICTED
+    permission_free_trait_changes: PermissionsFreeTraitChanges = (
+        PermissionsFreeTraitChanges.UNRESTRICTED
+    )
+    permission_recoup_xp: PermissionsRecoupXP = PermissionsRecoupXP.DENIED
     specialty_xp_cost_enabled: bool = False
 
 
 class CompanyCreate(msgspec.Struct):
     """Request body for creating a company."""
 
-    name: str
-    description: str | None = None
-    email: str = ""
+    name: Name3to50
+    email: Email
+    description: Description3 | None = None
     settings: CompanySettingsCreate | None = None
 
 
@@ -167,14 +191,14 @@ class CompanySettingsPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    character_autogen_xp_cost: int | msgspec.UnsetType = msgspec.UNSET
-    character_autogen_num_choices: int | msgspec.UnsetType = msgspec.UNSET
-    character_autogen_starting_points: int | msgspec.UnsetType = msgspec.UNSET
-    permission_manage_campaign: str | msgspec.UnsetType = msgspec.UNSET
-    permission_manage_npc: str | msgspec.UnsetType = msgspec.UNSET
-    permission_grant_xp: str | msgspec.UnsetType = msgspec.UNSET
-    permission_free_trait_changes: str | msgspec.UnsetType = msgspec.UNSET
-    permission_recoup_xp: str | msgspec.UnsetType = msgspec.UNSET
+    character_autogen_xp_cost: XpCost | msgspec.UnsetType = msgspec.UNSET
+    character_autogen_num_choices: NumChoices | msgspec.UnsetType = msgspec.UNSET
+    character_autogen_starting_points: StartingPoints | msgspec.UnsetType = msgspec.UNSET
+    permission_manage_campaign: PermissionManageCampaign | msgspec.UnsetType = msgspec.UNSET
+    permission_manage_npc: PermissionManageNPC | msgspec.UnsetType = msgspec.UNSET
+    permission_grant_xp: PermissionsGrantXP | msgspec.UnsetType = msgspec.UNSET
+    permission_free_trait_changes: PermissionsFreeTraitChanges | msgspec.UnsetType = msgspec.UNSET
+    permission_recoup_xp: PermissionsRecoupXP | msgspec.UnsetType = msgspec.UNSET
     specialty_xp_cost_enabled: bool | msgspec.UnsetType = msgspec.UNSET
 
 
@@ -184,9 +208,9 @@ class CompanyPatch(msgspec.Struct):
     All fields use UNSET as default to distinguish 'not sent' from 'sent as null'.
     """
 
-    name: str | msgspec.UnsetType = msgspec.UNSET
-    description: str | msgspec.UnsetType | None = msgspec.UNSET
-    email: str | msgspec.UnsetType = msgspec.UNSET
+    name: Name3to50 | msgspec.UnsetType = msgspec.UNSET
+    description: Description3 | msgspec.UnsetType | None = msgspec.UNSET
+    email: Email | msgspec.UnsetType = msgspec.UNSET
     settings: CompanySettingsPatch | msgspec.UnsetType = msgspec.UNSET
 
 
