@@ -286,7 +286,7 @@ async def provide_acting_user(
         raise ValidationError(
             detail=f"{ON_BEHALF_OF_HEADER_KEY} header must be a valid UUID",
             invalid_parameters=[
-                {"field": ON_BEHALF_OF_HEADER_KEY, "message": "Must be a valid UUID"},
+                {"field": ON_BEHALF_OF_HEADER_KEY, "message": "Must be a valid ID."},
             ],
         ) from e
 

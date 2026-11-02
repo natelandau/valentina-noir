@@ -12,14 +12,14 @@ All errors follow the [RFC 9457 Problem Details](https://datatracker.ietf.org/do
 
 All error responses use the `application/problem+json` media type with these fields:
 
-| Field      | Type    | Description                                                                    |
-| ---------- | ------- | ------------------------------------------------------------------------------ |
-| `status`   | integer | HTTP status code                                                               |
-| `title`    | string  | Short, human-readable summary of the problem type                              |
-| `detail`   | string  | Human-readable explanation specific to this occurrence                         |
-| `instance` | string  | The request path, without host or query string                                 |
-| `request_id` | string  | Unique request identifier (matches the `X-Request-Id` response header) |
-| `code`     | string  | Optional. A stable, machine-readable identifier for errors that clients handle in code. Match on this, not on `detail`. |
+| Field        | Type    | Description                                                                                                             |
+| ------------ | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `status`     | integer | HTTP status code                                                                                                        |
+| `title`      | string  | Short, human-readable summary of the problem type                                                                       |
+| `detail`     | string  | Human-readable explanation specific to this occurrence                                                                  |
+| `instance`   | string  | The request path, without host or query string                                                                          |
+| `request_id` | string  | Unique request identifier (matches the `X-Request-Id` response header)                                                  |
+| `code`       | string  | Optional. A stable, machine-readable identifier for errors that clients handle in code. Match on this, not on `detail`. |
 
 ## Standard Error Response
 
@@ -28,7 +28,7 @@ All error responses use the `application/problem+json` media type with these fie
     "status": 404,
     "title": "Not Found",
     "detail": "Character '68c1f7152cae3787a09a74fa' not found",
-    "instance": "/api/v1/companies/abc123/users/def456/campaigns/ghi789/characters/68c1f7152cae3787a09a74fa",
+    "instance": "/api/v1/companies/abc123/campaigns/ghi789/characters/68c1f7152cae3787a09a74fa",
     "request_id": "req_7H2kB9xQ4mN1pL5w3nR2Yg"
 }
 ```
@@ -48,27 +48,68 @@ All error responses use the `application/problem+json` media type with these fie
 
 ## Validation Errors
 
-Validation errors (400 Bad Request) include an `invalid_parameters` array identifying which fields failed validation:
+Validation errors (400 Bad Request) include an `invalid_parameters` array. Each entry has a `field` and a `message`.
 
 ```json
 {
     "status": 400,
     "title": "Bad Request",
     "detail": "Validation failed for one or more fields.",
-    "instance": "/api/v1/companies/abc123/users",
+    "instance": "/api/v1/companies/abc123/campaigns",
     "request_id": "req_m4N5o6P7q8R9s0T1",
     "invalid_parameters": [
         {
-            "field": "name",
-            "message": "Field required"
-        },
-        {
-            "field": "role",
-            "message": "Input should be 'ADMIN', 'STORYTELLER' or 'PLAYER'"
+            "field": "danger",
+            "message": "Must be at most 5."
         }
     ]
 }
 ```
+
+Each message in the [Messages](#messages) table is a complete sentence. You can show it to your users as it is. It never repeats the value that you sent. Other entries can come from the rules of an endpoint, and their messages can differ.
+
+The `field` is the path of the field in the request that you sent. For a nested field, the path joins the names with dots, for example `metadata.source`. For a list item, the path includes the position of the item, for example `traits[2].value`. If the request body is a list, the path starts with the position, for example `[0].trait_id`. For a query parameter, a path parameter, or a header, `field` is the name of the parameter. If no single field caused the error, `field` is `body`.
+
+The API reports at most one error for each parameter. Each query parameter, path parameter, and header is one parameter, and the request body is one parameter. If two fields in the body fail, the response names only one of them. If you fix that field and send the request again, the response can name a different field.
+
+### Messages
+
+| Message                                                                  | Meaning                                                                                |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `This field is required.`                                                | The request does not contain the field, the parameter, or the body.                    |
+| `Is not a recognized field.`                                             | The field does not exist. Only endpoints that reject unknown fields send this message. |
+| `Must have a value.`                                                     | The field is `null`, and `null` is not allowed.                                        |
+| `Must be at most 5.`                                                     | The number is more than the maximum.                                                   |
+| `Must be at least 1.`                                                    | The number is less than the minimum.                                                   |
+| `Must be less than 10.`                                                  | The number is not below an exclusive limit.                                            |
+| `Must be greater than 0.`                                                | The number is not above an exclusive limit.                                            |
+| `Must be at most 50 characters.`                                         | The text is too long.                                                                  |
+| `Must be at least 3 characters.`                                         | The text is too short.                                                                 |
+| `Must have at most 10 items.`                                            | The list is too long.                                                                  |
+| `Must have at least 2 items.`                                            | The list is too short.                                                                 |
+| `Must be one of: BOOK, CONSUMABLE, ENCHANTED, EQUIPMENT, OTHER, WEAPON.` | The value is not in the list of allowed values. The list depends on the field.         |
+| `Is not an allowed value.`                                               | The value is not allowed, and the API has no list to show.                             |
+| `Must be a whole number.`                                                | The value is not an integer.                                                           |
+| `Must be a number.`                                                      | The value is not a number.                                                             |
+| `Must be text.`                                                          | The value is not a string.                                                             |
+| `Must be true or false.`                                                 | The value is not a boolean.                                                            |
+| `Must be a list.`                                                        | The value is not an array.                                                             |
+| `Must be an object.`                                                     | The value is not an object.                                                            |
+| `Must be a valid ID.`                                                    | The value is not a UUID.                                                               |
+| `Must be a valid date.`                                                  | The value is not a date.                                                               |
+| `Must be a valid time.`                                                  | The value is not a time.                                                               |
+| `Must be a valid date and time.`                                         | The value is not a date and time.                                                      |
+| `Is not in the expected format.`                                         | The text does not match the required pattern.                                          |
+| `Is not valid.`                                                          | The value fails a rule that no other message describes.                                |
+| `One or more fields did not pass validation.`                            | The request fails a rule, and the API cannot name one field. `field` is `body`.        |
+
+A bound of 1 uses the singular, for example `Must be at least 1 character.` and `Must have at most 1 item.`
+
+Some rules depend on more than one property of a field, for example text that is empty after the API removes the spaces at its start and end. When such a rule rejects a field, the response names the field with `Is not valid.` If the rule applies to the request as a whole, `field` is `body`.
+
+### Limits in the OpenAPI schema
+
+The OpenAPI schema of each request body lists the limits of each field, such as `maxLength`, `minimum`, `maximum`, and `maxItems`.
 
 ## Error Examples by Type
 

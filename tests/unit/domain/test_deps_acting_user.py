@@ -47,9 +47,12 @@ class TestProvideActingUser:
         request = _make_request()
 
         # When calling provide_acting_user with an invalid UUID
-        # Then a ValidationError is raised
-        with pytest.raises(ValidationError, match="must be a valid UUID"):
+        # Then a ValidationError names the header with the readable ID message
+        with pytest.raises(ValidationError, match="must be a valid UUID") as exc_info:
             await provide_acting_user(request=request, company=company, on_behalf_of="not-a-uuid")
+        assert exc_info.value.extension["invalid_parameters"] == [
+            {"field": "On-Behalf-Of", "message": "Must be a valid ID."}
+        ]
 
     async def test_nonexistent_user_raises_not_found(
         self, company_factory: Callable[..., Company]

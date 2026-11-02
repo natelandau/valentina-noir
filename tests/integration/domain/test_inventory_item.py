@@ -222,11 +222,14 @@ class TestInventoryItem:
             },
         )
 
-        # Then we should get a 400 with an invalid_parameters error mentioning the bad value
+        # Then we should get a 400 listing the allowed values without echoing the bad one
         assert response.status_code == HTTP_400_BAD_REQUEST
-        data = response.json()
-        invalid = data.get("invalid_parameters", [])
-        assert any("SOMETHING_INVALID" in p.get("message", "") for p in invalid)
+        invalid = response.json().get("invalid_parameters", [])
+        assert any(
+            p.get("field") == "type" and p.get("message", "").startswith("Must be one of")
+            for p in invalid
+        )
+        assert all("SOMETHING_INVALID" not in p.get("message", "") for p in invalid)
 
     async def test_create_inventory_item_missing_data(
         self,
@@ -257,7 +260,7 @@ class TestInventoryItem:
         assert response.status_code == HTTP_400_BAD_REQUEST
         data = response.json()
         invalid = data.get("invalid_parameters", [])
-        assert any("name" in p.get("message", "") for p in invalid)
+        assert {"field": "name", "message": "This field is required."} in invalid
 
     async def test_update_inventory_item(
         self,

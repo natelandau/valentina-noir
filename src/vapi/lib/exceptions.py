@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import math
+import re
 from http import HTTPStatus
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
 
+import msgspec
 from litestar import Response, status_codes
 from litestar.exceptions import InternalServerException, ValidationException
 
@@ -17,6 +20,14 @@ from vapi.constants import (
     INVALID_PARAMETERS_STATE_KEY,
     REQUEST_ID_STATE_KEY,
 )
+from vapi.lib.validation_messages import (
+    body_path_from_cause,
+    cached_type_info,
+    enum_values_for,
+    is_enum_message,
+    resolve_field,
+    translate_message,
+)
 
 if TYPE_CHECKING:
     from typing import Any, ClassVar
@@ -25,6 +36,16 @@ if TYPE_CHECKING:
     from litestar.exceptions import HTTPException
 
 logger = logging.getLogger("vapi")
+
+_REQUIRED_MESSAGE = "This field is required."
+_FIELDS_FAILED_DETAIL = "Validation failed for one or more fields."
+_MISSING_PARAMETER_RE = re.compile(r"^Missing required (\w+) parameter '([^']+)'")
+# An absent or empty body reaches the handler as the KeyError text of the `data` parameter.
+_MISSING_BODY_RAW = "'data'"
+_BODY = "body"
+# Marks an entry whose parameter is absent; its message is always the required sentence.
+_MISSING = "missing"
+_NOT_RESOLVED = object()
 
 
 __all__ = (
@@ -338,6 +359,93 @@ def http_error_to_http_response(
     return error.to_response(request)
 
 
+def _route_body_type(request: Request[Any, Any, Any]) -> Any | None:
+    """Return the annotation of the handler's `data` parameter when it is a Struct or a list of one."""
+    try:
+        annotation = request.route_handler.parsed_fn_signature.parameters["data"].annotation
+        info = cached_type_info(annotation)
+    except (AttributeError, KeyError, TypeError):
+        return None
+    if isinstance(info, msgspec.inspect.ListType):
+        info = info.item_type
+    if isinstance(info, msgspec.inspect.StructType):
+        return annotation
+    return None
+
+
+class _Entry(NamedTuple):
+    """One invalid parameter before translation; `raw` is empty when only the field is known."""
+
+    field: str
+    raw: str
+    source: str
+
+
+def _body_field(key: str, *, cause: BaseException | None, raw: str) -> str:
+    """Pick the client-facing field name for a body validation entry.
+
+    The chained msgspec error keeps the exact path, so it wins; Litestar's rewritten key
+    is the last resort.
+    """
+    parsed = body_path_from_cause(cause)
+    if parsed is not None and parsed[0] == raw:
+        path = parsed[1]
+    else:
+        path = "" if key == "data" else key.removeprefix("data.")
+    return resolve_field(path=path, raw=raw) or "body"
+
+
+def _normalized_entries(exception: ValidationException) -> list[_Entry]:
+    """Reduce Litestar's validation extras and detail to one entry per invalid parameter."""
+    entries: list[_Entry] = []
+    extras = exception.extra if isinstance(exception.extra, list) else []
+    for extra in extras:
+        if not isinstance(extra, dict):
+            continue
+        extra = cast("dict[str, Any]", extra)
+        raw = extra.get("message") or ""
+        key = str(extra.get("key") or "")
+        if not raw and not key:
+            continue
+        source = extra.get("source") or ""
+        if source != _BODY:
+            entries.append(_Entry(field=key, raw=raw, source=source))
+        elif raw == _MISSING_BODY_RAW:
+            entries.append(_Entry(field=_BODY, raw="", source=_MISSING))
+        else:
+            field = _body_field(key, cause=exception.__cause__, raw=raw)
+            entries.append(_Entry(field=field, raw=raw, source=_BODY))
+
+    # Litestar reports a missing header, query, or path parameter without extras.
+    if not entries and (match := _MISSING_PARAMETER_RE.match(exception.detail or "")):
+        entries.append(_Entry(field=match.group(2), raw="", source=_MISSING))
+    return entries
+
+
+def _invalid_parameters(
+    request: Request[Any, Any, Any], exception: ValidationException
+) -> list[dict[str, str]]:
+    """Translate a Litestar validation exception into readable `invalid_parameters` entries."""
+    body_type: Any = _NOT_RESOLVED
+    invalid_parameters: list[dict[str, str]] = []
+    for entry in _normalized_entries(exception):
+        params: dict[str, str] = {}
+        if entry.source == _MISSING:
+            params["message"] = _REQUIRED_MESSAGE
+        elif entry.raw:
+            enum_values = None
+            if entry.source == _BODY and is_enum_message(entry.raw):
+                if body_type is _NOT_RESOLVED:
+                    body_type = _route_body_type(request)
+                if body_type is not None:
+                    enum_values = enum_values_for(entry.field, body_type)
+            params["message"] = translate_message(entry.raw, enum_values=enum_values)
+        if entry.field:
+            params["field"] = entry.field
+        invalid_parameters.append(params)
+    return invalid_parameters
+
+
 def litestar_http_exc_to_http_response(
     request: Request[Any, Any, Any], exception: HTTPException
 ) -> Response[Any]:
@@ -355,29 +463,11 @@ def litestar_http_exc_to_http_response(
             "headers": exception.headers,
             "status_code": exception.status_code,
         }
-        extra = exception.extra
-        invalid_parameters: list[dict[str, Any]] = []
-
-        if isinstance(extra, list):
-            for data in extra:
-                if not isinstance(data, dict):
-                    continue
-
-                data = cast("dict[str, Any]", data)
-                params: dict[str, Any] = {}
-
-                if message := data.get("message"):
-                    params["message"] = message
-
-                if field := data.get("key"):
-                    params["field"] = field
-
-                if params:
-                    invalid_parameters.append(params)
+        invalid_parameters = _invalid_parameters(request, exception)
 
         if invalid_parameters:
             kwargs["invalid_parameters"] = invalid_parameters
-            kwargs["detail"] = "Validation failed for one or more fields."
+            kwargs["detail"] = _FIELDS_FAILED_DETAIL
         else:
             kwargs["detail"] = exception.detail
 
@@ -443,6 +533,27 @@ def integrity_error_to_http_response(
     return app_exc.to_response(request)
 
 
+@functools.lru_cache(maxsize=256)
+def _public_field_names(struct_type: type[msgspec.Struct]) -> frozenset[str]:
+    """Return the names a Struct's fields carry on the wire."""
+    return frozenset(field.encode_name for field in msgspec.structs.fields(struct_type))
+
+
+def _tortoise_public_field(request: Request[Any, Any, Any], exc: Exception) -> str | None:
+    """Return the public body field a Tortoise validator error refers to, if any.
+
+    Tortoise prefixes validator errors with the model field name. Only that prefix is
+    read, since the rest of the text may echo the rejected value.
+    """
+    body_type = _route_body_type(request)
+    if not (isinstance(body_type, type) and issubclass(body_type, msgspec.Struct)):
+        return None
+    prefix, separator, _ = str(exc).partition(": ")
+    if not separator:
+        return None
+    return prefix if prefix in _public_field_names(body_type) else None
+
+
 def tortoise_validation_to_http_response(
     request: Request[Any, Any, Any],
     exc: Exception,  # Litestar handler signature requires Exception; actual type is TortoiseValidationError
@@ -463,7 +574,11 @@ def tortoise_validation_to_http_response(
     """
     # The raw message names ORM fields; keep it in the logs only
     logger.info("Model validation failed", extra={"error": str(exc), "component": "database"})
-    app_exc = ValidationError(detail="One or more values are not valid.")
+    kwargs: dict[str, Any] = {}
+    field = _tortoise_public_field(request, exc)
+    if field is not None:
+        kwargs["invalid_parameters"] = [{"field": field, "message": "Is not valid."}]
+    app_exc = ValidationError(detail="One or more values are not valid.", **kwargs)
     return app_exc.to_response(request)
 
 
