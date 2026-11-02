@@ -94,7 +94,11 @@ def _vapi_structs() -> Iterator[type[msgspec.Struct]]:
 
 
 def _copy_numeric_constraints(*, prop: Schema, numeric: Any) -> None:
-    """Set the msgspec bounds of `numeric` on the integer or number branch of `prop`."""
+    """Move the msgspec bounds of `numeric` onto the integer or number branch of `prop`.
+
+    Litestar can leave some bounds on the property beside the `oneOf`; those are cleared so
+    the property and its branch never disagree.
+    """
     for branch in prop.one_of or []:
         if not isinstance(branch, Schema) or branch.type not in (
             OpenAPIType.INTEGER,
@@ -105,13 +109,14 @@ def _copy_numeric_constraints(*, prop: Schema, numeric: Any) -> None:
             value = getattr(numeric, constraint)
             if value is not None:
                 setattr(branch, keyword, float(value))
+                setattr(prop, keyword, None)
 
 
 def restore_optional_constraints(openapi: "OpenAPI") -> None:
     """Copy numeric constraints onto the non-null branch of optional Struct fields.
 
-    Litestar renders `Annotated[int, Meta(ge=0)] | None` as `oneOf: [integer, null]` and drops
-    the constraint; this puts `minimum` and the other bounds back.
+    Litestar renders `Annotated[int, Meta(ge=0)] | None` (or `| UnsetType`) as a `oneOf` and
+    drops the constraint; this puts `minimum` and the other bounds back.
     """
     components = openapi.components.schemas or {}
     for cls in _vapi_structs():
@@ -122,11 +127,16 @@ def restore_optional_constraints(openapi: "OpenAPI") -> None:
         if not isinstance(info, msgspec.inspect.StructType):
             continue
         for field in info.fields:
-            if not isinstance(field.type, msgspec.inspect.UnionType):
-                continue
+            # msgspec drops UNSET on inspection, so `int | UnsetType` arrives as a bare IntType even
+            # though Litestar still renders it as a oneOf.
+            members = (
+                field.type.types
+                if isinstance(field.type, msgspec.inspect.UnionType)
+                else (field.type,)
+            )
             numeric = [
                 t
-                for t in field.type.types
+                for t in members
                 if isinstance(t, msgspec.inspect.IntType | msgspec.inspect.FloatType)
             ]
             prop = component.properties.get(field.encode_name)
