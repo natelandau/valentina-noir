@@ -1564,7 +1564,7 @@ wheels = [
 
 [[package]]
 name = "vapi"
-version = "0.32.0"
+version = "0.32.1"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio" },
