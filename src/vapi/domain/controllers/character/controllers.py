@@ -210,6 +210,7 @@ class CharacterController(Controller):
                 campaign_id=data.campaign_id,
                 user_creator=acting_user,
                 user_player_id=user_player_id,
+                is_temporary=data.is_temporary,
             )
 
             # Create OneToOne attribute rows for class-specific data
