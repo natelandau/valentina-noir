@@ -153,6 +153,71 @@ class TestRollDice:
         assert result.desperation_roll == [1]
         assert result.total_dice_roll == [1, 5, 7]
 
+    def test_roll_dice_applies_modifier(self) -> None:
+        """Verify a positive modifier adds player dice but not desperation dice."""
+        # Given a pool of 3 with a +2 modifier and 1 desperation die
+        # When rolling dice
+        result = roll_dice(
+            num_dice=3,
+            dice_modifier=2,
+            num_desperation_dice=1,
+            difficulty=6,
+            dice_size=DiceSize.D10,
+        )
+
+        # Then the player pool grows and the desperation pool is unchanged
+        assert len(result.player_roll) == 5
+        assert len(result.desperation_roll) == 1
+
+    def test_roll_dice_negative_modifier(self) -> None:
+        """Verify a negative modifier removes player dice."""
+        # Given a pool of 3 with a -1 modifier
+        # When rolling dice
+        result = roll_dice(
+            num_dice=3,
+            dice_modifier=-1,
+            num_desperation_dice=0,
+            difficulty=6,
+            dice_size=DiceSize.D10,
+        )
+
+        # Then two player dice are rolled
+        assert len(result.player_roll) == 2
+
+    def test_roll_dice_rejects_negative_pool(self) -> None:
+        """Verify a modifier that makes the player pool negative raises."""
+        # Given a pool of 1 with a -2 modifier
+        # When rolling dice
+        # Then a ValueError is raised
+        with pytest.raises(ValueError, match="cannot be negative"):
+            roll_dice(
+                num_dice=1,
+                dice_modifier=-2,
+                num_desperation_dice=0,
+                difficulty=6,
+                dice_size=DiceSize.D10,
+            )
+
+    def test_roll_dice_critical_threshold_uses_modified_pool(self, mocker) -> None:
+        """Verify the critical threshold counts the modifier and desperation dice."""
+        # Given a spy on the result type calculation
+        spy = mocker.patch(
+            "vapi.domain.handlers.diceroll_handlers._calculate_result_type",
+            return_value=(RollResultType.SUCCESS, "1 Success"),
+        )
+
+        # When rolling a pool of 2 with +3 and 1 desperation die
+        roll_dice(
+            num_dice=2,
+            dice_modifier=3,
+            num_desperation_dice=1,
+            difficulty=6,
+            dice_size=DiceSize.D10,
+        )
+
+        # Then the pool size passed is 6
+        assert spy.call_args.kwargs["num_dice"] == 6
+
     @pytest.mark.parametrize(
         (
             "player_rolls",

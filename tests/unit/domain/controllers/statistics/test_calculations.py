@@ -116,3 +116,37 @@ async def test_outcome_counts_are_zero_without_rolls(
 
     # Then every outcome count is zero
     assert (stats.botches, stats.successes, stats.failures, stats.criticals) == (0, 0, 0, 0)
+
+
+async def test_avg_pool_includes_modifier(
+    company_factory: Any, user_factory: Any, diceroll_factory: Any
+) -> None:
+    """Verify the average pool counts each roll's dice modifier."""
+    # Given rolls of 5 dice with +1 and 3 dice with -1
+    company = await company_factory()
+    roller = await user_factory(company=company)
+    await diceroll_factory(company=company, user=roller, num_dice=5, dice_modifier=1)
+    await diceroll_factory(company=company, user=roller, num_dice=3, dice_modifier=-1)
+
+    # When calculating statistics
+    stats = await calculate_roll_statistics({"user_id": roller.id, "is_archived": False})
+
+    # Then the average pool is the mean of 6 and 2
+    assert stats.average_pool == 4
+
+
+async def test_avg_pool_differs_from_base_when_modifiers_do_not_cancel(
+    company_factory: Any, user_factory: Any, diceroll_factory: Any
+) -> None:
+    """Verify the average pool shifts when the modifiers do not cancel out."""
+    # Given rolls of 5 dice with +2 and 3 dice with 0
+    company = await company_factory()
+    roller = await user_factory(company=company)
+    await diceroll_factory(company=company, user=roller, num_dice=5, dice_modifier=2)
+    await diceroll_factory(company=company, user=roller, num_dice=3, dice_modifier=0)
+
+    # When calculating statistics
+    stats = await calculate_roll_statistics({"user_id": roller.id, "is_archived": False})
+
+    # Then the average pool is the mean of 7 and 3
+    assert stats.average_pool == 5

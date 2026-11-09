@@ -57,6 +57,7 @@ The response includes the roll and its `result`:
     "id": "a1b2c3d4-...",
     "difficulty": 6,
     "num_dice": 5,
+    "dice_modifier": 0,
     "comment": "Marcus throws a punch",
     "character_id": "...",
     "result": {
@@ -71,6 +72,25 @@ The response includes the roll and its `result`:
 ```
 
 Read `total_result_type` (`CRITICAL`, `SUCCESS`, `FAILURE`, or `BOTCH`) and `total_result_humanized` to show the outcome. The `result` also carries emoji and shortcode renderings of the dice if you want to display them. For how successes are tallied, see [Rolling Dice](../concepts/dice.md).
+
+## Adjust the pool with a modifier
+
+Some game effects add or remove dice from a pool. Send the adjustment as `dice_modifier`, a whole number from -100 to 100 that defaults to 0. A positive value adds player dice. A negative value removes them. Desperation dice do not change.
+
+```python
+response = requests.post(
+    f"{BASE_URL}/companies/{company_id}/dicerolls",
+    headers=player_headers,
+    json={
+        "num_dice": 5,
+        "dice_modifier": -2,  # rolls 3 dice
+        "difficulty": 6,
+        "character_id": character_id,
+    },
+)
+```
+
+The pool after the modifier must be between 0 and 100 dice. If the result is outside this range, the API returns `400 Bad Request`. The roll keeps `num_dice` as you sent it and returns `dice_modifier` as a separate field. The `player_roll` list in the result shows the dice that were rolled. `POST /dicerolls/quickroll` accepts the same `dice_modifier` field.
 
 !!! tip "Let the API sum the pool for you"
 

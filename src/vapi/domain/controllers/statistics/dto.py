@@ -14,7 +14,10 @@ class RollStatistics(BaseModel):
     criticals: int
     total_rolls: int
     average_difficulty: float | None = None
-    average_pool: float | None = None
+    average_pool: float | None = Field(
+        default=None,
+        description="Average number of player dice per roll, after each dice modifier. Excludes desperation dice.",
+    )
     top_traits: list[dict[str, int | str | UUID]] = Field(default_factory=list)
 
     @computed_field

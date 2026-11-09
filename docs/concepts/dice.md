@@ -10,6 +10,10 @@ Valentina Noir uses a customized dice rolling system that differs from canonical
 
 Roll a pool of D10s against a set difficulty. The number of successes determines the outcome.
 
+### Dice Modifiers
+
+A dice roll can carry a `dice_modifier`, a whole number from -100 to 100. A positive modifier adds dice to the pool, and a negative modifier removes dice from it. The pool after the modifier must contain 0 to 100 dice, or the API rejects the roll. The modifier does not change desperation dice. The roll stores `num_dice` and `dice_modifier` as two separate fields.
+
 ### Success Calculation
 
 Tally all dice using these rules:
@@ -23,7 +27,7 @@ Tally all dice using these rules:
 
 | Outcome | Condition |
 | --- | --- |
-| **Critical Success** | Successes exceed the number of dice in the pool |
+| **Critical Success** | Successes exceed the number of dice rolled, including dice from the modifier and desperation dice |
 | **Success** | Positive number of successes after tallying |
 | **Failure** | Zero successes after tallying |
 | **Botch** | Negative tally |
@@ -42,6 +46,6 @@ Tally all dice using these rules:
 
 ## Quick Rolls
 
-Users can save trait combinations for one-click rolling. For example, a "Shoot" quick roll combines `Firearms` and `Dexterity`. Select a character and the API sums the character's trait values to determine the dice pool.
+Users can save trait combinations for one-click rolling. For example, a "Shoot" quick roll combines `Firearms` and `Dexterity`. Select a character and the API sums the character's trait values to determine the dice pool. A dice modifier on the quick roll adjusts that pool.
 
 See the [Quick Rolls](./quick_rolls.md) documentation for details on creating, managing, and executing quick rolls.

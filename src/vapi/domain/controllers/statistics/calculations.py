@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from tortoise.expressions import Subquery
+from tortoise.expressions import F, Subquery
 from tortoise.functions import Avg, Count
 
 from vapi.constants import RollResultType
@@ -39,7 +39,7 @@ async def calculate_roll_statistics(
     total_rolls = await base_qs.count()
 
     avg_result = await base_qs.annotate(
-        avg_difficulty=Avg("difficulty"), avg_pool=Avg("num_dice")
+        avg_difficulty=Avg("difficulty"), avg_pool=Avg(F("num_dice") + F("dice_modifier"))
     ).values("avg_difficulty", "avg_pool")
     avg_difficulty = avg_result[0]["avg_difficulty"] if avg_result else None
     avg_pool = avg_result[0]["avg_pool"] if avg_result else None

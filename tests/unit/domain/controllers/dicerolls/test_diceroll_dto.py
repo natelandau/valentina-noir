@@ -146,3 +146,53 @@ def test_difficulty_at_bounds_is_accepted(difficulty: int, model: type) -> None:
 
     # Then the difficulty is kept
     assert result.difficulty == difficulty
+
+
+QUICKROLL_IDS = {
+    "quickroll_id": "01a18f5f-2849-738b-9e25-191c14ec3bb2",
+    "character_id": "01a18f5f-2849-738b-9e25-191c14ec3bb3",
+}
+
+
+@pytest.mark.parametrize(
+    ("model", "base"), [(DiceRollCreate, {}), (QuickRollRequest, QUICKROLL_IDS)]
+)
+def test_dice_modifier_defaults_to_zero(model: type, base: dict) -> None:
+    """Verify a request without a dice modifier gets a modifier of 0."""
+    # Given a request body with no dice modifier
+    # When decoding it
+    data = msgspec.convert(base, model)
+
+    # Then the modifier is 0
+    assert data.dice_modifier == 0
+
+
+@pytest.mark.parametrize("modifier", [-MAX_NUM_DICE, MAX_NUM_DICE])
+@pytest.mark.parametrize(
+    ("model", "base"), [(DiceRollCreate, {}), (QuickRollRequest, QUICKROLL_IDS)]
+)
+def test_dice_modifier_accepts_bounds(model: type, base: dict, modifier: int) -> None:
+    """Verify the dice modifier accepts values at both ends of its range."""
+    # Given a request body with a modifier at a bound
+    payload = {**base, "dice_modifier": modifier}
+
+    # When decoding it
+    data = msgspec.convert(payload, model)
+
+    # Then the modifier is kept
+    assert data.dice_modifier == modifier
+
+
+@pytest.mark.parametrize("modifier", [-MAX_NUM_DICE - 1, MAX_NUM_DICE + 1])
+@pytest.mark.parametrize(
+    ("model", "base"), [(DiceRollCreate, {}), (QuickRollRequest, QUICKROLL_IDS)]
+)
+def test_dice_modifier_rejects_out_of_range(model: type, base: dict, modifier: int) -> None:
+    """Verify the dice modifier rejects values outside its range."""
+    # Given a request body with an out-of-range modifier
+    payload = {**base, "dice_modifier": modifier}
+
+    # When decoding it
+    # Then msgspec rejects it
+    with pytest.raises(msgspec.ValidationError):
+        msgspec.convert(payload, model)

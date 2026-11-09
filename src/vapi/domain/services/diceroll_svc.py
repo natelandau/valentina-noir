@@ -46,6 +46,20 @@ def _assert_campaign_matches_character(*, character: Character, campaign_id: UUI
         )
 
 
+def _validate_modified_pool(*, base: int, dice_modifier: int) -> None:
+    """Raise if the player pool after the modifier is outside 0 to MAX_NUM_DICE."""
+    effective = base + dice_modifier
+    if effective < 0:
+        msg = "The dice modifier cannot reduce the pool below 0"
+        raise ValidationError(
+            detail=msg, invalid_parameters=[{"field": "dice_modifier", "message": msg}]
+        )
+    if effective > MAX_NUM_DICE:
+        raise ValidationError(
+            detail=f"This roll builds a pool of {effective} dice; the maximum is {MAX_NUM_DICE}"
+        )
+
+
 class DiceRollService:
     """Diceroll service."""
 
@@ -57,6 +71,7 @@ class DiceRollService:
         user: User,
     ) -> DiceRoll:
         """Create a dice roll with validation and result generation."""
+        _validate_modified_pool(base=data.num_dice, dice_modifier=data.dice_modifier)
         validation_svc = GetModelByIdValidationService()
 
         coros: list = []
@@ -87,12 +102,14 @@ class DiceRollService:
             num_desperation_dice=data.num_desperation_dice,
             difficulty=data.difficulty,
             dice_size=data.dice_size,
+            dice_modifier=data.dice_modifier,
         )
 
         dice_roll = await DiceRoll.create(
             difficulty=data.difficulty,
             dice_size=data.dice_size,
             num_dice=data.num_dice,
+            dice_modifier=data.dice_modifier,
             num_desperation_dice=data.num_desperation_dice,
             comment=data.comment,
             company_id=company_id,
@@ -148,21 +165,20 @@ class DiceRollService:
             )
 
         total_dice = sum(trait.value for trait in traits_to_roll)
-        if total_dice > MAX_NUM_DICE:
-            raise ValidationError(
-                detail=f"This quick roll builds a pool of {total_dice} dice; the maximum is {MAX_NUM_DICE}"
-            )
+        _validate_modified_pool(base=total_dice, dice_modifier=data.dice_modifier)
 
         result = roll_dice(
             num_dice=total_dice,
             num_desperation_dice=data.num_desperation_dice,
             difficulty=data.difficulty,
             dice_size=DiceSize.D10,
+            dice_modifier=data.dice_modifier,
         )
 
         dice_roll = await DiceRoll.create(
             dice_size=DiceSize.D10,
             num_dice=total_dice,
+            dice_modifier=data.dice_modifier,
             num_desperation_dice=data.num_desperation_dice,
             difficulty=data.difficulty,
             company=company,

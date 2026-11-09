@@ -22,6 +22,7 @@ DesperationDiceCount = Annotated[int, msgspec.Meta(ge=0, le=MAX_DESPERATION)]
 RollComment = Annotated[str, msgspec.Meta(max_length=MAX_DICE_ROLL_COMMENT_LENGTH)]
 RollTraitIds = Annotated[list[UUID], msgspec.Meta(max_length=MAX_DICE_ROLL_TRAITS)]
 RollDifficulty = Annotated[int, msgspec.Meta(ge=0, le=int(max(DiceSize)))]
+DiceModifier = Annotated[int, msgspec.Meta(ge=-MAX_NUM_DICE, le=MAX_NUM_DICE)]
 
 
 class DiceRollCreate(msgspec.Struct):
@@ -31,6 +32,7 @@ class DiceRollCreate(msgspec.Struct):
     dice_size: DiceSize = DiceSize.D10
     num_dice: DiceCount = 1
     num_desperation_dice: DesperationDiceCount = 0
+    dice_modifier: DiceModifier = 0
     comment: RollComment | None = None
     trait_ids: RollTraitIds = []
     campaign_id: UUID | None = None
@@ -45,6 +47,7 @@ class QuickRollRequest(msgspec.Struct):
     comment: RollComment | None = None
     difficulty: RollDifficulty = 6
     num_desperation_dice: DesperationDiceCount = 0
+    dice_modifier: DiceModifier = 0
 
 
 class DiceRollResultResponse(msgspec.Struct):
@@ -104,6 +107,7 @@ class DiceRollResponse(msgspec.Struct):
     dice_size: int
     num_dice: int
     num_desperation_dice: int
+    dice_modifier: int
     result: DiceRollResultResponse | None
     comment: str | None
     trait_ids: list[UUID]
@@ -127,6 +131,7 @@ class DiceRollResponse(msgspec.Struct):
             dice_size=m.dice_size,
             num_dice=m.num_dice,
             num_desperation_dice=m.num_desperation_dice,
+            dice_modifier=m.dice_modifier,
             result=DiceRollResultResponse.from_model(roll_result) if roll_result else None,
             comment=m.comment,
             trait_ids=[t.id for t in m.traits],
