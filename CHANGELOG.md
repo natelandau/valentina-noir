@@ -1,3 +1,15 @@
+## v0.32.0 (2026-11-08)
+
+### Feat
+
+- **dicerolls**: add dice modifiers to trait rolls and quick rolls (#180)
+- **api**: send readable validation errors and declare request limits (#179)
+- **api**: add retry hints to the in-progress 409 and 429 responses (#177)
+
+### Fix
+
+- **security**: harden authorization, input limits, and caching (#174)
+
 ## v0.31.0 (2026-10-29)
 
 ### Feat
