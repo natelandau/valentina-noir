@@ -9,6 +9,7 @@ import pytest
 
 from vapi.constants import MAX_NUM_DICE, CharacterType, DiceSize, UserRole
 from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.domain.controllers.dicerolls.dto import DiceRollCreate, QuickRollRequest
 from vapi.domain.services import DiceRollService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
@@ -48,6 +49,77 @@ class TestDiceRollService:
         # Then the dice roll is returned with a result
         assert result.id is not None
         assert result.roll_result is not None
+        assert result.dice_modifier == 0
+
+    async def test_create_complete_dice_roll_applies_modifier(
+        self, company_factory: Callable[..., Any], user_factory: Callable[..., Any]
+    ) -> None:
+        """Verify the modifier changes the rolled pool but not the stored num_dice."""
+        # Given a request for 4 dice with a +1 modifier
+        company = await company_factory()
+        user = await user_factory(company=company)
+        data = DiceRollCreate(num_dice=4, dice_modifier=1, difficulty=6)
+
+        # When creating the roll
+        result = await DiceRollService().create_complete_dice_roll(
+            data=data, company_id=company.id, user=user
+        )
+
+        # Then 5 dice are rolled and both inputs are stored
+        assert len(result.roll_result.player_roll) == 5
+        assert result.num_dice == 4
+        assert result.dice_modifier == 1
+
+    async def test_create_complete_dice_roll_modifier_to_zero_dice(
+        self, company_factory: Callable[..., Any], user_factory: Callable[..., Any]
+    ) -> None:
+        """Verify a modifier may reduce the pool to exactly 0."""
+        # Given a request for 2 dice with a -2 modifier
+        company = await company_factory()
+        user = await user_factory(company=company)
+        data = DiceRollCreate(num_dice=2, dice_modifier=-2, difficulty=6)
+
+        # When creating the roll
+        result = await DiceRollService().create_complete_dice_roll(
+            data=data, company_id=company.id, user=user
+        )
+
+        # Then no player dice are rolled
+        assert result.roll_result.player_roll == []
+
+    async def test_create_complete_dice_roll_modifier_below_zero_rejected(
+        self, company_factory: Callable[..., Any], user_factory: Callable[..., Any]
+    ) -> None:
+        """Verify a modifier that makes the pool negative is rejected and nothing is stored."""
+        # Given a request for 2 dice with a -3 modifier
+        company = await company_factory()
+        user = await user_factory(company=company)
+        data = DiceRollCreate(num_dice=2, dice_modifier=-3, difficulty=6)
+        before = await DiceRoll.filter().count()
+
+        # When creating the roll
+        # Then it is rejected without saving a roll
+        with pytest.raises(ValidationError, match="below 0"):
+            await DiceRollService().create_complete_dice_roll(
+                data=data, company_id=company.id, user=user
+            )
+        assert await DiceRoll.filter().count() == before
+
+    async def test_create_complete_dice_roll_modifier_over_maximum_rejected(
+        self, company_factory: Callable[..., Any], user_factory: Callable[..., Any]
+    ) -> None:
+        """Verify a modifier that pushes the pool past the maximum is rejected."""
+        # Given a maximum pool with a +1 modifier
+        company = await company_factory()
+        user = await user_factory(company=company)
+        data = DiceRollCreate(num_dice=MAX_NUM_DICE, dice_modifier=1, difficulty=6)
+
+        # When creating the roll
+        # Then it is rejected
+        with pytest.raises(ValidationError, match="maximum"):
+            await DiceRollService().create_complete_dice_roll(
+                data=data, company_id=company.id, user=user
+            )
 
     async def test_create_complete_dice_roll_every_field(
         self,
@@ -235,28 +307,155 @@ class TestDiceRollService:
         ):
             await service.roll_quickroll(company=company, user=user, data=data)
 
-    async def test_roll_quickroll_rejects_pool_over_maximum(
+    async def _quickroll_setup(
         self,
-        quickroll_factory: Callable[..., Any],
-        character_factory: Callable[..., Any],
-        campaign_factory: Callable[..., Any],
+        *,
+        values: list[int],
         company_factory: Callable[..., Any],
         user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
         character_trait_factory: Callable[..., Any],
-    ) -> None:
-        """Verify a quickroll whose traits sum past the dice maximum is rejected."""
-        # Given a character whose quickroll traits add up to more than the maximum pool
+        quickroll_factory: Callable[..., Any],
+    ) -> tuple[Any, Any, Any, Any]:
+        """Build a character whose quickroll traits have the given values."""
         company = await company_factory()
         user = await user_factory(company=company)
         campaign = await campaign_factory(company=company)
         character = await character_factory(company=company, campaign=campaign)
-        traits = await Trait.filter(is_archived=False).limit(2)
-        for trait in traits:
-            await character_trait_factory(
-                character=character, trait=trait, value=MAX_NUM_DICE // 2 + 1
-            )
-        quickroll = await quickroll_factory(user=user, traits=list(traits))
-        data = QuickRollRequest(quickroll_id=quickroll.id, character_id=character.id)
+        traits = list(await Trait.filter(is_archived=False).limit(len(values)))
+        for trait, value in zip(traits, values, strict=True):
+            await character_trait_factory(character=character, trait=trait, value=value)
+        quickroll = await quickroll_factory(user=user, traits=traits)
+        return company, user, character, quickroll
+
+    async def test_roll_quickroll_applies_modifier(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a quickroll modifier adds dice and is stored beside the base pool."""
+        # Given traits summing to 4
+        company, user, character, quickroll = await self._quickroll_setup(
+            values=[2, 2],
+            company_factory=company_factory,
+            user_factory=user_factory,
+            campaign_factory=campaign_factory,
+            character_factory=character_factory,
+            character_trait_factory=character_trait_factory,
+            quickroll_factory=quickroll_factory,
+        )
+        data = QuickRollRequest(
+            quickroll_id=quickroll.id, character_id=character.id, dice_modifier=1
+        )
+
+        # When rolling with a +1 modifier
+        result = await DiceRollService().roll_quickroll(company=company, user=user, data=data)
+
+        # Then 5 dice are rolled and the base pool and modifier are stored
+        assert len(result.roll_result.player_roll) == 5
+        assert result.num_dice == 4
+        assert result.dice_modifier == 1
+
+    async def test_roll_quickroll_modifier_below_zero_rejected(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a quickroll modifier that makes the pool negative is rejected."""
+        # Given traits summing to 2
+        company, user, character, quickroll = await self._quickroll_setup(
+            values=[1, 1],
+            company_factory=company_factory,
+            user_factory=user_factory,
+            campaign_factory=campaign_factory,
+            character_factory=character_factory,
+            character_trait_factory=character_trait_factory,
+            quickroll_factory=quickroll_factory,
+        )
+        data = QuickRollRequest(
+            quickroll_id=quickroll.id, character_id=character.id, dice_modifier=-3
+        )
+
+        before = await DiceRoll.filter().count()
+
+        # When rolling with a -3 modifier
+        # Then it is rejected without saving a roll
+        with pytest.raises(ValidationError, match="below 0"):
+            await DiceRollService().roll_quickroll(company=company, user=user, data=data)
+        assert await DiceRoll.filter().count() == before
+
+    async def test_roll_quickroll_modifier_brings_pool_under_maximum(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a negative modifier can bring an oversized base pool within the maximum."""
+        # Given traits summing to the maximum plus 2
+        company, user, character, quickroll = await self._quickroll_setup(
+            values=[MAX_NUM_DICE // 2 + 2, MAX_NUM_DICE - MAX_NUM_DICE // 2],
+            company_factory=company_factory,
+            user_factory=user_factory,
+            campaign_factory=campaign_factory,
+            character_factory=character_factory,
+            character_trait_factory=character_trait_factory,
+            quickroll_factory=quickroll_factory,
+        )
+        data = QuickRollRequest(
+            quickroll_id=quickroll.id, character_id=character.id, dice_modifier=-2
+        )
+
+        # When rolling with a -2 modifier
+        result = await DiceRollService().roll_quickroll(company=company, user=user, data=data)
+
+        # Then the roll succeeds with the maximum pool
+        assert len(result.roll_result.player_roll) == MAX_NUM_DICE
+
+    @pytest.mark.parametrize(
+        ("values", "dice_modifier"),
+        [
+            ([MAX_NUM_DICE // 2 + 1, MAX_NUM_DICE // 2 + 1], 0),
+            ([MAX_NUM_DICE // 2, MAX_NUM_DICE - 1 - MAX_NUM_DICE // 2], 2),
+        ],
+        ids=["trait_sum_over_maximum", "modifier_pushes_pool_over_maximum"],
+    )
+    async def test_roll_quickroll_rejects_pool_over_maximum(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        quickroll_factory: Callable[..., Any],
+        values: list[int],
+        dice_modifier: int,
+    ) -> None:
+        """Verify a quickroll pool past the dice maximum is rejected, with or without a modifier."""
+        # Given traits that sum past the maximum, alone or once the modifier is added
+        company, user, character, quickroll = await self._quickroll_setup(
+            values=values,
+            company_factory=company_factory,
+            user_factory=user_factory,
+            campaign_factory=campaign_factory,
+            character_factory=character_factory,
+            character_trait_factory=character_trait_factory,
+            quickroll_factory=quickroll_factory,
+        )
+        data = QuickRollRequest(
+            quickroll_id=quickroll.id, character_id=character.id, dice_modifier=dice_modifier
+        )
 
         # When rolling the quickroll
         # Then the oversized pool is rejected

@@ -140,10 +140,25 @@ def _count_dice_results(roll: list[int], difficulty: int, dice_max: int) -> Dice
 
 
 def roll_dice(
-    *, num_dice: int, num_desperation_dice: int, difficulty: int | None, dice_size: DiceSize
+    *,
+    num_dice: int,
+    num_desperation_dice: int,
+    difficulty: int | None,
+    dice_size: DiceSize,
+    dice_modifier: int = 0,
 ) -> DiceRollResultSchema:
-    """Roll the dice and return the results."""
-    player_roll = [random_num(dice_size.value) for _ in range(num_dice)]
+    """Roll the dice and return the results.
+
+    The modifier adjusts the player pool only.
+
+    Raises:
+        ValueError: If the modified player pool is negative.
+    """
+    player_pool = num_dice + dice_modifier
+    if player_pool < 0:
+        msg = f"The player pool cannot be negative, got {player_pool}"
+        raise ValueError(msg)
+    player_roll = [random_num(dice_size.value) for _ in range(player_pool)]
     desperation_roll = [random_num(dice_size.value) for _ in range(num_desperation_dice)]
 
     total_result: int | None = None
@@ -169,7 +184,7 @@ def roll_dice(
         result_type, result_humanized = _calculate_result_type(
             result=total_result,
             dice_size=dice_size,
-            num_dice=num_dice + num_desperation_dice,
+            num_dice=player_pool + num_desperation_dice,
         )
 
     return DiceRollResultSchema(

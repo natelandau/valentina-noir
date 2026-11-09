@@ -101,12 +101,14 @@ POST /api/v1/companies/{company_id}/dicerolls/quickroll
 | `quickroll_id` | string | required | ID of the saved quick roll |
 | `character_id` | string | required | Character whose trait values determine the dice pool |
 | `difficulty` | integer | 6 | Target number for each die, from 0 to 100 (see [dice rolling](./dice.md)) |
+| `num_desperation_dice` | integer | 0 | Desperation dice to add to the roll, from 0 to 5. The dice modifier does not change them. |
+| `dice_modifier` | integer | 0 | Dice to add to the pool, or remove if negative, from -100 to 100. The pool after the modifier must be 0 to 100 dice. |
 | `comment` | string or null | null | Optional note saved with the roll result, up to 2000 characters. Defaults to "Quick roll: {name}" if omitted. |
 
-The API sums the character's values for all traits in the quick roll to determine how many D10s to roll. For example, if the character has `Firearms: 3` and `Dexterity: 4`, the quick roll produces a pool of 7 dice.
+The API sums the character's values for all traits in the quick roll to determine how many D10s to roll. For example, if the character has `Firearms: 3` and `Dexterity: 4`, the quick roll produces a pool of 7 dice. A `dice_modifier` of `-2` reduces that pool to 5 dice.
 
 The response is a dice roll object containing the full result (individual die values, successes, outcome). See the [API documentation](https://api.valentina-noir.com/docs) for the complete response schema.
 
 !!! warning "Character Must Have the Traits"
 
-    The character must have all traits referenced by the quick roll. If any trait is missing from the character, the API returns a validation error. Build your UI to warn users when a quick roll references traits their selected character doesn't have.
+    The pool includes only the quick roll traits that the character has. A missing trait adds no dice to the pool. If the character has none of the traits, the API returns a validation error. Build your UI to warn users when a quick roll references traits their selected character doesn't have.
