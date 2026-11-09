@@ -451,6 +451,7 @@ class CharacterCreate(msgspec.Struct):
     traits: list[CharacterTraitCreate] = []
     user_player_id: UUID | None = None
     health: HealthStateSet | None = None
+    is_temporary: bool = False
 
 
 class CharacterPatch(msgspec.Struct):

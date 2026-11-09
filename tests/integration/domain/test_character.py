@@ -1502,6 +1502,7 @@ class TestCharacterCreate:
         assert data["name_first"] == "Test"
         assert data["name_last"] == "Character"
         assert data["character_class"] == CharacterClass.MORTAL.value
+        assert data["is_temporary"] is False
 
         # And the traits are persisted, plus the derived V5 Willpower
         ct_count = (
@@ -1513,6 +1514,37 @@ class TestCharacterCreate:
         assert await CharacterTrait.filter(
             character_id=data["id"], trait__name="Willpower"
         ).exists()
+
+    async def test_create_temporary_character(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_campaign: Campaign,
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a character created with is_temporary is saved as temporary."""
+        # When we create a character flagged as temporary
+        response = await client.post(
+            build_url(CharacterURL.CREATE, company_id=session_company.id),
+            headers=token_global_admin | on_behalf_of_header,
+            json={
+                "name_first": "Temp",
+                "name_last": "Character",
+                "character_class": "MORTAL",
+                "game_version": "V4",
+                "campaign_id": str(session_campaign.id),
+                "is_temporary": True,
+            },
+        )
+
+        # Then the response and the stored row are both temporary
+        assert response.status_code == HTTP_201_CREATED
+        data = response.json()
+        assert data["is_temporary"] is True
+        character = await Character.get(id=data["id"])
+        assert character.is_temporary is True
 
     async def test_create_character_health(
         self,
