@@ -25,6 +25,7 @@ class DiceRoll(BaseModel):
     dice_size = fields.IntEnumField(DiceSize)
     num_dice = fields.IntField()
     num_desperation_dice = fields.IntField(default=0)
+    dice_modifier = fields.IntField(default=0, db_default=0)
     comment = fields.TextField(null=True)
 
     company: fields.ForeignKeyRelation[Company] = fields.ForeignKeyField(
