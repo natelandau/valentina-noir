@@ -121,9 +121,13 @@ def test_enum_message_lists_allowed_values() -> None:
     )
 
 
-def test_unmatched_message_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+def test_unmatched_message_is_logged(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Verify an unmatched message is logged at INFO."""
-    with caplog.at_level(logging.INFO):
+    # The app's logging config stops the "vapi" logger from propagating to caplog's root handler
+    monkeypatch.setattr(logging.getLogger("vapi"), "propagate", True)
+    with caplog.at_level(logging.INFO, logger="vapi.lib.validation_messages"):
         translate_message("Something msgspec says one day")
 
     assert any(
