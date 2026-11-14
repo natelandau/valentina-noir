@@ -13,6 +13,7 @@ from vapi.constants import (
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
+    SpecialtyRules,
 )
 from vapi.db.sql_models.validators import (
     NUM_CHOICES_MAX,
@@ -43,6 +44,7 @@ class CompanySettingsResponse(msgspec.Struct):
     permission_free_trait_changes: str
     permission_recoup_xp: str
     specialty_xp_cost_enabled: bool
+    specialty_rules: str
 
     @classmethod
     def from_model(cls, m: "CompanySettings") -> "CompanySettingsResponse":
@@ -58,6 +60,7 @@ class CompanySettingsResponse(msgspec.Struct):
             permission_free_trait_changes=m.permission_free_trait_changes.value,
             permission_recoup_xp=m.permission_recoup_xp.value,
             specialty_xp_cost_enabled=m.specialty_xp_cost_enabled,
+            specialty_rules=m.specialty_rules.value,
         )
 
 
@@ -173,6 +176,7 @@ class CompanySettingsCreate(msgspec.Struct):
     )
     permission_recoup_xp: PermissionsRecoupXP = PermissionsRecoupXP.DENIED
     specialty_xp_cost_enabled: bool = False
+    specialty_rules: SpecialtyRules = SpecialtyRules.FLAT
 
 
 class CompanyCreate(msgspec.Struct):
@@ -199,6 +203,7 @@ class CompanySettingsPatch(msgspec.Struct):
     permission_free_trait_changes: PermissionsFreeTraitChanges | msgspec.UnsetType = msgspec.UNSET
     permission_recoup_xp: PermissionsRecoupXP | msgspec.UnsetType = msgspec.UNSET
     specialty_xp_cost_enabled: bool | msgspec.UnsetType = msgspec.UNSET
+    specialty_rules: SpecialtyRules | msgspec.UnsetType = msgspec.UNSET
 
 
 class CompanyPatch(msgspec.Struct):

@@ -50,6 +50,8 @@ REQUEST_ID_HEADER: Final[str] = "X-Request-Id"
 DEFAULT_CHARACTER_AUTGEN_XP_COST: Final[int] = 10
 DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 SPECIALTY_XP_COST: Final[int] = 3
+SPECIALTY_THRESHOLD: Final[int] = 4
+SPECIALTY_CONCEPT_THRESHOLD: Final[int] = 3
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
@@ -241,6 +243,19 @@ class RollResultType(StrEnum):
     BOTCH = "BOTCH"
     CRITICAL = "CRITICAL"
     OTHER = "OTHER"
+
+
+class SpecialtyRules(StrEnum):
+    """How a company decides which traits may take specialties and what they cost.
+
+    FLAT: any ability rated 1 or higher; each specialty costs a flat amount.
+    THRESHOLD: attributes and abilities rated 4 or higher (abilities favored by the
+        character's concept at 3); the first specialty on a trait is free and each
+        further one costs XP equal to the trait's current rating.
+    """
+
+    FLAT = "FLAT"
+    THRESHOLD = "THRESHOLD"
 
 
 class SpecialtyType(StrEnum):

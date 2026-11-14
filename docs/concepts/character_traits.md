@@ -285,8 +285,8 @@ A specialty is a short, free-text label that narrows an ability, such as "Snipin
 
 These ability specialties are separate from the character-level `specialties` field on the character response, which lists the specialties granted by the character's [concept](./character_concepts.md).
 
-- Specialties apply to ability traits only. Other trait types return `400 Bad Request`.
-- The ability must have a value of 1 or higher.
+- Under the company's default `FLAT` [Specialty Rules](./company_settings.md#specialty-rules), specialties apply to ability traits rated 1 or higher. Other traits return `400 Bad Request`.
+- Under `THRESHOLD` rules, attributes and abilities rated 4 or higher may take specialties. An ability named in the character's concept favored abilities unlocks at 3. Other traits, or traits below their threshold, return `400 Bad Request`.
 - An ability can have several specialties.
 - A name must be 3 to 50 characters long. Names must be unique on the ability, ignoring case.
 
@@ -307,6 +307,8 @@ What the specialty costs depends on the company's [Specialty XP Cost](./company_
 | ------- | --------------------------------------------------------- | ---------- | ----------------------- |
 | Off     | Free, no free trait changes check                         | Free       | Free                    |
 | On      | Free, subject to the company's free trait changes setting | Costs 3 XP | Costs 3 starting points |
+
+Under `THRESHOLD` rules, the first specialty on a trait is free, whatever the currency, and needs no free trait changes check. Each further specialty costs the trait's current rating instead of 3, so a second specialty on an ability rated 4 costs 4 XP.
 
 `NPC` and `STORYTELLER` characters only accept `NO_COST`.
 

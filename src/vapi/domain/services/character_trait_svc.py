@@ -10,11 +10,14 @@ from tortoise.expressions import F, Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
+    SPECIALTY_CONCEPT_THRESHOLD,
+    SPECIALTY_THRESHOLD,
     SPECIALTY_XP_COST,
     CharacterClass,
     CharacterType,
     PermissionsFreeTraitChanges,
     PermissionsRecoupXP,
+    SpecialtyRules,
     TraitModifyCurrency,
     UserRole,
 )
@@ -24,6 +27,7 @@ from vapi.db.sql_models.character import (
     CharacterTraitSpecialty,
     WerewolfAttributes,
 )
+from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import CompanySettings
 from vapi.domain.controllers.character_trait.dto import (
@@ -1823,6 +1827,58 @@ class CharacterTraitService:
             msg = "Specialties require the ability to have at least one dot"
             raise ValidationError(detail=msg)
 
+    async def specialty_threshold(
+        self, *, character: Character, character_trait: CharacterTrait
+    ) -> int:
+        """Return the rating a trait needs before it may take specialties under THRESHOLD rules.
+
+        Abilities favored by the character's concept unlock a dot earlier. Attributes never do.
+
+        Returns:
+            The minimum trait value that permits a specialty.
+        """
+        if character_trait.trait.sheet_section.name != "Abilities" or not character.concept_id:  # ty:ignore[unresolved-attribute]
+            return SPECIALTY_THRESHOLD
+        concept = await CharacterConcept.get_or_none(id=character.concept_id).only(  # ty:ignore[unresolved-attribute]
+            "id", "favored_ability_names"
+        )
+        favored_names = {
+            name.casefold() for name in (concept.favored_ability_names if concept else [])
+        }
+        if character_trait.trait.name.casefold() in favored_names:
+            return SPECIALTY_CONCEPT_THRESHOLD
+        return SPECIALTY_THRESHOLD
+
+    async def _guard_trait_accepts_threshold_specialties(
+        self, *, character: Character, character_trait: CharacterTrait
+    ) -> None:
+        """Reject specialties on traits that are not attributes or abilities, or below threshold."""
+        if character_trait.trait.sheet_section.name not in {"Attributes", "Abilities"}:
+            msg = "Specialties can only be added to attribute or ability traits"
+            raise ValidationError(detail=msg)
+        threshold = await self.specialty_threshold(
+            character=character, character_trait=character_trait
+        )
+        if character_trait.value < threshold:
+            msg = (
+                f"{character_trait.trait.name} needs {threshold} dots before it can take "
+                f"a specialty, got {character_trait.value}"
+            )
+            raise ValidationError(detail=msg)
+
+    async def next_specialty_cost(self, *, character_trait: CharacterTrait) -> int:
+        """Return what the next specialty on a trait costs under THRESHOLD rules.
+
+        The first specialty on a trait is free; each further one costs the trait's current rating.
+
+        Returns:
+            The XP or starting-point cost of adding one more specialty.
+        """
+        has_specialty = await CharacterTraitSpecialty.filter(
+            character_trait_id=character_trait.id, is_archived=False
+        ).exists()
+        return character_trait.value if has_specialty else 0
+
     async def _lock_character_trait_value(self, character_trait: CharacterTrait) -> None:
         """Lock the trait row and reload its value so specialty checks see committed state.
 
@@ -1877,7 +1933,7 @@ class CharacterTraitService:
         name: str,
         currency: TraitModifyCurrency,
     ) -> CharacterTrait:
-        """Add a specialty to an ability trait, charging the cost when the company enables it.
+        """Add a specialty to a trait, charging the cost when the company enables it.
 
         Returns:
             The refetched character trait including its specialties.
@@ -1895,11 +1951,20 @@ class CharacterTraitService:
 
         async with in_transaction():
             await self._lock_character_trait_value(character_trait)
-            self._guard_trait_accepts_specialties(character_trait)
+            if settings.specialty_rules == SpecialtyRules.THRESHOLD:
+                await self._guard_trait_accepts_threshold_specialties(
+                    character=character, character_trait=character_trait
+                )
+                cost = await self.next_specialty_cost(character_trait=character_trait)
+            else:
+                self._guard_trait_accepts_specialties(character_trait)
+                cost = SPECIALTY_XP_COST
             cleaned = await self._validate_specialty_name(
                 character_trait=character_trait, name=name
             )
-            if settings.specialty_xp_cost_enabled:
+            # A free specialty under THRESHOLD rules is granted by the rules, not by a
+            # storyteller waiver, so it needs no free-change permission.
+            if settings.specialty_xp_cost_enabled and cost > 0:
                 self._assert_currency_allowed_for_type(character, currency)
                 match currency:
                     case TraitModifyCurrency.NO_COST:
@@ -1910,14 +1975,12 @@ class CharacterTraitService:
                         await UserXPService().spend_xp(
                             user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
                             campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
-                            amount=SPECIALTY_XP_COST,
+                            amount=cost,
                         )
-                        cost_paid, currency_paid = SPECIALTY_XP_COST, TraitModifyCurrency.XP
+                        cost_paid, currency_paid = cost, TraitModifyCurrency.XP
                     case TraitModifyCurrency.STARTING_POINTS:
-                        await self._change_starting_points(
-                            character=character, amount=-SPECIALTY_XP_COST
-                        )
-                        cost_paid = SPECIALTY_XP_COST
+                        await self._change_starting_points(character=character, amount=-cost)
+                        cost_paid = cost
                         currency_paid = TraitModifyCurrency.STARTING_POINTS
                     case _ as unreachable:
                         assert_never(unreachable)

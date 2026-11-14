@@ -10,6 +10,7 @@ from vapi.constants import (
     CharacterType,
     PermissionsFreeTraitChanges,
     PermissionsRecoupXP,
+    SpecialtyRules,
     TraitModifyCurrency,
     UserRole,
 )
@@ -864,3 +865,136 @@ class TestSpecialtiesAtZeroValue:
         assert result.options["0"].starting_points_after == expected
         assert result.options["DELETE"].starting_points_after == expected
         assert result.options["0"].xp_after == 5 + savings
+
+
+async def _trait(section: str, name: str) -> Trait:
+    return await Trait.get(
+        sheet_section__name=section, name=name, is_archived=False, custom_for_character_id=None
+    )
+
+
+class TestThresholdSpecialtyRules:
+    """Test add_specialty under the THRESHOLD specialty rules."""
+
+    async def test_rejects_ability_below_four(self, make_scenario) -> None:
+        """Verify an ability needs four dots."""
+        # Given THRESHOLD rules and Firearms at 3 with no concept
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await _trait("Abilities", "Firearms"),
+            value=3,
+        )
+
+        # When adding a specialty
+        # Then it is refused
+        with pytest.raises(ValidationError, match="needs 4 dots"):
+            await _add(s)
+
+    async def test_concept_favored_ability_unlocks_at_three(
+        self, make_scenario, character_concept_factory
+    ) -> None:
+        """Verify an ability the concept favors unlocks at three dots."""
+        # Given THRESHOLD rules, a concept favoring Medicine, and Medicine at 3
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await _trait("Abilities", "Medicine"),
+            value=3,
+        )
+        concept = await character_concept_factory(favored_ability_names=["Medicine"])
+        s.character.concept_id = concept.id
+        await s.character.save()
+
+        # When adding a specialty
+        result = await _add(s, name="Battlefield Medicine")
+
+        # Then it is added
+        assert [spec.name for spec in result.specialties] == ["Battlefield Medicine"]
+
+    async def test_attribute_accepts_specialty_at_four(self, make_scenario) -> None:
+        """Verify an attribute at four dots takes a specialty."""
+        # Given THRESHOLD rules and Strength at 4
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await _trait("Attributes", "Strength"),
+            value=4,
+        )
+
+        # When adding a specialty
+        result = await _add(s, name="Iron Grip")
+
+        # Then it is added
+        assert result.specialties[0].name == "Iron Grip"
+
+    async def test_concept_does_not_lower_attribute_threshold(
+        self, make_scenario, character_concept_factory
+    ) -> None:
+        """Verify a concept never lowers an attribute's threshold."""
+        # Given THRESHOLD rules, a concept naming Strength, and Strength at 3
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await _trait("Attributes", "Strength"),
+            value=3,
+        )
+        concept = await character_concept_factory(favored_ability_names=["Strength"])
+        s.character.concept_id = concept.id
+        await s.character.save()
+
+        # When adding a specialty
+        # Then it is refused
+        with pytest.raises(ValidationError, match="needs 4 dots"):
+            await _add(s, name="Iron Grip")
+
+    async def test_rejects_traits_outside_attributes_and_abilities(self, make_scenario) -> None:
+        """Verify other sections are refused."""
+        # Given THRESHOLD rules and a Virtue at 5
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await Trait.filter(
+                sheet_section__name="Other", category__name="Virtues", is_archived=False
+            ).first(),
+            value=5,
+        )
+
+        # When adding a specialty
+        # Then it is refused
+        with pytest.raises(ValidationError, match="attribute or ability"):
+            await _add(s, name="Steady")
+
+    async def test_first_free_then_costs_current_rating(self, make_scenario) -> None:
+        """Verify the first specialty is free and the next costs the trait's rating."""
+        # Given THRESHOLD rules, XP cost on, Firearms at 4, and 10 XP
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await _trait("Abilities", "Firearms"),
+            value=4,
+            xp=10,
+        )
+
+        # When adding two specialties with XP
+        first = await _add(s, name="Sniping")
+        second = await _add(s, name="Pistols")
+
+        # Then the first is free and the second costs 4 XP
+        costs = {spec.name: spec.cost_paid for spec in second.specialties}
+        assert first.specialties[0].currency_paid == TraitModifyCurrency.NO_COST
+        assert costs == {"Sniping": 0, "Pistols": 4}
+        assert await _xp(s) == 10 - 4
+
+    async def test_free_first_specialty_needs_no_free_change_permission(
+        self, make_scenario
+    ) -> None:
+        """Verify the rules-granted free specialty skips the free-change permission."""
+        # Given THRESHOLD rules, storyteller-only free changes, and a player at Firearms 4
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.THRESHOLD,
+            trait=await _trait("Abilities", "Firearms"),
+            value=4,
+            role=UserRole.PLAYER,
+            permission_free_trait_changes=PermissionsFreeTraitChanges.STORYTELLER,
+        )
+
+        # When adding the first specialty at NO_COST
+        result = await _add(s, currency=TraitModifyCurrency.NO_COST)
+
+        # Then it succeeds at no cost
+        assert result.specialties[0].cost_paid == 0
