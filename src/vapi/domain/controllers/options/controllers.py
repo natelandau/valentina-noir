@@ -29,6 +29,7 @@ from vapi.constants import (
     PermissionsGrantXP,
     PermissionsRecoupXP,
     RollResultType,
+    SpecialtyRules,
     SpecialtyType,
     TrackerAction,
     TrackerType,
@@ -86,6 +87,7 @@ class OptionsController(Controller):
                 "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
                 "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
                 "PermissionsRecoupXP": [x.value for x in PermissionsRecoupXP],
+                "SpecialtyRules": [x.value for x in SpecialtyRules],
             },
             "characters": {
                 "AbilityFocus": [x.value for x in AbilityFocus],

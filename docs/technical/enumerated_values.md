@@ -50,7 +50,8 @@ The response groups enumerations by domain. Each value is the exact string (or n
             "PermissionManageNPC": ["UNRESTRICTED", "STORYTELLER"],
             "PermissionsGrantXP": ["UNRESTRICTED", "PLAYER", "STORYTELLER"],
             "PermissionsFreeTraitChanges": ["UNRESTRICTED", "WITHIN_24_HOURS", "STORYTELLER"],
-            "PermissionsRecoupXP": ["UNRESTRICTED", "DENIED", "WITHIN_SESSION"]
+            "PermissionsRecoupXP": ["UNRESTRICTED", "DENIED", "WITHIN_SESSION"],
+            "SpecialtyRules": ["FLAT", "THRESHOLD"]
         },
         "characters": {
             "AbilityFocus": ["JACK_OF_ALL_TRADES", "BALANCED", "SPECIALIST"],
