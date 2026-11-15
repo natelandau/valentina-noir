@@ -29,8 +29,9 @@ from vapi.domain.controllers.character_trait.dto import (
     active_specialties,
     build_tracker_response,
 )
-from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50
+from vapi.domain.controllers.request_types import BirthYear, LongText, Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
+from vapi.utils.time import age_on, time_now
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.character import (
@@ -191,6 +192,7 @@ CHARACTER_RESPONSE_PREFETCH: list[str] = [
     "specialties",
     "chapters",
     "health",
+    "campaign",
 ]
 
 
@@ -205,6 +207,27 @@ def _active_chapter_ids(character: "Character") -> list[UUID]:
         return sorted(c.id for c in character.chapters if not c.is_archived)
     except Exception:  # noqa: BLE001
         return []
+
+
+def _character_age(character: "Character") -> int | None:
+    """Return the character's age in the campaign's current in-game year.
+
+    With a birth year or date of birth, age is measured on the campaign's in-game date, or
+    today when the campaign has none, so it advances as the campaign does. Without either,
+    fall back to the stored ``age``. Falls back to today when ``campaign`` was not
+    prefetched.
+    """
+    if character.birth_year is None and character.date_of_birth is None:
+        return character.age
+    try:
+        reference = character.campaign.in_game_date
+    except Exception:  # noqa: BLE001
+        reference = None
+    return age_on(
+        reference or time_now().date(),
+        birth_year=character.birth_year,
+        date_of_birth=character.date_of_birth,
+    )
 
 
 class CharacterResponse(msgspec.Struct):
@@ -223,6 +246,7 @@ class CharacterResponse(msgspec.Struct):
     starting_points: int
     age: int | None
     date_of_birth: date | None
+    birth_year: int | None
     biography: str | None
     demeanor: str | None
     nature: str | None
@@ -309,8 +333,9 @@ class CharacterResponse(msgspec.Struct):
             game_version=m.game_version,
             status=m.status,
             starting_points=m.starting_points,
-            age=m.age,
+            age=_character_age(m),
             date_of_birth=m.date_of_birth,
+            birth_year=m.birth_year,
             biography=m.biography,
             demeanor=m.demeanor,
             nature=m.nature,
@@ -440,6 +465,7 @@ class CharacterCreate(msgspec.Struct):
     type: CharacterType = CharacterType.PLAYER
     age: int | None = None
     date_of_birth: date | None = None
+    birth_year: BirthYear | None = None
     biography: LongText | None = None
     demeanor: NameMax50 | None = None
     nature: NameMax50 | None = None
@@ -467,6 +493,7 @@ class CharacterPatch(msgspec.Struct):
     status: CharacterStatus | msgspec.UnsetType = msgspec.UNSET
     age: int | msgspec.UnsetType | None = msgspec.UNSET
     date_of_birth: date | msgspec.UnsetType | None = msgspec.UNSET
+    birth_year: BirthYear | msgspec.UnsetType | None = msgspec.UNSET
     biography: LongText | msgspec.UnsetType | None = msgspec.UNSET
     demeanor: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     nature: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET

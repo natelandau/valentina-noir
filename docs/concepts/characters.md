@@ -62,6 +62,20 @@ Characters track their living status, which the system uses to manage gameplay s
 | `ALIVE` | Character is alive and active                                   |
 | `DEAD`  | Character is deceased (automatically records the date of death) |
 
+### Age and Birth Year
+
+A character's age follows the campaign's calendar instead of being a fixed number. Record when the character was born with `birth_year` (negative years are BCE, from -9999 to 9999), or with a full `date_of_birth` when it is known. The response's `age` is then measured on the campaign's [`in_game_date`](../quickstart/campaigns.md), so a character born in 1960 is 26 while the campaign is set in 1986 and 43 once it reaches 2003.
+
+| Field           | Behavior                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `birth_year`    | The year the character was born. Setting `date_of_birth` overwrites it with that date's year.                    |
+| `date_of_birth` | Optional full date. When set, `age` counts whether the birthday has passed on the in-game date.                  |
+| `age`           | Derived from `birth_year` or `date_of_birth` when either is set. Otherwise the stored value is returned as before. |
+
+When the campaign has no `in_game_date`, age is measured on today's date. An in-game date before the birth year gives an `age` of `null`.
+
+To turn an age a player knows into a birth year, subtract it from the campaign's in-game year: a 26-year-old in 1986 was born in 1960.
+
 ### Temporary Characters
 
 Characters can be marked as being temporary by setting the `is_temporary` flag to `True` when creating or updating a character. Temporary characters are not displayed in the character list by default, but can be filtered by setting the `is_temporary` flag to `True` in the character list endpoint.

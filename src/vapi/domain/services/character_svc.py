@@ -443,6 +443,18 @@ class CharacterService:
                 detail=msg, invalid_parameters=[{"field": "user_player_id", "message": msg}]
             )
 
+    @staticmethod
+    def sync_birth_year(character: Character) -> None:
+        """Keep the birth year in step with a full date of birth.
+
+        A full date of birth is the more precise record, so its year always wins.
+
+        Args:
+            character: The character to update.
+        """
+        if character.date_of_birth is not None:
+            character.birth_year = character.date_of_birth.year
+
     async def prepare_for_save(self, character: Character) -> None:
         """Perform all pre-save validations and updates.
 
@@ -453,6 +465,7 @@ class CharacterService:
             character: The character to prepare.
         """
         self.update_date_killed(character)
+        self.sync_birth_year(character)
         await self.validate_company_references(character)
         await asyncio.gather(
             self.validate_unique_name(character),

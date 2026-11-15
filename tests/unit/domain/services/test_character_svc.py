@@ -86,6 +86,40 @@ class TestUpdateDateKilled:
         assert character.date_killed is None
 
 
+class TestSyncBirthYear:
+    """Test the sync_birth_year method."""
+
+    async def test_sync_birth_year_takes_year_from_date_of_birth(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a full date of birth overrides a mismatched birth year."""
+        from datetime import date
+
+        # Given a character whose birth year disagrees with its date of birth
+        character = await character_factory(birth_year=1950, date_of_birth=date(1960, 3, 15))
+
+        # When syncing the birth year
+        CharacterService.sync_birth_year(character)
+
+        # Then the birth year follows the date of birth
+        assert character.birth_year == 1960
+
+    async def test_sync_birth_year_keeps_birth_year_without_date_of_birth(
+        self,
+        character_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a birth year alone is left as entered."""
+        # Given a character with only a birth year
+        character = await character_factory(birth_year=1960)
+
+        # When syncing the birth year
+        CharacterService.sync_birth_year(character)
+
+        # Then it is unchanged
+        assert character.birth_year == 1960
+
+
 class TestAssignVampireClanAttributes:
     """Test the assign_vampire_clan_attributes method."""
 

@@ -52,6 +52,9 @@ DEFAULT_CHARACTER_AUTGEN_NUM_CHOICES: Final[int] = 3
 SPECIALTY_XP_COST: Final[int] = 3
 SPECIALTY_MIN_RATING: Final[int] = 4
 SPECIALTY_FAVORED_MIN_RATING: Final[int] = 3
+# Negative years are BCE, for characters such as mummies.
+BIRTH_YEAR_MIN: Final[int] = -9999
+BIRTH_YEAR_MAX: Final[int] = 9999
 AWS_ONE_YEAR_CACHE_HEADER: Final[str] = "public, max-age=31536000, immutable"
 AWS_ONE_DAY_CACHE_HEADER: Final[str] = "public, max-age=86400"
 AWS_ONE_HOUR_CACHE_HEADER: Final[str] = "public, max-age=3600"
