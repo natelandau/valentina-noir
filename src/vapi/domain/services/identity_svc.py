@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from tortoise.expressions import RawSQL
+from tortoise.transactions import in_transaction
 
 from vapi.constants import PROVIDER_PROFILE_FIELDS, IdentityProvider, UserRole
 from vapi.db.sql_models.user import User
@@ -173,6 +174,7 @@ class IdentityService:
             The updated user.
 
         Raises:
+            NotFoundError: The user was archived before the link was saved.
             ConflictError: The identity belongs to another user, or the user
                 already has a different identity from this provider.
         """
@@ -190,19 +192,25 @@ class IdentityService:
                 code="IDENTITY_ALREADY_LINKED",
             )
 
-        current = getattr(user, profile_field) or {}
-        if current.get("id") and str(current["id"]) != identity.provider_id:
-            raise ConflictError(
-                detail=f"User already has a different {identity.provider} identity linked.",
-                code="IDENTITY_ALREADY_LINKED",
-            )
+        # Callers load the user before awaiting provider verification, so the
+        # checks below must read the committed row, not that earlier copy.
+        async with in_transaction():
+            if not await user.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="User not found")
 
-        setattr(user, profile_field, identity.profile)
-        update_fields = [profile_field]
-        if self._proves_email(user=user, identity=identity):
-            user.email_trusted = True
-            update_fields.append("email_trusted")
-        await user.save(update_fields=update_fields)
+            current = getattr(user, profile_field) or {}
+            if current.get("id") and str(current["id"]) != identity.provider_id:
+                raise ConflictError(
+                    detail=f"User already has a different {identity.provider} identity linked.",
+                    code="IDENTITY_ALREADY_LINKED",
+                )
+
+            setattr(user, profile_field, identity.profile)
+            update_fields = [profile_field]
+            if self._proves_email(user=user, identity=identity):
+                user.email_trusted = True
+                update_fields.append("email_trusted")
+            await user.save(update_fields=update_fields)
         await user.fetch_related("campaign_experiences")
         return user
 
@@ -221,29 +229,34 @@ class IdentityService:
             The updated user.
 
         Raises:
-            NotFoundError: The user has no identity from this provider.
+            NotFoundError: The user is archived or has no identity from this provider.
             ConflictError: The identity is the user's only linked identity.
         """
         profile_field = PROVIDER_PROFILE_FIELDS[provider]
-        # A linked identity is a non-null JSON column; compare to None rather than
-        # truthiness so an empty-dict profile still counts as linked.
-        if getattr(user, profile_field) is None:
-            raise NotFoundError(
-                detail=f"No {provider.value} identity is linked to this user.",
-                code="IDENTITY_NOT_LINKED",
-            )
+        async with in_transaction():
+            # The last-identity count must see a concurrent unlink of another provider
+            if not await user.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="User not found")
 
-        linked_count = sum(
-            1 for field in PROVIDER_PROFILE_FIELDS.values() if getattr(user, field) is not None
-        )
-        if linked_count <= 1:
-            raise ConflictError(
-                detail="Cannot remove the user's only linked identity.",
-                code="LAST_IDENTITY",
-            )
+            # A linked identity is a non-null JSON column; compare to None rather than
+            # truthiness so an empty-dict profile still counts as linked.
+            if getattr(user, profile_field) is None:
+                raise NotFoundError(
+                    detail=f"No {provider.value} identity is linked to this user.",
+                    code="IDENTITY_NOT_LINKED",
+                )
 
-        setattr(user, profile_field, None)
-        await user.save(update_fields=[profile_field])
+            linked_count = sum(
+                1 for field in PROVIDER_PROFILE_FIELDS.values() if getattr(user, field) is not None
+            )
+            if linked_count <= 1:
+                raise ConflictError(
+                    detail="Cannot remove the user's only linked identity.",
+                    code="LAST_IDENTITY",
+                )
+
+            setattr(user, profile_field, None)
+            await user.save(update_fields=[profile_field])
         await user.fetch_related("campaign_experiences")
         return user
 
