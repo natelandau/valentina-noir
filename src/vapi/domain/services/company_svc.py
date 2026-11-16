@@ -13,8 +13,8 @@ from vapi.constants import CharacterType, CompanyPermission
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.domain.services.character_trait_svc import CharacterTraitService
-from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
-from vapi.lib.patch import apply_patch
+from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.patch import save_active_patch
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -76,18 +76,11 @@ class CompanyService:
         Returns:
             A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed
             field, for audit logging.
-
-        Raises:
-            NotFoundError: If the settings were archived after they were loaded.
         """
         async with in_transaction():
-            if not await settings.lock_for_update(is_archived=False):
-                raise NotFoundError(detail="Company settings not found")
-            changes = apply_patch(settings, patch, prefix="settings.")
-            if changes:
-                await settings.save(
-                    update_fields=[field.removeprefix("settings.") for field in changes]
-                )
+            changes = await save_active_patch(
+                settings, patch, label="Company settings", prefix="settings."
+            )
             # Players did not choose the new rules, so refund in full whatever the recoup setting.
             if "settings.specialty_rules" in changes:
                 await CharacterTraitService().remove_ineligible_specialties(

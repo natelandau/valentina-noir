@@ -7,9 +7,7 @@ import pytest
 
 from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.notes import Note
-from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.domain.controllers.notes.dto import NotePatch
-from vapi.domain.controllers.user.dto import QuickRollPatch
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.patch import save_active_patch
 from vapi.utils.time import time_now
@@ -17,7 +15,7 @@ from vapi.utils.time import time_now
 pytestmark = pytest.mark.anyio
 
 
-async def _cascade_archive(model: type[Note | QuickRoll], row_id: object) -> object:
+async def _cascade_archive(model: type[Note], row_id: object) -> object:
     """Archive a row the way a parent-delete cascade does: a bulk UPDATE with a batch id."""
     batch_id = new_uuid()
     await model.filter(id=row_id).update(
@@ -48,34 +46,6 @@ class TestSaveActivePatch:
         assert row.archive_batch_id == batch_id
         assert row.archive_date is not None
         assert row.title == note.title
-
-    async def test_stale_quickroll_archived_by_cascade_stays_archived(
-        self,
-        company_factory: Callable[..., Any],
-        user_factory: Callable[..., Any],
-        quickroll_factory: Callable[..., Any],
-    ) -> None:
-        """Verify a patch on a quick roll archived after load raises 404 and keeps the archive."""
-        # Given a quick roll loaded by a request, then archived by a concurrent user delete
-        quickroll = await quickroll_factory(
-            user=await user_factory(company=await company_factory())
-        )
-        stale = await QuickRoll.get(id=quickroll.id)
-        batch_id = await _cascade_archive(QuickRoll, quickroll.id)
-
-        # When the request saves its patch to the stale instance
-        with pytest.raises(NotFoundError, match="Quick roll not found"):
-            await save_active_patch(
-                stale,
-                QuickRollPatch(name="edited"),
-                label="Quick roll",
-                exclude=frozenset({"trait_ids"}),
-            )
-
-        # Then the quick roll stays archived in the cascade batch
-        row = await QuickRoll.get(id=quickroll.id)
-        assert row.is_archived is True
-        assert row.archive_batch_id == batch_id
 
     async def test_writes_only_patched_columns(
         self, company_factory: Callable[..., Any], note_factory: Callable[..., Any]

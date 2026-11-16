@@ -54,11 +54,12 @@ def apply_patch(
 
     Example::
 
-        from vapi.lib.patch import apply_patch
+        async with in_transaction():
+            if await row.lock_for_update(is_archived=False):
+                changes = apply_patch(row, data)
+                await row.save(update_fields=list(changes))
 
-        changes = apply_patch(campaign, data)
-        request.state.audit_changes = changes
-        await campaign.save()
+    ``save_active_patch`` wraps this sequence for a plain PATCH.
     """
     changes: dict[str, dict[str, object]] = {}
 
@@ -87,6 +88,7 @@ async def save_active_patch(
     patch: msgspec.Struct,
     *,
     label: str,
+    prefix: str = "",
     exclude: frozenset[str] = frozenset(),
 ) -> dict[str, dict[str, object]]:
     """Apply a patch to a row loaded earlier in the request and save only the changed columns.
@@ -99,6 +101,7 @@ async def save_active_patch(
         target: The model instance to patch. Refreshed from the database in place.
         patch: A msgspec.Struct whose unsent fields are ``msgspec.UNSET``.
         label: Human-readable model name for the not-found message.
+        prefix: Prepended to each key in the returned diff, as in ``apply_patch``.
         exclude: Patch fields to skip, for callers that handle them separately.
 
     Returns:
@@ -110,7 +113,7 @@ async def save_active_patch(
     async with in_transaction():
         if not await target.lock_for_update(is_archived=False):
             raise NotFoundError(detail=f"{label} not found")
-        changes = apply_patch(target, patch, exclude=exclude)
+        changes = apply_patch(target, patch, prefix=prefix, exclude=exclude)
         if changes:
-            await target.save(update_fields=list(changes))
+            await target.save(update_fields=[key.removeprefix(prefix) for key in changes])
     return changes

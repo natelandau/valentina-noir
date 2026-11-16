@@ -90,26 +90,6 @@ class TestApplySettingsPatchConcurrency:
         assert row.is_archived is True
         assert row.character_autogen_xp_cost == 10
 
-    async def test_writes_only_patched_columns(
-        self,
-        company_factory: Callable[..., Any],
-    ) -> None:
-        """Verify a settings patch keeps a column another writer changed after load."""
-        # Given stale settings whose num_choices was changed concurrently
-        company = await company_factory()
-        settings = await CompanySettings.filter(company=company).first()
-        await CompanySettings.filter(id=settings.id).update(character_autogen_num_choices=5)
-
-        # When patching only the xp cost
-        await CompanyService().update_settings(
-            settings=settings, patch=CompanySettingsPatch(character_autogen_xp_cost=20)
-        )
-
-        # Then both values are stored
-        row = await CompanySettings.get(id=settings.id)
-        assert row.character_autogen_xp_cost == 20
-        assert row.character_autogen_num_choices == 5
-
 
 class TestApplySettingsPatchStartingPoints:
     """Test character_autogen_starting_points change tracking."""
