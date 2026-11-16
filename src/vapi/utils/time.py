@@ -35,29 +35,18 @@ def format_uptime(delta: timedelta) -> str:
     return f"{days}d {hours}h {minutes}m {seconds}s"
 
 
-def age_on(
-    reference: date, *, birth_year: int | None, date_of_birth: date | None = None
-) -> int | None:
-    """Return a character's age on a reference date, typically the campaign's in-game date.
-
-    A full date of birth gives the exact age, counting whether the birthday has passed.
-    A birth year alone gives the difference in years.
+def age_on(reference: date, *, date_of_birth: date) -> int | None:
+    """Return the whole years from a date of birth to a reference date.
 
     Args:
         reference: The date to measure the age on.
-        birth_year: The year the character was born. Negative years are BCE.
-        date_of_birth: The full date of birth, when known.
+        date_of_birth: The date of birth.
 
     Returns:
-        int | None: The age in whole years, or None when no birth year is known or the
-            reference date falls before the birth.
+        int | None: The age in whole years, counting whether the birthday has passed, or
+            None when the reference date falls before the birth.
     """
-    if date_of_birth is not None:
-        age = reference.year - date_of_birth.year
-        if (reference.month, reference.day) < (date_of_birth.month, date_of_birth.day):
-            age -= 1
-    elif birth_year is not None:
-        age = reference.year - birth_year
-    else:
-        return None
+    age = reference.year - date_of_birth.year
+    if (reference.month, reference.day) < (date_of_birth.month, date_of_birth.day):
+        age -= 1
     return age if age >= 0 else None

@@ -4,7 +4,7 @@ from typing import Annotated
 
 import msgspec
 
-from vapi.constants import BIRTH_YEAR_MAX, BIRTH_YEAR_MIN, MAX_LONG_TEXT_LENGTH, MAX_URL_LENGTH
+from vapi.constants import MAX_LONG_TEXT_LENGTH, MAX_URL_LENGTH
 from vapi.db.sql_models.validators import EMAIL_PATTERN
 
 # The model strips whitespace before validate_email_format runs, so the outer \s* keeps
@@ -20,12 +20,11 @@ PersonName = Annotated[str, msgspec.Meta(min_length=2, max_length=50)]
 LongText = Annotated[str, msgspec.Meta(max_length=MAX_LONG_TEXT_LENGTH)]
 LongText3 = Annotated[str, msgspec.Meta(min_length=3, max_length=MAX_LONG_TEXT_LENGTH)]
 Url = Annotated[str, msgspec.Meta(max_length=MAX_URL_LENGTH)]
-# Negative years are BCE.
-BirthYear = Annotated[int, msgspec.Meta(ge=BIRTH_YEAR_MIN, le=BIRTH_YEAR_MAX)]
+Age = Annotated[int, msgspec.Meta(ge=0)]
 
 __all__ = (
     "EMAIL_REQUEST_PATTERN",
-    "BirthYear",
+    "Age",
     "Email",
     "LongText",
     "LongText3",

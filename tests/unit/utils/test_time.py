@@ -32,27 +32,21 @@ def test_format_uptime(delta: timedelta, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("reference", "birth_year", "date_of_birth", "expected"),
+    ("reference", "date_of_birth", "expected"),
     [
-        (date(1986, 6, 1), 1960, None, 26),
-        (date(2003, 1, 1), 1960, None, 43),
-        (date(1986, 6, 1), 1960, date(1960, 3, 15), 26),
-        (date(1986, 3, 14), 1960, date(1960, 3, 15), 25),
-        (date(1986, 3, 15), 1960, date(1960, 3, 15), 26),
-        (date(1986, 6, 1), None, date(1960, 3, 15), 26),
-        (date(1986, 6, 1), -1250, None, 3236),
-        (date(1986, 6, 1), 1986, None, 0),
-        (date(1986, 6, 1), 1990, None, None),
-        (date(1986, 6, 1), None, None, None),
+        (date(1986, 6, 1), date(1960, 3, 15), 26),
+        (date(1986, 3, 14), date(1960, 3, 15), 25),
+        (date(1986, 3, 15), date(1960, 3, 15), 26),
+        (date(2003, 1, 1), date(1960, 3, 15), 42),
+        (date(1960, 3, 15), date(1960, 3, 15), 0),
+        (date(1960, 3, 14), date(1960, 3, 15), None),
     ],
 )
-def test_age_on(
-    reference: date, birth_year: int | None, date_of_birth: date | None, expected: int | None
-) -> None:
-    """Verify age is measured on the reference date from the birth year or full birth date."""
-    # Given a reference date and what is known of the birth
+def test_age_on(reference: date, date_of_birth: date, expected: int | None) -> None:
+    """Verify age counts whole years on the reference date, honoring the birthday."""
+    # Given a reference date and a date of birth
     # When the age is measured
-    age = age_on(reference, birth_year=birth_year, date_of_birth=date_of_birth)
+    age = age_on(reference, date_of_birth=date_of_birth)
 
-    # Then it counts whole years, honoring the birthday when known
+    # Then it counts whole years, or None before the birth
     assert age == expected

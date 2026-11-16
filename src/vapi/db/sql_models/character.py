@@ -17,8 +17,11 @@ from vapi.constants import (
     TraitModifyCurrency,
 )
 from vapi.db.sql_models.base import BaseModel
+from vapi.utils.time import age_on
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from vapi.db.sql_models.aws import S3Asset
     from vapi.db.sql_models.campaign import Campaign, CampaignChapter
     from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
@@ -44,7 +47,6 @@ class Character(BaseModel):
     starting_points = fields.IntField(default=0)
     age = fields.IntField(null=True)
     date_of_birth = fields.DateField(null=True)
-    birth_year = fields.IntField(null=True)
     biography = fields.TextField(null=True, validators=[MinLengthValidator(3)])
     demeanor = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
     nature = fields.CharField(max_length=50, null=True, validators=[MinLengthValidator(3)])
@@ -119,6 +121,22 @@ class Character(BaseModel):
     def concept_name(self) -> str | None:
         """Name of the character concept, requires fetch_related('concept')."""
         return self.concept.name if self.concept else None
+
+    def age_at(self, in_game_date: date | None) -> int | None:
+        """Age on an in-game date, or the stored ``age`` when either date is missing."""
+        if self.date_of_birth is None or in_game_date is None:
+            return self.age
+        return age_on(in_game_date, date_of_birth=self.date_of_birth)
+
+    @property
+    def current_age(self) -> int | None:
+        """Age to show; dead characters keep the age stored at death.
+
+        Requires fetch_related('campaign'); an unloaded campaign counts as no in-game date.
+        """
+        if self.status == CharacterStatus.DEAD:
+            return self.age
+        return self.age_at(getattr(self.campaign, "in_game_date", None))
 
 
 class VampireAttributes(BaseModel):

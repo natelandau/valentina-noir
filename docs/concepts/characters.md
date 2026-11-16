@@ -60,21 +60,24 @@ Characters track their living status, which the system uses to manage gameplay s
 | Status  | Description                                                     |
 | ------- | --------------------------------------------------------------- |
 | `ALIVE` | Character is alive and active                                   |
-| `DEAD`  | Character is deceased (automatically records the date of death) |
+| `DEAD`  | Character is deceased. The API records the date of death, and the [age](#age) stops changing. |
 
-### Age and Birth Year
+### Age
 
-A character's age follows the campaign's calendar instead of being a fixed number. Record when the character was born with `birth_year` (negative years are BCE, from -9999 to 9999), or with a full `date_of_birth` when it is known. The response's `age` is then measured on the campaign's [`in_game_date`](../quickstart/campaigns.md), so a character born in 1960 is 26 while the campaign is set in 1986 and 43 once it reaches 2003.
+A character's `age` can follow the campaign's calendar. The `age` and `date_of_birth` fields are both optional on create and update. `age` must be 0 or more. `date_of_birth` is an ISO 8601 calendar date, for example `"1960-03-15"`.
 
-| Field           | Behavior                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `birth_year`    | The year the character was born. Setting `date_of_birth` overwrites it with that date's year.                    |
-| `date_of_birth` | Optional full date. When set, `age` counts whether the birthday has passed on the in-game date.                  |
-| `age`           | Derived from `birth_year` or `date_of_birth` when either is set. Otherwise the stored value is returned as before. |
+The `age` in the response depends on the character's status and on two dates:
 
-When the campaign has no `in_game_date`, age is measured on today's date. An in-game date before the birth year gives an `age` of `null`.
+| Condition                                                                                                                    | Response `age`                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| The character is `ALIVE`, has a `date_of_birth`, and its campaign has an [`in_game_date`](../quickstart/campaigns.md)        | Computed: the whole years from `date_of_birth` to `in_game_date`  |
+| All other cases                                                                                                              | The stored `age`                                                  |
 
-To turn an age a player knows into a birth year, subtract it from the campaign's in-game year: a 26-year-old in 1986 was born in 1960.
+A character born on 15 March 1960 is 26 when the campaign's in-game date is 1 June 1986. When the in-game date moves to 1 January 2003, the character is 42. If the in-game date is before the date of birth, `age` is `null`.
+
+When the API computes `age`, it still stores an `age` value that you send, but the response shows the computed value. The stored value shows again when the first row of the table no longer applies.
+
+Dead characters do not age. When a character's `status` changes to `DEAD`, the API stores the computed age in `age`. If the API cannot compute the age at that time, the stored `age` does not change. If the character returns to `ALIVE`, the API computes the age again from the current in-game date. The years that the character was dead count toward the age.
 
 ### Temporary Characters
 

@@ -56,13 +56,28 @@ class CharacterService:
     Called explicitly from controllers instead of relying on model hooks.
     """
 
-    def update_date_killed(self, character: Character) -> None:
-        """Update the death_date field based on character status.
+    async def apply_status_change(self, character: Character) -> None:
+        """Record a death or revival.
+
+        On death, stamp ``date_killed`` and store the in-game age so the character stops
+        aging. On revival, clear ``date_killed`` so the age is computed again.
 
         Args:
             character: The character to update.
         """
         if character.status == CharacterStatus.DEAD and character.date_killed is None:
+            if character.date_of_birth is not None:
+                campaign = character.campaign
+                if not isinstance(campaign, Campaign):
+                    campaign = (
+                        await Campaign.filter(id=character.campaign_id)
+                        .only("id", "in_game_date")
+                        .first()
+                    )
+                in_game_date = campaign.in_game_date if campaign else None
+                # An in-game date before the birth yields no age; keep the stored one.
+                if (age := character.age_at(in_game_date)) is not None:
+                    character.age = age
             character.date_killed = time_now()
         elif character.status == CharacterStatus.ALIVE and character.date_killed is not None:
             character.date_killed = None
@@ -331,7 +346,12 @@ class CharacterService:
                 else None
             )
             changes = await self.apply_character_patch(character, data)
+            patched_age = character.age
             await self.prepare_for_save(character)
+            # A death stores the in-game age, which the patch diff alone would miss.
+            if character.age != patched_age:
+                old_age = changes["age"]["old"] if "age" in changes else patched_age
+                changes["age"] = {"old": old_age, "new": character.age}
             await character.save()
             if payer is not None:
                 settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
@@ -443,18 +463,6 @@ class CharacterService:
                 detail=msg, invalid_parameters=[{"field": "user_player_id", "message": msg}]
             )
 
-    @staticmethod
-    def sync_birth_year(character: Character) -> None:
-        """Keep the birth year in step with a full date of birth.
-
-        A full date of birth is the more precise record, so its year always wins.
-
-        Args:
-            character: The character to update.
-        """
-        if character.date_of_birth is not None:
-            character.birth_year = character.date_of_birth.year
-
     async def prepare_for_save(self, character: Character) -> None:
         """Perform all pre-save validations and updates.
 
@@ -464,8 +472,7 @@ class CharacterService:
         Args:
             character: The character to prepare.
         """
-        self.update_date_killed(character)
-        self.sync_birth_year(character)
+        await self.apply_status_change(character)
         await self.validate_company_references(character)
         await asyncio.gather(
             self.validate_unique_name(character),

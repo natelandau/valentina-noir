@@ -52,7 +52,7 @@ A fresh company has no campaigns yet, so `items` is empty. Create one next.
 
 ## Create a campaign
 
-A campaign needs only a `name`. The `description`, `in_game_date`, `desperation`, and `danger` fields are optional. `description` defaults to empty, `in_game_date` defaults to `null`, and `desperation` and `danger` default to `0`. `in_game_date` is an ISO 8601 calendar date (for example `"1888-06-15"`) marking when the campaign is set in the game world.
+A campaign needs only a `name`. The `description`, `in_game_date`, `desperation`, and `danger` fields are optional. `description` defaults to empty, `in_game_date` defaults to `null`, and `desperation` and `danger` default to `0`. `in_game_date` is an ISO 8601 calendar date (for example `"1888-06-15"`) marking when the campaign is set in the game world. Characters in the campaign use `in_game_date` to compute their [age](../concepts/characters.md#age).
 
 ```python
 response = requests.post(

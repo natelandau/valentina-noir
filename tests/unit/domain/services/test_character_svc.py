@@ -1,5 +1,6 @@
 """Unit tests for character domain services."""
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from vapi.domain.controllers.character_health.dto import HealthStateSet
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet
 from vapi.domain.services import CharacterService, TrackerService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -27,10 +29,10 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-class TestUpdateDateKilled:
-    """Test the update_date_killed method."""
+class TestApplyStatusChange:
+    """Test the apply_status_change method."""
 
-    async def test_update_date_killed_alive(
+    async def test_alive_character_unchanged(
         self,
         character_factory: "Callable[..., Any]",
         company_factory: "Callable[..., Any]",
@@ -39,85 +41,101 @@ class TestUpdateDateKilled:
         # Given an alive character
         company = await company_factory()
         character = await character_factory(company=company)
-        service = CharacterService()
 
-        # When we call update_date_killed on an alive character
-        service.update_date_killed(character)
+        # When applying the status change
+        await CharacterService().apply_status_change(character)
 
-        # Then date_killed should remain None
+        # Then date_killed remains None
         assert character.date_killed is None
 
-    async def test_update_date_killed_alive_to_dead(
+    async def test_death_then_revival(
         self,
         character_factory: "Callable[..., Any]",
         company_factory: "Callable[..., Any]",
     ) -> None:
-        """Verify date_killed is set when character transitions to DEAD."""
+        """Verify date_killed is set on death and cleared on revival."""
         # Given an alive character
         company = await company_factory()
         character = await character_factory(company=company)
         service = CharacterService()
 
-        # When we set the character to dead
+        # When the character dies
         character.status = CharacterStatus.DEAD
-        service.update_date_killed(character)
+        await service.apply_status_change(character)
 
-        # Then date_killed should be set
+        # Then date_killed is set
         assert character.date_killed is not None
 
-    async def test_update_date_killed_dead_to_alive(
-        self,
-        character_factory: "Callable[..., Any]",
-        company_factory: "Callable[..., Any]",
-    ) -> None:
-        """Verify date_killed is cleared when character transitions back to ALIVE."""
-        # Given a character that is dead
-        company = await company_factory()
-        character = await character_factory(company=company)
-        service = CharacterService()
-        character.status = CharacterStatus.DEAD
-        service.update_date_killed(character)
-
-        # When we set the character back to alive
+        # When the character is revived
         character.status = CharacterStatus.ALIVE
-        service.update_date_killed(character)
+        await service.apply_status_change(character)
 
-        # Then date_killed should be None
+        # Then date_killed is cleared
         assert character.date_killed is None
 
-
-class TestSyncBirthYear:
-    """Test the sync_birth_year method."""
-
-    async def test_sync_birth_year_takes_year_from_date_of_birth(
+    @pytest.mark.parametrize(
+        ("status", "already_dead", "date_of_birth", "in_game_date", "expected"),
+        [
+            (CharacterStatus.DEAD, False, date(1960, 3, 15), date(1986, 6, 1), 26),
+            (CharacterStatus.DEAD, False, None, date(1986, 6, 1), 99),
+            (CharacterStatus.DEAD, False, date(1960, 3, 15), None, 99),
+            (CharacterStatus.DEAD, False, date(1960, 3, 15), date(1950, 1, 1), 99),
+            (CharacterStatus.DEAD, True, date(1960, 3, 15), date(1986, 6, 1), 99),
+            (CharacterStatus.ALIVE, False, date(1960, 3, 15), date(1986, 6, 1), 99),
+        ],
+    )
+    async def test_age_stored_on_death(
         self,
         character_factory: "Callable[..., Any]",
+        campaign_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        status: CharacterStatus,
+        date_of_birth: date | None,
+        in_game_date: date | None,
+        expected: int,
+        *,
+        already_dead: bool,
     ) -> None:
-        """Verify a full date of birth overrides a mismatched birth year."""
-        from datetime import date
+        """Verify the in-game age is stored only when a character dies with both dates set."""
+        # Given a character with a stored age of 99
+        company = await company_factory()
+        campaign = await campaign_factory(company=company, in_game_date=in_game_date)
+        character = await character_factory(
+            company=company, campaign=campaign, date_of_birth=date_of_birth, age=99
+        )
+        character.status = status
+        if already_dead:
+            character.date_killed = time_now()
 
-        # Given a character whose birth year disagrees with its date of birth
-        character = await character_factory(birth_year=1950, date_of_birth=date(1960, 3, 15))
+        # When applying the status change
+        await CharacterService().apply_status_change(character)
 
-        # When syncing the birth year
-        CharacterService.sync_birth_year(character)
+        # Then the age is the in-game age at death, or unchanged
+        assert character.age == expected
 
-        # Then the birth year follows the date of birth
-        assert character.birth_year == 1960
-
-    async def test_sync_birth_year_keeps_birth_year_without_date_of_birth(
+    async def test_death_age_recorded_in_patch_changes(
         self,
         character_factory: "Callable[..., Any]",
+        campaign_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
     ) -> None:
-        """Verify a birth year alone is left as entered."""
-        # Given a character with only a birth year
-        character = await character_factory(birth_year=1960)
+        """Verify the age stored on death appears in the patch's audit changes."""
+        from vapi.domain.controllers.character.dto import CharacterPatch
 
-        # When syncing the birth year
-        CharacterService.sync_birth_year(character)
+        # Given a living character with a date of birth in a dated campaign
+        company = await company_factory()
+        campaign = await campaign_factory(company=company, in_game_date=date(1986, 6, 1))
+        character = await character_factory(
+            company=company, campaign=campaign, date_of_birth=date(1960, 3, 15), age=99
+        )
 
-        # Then it is unchanged
-        assert character.birth_year == 1960
+        # When a patch kills the character
+        changes = await CharacterService().save_character_patch(
+            character, CharacterPatch(status=CharacterStatus.DEAD)
+        )
+
+        # Then the stored age change is recorded
+        assert changes["age"] == {"old": 99, "new": 26}
 
 
 class TestAssignVampireClanAttributes:
@@ -629,7 +647,7 @@ class TestPrepareForSave:
 
         # When we spy on all service methods
         spy_validate_unique_name = mocker.spy(service, "validate_unique_name")
-        spy_update_date_killed = mocker.spy(service, "update_date_killed")
+        spy_apply_status_change = mocker.spy(service, "apply_status_change")
         spy_validate_class_attributes = mocker.spy(service, "validate_class_attributes")
         spy_apply_concept_specialties = mocker.spy(service, "apply_concept_specialties")
 
@@ -638,7 +656,7 @@ class TestPrepareForSave:
 
         # Then all validation methods should be called
         spy_validate_unique_name.assert_called_once_with(character)
-        spy_update_date_killed.assert_called_once_with(character)
+        spy_apply_status_change.assert_called_once_with(character)
         spy_validate_class_attributes.assert_called_once()
         spy_apply_concept_specialties.assert_called_once_with(character)
 
