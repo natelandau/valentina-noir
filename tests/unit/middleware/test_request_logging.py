@@ -1,6 +1,8 @@
 """Tests for the combined request/response logging middleware and its config."""
 
+import json
 import logging
+import time
 from collections.abc import AsyncGenerator, Callable
 from types import SimpleNamespace
 
@@ -18,7 +20,11 @@ from vapi.lib.exceptions import (
     http_error_to_http_response,
 )
 from vapi.lib.log_config import log_uncaught_exception
-from vapi.lib.log_formatters import StructuredMessageParser, render_log_value
+from vapi.lib.log_formatters import (
+    LitestarJsonFormatter,
+    StructuredMessageParser,
+    render_log_value,
+)
 from vapi.middleware.request_id import request_id_middleware
 from vapi.middleware.request_logging import (
     CombinedLoggingMiddleware,
@@ -229,6 +235,28 @@ def _capture_request(config: CombinedLoggingMiddlewareConfig, **request_kwargs) 
     return _capture(_build_app(config), lambda client: client.post("/echo", **request_kwargs))
 
 
+def _log_direct(values: dict[str, object], level: int = logging.INFO) -> list[logging.LogRecord]:
+    """Call ``log_message`` on a bare middleware and return the records it emits."""
+
+    async def _app(scope: object, receive: object, send: object) -> None:
+        """No-op ASGI app for constructing the middleware."""
+
+    middleware = CombinedLoggingMiddleware(
+        app=_app, config=CombinedLoggingMiddlewareConfig(log_fields=["path"])
+    )
+    handler = _CaptureHandler()
+    logger = logging.getLogger("test_request_logging.log_direct")
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    middleware.logger = logger
+    middleware.is_struct_logger = False
+    try:
+        middleware.log_message(dict(values), level=level)
+    finally:
+        logger.removeHandler(handler)
+    return handler.records
+
+
 def _capture_records(
     app: Litestar,
     make_request: Callable[[TestClient], object],
@@ -367,28 +395,12 @@ def test_render_value_round_trips_control_characters(value: str) -> None:
 
 def test_log_message_tolerates_unmapped_level() -> None:
     """Verify log_message falls back to info for a level outside the known map instead of raising."""
-
     # Given a middleware instance with a captured stdlib logger
-    async def _app(scope: object, receive: object, send: object) -> None:
-        """No-op ASGI app for constructing the middleware."""
-
-    config = CombinedLoggingMiddlewareConfig(log_fields=["path"])
-    middleware = CombinedLoggingMiddleware(app=_app, config=config)
-    handler = _CaptureHandler()
-    logger = logging.getLogger("test_log_message_unmapped_level")
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-    middleware.logger = logger
-    middleware.is_struct_logger = False
-
     # When log_message is called with a level absent from _LEVEL_METHODS
-    try:
-        middleware.log_message({"message": "HTTP Request", "path": "/x"}, level=logging.DEBUG)
-    finally:
-        logger.removeHandler(handler)
+    records = _log_direct({"message": "HTTP Request", "path": "/x"}, level=logging.DEBUG)
 
     # Then it emits one record without raising (falling back to info)
-    assert len(handler.records) == 1
+    assert len(records) == 1
 
 
 def test_handled_error_folds_into_single_entry() -> None:
@@ -456,7 +468,7 @@ def test_validation_error_folds_invalid_parameters_into_entry() -> None:
     entries = [r for r in records if "path=/validate" in r.getMessage()]
     assert len(entries) == 1
     assert "error_type=ValidationError" in entries[0].getMessage()
-    assert "invalid_parameters=[" in entries[0].getMessage()
+    assert 'invalid_parameters="[{' in entries[0].getMessage()
     assert "too long" in entries[0].getMessage()
 
 
@@ -694,3 +706,71 @@ def test_redact_request_body_keeps_non_json_bytes() -> None:
 
     # Then it is unchanged
     assert redacted == body
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        [{"field": "]" + "a" * 50, "message": "Unknown field"}],
+        [{"field": "x], path=/forged, status_code=200", "message": "m"}],
+        {"x-forged": "}, level=DEBUG", "nested": {"deep": ["[", "]"]}},
+        ['quote"s', "back\\slash", "line\nbreak"],
+    ],
+)
+def test_render_value_keeps_collections_as_one_field(value: object) -> None:
+    """Verify a list or dict holding caller text parses back as the same single field."""
+    # Given a collection whose strings carry brackets, separators, and key=value text
+    # When it is rendered into a key=value message and parsed back
+    message = f"HTTP Request: invalid_parameters={render_log_value(value)}, method=GET"
+    parsed = StructuredMessageParser().parse(message)
+
+    # Then the collection survives intact and no forged fields appear
+    assert parsed == {"invalid_parameters": value, "method": "GET"}
+
+
+def test_reflected_field_name_logs_in_linear_time() -> None:
+    """Verify a huge caller-supplied field name in invalid_parameters formats quickly as one field."""
+    # Given a combined entry carrying a reflected 100k-character field name
+    invalid_parameters = [{"field": "]" + "a" * 100_000, "message": "Unknown field"}]
+    records = _log_direct(
+        {"message": "HTTP Request", "path": "/x", "invalid_parameters": invalid_parameters}
+    )
+
+    # When the JSON formatter formats the entry
+    start = time.perf_counter()
+    result = json.loads(LitestarJsonFormatter().format(records[0]))
+    elapsed = time.perf_counter() - start
+
+    # Then it finishes in linear time and the field name stays inside invalid_parameters
+    assert elapsed < 0.5
+    assert result["invalid_parameters"] == invalid_parameters
+    assert result["path"] == "/x"
+    assert result["message"] == "HTTP Request"
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["[1, 2]", '{"level": "DEBUG"}', "[" * 100_000, "{oops"],
+)
+def test_render_value_keeps_bracketed_strings_as_strings(value: str) -> None:
+    """Verify a string that looks like a JSON collection parses back as the same string."""
+    # Given a caller-supplied string that starts with a bracket
+    # When it is rendered into a key=value message and parsed back
+    message = f"HTTP Request: user_agent={render_log_value(value)}, method=GET"
+    parsed = StructuredMessageParser().parse(message)
+
+    # Then it stays a string instead of decoding into a list or dict
+    assert parsed == {"user_agent": value, "method": "GET"}
+
+
+def test_render_value_falls_back_for_unencodable_collections() -> None:
+    """Verify a dict that JSON cannot encode still renders as one field instead of raising."""
+    # Given a dict keyed by tuples
+    value = {(1, 2): "x"}
+
+    # When it is rendered into a key=value message and parsed back
+    message = f"HTTP Request: data={render_log_value(value)}, method=GET"
+    parsed = StructuredMessageParser().parse(message)
+
+    # Then its repr survives as a single string field
+    assert parsed == {"data": str(value), "method": "GET"}
