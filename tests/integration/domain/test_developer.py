@@ -5,12 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from litestar.status_codes import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+)
 
 from vapi.constants import AUTH_HEADER_KEY, CompanyPermission
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.domain import deps
 from vapi.domain.services.developer_svc import DeveloperService
-from vapi.domain.urls import Developers
+from vapi.domain.urls import Developers, GlobalAdmin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -261,3 +267,89 @@ async def test_developer_update_provider_audiences_whitespace_string(
 
     # Then the request is rejected with 400
     assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.parametrize("route", ["update", "new_key"])
+@pytest.mark.parametrize("admin_action", ["archive", "demote", "rotate"])
+async def test_developer_self_edit_keeps_concurrent_admin_revocation(
+    client: AsyncClient,
+    build_url: Callable[[str, ...], str],
+    token_global_admin: dict[str, str],
+    developer_factory: Callable[..., Any],
+    monkeypatch: pytest.MonkeyPatch,
+    route: str,
+    admin_action: str,
+) -> None:
+    """Verify a global-admin revocation that lands mid-request survives the developer's self edit."""
+    # Given a global admin developer authenticated with its own key
+    developer = await developer_factory(is_global_admin=True)
+    old_key = await _developer_service.generate_api_key(developer)
+    developer_id = str(developer.id)
+    admin_result: dict[str, Any] = {}
+
+    async def run_admin_action() -> None:
+        if admin_action == "archive":
+            response = await client.delete(
+                build_url(GlobalAdmin.DEVELOPER_DELETE, developer_id=developer_id),
+                headers=token_global_admin,
+            )
+        elif admin_action == "demote":
+            response = await client.patch(
+                build_url(GlobalAdmin.DEVELOPER_UPDATE, developer_id=developer_id),
+                headers=token_global_admin,
+                json={"is_global_admin": False},
+            )
+        else:
+            response = await client.post(
+                build_url(GlobalAdmin.DEVELOPER_NEW_KEY, developer_id=developer_id),
+                headers=token_global_admin,
+            )
+            admin_result["fingerprint"] = (await Developer.get(id=developer_id)).api_key_fingerprint
+        assert response.is_success
+
+    # When the admin action commits after the self request's developer provider loaded the row
+    class LoadThenRunAdminAction:
+        """Stand-in for Developer in the provider module that runs the admin action after the load."""
+
+        @staticmethod
+        def filter(*args: Any, **kwargs: Any) -> Any:
+            query = Developer.filter(*args, **kwargs)
+
+            class Query:
+                def prefetch_related(self, *relations: str) -> Query:
+                    nonlocal query
+                    query = query.prefetch_related(*relations)
+                    return self
+
+                async def first(self) -> Developer | None:
+                    loaded = await query.first()
+                    monkeypatch.undo()
+                    await run_admin_action()
+                    return loaded
+
+            return Query()
+
+    monkeypatch.setattr(deps, "Developer", LoadThenRunAdminAction)
+    if route == "update":
+        response = await client.patch(
+            build_url(Developers.UPDATE),
+            headers={AUTH_HEADER_KEY: old_key},
+            json={"username": f"renamed-{admin_action}"},
+        )
+    else:
+        response = await client.post(
+            build_url(Developers.NEW_KEY), headers={AUTH_HEADER_KEY: old_key}
+        )
+    monkeypatch.undo()
+
+    # Then the admin change holds
+    final = await Developer.get(id=developer_id)
+    if admin_action == "archive":
+        assert response.status_code == HTTP_401_UNAUTHORIZED
+        assert final.is_archived is True
+    elif admin_action == "demote":
+        assert response.status_code == (HTTP_200_OK if route == "update" else HTTP_201_CREATED)
+        assert final.is_global_admin is False
+    else:
+        assert response.status_code == HTTP_401_UNAUTHORIZED
+        assert final.api_key_fingerprint == admin_result["fingerprint"]

@@ -75,6 +75,42 @@ class BaseModel(Model):
             if isinstance(value, str) and value == "":
                 setattr(self, field_name, None)
 
+    async def lock_for_update(self, **filters: object) -> bool:
+        """Lock this row and reload it from the database, if it still matches ``filters``.
+
+        Call inside a transaction before a partial save that must act on the committed
+        row rather than the copy loaded earlier in the request, so concurrent changes
+        to other columns are neither overwritten nor misread.
+
+        Args:
+            **filters: Extra conditions the row must meet, such as ``is_archived=False``.
+
+        Returns:
+            True when the row matched and is now locked and reloaded, False otherwise.
+        """
+        # A full-row model query keeps FOR UPDATE; exists() and values_list() silently drop it
+        locked = await type(self).filter(id=self.id, **filters).select_for_update().first()
+        if locked is None:
+            return False
+        for field_name in self._meta.db_fields:
+            setattr(self, field_name, getattr(locked, field_name))
+        return True
+
+    @staticmethod
+    def _with_stamp_fields(update_fields: Iterable[str]) -> list[str]:
+        """Add the stamp columns a partial save must write alongside the named fields.
+
+        Callers name only the fields they changed, so ``date_modified`` and, when the
+        archive flag changes, the archive stamps are added here to keep them in step.
+        Duplicates are dropped because Postgres rejects a column assigned twice.
+        """
+        names = dict.fromkeys(update_fields)
+        names["date_modified"] = None
+        if "is_archived" in names:
+            names["archive_date"] = None
+            names["archive_batch_id"] = None
+        return list(names)
+
     async def save(
         self,
         using_db: BaseDBAsyncClient | None = None,
@@ -96,6 +132,8 @@ class BaseModel(Model):
         else:
             self.archive_date = None
             self.archive_batch_id = None
+        if update_fields is not None:
+            update_fields = self._with_stamp_fields(update_fields)
         await super().save(
             using_db=using_db,
             update_fields=update_fields,

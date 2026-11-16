@@ -1,6 +1,5 @@
 """Developer controllers."""
 
-import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
@@ -10,8 +9,7 @@ from vapi.constants import SENSITIVE_RESPONSE_OPT_KEY
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.services import DeveloperService
-from vapi.domain.services.developer_svc import validate_provider_audiences
-from vapi.lib.patch import apply_patch
+from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
 from vapi.lib.stores import delete_authentication_cache_for_developer
 from vapi.openapi.tags import APITags
@@ -49,10 +47,13 @@ class DeveloperController(Controller):
     )
     async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
         """Generate a new API key for a developer."""
-        # Evict after the new key is saved: evicting first lets a concurrent request with
-        # the old key re-cache it for the full TTL
-        old_fingerprint = developer.api_key_fingerprint
-        new_key = await DeveloperService().generate_api_key(developer)
+        # Use the presented key, not the loaded row's, so a rotation that lands between
+        # authentication and loading the developer is refused. Evict after the new key is
+        # saved: evicting first lets a concurrent request re-cache the old key for the full TTL
+        old_fingerprint = hmac_sha256_hex(data=request.auth)
+        new_key = await DeveloperService().generate_api_key(
+            developer, expected_fingerprint=old_fingerprint
+        )
         await delete_authentication_cache_for_developer(
             request.app, developer, fingerprint=old_fingerprint
         )
@@ -80,26 +81,9 @@ class DeveloperController(Controller):
         self, *, developer: Developer, data: DeveloperPatch, request: Request
     ) -> DeveloperResponse:
         """Update the current developer."""
-        changes = apply_patch(developer, data, exclude=frozenset({"provider_audiences"}))
-
-        if not isinstance(data.provider_audiences, msgspec.UnsetType):
-            validate_provider_audiences(data.provider_audiences)
-            old_audiences = developer.provider_audiences
-            if old_audiences != data.provider_audiences:
-                changes["provider_audiences"] = {
-                    "old": old_audiences,
-                    "new": data.provider_audiences,
-                }
-                developer.provider_audiences = data.provider_audiences
-
+        changes = await DeveloperService().update(
+            developer, data, expected_fingerprint=hmac_sha256_hex(data=request.auth)
+        )
         request.state.audit_changes = changes
         request.state.audit_description = f"Update developer '{developer.username}'"
-        await developer.save()
-
-        updated_developer = (
-            await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
-        )
-        if not updated_developer:
-            msg = f"Developer not found for id {developer.id}"
-            raise ValueError(msg)
-        return DeveloperResponse.from_model(updated_developer)
+        return DeveloperResponse.from_model(developer)

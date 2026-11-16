@@ -98,15 +98,16 @@ class IdentityService:
             # Only write when the verified profile actually differs; an unchanged
             # login must leave the row (and its auto_now date_modified) untouched so
             # the caller can safely skip cache invalidation for a routine login.
-            user_modified = getattr(user, profile_field) != identity.profile
-            if user_modified:
+            update_fields: list[str] = []
+            if getattr(user, profile_field) != identity.profile:
                 setattr(user, profile_field, identity.profile)
+                update_fields.append(profile_field)
             if self._proves_email(user=user, identity=identity) and not user.email_trusted:
                 user.email_trusted = True
-                user_modified = True
-            if user_modified:
-                await user.save()
-            return user, IdentityResolution.MATCHED, user_modified
+                update_fields.append("email_trusted")
+            if update_fields:
+                await user.save(update_fields=update_fields)
+            return user, IdentityResolution.MATCHED, bool(update_fields)
 
         # Auto-link only on provider-verified emails; client assertions never link
         if identity.email and identity.email_verified:
@@ -128,7 +129,7 @@ class IdentityService:
             if len(matches) == 1 and not getattr(matches[0], profile_field):
                 user = matches[0]
                 setattr(user, profile_field, identity.profile)
-                await user.save()
+                await user.save(update_fields=[profile_field])
                 await user.fetch_related("campaign_experiences")
                 return user, IdentityResolution.LINKED, True
 
@@ -197,9 +198,11 @@ class IdentityService:
             )
 
         setattr(user, profile_field, identity.profile)
+        update_fields = [profile_field]
         if self._proves_email(user=user, identity=identity):
             user.email_trusted = True
-        await user.save()
+            update_fields.append("email_trusted")
+        await user.save(update_fields=update_fields)
         await user.fetch_related("campaign_experiences")
         return user
 
@@ -240,7 +243,7 @@ class IdentityService:
             )
 
         setattr(user, profile_field, None)
-        await user.save()
+        await user.save(update_fields=[profile_field])
         await user.fetch_related("campaign_experiences")
         return user
 
