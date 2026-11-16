@@ -64,6 +64,17 @@ class BaseModel(Model):
         instance._stored_is_archived = vars(instance).get("is_archived")  # noqa: SLF001
         return instance
 
+    async def refresh_from_db(
+        self,
+        fields: Iterable[str] | None = None,
+        using_db: BaseDBAsyncClient | None = None,
+    ) -> None:
+        """Reload fields from the database and record the stored archive flag they carry."""
+        fields = list(fields) if fields is not None else None
+        await super().refresh_from_db(fields=fields, using_db=using_db)
+        if not fields or "is_archived" in fields:
+            self._stored_is_archived = self.is_archived
+
     def normalize_string_fields(self) -> None:
         """Strip whitespace on string fields and blank opted-in nullable fields to None.
 

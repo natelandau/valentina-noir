@@ -135,3 +135,25 @@ async def test_full_save_writes_archive_changed_in_memory(
     assert row.is_archived is False
     assert row.archive_batch_id is None
     assert row.archive_date is None
+
+
+async def test_restore_after_refresh_writes_archive_flag(
+    company_factory: "Callable[..., Company]",
+) -> None:
+    """Verify a full-row save restores a row whose archive was picked up by refresh_from_db."""
+    # Given a company loaded active, archived elsewhere, then refreshed
+    company = await company_factory(is_archived=False)
+    loaded = await Company.get(id=company.id)
+    await Company.filter(id=company.id).update(
+        is_archived=True, archive_date=time_now(), archive_batch_id=new_uuid()
+    )
+    await loaded.refresh_from_db()
+
+    # When the instance is restored in memory and saved
+    loaded.is_archived = False
+    await loaded.save()
+
+    # Then the row is active with cleared stamps
+    row = await Company.get(id=company.id)
+    assert row.is_archived is False
+    assert row.archive_batch_id is None
