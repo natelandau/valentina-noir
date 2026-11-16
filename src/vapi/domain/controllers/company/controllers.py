@@ -19,7 +19,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.handlers import archive_company
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import CompanyService
+from vapi.domain.services import CharacterTraitService, CompanyService
 from vapi.domain.services.company_svc import annotate_company_counts
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
@@ -52,6 +52,7 @@ async def _apply_settings_patch(
 
     Skips any field that is UNSET so partial updates don't overwrite unchanged values.
     Returns a dict of changed fields with dotted `settings.` prefix keys for audit logging.
+    A change of specialty rules also removes and refunds the specialties they no longer allow.
 
     Args:
         settings: The CompanySettings record to update in-place.
@@ -60,8 +61,15 @@ async def _apply_settings_patch(
     Returns:
         dict[str, dict[str, object]]: A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed field.
     """
-    changes = apply_patch(settings, patch, prefix="settings.")
-    await settings.save()
+    async with in_transaction():
+        changes = apply_patch(settings, patch, prefix="settings.")
+        await settings.save()
+        # Players did not choose the new rules, so refund in full whatever the recoup setting.
+        if "settings.specialty_rules" in changes:
+            await CharacterTraitService().remove_ineligible_specialties(
+                company_id=settings.company_id,  # ty:ignore[unresolved-attribute]
+                full_xp_refund=True,
+            )
     return changes
 
 

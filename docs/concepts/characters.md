@@ -347,7 +347,7 @@ Each level in the hierarchy includes display metadata like `show_when_empty`, `i
     - `subcategories[].character_traits` - Traits grouped under a subcategory
     - `character_traits` - Traits that belong directly to the category without a subcategory
 
-    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array. Each character trait also carries its ability [`specialties`](./character_traits.md#specialties), which is empty for traits outside the Abilities section, and its in-play `tracker`, which is `null` for traits without one. A trait with a tracker, such as Willpower, has the same `tracker` object as in the [character trait response](./trackers_and_health.md#tracker-types).
+    Each `trait` object matches the blueprint [`Trait`](./character_blueprint.md#traits) shape, including its dot-level [`powers`](./character_blueprint.md#trait-powers) array. Each character trait also carries its [`specialties`](./character_traits.md#specialties), which is empty for a trait that has none, and its in-play `tracker`, which is `null` for traits without one. A trait with a tracker, such as Willpower, has the same `tracker` object as in the [character trait response](./trackers_and_health.md#tracker-types).
 
 ## Character Sub-Resources
 

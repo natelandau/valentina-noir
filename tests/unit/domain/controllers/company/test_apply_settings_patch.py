@@ -12,8 +12,13 @@ from vapi.constants import (
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
+    SpecialtyRules,
+    TraitModifyCurrency,
 )
+from vapi.db.sql_models.character import CharacterTraitSpecialty
+from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import CompanySettings
+from vapi.db.sql_models.user import CampaignExperience
 from vapi.domain.controllers.company.controllers import _apply_settings_patch
 from vapi.domain.controllers.company.dto import CompanySettingsPatch
 
@@ -264,3 +269,53 @@ class TestApplySettingsPatchSpecialtyXpCost:
         assert changes["settings.specialty_xp_cost_enabled"] == {"old": False, "new": True}
         refreshed = await CompanySettings.get(id=settings.id)
         assert refreshed.specialty_xp_cost_enabled is True
+
+
+class TestApplySettingsPatchSpecialtyRules:
+    """Test that changing specialty rules removes the specialties they no longer allow."""
+
+    async def test_switching_rules_removes_and_refunds_ineligible_specialties(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        character_trait_specialty_factory: Callable[..., Any],
+        campaign_experience_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a switch to RATING_BASED removes a specialty on an ability below four."""
+        # Given a FIXED_COST company with DENIED recoup and a player's Firearms at 2
+        # holding a specialty bought for 3 XP
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.DENIED,
+        )
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(user=user, campaign=campaign, xp_current=0, xp_total=0)
+        firearms = await Trait.get(
+            sheet_section__name="Abilities",
+            name="Firearms",
+            is_archived=False,
+            custom_for_character_id=None,
+        )
+        char_trait = await character_trait_factory(character=character, trait=firearms, value=2)
+        await character_trait_specialty_factory(
+            character_trait=char_trait,
+            name="Sniping",
+            cost_paid=3,
+            currency_paid=TraitModifyCurrency.XP,
+        )
+        settings = await CompanySettings.get(company=company)
+
+        # When patching the rules to RATING_BASED
+        changes = await _apply_settings_patch(
+            settings, CompanySettingsPatch(specialty_rules=SpecialtyRules.RATING_BASED)
+        )
+
+        # Then the change is recorded, the specialty is gone, and its XP returns in full
+        assert changes["settings.specialty_rules"]["new"] == SpecialtyRules.RATING_BASED
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=char_trait.id).exists()
+        experience = await CampaignExperience.get(user_id=user.id, campaign_id=campaign.id)
+        assert experience.xp_current == 3

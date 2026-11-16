@@ -998,3 +998,268 @@ class TestRatingBasedSpecialtyRules:
 
         # Then it succeeds at no cost
         assert result.specialties[0].cost_paid == 0
+
+    async def test_npc_rejects_xp_for_free_first_specialty(self, make_scenario) -> None:
+        """Verify the currency check applies even when the first specialty is free."""
+        # Given RATING_BASED rules, XP cost on, and an NPC with Firearms at 4
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Firearms"),
+            value=4,
+            character_type=CharacterType.NPC,
+        )
+
+        # When adding the first specialty with XP
+        # Then it is refused like any other specialty
+        with pytest.raises(ValidationError):
+            await _add(s)
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id).exists()
+
+    async def test_archived_concept_does_not_lower_min_rating(
+        self, make_scenario, character_concept_factory
+    ) -> None:
+        """Verify an archived concept favors no abilities."""
+        # Given RATING_BASED rules, an archived concept favoring Medicine, and Medicine at 3
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Medicine"),
+            value=3,
+        )
+        concept = await character_concept_factory(
+            favored_ability_names=["Medicine"], is_archived=True
+        )
+        s.character.concept_id = concept.id
+        await s.character.save()
+
+        # When adding a specialty
+        # Then it needs the full four dots
+        with pytest.raises(ValidationError, match="needs 4 dots"):
+            await _add(s, name="Battlefield Medicine")
+
+    async def test_custom_trait_named_like_favored_ability_needs_four(
+        self, make_scenario, character_concept_factory, trait_factory, character_trait_factory
+    ) -> None:
+        """Verify a custom trait sharing a favored ability's name is not favored."""
+        # Given RATING_BASED rules, a concept favoring Brawl, and a custom "brawl" ability at 3
+        base = await make_scenario(specialty_rules=SpecialtyRules.RATING_BASED)
+        concept = await character_concept_factory(favored_ability_names=["Brawl"])
+        base.character.concept_id = concept.id
+        await base.character.save()
+        brawl = await _trait("Abilities", "Brawl")
+        custom = await trait_factory(
+            name="brawl",
+            custom_for_character=base.character,
+            sheet_section=await CharSheetSection.get(name="Abilities"),
+            category_id=brawl.category_id,  # ty:ignore[unresolved-attribute]
+        )
+        custom_char_trait = await character_trait_factory(
+            character=base.character, trait=custom, value=3
+        )
+        s = replace(
+            base,
+            char_trait=await CharacterTrait.get(id=custom_char_trait.id).prefetch_related(
+                *CHARACTER_TRAIT_PREFETCH
+            ),
+        )
+
+        # When adding a specialty
+        # Then it needs the full four dots
+        with pytest.raises(ValidationError, match="needs 4 dots"):
+            await _add(s, name="Bar Fights")
+
+
+class TestIneligibleSpecialtiesRemoved:
+    """Test that specialties the company's rules no longer allow are removed and refunded."""
+
+    async def _paid(self, factory, s: Scenario, cost: int = 4) -> CharacterTraitSpecialty:
+        return await factory(
+            character_trait=s.char_trait,
+            name="Sniping",
+            cost_paid=cost,
+            currency_paid=TraitModifyCurrency.XP,
+        )
+
+    async def _lower(self, s: Scenario, target_value: int) -> CharacterTrait:
+        return await s.svc.modify_trait_value(
+            company=s.company,
+            user=s.user,
+            character=s.character,
+            character_trait=s.char_trait,
+            target_value=target_value,
+            currency=TraitModifyCurrency.NO_COST,
+        )
+
+    async def test_lowering_below_min_rating_refunds_specialties(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify an ability lowered below four loses its specialties with a refund."""
+        # Given RATING_BASED rules and Firearms at 4 with a paid specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Firearms"),
+            value=4,
+        )
+        await self._paid(character_trait_specialty_factory, s)
+
+        # When lowering Firearms to 3
+        result = await self._lower(s, 3)
+
+        # Then the specialty is gone, its cost returns, and the response omits it
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id).exists()
+        assert await _xp(s) == 5 + 4
+        assert s.svc.removed_specialty_names == ["Sniping"]
+        assert list(result.specialties) == []
+
+    async def test_lowering_attribute_below_min_rating_refunds_specialties(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify an attribute, which never reaches 0, still loses specialties below four."""
+        # Given RATING_BASED rules and Strength at 4 with a paid specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Attributes", "Strength"),
+            value=4,
+        )
+        await self._paid(character_trait_specialty_factory, s)
+
+        # When lowering Strength to 3
+        await self._lower(s, 3)
+
+        # Then the specialty is gone and its cost returns
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id).exists()
+        assert await _xp(s) == 5 + 4
+
+    async def test_lowering_but_staying_at_min_rating_keeps_specialties(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a trait that stays at its minimum rating keeps its specialties."""
+        # Given RATING_BASED rules and Firearms at 5 with a paid specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Firearms"),
+            value=5,
+        )
+        await self._paid(character_trait_specialty_factory, s)
+
+        # When lowering Firearms to 4
+        await self._lower(s, 4)
+
+        # Then the specialty remains and nothing is refunded
+        assert await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id).exists()
+        assert await _xp(s) == 5
+
+    async def test_value_options_include_refund_below_min_rating(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify value options include the refund for every target below the minimum rating."""
+        # Given RATING_BASED rules and Firearms at 5 with a paid specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Firearms"),
+            value=5,
+        )
+        await self._paid(character_trait_specialty_factory, s)
+        savings = await s.svc.calculate_all_downgrade_savings(s.char_trait)
+
+        # When fetching options
+        result = await s.svc.get_value_options(character=s.character, character_trait=s.char_trait)
+
+        # Then 4 excludes the refund and 3 includes it
+        assert result.options["4"].xp_after == 5 + savings["1"]
+        assert result.options["3"].xp_after == 5 + savings["2"] + 4
+
+    async def test_switching_rules_refunds_in_full_despite_denied_recoup(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a rules switch removes now-ineligible specialties with a full XP refund."""
+        # Given FIXED_COST rules, DENIED recoup, and Firearms at 2 with a paid specialty
+        s = await make_scenario(
+            trait=await _trait("Abilities", "Firearms"),
+            value=2,
+            recoup=PermissionsRecoupXP.DENIED,
+        )
+        await self._paid(character_trait_specialty_factory, s, cost=SPECIALTY_XP_COST)
+
+        # When the company switches to RATING_BASED and sweeps its specialties
+        await CompanySettings.filter(company_id=s.company.id).update(
+            specialty_rules=SpecialtyRules.RATING_BASED
+        )
+        removed = await s.svc.remove_ineligible_specialties(
+            company_id=s.company.id, full_xp_refund=True
+        )
+
+        # Then the specialty is removed and its XP returns
+        assert removed == ["Sniping"]
+        assert await _xp(s) == 5 + SPECIALTY_XP_COST
+
+    async def test_switching_rules_keeps_eligible_specialties(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a rules switch leaves specialties the new rules still allow."""
+        # Given FIXED_COST rules and Firearms at 4 with a paid specialty
+        s = await make_scenario(trait=await _trait("Abilities", "Firearms"), value=4)
+        await self._paid(character_trait_specialty_factory, s, cost=SPECIALTY_XP_COST)
+
+        # When the company switches to RATING_BASED and sweeps its specialties
+        await CompanySettings.filter(company_id=s.company.id).update(
+            specialty_rules=SpecialtyRules.RATING_BASED
+        )
+        removed = await s.svc.remove_ineligible_specialties(
+            company_id=s.company.id, full_xp_refund=True
+        )
+
+        # Then nothing is removed
+        assert removed == []
+        assert await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id).exists()
+
+    async def test_switching_to_fixed_cost_removes_attribute_specialties(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify FIXED_COST rules remove specialties on attributes."""
+        # Given RATING_BASED rules and Strength at 5 with a paid specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Attributes", "Strength"),
+            value=5,
+        )
+        await self._paid(character_trait_specialty_factory, s, cost=5)
+
+        # When the company switches to FIXED_COST and sweeps its specialties
+        await CompanySettings.filter(company_id=s.company.id).update(
+            specialty_rules=SpecialtyRules.FIXED_COST
+        )
+        removed = await s.svc.remove_ineligible_specialties(
+            company_id=s.company.id, full_xp_refund=True
+        )
+
+        # Then the attribute specialty is removed and refunded
+        assert removed == ["Sniping"]
+        assert await _xp(s) == 5 + 5
+
+    async def test_losing_favored_concept_follows_recoup_setting(
+        self, make_scenario, character_trait_specialty_factory, character_concept_factory
+    ) -> None:
+        """Verify a concept change removes specialties under the company's recoup setting."""
+        # Given RATING_BASED rules, DENIED recoup, and favored Medicine at 3 with a specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Medicine"),
+            value=3,
+            recoup=PermissionsRecoupXP.DENIED,
+        )
+        favoring = await character_concept_factory(favored_ability_names=["Medicine"])
+        s.character.concept_id = favoring.id
+        await s.character.save()
+        await self._paid(character_trait_specialty_factory, s, cost=3)
+
+        # When the character changes to a concept that does not favor Medicine
+        other = await character_concept_factory(name="Other Concept", favored_ability_names=[])
+        s.character.concept_id = other.id
+        await s.character.save()
+        removed = await s.svc.remove_ineligible_specialties(
+            company_id=s.company.id, character_id=s.character.id
+        )
+
+        # Then the specialty is removed and DENIED recoup withholds the XP
+        assert removed == ["Sniping"]
+        assert await _xp(s) == 5

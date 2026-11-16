@@ -296,7 +296,7 @@ class CharacterTraitController(Controller):
         character_trait: CharacterTrait,
         data: CharacterTraitSpecialtyCreate,
     ) -> CharacterTraitResponse:
-        """Add a specialty to an ability trait."""
+        """Add a specialty to a character trait."""
         service = CharacterTraitService()
         ct = await service.add_specialty(
             company=company,
@@ -356,7 +356,7 @@ class CharacterTraitController(Controller):
         character_trait: CharacterTrait,
         specialty: CharacterTraitSpecialty,
     ) -> None:
-        """Remove a specialty from an ability trait."""
+        """Remove a specialty from a character trait."""
         service = CharacterTraitService()
         request.state.audit_description = f"Remove specialty '{specialty.name}' from trait '{character_trait.trait.name}' for character '{character.name_first} {character.name_last}'"
         await service.remove_specialty(

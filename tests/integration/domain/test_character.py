@@ -15,15 +15,24 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
 )
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType, UserRole
+from vapi.constants import (
+    CharacterClass,
+    CharacterStatus,
+    CharacterType,
+    SpecialtyRules,
+    TraitModifyCurrency,
+    UserRole,
+)
 from vapi.db.sql_models.character import (
     Character,
     CharacterTrait,
+    CharacterTraitSpecialty,
     VampireAttributes,
     WerewolfAttributes,
 )
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait, TraitCategory
+from vapi.db.sql_models.company import CompanySettings
 from vapi.domain.urls import Characters as CharacterURL
 
 if TYPE_CHECKING:
@@ -1073,6 +1082,69 @@ class TestCharacterController:
             headers=token_global_admin | on_behalf_of_header,
         )
         assert response.status_code == HTTP_404_NOT_FOUND
+
+    async def test_update_character_concept_removes_ineligible_specialties(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        session_company: Company,
+        session_user: User,
+        session_campaign: Campaign,
+        character_factory: Callable[..., Character],
+        character_trait_factory: Callable[..., Any],
+        character_trait_specialty_factory: Callable[..., Any],
+        character_concept_factory: Callable[..., Any],
+        token_global_admin: dict[str, str],
+        on_behalf_of_header: dict[str, str],
+    ) -> None:
+        """Verify a concept change removes specialties the old concept's favored ability allowed."""
+        # Given RATING_BASED rules and a character whose concept favors Medicine,
+        # with Medicine at 3 holding a specialty
+        settings = await CompanySettings.get(company=session_company)
+        original_rules = settings.specialty_rules
+        settings.specialty_rules = SpecialtyRules.RATING_BASED
+        await settings.save()
+        try:
+            favoring = await character_concept_factory(favored_ability_names=["Medicine"])
+            other = await character_concept_factory(name="Other Concept")
+            character = await character_factory(
+                company=session_company,
+                user_player=session_user,
+                user_creator=session_user,
+                campaign=session_campaign,
+                concept=favoring,
+            )
+            medicine = await Trait.get(
+                sheet_section__name="Abilities",
+                name="Medicine",
+                is_archived=False,
+                custom_for_character_id=None,
+            )
+            char_trait = await character_trait_factory(character=character, trait=medicine, value=3)
+            await character_trait_specialty_factory(
+                character_trait=char_trait,
+                name="Field Surgery",
+                cost_paid=0,
+                currency_paid=TraitModifyCurrency.NO_COST,
+            )
+
+            # When changing the character to a concept that does not favor Medicine
+            response = await client.patch(
+                build_url(
+                    CharacterURL.UPDATE,
+                    company_id=session_company.id,
+                    character_id=character.id,
+                ),
+                headers=token_global_admin | on_behalf_of_header,
+                json={"concept_id": str(other.id)},
+            )
+        finally:
+            settings.specialty_rules = original_rules
+            await settings.save()
+
+        # Then the update succeeds and the specialty is gone
+        assert response.status_code == HTTP_200_OK
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=char_trait.id).exists()
 
 
 class TestVampireAttributes:

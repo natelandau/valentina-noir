@@ -281,14 +281,23 @@ Certain traits are automatically recalculated when their source traits change:
 
 ## Specialties
 
-A specialty is a short, free-text label that narrows an ability, such as "Sniping" on Firearms. Specialties are stored on the character trait and returned in the `specialties` array of every character trait response.
+A specialty is a short, free-text label that narrows a trait, such as "Sniping" on Firearms. Specialties are stored on the character trait and returned in the `specialties` array of every character trait response.
 
-These ability specialties are separate from the character-level `specialties` field on the character response, which lists the specialties granted by the character's [concept](./character_concepts.md).
+These trait specialties are separate from the character-level `specialties` field on the character response, which lists the specialties granted by the character's [concept](./character_concepts.md).
 
-- Under the company's default `FIXED_COST` [Specialty Rules](./company_settings.md#specialty-rules), specialties apply to ability traits rated 1 or higher. Other traits return `400 Bad Request`.
-- Under `RATING_BASED` rules, attributes and abilities rated 4 or higher may take specialties. An ability named in the character's concept favored abilities unlocks at 3. Other traits, or traits below their minimum rating, return `400 Bad Request`.
-- An ability can have several specialties.
-- A name must be 3 to 50 characters long. Names must be unique on the ability, ignoring case.
+### Which Traits Accept Specialties
+
+The company's [Specialty Rules](./company_settings.md#specialty-rules) setting decides which traits accept specialties and what each one costs.
+
+| Specialty Rules        | Traits                   | Minimum rating                                                                     |
+| ---------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
+| `FIXED_COST` (default) | Abilities                | 1                                                                                  |
+| `RATING_BASED`         | Attributes and abilities | 4. An ability named in the favored abilities of the character's concept needs 3. |
+
+A specialty on any other trait, or on a trait below its minimum rating, returns `400 Bad Request`. A custom trait is never a favored ability, even when its name matches one.
+
+- A trait can have several specialties.
+- A name must be 3 to 50 characters long. Names must be unique on the trait, ignoring case.
 
 ### Adding a Specialty
 
@@ -301,16 +310,20 @@ Send a `name` and an optional `currency`. The default `currency` is `NO_COST`.
 }
 ```
 
-What the specialty costs depends on the company's [Specialty XP Cost](./company_settings.md#specialty-xp-cost) setting.
+When the company's [Specialty XP Cost](./company_settings.md#specialty-xp-cost) setting is off, every specialty is free and the `currency` has no effect. When the setting is on, the Specialty Rules set the cost:
 
-| Setting | `NO_COST`                                                 | `XP`       | `STARTING_POINTS`       |
-| ------- | --------------------------------------------------------- | ---------- | ----------------------- |
-| Off     | Free, no free trait changes check                         | Free       | Free                    |
-| On      | Free, subject to the company's free trait changes setting | Costs 3 XP | Costs 3 starting points |
+| Specialty Rules | Cost                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `FIXED_COST`    | 3 for each specialty.                                                                                                        |
+| `RATING_BASED`  | The first specialty on a trait is free. Each further specialty costs the current rating of the trait, so a second specialty on a trait rated 4 costs 4. |
 
-Under `RATING_BASED` rules, the first specialty on a trait is free, whatever the currency, and needs no free trait changes check. Each further specialty costs the trait's current rating instead of 3, so a second specialty on an ability rated 4 costs 4 XP.
+The `currency` decides how the API takes the cost:
 
-`NPC` and `STORYTELLER` characters only accept `NO_COST`.
+- `XP` spends experience points.
+- `STARTING_POINTS` spends starting points.
+- `NO_COST` adds the specialty free. The company's free trait changes setting decides whether a player can do this. A specialty that costs nothing, such as the first one under `RATING_BASED`, needs no free trait changes check.
+
+When the Specialty XP Cost setting is on, `NPC` and `STORYTELLER` characters accept only `NO_COST`.
 
 ### Refunds and Removal
 
@@ -320,7 +333,13 @@ Each specialty remembers what was paid for it. When a specialty is removed, the 
 - `STARTING_POINTS` refunds are always given.
 - Removing a specialty is never refused because of the recoup setting.
 
-When an ability drops to a value of 0, all of its specialties are removed and refunded under the rules above. This happens when you lower the value with any currency, recoup XP, or delete the trait.
+The API also removes all specialties from a trait that no longer accepts them, and refunds each one under the rules above. This occurs when:
+
+- The value of the trait falls below its minimum rating. Under `RATING_BASED` rules, an attribute at 3 loses its specialties. Any currency, an XP recoup, or a trait delete can lower the value.
+- The character changes to a concept that does not favor the ability.
+- The company changes its Specialty Rules. The `XP` refund is then given in full, whatever the XP recoup setting, because the player did not make the change.
+
+The `value-options` endpoint adds these refunds to `xp_after` and `starting_points_after` for each value that removes specialties.
 
 ## Deleting Traits
 
