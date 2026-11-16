@@ -108,13 +108,13 @@ When you change `specialty_rules`, the API removes each specialty that the new r
 
 ### Custom Flaw XP Cost
 
-Set the price of every [custom flaw](./character_traits.md#flaw-traits) created in the company.
+Set how much currency a [custom flaw](./character_traits.md#custom-flaws) grants.
 
-| Setting               | Behavior                                                                               |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| `custom_flaw_xp_cost` | The initial and upgrade cost of each new custom flaw, from `0` to `100` (default `2`). |
+| Setting               | Behavior                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `custom_flaw_xp_cost` | The `initial_cost` and `upgrade_cost` of each custom flaw, an integer from `0` to `100`. The default is `2`. |
 
-A flaw grants experience or starting points instead of spending them, so this value controls how much a custom flaw pays out. A custom flaw keeps the cost it was created with when this setting changes later.
+A flaw grants XP or starting points instead of spending them, so this value sets the payout of each custom flaw. A custom flaw keeps the cost that it had when you created it. A change to this setting applies only to custom flaws that you create after the change.
 
 ### NPC Management
 

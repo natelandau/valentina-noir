@@ -131,9 +131,11 @@ Every V5 character already has Willpower, so a request to assign it returns `409
 
 ### Creating Custom Traits
 
-Create a trait unique to a single character. Custom traits share the same fields as core traits but remain unavailable to other characters. They're useful for representing unique abilities that don't exist in the standard trait list.
+Create a trait unique to a single character. A custom trait has the same fields as a core trait, but other characters cannot use it. Use a custom trait for an ability that is not in the standard trait list.
 
-Provide the trait name, parent category, `currency`, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category. Custom flaws are priced differently, see [Flaw Traits](#flaw-traits). A `min_value` greater than `max_value` returns `400 Bad Request`. The trait is always created at a value of `1`, and the `currency` you supply pays for that first dot.
+Provide the trait name, the parent category, and the `currency`. The API always creates the trait at a value of `1`, and charges or credits that first dot in the `currency` you supply. If you omit `initial_cost` or `upgrade_cost`, the trait uses the costs of its parent category. A `min_value` greater than `max_value` returns `400 Bad Request`.
+
+Custom flaws have fixed pricing. See [Custom Flaws](#custom-flaws).
 
 ```json
 {
@@ -271,7 +273,16 @@ The cost formulas remain the same - only the direction of currency flow is inver
 
 The `value-options` endpoint reflects this reversal: increase options for flaws are always affordable (since they grant currency), while decrease options check affordability against the user's available balance.
 
-A [custom flaw](#creating-custom-traits) always has a `max_value` of `5`, and its `initial_cost` and `upgrade_cost` both come from the company's [Custom Flaw XP Cost](./company_settings.md#custom-flaw-xp-cost) setting. You can't set them when you create the flaw. A request that sends `initial_cost` or `upgrade_cost`, or a `max_value` other than `5`, for a trait in the `Flaws` category returns `400 Bad Request` and creates nothing.
+### Custom Flaws
+
+A [custom flaw](#creating-custom-traits) is a custom trait in the `Flaws` category. Its pricing is fixed, so the caller cannot set how much currency the flaw grants:
+
+- `max_value` is always `5`.
+- `initial_cost` and `upgrade_cost` both equal the company's [Custom Flaw XP Cost](./company_settings.md#custom-flaw-xp-cost) setting when you create the flaw.
+
+At the default cost of `2`, a custom flaw at value `5` grants 30 XP in total: 2 + 4 + 6 + 8 + 10.
+
+Omit `initial_cost`, `upgrade_cost`, and `max_value` when you create a custom flaw. If the request sends `initial_cost` or `upgrade_cost`, or a `max_value` other than `5`, the API returns `400 Bad Request` and does not create the trait.
 
 ## Derived Traits
 
