@@ -9,7 +9,7 @@ from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.notes.dto import NotePatch
 from vapi.lib.exceptions import NotFoundError
-from vapi.lib.patch import save_active_patch
+from vapi.lib.patch import archive_active, save_active_patch
 from vapi.utils.time import time_now
 
 pytestmark = pytest.mark.anyio
@@ -78,3 +78,43 @@ class TestSaveActivePatch:
         # When/Then saving an empty patch raises NotFoundError
         with pytest.raises(NotFoundError):
             await save_active_patch(stale, NotePatch(), label="Note")
+
+
+class TestArchiveActive:
+    """Test that a soft delete never overwrites a row changed after it was loaded."""
+
+    async def test_stale_note_archived_by_cascade_keeps_batch(
+        self, company_factory: Callable[..., Any], note_factory: Callable[..., Any]
+    ) -> None:
+        """Verify deleting a note archived after load raises 404 and keeps the cascade batch."""
+        # Given a note loaded by a request, then archived by a concurrent parent delete
+        note = await note_factory(company=await company_factory())
+        stale = await Note.get(id=note.id)
+        batch_id = await _cascade_archive(Note, note.id)
+
+        # When/Then the delete raises NotFoundError
+        with pytest.raises(NotFoundError, match="Note not found"):
+            await archive_active(stale, label="Note")
+
+        # And the note stays in the cascade batch
+        row = await Note.get(id=note.id)
+        assert row.is_archived is True
+        assert row.archive_batch_id == batch_id
+
+    async def test_archives_without_overwriting_other_columns(
+        self, company_factory: Callable[..., Any], note_factory: Callable[..., Any]
+    ) -> None:
+        """Verify a delete archives the row and keeps a column changed after load."""
+        # Given a stale note whose content was changed concurrently
+        note = await note_factory(company=await company_factory(), content="original content")
+        stale = await Note.get(id=note.id)
+        await Note.filter(id=note.id).update(content="concurrent content")
+
+        # When the request deletes it
+        await archive_active(stale, label="Note")
+
+        # Then it is archived with stamps and the concurrent content survives
+        row = await Note.get(id=note.id)
+        assert row.is_archived is True
+        assert row.archive_batch_id is not None
+        assert row.content == "concurrent content"

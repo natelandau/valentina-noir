@@ -19,7 +19,7 @@ from vapi.lib.guards import (
     user_active_guard,
     user_character_player_or_storyteller_guard,
 )
-from vapi.lib.patch import save_active_patch
+from vapi.lib.patch import archive_active, save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -144,6 +144,5 @@ class CharacterInventoryController(Controller):
         request: Request,
     ) -> None:
         """Delete an inventory item."""
-        inventory_item.is_archived = True
-        await inventory_item.save()
+        await archive_active(inventory_item, label="Inventory item")
         request.state.audit_description = f"Delete inventory item '{inventory_item.name}'"

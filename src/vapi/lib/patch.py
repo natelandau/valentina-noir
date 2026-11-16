@@ -117,3 +117,24 @@ async def save_active_patch(
         if changes:
             await target.save(update_fields=[key.removeprefix(prefix) for key in changes])
     return changes
+
+
+async def archive_active(target: BaseModel, *, label: str) -> None:
+    """Soft-delete a row loaded earlier in the request, writing only the archive columns.
+
+    Use for any DELETE of a single archivable row. The row is locked and reloaded first,
+    so the request's stale copy neither overwrites concurrent edits nor replaces the
+    batch id of a parent delete's cascade that archived the row after it was loaded.
+
+    Args:
+        target: The model instance to archive. Refreshed from the database in place.
+        label: Human-readable model name for the not-found message.
+
+    Raises:
+        NotFoundError: If the row was archived or deleted after it was loaded.
+    """
+    async with in_transaction():
+        if not await target.lock_for_update(is_archived=False):
+            raise NotFoundError(detail=f"{label} not found")
+        target.is_archived = True
+        await target.save(update_fields=["is_archived"])

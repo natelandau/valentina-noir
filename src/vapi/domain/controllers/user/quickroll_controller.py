@@ -15,7 +15,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
-from vapi.lib.patch import save_active_patch
+from vapi.lib.patch import archive_active, save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -160,6 +160,5 @@ class QuickRollController(Controller):
             requesting_user_id=acting_user.id,
             user_to_manage_id=target_user.id,
         )
-        quickroll.is_archived = True
-        await quickroll.save()
+        await archive_active(quickroll, label="Quick roll")
         request.state.audit_description = f"Delete quick roll '{quickroll.name}'"

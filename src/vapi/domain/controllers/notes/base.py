@@ -10,7 +10,7 @@ from vapi.db.sql_models.notes import Note
 from vapi.domain.paginator import OffsetPagination
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
-from vapi.lib.patch import save_active_patch
+from vapi.lib.patch import archive_active, save_active_patch
 
 from . import dto
 
@@ -95,6 +95,5 @@ class BaseNoteController(Controller, ABC):
     async def _delete_note(self, note: Note, parent_id: UUID, request: Request) -> None:
         """Soft-delete a note, verifying it belongs to the parent in the URL path."""
         self._assert_belongs_to_parent(note, parent_id)
-        note.is_archived = True
-        await note.save()
+        await archive_active(note, label="Note")
         request.state.audit_description = f"Delete note '{note.title}'"

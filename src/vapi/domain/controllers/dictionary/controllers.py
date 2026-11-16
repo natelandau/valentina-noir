@@ -14,7 +14,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination, ReferenceLimit
 from vapi.domain.services import DictionaryService
 from vapi.lib.guards import developer_company_user_guard
-from vapi.lib.patch import save_active_patch
+from vapi.lib.patch import archive_active, save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -136,6 +136,5 @@ class DictionaryTermController(Controller):
         service = DictionaryService()
         service.verify_term_is_editable(dictionary_term, company_id=company.id)
 
-        dictionary_term.is_archived = True
-        await dictionary_term.save()
+        await archive_active(dictionary_term, label="Dictionary term")
         request.state.audit_description = f"Delete dictionary term '{dictionary_term.term}'"
