@@ -161,6 +161,7 @@ class TestCompanyCRUD:
                 "permission_free_trait_changes": "STORYTELLER",
                 "permission_recoup_xp": "WITHIN_SESSION",
                 "specialty_xp_cost_enabled": True,
+                "custom_flaw_xp_cost": 7,
             },
         }
 
@@ -180,8 +181,10 @@ class TestCompanyCRUD:
         assert settings["permission_free_trait_changes"] == "STORYTELLER"
         assert settings["permission_recoup_xp"] == "WITHIN_SESSION"
         assert settings["specialty_xp_cost_enabled"] is True
+        assert settings["custom_flaw_xp_cost"] == 7
         stored = await CompanySettings.get(company_id=data["company"]["id"])
         assert stored.specialty_xp_cost_enabled is True
+        assert stored.custom_flaw_xp_cost == 7
 
     async def test_patch_company(
         self,

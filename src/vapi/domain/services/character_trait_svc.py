@@ -10,6 +10,7 @@ from tortoise.expressions import F, Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
+    CUSTOM_FLAW_MAX_VALUE,
     SPECIALTY_FAVORED_MIN_RATING,
     SPECIALTY_MIN_RATING,
     SPECIALTY_XP_COST,
@@ -1171,6 +1172,29 @@ class CharacterTraitService:
 
         return BulkAssignTraitResponse(succeeded=succeeded, failed=failed)
 
+    @staticmethod
+    def _reject_caller_priced_flaw(data: CharacterTraitCreateCustom) -> None:
+        """Reject a custom flaw whose request sets its own costs or maximum.
+
+        Flaws pay out currency priced by their costs, so a caller-priced custom flaw would
+        let anyone mint XP. The company setting and a fixed maximum price them instead.
+
+        Raises:
+            ValidationError: If the request sets initial_cost, upgrade_cost, or a non-default max_value.
+        """
+        caller_priced = [
+            field for field in ("initial_cost", "upgrade_cost") if getattr(data, field) is not None
+        ] + (["max_value"] if data.max_value != CUSTOM_FLAW_MAX_VALUE else [])
+        if caller_priced:
+            msg = (
+                "Custom flaws take their cost from the company's custom_flaw_xp_cost "
+                f"setting and have a max_value of {CUSTOM_FLAW_MAX_VALUE}"
+            )
+            raise ValidationError(
+                detail=msg,
+                invalid_parameters=[{"field": f, "message": msg} for f in caller_priced],
+            )
+
     async def create_custom_trait(
         self,
         *,
@@ -1197,6 +1221,10 @@ class CharacterTraitService:
         currency = data.currency
         self._assert_currency_allowed_for_type(character, currency)
         await self.guard_user_can_manage_character(character, user)
+
+        is_flaw = await self._is_flaw_category(data.category_id)
+        if is_flaw:
+            self._reject_caller_priced_flaw(data)
 
         cleaned_name = data.name.strip()
 
@@ -1229,12 +1257,16 @@ class CharacterTraitService:
             msg = "Trait category not found"
             raise ValidationError(detail=msg)
 
-        initial_cost = (
-            data.initial_cost if data.initial_cost is not None else parent_category.initial_cost
-        )
-        upgrade_cost = (
-            data.upgrade_cost if data.upgrade_cost is not None else parent_category.upgrade_cost
-        )
+        if is_flaw:
+            # company.settings is prefetched by the DI provider (provide_company_by_id).
+            initial_cost = upgrade_cost = company.settings.custom_flaw_xp_cost
+        else:
+            initial_cost = (
+                data.initial_cost if data.initial_cost is not None else parent_category.initial_cost
+            )
+            upgrade_cost = (
+                data.upgrade_cost if data.upgrade_cost is not None else parent_category.upgrade_cost
+            )
 
         # New custom traits always begin at value 1. Create the definition and the
         # character trait at 0, then buy that first dot with the chosen currency so

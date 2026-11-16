@@ -10,6 +10,7 @@ import pytest
 from litestar.stores.memory import MemoryStore
 
 from vapi.constants import (
+    CUSTOM_FLAW_MAX_VALUE,
     CharacterClass,
     CharacterType,
     PermissionManageNPC,
@@ -18,6 +19,7 @@ from vapi.constants import (
     TraitModifyCurrency,
     UserRole,
 )
+from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import Character, CharacterTrait, WerewolfAttributes
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import Company, CompanySettings
@@ -1792,6 +1794,31 @@ class TestGuardHasMinimumRenown:
 class TestCreateCustomTrait:
     """Test the create_custom_trait method."""
 
+    @pytest.fixture
+    def player_flaw_setup(self, company_factory, campaign_factory, user_factory, character_factory):
+        """Return an async factory for a player-owned character in a campaign plus the Flaws category.
+
+        Company settings pass through as keyword arguments, so each test can set its own
+        custom flaw XP cost.
+        """
+
+        async def _make(
+            **settings: int,
+        ) -> tuple[Company, Campaign, User, Character, TraitCategory]:
+            company = await company_factory(**{f"settings__{k}": v for k, v in settings.items()})
+            campaign = await campaign_factory(company=company)
+            player = await user_factory(company=company, role=UserRole.PLAYER)
+            character = await character_factory(
+                company=company,
+                campaign=campaign,
+                user_player=player,
+                user_creator=player,
+            )
+            flaws_category = await TraitCategory.filter(name="Flaws", is_archived=False).first()
+            return company, campaign, player, character, flaws_category
+
+        return _make
+
     async def test_create_custom_trait_no_cost(
         self,
         get_company_user_character: tuple[Company, User, Character],
@@ -2002,6 +2029,114 @@ class TestCreateCustomTrait:
                 data=dto,
             )
         assert not await Trait.filter(name="Unaffordable Trait").exists()
+
+    async def test_create_custom_flaw_uses_company_xp_cost(self, player_flaw_setup) -> None:
+        """Verify a custom flaw takes its costs from the company setting and a fixed maximum."""
+        # Given a company with a custom flaw XP cost and a player who owns a character
+        company, campaign, player, character, flaws_category = await player_flaw_setup(
+            custom_flaw_xp_cost=4
+        )
+        dto = CharacterTraitCreateCustom(
+            name="Custom Flaw",
+            category_id=flaws_category.id,
+            currency=TraitModifyCurrency.XP,
+        )
+
+        # When the player creates the custom flaw paid with XP
+        result = await CharacterTraitService().create_custom_trait(
+            company=company, user=player, character=character, data=dto
+        )
+
+        # Then the flaw is priced by the setting, capped at 5, and credits that first-dot XP
+        assert result.value == 1
+        assert result.trait.initial_cost == 4
+        assert result.trait.upgrade_cost == 4
+        assert result.trait.max_value == CUSTOM_FLAW_MAX_VALUE
+        experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
+        assert experience.xp_current == 4
+
+    @pytest.mark.parametrize("role", [UserRole.PLAYER, UserRole.STORYTELLER])
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"initial_cost": 100},
+            {"upgrade_cost": 0},
+            {"max_value": 10},
+        ],
+    )
+    async def test_create_custom_flaw_rejects_caller_pricing(
+        self,
+        player_flaw_setup,
+        user_factory,
+        role: UserRole,
+        overrides: dict[str, int],
+    ) -> None:
+        """Verify no caller can set the costs or maximum of a custom flaw, which would mint XP."""
+        # Given a player character and a user acting on it
+        company, campaign, player, character, flaws_category = await player_flaw_setup()
+        acting_user = (
+            player if role == UserRole.PLAYER else await user_factory(company=company, role=role)
+        )
+        dto = CharacterTraitCreateCustom(
+            name="Self Priced Flaw",
+            category_id=flaws_category.id,
+            currency=TraitModifyCurrency.XP,
+            **overrides,
+        )
+
+        # When the user creates the custom flaw with their own pricing
+        # Then the request is rejected, nothing is created, and XP is unchanged
+        with pytest.raises(ValidationError):
+            await CharacterTraitService().create_custom_trait(
+                company=company, user=acting_user, character=character, data=dto
+            )
+        assert not await Trait.filter(name="Self Priced Flaw").exists()
+        experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
+        assert experience.xp_current == 0
+
+    async def test_create_custom_flaw_cannot_be_raised_past_fixed_maximum(
+        self, player_flaw_setup
+    ) -> None:
+        """Verify a custom flaw stops paying out XP at its fixed maximum."""
+        # Given a player's custom flaw created at value 1
+        company, campaign, player, character, flaws_category = await player_flaw_setup(
+            custom_flaw_xp_cost=2
+        )
+        svc = CharacterTraitService()
+        custom_flaw = await svc.create_custom_trait(
+            company=company,
+            user=player,
+            character=character,
+            data=CharacterTraitCreateCustom(
+                name="Capped Flaw",
+                category_id=flaws_category.id,
+                currency=TraitModifyCurrency.XP,
+            ),
+        )
+
+        # When the player raises it to the maximum, then tries to go further
+        await svc.modify_trait_value(
+            company=company,
+            user=player,
+            character=character,
+            character_trait=custom_flaw,
+            target_value=CUSTOM_FLAW_MAX_VALUE,
+            currency=TraitModifyCurrency.XP,
+        )
+        custom_flaw = await CharacterTrait.get(id=custom_flaw.id).prefetch_related("trait")
+        with pytest.raises(ValidationError):
+            await svc.modify_trait_value(
+                company=company,
+                user=player,
+                character=character,
+                character_trait=custom_flaw,
+                target_value=CUSTOM_FLAW_MAX_VALUE + 1,
+                currency=TraitModifyCurrency.XP,
+            )
+
+        # Then XP stops at the five-dot payout: 2 + 2*2 + 3*2 + 4*2 + 5*2
+        experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
+        assert experience.xp_current == 30
 
     async def test_create_custom_trait_npc_rejects_non_no_cost_currency(
         self,

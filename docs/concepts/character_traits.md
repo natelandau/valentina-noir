@@ -133,7 +133,7 @@ Every V5 character already has Willpower, so a request to assign it returns `409
 
 Create a trait unique to a single character. Custom traits share the same fields as core traits but remain unavailable to other characters. They're useful for representing unique abilities that don't exist in the standard trait list.
 
-Provide the trait name, parent category, `currency`, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category. The trait is always created at a value of `1`, and the `currency` you supply pays for that first dot.
+Provide the trait name, parent category, `currency`, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category. Custom flaws are priced differently, see [Flaw Traits](#flaw-traits). The trait is always created at a value of `1`, and the `currency` you supply pays for that first dot.
 
 ```json
 {
@@ -270,6 +270,8 @@ Traits in the "Flaws" parent category have a reversed currency economy. When a p
 The cost formulas remain the same - only the direction of currency flow is inverted. `NO_COST` modifications are unaffected and work the same as for any other trait.
 
 The `value-options` endpoint reflects this reversal: increase options for flaws are always affordable (since they grant currency), while decrease options check affordability against the user's available balance.
+
+A [custom flaw](#creating-custom-traits) always has a `max_value` of `5`, and its `initial_cost` and `upgrade_cost` both come from the company's [Custom Flaw XP Cost](./company_settings.md#custom-flaw-xp-cost) setting. You can't set them when you create the flaw. A request that sends `initial_cost` or `upgrade_cost`, or a `max_value` other than `5`, for a trait in the `Flaws` category returns `400 Bad Request` and creates nothing.
 
 ## Derived Traits
 

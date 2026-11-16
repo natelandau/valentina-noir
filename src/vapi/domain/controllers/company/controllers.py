@@ -130,6 +130,7 @@ class CompanyController(Controller):
                     "permission_recoup_xp": data.settings.permission_recoup_xp,
                     "specialty_xp_cost_enabled": data.settings.specialty_xp_cost_enabled,
                     "specialty_rules": data.settings.specialty_rules,
+                    "custom_flaw_xp_cost": data.settings.custom_flaw_xp_cost,
                 }
             await CompanySettings.create(company=company, **settings_kwargs)
 

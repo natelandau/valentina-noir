@@ -7,6 +7,7 @@ from uuid import UUID
 import msgspec
 
 from vapi.constants import (
+    DEFAULT_CUSTOM_FLAW_XP_COST,
     CompanyPermission,
     PermissionManageCampaign,
     PermissionManageNPC,
@@ -45,6 +46,7 @@ class CompanySettingsResponse(msgspec.Struct):
     permission_recoup_xp: str
     specialty_xp_cost_enabled: bool
     specialty_rules: str
+    custom_flaw_xp_cost: int
 
     @classmethod
     def from_model(cls, m: "CompanySettings") -> "CompanySettingsResponse":
@@ -61,6 +63,7 @@ class CompanySettingsResponse(msgspec.Struct):
             permission_recoup_xp=m.permission_recoup_xp.value,
             specialty_xp_cost_enabled=m.specialty_xp_cost_enabled,
             specialty_rules=m.specialty_rules.value,
+            custom_flaw_xp_cost=m.custom_flaw_xp_cost,
         )
 
 
@@ -177,6 +180,7 @@ class CompanySettingsCreate(msgspec.Struct):
     permission_recoup_xp: PermissionsRecoupXP = PermissionsRecoupXP.DENIED
     specialty_xp_cost_enabled: bool = False
     specialty_rules: SpecialtyRules = SpecialtyRules.FIXED_COST
+    custom_flaw_xp_cost: XpCost = DEFAULT_CUSTOM_FLAW_XP_COST
 
 
 class CompanyCreate(msgspec.Struct):
@@ -204,6 +208,7 @@ class CompanySettingsPatch(msgspec.Struct):
     permission_recoup_xp: PermissionsRecoupXP | msgspec.UnsetType = msgspec.UNSET
     specialty_xp_cost_enabled: bool | msgspec.UnsetType = msgspec.UNSET
     specialty_rules: SpecialtyRules | msgspec.UnsetType = msgspec.UNSET
+    custom_flaw_xp_cost: XpCost | msgspec.UnsetType = msgspec.UNSET
 
 
 class CompanyPatch(msgspec.Struct):

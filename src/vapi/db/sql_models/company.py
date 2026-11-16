@@ -8,6 +8,7 @@ from tortoise import fields
 from tortoise.validators import MinLengthValidator
 
 from vapi.constants import (
+    DEFAULT_CUSTOM_FLAW_XP_COST,
     PermissionManageCampaign,
     PermissionManageNPC,
     PermissionsFreeTraitChanges,
@@ -17,6 +18,7 @@ from vapi.constants import (
 )
 from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import (
+    validate_company_settings_custom_flaw_xp_cost,
     validate_company_settings_num_choices,
     validate_company_settings_starting_points,
     validate_company_settings_xp_cost,
@@ -98,6 +100,11 @@ class CompanySettings(BaseModel):
     specialty_xp_cost_enabled = fields.BooleanField(default=False, db_default=False)
     specialty_rules = fields.CharEnumField(
         SpecialtyRules, default=SpecialtyRules.FIXED_COST, db_default="FIXED_COST"
+    )
+    custom_flaw_xp_cost = fields.IntField(
+        default=DEFAULT_CUSTOM_FLAW_XP_COST,
+        db_default=DEFAULT_CUSTOM_FLAW_XP_COST,
+        validators=[validate_company_settings_custom_flaw_xp_cost],
     )
 
     class Meta:

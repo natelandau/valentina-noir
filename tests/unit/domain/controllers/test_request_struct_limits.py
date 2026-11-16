@@ -51,6 +51,7 @@ from vapi.db.sql_models.validators import (
     STARTING_POINTS_MIN,
     XP_COST_MAX,
     XP_COST_MIN,
+    validate_company_settings_custom_flaw_xp_cost,
     validate_company_settings_num_choices,
     validate_company_settings_starting_points,
     validate_company_settings_xp_cost,
@@ -231,6 +232,7 @@ FUNCTION_BOUNDS: dict[Callable[..., None], dict[str, Any]] = {
         "ge": STARTING_POINTS_MIN,
         "le": STARTING_POINTS_MAX,
     },
+    validate_company_settings_custom_flaw_xp_cost: {"ge": XP_COST_MIN, "le": XP_COST_MAX},
     validate_company_settings_xp_cost: {"ge": XP_COST_MIN, "le": XP_COST_MAX},
     validate_email_format: {"pattern": EMAIL_STRUCT_PATTERN},
 }

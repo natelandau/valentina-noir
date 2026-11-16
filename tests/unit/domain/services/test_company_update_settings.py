@@ -320,3 +320,26 @@ class TestApplySettingsPatchSpecialtyRules:
         assert not await CharacterTraitSpecialty.filter(character_trait_id=char_trait.id).exists()
         experience = await CampaignExperience.get(user_id=user.id, campaign_id=campaign.id)
         assert experience.xp_current == 3
+
+
+class TestApplySettingsPatchCustomFlawXpCost:
+    """Test the custom_flaw_xp_cost integer setting."""
+
+    async def test_custom_flaw_xp_cost_persists(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify patching custom_flaw_xp_cost persists and is reported as a change."""
+        # Given a company with default settings
+        company = await company_factory()
+        settings = await CompanySettings.filter(company=company).first()
+
+        # When changing the setting
+        changes = await CompanyService().update_settings(
+            settings=settings, patch=CompanySettingsPatch(custom_flaw_xp_cost=5)
+        )
+
+        # Then the change is reported and persisted
+        assert changes["settings.custom_flaw_xp_cost"] == {"old": 2, "new": 5}
+        refreshed = await CompanySettings.get(id=settings.id)
+        assert refreshed.custom_flaw_xp_cost == 5

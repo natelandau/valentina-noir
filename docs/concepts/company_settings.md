@@ -106,6 +106,16 @@ Choose which traits accept specialties and what each one costs when [Specialty X
 
 When you change `specialty_rules`, the API removes each specialty that the new rules do not allow. It refunds the full cost in the currency paid, whatever the [XP Recoup](#xp-recoup) setting. See [Specialties](./character_traits.md#specialties) for the full rules.
 
+### Custom Flaw XP Cost
+
+Set the price of every [custom flaw](./character_traits.md#flaw-traits) created in the company.
+
+| Setting               | Behavior                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `custom_flaw_xp_cost` | The initial and upgrade cost of each new custom flaw, from `0` to `100` (default `2`). |
+
+A flaw grants experience or starting points instead of spending them, so this value controls how much a custom flaw pays out. A custom flaw keeps the cost it was created with when this setting changes later.
+
 ### NPC Management
 
 Control who can create, update, delete, and modify the traits, inventory, and images of NPC characters.
