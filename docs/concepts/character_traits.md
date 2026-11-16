@@ -330,6 +330,7 @@ When the Specialty XP Cost setting is on, `NPC` and `STORYTELLER` characters acc
 Each specialty remembers what was paid for it. When a specialty is removed, the same amount is returned in the same currency.
 
 - `XP` refunds are given when the company's XP recoup setting is `UNRESTRICTED` or `WITHIN_SESSION`. With `DENIED`, the specialty is removed and no XP is returned.
+- `XP` refunds go to the character's player. A character without a player, such as an `NPC`, gets no `XP` refund.
 - `STARTING_POINTS` refunds are always given.
 - Removing a specialty is never refused because of the recoup setting.
 

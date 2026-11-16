@@ -2159,11 +2159,15 @@ class CharacterTraitService:
         specialty: CharacterTraitSpecialty,
         recoup_setting: PermissionsRecoupXP,
     ) -> None:
-        """Return what a specialty cost, in the currency it was paid with."""
+        """Return what a specialty cost, in the currency it was paid with.
+
+        XP belongs to the player, so a character without one, such as a player character
+        later made an NPC, gets no XP back.
+        """
         xp_refund, starting_points_refund = self._specialty_refund_amounts(
             specialty=specialty, recoup_setting=recoup_setting
         )
-        if xp_refund:
+        if xp_refund and character.user_player_id is not None:  # ty:ignore[unresolved-attribute]
             await UserXPService().add_xp(
                 user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
                 campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]

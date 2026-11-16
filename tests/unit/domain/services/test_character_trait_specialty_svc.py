@@ -1248,3 +1248,24 @@ class TestIneligibleSpecialtiesRemoved:
         assert changes["specialties"] == {"old": ["Sniping"], "new": []}
         assert not await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id)
         assert await _xp(s) == 5 + 3
+
+    async def test_switching_rules_removes_xp_specialty_from_playerless_character(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a character with no player loses an XP-paid specialty without a refund."""
+        # Given RATING_BASED rules and an NPC whose Strength 5 holds a specialty paid in XP
+        # while it was a player character
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Attributes", "Strength"),
+            value=5,
+            character_type=CharacterType.NPC,
+        )
+        await _paid(character_trait_specialty_factory, s, cost=5)
+
+        # When the company switches to FIXED_COST and sweeps its specialties
+        removed = await self._switch_rules(s, SpecialtyRules.FIXED_COST)
+
+        # Then the specialty is removed and no player's XP changes
+        assert removed == ["Sniping"]
+        assert await _xp(s) == 5
