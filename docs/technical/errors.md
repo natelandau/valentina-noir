@@ -109,7 +109,7 @@ Some rules depend on more than one property of a field, for example text that is
 
 ### Text limits
 
-Each text field in a request body has a maximum length. Names are at most 50 characters. Longer free-form text, such as a character `biography`, a `description`, note `content`, or a dictionary `definition`, is at most 20,000 characters. A dictionary `link` is at most 2,048 characters, and a term has at most 50 `synonyms` of 50 characters or fewer. If a field is too long, the API returns `400 Bad Request` with a `Must be at most N characters.` message.
+Each text field in a request body has a maximum length. Names are at most 50 characters. Longer free-form text, such as a character `biography`, a `description`, note `content`, or a dictionary `definition`, is at most 20,000 characters. A dictionary `link` is at most 2,048 characters, and a term has at most 50 `synonyms` of 50 characters or fewer. An identity provider `token` is at most 16,384 characters. If a field is too long, the API returns `400 Bad Request` with a `Must be at most N characters.` message.
 
 ### Limits in the OpenAPI schema
 
