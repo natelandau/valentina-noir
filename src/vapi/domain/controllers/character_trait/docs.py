@@ -31,6 +31,10 @@ Custom traits are `is_rollable` by default so they appear when listing a charact
 - `STARTING_POINTS`: Spend starting points equal to the trait's initial cost
 
 **Note:** Only storyteller users and character owners can use this endpoint. `NO_COST` respects the company's free trait changes setting; `XP` and `STARTING_POINTS` are always available to character owners who can afford the cost. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. An `XP` or `STARTING_POINTS` cost the character cannot afford returns 400.
+
+A `min_value` greater than `max_value` returns 400.
+
+**Custom flaws:** a custom trait in the `Flaws` category always has a `max_value` of 5. Its `initial_cost` and `upgrade_cost` come from the company's `custom_flaw_xp_cost` setting. A request that sends `initial_cost`, `upgrade_cost`, or a `max_value` other than 5 for a flaw returns 400.
 """
 
 GET_VALUE_OPTIONS_DESCRIPTION = """\

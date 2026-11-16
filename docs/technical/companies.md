@@ -94,7 +94,9 @@ The response includes both the company and an admin user account:
             "permission_grant_xp": "UNRESTRICTED",
             "permission_free_trait_changes": "UNRESTRICTED",
             "permission_recoup_xp": "DENIED",
-            "specialty_xp_cost_enabled": false
+            "specialty_xp_cost_enabled": false,
+            "specialty_rules": "FIXED_COST",
+            "custom_flaw_xp_cost": 2
         }
     },
     "admin_user": {

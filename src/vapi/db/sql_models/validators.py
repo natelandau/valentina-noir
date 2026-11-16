@@ -65,6 +65,23 @@ def validate_game_versions(value: list[str]) -> None:
     _validate_enum_list(value, _VALID_GAME_VERSIONS, "game version")
 
 
+def _validate_int_range(*, value: int, minimum: int, maximum: int, field: str) -> None:
+    """Raise when an integer field is outside its inclusive range.
+
+    Args:
+        value: The integer to validate.
+        minimum: The smallest allowed value.
+        maximum: The largest allowed value.
+        field: The field name to report in the error message.
+
+    Raises:
+        ValidationError: If value is outside the range.
+    """
+    if not (minimum <= value <= maximum):
+        msg = f"{field} must be between {minimum} and {maximum}, got {value}"
+        raise ValidationError(msg)
+
+
 def validate_company_settings_starting_points(value: int) -> None:
     """Validate that character_autogen_starting_points is within the allowed range of 0-100.
 
@@ -77,9 +94,28 @@ def validate_company_settings_starting_points(value: int) -> None:
     Raises:
         ValidationError: If value is outside the range 0-100.
     """
-    if not (STARTING_POINTS_MIN <= value <= STARTING_POINTS_MAX):
-        msg = f"character_autogen_starting_points must be between {STARTING_POINTS_MIN} and {STARTING_POINTS_MAX}, got {value}"
-        raise ValidationError(msg)
+    _validate_int_range(
+        value=value,
+        minimum=STARTING_POINTS_MIN,
+        maximum=STARTING_POINTS_MAX,
+        field="character_autogen_starting_points",
+    )
+
+
+def validate_company_settings_custom_flaw_xp_cost(value: int) -> None:
+    """Validate that custom_flaw_xp_cost is within the allowed range of 0-100.
+
+    Use as a Tortoise ORM field validator so every write path enforces the range.
+
+    Args:
+        value: The XP cost integer to validate.
+
+    Raises:
+        ValidationError: If value is outside the range 0-100.
+    """
+    _validate_int_range(
+        value=value, minimum=XP_COST_MIN, maximum=XP_COST_MAX, field="custom_flaw_xp_cost"
+    )
 
 
 def validate_company_settings_xp_cost(value: int) -> None:
@@ -94,9 +130,9 @@ def validate_company_settings_xp_cost(value: int) -> None:
     Raises:
         ValidationError: If value is outside the range 0-100.
     """
-    if not (XP_COST_MIN <= value <= XP_COST_MAX):
-        msg = f"character_autogen_xp_cost must be between {XP_COST_MIN} and {XP_COST_MAX}, got {value}"
-        raise ValidationError(msg)
+    _validate_int_range(
+        value=value, minimum=XP_COST_MIN, maximum=XP_COST_MAX, field="character_autogen_xp_cost"
+    )
 
 
 def validate_company_settings_num_choices(value: int) -> None:
@@ -111,9 +147,12 @@ def validate_company_settings_num_choices(value: int) -> None:
     Raises:
         ValidationError: If value is outside the range 1-10.
     """
-    if not (NUM_CHOICES_MIN <= value <= NUM_CHOICES_MAX):
-        msg = f"character_autogen_num_choices must be between {NUM_CHOICES_MIN} and {NUM_CHOICES_MAX}, got {value}"
-        raise ValidationError(msg)
+    _validate_int_range(
+        value=value,
+        minimum=NUM_CHOICES_MIN,
+        maximum=NUM_CHOICES_MAX,
+        field="character_autogen_num_choices",
+    )
 
 
 EMAIL_PATTERN: str = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"

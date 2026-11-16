@@ -117,20 +117,9 @@ class CompanyController(Controller):
                 email=data.email,
             )
 
-            settings_kwargs: dict = {}
-            if data.settings is not None:
-                settings_kwargs = {
-                    "character_autogen_xp_cost": data.settings.character_autogen_xp_cost,
-                    "character_autogen_num_choices": data.settings.character_autogen_num_choices,
-                    "character_autogen_starting_points": data.settings.character_autogen_starting_points,
-                    "permission_manage_campaign": data.settings.permission_manage_campaign,
-                    "permission_manage_npc": data.settings.permission_manage_npc,
-                    "permission_grant_xp": data.settings.permission_grant_xp,
-                    "permission_free_trait_changes": data.settings.permission_free_trait_changes,
-                    "permission_recoup_xp": data.settings.permission_recoup_xp,
-                    "specialty_xp_cost_enabled": data.settings.specialty_xp_cost_enabled,
-                    "specialty_rules": data.settings.specialty_rules,
-                }
+            settings_kwargs = (
+                msgspec.structs.asdict(data.settings) if data.settings is not None else {}
+            )
             await CompanySettings.create(company=company, **settings_kwargs)
 
             await DeveloperCompanyPermission.create(

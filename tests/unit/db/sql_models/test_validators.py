@@ -8,6 +8,7 @@ from tortoise.validators import MaxValueValidator, MinLengthValidator, MinValueV
 
 from vapi.db.sql_models.validators import (
     validate_character_classes,
+    validate_company_settings_custom_flaw_xp_cost,
     validate_company_settings_num_choices,
     validate_company_settings_starting_points,
     validate_company_settings_xp_cost,
@@ -84,6 +85,13 @@ class TestCompanySettingsValidators:
         # When/Then validation raises ValueError referencing the field name
         with pytest.raises(TortoiseValidationError, match="character_autogen_xp_cost"):
             validate_company_settings_xp_cost(value)
+
+    @pytest.mark.parametrize("value", [-1, 101])
+    def test_validate_custom_flaw_xp_cost_invalid(self, value: int) -> None:
+        """Verify out-of-range custom flaw xp cost values raise ValidationError."""
+        # When/Then validation raises ValidationError referencing the field name
+        with pytest.raises(TortoiseValidationError, match="custom_flaw_xp_cost"):
+            validate_company_settings_custom_flaw_xp_cost(value)
 
     @pytest.mark.parametrize("value", [1, 5, 10])
     def test_validate_num_choices_valid(self, value: int) -> None:
