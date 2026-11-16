@@ -4,10 +4,8 @@ from asyncio import gather
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from tortoise.exceptions import NoValuesFetched
-
 from vapi.constants import CharacterClass
-from vapi.db.sql_models.character import CharacterTrait
+from vapi.db.sql_models.character import CharacterTrait, WerewolfAttributes
 from vapi.db.sql_models.character_sheet import (
     CharSheetSection,
     Trait,
@@ -22,6 +20,8 @@ if TYPE_CHECKING:
         FullSheetTraitCategoryDTO,
         FullSheetTraitSectionDTO,
     )
+
+type _GiftAffinity = tuple[UUID | None, UUID | None]
 
 
 class CharacterSheetService:
@@ -95,14 +95,16 @@ class CharacterSheetService:
                 )
                 .order_by("name")
             )
+            coros.append(self._load_gift_affinity(character))
 
-        results = await gather(*coros)
+        sections, categories, subcategories, character_traits, *extra = await gather(*coros)
+        available_traits, gift_affinity = extra or ([], None)
 
-        skeleton_sections: list[CharSheetSection] = list(results[0])
-        skeleton_categories: list[TraitCategory] = list(results[1])
-        skeleton_subcategories: list[TraitSubcategory] = list(results[2])
-        all_character_traits: list[CharacterTrait] = list(results[3])
-        all_available_traits: list[Trait] = list(results[4]) if include_available_traits else []
+        skeleton_sections: list[CharSheetSection] = list(sections)
+        skeleton_categories: list[TraitCategory] = list(categories)
+        skeleton_subcategories: list[TraitSubcategory] = list(subcategories)
+        all_character_traits: list[CharacterTrait] = list(character_traits)
+        all_available_traits: list[Trait] = list(available_traits)
 
         # Index skeleton results by ID for deduplication when merging trait-referenced structures
         skeleton_section_ids: set[UUID] = {s.id for s in skeleton_sections}
@@ -144,7 +146,9 @@ class CharacterSheetService:
             missing_subcategory_ids,
         )
 
-        filtered_available_traits = self._filter_available_traits(character, all_available_traits)
+        filtered_available_traits = self._filter_available_traits(
+            all_available_traits, gift_affinity
+        )
 
         available_by_subcategory, available_by_category_no_sub = self._index_available_traits(
             filtered_available_traits, all_character_traits
@@ -223,11 +227,14 @@ class CharacterSheetService:
                 )
                 .order_by("name")
             )
+            coros.append(self._load_gift_affinity(character))
 
-        results = await gather(*coros)
-        subcategories: list[TraitSubcategory] = list(results[0])
-        all_character_traits: list[CharacterTrait] = list(results[1])
-        all_available_traits: list[Trait] = list(results[2]) if include_available_traits else []
+        subcategory_rows, character_traits, *extra = await gather(*coros)
+        available_traits, gift_affinity = extra or ([], None)
+
+        subcategories: list[TraitSubcategory] = list(subcategory_rows)
+        all_character_traits: list[CharacterTrait] = list(character_traits)
+        all_available_traits: list[Trait] = list(available_traits)
 
         # Filter character traits to those belonging to this category
         subcategory_ids: set[UUID] = {s.id for s in subcategories}
@@ -241,7 +248,9 @@ class CharacterSheetService:
             elif trait.category_id == category.id and not trait.subcategory_id:  # ty:ignore[unresolved-attribute]
                 category_traits_no_sub.append(ct)
 
-        filtered_available_traits = self._filter_available_traits(character, all_available_traits)
+        filtered_available_traits = self._filter_available_traits(
+            all_available_traits, gift_affinity
+        )
 
         available_by_subcategory, available_by_category_no_sub = self._index_available_traits(
             filtered_available_traits, all_character_traits
@@ -334,8 +343,29 @@ class CharacterSheetService:
         return available_by_subcategory, available_by_category_no_sub
 
     @staticmethod
+    async def _load_gift_affinity(character: "Character") -> _GiftAffinity | None:
+        """Load a werewolf's tribe and auspice IDs for gift filtering.
+
+        Query the row directly so the result never depends on what the caller prefetched.
+        Return None for non-werewolves, whose available traits are not gift-filtered.
+
+        Args:
+            character: The character whose tribe and auspice to load.
+        """
+        if character.character_class is not CharacterClass.WEREWOLF:
+            return None
+        werewolf_attrs = (
+            await WerewolfAttributes.filter(character_id=character.id)
+            .only("id", "tribe_id", "auspice_id")
+            .first()
+        )
+        if werewolf_attrs is None:
+            return None, None
+        return werewolf_attrs.tribe_id, werewolf_attrs.auspice_id  # ty:ignore[unresolved-attribute]
+
+    @staticmethod
     def _filter_available_traits(
-        character: "Character", available_traits: list[Trait]
+        available_traits: list[Trait], gift_affinity: _GiftAffinity | None
     ) -> list[Trait]:
         """Filter available traits based on character-specific eligibility.
 
@@ -344,21 +374,13 @@ class CharacterSheetService:
         (merits, flaws, rites, etc.) pass through unfiltered.
 
         Args:
-            character: The character to filter traits for.
             available_traits: The full list of available traits to filter.
+            gift_affinity: The werewolf's (tribe_id, auspice_id) from _load_gift_affinity,
+                or None to skip filtering.
         """
-        if character.character_class is not CharacterClass.WEREWOLF:
+        if gift_affinity is None:
             return available_traits
-
-        tribe_id: UUID | None = None
-        auspice_id: UUID | None = None
-        try:
-            werewolf_attrs = character.werewolf_attributes
-            if werewolf_attrs:
-                tribe_id = werewolf_attrs.tribe_id  # ty:ignore[unresolved-attribute]
-                auspice_id = werewolf_attrs.auspice_id  # ty:ignore[unresolved-attribute]
-        except (AttributeError, NoValuesFetched):
-            pass
+        tribe_id, auspice_id = gift_affinity
 
         return [
             t
