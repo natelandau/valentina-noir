@@ -19,7 +19,7 @@ from vapi.lib.guards import (
     user_active_guard,
     user_character_player_or_storyteller_guard,
 )
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -123,11 +123,9 @@ class CharacterInventoryController(Controller):
         request: Request,
     ) -> InventoryItemResponse:
         """Update an inventory item."""
-        changes = apply_patch(inventory_item, data)
-
+        changes = await save_active_patch(inventory_item, data, label="Inventory item")
         request.state.audit_changes = changes
         request.state.audit_description = f"Update inventory item '{inventory_item.name}'"
-        await inventory_item.save()
         return InventoryItemResponse.from_model(inventory_item)
 
     @delete(

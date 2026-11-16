@@ -27,7 +27,7 @@ from vapi.lib.guards import (
     developer_company_owner_guard,
     developer_company_user_guard,
 )
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -160,10 +160,9 @@ class CompanyController(Controller):
         self, request: Request, company: Company, data: CompanyPatch
     ) -> CompanyResponse:
         """Update a company's fields, applying only the provided values."""
-        changes = apply_patch(company, data, exclude=frozenset({"settings"}))
-
-        if changes:
-            await company.save()
+        changes = await save_active_patch(
+            company, data, label="Company", exclude=frozenset({"settings"})
+        )
 
         if not isinstance(data.settings, msgspec.UnsetType):
             settings = await CompanySettings.filter(company=company).first()

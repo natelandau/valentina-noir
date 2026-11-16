@@ -22,7 +22,7 @@ from vapi.lib.guards import (
     user_active_guard,
     user_can_manage_campaign,
 )
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -131,10 +131,9 @@ class CampaignController(Controller):
         request: Request,
     ) -> CampaignResponse:
         """Update a campaign by ID."""
-        changes = apply_patch(campaign, data)
+        changes = await save_active_patch(campaign, data, label="Campaign")
         request.state.audit_changes = changes
         request.state.audit_description = f"Update campaign '{campaign.name}'"
-        await campaign.save()
         annotated = await annotate_campaign_counts(Campaign.filter(id=campaign.id)).first()
         if not annotated:
             raise NotFoundError(detail="Campaign not found")

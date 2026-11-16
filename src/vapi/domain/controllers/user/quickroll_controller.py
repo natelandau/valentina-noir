@@ -15,7 +15,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -121,8 +121,9 @@ class QuickRollController(Controller):
             requesting_user_id=acting_user.id,
             user_to_manage_id=target_user.id,
         )
-        changes = apply_patch(quickroll, data, exclude=frozenset({"trait_ids"}))
-        await quickroll.save()
+        changes = await save_active_patch(
+            quickroll, data, label="Quick roll", exclude=frozenset({"trait_ids"})
+        )
 
         if not isinstance(data.trait_ids, msgspec.UnsetType):
             old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())

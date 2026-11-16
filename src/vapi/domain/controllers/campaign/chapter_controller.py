@@ -24,7 +24,7 @@ from vapi.lib.guards import (
     user_active_guard,
     user_can_manage_campaign,
 )
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -182,8 +182,9 @@ class CampaignChapterController(Controller):
         request: Request,
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
-        changes = apply_patch(chapter, data, exclude=frozenset({"character_ids"}))
-        await chapter.save()
+        changes = await save_active_patch(
+            chapter, data, label="Chapter", exclude=frozenset({"character_ids"})
+        )
 
         if not isinstance(data.character_ids, msgspec.UnsetType):
             # Filter archived characters so the audit diff matches what the API exposes;

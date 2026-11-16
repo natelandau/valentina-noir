@@ -7,7 +7,15 @@ the target doesn't have are silently skipped.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import msgspec
+from tortoise.transactions import in_transaction
+
+from vapi.lib.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from vapi.db.sql_models.base import BaseModel
 
 
 def apply_patch(
@@ -71,4 +79,38 @@ def apply_patch(
             changes[key] = {"old": old, "new": value}
             setattr(target, field_name, value)
 
+    return changes
+
+
+async def save_active_patch(
+    target: BaseModel,
+    patch: msgspec.Struct,
+    *,
+    label: str,
+    exclude: frozenset[str] = frozenset(),
+) -> dict[str, dict[str, object]]:
+    """Apply a patch to a row loaded earlier in the request and save only the changed columns.
+
+    Use for any PATCH of an archivable row. The row is locked and reloaded first, so a
+    concurrent archive (including a parent delete's cascade) or a concurrent edit of
+    another column is neither overwritten nor resurrected by the request's stale copy.
+
+    Args:
+        target: The model instance to patch. Refreshed from the database in place.
+        patch: A msgspec.Struct whose unsent fields are ``msgspec.UNSET``.
+        label: Human-readable model name for the not-found message.
+        exclude: Patch fields to skip, for callers that handle them separately.
+
+    Returns:
+        Dict mapping each changed field to ``{"old": ..., "new": ...}``.
+
+    Raises:
+        NotFoundError: If the row was archived or deleted after it was loaded.
+    """
+    async with in_transaction():
+        if not await target.lock_for_update(is_archived=False):
+            raise NotFoundError(detail=f"{label} not found")
+        changes = apply_patch(target, patch, exclude=exclude)
+        if changes:
+            await target.save(update_fields=list(changes))
     return changes
