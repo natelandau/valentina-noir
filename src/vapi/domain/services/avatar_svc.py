@@ -2,9 +2,11 @@
 
 from uuid import UUID
 
-from vapi.db.sql_models.aws import S3Asset
+from tortoise.transactions import in_transaction
+
 from vapi.db.sql_models.user import User
 from vapi.domain.services.aws_svc import AWSS3Service
+from vapi.lib.exceptions import NotFoundError
 from vapi.utils.images import normalize_avatar, run_image_decode
 
 __all__ = ("AvatarService",)
@@ -13,20 +15,42 @@ __all__ = ("AvatarService",)
 class AvatarService:
     """Manage a user's custom avatar stored as a normalized S3 asset."""
 
-    async def _archive_previous_avatar(self, previous_asset_id: UUID | None) -> None:
-        """Soft-archive the user's prior avatar asset, if any.
-
-        The asset may already be gone (e.g. purged), so the lookup is guarded.
-        """
-        if previous_asset_id is None:
+    async def _archive_asset(self, asset_id: UUID | None) -> None:
+        """Soft-archive a replaced, removed, or orphaned avatar asset, if any."""
+        if asset_id is None:
             return
         # Lazy import: handlers package imports services, so a top-level import here
         # would create a circular import during package initialization.
         from vapi.domain.handlers.archive_handlers import archive_single_asset
 
-        previous = await S3Asset.filter(id=previous_asset_id).first()
-        if previous is not None:
-            await archive_single_asset(previous)
+        await archive_single_asset(asset_id)
+
+    async def _write_avatar(
+        self, user: User, *, avatar_url: str | None, avatar_asset_id: UUID | None
+    ) -> None:
+        """Record avatar columns on the locked, committed user row and archive the old asset.
+
+        Callers load the user early in the request and may await slow work (decode,
+        S3 upload) before writing, so a concurrent archive or role change must be
+        read from the row, not overwritten from the stale copy. The replaced asset is
+        archived in the same transaction so it can never stay active once unlinked.
+
+        Args:
+            user: The user whose avatar columns are written; reloaded from the row.
+            avatar_url: The new avatar URL, or None to clear it.
+            avatar_asset_id: The new avatar asset id, or None to clear it.
+
+        Raises:
+            NotFoundError: If the user is archived.
+        """
+        async with in_transaction():
+            if not await user.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="User not found")
+            previous_asset_id = user.avatar_asset_id
+            user.avatar_url = avatar_url  # ty:ignore[invalid-assignment]
+            user.avatar_asset_id = avatar_asset_id
+            await user.save(update_fields=["avatar_url", "avatar_asset_id"])
+            await self._archive_asset(previous_asset_id)
 
     async def set_avatar(
         self,
@@ -50,6 +74,9 @@ class AvatarService:
 
         Returns:
             The updated user with avatar_url and avatar_asset_id set.
+
+        Raises:
+            NotFoundError: If the user was archived before the change was recorded.
         """
         # Decoding is CPU-bound; keep it off the event loop so other requests keep flowing
         webp_bytes = await run_image_decode(normalize_avatar, data)
@@ -63,12 +90,13 @@ class AvatarService:
             filename="avatar.webp",
         )
 
-        previous_asset_id = user.avatar_asset_id
-        user.avatar_url = asset.public_url
-        user.avatar_asset_id = asset.id
-        await user.save(update_fields=["avatar_url", "avatar_asset_id"])
+        try:
+            await self._write_avatar(user, avatar_url=asset.public_url, avatar_asset_id=asset.id)
+        except Exception:
+            # The uploaded asset is linked to nothing, so archive it for the purge
+            await self._archive_asset(asset.id)
+            raise
 
-        await self._archive_previous_avatar(previous_asset_id)
         return user
 
     async def remove_avatar(self, *, user: User) -> User:
@@ -81,11 +109,9 @@ class AvatarService:
 
         Returns:
             The updated user with avatar_url and avatar_asset_id cleared.
-        """
-        previous_asset_id = user.avatar_asset_id
-        user.avatar_url = None  # ty:ignore[invalid-assignment]
-        user.avatar_asset_id = None
-        await user.save(update_fields=["avatar_url", "avatar_asset_id"])
 
-        await self._archive_previous_avatar(previous_asset_id)
+        Raises:
+            NotFoundError: If the user was archived before the change was recorded.
+        """
+        await self._write_avatar(user, avatar_url=None, avatar_asset_id=None)
         return user

@@ -10,6 +10,7 @@ from PIL import Image
 
 from tests.fixtures import build_verified_identity
 from vapi.constants import UserRole
+from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.global_admin.dto import AdminUserPatch
 from vapi.domain.controllers.user.dto import UserPatch
@@ -164,26 +165,79 @@ async def test_global_admin_delete_keeps_concurrent_role_change(
     assert stored.role == UserRole.PLAYER
 
 
-async def test_set_avatar_keeps_concurrent_archive(
+def _png_bytes() -> bytes:
+    """Build a small PNG for avatar uploads."""
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), color=(10, 20, 30)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+async def test_set_avatar_refused_after_concurrent_archive(
     company_factory: Callable[..., Company], user_factory: Callable[..., User]
 ) -> None:
-    """Verify an avatar upload from a stale instance does not un-archive the user."""
+    """Verify an avatar upload from a stale instance is refused and cannot un-archive the user."""
     # Given a user loaded before another request archives them (boto3 is mocked autouse)
     company = await company_factory()
     target = await user_factory(company=company)
     stale = await User.get(id=target.id)
     await _archive_concurrently(target.id)
-    buf = io.BytesIO()
-    Image.new("RGB", (64, 64), color=(10, 20, 30)).save(buf, format="PNG")
 
     # When an avatar is set on the stale instance
-    await AvatarService().set_avatar(
-        user=stale, company_id=company.id, acting_user_id=target.id, data=buf.getvalue()
-    )
-
-    # Then the archive holds
+    # Then the upload is refused, the archive holds, and the uploaded asset is archived
+    with pytest.raises(NotFoundError):
+        await AvatarService().set_avatar(
+            user=stale, company_id=company.id, acting_user_id=target.id, data=_png_bytes()
+        )
     stored = await User.get(id=target.id)
     assert stored.is_archived is True
+    assert stored.archive_batch_id is not None
+    assert stored.avatar_asset_id is None
+    orphans = await S3Asset.filter(user_parent_id=target.id, is_archived=False).count()
+    assert orphans == 0
+
+
+async def test_set_avatar_keeps_concurrent_role_change(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify an avatar upload from a stale instance does not write back a removed role."""
+    # Given an admin loaded before another admin deactivates them
+    company = await company_factory()
+    await user_factory(role=UserRole.ADMIN, company=company)
+    target = await user_factory(role=UserRole.ADMIN, company=company)
+    stale = await User.get(id=target.id)
+    await _patch_concurrently(target.id, role=UserRole.DEACTIVATED)
+
+    # When an avatar is set on the stale instance
+    updated = await AvatarService().set_avatar(
+        user=stale, company_id=company.id, acting_user_id=target.id, data=_png_bytes()
+    )
+
+    # Then the avatar is stored and the deactivation holds
+    stored = await User.get(id=target.id)
+    assert stored.avatar_asset_id == updated.avatar_asset_id is not None
+    assert stored.role == UserRole.DEACTIVATED
+
+
+async def test_remove_avatar_refused_after_concurrent_archive(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify removing an avatar from a stale instance is refused for an archived user."""
+    # Given a user with an avatar, loaded before another request archives them
+    company = await company_factory()
+    target = await user_factory(company=company)
+    await AvatarService().set_avatar(
+        user=target, company_id=company.id, acting_user_id=target.id, data=_png_bytes()
+    )
+    stale = await User.get(id=target.id)
+    await _archive_concurrently(target.id)
+
+    # When the avatar is removed on the stale instance
+    # Then the removal is refused and the archive holds
+    with pytest.raises(NotFoundError):
+        await AvatarService().remove_avatar(user=stale)
+    stored = await User.get(id=target.id)
+    assert stored.is_archived is True
+    assert stored.archive_batch_id is not None
 
 
 async def test_link_identity_keeps_concurrent_role_change(

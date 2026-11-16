@@ -75,15 +75,16 @@ async def archive_s3_assets(fk_field: str, object_ids: list[UUID], ctx: ArchiveC
     return await _archive_where(S3Asset, ctx, **{f"{fk_field}__in": object_ids})
 
 
-async def archive_single_asset(asset: S3Asset) -> ArchiveContext:
+async def archive_single_asset(asset_id: UUID) -> ArchiveContext:
     """Soft-archive one S3 asset as its own batch; returns the context.
 
     Use this when replacing or removing a single asset (e.g. a user avatar) outside
     a parent-entity cascade. Sets archive_date and archive_batch_id so the scheduled
-    purge eventually deletes the object from S3, and the archive is restorable.
+    purge eventually deletes the object from S3, and the archive is restorable. A
+    missing or already-archived asset is left as is.
     """
     ctx = _new_context()
-    await _archive_where(S3Asset, ctx, id=asset.id)
+    await _archive_where(S3Asset, ctx, id=asset_id)
     return ctx
 
 
