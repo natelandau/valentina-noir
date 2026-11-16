@@ -399,55 +399,6 @@ class TestCustomTraits:
         ct = await CharacterTrait.filter(id=created_custom_trait_id).select_related("trait").first()
         await ct.trait.delete()
 
-    async def test_create_custom_flaw_rejects_caller_pricing(
-        self,
-        client: AsyncClient,
-        build_url: Callable[..., str],
-        token_global_admin: dict[str, str],
-        company_factory: Callable[..., Company],
-        campaign_factory: Callable[..., Any],
-        user_factory: Callable[..., User],
-        character_factory: Callable[..., Character],
-    ) -> None:
-        """Verify the endpoint rejects a custom flaw whose caller sets its own costs and maximum."""
-        # Given a player who owns a character
-        company = await company_factory()
-        campaign = await campaign_factory(company=company)
-        player = await user_factory(company=company, role=UserRole.PLAYER)
-        character = await character_factory(
-            company=company,
-            campaign=campaign,
-            user_player=player,
-            user_creator=player,
-        )
-        flaws_category = await TraitCategory.filter(name="Flaws", is_archived=False).first()
-
-        # When the player creates a self-priced custom flaw paid with XP
-        response = await client.post(
-            build_url(
-                Characters.TRAIT_CREATE,
-                company_id=company.id,
-                character_id=character.id,
-            ),
-            headers=token_global_admin | {"On-Behalf-Of": str(player.id)},
-            json={
-                "name": "Minted Flaw",
-                "category_id": str(flaws_category.id),
-                "initial_cost": 100,
-                "upgrade_cost": 100,
-                "max_value": 10,
-                "currency": TraitModifyCurrency.XP.value,
-            },
-        )
-
-        # Then the request is rejected and names each caller-priced field
-        assert response.status_code == HTTP_400_BAD_REQUEST
-        assert {p["field"] for p in response.json()["invalid_parameters"]} == {
-            "initial_cost",
-            "upgrade_cost",
-            "max_value",
-        }
-
 
 class TestDeleteCharacterTrait:
     """Test deleting a character trait."""

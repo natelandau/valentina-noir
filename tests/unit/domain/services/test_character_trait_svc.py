@@ -2062,6 +2062,7 @@ class TestCreateCustomTrait:
             {"initial_cost": 100},
             {"upgrade_cost": 0},
             {"max_value": 10},
+            {"initial_cost": 100, "upgrade_cost": 100, "max_value": 10},
         ],
     )
     async def test_create_custom_flaw_rejects_caller_pricing(
@@ -2086,10 +2087,13 @@ class TestCreateCustomTrait:
 
         # When the user creates the custom flaw with their own pricing
         # Then the request is rejected, nothing is created, and XP is unchanged
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError) as exc_info:
             await CharacterTraitService().create_custom_trait(
                 company=company, user=acting_user, character=character, data=dto
             )
+        assert {p["field"] for p in exc_info.value.extension["invalid_parameters"]} == set(
+            overrides
+        )
         assert not await Trait.filter(name="Self Priced Flaw").exists()
         experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
         assert experience.xp_current == 0
