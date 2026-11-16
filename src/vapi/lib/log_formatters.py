@@ -39,8 +39,11 @@ _KV_VALUE_PATTERN = (
     r"|(?:'[^']*')"
     r"|(?:[^,\s]+)"
 )
-_STRUCTURED_KV_RE = re.compile(rf"(\w+)=({_KV_VALUE_PATTERN})")
-_STRUCTURED_KV_STRIP_RE = re.compile(rf"\s*\w+=(?:{_KV_VALUE_PATTERN})")
+# The lookbehinds and length bound keep both scans linear: an unanchored \w+ or \s* is
+# retried from every offset of a long run, which is quadratic.
+_KEY_PATTERN = r"(?<!\w)\w{1,64}"
+_STRUCTURED_KV_RE = re.compile(rf"({_KEY_PATTERN})=({_KV_VALUE_PATTERN})")
+_STRUCTURED_KV_STRIP_RE = re.compile(rf"(?<!\s)\s*{_KEY_PATTERN}=(?:{_KV_VALUE_PATTERN})")
 
 # Characters that end an unquoted value or would let one value read as several fields.
 _NEEDS_QUOTING_RE = re.compile(r"[\s,=\"'\\{}\[\]]|[\x00-\x1f\x7f]")
@@ -48,6 +51,7 @@ _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 _NAMED_ESCAPES: dict[str, str] = {"\n": "n", "\r": "r", "\t": "t"}
 _REVERSE_NAMED_ESCAPES: dict[str, str] = {v: k for k, v in _NAMED_ESCAPES.items()}
 _ESCAPED_CHAR_RE = re.compile(r"\\(u[0-9a-fA-F]{4}|.)", re.DOTALL)
+_COLLECTION_OPENERS = ("[", "{")
 
 
 def render_log_value(value: Any) -> str:
@@ -56,15 +60,37 @@ def render_log_value(value: Any) -> str:
     Quote string values that are empty or contain whitespace, separators, quotes, or
     brackets, and escape backslashes, quotes, and control characters. A caller-supplied
     value such as a request path then cannot add fields or start a new log line.
+
+    Render lists and dicts as quoted JSON. Caller text inside them, such as a reflected
+    field name, cannot close the collection early, and the parser decodes them back.
     """
-    if not isinstance(value, str):
+    if isinstance(value, int | float) or value is None:
         return str(value)
+    if isinstance(value, list | tuple | dict):
+        try:
+            # json.dumps already escapes control characters
+            return _quote(json.dumps(value, default=str))
+        except (TypeError, ValueError):
+            # Tuple dict keys and circular references cannot be JSON-encoded
+            value = str(value)
+    if not isinstance(value, str):
+        value = str(value)
     if value and not _NEEDS_QUOTING_RE.search(value):
         return value
+    quoted = _quote(value, escape_control=True)
+    if value.startswith(_COLLECTION_OPENERS):
+        # Escape the opening bracket so the parser keeps this string a string, not a collection
+        return f'"\\{quoted[1:]}'
+    return quoted
+
+
+def _quote(value: str, *, escape_control: bool = False) -> str:
+    """Wrap a value in double quotes, escaping backslashes, quotes, and optionally control characters."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    escaped = _CONTROL_CHAR_RE.sub(
-        lambda m: "\\" + _NAMED_ESCAPES.get(m.group(), f"u{ord(m.group()):04x}"), escaped
-    )
+    if escape_control:
+        escaped = _CONTROL_CHAR_RE.sub(
+            lambda m: "\\" + _NAMED_ESCAPES.get(m.group(), f"u{ord(m.group()):04x}"), escaped
+        )
     return f'"{escaped}"'
 
 
@@ -80,6 +106,17 @@ def _unescape_log_value(value: str) -> str:
         return token
 
     return _ESCAPED_CHAR_RE.sub(_replace, value)
+
+
+def _decode_json_collection(value: str) -> list | dict | None:
+    """Decode a JSON list or dict, or return None when the value is not one."""
+    if not value.startswith(_COLLECTION_OPENERS):
+        return None
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, RecursionError):
+        return None
+    return parsed if isinstance(parsed, list | dict) else None
 
 
 def _sanitize_binary_body(message: str) -> str:
@@ -129,15 +166,16 @@ class StructuredMessageParser:
             or (value.startswith("[") and value.endswith("]"))
         ):
             return None
+        decoded = _decode_json_collection(value)
+        if decoded is not None:
+            return decoded
+        # ast.literal_eval handles Python-repr output (single quotes, None/True/False) safely
         try:
-            return json.loads(value)
-        except json.JSONDecodeError:
-            # ast.literal_eval handles Python-repr output (single quotes, None/True/False) safely
-            try:
-                parsed = ast.literal_eval(value)
-            except (ValueError, SyntaxError):
-                return None
-            return parsed if isinstance(parsed, list | dict) else None
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+            # TypeError covers unhashable dict keys such as {[]: 1}
+            return None
+        return parsed if isinstance(parsed, list | dict) else None
 
     def _handle_quoted_strings(self, value: str) -> str | None:
         """Strip matching outer quotes from a quoted string, or return None if not quoted."""
@@ -172,6 +210,12 @@ class StructuredMessageParser:
 
         quoted_string = self._handle_quoted_strings(value)
         if quoted_string is not None:
+            # render_log_value writes lists and dicts as quoted JSON and escapes the opening
+            # bracket of a string, so only an unescaped opener marks a collection
+            if value.startswith('"') and value[1:2] in _COLLECTION_OPENERS:
+                decoded = _decode_json_collection(quoted_string)
+                if decoded is not None:
+                    return decoded
             return quoted_string
 
         return value

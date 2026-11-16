@@ -3,6 +3,7 @@
 import json
 import logging
 import sys
+import time
 from collections.abc import Callable
 
 import pytest
@@ -284,3 +285,42 @@ def test_json_formatter_strips_binary_payload(
     # Then the omission marker replaces the raw bytes
     assert "[binary content omitted]" in result["message"]
     assert "rawbytes" not in result["message"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "HTTP Request: path=/x, invalid_parameters=[{'field': ']" + "a" * 50_000 + "'}]",
+        "HTTP Request: " + "a" * 50_000 + " method=GET",
+        "HTTP Request: path=/x" + " " * 50_000 + "!",
+    ],
+    ids=["reflected_bracket_key", "bare_word_run", "whitespace_run"],
+)
+def test_json_formatter_cost_is_linear_in_long_word_runs(
+    make_log_record: Callable[..., logging.LogRecord], message: str
+) -> None:
+    """Verify a long word or whitespace run cannot make the key=value scans backtrack quadratically."""
+    # Given a message holding a 50k-character word or whitespace run that no field consumes
+    formatter = LitestarJsonFormatter()
+    record = make_log_record(message)
+
+    # When it is formatted
+    start = time.perf_counter()
+    formatter.format(record)
+    elapsed = time.perf_counter() - start
+
+    # Then formatting finishes in linear time (the quadratic scan takes many seconds here)
+    assert elapsed < 0.5
+
+
+@pytest.mark.parametrize("value", ["[{[]: 1}]", '"' + "[" * 100_000 + '"'])
+def test_parse_tolerates_undecodable_collections(value: str) -> None:
+    """Verify collection-like values that fail to decode stay strings instead of raising."""
+    # Given a value with an unhashable dict key or very deep nesting
+    parser = StructuredMessageParser()
+
+    # When it is parsed
+    result = parser.parse(f"data={value} method=GET")
+
+    # Then parsing finishes and the other fields survive
+    assert result["method"] == "GET"
