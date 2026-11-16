@@ -50,11 +50,6 @@ def annotate_character_counts(qs: QuerySet[Character]) -> QuerySet[Character]:
     )
 
 
-async def _true() -> bool:
-    """Stand in for an existence check that has nothing to check."""
-    return True
-
-
 class CharacterService:
     """Encapsulate validation and attribute management for characters.
 
@@ -427,17 +422,20 @@ class CharacterService:
         campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
         user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
 
-        campaign_exists, player_exists = await asyncio.gather(
-            Campaign.filter(id=campaign_id, company_id=company_id, is_archived=False).exists()
-            if campaign_id is not None
-            else _true(),
-            User.filter(id=user_player_id, company_id=company_id, is_archived=False).exists()
-            if user_player_id is not None
-            else _true(),
-        )
-        if not campaign_exists:
+        if (
+            campaign_id is not None
+            and not await Campaign.filter(
+                id=campaign_id, company_id=company_id, is_archived=False
+            ).exists()
+        ):
             raise ValidationError(detail=f"Campaign {campaign_id} not found")
-        if not player_exists:
+
+        if (
+            user_player_id is not None
+            and not await User.filter(
+                id=user_player_id, company_id=company_id, is_archived=False
+            ).exists()
+        ):
             raise ValidationError(detail=f"User {user_player_id} not found")
 
     async def validate_player_assignment(

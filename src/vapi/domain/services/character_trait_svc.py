@@ -570,12 +570,11 @@ class CharacterTraitService:
         if character.character_class != CharacterClass.WEREWOLF:
             return
 
-        renown_traits = await CharacterTrait.filter(
+        renown_values: list[int] = await CharacterTrait.filter(  # ty:ignore[invalid-assignment]
             character_id=character.id,
             trait__name__in=list(RENOWN_COMPONENTS),
-        ).select_related("trait")
-
-        total_renown = sum(ct.value for ct in renown_traits) if renown_traits else 0
+        ).values_list("value", flat=True)
+        total_renown = sum(renown_values)
 
         await WerewolfAttributes.filter(character_id=character.id).update(total_renown=total_renown)
 

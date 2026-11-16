@@ -97,14 +97,14 @@ class CharacterSheetService:
             )
             coros.append(self._load_gift_affinity(character))
 
-        results = await gather(*coros)
+        sections, categories, subcategories, character_traits, *extra = await gather(*coros)
+        available_traits, gift_affinity = extra or ([], None)
 
-        skeleton_sections: list[CharSheetSection] = list(results[0])
-        skeleton_categories: list[TraitCategory] = list(results[1])
-        skeleton_subcategories: list[TraitSubcategory] = list(results[2])
-        all_character_traits: list[CharacterTrait] = list(results[3])
-        all_available_traits: list[Trait] = list(results[4]) if include_available_traits else []
-        gift_affinity: _GiftAffinity | None = results[5] if include_available_traits else None
+        skeleton_sections: list[CharSheetSection] = list(sections)
+        skeleton_categories: list[TraitCategory] = list(categories)
+        skeleton_subcategories: list[TraitSubcategory] = list(subcategories)
+        all_character_traits: list[CharacterTrait] = list(character_traits)
+        all_available_traits: list[Trait] = list(available_traits)
 
         # Index skeleton results by ID for deduplication when merging trait-referenced structures
         skeleton_section_ids: set[UUID] = {s.id for s in skeleton_sections}
@@ -229,11 +229,12 @@ class CharacterSheetService:
             )
             coros.append(self._load_gift_affinity(character))
 
-        results = await gather(*coros)
-        subcategories: list[TraitSubcategory] = list(results[0])
-        all_character_traits: list[CharacterTrait] = list(results[1])
-        all_available_traits: list[Trait] = list(results[2]) if include_available_traits else []
-        gift_affinity: _GiftAffinity | None = results[3] if include_available_traits else None
+        subcategory_rows, character_traits, *extra = await gather(*coros)
+        available_traits, gift_affinity = extra or ([], None)
+
+        subcategories: list[TraitSubcategory] = list(subcategory_rows)
+        all_character_traits: list[CharacterTrait] = list(character_traits)
+        all_available_traits: list[Trait] = list(available_traits)
 
         # Filter character traits to those belonging to this category
         subcategory_ids: set[UUID] = {s.id for s in subcategories}
