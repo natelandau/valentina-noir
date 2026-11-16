@@ -133,7 +133,7 @@ Every V5 character already has Willpower, so a request to assign it returns `409
 
 Create a trait unique to a single character. Custom traits share the same fields as core traits but remain unavailable to other characters. They're useful for representing unique abilities that don't exist in the standard trait list.
 
-Provide the trait name, parent category, `currency`, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category. Custom flaws are priced differently, see [Flaw Traits](#flaw-traits). The trait is always created at a value of `1`, and the `currency` you supply pays for that first dot.
+Provide the trait name, parent category, `currency`, and optional cost overrides. If you omit `initial_cost` or `upgrade_cost`, the trait inherits costs from its parent category. Custom flaws are priced differently, see [Flaw Traits](#flaw-traits). A `min_value` greater than `max_value` returns `400 Bad Request`. The trait is always created at a value of `1`, and the `currency` you supply pays for that first dot.
 
 ```json
 {

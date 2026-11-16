@@ -2138,6 +2138,30 @@ class TestCreateCustomTrait:
         experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
         assert experience.xp_current == 30
 
+    async def test_create_custom_trait_rejects_min_above_max(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify a custom trait whose min_value exceeds its max_value is rejected."""
+        # Given a character and a non-flaw trait category
+        company, user, character = get_company_user_character
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Inverted Trait",
+            category_id=trait_category.id,
+            currency=TraitModifyCurrency.NO_COST,
+            max_value=3,
+            min_value=4,
+        )
+
+        # When the trait is created
+        # Then the request is rejected and nothing is created
+        with pytest.raises(ValidationError, match="min_value"):
+            await CharacterTraitService().create_custom_trait(
+                company=company, user=user, character=character, data=dto
+            )
+        assert not await Trait.filter(name="Inverted Trait").exists()
+
     async def test_create_custom_trait_npc_rejects_non_no_cost_currency(
         self,
         character_factory,

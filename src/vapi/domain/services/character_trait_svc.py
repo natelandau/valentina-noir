@@ -1226,6 +1226,12 @@ class CharacterTraitService:
         if is_flaw:
             self._reject_caller_priced_flaw(data)
 
+        if data.min_value > data.max_value:
+            msg = f"min_value ({data.min_value}) cannot exceed max_value ({data.max_value})"
+            raise ValidationError(
+                detail=msg, invalid_parameters=[{"field": "min_value", "message": msg}]
+            )
+
         cleaned_name = data.name.strip()
 
         existing = await CharacterTrait.filter(
