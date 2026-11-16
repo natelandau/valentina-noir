@@ -49,7 +49,7 @@ class CharacterTraitCreateCustom(msgspec.Struct):
 
 
 class CharacterTraitSpecialtyCreate(msgspec.Struct):
-    """Request body for adding a specialty to an ability trait."""
+    """Request body for adding a specialty to a character trait."""
 
     name: Name3to50
     currency: TraitModifyCurrency = TraitModifyCurrency.NO_COST

@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import timedelta
-from typing import TYPE_CHECKING, ClassVar, assert_never
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, assert_never
 from uuid import UUID
 
 from litestar.stores.base import Store
@@ -10,11 +10,14 @@ from tortoise.expressions import F, Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
+    SPECIALTY_FAVORED_MIN_RATING,
+    SPECIALTY_MIN_RATING,
     SPECIALTY_XP_COST,
     CharacterClass,
     CharacterType,
     PermissionsFreeTraitChanges,
     PermissionsRecoupXP,
+    SpecialtyRules,
     TraitModifyCurrency,
     UserRole,
 )
@@ -24,6 +27,7 @@ from vapi.db.sql_models.character import (
     CharacterTraitSpecialty,
     WerewolfAttributes,
 )
+from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import Trait, TraitCategory
 from vapi.db.sql_models.company import CompanySettings
 from vapi.domain.controllers.character_trait.dto import (
@@ -59,6 +63,25 @@ RENOWN_COMPONENTS = frozenset({"Honor", "Wisdom", "Glory"})
 
 SPECIALTY_NAME_MIN_LENGTH = 3
 SPECIALTY_NAME_MAX_LENGTH = 50
+
+
+class PendingSpecialtyRefund(NamedTuple):
+    """What clearing a trait's specialties returns, and the lowest rating that keeps them.
+
+    A min_rating of None means the trait's sheet section never takes specialties.
+    """
+
+    xp: int
+    starting_points: int
+    min_rating: int | None
+
+
+class _TraitSpecialties(NamedTuple):
+    """A trait's active specialties with the company rules that judge them."""
+
+    specialties: list[CharacterTraitSpecialty]
+    settings: CompanySettings
+    min_rating: int | None
 
 
 class _BulkItemRejectedError(Exception):
@@ -576,61 +599,112 @@ class CharacterTraitService:
         await tracker_svc.clamp_trait_tracker(character_trait=character_trait, character=character)
         if sync_all or await tracker_svc.affects_derived_values(character_trait):
             await tracker_svc.sync_character(character)
-        self.removed_specialty_names = await self._clear_specialties_for_zero_value(
+        self.removed_specialty_names = await self._clear_ineligible_specialties(
             character_trait=character_trait, character=character
         )
 
-    async def _clear_specialties_for_zero_value(
+    async def _clear_ineligible_specialties(
         self, *, character_trait: CharacterTrait, character: Character
     ) -> list[str]:
-        """Refund and delete every specialty once an ability has no dots left.
+        """Refund and delete a trait's specialties once its rating no longer allows them.
 
         Returns:
-            The names of the removed specialties, empty when the value is above zero.
+            The names of the removed specialties, empty when the trait still qualifies.
         """
-        if character_trait.value != 0:
+        # Every rule set allows specialties at this rating on the sections that can hold them.
+        if character_trait.value >= SPECIALTY_MIN_RATING:
             return []
+        context = await self._load_trait_specialties(
+            character_trait=character_trait, character=character
+        )
+        if context is None or self._keeps_specialties(
+            value=character_trait.value, min_rating=context.min_rating
+        ):
+            return []
+        return await self._delete_and_refund_specialties(
+            character=character,
+            specialties=context.specialties,
+            recoup_setting=context.settings.permission_recoup_xp,
+        )
 
+    async def _pending_specialty_refunds(
+        self, *, character_trait: CharacterTrait, character: Character
+    ) -> PendingSpecialtyRefund:
+        """Compute what clearing the trait's specialties would return, and when they clear.
+
+        Returns:
+            The XP and starting points refunded, and the minimum rating that keeps them.
+        """
+        context = await self._load_trait_specialties(
+            character_trait=character_trait, character=character
+        )
+        if context is None:
+            return PendingSpecialtyRefund(xp=0, starting_points=0, min_rating=None)
+        refunds = [
+            self._specialty_refund_amounts(
+                specialty=specialty, recoup_setting=context.settings.permission_recoup_xp
+            )
+            for specialty in context.specialties
+        ]
+        return PendingSpecialtyRefund(
+            xp=sum(xp for xp, _ in refunds),
+            starting_points=sum(sp for _, sp in refunds),
+            min_rating=context.min_rating,
+        )
+
+    async def _load_trait_specialties(
+        self, *, character_trait: CharacterTrait, character: Character
+    ) -> _TraitSpecialties | None:
+        """Load a trait's active specialties with the company rules that judge them.
+
+        Returns:
+            The specialties, settings, and minimum rating, or None when the trait has none.
+        """
         specialties = await CharacterTraitSpecialty.filter(
             character_trait_id=character_trait.id, is_archived=False
         )
         if not specialties:
-            return []
-
+            return None
         settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
+        trait = await Trait.get(id=character_trait.trait_id).select_related("sheet_section")  # ty:ignore[unresolved-attribute]
+        min_rating = self.specialty_min_rating(
+            rules=settings.specialty_rules,
+            trait=trait,
+            favored_names=await self._favored_ability_names(
+                character=character, rules=settings.specialty_rules
+            ),
+        )
+        return _TraitSpecialties(specialties=specialties, settings=settings, min_rating=min_rating)
+
+    @staticmethod
+    def _keeps_specialties(*, value: int, min_rating: int | None) -> bool:
+        """Report whether a trait at this value may keep its specialties.
+
+        Returns:
+            True when the trait's section takes specialties and the value meets the minimum.
+        """
+        return min_rating is not None and value >= min_rating
+
+    async def _delete_and_refund_specialties(
+        self,
+        *,
+        character: Character,
+        specialties: list[CharacterTraitSpecialty],
+        recoup_setting: PermissionsRecoupXP,
+    ) -> list[str]:
+        """Delete specialties in one transaction, refunding each one this call removed.
+
+        Returns:
+            The names of the removed specialties.
+        """
         async with in_transaction():
             return [
                 specialty.name
                 for specialty in specialties
                 if await self._delete_and_refund_specialty(
-                    character=character,
-                    specialty=specialty,
-                    recoup_setting=settings.permission_recoup_xp,
+                    character=character, specialty=specialty, recoup_setting=recoup_setting
                 )
             ]
-
-    async def _pending_specialty_refunds(
-        self, *, character_trait: CharacterTrait, character: Character
-    ) -> tuple[int, int]:
-        """Compute the XP and starting points that clearing the specialties would return.
-
-        Returns:
-            A tuple of (xp_refund, starting_points_refund).
-        """
-        specialties = await CharacterTraitSpecialty.filter(
-            character_trait_id=character_trait.id, is_archived=False
-        )
-        if not specialties:
-            return 0, 0
-
-        settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
-        refunds = [
-            self._specialty_refund_amounts(
-                specialty=specialty, recoup_setting=settings.permission_recoup_xp
-            )
-            for specialty in specialties
-        ]
-        return sum(xp for xp, _ in refunds), sum(sp for _, sp in refunds)
 
     @staticmethod
     def _specialty_refund_amounts(
@@ -1535,7 +1609,7 @@ class CharacterTraitService:
             is_flaw,
             upgrade_costs,
             downgrade_savings,
-            (xp_refund, starting_points_refund),
+            pending_refund,
         ) = await asyncio.gather(
             self._is_flaw_trait(character_trait),
             self.calculate_all_upgrade_costs(character_trait),
@@ -1568,9 +1642,11 @@ class CharacterTraitService:
             sign = -1 if is_flaw else 1
             xp_after = xp_current + savings * sign
             starting_points_after = starting_points_current + savings * sign
-            if target_value == 0 or num_dots_str == "DELETE":
-                xp_after += xp_refund
-                starting_points_after += starting_points_refund
+            if num_dots_str == "DELETE" or not self._keeps_specialties(
+                value=target_value, min_rating=pending_refund.min_rating
+            ):
+                xp_after += pending_refund.xp
+                starting_points_after += pending_refund.starting_points
             key = str(target_value) if num_dots_str != "DELETE" else "DELETE"
 
             options[key] = TraitValueOptionDetail(
@@ -1793,7 +1869,7 @@ class CharacterTraitService:
                 )
 
             character_trait.value = 0
-            removed = await self._clear_specialties_for_zero_value(
+            removed = await self._clear_ineligible_specialties(
                 character_trait=character_trait, character=character
             )
             # The currency path may already have cleared and recorded them.
@@ -1814,14 +1890,113 @@ class CharacterTraitService:
     # Specialties
     # ------------------------------------------------------------------
 
-    def _guard_trait_accepts_specialties(self, character_trait: CharacterTrait) -> None:
-        """Reject specialties on traits outside the Abilities section or at value 0."""
-        if character_trait.trait.sheet_section.name != "Abilities":
-            msg = "Specialties can only be added to ability traits"
+    @staticmethod
+    def specialty_min_rating(
+        *, rules: SpecialtyRules, trait: Trait, favored_names: frozenset[str]
+    ) -> int | None:
+        """Return the lowest rating at which a trait may hold specialties.
+
+        Under RATING_BASED rules, a shared ability that the character's concept favors
+        unlocks a dot early. A custom trait never counts as favored, even when its name
+        matches a favored ability.
+
+        Args:
+            rules: The company's specialty rules.
+            trait: The trait, with its sheet section loaded.
+            favored_names: The casefolded ability names the character's concept favors.
+
+        Returns:
+            The minimum rating, or None when the trait's sheet section never takes specialties.
+        """
+        section = trait.sheet_section_name
+        match rules:
+            case SpecialtyRules.FIXED_COST:
+                return 1 if section == "Abilities" else None
+            case SpecialtyRules.RATING_BASED:
+                if (
+                    section == "Abilities"
+                    and trait.custom_for_character_id is None  # ty:ignore[unresolved-attribute]
+                    and trait.name.casefold() in favored_names
+                ):
+                    return SPECIALTY_FAVORED_MIN_RATING
+                return SPECIALTY_MIN_RATING if section in {"Attributes", "Abilities"} else None
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    @staticmethod
+    async def _favored_ability_names(
+        *, character: Character, rules: SpecialtyRules
+    ) -> frozenset[str]:
+        """Load the casefolded ability names the character's concept favors under the rules.
+
+        Returns:
+            The favored names, empty unless the rules are RATING_BASED and the character has an
+            active concept.
+        """
+        concept_id = character.concept_id  # ty:ignore[unresolved-attribute]
+        if rules != SpecialtyRules.RATING_BASED or not concept_id:
+            return frozenset()
+        favored = await CharacterTraitService._favored_names_by_concept({concept_id})
+        return favored.get(concept_id, frozenset())
+
+    @staticmethod
+    async def _favored_names_by_concept(
+        concept_ids: set[UUID],
+    ) -> dict[UUID, frozenset[str]]:
+        """Load the casefolded favored ability names of several concepts in one query.
+
+        Archived concepts are left out, so they favor nothing.
+
+        Returns:
+            A mapping of concept ID to its favored names.
+        """
+        concepts = await CharacterConcept.filter(id__in=concept_ids, is_archived=False).only(
+            "id", "favored_ability_names"
+        )
+        return {
+            concept.id: frozenset(name.casefold() for name in concept.favored_ability_names)
+            for concept in concepts
+        }
+
+    @staticmethod
+    def _guard_trait_accepts_specialties(
+        *, character_trait: CharacterTrait, rules: SpecialtyRules, min_rating: int | None
+    ) -> None:
+        """Reject a specialty that the trait's sheet section or rating does not allow."""
+        if min_rating is None:
+            allowed = (
+                "ability traits"
+                if rules == SpecialtyRules.FIXED_COST
+                else "attribute or ability traits"
+            )
+            msg = f"Specialties can only be added to {allowed}"
             raise ValidationError(detail=msg)
-        if character_trait.value < 1:
-            msg = "Specialties require the ability to have at least one dot"
+        if character_trait.value < min_rating:
+            msg = (
+                f"{character_trait.trait.name} needs {min_rating} dots before it can take "
+                f"a specialty, got {character_trait.value}"
+            )
             raise ValidationError(detail=msg)
+
+    @staticmethod
+    def _specialty_cost(
+        *, rules: SpecialtyRules, character_trait: CharacterTrait, has_specialty: bool
+    ) -> int:
+        """Price the next specialty on a trait.
+
+        Under RATING_BASED rules the first specialty on a trait is free and each further one
+        costs the trait's current rating.
+
+        Returns:
+            The XP or starting-point cost of adding one more specialty.
+        """
+        match rules:
+            case SpecialtyRules.FIXED_COST:
+                return SPECIALTY_XP_COST
+            case SpecialtyRules.RATING_BASED:
+                return character_trait.value if has_specialty else 0
+            case _ as unreachable:
+                assert_never(unreachable)
 
     async def _lock_character_trait_value(self, character_trait: CharacterTrait) -> None:
         """Lock the trait row and reload its value so specialty checks see committed state.
@@ -1841,10 +2016,25 @@ class CharacterTraitService:
             raise ValidationError(detail=msg)
         character_trait.value = locked.value
 
-    async def _validate_specialty_name(
-        self, *, character_trait: CharacterTrait, name: str, exclude_id: UUID | None = None
-    ) -> str:
-        """Clean a specialty name and enforce length and per-trait uniqueness.
+    @staticmethod
+    async def _active_specialty_names(
+        character_trait: CharacterTrait, *, exclude_id: UUID | None = None
+    ) -> list[str]:
+        """Load the names of a trait's active specialties, optionally leaving one out.
+
+        Returns:
+            The specialty names.
+        """
+        query = CharacterTraitSpecialty.filter(
+            character_trait_id=character_trait.id, is_archived=False
+        )
+        if exclude_id is not None:
+            query = query.exclude(id=exclude_id)
+        return await query.values_list("name", flat=True)  # ty:ignore[invalid-return-type]
+
+    @staticmethod
+    def _clean_specialty_name(*, name: str, existing_names: list[str]) -> str:
+        """Strip a specialty name and enforce its length and per-trait uniqueness, ignoring case.
 
         Returns:
             The stripped name.
@@ -1856,13 +2046,7 @@ class CharacterTraitService:
                 f"{SPECIALTY_NAME_MAX_LENGTH} characters, got {len(cleaned)}"
             )
             raise ValidationError(detail=msg)
-
-        query = CharacterTraitSpecialty.filter(
-            character_trait_id=character_trait.id, name__iexact=cleaned, is_archived=False
-        )
-        if exclude_id is not None:
-            query = query.exclude(id=exclude_id)
-        if await query.exists():
+        if cleaned.casefold() in {existing.casefold() for existing in existing_names}:
             msg = f"Specialty '{cleaned}' already exists on this trait"
             raise ValidationError(detail=msg)
         return cleaned
@@ -1877,7 +2061,7 @@ class CharacterTraitService:
         name: str,
         currency: TraitModifyCurrency,
     ) -> CharacterTrait:
-        """Add a specialty to an ability trait, charging the cost when the company enables it.
+        """Add a specialty to a trait, charging the cost when the company enables it.
 
         Returns:
             The refetched character trait including its specialties.
@@ -1890,17 +2074,30 @@ class CharacterTraitService:
 
         # company.settings is prefetched by the DI provider (provide_company_by_id).
         settings = company.settings
+        rules = settings.specialty_rules
+        if settings.specialty_xp_cost_enabled:
+            self._assert_currency_allowed_for_type(character, currency)
+        min_rating = self.specialty_min_rating(
+            rules=rules,
+            trait=character_trait.trait,
+            favored_names=await self._favored_ability_names(character=character, rules=rules),
+        )
         cost_paid = 0
         currency_paid = TraitModifyCurrency.NO_COST
 
         async with in_transaction():
             await self._lock_character_trait_value(character_trait)
-            self._guard_trait_accepts_specialties(character_trait)
-            cleaned = await self._validate_specialty_name(
-                character_trait=character_trait, name=name
+            self._guard_trait_accepts_specialties(
+                character_trait=character_trait, rules=rules, min_rating=min_rating
             )
-            if settings.specialty_xp_cost_enabled:
-                self._assert_currency_allowed_for_type(character, currency)
+            existing_names = await self._active_specialty_names(character_trait)
+            cleaned = self._clean_specialty_name(name=name, existing_names=existing_names)
+            cost = self._specialty_cost(
+                rules=rules, character_trait=character_trait, has_specialty=bool(existing_names)
+            )
+            # A free specialty under RATING_BASED rules is granted by the rules, not by a
+            # storyteller waiver, so it needs no free-change permission.
+            if settings.specialty_xp_cost_enabled and cost > 0:
                 match currency:
                     case TraitModifyCurrency.NO_COST:
                         await self._guard_permissions_free_trait_changes(
@@ -1910,14 +2107,12 @@ class CharacterTraitService:
                         await UserXPService().spend_xp(
                             user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
                             campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
-                            amount=SPECIALTY_XP_COST,
+                            amount=cost,
                         )
-                        cost_paid, currency_paid = SPECIALTY_XP_COST, TraitModifyCurrency.XP
+                        cost_paid, currency_paid = cost, TraitModifyCurrency.XP
                     case TraitModifyCurrency.STARTING_POINTS:
-                        await self._change_starting_points(
-                            character=character, amount=-SPECIALTY_XP_COST
-                        )
-                        cost_paid = SPECIALTY_XP_COST
+                        await self._change_starting_points(character=character, amount=-cost)
+                        cost_paid = cost
                         currency_paid = TraitModifyCurrency.STARTING_POINTS
                     case _ as unreachable:
                         assert_never(unreachable)
@@ -1948,8 +2143,11 @@ class CharacterTraitService:
         await self.guard_user_can_manage_character(character, user)
         async with in_transaction():
             await self._lock_character_trait_value(character_trait)
-            specialty.name = await self._validate_specialty_name(
-                character_trait=character_trait, name=name, exclude_id=specialty.id
+            specialty.name = self._clean_specialty_name(
+                name=name,
+                existing_names=await self._active_specialty_names(
+                    character_trait, exclude_id=specialty.id
+                ),
             )
             await specialty.save(update_fields=["name"])
         return await self._refetch_character_trait(character_trait.id)
@@ -1961,11 +2159,15 @@ class CharacterTraitService:
         specialty: CharacterTraitSpecialty,
         recoup_setting: PermissionsRecoupXP,
     ) -> None:
-        """Return what a specialty cost, in the currency it was paid with."""
+        """Return what a specialty cost, in the currency it was paid with.
+
+        XP belongs to the player, so a character without one, such as a player character
+        later made an NPC, gets no XP back.
+        """
         xp_refund, starting_points_refund = self._specialty_refund_amounts(
             specialty=specialty, recoup_setting=recoup_setting
         )
-        if xp_refund:
+        if xp_refund and character.user_player_id is not None:  # ty:ignore[unresolved-attribute]
             await UserXPService().add_xp(
                 user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
                 campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
@@ -2014,3 +2216,75 @@ class CharacterTraitService:
                 specialty=specialty,
                 recoup_setting=company.settings.permission_recoup_xp,
             )
+
+    async def remove_ineligible_specialties(
+        self,
+        *,
+        settings: CompanySettings,
+        character: Character | None = None,
+        full_xp_refund: bool = False,
+    ) -> list[str]:
+        """Refund and delete every specialty the company's current rules no longer allow.
+
+        Call after a change that can make specialties ineligible without touching any
+        trait's value, such as the company switching specialty rules or a character
+        changing concept. Call inside the transaction that makes the change.
+
+        Args:
+            settings: The company's settings, holding the specialty rules that apply.
+            character: Limit the sweep to this character's traits. Its in-memory concept
+                decides which abilities are favored, and its player and campaign receive
+                the refunds, so pass the owner who paid when the same change reassigns it.
+            full_xp_refund: Refund XP in full whatever the company's XP recoup setting. Set
+                it when the player did not choose the change.
+
+        Returns:
+            The names of the removed specialties.
+        """
+        rules = settings.specialty_rules
+        recoup_setting = (
+            PermissionsRecoupXP.UNRESTRICTED if full_xp_refund else settings.permission_recoup_xp
+        )
+        query = CharacterTraitSpecialty.filter(
+            is_archived=False,
+            character_trait__character__company_id=settings.company_id,  # ty:ignore[unresolved-attribute]
+            character_trait__character__is_archived=False,
+        )
+        if character is not None:
+            query = query.filter(character_trait__character_id=character.id)
+        specialties = await query.prefetch_related(
+            "character_trait__trait__sheet_section", "character_trait__character"
+        )
+
+        def owner(specialty: CharacterTraitSpecialty) -> Character:
+            return character or specialty.character_trait.character
+
+        favored_by_concept: dict[UUID, frozenset[str]] = {}
+        if rules == SpecialtyRules.RATING_BASED:
+            favored_by_concept = await self._favored_names_by_concept(
+                {
+                    owner(specialty).concept_id  # ty:ignore[unresolved-attribute]
+                    for specialty in specialties
+                    if owner(specialty).concept_id  # ty:ignore[unresolved-attribute]
+                }
+            )
+
+        removed: list[str] = []
+        async with in_transaction():
+            for specialty in specialties:
+                character_trait = specialty.character_trait
+                min_rating = self.specialty_min_rating(
+                    rules=rules,
+                    trait=character_trait.trait,
+                    favored_names=favored_by_concept.get(
+                        owner(specialty).concept_id,  # ty:ignore[unresolved-attribute]
+                        frozenset(),
+                    ),
+                )
+                if self._keeps_specialties(value=character_trait.value, min_rating=min_rating):
+                    continue
+                if await self._delete_and_refund_specialty(
+                    character=owner(specialty), specialty=specialty, recoup_setting=recoup_setting
+                ):
+                    removed.append(specialty.name)
+        return removed

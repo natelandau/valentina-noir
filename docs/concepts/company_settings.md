@@ -88,13 +88,23 @@ The `WITHIN_SESSION` window is a sliding 1-hour activity window per (user, chara
 
 ### Specialty XP Cost
 
-Control whether adding a specialty to an ability costs experience.
+Control whether adding a specialty to a trait costs experience or starting points.
 
-| Setting                     | Behavior                                                                                                                                      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `specialty_xp_cost_enabled` | When enabled, adding a specialty to an ability with the `XP` currency costs 3 XP, following V5 rules. When disabled, specialties are free (default). |
+| Setting                     | Behavior                                                                                                                                                                   |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `specialty_xp_cost_enabled` | When enabled, a specialty costs the amount that the [Specialty Rules](#specialty-rules) set, paid in the request `currency`. When disabled, specialties are free (default). |
 
 Each specialty records the cost and currency it was bought with. Removing a specialty refunds exactly that amount in that currency. XP refunds follow the [XP Recoup](#xp-recoup) setting: they happen when it is `UNRESTRICTED` or `WITHIN_SESSION`, and a `DENIED` setting removes the specialty with no refund. Starting point refunds are never restricted.
+
+### Specialty Rules
+
+Choose which traits accept specialties and what each one costs when [Specialty XP Cost](#specialty-xp-cost) is enabled.
+
+| Setting           | Description                                                                                                                                                                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `specialty_rules` | `FIXED_COST` (default): abilities rated 1 or more accept specialties, and each costs 3. `RATING_BASED`: attributes and abilities rated 4 or more accept specialties, and an ability that the character's [concept](./character_concepts.md) favors needs 3. The first specialty on a trait is free, and each further one costs the trait's current rating. |
+
+When you change `specialty_rules`, the API removes each specialty that the new rules do not allow. It refunds the full cost in the currency paid, whatever the [XP Recoup](#xp-recoup) setting. See [Specialties](./character_traits.md#specialties) for the full rules.
 
 ### NPC Management
 

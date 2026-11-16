@@ -57,7 +57,7 @@ The direction (increase/decrease) is determined automatically from the current v
 
 **Concurrent changes:** If another request changes the trait's value first, the change returns 409, leaves the value as the other request set it, and spends or refunds nothing. Fetch the trait again and retry.
 
-**Specialties:** When an ability reaches a value of 0, its specialties are refunded and removed.
+**Specialties:** When the value falls below the minimum rating that the company's specialty rules set for the trait, its specialties are refunded and removed.
 """
 
 DELETE_CHARACTER_TRAIT_DESCRIPTION = """\
@@ -89,24 +89,29 @@ Omitting `currency` is the same as `NO_COST`. Free deletes follow the company's 
 """
 
 ADD_SPECIALTY_DESCRIPTION = """\
-Add a free-text specialty to an ability trait.
+Add a free-text specialty to a character trait.
 
-Specialties are only available on ability traits (the Abilities section of the character sheet) that have a value of 1 or higher. An ability can have several specialties. The name must be 3 to 50 characters long and unique on the trait, ignoring case.
+The company's `specialty_rules` setting decides which traits accept specialties:
+
+- `FIXED_COST`: abilities rated 1 or more.
+- `RATING_BASED`: attributes and abilities rated 4 or more. An ability that the character's concept favors needs 3.
+
+Any other trait, or a trait below its minimum rating, returns 400. A trait can have several specialties. The name must be 3 to 50 characters long and unique on the trait, ignoring case.
+
+**Cost:** When the company's specialty XP cost setting is off, specialties are free and the `currency` has no effect. When the setting is on, a specialty costs 3 under `FIXED_COST`. Under `RATING_BASED`, the first specialty on a trait is free and each further one costs the trait's current rating.
 
 **Currency options:**
-- `NO_COST`: Add the specialty without spending points (respects the company's free trait changes setting when the specialty XP cost setting is on)
-- `XP`: Spend 3 experience points when the company's specialty XP cost setting is on
-- `STARTING_POINTS`: Spend 3 starting points when the company's specialty XP cost setting is on
+- `NO_COST`: Add the specialty without spending points. A specialty that has a cost follows the company's free trait changes setting, so a player can get 403 where a storyteller does not.
+- `XP`: Pay the cost in experience points.
+- `STARTING_POINTS`: Pay the cost in starting points.
 
-When the specialty XP cost setting is off, specialties are free and the `currency` does not affect the cost. The response is the updated character trait.
+Omitting `currency` is the same as `NO_COST`. The response is the updated character trait.
 
-Omitting `currency` is the same as `NO_COST`. Free deletes follow the company's free trait changes setting, so a player may get 403 where a storyteller would not.
-
-**Note:** Only storyteller users and character owners can use this endpoint. `NPC` and `STORYTELLER` characters only accept `NO_COST`; using `XP` or `STARTING_POINTS` returns 400. A cost the character cannot afford returns 400.
+**Note:** Only storyteller users and character owners can use this endpoint. When the specialty XP cost setting is on, `NPC` and `STORYTELLER` characters only accept `NO_COST`, and `XP` or `STARTING_POINTS` returns 400. A cost the character cannot afford returns 400.
 """
 
 UPDATE_SPECIALTY_DESCRIPTION = """\
-Rename a specialty on an ability trait.
+Rename a specialty on a character trait.
 
 The name must be 3 to 50 characters long and unique on the trait, ignoring case. Renaming never changes the cost paid or the currency used. The response is the updated character trait.
 
@@ -114,7 +119,7 @@ The name must be 3 to 50 characters long and unique on the trait, ignoring case.
 """
 
 DELETE_SPECIALTY_DESCRIPTION = """\
-Remove a specialty from an ability trait.
+Remove a specialty from a character trait.
 
 The cost paid for the specialty is refunded in the currency used to buy it. A refund in `XP` follows the company's XP recoup setting: it is given when the setting is `UNRESTRICTED` or `WITHIN_SESSION` and skipped when it is `DENIED`. Starting points are always refunded. Removing the specialty is never refused because of the recoup setting.
 

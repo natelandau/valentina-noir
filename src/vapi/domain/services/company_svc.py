@@ -12,12 +12,17 @@ from tortoise.transactions import in_transaction
 from vapi.constants import CharacterType, CompanyPermission
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
+from vapi.domain.services.character_trait_svc import CharacterTraitService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.patch import apply_patch
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     from tortoise.queryset import QuerySet
+
+    from vapi.db.sql_models.company import CompanySettings
+    from vapi.domain.controllers.company.dto import CompanySettingsPatch
 
 
 def annotate_company_counts(qs: QuerySet[Company]) -> QuerySet[Company]:
@@ -54,6 +59,33 @@ _ACCESS_DENIED_MSG = "You are not authorized to take this action on this company
 
 class CompanyService:
     """Company service."""
+
+    async def update_settings(
+        self, *, settings: CompanySettings, patch: CompanySettingsPatch
+    ) -> dict[str, dict[str, object]]:
+        """Apply a partial settings patch and return a diff of what changed.
+
+        Skip fields that are UNSET, so a partial update leaves the other settings alone. A
+        change of specialty rules also removes and refunds the specialties the new rules no
+        longer allow.
+
+        Args:
+            settings: The CompanySettings record to update in place.
+            patch: The incoming patch, with UNSET for fields to leave alone.
+
+        Returns:
+            A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed
+            field, for audit logging.
+        """
+        async with in_transaction():
+            changes = apply_patch(settings, patch, prefix="settings.")
+            await settings.save()
+            # Players did not choose the new rules, so refund in full whatever the recoup setting.
+            if "settings.specialty_rules" in changes:
+                await CharacterTraitService().remove_ineligible_specialties(
+                    settings=settings, full_xp_refund=True
+                )
+        return changes
 
     async def _count_company_owners(self, company_id: UUID) -> int:
         """Count non-global-admin, non-archived owners of a company."""

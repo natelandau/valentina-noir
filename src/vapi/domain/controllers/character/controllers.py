@@ -295,9 +295,7 @@ class CharacterController(Controller):
             await service.validate_player_assignment(
                 user_player_id=data.user_player_id, company_id=company.id
             )
-        changes = await service.apply_character_patch(character, data)
-        await service.prepare_for_save(character)
-        await character.save()
+        changes = await service.save_character_patch(character, data)
 
         request.state.audit_changes = changes
 

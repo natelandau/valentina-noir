@@ -13,6 +13,7 @@ from vapi.constants import (
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
+    SpecialtyRules,
 )
 from vapi.db.sql_models.base import BaseModel
 from vapi.db.sql_models.validators import (
@@ -95,6 +96,9 @@ class CompanySettings(BaseModel):
         PermissionsRecoupXP, default=PermissionsRecoupXP.DENIED
     )
     specialty_xp_cost_enabled = fields.BooleanField(default=False, db_default=False)
+    specialty_rules = fields.CharEnumField(
+        SpecialtyRules, default=SpecialtyRules.FIXED_COST, db_default="FIXED_COST"
+    )
 
     class Meta:
         """Tortoise ORM meta options."""

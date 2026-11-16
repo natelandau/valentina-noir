@@ -37,32 +37,11 @@ from .dto import (
     CompanyPermissionRequest,
     CompanyPermissionResponse,
     CompanyResponse,
-    CompanySettingsPatch,
     NewCompanyCreateResponse,
     UserResponse,
 )
 
 logger = logging.getLogger("vapi")
-
-
-async def _apply_settings_patch(
-    settings: CompanySettings, patch: "CompanySettingsPatch"
-) -> dict[str, dict[str, object]]:
-    """Apply a partial settings patch and return a diff of what changed.
-
-    Skips any field that is UNSET so partial updates don't overwrite unchanged values.
-    Returns a dict of changed fields with dotted `settings.` prefix keys for audit logging.
-
-    Args:
-        settings: The CompanySettings record to update in-place.
-        patch: The incoming patch data containing optional field overrides.
-
-    Returns:
-        dict[str, dict[str, object]]: A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed field.
-    """
-    changes = apply_patch(settings, patch, prefix="settings.")
-    await settings.save()
-    return changes
 
 
 class CompanyController(Controller):
@@ -150,6 +129,7 @@ class CompanyController(Controller):
                     "permission_free_trait_changes": data.settings.permission_free_trait_changes,
                     "permission_recoup_xp": data.settings.permission_recoup_xp,
                     "specialty_xp_cost_enabled": data.settings.specialty_xp_cost_enabled,
+                    "specialty_rules": data.settings.specialty_rules,
                 }
             await CompanySettings.create(company=company, **settings_kwargs)
 
@@ -199,7 +179,9 @@ class CompanyController(Controller):
         if not isinstance(data.settings, msgspec.UnsetType):
             settings = await CompanySettings.filter(company=company).first()
             if settings is not None:
-                settings_changes = await _apply_settings_patch(settings, data.settings)
+                settings_changes = await CompanyService().update_settings(
+                    settings=settings, patch=data.settings
+                )
                 changes.update(settings_changes)
 
         request.state.audit_changes = changes

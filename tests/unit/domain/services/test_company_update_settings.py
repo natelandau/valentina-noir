@@ -1,4 +1,4 @@
-"""Unit tests for _apply_settings_patch in the company controller."""
+"""Unit tests for CompanyService.update_settings."""
 
 from __future__ import annotations
 
@@ -12,10 +12,15 @@ from vapi.constants import (
     PermissionsFreeTraitChanges,
     PermissionsGrantXP,
     PermissionsRecoupXP,
+    SpecialtyRules,
+    TraitModifyCurrency,
 )
+from vapi.db.sql_models.character import CharacterTraitSpecialty
+from vapi.db.sql_models.character_sheet import Trait
 from vapi.db.sql_models.company import CompanySettings
-from vapi.domain.controllers.company.controllers import _apply_settings_patch
+from vapi.db.sql_models.user import CampaignExperience
 from vapi.domain.controllers.company.dto import CompanySettingsPatch
+from vapi.domain.services import CompanyService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -41,7 +46,7 @@ class TestApplySettingsPatchScalars:
             character_autogen_num_choices=5,
             character_autogen_starting_points=25,
         )
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then changes are returned with dotted prefix keys
         assert "settings.character_autogen_xp_cost" in changes
@@ -74,7 +79,7 @@ class TestApplySettingsPatchStartingPoints:
 
         # When patching only starting_points
         patch = CompanySettingsPatch(character_autogen_starting_points=50)
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then the diff contains only the starting_points change
         assert list(changes.keys()) == ["settings.character_autogen_starting_points"]
@@ -99,7 +104,7 @@ class TestApplySettingsPatchEnums:
         patch = CompanySettingsPatch(
             permission_manage_campaign=PermissionManageCampaign.STORYTELLER
         )
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then the change is recorded with enum values
         assert "settings.permission_manage_campaign" in changes
@@ -134,7 +139,7 @@ class TestApplySettingsPatchNoOp:
             character_autogen_num_choices=3,
             character_autogen_starting_points=0,
         )
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then no changes are recorded
         assert changes == {}
@@ -155,7 +160,7 @@ class TestApplySettingsPatchUnset:
 
         # When patching only num_choices (xp_cost is UNSET)
         patch = CompanySettingsPatch(character_autogen_num_choices=7)
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then xp_cost is not in the diff and is unchanged
         assert "settings.character_autogen_xp_cost" not in changes
@@ -183,7 +188,7 @@ class TestApplySettingsPatchMixed:
             permission_free_trait_changes=PermissionsFreeTraitChanges.WITHIN_24_HOURS,
             permission_recoup_xp=PermissionsRecoupXP.UNRESTRICTED,
         )
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then all changed fields appear in the diff
         assert "settings.character_autogen_xp_cost" in changes
@@ -217,7 +222,7 @@ class TestApplySettingsPatchManageNpc:
 
         # When patching permission_manage_npc to STORYTELLER
         patch = CompanySettingsPatch(permission_manage_npc=PermissionManageNPC.STORYTELLER)
-        changes = await _apply_settings_patch(settings, patch)
+        changes = await CompanyService().update_settings(settings=settings, patch=patch)
 
         # Then the change is tracked and applied to the model as an enum
         assert changes["settings.permission_manage_npc"]["old"] == PermissionManageNPC.UNRESTRICTED
@@ -256,11 +261,62 @@ class TestApplySettingsPatchSpecialtyXpCost:
         settings = await CompanySettings.filter(company=company).first()
 
         # When enabling the setting
-        changes = await _apply_settings_patch(
-            settings, CompanySettingsPatch(specialty_xp_cost_enabled=True)
+        changes = await CompanyService().update_settings(
+            settings=settings, patch=CompanySettingsPatch(specialty_xp_cost_enabled=True)
         )
 
         # Then the change is reported and persisted
         assert changes["settings.specialty_xp_cost_enabled"] == {"old": False, "new": True}
         refreshed = await CompanySettings.get(id=settings.id)
         assert refreshed.specialty_xp_cost_enabled is True
+
+
+class TestApplySettingsPatchSpecialtyRules:
+    """Test that changing specialty rules removes the specialties they no longer allow."""
+
+    async def test_switching_rules_removes_and_refunds_ineligible_specialties(
+        self,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        campaign_factory: Callable[..., Any],
+        character_factory: Callable[..., Any],
+        character_trait_factory: Callable[..., Any],
+        character_trait_specialty_factory: Callable[..., Any],
+        campaign_experience_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a switch to RATING_BASED removes a specialty on an ability below four."""
+        # Given a FIXED_COST company with DENIED recoup and a player's Firearms at 2
+        # holding a specialty bought for 3 XP
+        company = await company_factory(
+            settings__permission_recoup_xp=PermissionsRecoupXP.DENIED,
+        )
+        user = await user_factory(company=company)
+        campaign = await campaign_factory(company=company)
+        character = await character_factory(company=company, user_player=user, campaign=campaign)
+        await campaign_experience_factory(user=user, campaign=campaign, xp_current=0, xp_total=0)
+        firearms = await Trait.get(
+            sheet_section__name="Abilities",
+            name="Firearms",
+            is_archived=False,
+            custom_for_character_id=None,
+        )
+        char_trait = await character_trait_factory(character=character, trait=firearms, value=2)
+        await character_trait_specialty_factory(
+            character_trait=char_trait,
+            name="Sniping",
+            cost_paid=3,
+            currency_paid=TraitModifyCurrency.XP,
+        )
+        settings = await CompanySettings.get(company=company)
+
+        # When patching the rules to RATING_BASED
+        changes = await CompanyService().update_settings(
+            settings=settings,
+            patch=CompanySettingsPatch(specialty_rules=SpecialtyRules.RATING_BASED),
+        )
+
+        # Then the change is recorded, the specialty is gone, and its XP returns in full
+        assert changes["settings.specialty_rules"]["new"] == SpecialtyRules.RATING_BASED
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=char_trait.id).exists()
+        experience = await CampaignExperience.get(user_id=user.id, campaign_id=campaign.id)
+        assert experience.xp_current == 3
