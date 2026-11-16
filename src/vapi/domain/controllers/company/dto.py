@@ -176,7 +176,7 @@ class CompanySettingsCreate(msgspec.Struct):
     )
     permission_recoup_xp: PermissionsRecoupXP = PermissionsRecoupXP.DENIED
     specialty_xp_cost_enabled: bool = False
-    specialty_rules: SpecialtyRules = SpecialtyRules.FLAT
+    specialty_rules: SpecialtyRules = SpecialtyRules.FIXED_COST
 
 
 class CompanyCreate(msgspec.Struct):

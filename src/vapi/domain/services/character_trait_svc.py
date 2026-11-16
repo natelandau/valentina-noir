@@ -10,8 +10,8 @@ from tortoise.expressions import F, Q
 from tortoise.transactions import in_transaction
 
 from vapi.constants import (
-    SPECIALTY_CONCEPT_THRESHOLD,
-    SPECIALTY_THRESHOLD,
+    SPECIALTY_FAVORED_MIN_RATING,
+    SPECIALTY_MIN_RATING,
     SPECIALTY_XP_COST,
     CharacterClass,
     CharacterType,
@@ -1827,10 +1827,10 @@ class CharacterTraitService:
             msg = "Specialties require the ability to have at least one dot"
             raise ValidationError(detail=msg)
 
-    async def specialty_threshold(
+    async def specialty_min_rating(
         self, *, character: Character, character_trait: CharacterTrait
     ) -> int:
-        """Return the rating a trait needs before it may take specialties under THRESHOLD rules.
+        """Return the rating a trait needs before it may take specialties under RATING_BASED rules.
 
         Abilities favored by the character's concept unlock a dot earlier. Attributes never do.
 
@@ -1838,7 +1838,7 @@ class CharacterTraitService:
             The minimum trait value that permits a specialty.
         """
         if character_trait.trait.sheet_section.name != "Abilities" or not character.concept_id:  # ty:ignore[unresolved-attribute]
-            return SPECIALTY_THRESHOLD
+            return SPECIALTY_MIN_RATING
         concept = await CharacterConcept.get_or_none(id=character.concept_id).only(  # ty:ignore[unresolved-attribute]
             "id", "favored_ability_names"
         )
@@ -1846,28 +1846,28 @@ class CharacterTraitService:
             name.casefold() for name in (concept.favored_ability_names if concept else [])
         }
         if character_trait.trait.name.casefold() in favored_names:
-            return SPECIALTY_CONCEPT_THRESHOLD
-        return SPECIALTY_THRESHOLD
+            return SPECIALTY_FAVORED_MIN_RATING
+        return SPECIALTY_MIN_RATING
 
-    async def _guard_trait_accepts_threshold_specialties(
+    async def _guard_trait_accepts_rating_based_specialties(
         self, *, character: Character, character_trait: CharacterTrait
     ) -> None:
-        """Reject specialties on traits that are not attributes or abilities, or below threshold."""
+        """Reject a specialty that the trait's sheet section or rating does not allow."""
         if character_trait.trait.sheet_section.name not in {"Attributes", "Abilities"}:
             msg = "Specialties can only be added to attribute or ability traits"
             raise ValidationError(detail=msg)
-        threshold = await self.specialty_threshold(
+        min_rating = await self.specialty_min_rating(
             character=character, character_trait=character_trait
         )
-        if character_trait.value < threshold:
+        if character_trait.value < min_rating:
             msg = (
-                f"{character_trait.trait.name} needs {threshold} dots before it can take "
+                f"{character_trait.trait.name} needs {min_rating} dots before it can take "
                 f"a specialty, got {character_trait.value}"
             )
             raise ValidationError(detail=msg)
 
     async def next_specialty_cost(self, *, character_trait: CharacterTrait) -> int:
-        """Return what the next specialty on a trait costs under THRESHOLD rules.
+        """Return what the next specialty on a trait costs under RATING_BASED rules.
 
         The first specialty on a trait is free; each further one costs the trait's current rating.
 
@@ -1951,8 +1951,8 @@ class CharacterTraitService:
 
         async with in_transaction():
             await self._lock_character_trait_value(character_trait)
-            if settings.specialty_rules == SpecialtyRules.THRESHOLD:
-                await self._guard_trait_accepts_threshold_specialties(
+            if settings.specialty_rules == SpecialtyRules.RATING_BASED:
+                await self._guard_trait_accepts_rating_based_specialties(
                     character=character, character_trait=character_trait
                 )
                 cost = await self.next_specialty_cost(character_trait=character_trait)
@@ -1962,7 +1962,7 @@ class CharacterTraitService:
             cleaned = await self._validate_specialty_name(
                 character_trait=character_trait, name=name
             )
-            # A free specialty under THRESHOLD rules is granted by the rules, not by a
+            # A free specialty under RATING_BASED rules is granted by the rules, not by a
             # storyteller waiver, so it needs no free-change permission.
             if settings.specialty_xp_cost_enabled and cost > 0:
                 self._assert_currency_allowed_for_type(character, currency)

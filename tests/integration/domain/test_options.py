@@ -53,7 +53,7 @@ async def test_get_company_options(
         "PermissionsGrantXP": [x.value for x in PermissionsGrantXP],
         "PermissionsFreeTraitChanges": [x.value for x in PermissionsFreeTraitChanges],
         "PermissionsRecoupXP": [x.value for x in PermissionsRecoupXP],
-        "SpecialtyRules": ["FLAT", "THRESHOLD"],
+        "SpecialtyRules": ["FIXED_COST", "RATING_BASED"],
     }
     assert response.json()["companies"]["PermissionsRecoupXP"] == [
         "UNRESTRICTED",

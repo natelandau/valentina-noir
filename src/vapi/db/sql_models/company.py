@@ -97,7 +97,7 @@ class CompanySettings(BaseModel):
     )
     specialty_xp_cost_enabled = fields.BooleanField(default=False, db_default=False)
     specialty_rules = fields.CharEnumField(
-        SpecialtyRules, default=SpecialtyRules.FLAT, db_default="FLAT"
+        SpecialtyRules, default=SpecialtyRules.FIXED_COST, db_default="FIXED_COST"
     )
 
     class Meta:

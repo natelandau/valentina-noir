@@ -12,6 +12,6 @@ class Migration(migrations.Migration):
         ops.AddField(
             model_name='CompanySettings',
             name='specialty_rules',
-            field=fields.CharEnumField(default=SpecialtyRules.FLAT, description='FLAT: FLAT\nTHRESHOLD: THRESHOLD', db_default='FLAT', enum_type=SpecialtyRules, max_length=9),
+            field=fields.CharEnumField(default=SpecialtyRules.FIXED_COST, description='FIXED_COST: FIXED_COST\nRATING_BASED: RATING_BASED', db_default='FIXED_COST', enum_type=SpecialtyRules, max_length=12),
         ),
     ]

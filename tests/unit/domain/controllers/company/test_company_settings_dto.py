@@ -54,12 +54,12 @@ def test_company_settings_patch_specialty_xp_cost_enabled_defaults_unset() -> No
 
 
 def test_company_settings_create_specialty_rules_defaults_flat() -> None:
-    """Verify the create DTO defaults the specialty rules to FLAT."""
+    """Verify the create DTO defaults the specialty rules to FIXED_COST."""
     # Given / When an empty create body
     create = CompanySettingsCreate()
 
-    # Then the rules are FLAT
-    assert create.specialty_rules == "FLAT"
+    # Then the rules are FIXED_COST
+    assert create.specialty_rules == "FIXED_COST"
 
 
 def test_company_settings_patch_specialty_rules_defaults_unset() -> None:

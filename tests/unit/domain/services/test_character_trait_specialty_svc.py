@@ -873,14 +873,14 @@ async def _trait(section: str, name: str) -> Trait:
     )
 
 
-class TestThresholdSpecialtyRules:
-    """Test add_specialty under the THRESHOLD specialty rules."""
+class TestRatingBasedSpecialtyRules:
+    """Test add_specialty under the RATING_BASED specialty rules."""
 
     async def test_rejects_ability_below_four(self, make_scenario) -> None:
         """Verify an ability needs four dots."""
-        # Given THRESHOLD rules and Firearms at 3 with no concept
+        # Given RATING_BASED rules and Firearms at 3 with no concept
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await _trait("Abilities", "Firearms"),
             value=3,
         )
@@ -894,9 +894,9 @@ class TestThresholdSpecialtyRules:
         self, make_scenario, character_concept_factory
     ) -> None:
         """Verify an ability the concept favors unlocks at three dots."""
-        # Given THRESHOLD rules, a concept favoring Medicine, and Medicine at 3
+        # Given RATING_BASED rules, a concept favoring Medicine, and Medicine at 3
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await _trait("Abilities", "Medicine"),
             value=3,
         )
@@ -912,9 +912,9 @@ class TestThresholdSpecialtyRules:
 
     async def test_attribute_accepts_specialty_at_four(self, make_scenario) -> None:
         """Verify an attribute at four dots takes a specialty."""
-        # Given THRESHOLD rules and Strength at 4
+        # Given RATING_BASED rules and Strength at 4
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await _trait("Attributes", "Strength"),
             value=4,
         )
@@ -925,13 +925,13 @@ class TestThresholdSpecialtyRules:
         # Then it is added
         assert result.specialties[0].name == "Iron Grip"
 
-    async def test_concept_does_not_lower_attribute_threshold(
+    async def test_concept_does_not_lower_attribute_min_rating(
         self, make_scenario, character_concept_factory
     ) -> None:
-        """Verify a concept never lowers an attribute's threshold."""
-        # Given THRESHOLD rules, a concept naming Strength, and Strength at 3
+        """Verify a concept never lowers an attribute's minimum rating."""
+        # Given RATING_BASED rules, a concept naming Strength, and Strength at 3
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await _trait("Attributes", "Strength"),
             value=3,
         )
@@ -946,9 +946,9 @@ class TestThresholdSpecialtyRules:
 
     async def test_rejects_traits_outside_attributes_and_abilities(self, make_scenario) -> None:
         """Verify other sections are refused."""
-        # Given THRESHOLD rules and a Virtue at 5
+        # Given RATING_BASED rules and a Virtue at 5
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await Trait.filter(
                 sheet_section__name="Other", category__name="Virtues", is_archived=False
             ).first(),
@@ -962,9 +962,9 @@ class TestThresholdSpecialtyRules:
 
     async def test_first_free_then_costs_current_rating(self, make_scenario) -> None:
         """Verify the first specialty is free and the next costs the trait's rating."""
-        # Given THRESHOLD rules, XP cost on, Firearms at 4, and 10 XP
+        # Given RATING_BASED rules, XP cost on, Firearms at 4, and 10 XP
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await _trait("Abilities", "Firearms"),
             value=4,
             xp=10,
@@ -984,9 +984,9 @@ class TestThresholdSpecialtyRules:
         self, make_scenario
     ) -> None:
         """Verify the rules-granted free specialty skips the free-change permission."""
-        # Given THRESHOLD rules, storyteller-only free changes, and a player at Firearms 4
+        # Given RATING_BASED rules, storyteller-only free changes, and a player at Firearms 4
         s = await make_scenario(
-            specialty_rules=SpecialtyRules.THRESHOLD,
+            specialty_rules=SpecialtyRules.RATING_BASED,
             trait=await _trait("Abilities", "Firearms"),
             value=4,
             role=UserRole.PLAYER,

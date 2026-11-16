@@ -102,7 +102,7 @@ Choose which traits may take specialties and how much each one costs.
 
 | Setting           | Description |
 | ----------------- | ----------- |
-| `specialty_rules` | `FLAT` (default): any ability rated 1 or higher may take specialties, and each costs a flat 3 when [Specialty XP Cost](#specialty-xp-cost) is enabled. `THRESHOLD`: attributes and abilities rated 4 or higher may take specialties. Abilities named in the character's [concept](./character_concepts.md) favored abilities unlock at 3; attributes always need 4. The first specialty on a trait is free, and each further one costs the trait's current rating when Specialty XP Cost is enabled. |
+| `specialty_rules` | `FIXED_COST` (default): any ability rated 1 or higher may take specialties, and each costs a flat 3 when [Specialty XP Cost](#specialty-xp-cost) is enabled. `RATING_BASED`: attributes and abilities rated 4 or higher may take specialties. Abilities named in the character's [concept](./character_concepts.md) favored abilities unlock at 3; attributes always need 4. The first specialty on a trait is free, and each further one costs the trait's current rating when Specialty XP Cost is enabled. |
 
 ### NPC Management
 
