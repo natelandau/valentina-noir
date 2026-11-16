@@ -35,7 +35,6 @@ from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
-from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
 from vapi.lib.exceptions import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
@@ -353,17 +352,12 @@ async def provide_campaign_by_id_for_experience(campaign_id: UUID, company: Comp
 
 
 async def provide_character_by_id_and_company(character_id: UUID, company: Company) -> Character:
-    """Provide a Character by ID, scoped to a company.
+    """Provide a Character by ID, scoped to a company, with no relations loaded.
 
-    Prefetches relations needed for CharacterResponse.from_model().
+    Most character routes read only the character's own columns. Handlers that build a
+    CharacterResponse re-query with CHARACTER_RESPONSE_PREFETCH.
     """
-    return await _find_or_404(
-        Character,
-        "Character",
-        Q(company_id=company.id),
-        doc_id=character_id,
-        prefetch=CHARACTER_RESPONSE_PREFETCH,
-    )
+    return await _find_or_404(Character, "Character", Q(company_id=company.id), doc_id=character_id)
 
 
 async def provide_inventory_item_by_id(

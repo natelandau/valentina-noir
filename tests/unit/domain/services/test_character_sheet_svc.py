@@ -767,6 +767,37 @@ class TestCharacterSheetService:
                     or gift.gift_attributes.auspice_id == auspice_id
                 ), f"Gift '{gift.name}' should not be available to this werewolf"
 
+        async def test_category_available_gifts_include_own_tribe_without_prefetch(
+            self,
+            character_factory: "Callable[..., Character]",
+            werewolf_attributes_factory: "Callable[..., WerewolfAttributes]",
+        ) -> None:
+            """Verify the category slice loads werewolf attributes to offer the tribe's gifts."""
+            # Given a tribe gift from bootstrap data
+            gift = await Trait.filter(
+                is_archived=False,
+                gift_tribe_id__isnull=False,
+                gift_is_native=False,
+                custom_for_character_id__isnull=True,
+            ).first()
+            assert gift is not None
+
+            # And a werewolf of that tribe, loaded without any relations
+            character = await character_factory(character_class="WEREWOLF")
+            await werewolf_attributes_factory(character=character, tribe_id=gift.gift_tribe_id)  # ty:ignore[unresolved-attribute]
+            unloaded = await type(character).get(id=character.id)
+
+            # When building the gift's category slice with available traits
+            result = await CharacterSheetService().get_character_full_sheet_category(
+                unloaded, await gift.category, include_available_traits=True
+            )
+
+            # Then the tribe's gift is offered
+            available_ids = {t.id for t in result.available_traits} | {
+                t.id for sub in result.subcategories for t in sub.available_traits
+            }
+            assert gift.id in available_ids
+
         async def test_full_sheet_with_gift_trait_serializes_gift_attributes(
             self,
             character_factory: "Callable[..., Character]",
