@@ -7,7 +7,7 @@ from uuid import UUID
 import msgspec
 
 from vapi.constants import InventoryItemType
-from vapi.domain.controllers.request_types import NameMax50
+from vapi.domain.controllers.request_types import LongText, NameMax50
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.character import CharacterInventory
@@ -43,12 +43,12 @@ class InventoryItemCreate(msgspec.Struct):
 
     name: NameMax50
     type: InventoryItemType
-    description: str | None = None
+    description: LongText | None = None
 
 
 class InventoryItemPatch(msgspec.Struct):
     """Request body for partially updating an inventory item."""
 
     name: NameMax50 | msgspec.UnsetType = msgspec.UNSET
-    description: str | msgspec.UnsetType | None = msgspec.UNSET
+    description: LongText | msgspec.UnsetType | None = msgspec.UNSET
     type: InventoryItemType | msgspec.UnsetType = msgspec.UNSET

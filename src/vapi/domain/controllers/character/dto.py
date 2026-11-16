@@ -29,7 +29,7 @@ from vapi.domain.controllers.character_trait.dto import (
     active_specialties,
     build_tracker_response,
 )
-from vapi.domain.controllers.request_types import Name3to50, NameMax50
+from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -351,9 +351,9 @@ class VampireAttributesCreate(msgspec.Struct):
     generation: int | None = None
     sire: NameMax50 | None = None
     bane_name: NameMax50 | None = None
-    bane_description: str | None = None
+    bane_description: LongText | None = None
     compulsion_name: NameMax50 | None = None
-    compulsion_description: str | None = None
+    compulsion_description: LongText | None = None
 
 
 class WerewolfAttributesCreate(msgspec.Struct):
@@ -389,9 +389,9 @@ class VampireAttributesPatch(msgspec.Struct):
     generation: int | msgspec.UnsetType | None = msgspec.UNSET
     sire: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     bane_name: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
-    bane_description: str | msgspec.UnsetType | None = msgspec.UNSET
+    bane_description: LongText | msgspec.UnsetType | None = msgspec.UNSET
     compulsion_name: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
-    compulsion_description: str | msgspec.UnsetType | None = msgspec.UNSET
+    compulsion_description: LongText | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class WerewolfAttributesPatch(msgspec.Struct):
@@ -440,7 +440,7 @@ class CharacterCreate(msgspec.Struct):
     type: CharacterType = CharacterType.PLAYER
     age: int | None = None
     date_of_birth: date | None = None
-    biography: str | None = None
+    biography: LongText | None = None
     demeanor: NameMax50 | None = None
     nature: NameMax50 | None = None
     concept_id: UUID | None = None
@@ -467,7 +467,7 @@ class CharacterPatch(msgspec.Struct):
     status: CharacterStatus | msgspec.UnsetType = msgspec.UNSET
     age: int | msgspec.UnsetType | None = msgspec.UNSET
     date_of_birth: date | msgspec.UnsetType | None = msgspec.UNSET
-    biography: str | msgspec.UnsetType | None = msgspec.UNSET
+    biography: LongText | msgspec.UnsetType | None = msgspec.UNSET
     demeanor: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     nature: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     concept_id: UUID | msgspec.UnsetType | None = msgspec.UNSET

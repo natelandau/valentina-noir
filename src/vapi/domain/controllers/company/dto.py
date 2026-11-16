@@ -22,7 +22,7 @@ from vapi.db.sql_models.validators import (
     XP_COST_MAX,
     XP_COST_MIN,
 )
-from vapi.domain.controllers.request_types import Email, Name3to50
+from vapi.domain.controllers.request_types import Email, LongText3, Name3to50
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.company import Company, CompanySettings
@@ -154,7 +154,6 @@ class NewCompanyCreateResponse(msgspec.Struct):
     admin_user: UserResponse
 
 
-Description3 = Annotated[str, msgspec.Meta(min_length=3)]
 XpCost = Annotated[int, msgspec.Meta(ge=XP_COST_MIN, le=XP_COST_MAX)]
 NumChoices = Annotated[int, msgspec.Meta(ge=NUM_CHOICES_MIN, le=NUM_CHOICES_MAX)]
 StartingPoints = Annotated[int, msgspec.Meta(ge=STARTING_POINTS_MIN, le=STARTING_POINTS_MAX)]
@@ -181,7 +180,7 @@ class CompanyCreate(msgspec.Struct):
 
     name: Name3to50
     email: Email
-    description: Description3 | None = None
+    description: LongText3 | None = None
     settings: CompanySettingsCreate | None = None
 
 
@@ -209,7 +208,7 @@ class CompanyPatch(msgspec.Struct):
     """
 
     name: Name3to50 | msgspec.UnsetType = msgspec.UNSET
-    description: Description3 | msgspec.UnsetType | None = msgspec.UNSET
+    description: LongText3 | msgspec.UnsetType | None = msgspec.UNSET
     email: Email | msgspec.UnsetType = msgspec.UNSET
     settings: CompanySettingsPatch | msgspec.UnsetType = msgspec.UNSET
 

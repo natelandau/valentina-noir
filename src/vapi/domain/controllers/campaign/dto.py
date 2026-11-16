@@ -14,7 +14,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
-from vapi.domain.controllers.request_types import Name3to50, NameMax50
+from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -289,7 +289,7 @@ class CampaignCreate(msgspec.Struct):
     """Request body for creating a campaign."""
 
     name: Name3to50
-    description: str | None = None
+    description: LongText | None = None
     in_game_date: date | None = None
     desperation: Rating0to5 = 0
     danger: Rating0to5 = 0
@@ -302,7 +302,7 @@ class CampaignPatch(msgspec.Struct):
     """
 
     name: Name3to50 | msgspec.UnsetType = msgspec.UNSET
-    description: str | msgspec.UnsetType | None = msgspec.UNSET
+    description: LongText | msgspec.UnsetType | None = msgspec.UNSET
     in_game_date: date | msgspec.UnsetType | None = msgspec.UNSET
     desperation: Rating0to5 | msgspec.UnsetType = msgspec.UNSET
     danger: Rating0to5 | msgspec.UnsetType = msgspec.UNSET
@@ -312,7 +312,7 @@ class CampaignBookCreate(msgspec.Struct):
     """Request body for creating a campaign book."""
 
     name: NameMax50
-    description: str | None = None
+    description: LongText | None = None
 
 
 class CampaignBookPatch(msgspec.Struct):
@@ -322,14 +322,14 @@ class CampaignBookPatch(msgspec.Struct):
     """
 
     name: NameMax50 | msgspec.UnsetType = msgspec.UNSET
-    description: str | msgspec.UnsetType | None = msgspec.UNSET
+    description: LongText | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class CampaignChapterCreate(msgspec.Struct):
     """Request body for creating a campaign chapter."""
 
     name: NameMax50
-    description: str | None = None
+    description: LongText | None = None
     character_ids: list[UUID] = []
 
 
@@ -340,7 +340,7 @@ class CampaignChapterPatch(msgspec.Struct):
     """
 
     name: NameMax50 | msgspec.UnsetType = msgspec.UNSET
-    description: str | msgspec.UnsetType | None = msgspec.UNSET
+    description: LongText | msgspec.UnsetType | None = msgspec.UNSET
     character_ids: list[UUID] | msgspec.UnsetType = msgspec.UNSET
 
 

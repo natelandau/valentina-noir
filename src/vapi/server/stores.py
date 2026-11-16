@@ -25,7 +25,7 @@ logger = logging.getLogger("vapi")
 __all__ = ("RedisStore",)
 
 _COMPANY_PATH = re.compile(r"/companies/([0-9a-fA-F-]{36})")
-# The company list key is the method, path, and query string with no separator,
+# The company list key is the method and path, then a query string after "?" if any,
 # so the list is the company path not followed by a slash
 _COMPANY_LIST_PATH = re.compile(rf":GET{re.escape(Companies.LIST)}(?!/)")
 

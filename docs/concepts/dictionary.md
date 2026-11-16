@@ -22,9 +22,9 @@ Every dictionary term includes these fields:
 | Field | Type | Description |
 |---|---|---|
 | `term` | string | The term name. Stored lowercase; 3-50 characters. |
-| `definition` | string or null | Markdown-formatted definition text. |
-| `link` | string or null | URL to an external resource. |
-| `synonyms` | list of strings | Alternative names for the term. Stored lowercase and deduplicated. |
+| `definition` | string or null | Markdown-formatted definition text. At most 20,000 characters. |
+| `link` | string or null | URL to an external resource. At most 2,048 characters. |
+| `synonyms` | list of strings | Alternative names for the term. At most 50 synonyms of 50 characters or fewer. Stored lowercase and deduplicated. |
 | `company_id` | string or null | The owning company's ID, if this is a company term. Null for system terms. |
 | `source_type` | string or null | The type of game record this term links to. One of: `trait`, `clan`, `tribe`, `auspice`, `trait_subcategory`. Null for company terms. |
 | `source_id` | string or null | The ID of the linked game record. Use this to fetch the full object from the corresponding [character blueprint](./character_blueprint.md) endpoint. Always paired with `source_type`. |

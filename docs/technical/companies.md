@@ -67,7 +67,7 @@ Content-Type: application/json
 }
 ```
 
-`name` and `email` are required. `name` is 3 to 50 characters. `email` is at most 255 characters. The optional `description` is at least 3 characters.
+`name` and `email` are required. `name` is 3 to 50 characters. `email` is at most 255 characters. The optional `description` is 3 to 20,000 characters.
 
 The response includes both the company and an admin user account:
 

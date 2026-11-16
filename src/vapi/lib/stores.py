@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 from uuid import uuid4
 
-from litestar.config.response_cache import default_cache_key_builder
+from litestar.routes import HTTPRoute
 
 from vapi.config import settings
 from vapi.constants import AUTH_HEADER_KEY, ON_BEHALF_OF_HEADER_KEY
@@ -15,6 +16,7 @@ from vapi.lib.crypt import hmac_sha256_hex
 if TYPE_CHECKING:
     from litestar import Litestar, Request
     from litestar.stores.base import Store
+    from litestar.types import RouteHandlerType
 
     from vapi.db.sql_models.developer import Developer
 
@@ -32,11 +34,60 @@ __all__ = (
 )
 
 
+_DECLARED_QUERY_PARAMS_STATE_KEY = "declared_query_params"
+
+
+def _query_params_declared_by(request: Request) -> dict[str, bool]:
+    """Return the query parameters the request's handler and its dependencies accept.
+
+    Reads the parameter models Litestar built for each route at startup. The map is built
+    once per app and kept on its state, so it lives exactly as long as the app.
+
+    Returns:
+        dict[str, bool]: Each declared query parameter name mapped to whether it takes a list.
+    """
+    state = request.app.state
+    declared: dict[RouteHandlerType, dict[str, bool]] | None = state.get(
+        _DECLARED_QUERY_PARAMS_STATE_KEY
+    )
+    if declared is None:
+        declared = {
+            handler: {p.field_alias: p.is_sequence for p in kwargs_model.expected_query_params}
+            for route in request.app.routes
+            if isinstance(route, HTTPRoute)
+            for handler, kwargs_model in route.route_handler_map.values()
+        }
+        state[_DECLARED_QUERY_PARAMS_STATE_KEY] = declared
+    return declared.get(request.route_handler, {})
+
+
+def _canonical_query(request: Request) -> str:
+    """Encode the declared query parameters as the handler will read them.
+
+    Repeating a parameter must not mint a new key for the same response: Litestar keeps
+    only the last value of a scalar parameter, and list parameters are deduplicated
+    before use.
+    """
+    query: list[tuple[str, str]] = []
+    for name, is_sequence in sorted(_query_params_declared_by(request).items()):
+        values = request.query_params.getall(name, [])
+        if not values:
+            continue
+        if is_sequence:
+            query.extend((name, v) for v in sorted(set(values)))
+        else:
+            query.append((name, values[-1]))
+    return urlencode(query)
+
+
 def response_cache_key_builder(request: Request) -> str:
     """Create a cache key for the response cache.
 
     The cache key combines the API key fingerprint, the acting end-user from the
-    On-Behalf-Of header, and the request method and path parameters.
+    On-Behalf-Of header, the request method and path, and the query parameters the
+    handler declares. Undeclared query parameters are left out: they cannot change the
+    response, and keying on them would let a caller store one full copy per made-up
+    parameter.
 
     The acting user is part of the key because responses are role-dependent (for
     example, storyteller characters are hidden from players). A single API key is
@@ -46,13 +97,14 @@ def response_cache_key_builder(request: Request) -> str:
     Args:
         request (Request): Current request instance.
 
-
     Returns:
         str: App slug prefixed cache key.
     """
     fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
     acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY) or ""
-    return f"{fingerprint}:{acting_user}:{default_cache_key_builder(request)}"
+    query = _canonical_query(request)
+    path = f"{request.url.path}?{query}" if query else request.url.path
+    return f"{fingerprint}:{acting_user}:{request.method}{path}"
 
 
 async def delete_authentication_cache_for_developer(

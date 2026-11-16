@@ -1,29 +1,26 @@
 """Notes DTOs."""
 
 from datetime import datetime
-from typing import Annotated
 from uuid import UUID
 
 import msgspec
 
 from vapi.db.sql_models.notes import Note
-from vapi.domain.controllers.request_types import Name3to50
-
-NoteContent = Annotated[str, msgspec.Meta(min_length=3)]
+from vapi.domain.controllers.request_types import LongText3, Name3to50
 
 
 class NoteCreate(msgspec.Struct):
     """Request body for creating a note."""
 
     title: Name3to50
-    content: NoteContent
+    content: LongText3
 
 
 class NotePatch(msgspec.Struct):
     """Request body for updating a note."""
 
     title: Name3to50 | msgspec.UnsetType = msgspec.UNSET
-    content: NoteContent | msgspec.UnsetType = msgspec.UNSET
+    content: LongText3 | msgspec.UnsetType = msgspec.UNSET
 
 
 class NoteResponse(msgspec.Struct):

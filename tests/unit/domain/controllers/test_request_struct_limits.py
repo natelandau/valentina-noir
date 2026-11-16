@@ -22,6 +22,7 @@ from tortoise.validators import (
 )
 
 from vapi.asgi import create_app
+from vapi.constants import MAX_LONG_TEXT_LENGTH
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import (
     Character,
@@ -520,3 +521,98 @@ def test_omitted_required_field_fails(
         msgspec.ValidationError, match=f"Object missing required field `{field_name}`"
     ):
         msgspec.convert(payload, struct)
+
+
+def _unbounded_strings(info: msgspec.inspect.Type, path: str) -> list[str]:
+    """List the paths of string values under a field type that carry no maximum length."""
+    value = unwrap_optional(info)
+    if isinstance(value, msgspec.inspect.StrType):
+        return [path] if value.max_length is None else []
+    if isinstance(value, msgspec.inspect.UnionType):
+        return [p for member in value.types for p in _unbounded_strings(member, path)]
+    if isinstance(value, msgspec.inspect.TupleType):
+        return [p for member in value.item_types for p in _unbounded_strings(member, f"{path}[]")]
+    if isinstance(value, _CONTAINERS):
+        return _unbounded_strings(value.item_type, f"{path}[]")
+    if isinstance(value, msgspec.inspect.DictType):
+        return _unbounded_strings(value.key_type, f"{path}{{}}") + _unbounded_strings(
+            value.value_type, f"{path}{{}}"
+        )
+    return []
+
+
+def test_every_request_string_has_a_maximum_length() -> None:
+    """Verify every string a request body accepts is bounded well below the body size cap.
+
+    A string bounded only by the body cap lets one caller store megabytes per row, which
+    list endpoints then load and cache for every item on a page.
+    """
+    # Given every Struct reachable from a request body
+    structs: set[type] = set()
+    for body in _request_body_types():
+        _collect_structs(msgspec.inspect.type_info(body), structs)
+
+    # When finding string fields with no maximum length
+    unbounded = sorted(
+        path
+        for struct in structs
+        if isinstance(info := msgspec.inspect.type_info(struct), msgspec.inspect.StructType)
+        for field in info.fields
+        for path in _unbounded_strings(field.type, f"{struct.__name__}.{field.name}")
+    )
+
+    # Then there are none
+    assert not unbounded, f"Request strings with no max_length: {unbounded}"
+
+
+_OVER_LONG_TEXT = "x" * (MAX_LONG_TEXT_LENGTH + 1)
+
+
+@pytest.mark.parametrize(
+    ("struct", "payload"),
+    [
+        (
+            CharacterCreate,
+            {
+                "name_first": "Abc",
+                "name_last": "Def",
+                "character_class": "VAMPIRE",
+                "game_version": "V5",
+                "campaign_id": "00000000-0000-0000-0000-000000000000",
+                "biography": _OVER_LONG_TEXT,
+            },
+        ),
+        (CharacterPatch, {"biography": _OVER_LONG_TEXT}),
+        (
+            VampireAttributesCreate,
+            {
+                "clan_id": "00000000-0000-0000-0000-000000000000",
+                "bane_description": _OVER_LONG_TEXT,
+            },
+        ),
+        (VampireAttributesPatch, {"compulsion_description": _OVER_LONG_TEXT}),
+    ],
+)
+def test_character_free_text_over_maximum_rejected(
+    struct: type[msgspec.Struct], payload: dict[str, str]
+) -> None:
+    """Verify character free text longer than the maximum fails conversion."""
+    # Given a payload with one free-text field one character over the maximum
+    # When converting it to the request struct
+    # Then msgspec rejects the length
+    with pytest.raises(
+        msgspec.ValidationError, match=f"Expected `str` of length <= {MAX_LONG_TEXT_LENGTH}"
+    ):
+        msgspec.convert(payload, struct)
+
+
+def test_character_biography_at_maximum_accepted() -> None:
+    """Verify a biography of exactly the maximum length converts."""
+    # Given a patch with a biography at the maximum
+    payload = {"biography": "x" * MAX_LONG_TEXT_LENGTH}
+
+    # When converting it to the request struct
+    result = msgspec.convert(payload, CharacterPatch)
+
+    # Then it passes through
+    assert result.biography == payload["biography"]

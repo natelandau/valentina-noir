@@ -16,7 +16,7 @@ from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
-from vapi.domain.controllers.request_types import Email, Name3to50, PersonName
+from vapi.domain.controllers.request_types import Email, LongText, Name3to50, PersonName
 from vapi.lib.detail_includes import active_prefetch
 from vapi.utils.identity import get_discord_avatar_url
 
@@ -294,7 +294,7 @@ class QuickRollCreate(msgspec.Struct):
     """Request body for creating a quick roll."""
 
     name: Name3to50
-    description: str = ""
+    description: LongText = ""
     trait_ids: QuickRollTraitIds = []
 
 
@@ -302,7 +302,7 @@ class QuickRollPatch(msgspec.Struct):
     """Request body for updating a quick roll."""
 
     name: Name3to50 | msgspec.UnsetType = msgspec.UNSET
-    description: str | msgspec.UnsetType = msgspec.UNSET
+    description: LongText | msgspec.UnsetType = msgspec.UNSET
     trait_ids: QuickRollTraitIds | msgspec.UnsetType = msgspec.UNSET
 
 
