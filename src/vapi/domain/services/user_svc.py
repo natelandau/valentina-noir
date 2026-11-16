@@ -17,6 +17,7 @@ from vapi.constants import (
 from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import (
     ConflictError,
+    NotFoundError,
     PermissionDeniedError,
     ValidationError,
 )
@@ -257,8 +258,9 @@ class UserService:
         if secondary_user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="Secondary user must have UNAPPROVED role")
 
-        self._absorb_profiles(primary=primary_user, secondary=secondary_user)
-        await primary_user.save()
+        absorbed_fields = self._absorb_profiles(primary=primary_user, secondary=secondary_user)
+        if absorbed_fields:
+            await primary_user.save(update_fields=absorbed_fields)
 
         await self.remove_and_archive_user(user=secondary_user, company=company)
 
@@ -266,7 +268,7 @@ class UserService:
         return primary_user
 
     @staticmethod
-    def _absorb_profiles(*, primary: User, secondary: User) -> None:
+    def _absorb_profiles(*, primary: User, secondary: User) -> list[str]:
         """Copy non-empty profile fields from secondary to primary where primary is empty.
 
         Operates on JSON dict fields. After merging, explicitly reassigns the profile
@@ -275,7 +277,11 @@ class UserService:
         Args:
             primary: The target user whose empty profile fields get filled.
             secondary: The source user whose profile fields are copied.
+
+        Returns:
+            Names of the profile fields that changed on ``primary``.
         """
+        changed_fields: list[str] = []
         for attr in PROVIDER_PROFILE_FIELDS.values():
             primary_profile = getattr(primary, attr) or {}
             secondary_profile = getattr(secondary, attr) or {}
@@ -288,6 +294,8 @@ class UserService:
 
             if changed:
                 setattr(primary, attr, primary_profile)
+                changed_fields.append(attr)
+        return changed_fields
 
     async def update_user(
         self, user: User, data: UserPatch, acting_user_id: UUID
@@ -309,6 +317,9 @@ class UserService:
         requesting_user = await self._assert_requester_active(acting_user_id)
 
         async with in_transaction():
+            if not await user.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="User not found")
+
             role_change: dict[str, dict[str, object]] = {}
             if not isinstance(data.role, msgspec.UnsetType):
                 old_role = user.role
@@ -331,13 +342,16 @@ class UserService:
 
             changes = apply_patch(user, data, exclude=frozenset({"role"}))
             changes.update(role_change)
+            update_fields = [*changes]
             if "email" in changes:
                 # A self-edit is the planting path identity auto-link guards against
                 user.email_trusted = (
                     requesting_user.role == UserRole.ADMIN and requesting_user.id != user.id
                 )
+                update_fields.append("email_trusted")
 
-            await user.save()
+            if update_fields:
+                await user.save(update_fields=update_fields)
         await user.fetch_related("campaign_experiences")
         return user, changes
 
@@ -354,9 +368,11 @@ class UserService:
         from vapi.domain.handlers import cascade_archive_user
 
         async with in_transaction():
+            if not await user.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="User not found")
             await self._assert_not_last_admin(user)
             user.is_archived = True
-            await user.save()
+            await user.save(update_fields=["is_archived"])
             await cascade_archive_user(user)
 
     async def approve_user(
@@ -395,8 +411,11 @@ class UserService:
             new_role=role,
         )
 
-        user.role = role
-        await user.save()
+        async with in_transaction():
+            if not await user.lock_for_update(is_archived=False, role=UserRole.UNAPPROVED):
+                raise ValidationError(detail="User is not in UNAPPROVED status")
+            user.role = role
+            await user.save(update_fields=["role"])
         return user
 
     async def deny_user(
@@ -423,4 +442,7 @@ class UserService:
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
 
-        await self.remove_and_archive_user(user=user, company=company)
+        async with in_transaction():
+            if not await user.lock_for_update(is_archived=False, role=UserRole.UNAPPROVED):
+                raise ValidationError(detail="User is not in UNAPPROVED status")
+            await self.remove_and_archive_user(user=user, company=company)

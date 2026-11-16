@@ -66,7 +66,7 @@ class AvatarService:
         previous_asset_id = user.avatar_asset_id
         user.avatar_url = asset.public_url
         user.avatar_asset_id = asset.id
-        await user.save()
+        await user.save(update_fields=["avatar_url", "avatar_asset_id"])
 
         await self._archive_previous_avatar(previous_asset_id)
         return user
@@ -85,7 +85,7 @@ class AvatarService:
         previous_asset_id = user.avatar_asset_id
         user.avatar_url = None  # ty:ignore[invalid-assignment]
         user.avatar_asset_id = None
-        await user.save()
+        await user.save(update_fields=["avatar_url", "avatar_asset_id"])
 
         await self._archive_previous_avatar(previous_asset_id)
         return user

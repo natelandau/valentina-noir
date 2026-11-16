@@ -90,29 +90,36 @@ class GlobalAdminUserService:
             ConflictError: If restoring the user while their company is archived, or
                 while another active user in the company holds one of their provider IDs.
         """
-        was_archived = user.is_archived
-        # Capture before apply_patch/save clears it, so restore can reverse the batch.
-        restore_batch_id = user.archive_batch_id if was_archived else None
-
-        changes = apply_patch(user, data)
-        if "email" in changes:
-            user.email_trusted = True
-
-        going_to_restore = was_archived and not user.is_archived
-        if going_to_restore:
-            # A flat batch means restoring a user archived as part of a company
-            # archive would resurrect the whole tenant; refuse and require the
-            # company be restored first.
-            await user.fetch_related("company")
-            if user.company.is_archived:
-                raise ConflictError(
-                    detail="Cannot restore a user while their company is archived; "
-                    "restore the company first."
-                )
-            await self._assert_provider_ids_free(user)
-
         async with in_transaction():
-            await user.save()
+            # Archive decisions and the patch diff must see the committed row, not the
+            # one loaded before the lock
+            if not await user.lock_for_update():
+                raise NotFoundError(detail="User not found")
+            was_archived = user.is_archived
+            # Capture before apply_patch/save clears it, so restore can reverse the batch.
+            restore_batch_id = user.archive_batch_id if was_archived else None
+
+            changes = apply_patch(user, data)
+            update_fields = [*changes]
+            if "email" in changes:
+                user.email_trusted = True
+                update_fields.append("email_trusted")
+
+            going_to_restore = was_archived and not user.is_archived
+            if going_to_restore:
+                # A flat batch means restoring a user archived as part of a company
+                # archive would resurrect the whole tenant; refuse and require the
+                # company be restored first.
+                await user.fetch_related("company")
+                if user.company.is_archived:
+                    raise ConflictError(
+                        detail="Cannot restore a user while their company is archived; "
+                        "restore the company first."
+                    )
+                await self._assert_provider_ids_free(user)
+
+            if update_fields:
+                await user.save(update_fields=update_fields)
             if not was_archived and user.is_archived:
                 # Archiving via patch cascades to owned data under the user's batch,
                 # identically to delete_user.
@@ -173,6 +180,9 @@ class GlobalAdminUserService:
             user: The user to soft-delete.
         """
         async with in_transaction():
+            # Reload so an already-archived user keeps its batch id
+            if not await user.lock_for_update():
+                raise NotFoundError(detail="User not found")
             user.is_archived = True
-            await user.save()
+            await user.save(update_fields=["is_archived"])
             await cascade_archive_user(user)
