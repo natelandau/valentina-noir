@@ -107,6 +107,10 @@ A bound of 1 uses the singular, for example `Must be at least 1 character.` and 
 
 Some rules depend on more than one property of a field, for example text that is empty after the API removes the spaces at its start and end. When such a rule rejects a field, the response names the field with `Is not valid.` If the rule applies to the request as a whole, `field` is `body`.
 
+### Text limits
+
+Each text field in a request body has a maximum length. Names are at most 50 characters. Longer free-form text, such as a character `biography`, a `description`, note `content`, or a dictionary `definition`, is at most 20,000 characters. A dictionary `link` is at most 2,048 characters, and a term has at most 50 `synonyms` of 50 characters or fewer. If a field is too long, the API returns `400 Bad Request` with a `Must be at most N characters.` message.
+
 ### Limits in the OpenAPI schema
 
 The OpenAPI schema of each request body lists the limits of each field, such as `maxLength`, `minimum`, `maximum`, and `maxItems`.

@@ -10,6 +10,12 @@ ENVAR_PREFIX: Final[str] = "VAPI_"
 MAX_NUM_DICE: Final[int] = 100  # maximum number of dice that can be rolled in a pool
 MAX_DICE_ROLL_TRAITS: Final[int] = 20
 MAX_DICE_ROLL_COMMENT_LENGTH: Final[int] = 2000
+# Free text and URLs in request bodies; list pages return many rows of each, so a
+# single field must stay far below the request body cap.
+MAX_LONG_TEXT_LENGTH: Final[int] = 20_000
+MAX_URL_LENGTH: Final[int] = 2048
+MAX_PROVIDER_TOKEN_LENGTH: Final[int] = 16_384  # provider ID and access tokens are a few KB
+MAX_DICTIONARY_SYNONYMS: Final[int] = 50
 MAX_STATISTICS_TOP_TRAITS: Final[int] = 50
 URL_ROOT_PATH: Final[str] = "/api/v1"
 DOCS_URL: Final[str] = "https://docs.valentina-noir.com"

@@ -4,7 +4,7 @@ from typing import Annotated
 
 import msgspec
 
-from vapi.constants import IdentityProvider
+from vapi.constants import MAX_PROVIDER_TOKEN_LENGTH, IdentityProvider
 from vapi.domain.controllers.request_types import NameMax50
 from vapi.domain.controllers.user.dto import UserResponse
 from vapi.domain.services.identity_svc import IdentityResolution
@@ -12,13 +12,14 @@ from vapi.domain.services.identity_svc import IdentityResolution
 # The service treats an empty username or email as absent, so username (NameMax50) and email
 # carry only the model's maximum length, not its minimum or email pattern.
 OptionalEmail = Annotated[str, msgspec.Meta(max_length=255)]
+ProviderToken = Annotated[str, msgspec.Meta(max_length=MAX_PROVIDER_TOKEN_LENGTH)]
 
 
 class IdentifyRequest(msgspec.Struct):
     """Request body for resolving a verified provider login to a user."""
 
     provider: IdentityProvider
-    token: str
+    token: ProviderToken
     username: NameMax50 | None = None
     email: OptionalEmail | None = None
 
@@ -27,7 +28,7 @@ class LinkIdentityRequest(msgspec.Struct):
     """Request body for linking an additional provider identity to a user."""
 
     provider: IdentityProvider
-    token: str
+    token: ProviderToken
 
 
 class IdentifyResponse(msgspec.Struct):

@@ -11,7 +11,7 @@ from vapi.constants import (
     TraitModifyCurrency,
 )
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
-from vapi.domain.controllers.request_types import Name3to50
+from vapi.domain.controllers.request_types import LongText, Name3to50
 from vapi.lib.tracker_rules import HUMANITY_BOXES, resolve_tracker_type
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ class CharacterTraitCreateCustom(msgspec.Struct):
     name: Name3to50
     category_id: UUID
     currency: TraitModifyCurrency
-    description: str | None = None
+    description: LongText | None = None
     max_value: TraitScore = 5
     min_value: TraitScore = 0
     show_when_zero: bool = True

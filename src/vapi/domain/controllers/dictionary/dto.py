@@ -2,23 +2,27 @@
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
 import msgspec
 
+from vapi.constants import MAX_DICTIONARY_SYNONYMS
 from vapi.db.sql_models.character_sheet import TraitPower
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain.controllers.character_blueprint.dto import TraitPowerResponse
-from vapi.domain.controllers.request_types import Name3to50
+from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50, Url
+
+Synonyms = Annotated[list[NameMax50], msgspec.Meta(max_length=MAX_DICTIONARY_SYNONYMS)]
 
 
 class DictionaryTermCreate(msgspec.Struct):
     """Request body for creating a dictionary term."""
 
     term: Name3to50
-    definition: str | None = None
-    link: str | None = None
-    synonyms: list[str] = []
+    definition: LongText | None = None
+    link: Url | None = None
+    synonyms: Synonyms = []
 
 
 class DictionaryTermPatch(msgspec.Struct):
@@ -28,9 +32,9 @@ class DictionaryTermPatch(msgspec.Struct):
     """
 
     term: Name3to50 | msgspec.UnsetType = msgspec.UNSET
-    definition: str | msgspec.UnsetType | None = msgspec.UNSET
-    link: str | msgspec.UnsetType | None = msgspec.UNSET
-    synonyms: list[str] | msgspec.UnsetType = msgspec.UNSET
+    definition: LongText | msgspec.UnsetType | None = msgspec.UNSET
+    link: Url | msgspec.UnsetType | None = msgspec.UNSET
+    synonyms: Synonyms | msgspec.UnsetType = msgspec.UNSET
 
 
 class DictionaryTermResponse(msgspec.Struct):

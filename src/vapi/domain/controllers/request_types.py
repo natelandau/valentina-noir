@@ -4,6 +4,7 @@ from typing import Annotated
 
 import msgspec
 
+from vapi.constants import MAX_LONG_TEXT_LENGTH, MAX_URL_LENGTH
 from vapi.db.sql_models.validators import EMAIL_PATTERN
 
 # The model strips whitespace before validate_email_format runs, so the outer \s* keeps
@@ -16,5 +17,17 @@ Name3to50 = Annotated[str, msgspec.Meta(min_length=3, max_length=50)]
 # string still clears them.
 NameMax50 = Annotated[str, msgspec.Meta(max_length=50)]
 PersonName = Annotated[str, msgspec.Meta(min_length=2, max_length=50)]
+LongText = Annotated[str, msgspec.Meta(max_length=MAX_LONG_TEXT_LENGTH)]
+LongText3 = Annotated[str, msgspec.Meta(min_length=3, max_length=MAX_LONG_TEXT_LENGTH)]
+Url = Annotated[str, msgspec.Meta(max_length=MAX_URL_LENGTH)]
 
-__all__ = ("EMAIL_REQUEST_PATTERN", "Email", "Name3to50", "NameMax50", "PersonName")
+__all__ = (
+    "EMAIL_REQUEST_PATTERN",
+    "Email",
+    "LongText",
+    "LongText3",
+    "Name3to50",
+    "NameMax50",
+    "PersonName",
+    "Url",
+)

@@ -24,7 +24,7 @@ If the character doesn't have one or more of the referenced traits, the roll fai
 | Field | Type | Description |
 |---|---|---|
 | `name` | string | Display name for the quick roll. 3-50 characters, unique per user. |
-| `description` | string or null | Optional description. 3+ characters if provided. |
+| `description` | string or null | Optional description. 3 to 20,000 characters if provided. |
 | `trait_ids` | list of strings | Trait IDs that make up the dice pool. 1 to 20 traits. |
 | `user_id` | string | The owning user's ID. Set automatically by the API. |
 
