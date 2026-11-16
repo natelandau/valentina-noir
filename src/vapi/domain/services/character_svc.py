@@ -323,16 +323,26 @@ class CharacterService:
         from vapi.domain.services.character_trait_svc import CharacterTraitService
 
         async with in_transaction():
+            # The same patch can reassign the player or clear it, so refunds go to a copy
+            # of the character as it was before the patch: the owner who paid.
+            payer = (
+                await Character.get(id=character.id)
+                if data.concept_id is not msgspec.UNSET and data.concept_id != character.concept_id  # ty:ignore[unresolved-attribute]
+                else None
+            )
             changes = await self.apply_character_patch(character, data)
             await self.prepare_for_save(character)
             await character.save()
-            if "concept_id" in changes:
+            if payer is not None:
                 settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
                 # Only RATING_BASED rules consult the concept.
                 if settings.specialty_rules == SpecialtyRules.RATING_BASED:
-                    await CharacterTraitService().remove_ineligible_specialties(
-                        settings=settings, character_id=character.id
+                    payer.concept_id = character.concept_id  # ty:ignore[unresolved-attribute]
+                    removed = await CharacterTraitService().remove_ineligible_specialties(
+                        settings=settings, character=payer
                     )
+                    if removed:
+                        changes["specialties"] = {"old": removed, "new": []}
         return changes
 
     async def apply_character_patch(

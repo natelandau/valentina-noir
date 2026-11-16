@@ -2217,7 +2217,7 @@ class CharacterTraitService:
         self,
         *,
         settings: CompanySettings,
-        character_id: UUID | None = None,
+        character: Character | None = None,
         full_xp_refund: bool = False,
     ) -> list[str]:
         """Refund and delete every specialty the company's current rules no longer allow.
@@ -2228,7 +2228,9 @@ class CharacterTraitService:
 
         Args:
             settings: The company's settings, holding the specialty rules that apply.
-            character_id: Limit the sweep to one character's traits.
+            character: Limit the sweep to this character's traits. Its in-memory concept
+                decides which abilities are favored, and its player and campaign receive
+                the refunds, so pass the owner who paid when the same change reassigns it.
             full_xp_refund: Refund XP in full whatever the company's XP recoup setting. Set
                 it when the player did not choose the change.
 
@@ -2244,36 +2246,41 @@ class CharacterTraitService:
             character_trait__character__company_id=settings.company_id,  # ty:ignore[unresolved-attribute]
             character_trait__character__is_archived=False,
         )
-        if character_id is not None:
-            query = query.filter(character_trait__character_id=character_id)
+        if character is not None:
+            query = query.filter(character_trait__character_id=character.id)
         specialties = await query.prefetch_related(
             "character_trait__trait__sheet_section", "character_trait__character"
         )
 
-        concept_ids: dict[UUID, UUID | None] = {
-            specialty.id: specialty.character_trait.character.concept_id  # ty:ignore[unresolved-attribute]
-            for specialty in specialties
-        }
+        def owner(specialty: CharacterTraitSpecialty) -> Character:
+            return character or specialty.character_trait.character
+
         favored_by_concept: dict[UUID, frozenset[str]] = {}
         if rules == SpecialtyRules.RATING_BASED:
             favored_by_concept = await self._favored_names_by_concept(
-                {concept_id for concept_id in concept_ids.values() if concept_id}
+                {
+                    owner(specialty).concept_id  # ty:ignore[unresolved-attribute]
+                    for specialty in specialties
+                    if owner(specialty).concept_id  # ty:ignore[unresolved-attribute]
+                }
             )
 
         removed: list[str] = []
-        for specialty in specialties:
-            character_trait = specialty.character_trait
-            character = character_trait.character
-            min_rating = self.specialty_min_rating(
-                rules=rules,
-                trait=character_trait.trait,
-                favored_names=favored_by_concept.get(concept_ids[specialty.id], frozenset()),
-            )
-            if self._keeps_specialties(value=character_trait.value, min_rating=min_rating):
-                continue
-            removed.extend(
-                await self._delete_and_refund_specialties(
-                    character=character, specialties=[specialty], recoup_setting=recoup_setting
+        async with in_transaction():
+            for specialty in specialties:
+                character_trait = specialty.character_trait
+                min_rating = self.specialty_min_rating(
+                    rules=rules,
+                    trait=character_trait.trait,
+                    favored_names=favored_by_concept.get(
+                        owner(specialty).concept_id,  # ty:ignore[unresolved-attribute]
+                        frozenset(),
+                    ),
                 )
-            )
+                if self._keeps_specialties(value=character_trait.value, min_rating=min_rating):
+                    continue
+                if await self._delete_and_refund_specialty(
+                    character=owner(specialty), specialty=specialty, recoup_setting=recoup_setting
+                ):
+                    removed.append(specialty.name)
         return removed

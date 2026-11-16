@@ -19,11 +19,12 @@ from vapi.db.sql_models.character_concept import CharacterConcept
 from vapi.db.sql_models.character_sheet import CharSheetSection, Trait
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.user import CampaignExperience, User
+from vapi.domain.controllers.character.dto import CharacterPatch
 from vapi.domain.controllers.character_trait.dto import (
     CHARACTER_TRAIT_PREFETCH,
     CharacterTraitResponse,
 )
-from vapi.domain.services import CharacterTraitService
+from vapi.domain.services import CharacterService, CharacterTraitService
 from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
 
 pytestmark = pytest.mark.anyio
@@ -1215,9 +1216,35 @@ class TestIneligibleSpecialtiesRemoved:
         await _set_concept(s, other)
         removed = await s.svc.remove_ineligible_specialties(
             settings=await CompanySettings.get(company_id=s.company.id),
-            character_id=s.character.id,
+            character=s.character,
         )
 
         # Then the specialty is removed and DENIED recoup withholds the XP
         assert removed == ["Sniping"]
         assert await _xp(s) == 5
+
+    async def test_concept_change_that_clears_the_player_refunds_the_old_player(
+        self, make_scenario, character_trait_specialty_factory, character_concept_factory
+    ) -> None:
+        """Verify a patch that changes concept and clears the player refunds whoever paid."""
+        # Given RATING_BASED rules and favored Medicine at 3 with an XP-paid specialty
+        s = await make_scenario(
+            specialty_rules=SpecialtyRules.RATING_BASED,
+            trait=await _trait("Abilities", "Medicine"),
+            value=3,
+        )
+        favoring = await character_concept_factory(favored_ability_names=["Medicine"])
+        await _set_concept(s, favoring)
+        await _paid(character_trait_specialty_factory, s, cost=3)
+        other = await character_concept_factory(name="Other Concept", favored_ability_names=[])
+
+        # When one patch changes the concept and turns the character into an NPC
+        changes = await CharacterService().save_character_patch(
+            s.character,
+            CharacterPatch(concept_id=other.id, type=CharacterType.NPC, user_player_id=None),
+        )
+
+        # Then the specialty is removed, audited, and refunded to the former player
+        assert changes["specialties"] == {"old": ["Sniping"], "new": []}
+        assert not await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id)
+        assert await _xp(s) == 5 + 3
