@@ -577,12 +577,7 @@ class CharacterTraitService:
 
         total_renown = sum(ct.value for ct in renown_traits) if renown_traits else 0
 
-        werewolf_attrs = await WerewolfAttributes.filter(character_id=character.id).first()
-        if werewolf_attrs is None:
-            return
-
-        werewolf_attrs.total_renown = total_renown
-        await werewolf_attrs.save(update_fields=["total_renown"])
+        await WerewolfAttributes.filter(character_id=character.id).update(total_renown=total_renown)
 
     async def after_save(
         self, character_trait: CharacterTrait, character: Character, *, sync_all: bool = False
