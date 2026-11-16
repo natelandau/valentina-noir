@@ -62,3 +62,23 @@ async def test_save_unarchive_clears_date_and_batch(
     refreshed = await Company.get(id=company.id)
     assert refreshed.archive_date is None
     assert refreshed.archive_batch_id is None
+
+
+async def test_partial_save_writes_archive_stamps_and_date_modified(
+    company_factory: "Callable[..., Company]",
+) -> None:
+    """Verify a save naming only is_archived also writes the archive stamps and date_modified."""
+    # Given an active company
+    company = await company_factory(is_archived=False)
+    original_modified = company.date_modified
+
+    # When it is archived with a partial save that names only the archive flag
+    company.is_archived = True
+    await company.save(update_fields=["is_archived"])
+
+    # Then the stored row carries both stamps and a new modification time
+    stored = await Company.get(id=company.id)
+    assert stored.is_archived is True
+    assert stored.archive_date is not None
+    assert stored.archive_batch_id is not None
+    assert stored.date_modified > original_modified

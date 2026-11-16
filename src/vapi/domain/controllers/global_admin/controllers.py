@@ -2,7 +2,6 @@
 
 from typing import Annotated
 
-import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
@@ -14,9 +13,7 @@ from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import DeveloperService
-from vapi.domain.services.developer_svc import validate_provider_audiences
 from vapi.lib.guards import global_admin_guard
-from vapi.lib.patch import apply_patch
 from vapi.lib.stores import delete_authentication_cache_for_developer
 from vapi.openapi.tags import APITags
 
@@ -117,29 +114,11 @@ class GlobalAdminController(Controller):
         request: Request,
     ) -> DeveloperAdminResponse:
         """Update a Developer by ID."""
-        changes = apply_patch(developer, data, exclude=frozenset({"provider_audiences"}))
-
-        if not isinstance(data.provider_audiences, msgspec.UnsetType):
-            validate_provider_audiences(data.provider_audiences)
-            old_audiences = developer.provider_audiences
-            if old_audiences != data.provider_audiences:
-                changes["provider_audiences"] = {
-                    "old": old_audiences,
-                    "new": data.provider_audiences,
-                }
-                developer.provider_audiences = data.provider_audiences
-
+        changes = await DeveloperService().update(developer, data)
         request.state.audit_changes = changes
-        await developer.save()
-        await delete_authentication_cache_for_developer(request.app, developer)
-
-        updated_developer = (
-            await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
-        )
-        if not updated_developer:
-            msg = f"Developer not found for id {developer.id}"
-            raise ValueError(msg)
-        return DeveloperAdminResponse.from_model(updated_developer)
+        if changes:
+            await delete_authentication_cache_for_developer(request.app, developer)
+        return DeveloperAdminResponse.from_model(developer)
 
     @delete(
         path=urls.GlobalAdmin.DEVELOPER_DELETE,
@@ -150,8 +129,7 @@ class GlobalAdminController(Controller):
     )
     async def delete_developer(self, *, developer: Developer, request: Request) -> None:
         """Delete a Developer by ID."""
-        developer.is_archived = True
-        await developer.save()
+        await DeveloperService().archive(developer)
         await delete_authentication_cache_for_developer(request.app, developer)
 
     @post(
@@ -168,38 +146,30 @@ class GlobalAdminController(Controller):
         """Generate a new API key for a Developer."""
         # Evict after the new key is saved: evicting first lets a concurrent request with
         # the old key re-cache it for the full TTL
-        old_fingerprint = developer.api_key_fingerprint
-        new_key = await DeveloperService().generate_api_key(developer)
+        new_key, old_fingerprint = await DeveloperService().rotate_api_key(developer)
         await delete_authentication_cache_for_developer(
             request.app, developer, fingerprint=old_fingerprint
         )
 
-        # Re-fetch with prefetched relations for the companies field
-        updated_developer = (
-            await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
-        )
-        if not updated_developer:
-            msg = f"Developer not found for id {developer.id}"
-            raise ValueError(msg)
-        if updated_developer.key_generated is None:
+        if developer.key_generated is None:
             msg = f"key_generated not set after generating API key for developer {developer.id}"
             raise ValueError(msg)
 
         return {
-            "id": str(updated_developer.id),
-            "username": updated_developer.username,
-            "email": updated_developer.email,
-            "date_created": updated_developer.date_created.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "date_modified": updated_developer.date_modified.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "id": str(developer.id),
+            "username": developer.username,
+            "email": developer.email,
+            "date_created": developer.date_created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "date_modified": developer.date_modified.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "api_key": new_key,
-            "is_global_admin": str(updated_developer.is_global_admin),
-            "key_generated": updated_developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "is_global_admin": str(developer.is_global_admin),
+            "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "companies": [
                 {
                     "company_id": str(p.company.id),
                     "company_name": p.company.name,
                     "permission": p.permission.value,
                 }
-                for p in updated_developer.permissions
+                for p in developer.permissions
             ],
         }
