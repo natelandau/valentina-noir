@@ -136,10 +136,7 @@ def create_campaign_with_retry(api_key, company_id, user_id, data, max_retries=3
             json=data,
         )
 
-        if (
-            response.status_code == 409
-            and response.json().get("code") == "IDEMPOTENCY_IN_PROGRESS"
-        ):
+        if response.status_code == 409 and response.json().get("code") == "IDEMPOTENCY_IN_PROGRESS":
             # The first request is still running - wait, then retry with the same key
             time.sleep(int(response.headers.get("Retry-After", 1)))
             continue
