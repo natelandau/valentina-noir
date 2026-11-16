@@ -1184,7 +1184,9 @@ class CharacterTraitService:
         """
         caller_priced = [
             field for field in ("initial_cost", "upgrade_cost") if getattr(data, field) is not None
-        ] + (["max_value"] if data.max_value != CUSTOM_FLAW_MAX_VALUE else [])
+        ]
+        if data.max_value != CUSTOM_FLAW_MAX_VALUE:
+            caller_priced.append("max_value")
         if caller_priced:
             msg = (
                 "Custom flaws take their cost from the company's custom_flaw_xp_cost "
