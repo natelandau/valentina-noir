@@ -29,7 +29,7 @@ from vapi.domain.controllers.character_trait.dto import (
     active_specialties,
     build_tracker_response,
 )
-from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50
+from vapi.domain.controllers.request_types import Age, LongText, Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -191,6 +191,7 @@ CHARACTER_RESPONSE_PREFETCH: list[str] = [
     "specialties",
     "chapters",
     "health",
+    "campaign",
 ]
 
 
@@ -309,7 +310,7 @@ class CharacterResponse(msgspec.Struct):
             game_version=m.game_version,
             status=m.status,
             starting_points=m.starting_points,
-            age=m.age,
+            age=m.current_age,
             date_of_birth=m.date_of_birth,
             biography=m.biography,
             demeanor=m.demeanor,
@@ -438,7 +439,7 @@ class CharacterCreate(msgspec.Struct):
     campaign_id: UUID
     name_nick: NameMax50 | None = None
     type: CharacterType = CharacterType.PLAYER
-    age: int | None = None
+    age: Age | None = None
     date_of_birth: date | None = None
     biography: LongText | None = None
     demeanor: NameMax50 | None = None
@@ -465,7 +466,7 @@ class CharacterPatch(msgspec.Struct):
     name_nick: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     type: CharacterType | msgspec.UnsetType = msgspec.UNSET
     status: CharacterStatus | msgspec.UnsetType = msgspec.UNSET
-    age: int | msgspec.UnsetType | None = msgspec.UNSET
+    age: Age | msgspec.UnsetType | None = msgspec.UNSET
     date_of_birth: date | msgspec.UnsetType | None = msgspec.UNSET
     biography: LongText | msgspec.UnsetType | None = msgspec.UNSET
     demeanor: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET

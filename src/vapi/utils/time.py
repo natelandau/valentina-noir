@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
-__all__ = ("format_uptime", "time_now")
+__all__ = ("age_on", "format_uptime", "time_now")
 
 
 def time_now() -> datetime:
@@ -33,3 +33,20 @@ def format_uptime(delta: timedelta) -> str:
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{days}d {hours}h {minutes}m {seconds}s"
+
+
+def age_on(reference: date, *, date_of_birth: date) -> int | None:
+    """Return the whole years from a date of birth to a reference date.
+
+    Args:
+        reference: The date to measure the age on.
+        date_of_birth: The date of birth.
+
+    Returns:
+        int | None: The age in whole years, counting whether the birthday has passed, or
+            None when the reference date falls before the birth.
+    """
+    age = reference.year - date_of_birth.year
+    if (reference.month, reference.day) < (date_of_birth.month, date_of_birth.day):
+        age -= 1
+    return age if age >= 0 else None

@@ -20,9 +20,11 @@ PersonName = Annotated[str, msgspec.Meta(min_length=2, max_length=50)]
 LongText = Annotated[str, msgspec.Meta(max_length=MAX_LONG_TEXT_LENGTH)]
 LongText3 = Annotated[str, msgspec.Meta(min_length=3, max_length=MAX_LONG_TEXT_LENGTH)]
 Url = Annotated[str, msgspec.Meta(max_length=MAX_URL_LENGTH)]
+Age = Annotated[int, msgspec.Meta(ge=0)]
 
 __all__ = (
     "EMAIL_REQUEST_PATTERN",
+    "Age",
     "Email",
     "LongText",
     "LongText3",

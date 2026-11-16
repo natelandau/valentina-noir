@@ -6,30 +6,40 @@ from typing import TYPE_CHECKING, Any
 import msgspec
 import pytest
 
+from vapi.constants import CharacterStatus
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 pytestmark = pytest.mark.anyio
 
 
+async def _response_for(character_id: Any) -> Any:
+    """Build a CharacterResponse the way the controllers do, round-tripped through JSON.
+
+    msgspec validates types only on decode, so the round-trip proves nullable fields really are.
+    """
+    from vapi.db.sql_models.character import Character
+    from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
+
+    refreshed = (
+        await Character.filter(id=character_id)
+        .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        .first()
+    )
+    response = CharacterResponse.from_model(refreshed)
+    return msgspec.json.decode(msgspec.json.encode(response), type=CharacterResponse)
+
+
 async def test_character_response_serializes_date_of_birth(
     character_factory: "Callable[..., Any]",
 ) -> None:
     """Verify CharacterResponse carries the date of birth through JSON round-trip."""
-    from vapi.db.sql_models.character import Character
-    from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
-
     # Given a character with a date of birth
     character = await character_factory(date_of_birth=date(1888, 6, 15))
-    refreshed = (
-        await Character.filter(id=character.id)
-        .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
-        .first()
-    )
 
     # When building the response DTO and round-tripping through JSON
-    response = CharacterResponse.from_model(refreshed)
-    decoded = msgspec.json.decode(msgspec.json.encode(response), type=CharacterResponse)
+    decoded = await _response_for(character.id)
 
     # Then the date of birth survives serialization
     assert decoded.date_of_birth == date(1888, 6, 15)
@@ -39,23 +49,72 @@ async def test_character_response_allows_null_date_of_birth(
     character_factory: "Callable[..., Any]",
 ) -> None:
     """Verify CharacterResponse serializes a character with no date of birth as null."""
-    from vapi.db.sql_models.character import Character
-    from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
-
     # Given a character with no date of birth
     character = await character_factory()
-    refreshed = (
-        await Character.filter(id=character.id)
-        .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
-        .first()
-    )
 
     # When building the response DTO and round-tripping through JSON
-    response = CharacterResponse.from_model(refreshed)
-    decoded = msgspec.json.decode(msgspec.json.encode(response), type=CharacterResponse)
+    decoded = await _response_for(character.id)
 
     # Then the date of birth is None after surviving JSON decode validation
     assert decoded.date_of_birth is None
+
+
+@pytest.mark.parametrize(
+    ("status", "in_game_date", "date_of_birth", "expected"),
+    [
+        (CharacterStatus.ALIVE, date(1986, 6, 1), date(1960, 3, 15), 26),
+        (CharacterStatus.ALIVE, date(2003, 1, 1), date(1960, 3, 15), 42),
+        (CharacterStatus.ALIVE, date(1986, 6, 1), None, 99),
+        (CharacterStatus.ALIVE, None, date(1960, 3, 15), 99),
+        (CharacterStatus.ALIVE, None, None, 99),
+        (CharacterStatus.DEAD, date(2003, 1, 1), date(1960, 3, 15), 99),
+    ],
+)
+async def test_character_response_age(
+    character_factory: "Callable[..., Any]",
+    campaign_factory: "Callable[..., Any]",
+    company_factory: "Callable[..., Any]",
+    status: CharacterStatus,
+    in_game_date: date | None,
+    date_of_birth: date | None,
+    expected: int,
+) -> None:
+    """Verify age is computed for a living character with both dates, else the stored age."""
+    # Given a character with a stored age of 99
+    company = await company_factory()
+    campaign = await campaign_factory(company=company, in_game_date=in_game_date)
+    character = await character_factory(
+        company=company, campaign=campaign, date_of_birth=date_of_birth, age=99, status=status
+    )
+
+    # When building the response
+    decoded = await _response_for(character.id)
+
+    # Then the age is computed from both dates, or falls back to the stored age
+    assert decoded.age == expected
+
+
+async def test_current_age_uses_stored_age_when_campaign_not_loaded(
+    character_factory: "Callable[..., Any]",
+    campaign_factory: "Callable[..., Any]",
+    company_factory: "Callable[..., Any]",
+) -> None:
+    """Verify an unloaded campaign falls back to the stored age instead of raising."""
+    from vapi.db.sql_models.character import Character
+
+    # Given a character with both dates, loaded without its campaign
+    company = await company_factory()
+    campaign = await campaign_factory(company=company, in_game_date=date(1986, 6, 1))
+    character = await character_factory(
+        company=company, campaign=campaign, date_of_birth=date(1960, 3, 15), age=31
+    )
+    unloaded = await Character.get(id=character.id)
+
+    # When reading the age
+    age = unloaded.current_age
+
+    # Then the stored age is returned
+    assert age == 31
 
 
 async def test_character_response_from_model_allows_null_player(
@@ -63,23 +122,12 @@ async def test_character_response_from_model_allows_null_player(
 ) -> None:
     """Verify CharacterResponse serializes and deserializes an NPC with no player."""
     from vapi.constants import CharacterType
-    from vapi.db.sql_models.character import Character
-    from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
 
     # Given an NPC character with no player
     character = await character_factory(type=CharacterType.NPC, user_player=None)
-    refreshed = (
-        await Character.filter(id=character.id)
-        .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
-        .first()
-    )
 
     # When building the response DTO and round-tripping through JSON
-    # (msgspec only validates types on decode, not on Python construction,
-    # so a round-trip is required to prove the field is truly nullable)
-    response = CharacterResponse.from_model(refreshed)
-    payload = msgspec.json.encode(response)
-    decoded = msgspec.json.decode(payload, type=CharacterResponse)
+    decoded = await _response_for(character.id)
 
     # Then the player id is None after surviving JSON decode validation
     assert decoded.user_player_id is None

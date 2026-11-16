@@ -616,3 +616,43 @@ def test_character_biography_at_maximum_accepted() -> None:
 
     # Then it passes through
     assert result.biography == payload["biography"]
+
+
+@pytest.mark.parametrize(
+    ("struct", "payload"),
+    [
+        (
+            CharacterCreate,
+            {
+                "name_first": "Abc",
+                "name_last": "Def",
+                "character_class": "VAMPIRE",
+                "game_version": "V5",
+                "campaign_id": "00000000-0000-0000-0000-000000000000",
+                "age": -1,
+            },
+        ),
+        (CharacterPatch, {"age": -1}),
+    ],
+)
+def test_character_negative_age_rejected(
+    struct: type[msgspec.Struct], payload: dict[str, Any]
+) -> None:
+    """Verify a negative character age fails conversion."""
+    # Given a payload with a negative age
+    # When converting it to the request struct
+    # Then msgspec rejects the value
+    with pytest.raises(msgspec.ValidationError, match="Expected `int` >= 0"):
+        msgspec.convert(payload, struct)
+
+
+def test_character_zero_age_accepted() -> None:
+    """Verify an age of 0 converts."""
+    # Given a patch with an age of 0
+    payload = {"age": 0}
+
+    # When converting it to the request struct
+    result = msgspec.convert(payload, CharacterPatch)
+
+    # Then it passes through
+    assert result.age == 0

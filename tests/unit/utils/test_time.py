@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
-from vapi.utils.time import format_uptime
+from vapi.utils.time import age_on, format_uptime
 
 
 @pytest.mark.parametrize(
@@ -29,3 +29,24 @@ def test_format_uptime(delta: timedelta, expected: str) -> None:
 
     # Then the output matches the expected string
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("reference", "date_of_birth", "expected"),
+    [
+        (date(1986, 6, 1), date(1960, 3, 15), 26),
+        (date(1986, 3, 14), date(1960, 3, 15), 25),
+        (date(1986, 3, 15), date(1960, 3, 15), 26),
+        (date(2003, 1, 1), date(1960, 3, 15), 42),
+        (date(1960, 3, 15), date(1960, 3, 15), 0),
+        (date(1960, 3, 14), date(1960, 3, 15), None),
+    ],
+)
+def test_age_on(reference: date, date_of_birth: date, expected: int | None) -> None:
+    """Verify age counts whole years on the reference date, honoring the birthday."""
+    # Given a reference date and a date of birth
+    # When the age is measured
+    age = age_on(reference, date_of_birth=date_of_birth)
+
+    # Then it counts whole years, or None before the birth
+    assert age == expected
