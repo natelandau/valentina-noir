@@ -19,7 +19,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.handlers import archive_company
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import CharacterTraitService, CompanyService
+from vapi.domain.services import CompanyService
 from vapi.domain.services.company_svc import annotate_company_counts
 from vapi.lib.exceptions import NotFoundError
 from vapi.lib.guards import (
@@ -37,40 +37,11 @@ from .dto import (
     CompanyPermissionRequest,
     CompanyPermissionResponse,
     CompanyResponse,
-    CompanySettingsPatch,
     NewCompanyCreateResponse,
     UserResponse,
 )
 
 logger = logging.getLogger("vapi")
-
-
-async def _apply_settings_patch(
-    settings: CompanySettings, patch: "CompanySettingsPatch"
-) -> dict[str, dict[str, object]]:
-    """Apply a partial settings patch and return a diff of what changed.
-
-    Skips any field that is UNSET so partial updates don't overwrite unchanged values.
-    Returns a dict of changed fields with dotted `settings.` prefix keys for audit logging.
-    A change of specialty rules also removes and refunds the specialties they no longer allow.
-
-    Args:
-        settings: The CompanySettings record to update in-place.
-        patch: The incoming patch data containing optional field overrides.
-
-    Returns:
-        dict[str, dict[str, object]]: A mapping of `settings.<field>` to `{"old": ..., "new": ...}` for each changed field.
-    """
-    async with in_transaction():
-        changes = apply_patch(settings, patch, prefix="settings.")
-        await settings.save()
-        # Players did not choose the new rules, so refund in full whatever the recoup setting.
-        if "settings.specialty_rules" in changes:
-            await CharacterTraitService().remove_ineligible_specialties(
-                company_id=settings.company_id,  # ty:ignore[unresolved-attribute]
-                full_xp_refund=True,
-            )
-    return changes
 
 
 class CompanyController(Controller):
@@ -208,7 +179,9 @@ class CompanyController(Controller):
         if not isinstance(data.settings, msgspec.UnsetType):
             settings = await CompanySettings.filter(company=company).first()
             if settings is not None:
-                settings_changes = await _apply_settings_patch(settings, data.settings)
+                settings_changes = await CompanyService().update_settings(
+                    settings=settings, patch=data.settings
+                )
                 changes.update(settings_changes)
 
         request.state.audit_changes = changes

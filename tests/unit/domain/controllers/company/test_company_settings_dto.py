@@ -53,7 +53,7 @@ def test_company_settings_patch_specialty_xp_cost_enabled_defaults_unset() -> No
     assert patch.specialty_xp_cost_enabled is msgspec.UNSET
 
 
-def test_company_settings_create_specialty_rules_defaults_flat() -> None:
+def test_company_settings_create_specialty_rules_defaults_fixed_cost() -> None:
     """Verify the create DTO defaults the specialty rules to FIXED_COST."""
     # Given / When an empty create body
     create = CompanySettingsCreate()

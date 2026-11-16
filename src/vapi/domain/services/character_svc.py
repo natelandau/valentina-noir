@@ -9,7 +9,7 @@ from tortoise.functions import Count
 from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType, UserRole
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType, SpecialtyRules, UserRole
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import (
     Character,
@@ -23,6 +23,7 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_classes import VampireClan, WerewolfAuspice, WerewolfTribe
 from vapi.db.sql_models.character_concept import CharacterConcept, concept_visible_to_company_q
 from vapi.db.sql_models.character_sheet import Trait
+from vapi.db.sql_models.company import CompanySettings
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet, tracker_type_for
 from vapi.domain.services.tracker_svc import TrackerService, is_derived_trait
@@ -302,6 +303,37 @@ class CharacterService:
             # provided value. apply_patch treats None as a real value to apply, which
             # clears the column for PLAYER -> NPC/STORYTELLER transitions.
             data.user_player_id = None
+
+    async def save_character_patch(
+        self, character: Character, data: "CharacterPatch"
+    ) -> dict[str, dict[str, object]]:
+        """Apply a partial update, save the character, and drop specialties a new concept voids.
+
+        A concept change can lower which abilities count as favored, so specialties those
+        abilities no longer qualify for are removed and refunded under the company's XP
+        recoup setting.
+
+        Args:
+            character: The character model instance to mutate and save.
+            data: The patch DTO with UNSET defaults for omitted fields.
+
+        Returns:
+            Dict mapping changed field names to ``{"old": ..., "new": ...}`` diffs.
+        """
+        from vapi.domain.services.character_trait_svc import CharacterTraitService
+
+        async with in_transaction():
+            changes = await self.apply_character_patch(character, data)
+            await self.prepare_for_save(character)
+            await character.save()
+            if "concept_id" in changes:
+                settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
+                # Only RATING_BASED rules consult the concept.
+                if settings.specialty_rules == SpecialtyRules.RATING_BASED:
+                    await CharacterTraitService().remove_ineligible_specialties(
+                        settings=settings, character_id=character.id
+                    )
+        return changes
 
     async def apply_character_patch(
         self, character: Character, data: "CharacterPatch"

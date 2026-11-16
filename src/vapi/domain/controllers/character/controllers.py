@@ -25,12 +25,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
-from vapi.domain.services import (
-    CharacterService,
-    CharacterSheetService,
-    CharacterTraitService,
-    TrackerService,
-)
+from vapi.domain.services import CharacterService, CharacterSheetService, TrackerService
 from vapi.domain.services.character_svc import annotate_character_counts
 from vapi.lib.detail_includes import apply_includes
 from vapi.lib.exceptions import NotFoundError, ValidationError
@@ -300,14 +295,7 @@ class CharacterController(Controller):
             await service.validate_player_assignment(
                 user_player_id=data.user_player_id, company_id=company.id
             )
-        async with in_transaction():
-            changes = await service.apply_character_patch(character, data)
-            await service.prepare_for_save(character)
-            await character.save()
-            if "concept_id" in changes:
-                await CharacterTraitService().remove_ineligible_specialties(
-                    company_id=company.id, character_id=character.id
-                )
+        changes = await service.save_character_patch(character, data)
 
         request.state.audit_changes = changes
 
