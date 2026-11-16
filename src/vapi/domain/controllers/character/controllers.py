@@ -36,6 +36,7 @@ from vapi.lib.guards import (
     storyteller_character_access_guard,
     user_active_guard,
     user_character_player_or_storyteller_guard,
+    visible_characters,
 )
 from vapi.openapi.tags import APITags
 
@@ -121,9 +122,10 @@ class CharacterController(Controller):
         if status:
             filters["status"] = status
 
-        qs = Character.filter(**filters).order_by("name_first", "name_last", "id")
-        if acting_user.role not in STORYTELLER_ROLES:
-            qs = qs.exclude(type=CharacterType.STORYTELLER)
+        qs = visible_characters(
+            Character.filter(**filters).order_by("name_first", "name_last", "id"),
+            include_storyteller=acting_user.role in STORYTELLER_ROLES,
+        )
         count, characters = await asyncio.gather(
             qs.count(),
             annotate_character_counts(

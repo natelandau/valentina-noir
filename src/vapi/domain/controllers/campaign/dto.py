@@ -9,13 +9,13 @@ from uuid import UUID
 import msgspec
 from tortoise.queryset import Prefetch
 
-from vapi.constants import CharacterType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
+from vapi.lib.guards import visible_characters
 
 if TYPE_CHECKING:
     from vapi.db.sql_models.campaign import Campaign, CampaignBook
@@ -69,10 +69,12 @@ def chapter_characters_prefetch(*, include_storyteller: bool) -> Prefetch:
         include_storyteller: Whether to keep STORYTELLER-type characters, which only
             storytellers and admins may see.
     """
-    queryset = Character.filter(is_archived=False)
-    if not include_storyteller:
-        queryset = queryset.exclude(type=CharacterType.STORYTELLER)
-    return Prefetch("characters", queryset=queryset)
+    return Prefetch(
+        "characters",
+        queryset=visible_characters(
+            Character.filter(is_archived=False), include_storyteller=include_storyteller
+        ),
+    )
 
 
 @cache
