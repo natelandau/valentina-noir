@@ -23,6 +23,7 @@ from vapi.lib.exceptions import ClientError, NotFoundError, PermissionDeniedErro
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
     from litestar.handlers.base import BaseRouteHandler
+    from tortoise.queryset import QuerySet
 
 __all__ = (
     "STORYTELLER_ROLES",
@@ -39,6 +40,7 @@ __all__ = (
     "user_character_player_or_storyteller_guard",
     "user_self_or_admin_guard",
     "user_storyteller_guard",
+    "visible_characters",
 )
 
 # Roles permitted to see and manage storyteller-type characters. Single source of
@@ -55,6 +57,23 @@ def acting_user_sees_storyteller_characters(connection: "ASGIConnection") -> boo
     state = connection.scope.get("state")
     user = state.get("acting_user") if isinstance(state, dict) else None
     return isinstance(user, User) and user.role in STORYTELLER_ROLES
+
+
+def visible_characters(
+    queryset: "QuerySet[Character]", *, include_storyteller: bool
+) -> "QuerySet[Character]":
+    """Narrow a character queryset to the rows the caller may see.
+
+    Args:
+        queryset: The character queryset to narrow.
+        include_storyteller: Whether the caller may see STORYTELLER-type characters.
+
+    Returns:
+        The queryset without STORYTELLER-type characters when the caller may not see them.
+    """
+    if include_storyteller:
+        return queryset
+    return queryset.exclude(type=CharacterType.STORYTELLER)
 
 
 def npc_management_permitted(permission: PermissionManageNPC, user: User) -> bool:

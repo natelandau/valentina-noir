@@ -137,9 +137,11 @@ class CampaignChapterController(Controller):
     ) -> CampaignChapterResponse:
         """Create a chapter."""
         service = CampaignService()
+        sees_storyteller = acting_user_sees_storyteller_characters(request)
         characters = await service.validate_campaign_characters(
             character_ids=data.character_ids,
             campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
+            include_storyteller=sees_storyteller,
         )
         number = await service.get_next_chapter_number(book)
         chapter = await CampaignChapter.create(
@@ -153,11 +155,7 @@ class CampaignChapterController(Controller):
         request.state.audit_description = f"Create chapter '{chapter.number}: {chapter.name}' for book '{book.number}: {book.name}'"
         annotated = (
             await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id))
-            .prefetch_related(
-                chapter_characters_prefetch(
-                    include_storyteller=acting_user_sees_storyteller_characters(request)
-                )
-            )
+            .prefetch_related(chapter_characters_prefetch(include_storyteller=sees_storyteller))
             .first()
         )
 
@@ -183,6 +181,7 @@ class CampaignChapterController(Controller):
         request: Request,
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
+        sees_storyteller = acting_user_sees_storyteller_characters(request)
         # One transaction so a rejected character list also rolls back the field edits
         async with in_transaction():
             changes = await save_active_patch(
@@ -190,18 +189,18 @@ class CampaignChapterController(Controller):
             )
 
             if not isinstance(data.character_ids, msgspec.UnsetType):
-                # Filter archived characters so the audit diff matches what the API exposes;
-                # archiving a character leaves its join-table row intact.
-                old_ids = sorted(
-                    str(c.id) for c in await chapter.characters.filter(is_archived=False)
-                )
-                characters = await CampaignService().validate_campaign_characters(
+                service = CampaignService()
+                characters = await service.validate_campaign_characters(
                     character_ids=data.character_ids,
                     campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
+                    include_storyteller=sees_storyteller,
                 )
-                await chapter.characters.clear()
-                if characters:
-                    await chapter.characters.add(*characters)
+                previous = await service.replace_chapter_characters(
+                    chapter=chapter, characters=characters, include_storyteller=sees_storyteller
+                )
+                # Skip archived characters so the audit diff matches what the API exposes;
+                # archiving a character leaves its join-table row intact.
+                old_ids = sorted(str(c.id) for c in previous if not c.is_archived)
                 new_ids = sorted(str(c.id) for c in characters)
                 if old_ids != new_ids:
                     changes["character_ids"] = {"old": old_ids, "new": new_ids}
@@ -210,11 +209,7 @@ class CampaignChapterController(Controller):
         request.state.audit_description = f"Update chapter '{chapter.number}: {chapter.name}'"
         annotated = (
             await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id))
-            .prefetch_related(
-                chapter_characters_prefetch(
-                    include_storyteller=acting_user_sees_storyteller_characters(request)
-                )
-            )
+            .prefetch_related(chapter_characters_prefetch(include_storyteller=sees_storyteller))
             .first()
         )
         if not annotated:

@@ -13,6 +13,7 @@ from vapi.constants import CharacterType
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.lib.exceptions import ValidationError
+from vapi.lib.guards import visible_characters
 
 
 def annotate_campaign_counts(qs: QuerySet[Campaign]) -> QuerySet[Campaign]:
@@ -150,7 +151,7 @@ class CampaignService:
         await archive_campaign(campaign=campaign)
 
     async def validate_campaign_characters(
-        self, *, character_ids: list[UUID], campaign_id: UUID
+        self, *, character_ids: list[UUID], campaign_id: UUID, include_storyteller: bool
     ) -> list[Character]:
         """Resolve character IDs for chapter M2M assignment, enforcing campaign scope.
 
@@ -161,20 +162,24 @@ class CampaignService:
         Args:
             character_ids: Caller-supplied character UUIDs (may contain duplicates).
             campaign_id: The campaign the chapter belongs to.
+            include_storyteller: Whether the caller may link STORYTELLER-type characters,
+                which only storytellers and admins may see.
 
         Returns:
             The validated Character objects.
 
         Raises:
-            ValidationError: If any ID is unknown, archived, or in another campaign.
+            ValidationError: If any ID is unknown, archived, in another campaign, or a
+                STORYTELLER character the caller may not see.
         """
         if not character_ids:
             return []
 
         # dict.fromkeys dedupes while preserving caller order for the error message
         unique_ids = list(dict.fromkeys(character_ids))
-        characters = await Character.filter(
-            id__in=unique_ids, campaign_id=campaign_id, is_archived=False
+        characters = await visible_characters(
+            Character.filter(id__in=unique_ids, campaign_id=campaign_id, is_archived=False),
+            include_storyteller=include_storyteller,
         )
         found = {c.id for c in characters}
         invalid = [str(cid) for cid in unique_ids if cid not in found]
@@ -189,6 +194,40 @@ class CampaignService:
                 ],
             )
         return characters
+
+    async def replace_chapter_characters(
+        self,
+        *,
+        chapter: CampaignChapter,
+        characters: list[Character],
+        include_storyteller: bool,
+    ) -> list[Character]:
+        """Replace the chapter's character links that the caller can see with ``characters``.
+
+        Leave STORYTELLER-type links in place for a caller without storyteller visibility,
+        so resubmitting the list it was shown never removes links it was never shown.
+
+        Args:
+            chapter: The chapter whose links to replace.
+            characters: The validated characters to link.
+            include_storyteller: Whether the caller may see STORYTELLER-type characters.
+
+        Returns:
+            The previously linked characters the caller could see, archived ones included.
+        """
+        new_ids = {c.id for c in characters}
+        async with in_transaction():
+            previous = await visible_characters(
+                chapter.characters.all(), include_storyteller=include_storyteller
+            )
+            previous_ids = {c.id for c in previous}
+            stale = [c for c in previous if c.id not in new_ids]
+            added = [c for c in characters if c.id not in previous_ids]
+            if stale:
+                await chapter.characters.remove(*stale)
+            if added:
+                await chapter.characters.add(*added)
+        return previous
 
     @staticmethod
     async def _get_next_number(model: type[Model], parent_field: str, parent_id: UUID) -> int:
