@@ -160,17 +160,19 @@ class CompanyController(Controller):
         self, request: Request, company: Company, data: CompanyPatch
     ) -> CompanyResponse:
         """Update a company's fields, applying only the provided values."""
-        changes = await save_active_patch(
-            company, data, label="Company", exclude=frozenset({"settings"})
-        )
+        # One transaction so a failed settings update also rolls back the company edits
+        async with in_transaction():
+            changes = await save_active_patch(
+                company, data, label="Company", exclude=frozenset({"settings"})
+            )
 
-        if not isinstance(data.settings, msgspec.UnsetType):
-            settings = await CompanySettings.filter(company=company).first()
-            if settings is not None:
-                settings_changes = await CompanyService().update_settings(
-                    settings=settings, patch=data.settings
-                )
-                changes.update(settings_changes)
+            if not isinstance(data.settings, msgspec.UnsetType):
+                settings = await CompanySettings.filter(company=company).first()
+                if settings is not None:
+                    settings_changes = await CompanyService().update_settings(
+                        settings=settings, patch=data.settings
+                    )
+                    changes.update(settings_changes)
 
         request.state.audit_changes = changes
 

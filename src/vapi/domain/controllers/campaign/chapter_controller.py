@@ -9,6 +9,7 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post, put
 from litestar.params import Parameter
+from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.db.sql_models.user import User
@@ -182,24 +183,28 @@ class CampaignChapterController(Controller):
         request: Request,
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
-        changes = await save_active_patch(
-            chapter, data, label="Chapter", exclude=frozenset({"character_ids"})
-        )
-
-        if not isinstance(data.character_ids, msgspec.UnsetType):
-            # Filter archived characters so the audit diff matches what the API exposes;
-            # archiving a character leaves its join-table row intact.
-            old_ids = sorted(str(c.id) for c in await chapter.characters.filter(is_archived=False))
-            characters = await CampaignService().validate_campaign_characters(
-                character_ids=data.character_ids,
-                campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
+        # One transaction so a rejected character list also rolls back the field edits
+        async with in_transaction():
+            changes = await save_active_patch(
+                chapter, data, label="Chapter", exclude=frozenset({"character_ids"})
             )
-            await chapter.characters.clear()
-            if characters:
-                await chapter.characters.add(*characters)
-            new_ids = sorted(str(c.id) for c in characters)
-            if old_ids != new_ids:
-                changes["character_ids"] = {"old": old_ids, "new": new_ids}
+
+            if not isinstance(data.character_ids, msgspec.UnsetType):
+                # Filter archived characters so the audit diff matches what the API exposes;
+                # archiving a character leaves its join-table row intact.
+                old_ids = sorted(
+                    str(c.id) for c in await chapter.characters.filter(is_archived=False)
+                )
+                characters = await CampaignService().validate_campaign_characters(
+                    character_ids=data.character_ids,
+                    campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
+                )
+                await chapter.characters.clear()
+                if characters:
+                    await chapter.characters.add(*characters)
+                new_ids = sorted(str(c.id) for c in characters)
+                if old_ids != new_ids:
+                    changes["character_ids"] = {"old": old_ids, "new": new_ids}
 
         request.state.audit_changes = changes
         request.state.audit_description = f"Update chapter '{chapter.number}: {chapter.name}'"
