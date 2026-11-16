@@ -558,7 +558,7 @@ class CharacterTraitService:
             return
 
         werewolf_attrs.total_renown = total_renown
-        await werewolf_attrs.save(update_fields=["total_renown", "date_modified"])
+        await werewolf_attrs.save(update_fields=["total_renown"])
 
     async def after_save(
         self, character_trait: CharacterTrait, character: Character, *, sync_all: bool = False
@@ -1951,7 +1951,7 @@ class CharacterTraitService:
             specialty.name = await self._validate_specialty_name(
                 character_trait=character_trait, name=name, exclude_id=specialty.id
             )
-            await specialty.save(update_fields=["name", "date_modified"])
+            await specialty.save(update_fields=["name"])
         return await self._refetch_character_trait(character_trait.id)
 
     async def _refund_specialty(

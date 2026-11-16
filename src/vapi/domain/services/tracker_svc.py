@@ -281,7 +281,7 @@ class TrackerService:
                 return
             health.size = size
             health.damage = damage
-            await health.save(update_fields=["size", "damage", "date_modified"])
+            await health.save(update_fields=["size", "damage"])
 
     async def _sync_v5_willpower(
         self, *, character: Character, sources: dict[str, CharacterTrait]
@@ -301,7 +301,7 @@ class TrackerService:
         if willpower.value == value:
             return
         willpower.value = value
-        await willpower.save(update_fields=["value", "date_modified"])
+        await willpower.save(update_fields=["value"])
         await self.clamp_trait_tracker(character_trait=willpower, character=character)
 
     async def clamp_trait_tracker(
@@ -321,7 +321,7 @@ class TrackerService:
             if character_trait.tracker_spent <= size:
                 return
             character_trait.tracker_spent = size
-            await character_trait.save(update_fields=[*_TRAIT_MARK_FIELDS, "date_modified"])
+            await character_trait.save(update_fields=_TRAIT_MARK_FIELDS)
 
     # ------------------------------------------------------------------
     # Trait trackers
@@ -375,7 +375,7 @@ class TrackerService:
                         amount=data.amount,
                     )
 
-            await character_trait.save(update_fields=[*_TRAIT_MARK_FIELDS, "date_modified"])
+            await character_trait.save(update_fields=_TRAIT_MARK_FIELDS)
 
         self.audit_description = f"{phrase} {trait.name} for character '{character.name}'"
         self.audit_changes = _changes(before, character_trait)
@@ -408,7 +408,7 @@ class TrackerService:
             await self._lock_trait_marks(character_trait)
             before = _snapshot(character_trait, _TRAIT_MARK_FIELDS)
             _set_trait_marks(character_trait=character_trait, tracker_type=tracker_type, data=data)
-            await character_trait.save(update_fields=[*_TRAIT_MARK_FIELDS, "date_modified"])
+            await character_trait.save(update_fields=_TRAIT_MARK_FIELDS)
 
         self.audit_description = f"Set {trait.name} tracker for character '{character.name}'"
         self.audit_changes = _changes(before, character_trait)
@@ -442,7 +442,7 @@ class TrackerService:
             health.damage = apply_damage(
                 damage=health.damage, size=health.size, action=data.action, amount=data.amount
             )
-            await health.save(update_fields=["damage", "date_modified"])
+            await health.save(update_fields=["damage"])
 
         phrase = _action_phrase(action=data.action, amount=data.amount)
         self.audit_description = f"{phrase} Health for character '{character.name}'"
@@ -482,7 +482,7 @@ class TrackerService:
             health.size = size
             health.extra_levels = data.extra_levels
             health.damage = data.damage
-            await health.save(update_fields=["size", "extra_levels", "damage", "date_modified"])
+            await health.save(update_fields=["size", "extra_levels", "damage"])
 
         self.audit_description = f"Set Health for character '{character.name}'"
         self.audit_changes = _changes(before, health)
