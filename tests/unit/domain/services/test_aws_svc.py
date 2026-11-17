@@ -26,6 +26,7 @@ from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError, Validatio
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+    from unittest.mock import MagicMock
 
     from pytest_mock import MockerFixture
 
@@ -914,6 +915,123 @@ class TestDeleteAsset:
         assert await S3Asset.filter(id=asset.id).exists()
         refreshed = await User.get(id=user.id)
         assert refreshed.avatar_asset_id == asset.id
+
+
+class TestCdnInvalidation:
+    """Test that deleting an asset clears it from the CloudFront CDN."""
+
+    DISTRIBUTION_ID = "E2TESTDISTRIBUTION"
+
+    @pytest.fixture
+    def clients(self, mocker: MockerFixture) -> dict[str, MagicMock]:
+        """Configure a distribution and return separate S3 and CloudFront client mocks."""
+        mocker.patch.object(settings.aws, "cloudfront_distribution_id", self.DISTRIBUTION_ID)
+        mocks = {"s3": mocker.MagicMock(), "cloudfront": mocker.MagicMock()}
+        mocker.patch(
+            "vapi.domain.services.aws_svc.boto3.client",
+            side_effect=lambda service, **_: mocks[service],
+        )
+        return mocks
+
+    async def test_delete_asset_invalidates_cdn_path(
+        self, s3asset_factory: Callable, clients: dict[str, MagicMock]
+    ) -> None:
+        """Verify deleting an asset invalidates its public path on the distribution."""
+        # Given an asset stored under the origin prefix
+        service = AWSS3Service()
+        asset = await s3asset_factory(s3_key=f"{service.prefix}company/parent/image/a.png")
+
+        # When deleting the asset
+        await service.delete_asset(asset)
+
+        # Then CloudFront is asked to drop the path the CDN serves it at
+        create_invalidation = clients["cloudfront"].create_invalidation
+        create_invalidation.assert_called_once()
+        kwargs = create_invalidation.call_args.kwargs
+        assert kwargs["DistributionId"] == self.DISTRIBUTION_ID
+        assert kwargs["InvalidationBatch"]["Paths"] == {
+            "Quantity": 1,
+            "Items": ["/company/parent/image/a.png"],
+        }
+        assert kwargs["InvalidationBatch"]["CallerReference"]
+
+    async def test_delete_asset_skips_invalidation_without_distribution(
+        self, s3asset_factory: Callable, clients: dict[str, MagicMock], mocker: MockerFixture
+    ) -> None:
+        """Verify no invalidation is sent when no distribution is configured."""
+        # Given no configured distribution
+        mocker.patch.object(settings.aws, "cloudfront_distribution_id", None)
+        asset = await s3asset_factory()
+
+        # When deleting the asset
+        await AWSS3Service().delete_asset(asset)
+
+        # Then the asset is gone and CloudFront is never called
+        assert not await S3Asset.filter(id=asset.id).exists()
+        clients["cloudfront"].create_invalidation.assert_not_called()
+
+    async def test_delete_asset_succeeds_when_invalidation_fails(
+        self, s3asset_factory: Callable, clients: dict[str, MagicMock]
+    ) -> None:
+        """Verify a failed invalidation does not fail the delete."""
+        # Given an invalidation call that fails
+        clients["cloudfront"].create_invalidation.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "CreateInvalidation"
+        )
+        asset = await s3asset_factory()
+
+        # When deleting the asset
+        await AWSS3Service().delete_asset(asset)
+
+        # Then the S3 object and the row are still deleted
+        clients["s3"].delete_object.assert_called_once()
+        assert not await S3Asset.filter(id=asset.id).exists()
+
+    async def test_delete_assets_invalidates_deleted_keys_once(
+        self, s3asset_factory: Callable, clients: dict[str, MagicMock]
+    ) -> None:
+        """Verify a bulk delete sends one invalidation for the assets it deleted, and only those."""
+        # Given two assets, and an S3 delete that fails for the first
+        service = AWSS3Service()
+        failing = await s3asset_factory(s3_key=f"{service.prefix}a.png")
+        deleted = await s3asset_factory(s3_key=f"{service.prefix}b.png")
+
+        def delete_object(Key: str, **_: str) -> dict:  # noqa: N803
+            if Key == failing.s3_key:
+                raise ClientError({"Error": {"Code": "500"}}, "DeleteObject")
+            return {}
+
+        clients["s3"].delete_object.side_effect = delete_object
+
+        # When deleting both
+        errors = await service.delete_assets([failing, deleted])
+
+        # Then the failure is reported, the other asset is gone, and one request covers it
+        assert isinstance(errors[0], AWSS3Error)
+        assert errors[1] is None
+        assert await S3Asset.filter(id=failing.id).exists()
+        assert not await S3Asset.filter(id=deleted.id).exists()
+        clients["cloudfront"].create_invalidation.assert_called_once()
+        paths = clients["cloudfront"].create_invalidation.call_args.kwargs["InvalidationBatch"]
+        assert paths["Paths"] == {"Quantity": 1, "Items": ["/b.png"]}
+
+    async def test_invalidate_cdn_keys_splits_large_batches(
+        self, clients: dict[str, MagicMock], mocker: MockerFixture
+    ) -> None:
+        """Verify more paths than one invalidation allows are sent across several requests."""
+        # Given a per-request limit of two paths
+        mocker.patch("vapi.domain.services.aws_svc.MAX_INVALIDATION_PATHS", 2)
+        service = AWSS3Service()
+
+        # When invalidating three keys
+        await service.invalidate_cdn_keys([f"{service.prefix}{name}.png" for name in "abc"])
+
+        # Then two requests cover all three paths
+        calls = clients["cloudfront"].create_invalidation.call_args_list
+        assert [call.kwargs["InvalidationBatch"]["Paths"]["Items"] for call in calls] == [
+            ["/a.png", "/b.png"],
+            ["/c.png"],
+        ]
 
 
 class TestClientEndpoint:

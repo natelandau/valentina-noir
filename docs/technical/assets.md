@@ -35,7 +35,7 @@ Five object types accept image assets. Each has the same four endpoints under an
 | Chapter   | `/companies/{company_id}/campaigns/{campaign_id}/books/{book_id}/chapters/{chapter_id}/assets` |
 | User      | `/companies/{company_id}/users/{user_id}/assets`                                          |
 
-Every asset endpoint requires the `X-API-KEY` header and the [`On-Behalf-Of`](authentication.md#the-on-behalf-of-header) header that identifies the acting user.
+Every asset endpoint requires the `X-API-KEY` header. Uploading and deleting also require the [`On-Behalf-Of`](authentication.md#the-on-behalf-of-header) header that identifies the acting user. Listing and retrieving work without it.
 
 Read access is company-wide. Any active user in the company can list and retrieve the assets of every object in that company, including the assets of other users. Uploading and deleting require that the acting user can manage the parent object:
 
@@ -81,7 +81,9 @@ Uploads share a dedicated rate limit across all five object types (a burst of 50
 
 ### The public URL
 
-The `public_url` field is a CDN (CloudFront) link you can use directly in an `<img>` tag or fetch without authentication. The URL is stable for the life of the asset and is served with a long cache lifetime, so you can safely cache it on your side. Deleting the asset removes the file from the CDN.
+The `public_url` field is a CDN (CloudFront) link you can use directly in an `<img>` tag or fetch without authentication. The URL is stable for the life of the asset and is served with a long cache lifetime, so you can safely cache it on your side. Deleting the asset removes the file from the CDN within a few minutes. Browsers and other clients that already downloaded the file can keep their cached copy.
+
+When you archive the object that owns an asset (for example, a character), or replace or remove a custom avatar, the API archives the asset. An archived asset no longer appears in API responses, but its `public_url` stays reachable until the API permanently deletes it after a retention period.
 
 ### Response fields
 
@@ -148,7 +150,7 @@ curl "$API/companies/$COMPANY_ID/characters/$CHARACTER_ID/assets/$ASSET_ID" \
 
 ## Delete an asset
 
-Remove an asset with a `DELETE` request to the same `/assets/{asset_id}` path. This deletes the file from the CDN and cannot be undone.
+Remove an asset with a `DELETE` request to the same `/assets/{asset_id}` path. This deletes the file from storage, removes it from the CDN within a few minutes, and cannot be undone.
 
 ```bash
 curl -X DELETE "$API/companies/$COMPANY_ID/characters/$CHARACTER_ID/assets/$ASSET_ID" \
