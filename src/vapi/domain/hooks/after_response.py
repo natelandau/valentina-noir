@@ -43,6 +43,7 @@ audit entry) by setting:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -63,6 +64,10 @@ if TYPE_CHECKING:
 # Endpoints may extend this via ``request.state.audit_redact_fields`` for additional fields.
 _DEFAULT_REDACT_FIELDS: frozenset[str] = frozenset({"token", "password", "secret", "api_key"})
 
+# Request structs ignore unknown keys, so a body can be far larger than the fields an
+# endpoint accepts. Cap what each audit row keeps; the budget fits every legitimate DTO.
+_MAX_AUDIT_BODY_BYTES = 65_536
+
 
 async def _parse_request_body(request: Request) -> tuple[str | None, Any]:
     """Extract raw request body and parsed JSON from the request."""
@@ -76,10 +81,10 @@ async def _parse_request_body(request: Request) -> tuple[str | None, Any]:
     if not body_bytes:
         return None, None
 
-    request_body = body_bytes.decode("utf-8")
+    request_body = body_bytes.decode("utf-8", errors="replace")
     try:
-        request_json = json.loads(request_body)
-    except (ValueError, UnicodeDecodeError):
+        request_json = json.loads(body_bytes)
+    except ValueError:
         request_json = None
 
     return request_body, request_json
@@ -127,6 +132,29 @@ def _apply_redactions(
     return redacted_body, redacted_json
 
 
+def _cap_request_body(request_body: str | None, request_json: Any) -> tuple[str | None, Any]:
+    """Replace a body over the audit size budget with its length and SHA-256 hash.
+
+    Run after redaction so the hash is of the redacted body and cannot confirm a guessed secret.
+
+    Args:
+        request_body: Request body text, already redacted.
+        request_json: Parsed request JSON, already redacted.
+
+    Returns:
+        Tuple of (body, json): unchanged when within budget, else a summary string and None.
+    """
+    if request_body is None:
+        return request_body, request_json
+
+    body_bytes = request_body.encode("utf-8")
+    if len(body_bytes) <= _MAX_AUDIT_BODY_BYTES:
+        return request_body, request_json
+
+    digest = hashlib.sha256(body_bytes).hexdigest()
+    return f"[truncated: {len(body_bytes)} bytes, sha256={digest}]", None
+
+
 async def add_audit_log(request: Request) -> None:
     """Create an audit log entry with both raw request data and structured fields."""
     request_body, request_json = await _parse_request_body(request)
@@ -141,6 +169,7 @@ async def add_audit_log(request: Request) -> None:
             request_json=request_json,
             redact_fields=redact_fields,
         )
+    request_body, request_json = _cap_request_body(request_body, request_json)
 
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 

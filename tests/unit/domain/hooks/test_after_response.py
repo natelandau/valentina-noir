@@ -1,7 +1,9 @@
 """Tests for after-response hook helpers."""
 
+import hashlib
 import json
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -240,3 +242,79 @@ class TestPostDataUpdateHook:
         # Then no company cache is cleared
         delete_company_cache.assert_not_awaited()
         company.filter.assert_not_called()
+
+
+@pytest.mark.anyio
+class TestAddAuditLogBodyCap:
+    """Test that add_audit_log persists a bounded summary of the request body."""
+
+    @staticmethod
+    def _request(mocker, body: bytes, state: SimpleNamespace | None = None) -> MagicMock:
+        request = mocker.MagicMock()
+        request.headers = {"content-type": "application/json"}
+        request.body = mocker.AsyncMock(return_value=body)
+        request.state = state or SimpleNamespace()
+        request.scope = {"state": {}}
+        return request
+
+    async def test_oversized_body_with_unknown_field_is_not_persisted(self, mocker) -> None:
+        """Verify an oversized body is stored as its length and hash, not its content."""
+        # Given a small valid payload padded with a large unknown field
+        payload = {"term": "Abc", "definition": "short", "junk": "x" * 4_000_000}
+        body = json.dumps(payload).encode()
+        create = mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then neither stored column carries the body and the summary is bounded
+        kwargs = create.call_args.kwargs
+        digest = hashlib.sha256(body).hexdigest()
+        assert kwargs["request_json"] is None
+        assert kwargs["request_body"] == f"[truncated: {len(body)} bytes, sha256={digest}]"
+
+    async def test_body_within_budget_is_persisted(self, mocker) -> None:
+        """Verify a body within the size budget is stored unchanged."""
+        # Given a normal-sized JSON body
+        payload = {"term": "Abc", "definition": "y" * 20_000}
+        body = json.dumps(payload).encode()
+        create = mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then the raw and parsed bodies are stored in full
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_json"] == payload
+        assert kwargs["request_body"] == body.decode()
+
+    async def test_oversized_body_hash_covers_redacted_body(self, mocker) -> None:
+        """Verify the stored hash is of the redacted body so it cannot confirm a secret."""
+        # Given an oversized body that carries a credential
+        payload = {"token": "live-credential", "junk": "x" * 100_000}
+        body = json.dumps(payload).encode()
+        create = mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then the hash is of the redacted serialization, not the original bytes
+        redacted = json.dumps({"token": "[REDACTED]", "junk": "x" * 100_000}).encode()
+        stored = create.call_args.kwargs["request_body"]
+        assert hashlib.sha256(redacted).hexdigest() in stored
+        assert hashlib.sha256(body).hexdigest() not in stored
+
+    async def test_non_utf8_body_does_not_raise(self, mocker) -> None:
+        """Verify a body that is not valid UTF-8 is still audited."""
+        # Given a body with invalid UTF-8 bytes
+        create = mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, b"\xff\xfe"))
+
+        # Then an entry is created without parsed JSON
+        assert create.call_args.kwargs["request_json"] is None
