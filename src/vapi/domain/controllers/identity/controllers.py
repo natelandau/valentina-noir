@@ -153,15 +153,14 @@ class IdentityController(Controller):
         )
 
         profile_field = PROVIDER_PROFILE_FIELDS[provider]
-        old_profile = getattr(target_user, profile_field)
-
-        service = IdentityService()
-        user = await service.link_identity(company=company, user=target_user, identity=identity)
+        old_profile = await IdentityService().link_identity(
+            company=company, user=target_user, identity=identity
+        )
         request.state.audit_description = (
-            f"Link {provider.value} identity to user '{user.username}'"
+            f"Link {provider.value} identity to user '{target_user.username}'"
         )
         request.state.audit_changes = {profile_field: {"old": old_profile, "new": identity.profile}}
-        return await annotated_user_response(user.id)
+        return await annotated_user_response(target_user.id)
 
     @delete(
         path=urls.Identity.UNLINK,
@@ -186,15 +185,12 @@ class IdentityController(Controller):
         _require_self_or_admin(acting_user=acting_user, target_user=target_user, action="unlink")
 
         profile_field = PROVIDER_PROFILE_FIELDS[provider]
-        old_profile = getattr(target_user, profile_field)
-
-        service = IdentityService()
-        user = await service.unlink_identity(user=target_user, provider=provider)
+        old_profile = await IdentityService().unlink_identity(user=target_user, provider=provider)
         request.state.audit_description = (
-            f"Unlink {provider.value} identity from user '{user.username}'"
+            f"Unlink {provider.value} identity from user '{target_user.username}'"
         )
         request.state.audit_changes = {profile_field: {"old": old_profile, "new": None}}
         # Unlinking clears a field on the existing user; record UPDATE rather than
         # the DELETE the HTTP method would otherwise imply (the user row persists).
         request.state.audit_operation = AuditOperation.UPDATE
-        return await annotated_user_response(user.id)
+        return await annotated_user_response(target_user.id)

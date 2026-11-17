@@ -378,10 +378,11 @@ class TestLinkIdentity:
 
         # When the identity is linked
         service = IdentityService()
-        linked = await service.link_identity(company=company, user=user, identity=_identity())
+        old_profile = await service.link_identity(company=company, user=user, identity=_identity())
 
-        # Then the profile is attached and persisted
-        assert linked.apple_profile["id"] == "apple-sub-001"
+        # Then the profile is attached and persisted, and no prior profile is reported
+        assert old_profile is None
+        assert user.apple_profile["id"] == "apple-sub-001"
         persisted = await User.get(id=user.id)
         assert persisted.apple_profile["id"] == "apple-sub-001"
 
@@ -411,10 +412,11 @@ class TestLinkIdentity:
 
         # When the identity is linked again
         service = IdentityService()
-        linked = await service.link_identity(company=company, user=user, identity=_identity())
+        old_profile = await service.link_identity(company=company, user=user, identity=_identity())
 
-        # Then the profile is refreshed without error
-        assert linked.apple_profile["email"] == "person@example.com"
+        # Then the profile is refreshed and the replaced profile is reported
+        assert old_profile == {"id": "apple-sub-001", "email": "old@example.com"}
+        assert user.apple_profile["email"] == "person@example.com"
 
     async def test_link_conflict_other_user(
         self, company_factory: Callable[..., Company], user_factory: Callable[..., User]
@@ -465,11 +467,12 @@ class TestUnlinkIdentity:
 
         # When the apple identity is unlinked
         service = IdentityService()
-        unlinked = await service.unlink_identity(user=user, provider=IdentityProvider.APPLE)
+        old_profile = await service.unlink_identity(user=user, provider=IdentityProvider.APPLE)
 
-        # Then the apple profile is cleared and the github profile remains
-        assert unlinked.apple_profile is None
-        assert unlinked.github_profile == {"id": "4242"}
+        # Then the apple profile is cleared, reported as removed, and the github profile remains
+        assert old_profile == {"id": "apple-sub-001"}
+        assert user.apple_profile is None
+        assert user.github_profile == {"id": "4242"}
         persisted = await User.get(id=user.id)
         assert persisted.apple_profile is None
         assert persisted.github_profile == {"id": "4242"}

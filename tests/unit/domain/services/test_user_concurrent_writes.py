@@ -391,3 +391,28 @@ async def test_deny_user_refused_after_concurrent_approval(
     stored = await User.get(id=target.id)
     assert stored.is_archived is False
     assert stored.role == UserRole.PLAYER
+
+
+async def test_unlink_identity_reports_committed_profile(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify unlink reports the profile it removed, not the one a stale instance loaded."""
+    # Given a user loaded before a concurrent request refreshes their apple profile
+    company = await company_factory()
+    target = await user_factory(
+        company=company,
+        apple_profile={"id": "apple-sub-001", "email": "old@example.com"},
+        github_profile={"id": "4242"},
+    )
+    stale = await User.get(id=target.id)
+    await IdentityService().link_identity(
+        company=company, user=await User.get(id=target.id), identity=build_verified_identity()
+    )
+
+    # When the apple identity is unlinked on the stale instance
+    old_profile = await IdentityService().unlink_identity(
+        user=stale, provider=IdentityProvider.APPLE
+    )
+
+    # Then the reported profile is the committed one
+    assert old_profile == {"id": "apple-sub-001", "email": "person@example.com"}
