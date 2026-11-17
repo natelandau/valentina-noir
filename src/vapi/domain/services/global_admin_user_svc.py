@@ -14,11 +14,12 @@ from typing import TYPE_CHECKING
 from tortoise.expressions import RawSQL
 from tortoise.transactions import in_transaction
 
-from vapi.constants import PROVIDER_PROFILE_FIELDS, UserRole
+from vapi.constants import PROVIDER_PROFILE_FIELDS
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain.handlers import cascade_archive_user, restore_archive_batch
 from vapi.lib.exceptions import ConflictError, NotFoundError, ValidationError
+from vapi.lib.guards import INACTIVE_ROLES
 from vapi.lib.patch import apply_patch
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ class GlobalAdminUserService:
             raise NotFoundError(detail="Company not found")
 
         new_role = data.role
-        if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        if new_role in INACTIVE_ROLES:
             raise ValidationError(
                 detail=f"Cannot create a user with initial role {new_role.value}",
             )

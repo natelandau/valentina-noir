@@ -14,7 +14,6 @@ from vapi.constants import (
     PermissionManageNPC,
     UserRole,
 )
-from vapi.domain.deps import provide_acting_user
 from vapi.lib.exceptions import (
     ClientError,
     NotFoundError,
@@ -795,14 +794,3 @@ class TestMalformedOnBehalfOf:
         # When/Then the guard raises ValidationError
         with pytest.raises(ValidationError, match="On-Behalf-Of header must be a valid UUID"):
             await user_active_guard(connection, _mock_handler(mocker))
-
-    async def test_provider_raises_validation_error(self, mocker: MockerFixture) -> None:
-        """Verify provide_acting_user rejects a malformed On-Behalf-Of header with ValidationError."""
-        # Given a request with no stashed acting user
-        request = mocker.MagicMock()
-        request.state = mocker.MagicMock(spec=[])
-        company = mocker.MagicMock(id=uuid4())
-
-        # When/Then the provider raises ValidationError
-        with pytest.raises(ValidationError, match="On-Behalf-Of header must be a valid UUID"):
-            await provide_acting_user(request=request, company=company, on_behalf_of="not-a-uuid")

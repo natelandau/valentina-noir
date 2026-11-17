@@ -21,6 +21,7 @@ from vapi.lib.exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
+from vapi.lib.guards import INACTIVE_ROLES
 from vapi.lib.patch import apply_patch
 
 from .validation_svc import GetModelByIdValidationService
@@ -249,7 +250,7 @@ class UserService:
         requesting_user = await self._assert_requester_active(acting_user_id)
         new_role = data.role
 
-        if new_role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        if new_role in INACTIVE_ROLES:
             raise ValidationError(detail=f"Cannot create a user with initial role {new_role.value}")
 
         # Synthetic unsaved target with role=PLAYER so the matrix evaluates
@@ -457,7 +458,7 @@ class UserService:
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
 
-        if role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
+        if role in INACTIVE_ROLES:
             raise ValidationError(detail=f"Cannot assign {role.value} role via approval")
 
         await self._validate_role_assignment(
