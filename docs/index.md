@@ -37,7 +37,6 @@ These mechanics change frequently during live play and are best managed by the S
 ## Resources
 
 - **[API Documentation](https://api.valentina-noir.com/docs)** - Full endpoint reference
-- **[Python Client](https://github.com/natelandau/valentina-python-client)** - Official Python API client library
 - **[Roadmap](roadmap/index.md)** - Planned features and improvements
 
 !!! note "Running or contributing to the server"

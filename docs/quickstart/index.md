@@ -30,7 +30,7 @@ Each step is its own page:
 You need two things before you start:
 
 - A Valentina Noir developer account and an API key. Keys are available to approved developers only. [Request one](mailto:support@valentina-noir.com) if you don't have it yet.
-- An HTTP client in the language of your choice. The examples use Python with [`requests`](https://requests.readthedocs.io/), but any client works. If you build in Python, the official [Valentina Noir Python Client](https://github.com/natelandau/valentina-python-client) wraps every endpoint with type hints.
+- An HTTP client in the language of your choice. The examples use Python with [`requests`](https://requests.readthedocs.io/), but any client works.
 
 !!! tip "Keep the full reference open"
 
