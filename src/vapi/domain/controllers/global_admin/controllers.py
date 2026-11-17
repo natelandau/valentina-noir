@@ -18,7 +18,12 @@ from vapi.lib.stores import delete_authentication_cache_for_developer
 from vapi.openapi.tags import APITags
 
 from . import docs
-from .dto import AdminDeveloperPatch, DeveloperAdminResponse, DeveloperCreate
+from .dto import (
+    AdminDeveloperPatch,
+    DeveloperAdminApiKeyResponse,
+    DeveloperAdminResponse,
+    DeveloperCreate,
+)
 
 
 class GlobalAdminController(Controller):
@@ -142,7 +147,7 @@ class GlobalAdminController(Controller):
     )
     async def new_api_key(
         self, *, developer: Developer, request: Request
-    ) -> dict[str, str | list[dict[str, str]]]:
+    ) -> DeveloperAdminApiKeyResponse:
         """Generate a new API key for a Developer."""
         # Evict after the new key is saved: evicting first lets a concurrent request with
         # the old key re-cache it for the full TTL
@@ -150,26 +155,4 @@ class GlobalAdminController(Controller):
         await delete_authentication_cache_for_developer(
             request.app, developer, fingerprint=old_fingerprint
         )
-
-        if developer.key_generated is None:
-            msg = f"key_generated not set after generating API key for developer {developer.id}"
-            raise ValueError(msg)
-
-        return {
-            "id": str(developer.id),
-            "username": developer.username,
-            "email": developer.email,
-            "date_created": developer.date_created.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "date_modified": developer.date_modified.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "api_key": new_key,
-            "is_global_admin": str(developer.is_global_admin),
-            "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "companies": [
-                {
-                    "company_id": str(p.company.id),
-                    "company_name": p.company.name,
-                    "permission": p.permission.value,
-                }
-                for p in developer.permissions
-            ],
-        }
+        return DeveloperAdminApiKeyResponse.from_model_with_key(developer, api_key=new_key)

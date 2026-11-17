@@ -49,6 +49,41 @@ class DeveloperResponse(msgspec.Struct):
         )
 
 
+class DeveloperApiKeyResponse(msgspec.Struct):
+    """Response body for a developer's newly generated API key."""
+
+    id: UUID
+    username: str
+    email: str
+    api_key: str
+    key_generated: datetime
+
+    @classmethod
+    def from_model(cls, m: "Developer", api_key: str) -> "DeveloperApiKeyResponse":
+        """Convert a Developer and its new plaintext key to a response.
+
+        Args:
+            m: The developer the key was generated for.
+            api_key: The plaintext API key.
+
+        Returns:
+            The API key response.
+
+        Raises:
+            ValueError: If the developer has no key_generated timestamp.
+        """
+        if m.key_generated is None:
+            msg = f"key_generated not set after generating API key for developer {m.id}"
+            raise ValueError(msg)
+        return cls(
+            id=m.id,
+            username=m.username,
+            email=m.email,
+            api_key=api_key,
+            key_generated=m.key_generated,
+        )
+
+
 class DeveloperPatch(msgspec.Struct):
     """Request body for partially updating a developer.
 
