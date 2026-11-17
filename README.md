@@ -66,6 +66,8 @@ id -g  # GID
 
 All application configuration variables from `.env.example` are also supported and should be passed to the container via an env file or environment variables.
 
+`VAPI_DEBUG` is the only switch for debug mode. The server sets `LITESTAR_DEBUG` from it at startup, so setting `LITESTAR_DEBUG` yourself has no effect.
+
 ### Behind a reverse proxy
 
 The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address.

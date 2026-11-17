@@ -32,7 +32,8 @@ def run_cli() -> NoReturn:
     os.environ.setdefault("LITESTAR_HOST", settings.server.host)
     if settings.server.port:
         os.environ.setdefault("LITESTAR_PORT", str(settings.server.port))
-    os.environ.setdefault("LITESTAR_DEBUG", str(int(settings.debug)))
+    # Overwrite rather than setdefault: VAPI_DEBUG is the only switch for debug mode
+    os.environ["LITESTAR_DEBUG"] = str(int(settings.debug))
 
     try:
         sys.exit(litestar_group())
