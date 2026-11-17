@@ -6,16 +6,17 @@ from typing import Annotated, TypeVar
 
 from litestar.params import Parameter
 
-from vapi.constants import REFERENCE_MAX_LIMIT
+from vapi.constants import MAX_PAGINATION_OFFSET, REFERENCE_MAX_LIMIT
 
 T = TypeVar("T")
 
-__all__ = ("OffsetPagination", "ReferenceLimit")
+__all__ = ("Offset", "OffsetPagination", "ReferenceLimit")
 
 # Reference (catalog) endpoints serve bounded, slowly-changing seed data, so they allow a
 # higher page size than the standard le=100 cap. This lets clients fetch a whole catalog
 # (e.g. all blueprint traits) in a single request instead of enumerating many pages.
 ReferenceLimit = Annotated[int, Parameter(ge=0, le=REFERENCE_MAX_LIMIT)]
+Offset = Annotated[int, Parameter(ge=0, le=MAX_PAGINATION_OFFSET)]
 
 
 @dataclass

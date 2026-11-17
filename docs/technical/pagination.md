@@ -15,9 +15,9 @@ Control pagination using these query parameters.
 | Parameter | Type    | Default | Range | Description                          |
 | --------- | ------- | ------- | ----- | ------------------------------------ |
 | `limit`   | integer | 10      | 0-100 | Maximum number of items to return    |
-| `offset`  | integer | 0       | 0+    | Number of items to skip from the top |
+| `offset`  | integer | 0       | 0-100,000 | Number of items to skip from the top |
 
-A request with a `limit` above the allowed range returns a `400` error. The default `limit` stays at 10, so you must pass a larger value to get more items per request.
+A request with a `limit` or `offset` outside the allowed range returns a `400` error. The default `limit` stays at 10, so you must pass a larger value to get more items per request.
 
 !!! note "Reference endpoints allow a larger limit"
 

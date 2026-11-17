@@ -13,7 +13,7 @@ from litestar.params import Parameter
 from vapi.constants import UserRole
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import GlobalAdminUserService
 from vapi.domain.services.user_svc import annotate_user_counts
 from vapi.lib.exceptions import NotFoundError
@@ -47,7 +47,7 @@ class GlobalAdminUserController(Controller):
             bool | None, Parameter(description="Filter by archived state.")
         ] = None,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[AdminUserResponse]:
         """List users across all companies, with optional filters."""
         qs = User.all()

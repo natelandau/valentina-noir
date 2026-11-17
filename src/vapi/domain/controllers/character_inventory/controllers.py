@@ -12,7 +12,7 @@ from litestar.params import Parameter
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
     storyteller_character_access_guard,
@@ -50,7 +50,7 @@ class CharacterInventoryController(Controller):
         self,
         character: Character,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[InventoryItemResponse]:
         """List all inventory items."""
         qs = CharacterInventory.filter(character_id=character.id, is_archived=False).order_by(

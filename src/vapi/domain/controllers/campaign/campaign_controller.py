@@ -13,7 +13,7 @@ from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.domain.services.campaign_svc import annotate_campaign_counts
 from vapi.lib.exceptions import NotFoundError
@@ -53,7 +53,7 @@ class CampaignController(Controller):
         *,
         company: Company,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[CampaignResponse]:
         """List all campaigns."""
         qs = Campaign.filter(company_id=company.id, is_archived=False).order_by("name", "id")

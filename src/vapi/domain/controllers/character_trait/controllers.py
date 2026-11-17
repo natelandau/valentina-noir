@@ -15,7 +15,7 @@ from vapi.db.sql_models.character import Character, CharacterTrait, CharacterTra
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import CharacterTraitService, TrackerService
 from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import (
@@ -68,7 +68,7 @@ class CharacterTraitController(Controller):
         self,
         character: Character,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         category_id: Annotated[UUID, Parameter(description="Filter by trait category.")]
         | None = None,
         is_rollable: Annotated[bool | None, Parameter(description="Show rollable traits.")] = None,

@@ -24,7 +24,7 @@ from vapi.db.sql_models.character_sheet import TraitCategory
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService, TrackerService
 from vapi.domain.services.character_svc import annotate_character_counts
 from vapi.lib.detail_includes import apply_includes
@@ -78,7 +78,7 @@ class CharacterController(Controller):
         company: Company,
         acting_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         campaign_id: Annotated[UUID, Parameter(description="Filter by campaign.")] | None = None,
         user_player_id: Annotated[
             UUID, Parameter(description="Show characters played by this user.")

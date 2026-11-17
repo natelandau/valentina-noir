@@ -13,7 +13,7 @@ from tortoise.transactions import in_transaction
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.patch import archive_active, save_active_patch
@@ -45,7 +45,7 @@ class QuickRollController(Controller):
         self,
         target_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[dto.QuickRollResponse]:
         """List all user quick rolls."""
         qs = QuickRoll.filter(user=target_user, is_archived=False).order_by("name")

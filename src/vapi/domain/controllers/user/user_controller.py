@@ -13,7 +13,7 @@ from vapi.constants import UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import UserService
 from vapi.domain.services.user_svc import annotate_user_counts
 from vapi.lib.detail_includes import apply_includes
@@ -58,7 +58,7 @@ class UserController(Controller):
         self,
         company: Company,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         user_role: UserRole | None = None,
         email: str | None = None,
     ) -> OffsetPagination[UserResponse]:
@@ -169,7 +169,7 @@ class UserController(Controller):
         company: Company,
         acting_user: User,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[UserResponse]:
         """Retrieve unapproved users within a company."""
         service = UserService()

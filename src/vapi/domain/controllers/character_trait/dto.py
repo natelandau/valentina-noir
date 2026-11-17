@@ -11,7 +11,7 @@ from vapi.constants import (
     TraitModifyCurrency,
 )
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
-from vapi.domain.controllers.request_types import LongText, Name3to50
+from vapi.domain.controllers.request_types import LongText, Name3to50, TraitScore
 from vapi.lib.tracker_rules import HUMANITY_BOXES, resolve_tracker_type
 
 if TYPE_CHECKING:
@@ -22,14 +22,13 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Request Structs
 # ---------------------------------------------------------------------------
-TraitScore = Annotated[int, msgspec.Meta(ge=0, le=100)]
 
 
 class CharacterTraitAddConstant(msgspec.Struct):
     """Request body for assigning an existing trait to a character."""
 
     trait_id: UUID
-    value: int = 0
+    value: TraitScore = 0
     currency: TraitModifyCurrency = TraitModifyCurrency.NO_COST
 
 
@@ -64,7 +63,7 @@ class CharacterTraitSpecialtyUpdate(msgspec.Struct):
 class TraitModifyRequest(msgspec.Struct):
     """Request body for modifying a trait's value."""
 
-    target_value: int
+    target_value: TraitScore
     currency: TraitModifyCurrency
 
 

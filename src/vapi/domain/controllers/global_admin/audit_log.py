@@ -19,7 +19,7 @@ from vapi.domain.audit import (
     build_audit_log_filters,
     list_audit_logs,
 )
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
@@ -47,7 +47,7 @@ class GlobalAdminAuditLogController(Controller):
         *,
         developer: Developer,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         company_id: UUID | None = None,
         acting_user_id: UUID | None = None,
         user_id: UUID | None = None,

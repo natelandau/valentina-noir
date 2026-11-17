@@ -12,7 +12,7 @@ from litestar.params import Parameter
 from vapi.db.sql_models.campaign import Campaign, CampaignBook
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.domain.services.campaign_svc import annotate_book_counts
 from vapi.lib.detail_includes import apply_includes
@@ -65,7 +65,7 @@ class CampaignBookController(Controller):
         request: Request,
         campaign: Campaign,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[CampaignBookResponse]:
         """List all books."""
         qs = CampaignBook.filter(campaign_id=campaign.id, is_archived=False)

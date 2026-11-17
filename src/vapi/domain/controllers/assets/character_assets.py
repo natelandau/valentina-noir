@@ -15,7 +15,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.assets import dto
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Offset, OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
     storyteller_character_access_guard,
@@ -57,7 +57,7 @@ class CharacterAssetsController(BaseAssetsController):
         self,
         character: Character,
         limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
