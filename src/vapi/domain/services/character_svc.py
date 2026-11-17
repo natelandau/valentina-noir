@@ -10,7 +10,7 @@ from tortoise.functions import Count
 from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
-from vapi.constants import CharacterClass, CharacterStatus, CharacterType, SpecialtyRules, UserRole
+from vapi.constants import CharacterClass, CharacterStatus, CharacterType, SpecialtyRules
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.character import (
     Character,
@@ -29,7 +29,7 @@ from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet, tracker_type_for
 from vapi.domain.services.tracker_svc import TrackerService, is_derived_trait
 from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
-from vapi.lib.guards import npc_management_permitted, user_can_edit_character
+from vapi.lib.guards import INACTIVE_ROLES, npc_management_permitted, user_can_edit_character
 from vapi.lib.patch import apply_patch
 from vapi.utils.time import time_now
 
@@ -478,7 +478,7 @@ class CharacterService:
         if await User.filter(
             id=user_player_id,
             company_id=company_id,
-            role__in=[UserRole.UNAPPROVED, UserRole.DEACTIVATED],
+            role__in=list(INACTIVE_ROLES),
         ).exists():
             msg = "The player must be an approved, active user"
             raise ValidationError(
