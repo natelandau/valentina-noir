@@ -170,7 +170,7 @@ Available fields:
 | Computed | `duration_ms`                                                                                                              |
 | Scope    | `request_id`, `developer_id`, `operation_id`, `idempotency_key`, `acting_user_id`, `error_type`, `error_detail`, `invalid_parameters` |
 
-`request_body` masks credential keys (`token`, `api_key`, `password`, and similar). `response_body` is masked whole on routes that set the `SENSITIVE_RESPONSE_OPT_KEY` route opt, such as the API key endpoints. The idempotency cache skips those routes too.
+`request_body` masks the credential keys in `SENSITIVE_BODY_KEYS` (`src/vapi/constants.py`) at any depth and in any letter case, the same list audit logging redacts. A body that is not valid JSON is logged as-is. `response_body` is masked whole on routes that set the `SENSITIVE_RESPONSE_OPT_KEY` route opt, such as the API key endpoints. The idempotency cache skips those routes too.
 
 The entry's log level follows the response status, so a failed request is one line at the right severity rather than a separate error line:
 
