@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from redis.asyncio import Redis
+from scripts.devenv.workers import auto_num_workers
 from tortoise import Tortoise
 
 from vapi.cli.seed import seed_async
@@ -29,6 +30,14 @@ pytest_plugins = (
 )
 # Set anyio as the default async backend for all tests
 pytestmark = pytest.mark.anyio
+
+
+def pytest_xdist_auto_num_workers(config: pytest.Config) -> int | None:
+    """Cap the workers `-n auto` starts on a developer machine."""
+    if config.option.numprocesses == "logical":
+        return None
+    return auto_num_workers(os.environ, os.process_cpu_count())
+
 
 # Git sets these for hooks. A test that runs git in a temporary repository would inherit
 # them and act on this checkout's repository instead, rewriting its config.

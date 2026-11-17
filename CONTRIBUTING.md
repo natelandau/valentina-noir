@@ -374,9 +374,11 @@ We use [Duty](https://pawamoy.github.io/duty/) as the task runner. These tasks d
 
 ### Skipped checks
 
-`uv run duty lint` and `uv run duty test` run each check through [gate-cache](https://github.com/natelandau/gate-cache). When a check passes, gate-cache records the pass for the exact content of the working copy. If you run the same check again on the same content, gate-cache skips it and prints `already passed on tree ..., skipping`. A change to any file that git does not ignore makes the check run again. The prek hooks call the same tasks, so a check that passed in your terminal is skipped at commit or push time.
+`uv run duty lint` and `uv run duty test` run each check through [gate-cache](https://github.com/natelandau/gate-cache). When a check passes, gate-cache records the pass for the exact content of the working copy. If you run the same check again on the same content, gate-cache skips it and prints `already passed on tree ..., skipping`. For a lint check, a change to any file that git does not ignore makes the check run again. The test suite runs again only when something it reads changes: `src/`, `tests/`, `scripts/`, `duties.py`, `pyproject.toml`, `uv.lock`, `.python-version`, or `compose.yml`. A change to only the documentation or other files does not run the tests again. These paths are listed in `TEST_GATE_PATHS` in `duties.py`. If you make the tests read a file outside them, add that file to the list, or the tests skip changes to it. The prek hooks call the same tasks, so a check that passed in your terminal is skipped at commit or push time.
 
 `uv run duty test` with pytest options, for example `uv run duty test -- -k unit`, always runs, because a filtered run must not skip the full suite.
+
+A test run leaves a quarter of the CPU cores free (at least 1), with a minimum of 2 test workers, so the machine stays usable while the tests run. This applies to `uv run duty test`, `uv run pytest`, and test runs in your editor. When the `CI` variable is set to a value other than `0` or `false`, the tests use every core. To choose the number of test workers yourself, set `PYTEST_XDIST_AUTO_NUM_WORKERS`, for example `PYTEST_XDIST_AUTO_NUM_WORKERS=6 uv run duty test`.
 
 To make every check run, set `GATE_CACHE_DISABLE=1`, or delete all records with `uv run gate-cache clear`. Caching is off when the `CI` variable is set.
 
