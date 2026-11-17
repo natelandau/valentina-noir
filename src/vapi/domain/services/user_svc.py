@@ -179,11 +179,15 @@ class UserService:
         if target_user.role != UserRole.ADMIN:
             return
 
-        admins = await User.filter(
-            company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
-            role=UserRole.ADMIN,
-            is_archived=False,
-        ).select_for_update()
+        admins = (
+            await User.filter(
+                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+                role=UserRole.ADMIN,
+                is_archived=False,
+            )
+            .order_by("id")
+            .select_for_update()
+        )
 
         if not any(admin.id != target_user.id for admin in admins):
             raise ConflictError(
@@ -294,8 +298,8 @@ class UserService:
         """
         from vapi.domain import deps
 
-        await self._assert_requester_active(acting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=acting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
+        self._assert_can_manage(requesting_user=requesting_user, user_to_manage_id=None)
 
         if primary_user_id == secondary_user_id:
             raise ValidationError(detail="Cannot merge a user with themselves")
@@ -305,12 +309,14 @@ class UserService:
             deps.provide_target_user(user_id=secondary_user_id, company=company),
         )
 
-        if secondary_user.role != UserRole.UNAPPROVED:
-            raise ValidationError(detail="Secondary user must have UNAPPROVED role")
-
         async with in_transaction():
-            if not await primary_user.lock_for_update(is_archived=False):
+            rows = await User.lock_rows([primary_user.id, secondary_user.id], is_archived=False)
+            if primary_user.id not in rows or secondary_user.id not in rows:
                 raise NotFoundError(detail="User not found")
+            primary_user.reload_from(rows[primary_user.id])
+            secondary_user.reload_from(rows[secondary_user.id])
+            if secondary_user.role != UserRole.UNAPPROVED:
+                raise ValidationError(detail="Secondary user must have UNAPPROVED role")
             absorbed_fields = self._absorb_profiles(primary=primary_user, secondary=secondary_user)
             if absorbed_fields:
                 await primary_user.save(update_fields=absorbed_fields)
@@ -485,8 +491,8 @@ class UserService:
             ValidationError: If the user is not UNAPPROVED.
             PermissionDeniedError: If the requesting user is not an admin.
         """
-        await self._assert_requester_active(acting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=acting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
+        self._assert_can_manage(requesting_user=requesting_user, user_to_manage_id=None)
 
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")

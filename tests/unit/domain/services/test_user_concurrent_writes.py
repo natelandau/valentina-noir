@@ -553,3 +553,32 @@ async def test_merge_users_refused_after_concurrent_primary_delete(
         )
     stored_secondary = await User.get(id=secondary.id)
     assert stored_secondary.is_archived is False
+
+
+async def test_merge_users_refused_after_concurrent_secondary_approval(
+    company_factory: Callable[..., Company],
+    user_factory: Callable[..., User],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify a merge cannot archive a secondary user approved mid-request."""
+    # Given a secondary user approved while the merge is in flight
+    company = await company_factory()
+    admin = await user_factory(role=UserRole.ADMIN, company=company)
+    primary = await user_factory(role=UserRole.PLAYER, company=company)
+    secondary = await user_factory(role=UserRole.UNAPPROVED, company=company)
+    _run_before_transaction(
+        monkeypatch, lambda: _patch_concurrently(secondary.id, role=UserRole.PLAYER)
+    )
+
+    # When the admin merges the secondary into the primary
+    # Then the merge is refused and the approved secondary stays active
+    with pytest.raises(ValidationError):
+        await UserService().merge_users(
+            primary_user_id=primary.id,
+            secondary_user_id=secondary.id,
+            company=company,
+            acting_user_id=admin.id,
+        )
+    stored_secondary = await User.get(id=secondary.id)
+    assert stored_secondary.is_archived is False
+    assert stored_secondary.role == UserRole.PLAYER
