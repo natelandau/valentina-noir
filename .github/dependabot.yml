@@ -39,6 +39,10 @@ updates:
     commit-message:
       prefix: "build"
       include: scope
+    # The runtime Python must match the builder's and requires-python, so move it by hand
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       docker-base-images:
         patterns:
