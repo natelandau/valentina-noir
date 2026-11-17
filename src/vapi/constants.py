@@ -44,6 +44,9 @@ IDEMPOTENCY_IN_PROGRESS_CODE: Final[str] = "IDEMPOTENCY_IN_PROGRESS"
 # The in-flight TTL is a worst-case bound; most duplicates finish within a second
 IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS: Final[int] = 1
 IDEMPOTENCY_MAX_CACHED_BODY_BYTES: Final[int] = 1024 * 1024  # 1 MB
+# Request structs ignore unknown keys, so a body can be far larger than the fields an
+# endpoint accepts. Cap what each audit row keeps; the budget fits every legitimate DTO.
+AUDIT_MAX_BODY_BYTES: Final[int] = 65_536
 TEMPORARY_CHARACTER_RETENTION_HOURS: Final[int] = 24
 CHARGEN_SESSION_RETENTION_HOURS: Final[int] = 24
 REQUEST_ID_HEADER: Final[str] = "X-Request-Id"
