@@ -11,9 +11,11 @@ from vapi.constants import MAX_DICTIONARY_SYNONYMS
 from vapi.db.sql_models.character_sheet import TraitPower
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain.controllers.character_blueprint.dto import TraitPowerResponse
-from vapi.domain.controllers.request_types import LongText, Name1to50, Name3to50, Url
+from vapi.domain.controllers.request_types import LongText, Name3to50, Url
 
-Synonyms = Annotated[list[Name1to50], msgspec.Meta(max_length=MAX_DICTIONARY_SYNONYMS)]
+# Saving strips each synonym, so one must hold a non-space character to stay non-empty.
+Synonym = Annotated[str, msgspec.Meta(min_length=1, max_length=50, pattern=r"\S")]
+Synonyms = Annotated[list[Synonym], msgspec.Meta(max_length=MAX_DICTIONARY_SYNONYMS)]
 
 
 class DictionaryTermCreate(msgspec.Struct):

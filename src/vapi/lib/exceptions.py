@@ -611,7 +611,7 @@ def operational_error_to_http_response(
         Response[dict[str, Any]]: A properly formatted HTTP 400 or 500 response.
     """
     if isinstance(exc.__cause__, _VALUE_TOO_LARGE_ERRORS):
-        logger.info(
+        logger.warning(
             "Value did not fit its database column",
             extra={"error": str(exc.__cause__), "component": "database"},
         )

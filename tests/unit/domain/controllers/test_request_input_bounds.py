@@ -139,6 +139,8 @@ def test_list_endpoints_bound_offset() -> None:
         "ftp://example.com/file",
         "data:text/html,hello",
         "example.com",
+        "https://example.com\n",
+        "https://example.com/a b",
         "https://" + "a" * MAX_URL_LENGTH,
     ],
 )
@@ -167,6 +169,7 @@ def test_dictionary_link_accepts_http_urls(struct: type[msgspec.Struct], link: s
         ["x"] * (MAX_DICTIONARY_SYNONYMS + 1),
         ["a" * 51],
         [""],
+        ["   "],
     ],
 )
 def test_dictionary_synonyms_are_bounded(struct: type[msgspec.Struct], synonyms: list[str]) -> None:

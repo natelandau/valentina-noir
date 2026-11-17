@@ -23,12 +23,16 @@ Name3to50 = Annotated[str, msgspec.Meta(min_length=3, max_length=50)]
 # Fields the model stores as null when empty take NameMax50, not a minimum, so an empty
 # string still clears them.
 NameMax50 = Annotated[str, msgspec.Meta(max_length=50)]
-Name1to50 = Annotated[str, msgspec.Meta(min_length=1, max_length=50)]
 PersonName = Annotated[str, msgspec.Meta(min_length=2, max_length=50)]
 LongText = Annotated[str, msgspec.Meta(max_length=MAX_LONG_TEXT_LENGTH)]
 LongText3 = Annotated[str, msgspec.Meta(min_length=3, max_length=MAX_LONG_TEXT_LENGTH)]
 # Blocks javascript:, data: and other schemes a client might render as a clickable link.
-Url = Annotated[str, msgspec.Meta(pattern=r"^(?i:https?)://\S+$", max_length=MAX_URL_LENGTH)]
+# Character classes instead of an inline (?i) flag keep the OpenAPI pattern ECMA-262 valid.
+# The end-of-string lookahead replaces $, which Python also matches before a final newline.
+Url = Annotated[
+    str,
+    msgspec.Meta(pattern=r"^[Hh][Tt][Tt][Pp][Ss]?://\S+(?![\s\S])", max_length=MAX_URL_LENGTH),
+]
 Age = Annotated[int, msgspec.Meta(ge=0, le=MAX_CHARACTER_AGE)]
 Generation = Annotated[int, msgspec.Meta(ge=MIN_VAMPIRE_GENERATION, le=MAX_VAMPIRE_GENERATION)]
 TraitScore = Annotated[int, msgspec.Meta(ge=0, le=MAX_TRAIT_VALUE)]
@@ -40,7 +44,6 @@ __all__ = (
     "Generation",
     "LongText",
     "LongText3",
-    "Name1to50",
     "Name3to50",
     "NameMax50",
     "PersonName",
