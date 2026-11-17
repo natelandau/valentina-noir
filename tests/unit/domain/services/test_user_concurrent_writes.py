@@ -9,7 +9,7 @@ import pytest
 from PIL import Image
 
 from tests.fixtures import build_verified_identity
-from vapi.constants import UserRole
+from vapi.constants import IdentityProvider, UserRole
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.global_admin.dto import AdminUserPatch
@@ -20,7 +20,7 @@ from vapi.domain.services import (
     IdentityService,
     UserService,
 )
-from vapi.lib.exceptions import NotFoundError, ValidationError
+from vapi.lib.exceptions import ConflictError, NotFoundError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -259,6 +259,94 @@ async def test_link_identity_keeps_concurrent_role_change(
     stored = await User.get(id=target.id)
     assert stored.apple_profile is not None
     assert stored.role == UserRole.PLAYER
+
+
+async def test_link_identity_refused_after_concurrent_archive(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify linking on a stale instance cannot write to, or un-archive, an archived user."""
+    # Given a user loaded before another request archives them
+    company = await company_factory()
+    target = await user_factory(company=company)
+    stale = await User.get(id=target.id)
+    await _archive_concurrently(target.id)
+
+    # When an identity is linked on the stale instance
+    # Then the link is refused and the archive holds
+    with pytest.raises(NotFoundError):
+        await IdentityService().link_identity(
+            company=company, user=stale, identity=build_verified_identity()
+        )
+    stored = await User.get(id=target.id)
+    assert stored.is_archived is True
+    assert stored.archive_batch_id is not None
+    assert stored.apple_profile is None
+
+
+async def test_link_identity_does_not_trust_concurrently_changed_email(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify an identity proving the old email cannot mark a concurrently changed email trusted."""
+    # Given a user loaded before their email changes to one no provider proved
+    company = await company_factory()
+    target = await user_factory(company=company, email="person@example.com", email_trusted=False)
+    stale = await User.get(id=target.id)
+    await User.filter(id=target.id).update(email="changed@example.com", email_trusted=False)
+
+    # When an identity verifying the old email is linked on the stale instance
+    await IdentityService().link_identity(
+        company=company, user=stale, identity=build_verified_identity()
+    )
+
+    # Then the new email stays untrusted
+    stored = await User.get(id=target.id)
+    assert stored.email == "changed@example.com"
+    assert stored.email_trusted is False
+
+
+async def test_unlink_identity_refused_after_concurrent_archive(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify unlinking on a stale instance cannot write to an archived user."""
+    # Given a user with two identities, loaded before another request archives them
+    company = await company_factory()
+    target = await user_factory(
+        company=company, apple_profile={"id": "apple-sub-001"}, github_profile={"id": "4242"}
+    )
+    stale = await User.get(id=target.id)
+    await _archive_concurrently(target.id)
+
+    # When the apple identity is unlinked on the stale instance
+    # Then the unlink is refused and the archive holds
+    with pytest.raises(NotFoundError):
+        await IdentityService().unlink_identity(user=stale, provider=IdentityProvider.APPLE)
+    stored = await User.get(id=target.id)
+    assert stored.is_archived is True
+    assert stored.apple_profile == {"id": "apple-sub-001"}
+
+
+async def test_unlink_identity_counts_identities_on_committed_row(
+    company_factory: Callable[..., Company], user_factory: Callable[..., User]
+) -> None:
+    """Verify a stale unlink cannot remove the last identity left after a concurrent unlink."""
+    # Given a user with two identities, loaded before a concurrent request unlinks one
+    company = await company_factory()
+    target = await user_factory(
+        company=company, apple_profile={"id": "apple-sub-001"}, github_profile={"id": "4242"}
+    )
+    stale = await User.get(id=target.id)
+    await IdentityService().unlink_identity(
+        user=await User.get(id=target.id), provider=IdentityProvider.GITHUB
+    )
+
+    # When the other identity is unlinked on the stale instance
+    # Then it is refused as the last identity and stays linked
+    with pytest.raises(ConflictError) as exc_info:
+        await IdentityService().unlink_identity(user=stale, provider=IdentityProvider.APPLE)
+    assert exc_info.value.extension == {"code": "LAST_IDENTITY"}
+    stored = await User.get(id=target.id)
+    assert stored.apple_profile == {"id": "apple-sub-001"}
+    assert stored.github_profile is None
 
 
 async def test_update_user_diffs_against_locked_row(

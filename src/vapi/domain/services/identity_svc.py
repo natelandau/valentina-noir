@@ -211,7 +211,6 @@ class IdentityService:
                 user.email_trusted = True
                 update_fields.append("email_trusted")
             await user.save(update_fields=update_fields)
-        await user.fetch_related("campaign_experiences")
         return user
 
     async def unlink_identity(self, *, user: User, provider: IdentityProvider) -> User:
@@ -257,7 +256,6 @@ class IdentityService:
 
             setattr(user, profile_field, None)
             await user.save(update_fields=[profile_field])
-        await user.fetch_related("campaign_experiences")
         return user
 
     async def _create_user(
