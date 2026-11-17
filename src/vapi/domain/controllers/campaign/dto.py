@@ -13,6 +13,8 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
+from vapi.domain.controllers.assets.dto import S3AssetResponse
+from vapi.domain.controllers.notes.dto import NoteResponse
 from vapi.domain.controllers.request_types import LongText, Name3to50, NameMax50
 from vapi.lib.detail_includes import active_prefetch
 from vapi.lib.guards import visible_characters
@@ -182,11 +184,9 @@ class CampaignBookResponse(msgspec.Struct):
 class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
     """Response body for a single campaign book with optional embedded children."""
 
-    # Child DTO modules can't be imported at module level without circular imports,
-    # so fields are typed as the msgspec.Struct base and narrowed at runtime.
-    chapters: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    chapters: list["CampaignChapterResponse"] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[NoteResponse] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[S3AssetResponse] | msgspec.UnsetType = msgspec.UNSET
 
     @classmethod
     def from_model(
@@ -200,9 +200,6 @@ class CampaignBookDetailResponse(CampaignBookResponse, omit_defaults=True):
             m: The CampaignBook model instance with relations prefetched.
             includes: Set of BookInclude values indicating which children to embed.
         """
-        from vapi.domain.controllers.assets.dto import S3AssetResponse
-        from vapi.domain.controllers.notes.dto import NoteResponse
-
         includes = includes or set()
         base = CampaignBookResponse.from_model(m)
         fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
@@ -256,8 +253,8 @@ class CampaignChapterResponse(msgspec.Struct):
 class CampaignChapterDetailResponse(CampaignChapterResponse, omit_defaults=True):
     """Response body for a single chapter with optional embedded children."""
 
-    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[NoteResponse] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[S3AssetResponse] | msgspec.UnsetType = msgspec.UNSET
 
     @classmethod
     def from_model(
@@ -266,9 +263,6 @@ class CampaignChapterDetailResponse(CampaignChapterResponse, omit_defaults=True)
         includes: set[ChapterInclude] | None = None,
     ) -> "CampaignChapterDetailResponse":
         """Convert a CampaignChapter to a detail response with optional children."""
-        from vapi.domain.controllers.assets.dto import S3AssetResponse
-        from vapi.domain.controllers.notes.dto import NoteResponse
-
         includes = includes or set()
         base = CampaignChapterResponse.from_model(m)
         fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}
