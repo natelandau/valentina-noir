@@ -29,12 +29,16 @@ jobs:
         with:
             ref: ${{ inputs.tag || github.ref }}
 
-    autorelease:
-        name: Create Release
+    # Reads the checked-out tree with a read-only token. The write job below uses only
+    # the tag this job verified.
+    check-version:
+        name: Check the tag matches the project version
         runs-on: "ubuntu-latest"
         needs: run-tests
         permissions:
-            contents: write
+            contents: read
+        outputs:
+            tag: ${{ steps.verify.outputs.tag }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,17 +47,13 @@ jobs:
                   fetch-depth: 0
                   persist-credentials: false
 
-            - name: Setup Python, uv, and the package
-              uses: ./.github/actions/setup_python_env
-              with:
-                  python-version: "3.13"
-
             - name: Add version to environment vars
               run: |
-                  PROJECT_VERSION=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+                  PROJECT_VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
                   echo "PROJECT_VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV"
 
             - name: Check if tag version matches project version
+              id: verify
               shell: bash
               run: |
                   if ! git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
@@ -67,35 +67,42 @@ jobs:
                       echo "::error::Tag $TAG does not match project version v$PROJECT_VERSION"
                       exit 1
                   fi
+                  echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-            # DEPRECATED: We do not offer valentina-noir as a package
-            # - name: Build the package
-            #   shell: bash
-            #   run: uv build
-
-            # DEPRECATED: This release notes generation is no longer used
-            # - name: Release Notes
-            #   run: git log $(git describe HEAD~ --tags --abbrev=0)..HEAD --pretty='format:* %h %s' --no-merges >> ".github/RELEASE-TEMPLATE.md"
+    autorelease:
+        name: Create Release
+        runs-on: "ubuntu-latest"
+        needs: check-version
+        permissions:
+            contents: write
+        env:
+            RELEASE_TAG: ${{ needs.check-version.outputs.tag }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ env.RELEASE_TAG }}
+                  persist-credentials: false
 
             # Extract the tag's section from CHANGELOG.md in-repo, so no third-party code
             # runs in a job that holds a contents: write token.
             - name: Get notes
               shell: bash
               run: |
-                  awk -v heading="## $TAG " '
+                  awk -v heading="## $RELEASE_TAG " '
                       index($0, heading) == 1 { found = 1; next }
                       found && /^## / { exit }
                       found { print }
                   ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
                   if [[ ! -s "$RUNNER_TEMP/release-notes.md" ]]; then
-                      echo "::error::CHANGELOG.md has no section for $TAG"
+                      echo "::error::CHANGELOG.md has no section for $RELEASE_TAG"
                       exit 1
                   fi
 
             - name: Create Release
               uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
               with:
-                  tag_name: ${{ env.TAG }}
+                  tag_name: ${{ env.RELEASE_TAG }}
                   body_path: ${{ runner.temp }}/release-notes.md
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
