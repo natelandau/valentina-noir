@@ -65,20 +65,30 @@ On-Behalf-Of: 550e8400-e29b-41d4-a716-446655440000
 
 The API validates the header in this order:
 
-1. **Present** — returns `400 Bad Request` if missing
-2. **Valid UUID** — returns `400 Bad Request` if malformed
-3. **User exists** — returns `404 Not Found` if no user matches in the company
-4. **Active user** — returns `400 Bad Request` if the user is archived or deactivated
+1. **Present**: if the header is missing, an endpoint that checks the role of the user returns `403 Forbidden`. Other endpoints that need the header return `400 Bad Request`.
+2. **Valid UUID**: if the value is not a valid UUID, the API returns `400 Bad Request`.
+3. **User exists**: if no active user in the company has that ID, the API returns `404 Not Found`. An archived user is not found.
+4. **Approved and active user**: if the user is unapproved or deactivated, the API returns `403 Forbidden`.
 
 ### Error Responses
 
-Missing or invalid header:
+Missing header on an endpoint that checks the role of the user:
+
+```json
+{
+    "status": 403,
+    "title": "Forbidden",
+    "detail": "On-Behalf-Of header is required"
+}
+```
+
+Header that is not a valid UUID:
 
 ```json
 {
     "status": 400,
     "title": "Bad Request",
-    "detail": "On-Behalf-Of header is required"
+    "detail": "On-Behalf-Of header must be a valid UUID"
 }
 ```
 
@@ -88,7 +98,7 @@ User not found:
 {
     "status": 404,
     "title": "Not Found",
-    "detail": "User not found in this company"
+    "detail": "User '550e8400-e29b-41d4-a716-446655440000' not found"
 }
 ```
 

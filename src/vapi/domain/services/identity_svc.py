@@ -307,7 +307,7 @@ class IdentityService:
             company_id=company.id,
         )
         setattr(user, profile_field, identity.profile)
-        await user.save()
+        await user.save(force_create=True)
         return user
 
     @staticmethod

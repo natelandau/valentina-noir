@@ -241,7 +241,7 @@ class CompanyService:
             # Update
             if existing:
                 existing.permission = new_permission
-                await existing.save()
+                await existing.save(update_fields=["permission"])
                 await existing.fetch_related("company")
                 return existing
 

@@ -35,7 +35,8 @@ from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
-from vapi.lib.exceptions import NotFoundError, ValidationError
+from vapi.lib.exceptions import NotFoundError
+from vapi.lib.guards import parse_acting_user_id
 
 if TYPE_CHECKING:
     from litestar import Request
@@ -279,15 +280,7 @@ async def provide_acting_user(
     if cached is not None and cached.company_id == company.id:  # ty:ignore[unresolved-attribute]
         return cached
 
-    try:
-        user_id = UUID(on_behalf_of)
-    except ValueError as e:
-        raise ValidationError(
-            detail=f"{ON_BEHALF_OF_HEADER_KEY} header must be a valid UUID",
-            invalid_parameters=[
-                {"field": ON_BEHALF_OF_HEADER_KEY, "message": "Must be a valid ID."},
-            ],
-        ) from e
+    user_id = parse_acting_user_id(on_behalf_of)
 
     user = (
         await User.filter(
@@ -300,7 +293,7 @@ async def provide_acting_user(
     )
 
     if not user:
-        raise NotFoundError(detail="Acting user not found")
+        raise NotFoundError(detail=f"User '{on_behalf_of}' not found")
 
     request.state.acting_user = user
     return user

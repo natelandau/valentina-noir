@@ -66,7 +66,7 @@ Characters track their living status, which the system uses to manage gameplay s
 
 ### Age
 
-A character's `age` can follow the campaign's calendar. The `age` and `date_of_birth` fields are both optional on create and update. `age` must be 0 or more. `date_of_birth` is an ISO 8601 calendar date, for example `"1960-03-15"`.
+A character's `age` can follow the campaign's calendar. The `age` and `date_of_birth` fields are both optional on create and update. `age` must be from 0 to 100,000. `date_of_birth` is an ISO 8601 calendar date, for example `"1960-03-15"`.
 
 The `age` in the response depends on the character's status and on two dates:
 
@@ -91,7 +91,7 @@ This can be useful when creating characters in multi-stage creation sessions. Do
 
 Some character classes have additional attributes beyond the standard set.
 
-- **Vampires** - Clan, generation, sire, bane, and compulsion (auto-populated from clan data)
+- **Vampires** - Clan, generation (1-16, or `null`), sire, bane, and compulsion (auto-populated from clan data)
 - **Werewolves** - Tribe, auspice, pack name, and total renown (computed from Honor + Wisdom + Glory). Gifts and rites are managed as [traits](./character_traits.md) under the "Other" section.
 - **Mages** - Sphere and tradition
 - **Hunters** - Creed and edges (managed as traits via [subcategories](./character_traits.md#trait-subcategories))

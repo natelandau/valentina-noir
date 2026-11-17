@@ -25,12 +25,14 @@ logger = logging.getLogger("vapi")
 
 __all__ = (
     "cache_authenticated_developer",
+    "caller_key_prefix",
     "claim_store_key",
     "delete_authentication_cache_for_developer",
     "delete_response_cache_for_api_key",
     "delete_response_cache_for_company",
     "get_authentication_generation",
     "response_cache_key_builder",
+    "split_caller_key",
 )
 
 
@@ -80,6 +82,41 @@ def _canonical_query(request: Request) -> str:
     return urlencode(query)
 
 
+def caller_key_prefix(request: Request) -> str:
+    """Encode the calling API key and acting user as the leading fields of a cache key.
+
+    Use it to scope any per-caller cache key, so one developer or acting user never
+    reads another's entry. On-Behalf-Of may contain ":", so it is length-prefixed to
+    keep it apart from the fields that follow.
+
+    Args:
+        request (Request): Current request instance.
+
+    Returns:
+        str: The full API key fingerprint and the length-prefixed acting user.
+    """
+    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
+    acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY) or ""
+    return f"{fingerprint}:{len(acting_user)}:{acting_user}"
+
+
+def split_caller_key(key: str) -> tuple[str, str]:
+    """Split a key that starts with ``caller_key_prefix`` into its caller and request parts.
+
+    Use it to read the request fields of a per-caller key without trusting the acting
+    user, a caller-supplied header that may contain anything the request fields could.
+
+    Args:
+        key (str): A key built from ``caller_key_prefix``.
+
+    Returns:
+        tuple[str, str]: The API key fingerprint and the fields after the acting user.
+    """
+    fingerprint, _, rest = key.partition(":")
+    length, _, rest = rest.partition(":")
+    return fingerprint, rest[int(length) + 1 :] if length.isdigit() else rest
+
+
 def response_cache_key_builder(request: Request) -> str:
     """Create a cache key for the response cache.
 
@@ -100,11 +137,9 @@ def response_cache_key_builder(request: Request) -> str:
     Returns:
         str: App slug prefixed cache key.
     """
-    fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
-    acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY) or ""
     query = _canonical_query(request)
     path = f"{request.url.path}?{query}" if query else request.url.path
-    return f"{fingerprint}:{acting_user}:{request.method}{path}"
+    return f"{caller_key_prefix(request)}:{request.method}{path}"
 
 
 async def delete_authentication_cache_for_developer(
@@ -132,7 +167,7 @@ async def delete_authentication_cache_for_developer(
     await store.set(
         _authentication_generation_key(fingerprint),
         uuid4().hex,
-        expires_in=settings.stores.ttl,
+        expires_in=settings.stores.generation_ttl,
     )
     await store.delete(fingerprint)
 

@@ -11,7 +11,7 @@ from litestar.params import Parameter
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.dictionary import DictionaryTerm
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination, ReferenceLimit
+from vapi.domain.paginator import Offset, OffsetPagination, ReferenceLimit
 from vapi.domain.services import DictionaryService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.lib.patch import archive_active, save_active_patch
@@ -42,7 +42,7 @@ class DictionaryTermController(Controller):
         self,
         company: Company,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         term: Annotated[str, Parameter(description="Search for a term.")] | None = None,
     ) -> OffsetPagination[DictionaryTermResponse]:
         """List all dictionary terms."""
@@ -93,7 +93,7 @@ class DictionaryTermController(Controller):
             synonyms=data.synonyms,
             company_id=company.id,
         )
-        await dictionary_term.save()
+        await dictionary_term.save(force_create=True)
 
         request.state.audit_description = f"Create dictionary term '{dictionary_term.term}'"
         return DictionaryTermResponse.from_model(dictionary_term)

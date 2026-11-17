@@ -1,20 +1,18 @@
 """Campaign chapter controller."""
 
 import asyncio
-from typing import Annotated
 
 import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post, put
-from litestar.params import Parameter
 from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.domain.services.campaign_svc import annotate_chapter_counts
 from vapi.lib.detail_includes import apply_includes
@@ -67,8 +65,8 @@ class CampaignChapterController(Controller):
         *,
         request: Request,
         book: CampaignBook,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        limit: Limit = 10,
+        offset: Offset = 0,
     ) -> OffsetPagination[CampaignChapterResponse]:
         """List all chapters."""
         qs = CampaignChapter.filter(book_id=book.id, is_archived=False)

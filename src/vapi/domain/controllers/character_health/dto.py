@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import msgspec
 
-from vapi.constants import GameVersion
+from vapi.constants import MAX_EXTRA_HEALTH_LEVELS, GameVersion
 from vapi.lib.tracker_rules import v4_levels
 
 if TYPE_CHECKING:
@@ -21,7 +21,8 @@ class HealthStateSet(msgspec.Struct, forbid_unknown_fields=True):
     being dropped.
     """
 
-    extra_levels: NonNegativeInt = 0
+    # V4 builds one named level per extra level, so the cap also bounds the response size.
+    extra_levels: Annotated[int, msgspec.Meta(ge=0, le=MAX_EXTRA_HEALTH_LEVELS)] = 0
     damage: NonNegativeInt = 0
 
 

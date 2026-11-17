@@ -6,6 +6,7 @@ from enum import StrEnum
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Annotated, ClassVar
 
+import asyncpg
 import msgspec
 import pytest
 from litestar import Litestar, get, patch, post, status_codes
@@ -17,7 +18,7 @@ from litestar.exceptions import (
 )
 from litestar.params import Parameter
 from litestar.testing import TestClient
-from tortoise.exceptions import DoesNotExist, IntegrityError
+from tortoise.exceptions import DoesNotExist, IntegrityError, OperationalError
 from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from vapi.domain.controllers.campaign.dto import CampaignCreate
@@ -33,6 +34,7 @@ from vapi.lib.exceptions import (
     does_not_exist_to_http_response,
     integrity_error_to_http_response,
     litestar_http_exc_to_http_response,
+    operational_error_to_http_response,
     tortoise_validation_to_http_response,
 )
 
@@ -342,6 +344,46 @@ class TestDoesNotExistMapping:
         # Then the response is a 404 with a fixed detail
         assert response.status_code == status_codes.HTTP_404_NOT_FOUND
         assert response.content["detail"] == "Resource not found."
+
+
+class TestOperationalErrorMapping:
+    """Tests for mapping Tortoise OperationalError into the API error format."""
+
+    @pytest.mark.parametrize(
+        "cause",
+        [
+            asyncpg.exceptions.NumericValueOutOfRangeError("integer out of range"),
+            asyncpg.exceptions.StringDataRightTruncationError("value too long"),
+        ],
+    )
+    def test_value_too_large_for_column_is_400(
+        self, mocker: MockerFixture, cause: Exception
+    ) -> None:
+        """Verify a value that does not fit its column is a client error, not a 500."""
+        # Given an OperationalError caused by an out-of-range value
+        exception = OperationalError(cause)
+        exception.__cause__ = cause
+
+        # When converting it to a response
+        response = operational_error_to_http_response(_mock_request(mocker), exception)
+
+        # Then the response is a 400 that hides the database message
+        assert response.status_code == status_codes.HTTP_400_BAD_REQUEST
+        assert response.content["detail"] == "One or more values are out of range."
+        assert "integer" not in str(response.content)
+
+    def test_other_operational_errors_stay_500(self, mocker: MockerFixture) -> None:
+        """Verify unrelated database errors keep returning a generic 500."""
+        # Given an OperationalError from a server-side problem
+        cause = asyncpg.exceptions.DivisionByZeroError("division by zero")
+        exception = OperationalError(cause)
+        exception.__cause__ = cause
+
+        # When converting it to a response
+        response = operational_error_to_http_response(_mock_request(mocker), exception)
+
+        # Then the response is a 500
+        assert response.status_code == status_codes.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 class TestTortoiseValidationErrorMapping:
