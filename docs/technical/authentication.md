@@ -33,7 +33,7 @@ X-API-KEY: your-api-key-here
 
 ## Endpoints Without Authentication
 
-`GET /healthz` is a liveness probe. It needs no API key, is not rate limited, and returns `200` with `{"status": "ok"}` while the API process runs. It does not check the database or cache. Use it for hosting healthchecks, and use `GET /api/v1/health` to verify dependencies.
+`GET /healthz` is a liveness probe. It needs no API key, is not rate limited, and returns `200` with `{"status": "ok"}` while the API process runs. It does not check the database or cache. Use it for hosting healthchecks. To verify dependencies, use `GET /api/v1/health`, which needs an API key.
 
 ## The On-Behalf-Of Header
 

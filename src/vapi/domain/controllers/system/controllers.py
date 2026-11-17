@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 from litestar import Controller, MediaType, get
 from litestar.response import Response
 from redis import RedisError
+from redis.asyncio import Redis
 
-from vapi.config import settings
 from vapi.domain import urls
 from vapi.lib.database import test_db_connection
 from vapi.lib.uptime import APP_START_TIME
@@ -45,7 +45,7 @@ class SystemController(Controller):
         summary="Check system health",
         description=docs.HEALTH_CHECK_DESCRIPTION,
     )
-    async def check_system_health(self) -> Response[dto.SystemHealth]:
+    async def check_system_health(self, redis: Redis) -> Response[dto.SystemHealth]:
         """Check database available and returns app config info."""
         db_start = time.perf_counter()
         db_online = await test_db_connection()
@@ -57,7 +57,7 @@ class SystemController(Controller):
         cache_latency_ms: float | None = None
         try:
             cache_start = time.perf_counter()
-            cache_ping = await settings.redis.get_client().ping()
+            cache_ping = await redis.ping()
             cache_elapsed = time.perf_counter() - cache_start
             cache_latency_ms = round(cache_elapsed * 1000, 1) if cache_ping else None
         except RedisError:  # pragma: no cover

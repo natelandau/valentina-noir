@@ -66,6 +66,8 @@ id -g  # GID
 
 All application configuration variables from `.env.example` are also supported and should be passed to the container via an env file or environment variables.
 
+`VAPI_DEBUG` is the only switch for debug mode. The server sets `LITESTAR_DEBUG` from it at startup, so setting `LITESTAR_DEBUG` yourself has no effect.
+
 ### Behind a reverse proxy
 
 The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address.
@@ -92,6 +94,11 @@ To change them, define numbered `VAPI_RATE_LIMIT__POLICIES__<n>__*` blocks as sh
 ## Database Backups
 
 Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket. Point the CloudFront distribution's origin path at `VAPI_AWS__CLOUDFRONT_ORIGIN_PATH`, and grant CloudFront read access to that prefix only, so the CDN never serves `db_backups/`. The API refuses to start S3 work when the origin path is empty or falls under `db_backups/`.
+
+Backups and assets share one bucket, and the code cannot see the CloudFront configuration. Keep these AWS settings correct by hand:
+
+- The origin path of the CloudFront distribution must be the same as `VAPI_AWS__CLOUDFRONT_ORIGIN_PATH`.
+- Add a bucket policy statement that denies `s3:GetObject` on `db_backups/*` to the CloudFront principal (the origin access control service principal or origin access identity). As an alternative, keep backups in a separate bucket that CloudFront cannot read.
 
 **Requirements:**
 

@@ -69,7 +69,9 @@ class SAQSettings(BaseModel):
     @model_validator(mode="after")
     def validate_web_credentials(self) -> Self:
         """Ensure admin credentials are set when the SAQ web UI is enabled."""
-        if self.web_enabled and (self.admin_username is None or self.admin_password is None):
+        if self.web_enabled and not (
+            (self.admin_username or "").strip() and (self.admin_password or "").strip()
+        ):
             msg = "SAQ admin_username and admin_password must be set when web_enabled is True"
             raise ValueError(msg)
         return self
@@ -175,14 +177,12 @@ class RedisSettings(BaseModel):
     health_check_interval: int = Field(default=5)
     keepalive: bool = Field(default=True)
 
-    # @computed_field
-    @property
-    def client(self) -> Redis:
-        """Get the Redis client."""
-        return self.get_client()
-
     def get_client(self) -> Redis:
-        """Get the Redis client."""
+        """Create a Redis client with its own connection pool.
+
+        Call once per process; request handlers take the app's shared client through the
+        `redis` dependency instead.
+        """
         return Redis.from_url(
             url=self.url,
             encoding="utf-8",

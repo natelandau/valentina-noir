@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Builder - install dependencies and compile
 # ============================================================
-FROM ghcr.io/astral-sh/uv:0.13.6-python3.13-trixie-slim AS builder
+FROM ghcr.io/astral-sh/uv:0.13.6-python3.13-trixie-slim@sha256:e586c1c65b7071aec78f02c5587c76c5011159cd76b3d6f1255f40e48e850abc AS builder
 
 # Build-time system deps for native extensions (numpy, argon2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,7 +30,7 @@ RUN uv sync --locked --group dev --no-cache
 # ============================================================
 # Stage 3: Base - runtime OS layers shared by dev and runtime
 # ============================================================
-FROM python:3.13-slim-trixie AS base
+FROM python:3.13-slim-trixie@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS base
 
 # Runtime-only system deps
 # Install PGDG apt repo to get postgresql-client-18 (Debian trixie ships v17,
