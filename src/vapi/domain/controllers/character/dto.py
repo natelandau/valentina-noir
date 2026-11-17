@@ -23,6 +23,7 @@ from vapi.db.sql_models.notes import Note
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
 from vapi.domain.controllers.character_health.dto import HealthResponse, HealthStateSet
 from vapi.domain.controllers.character_trait.dto import (
+    CHARACTER_TRAIT_PREFETCH,
     CharacterTraitSpecialtyResponse,
     TrackerResponse,
     TrackerStateSet,
@@ -74,14 +75,7 @@ def get_character_include_prefetch_map() -> dict[CharacterInclude, list[str | Pr
             active_prefetch(
                 "traits",
                 CharacterTrait,
-                nested=[
-                    "trait",
-                    "trait__category",
-                    "trait__subcategory",
-                    "trait__sheet_section",
-                    "trait__powers",
-                    "specialties",
-                ],
+                nested=CHARACTER_TRAIT_PREFETCH,
             ),
         ],
         CharacterInclude.INVENTORY: [active_prefetch("inventory", CharacterInventory)],
