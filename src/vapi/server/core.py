@@ -1,12 +1,11 @@
 """Application core configuration plugin."""
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING, TypeVar
 
-from click import Group  # noqa: TC002
+from click import Group
 from litestar.plugins import CLIPluginProtocol, InitPluginProtocol
+from redis.asyncio import Redis
 
 from vapi.config import settings
 
@@ -15,7 +14,6 @@ from .stores import RedisStore
 if TYPE_CHECKING:
     from litestar.config.app import AppConfig
     from litestar.types import HTTPScope
-    from redis.asyncio import Redis
 
 
 T = TypeVar("T")
@@ -47,7 +45,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         cli.add_command(restore)
         cli.add_command(developer_group)
 
-    def on_app_init(self, app_config: AppConfig) -> AppConfig:
+    def on_app_init(self, app_config: "AppConfig") -> "AppConfig":
         """Configure the Litestar application with routes, middleware, and plugins.
 
         Args:
@@ -56,6 +54,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from litestar.config.compression import CompressionConfig
         from litestar.config.cors import CORSConfig
         from litestar.config.response_cache import ResponseCacheConfig
+        from litestar.di import Provide
         from litestar.exceptions import HTTPException
         from litestar.stores.registry import StoreRegistry
         from tortoise.exceptions import DoesNotExist as TortoiseDoesNotExist
@@ -87,6 +86,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from vapi.server import plugins
 
         self.redis = settings.redis.get_client()
+        app_config.dependencies["redis"] = Provide(self._provide_redis, sync_to_thread=False)
         self.app_slug = settings.slug
         app_config.debug = settings.debug
 
@@ -158,6 +158,10 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         return app_config
 
+    def _provide_redis(self) -> Redis:
+        """Provide the app's shared Redis client to handlers."""
+        return self.redis
+
     def redis_store_factory(self, name: str) -> RedisStore:
         """Redis store factory."""
         return RedisStore(self.redis, namespace=f"{settings.slug}:{name}")
@@ -169,7 +173,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         except Exception:  # noqa: BLE001
             logging.getLogger("vapi").warning("Redis connection could not be closed cleanly")
 
-    def custom_cache_response_filter(self, scope: HTTPScope, status_code: int) -> bool:
+    def custom_cache_response_filter(self, scope: "HTTPScope", status_code: int) -> bool:
         """Custom cache response filter."""
         # Don't cache POST, PUT, PATCH, or DELETE requests
         if scope.get("method") in {"POST", "PUT", "PATCH", "DELETE"}:

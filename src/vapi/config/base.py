@@ -177,14 +177,12 @@ class RedisSettings(BaseModel):
     health_check_interval: int = Field(default=5)
     keepalive: bool = Field(default=True)
 
-    # @computed_field
-    @property
-    def client(self) -> Redis:
-        """Get the Redis client."""
-        return self.get_client()
-
     def get_client(self) -> Redis:
-        """Get the Redis client."""
+        """Create a Redis client with its own connection pool.
+
+        Call once per process; request handlers take the app's shared client through the
+        `redis` dependency instead.
+        """
         return Redis.from_url(
             url=self.url,
             encoding="utf-8",
