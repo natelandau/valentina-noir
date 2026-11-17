@@ -14,7 +14,7 @@ from duty import duty
 from rich.console import Console
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from duty.context import Context
 
@@ -28,6 +28,7 @@ from scripts.devenv import stack as devstack  # noqa: E402
 from scripts.devenv import worktrees  # noqa: E402
 from scripts.devenv.compose import StackError  # noqa: E402
 from scripts.devenv.registry import RegistryFormatError, SlotConflictError  # noqa: E402
+from scripts.devenv.workers import ci_is_on  # noqa: E402
 
 
 def _main_checkout() -> Path:
@@ -45,11 +46,21 @@ def _main_checkout() -> Path:
 MAIN_ROOT = _main_checkout()
 IN_WORKTREE = PROJECT_ROOT != MAIN_ROOT
 PY_SRC_LIST = tuple(_ for _ in ("src/", "tests/", "duties.py", "scripts/") if Path(_).exists())
-# Matches gate-cache: CI is on unless unset, empty, "0", or "false"
-CI = os.environ.get("CI", "").strip().lower() not in {"", "0", "false"}
+CI = ci_is_on(os.environ)
 _GATE_CACHE_DISABLE = os.environ.get("GATE_CACHE_DISABLE", "").strip().lower()
 # Matches gate-cache: GATE_CACHE_DISABLE decides when set, otherwise CI does
 GATE_CACHE_ON = _GATE_CACHE_DISABLE in {"0", "false"} or (not _GATE_CACHE_DISABLE and not CI)
+# Every file the test suite reads; a change anywhere else (docs, Dockerfile) skips the suite
+TEST_GATE_PATHS = (
+    "src/",
+    "tests/",
+    "scripts/",
+    "duties.py",
+    "pyproject.toml",
+    "uv.lock",
+    ".python-version",
+    "compose.yml",
+)
 # Holds only disposable output; the rest of .dev/ (keys, generated secrets) must survive cleaning
 DEV_DIRECTORIES = [PROJECT_ROOT / ".dev" / "logs"]
 # Directories never descended into when cleaning, so a sweep skips the virtualenv, git internals,
@@ -57,35 +68,43 @@ DEV_DIRECTORIES = [PROJECT_ROOT / ".dev" / "logs"]
 CLEAN_SKIP_DIRS = {".venv", ".git", ".dev", ".worktrees", "node_modules"}
 
 
-def gated(name: str, cmd: list[str]) -> list[str]:
+def _gate_args(name: str, paths: Sequence[str]) -> list[str]:
+    return ["--name", name, *(arg for path in paths for arg in ("--path", path))]
+
+
+def gated(name: str, cmd: list[str], paths: Sequence[str] = ()) -> list[str]:
     """Wrap a gate command in gate-cache so it skips on a tree where it already passed.
 
     Args:
         name (str): Marker name for the gate.
         cmd (list[str]): Command to run.
+        paths (Sequence[str]): Git pathspecs the gate keys on. Empty keys on the whole tree.
 
     Returns:
         list[str]: The command prefixed with the gate-cache invocation.
     """
-    return ["gate-cache", "--name", name, "--", *cmd]
+    return ["gate-cache", *_gate_args(name, paths), "--", *cmd]
 
 
-def gate_passed(name: str) -> bool:
+def gate_passed(name: str, paths: Sequence[str] = ()) -> bool:
     """Report whether a gate would skip because it already passed on the current tree.
 
-    Use it to avoid setup, such as starting servers, that only a gate that runs needs.
+    Use it to avoid setup, such as starting servers, that only a gate that runs needs. Pass the
+    same paths as the gated run, or the status check never matches its passes.
 
     Args:
         name (str): Marker name for the gate.
+        paths (Sequence[str]): Git pathspecs the gate keys on. Empty keys on the whole tree.
 
     Returns:
-        bool: True when gate-cache is on and holds a pass for this tree.
+        bool: True when gate-cache is on and holds a pass for the current content of the paths,
+            or of the whole tree when no paths are given.
     """
     if not GATE_CACHE_ON:
         return False
     try:
         result = subprocess.run(  # noqa: S603
-            ["gate-cache", "status", "--name", name],  # noqa: S607
+            ["gate-cache", "status", *_gate_args(name, paths)],  # noqa: S607
             capture_output=True,
             check=False,
         )
@@ -218,7 +237,7 @@ def update(ctx: Context) -> None:
 def test(ctx: Context, *cli_args: str) -> None:
     """Start this checkout's test servers, then test the package and generate coverage reports."""
     # A cached pass skips pytest, so a push on a tested tree needs neither Docker nor the servers
-    if cli_args or not gate_passed("test"):
+    if cli_args or not gate_passed("test", TEST_GATE_PATHS):
         ctx.run("docker info", title="Run `docker info` to check if docker is running")
         # pytest inherits the environment, which points it at this checkout's slot
         os.environ.update(
@@ -237,9 +256,10 @@ def test(ctx: Context, *cli_args: str) -> None:
         "--cov-report=term",
         *cli_args,
     ]
+
     # A marker covers the name, not the arguments, so a filtered pass must not skip the full suite
     ctx.run(
-        cmd if cli_args else gated("test", cmd),
+        cmd if cli_args else gated("test", cmd, TEST_GATE_PATHS),
         title="Running tests - this may take a while",
         capture=CI,
     )
