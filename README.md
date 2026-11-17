@@ -93,7 +93,7 @@ To change them, define numbered `VAPI_RATE_LIMIT__POLICIES__<n>__*` blocks as sh
 
 ### Asset CDN invalidation
 
-Images are served through CloudFront with a one-year `immutable` cache header. To remove a deleted asset from the CDN, set `VAPI_AWS__CLOUDFRONT_DISTRIBUTION_ID` to the distribution's ID. The API then sends a CloudFront invalidation for each deleted asset, and one invalidation for each run of the archived-asset purge.
+Images are served through CloudFront with a one-year `immutable` cache header. To remove a deleted asset from the CDN, set `VAPI_AWS__CLOUDFRONT_DISTRIBUTION_ID` to the distribution's ID. The API then sends a CloudFront invalidation for each deleted asset. The daily purge of archived assets, which deletes assets archived longer than `VAPI_RETENTION__ARCHIVED_DAYS` (default 30), batches its paths into as few invalidations as it can, up to 3,000 paths each.
 
 The IAM user behind `VAPI_AWS__ACCESS_KEY_ID` needs `cloudfront:CreateInvalidation` on `arn:aws:cloudfront::<account-id>:distribution/<distribution-id>`. If the setting is empty, the API skips invalidation and deleted files stay in edge caches until the cache lifetime ends. A failed invalidation is logged and does not fail the delete.
 
