@@ -15,7 +15,9 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.quickroll import QuickRoll
-from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH
+from vapi.domain.controllers.assets.dto import S3AssetResponse
+from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
+from vapi.domain.controllers.notes.dto import NoteResponse
 from vapi.domain.controllers.request_types import Email, LongText, Name3to50, PersonName
 from vapi.lib.detail_includes import active_prefetch
 from vapi.utils.identity import get_discord_avatar_url
@@ -195,10 +197,10 @@ class UserResponse(msgspec.Struct):
 class UserDetailResponse(UserResponse, omit_defaults=True):
     """Response body for a single user with optional embedded children."""
 
-    quickrolls: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    characters: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    quickrolls: list["QuickRollResponse"] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[NoteResponse] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[S3AssetResponse] | msgspec.UnsetType = msgspec.UNSET
+    characters: list[CharacterResponse] | msgspec.UnsetType = msgspec.UNSET
 
     @classmethod
     def from_model(
@@ -207,11 +209,6 @@ class UserDetailResponse(UserResponse, omit_defaults=True):
         includes: set[UserInclude] | None = None,
     ) -> "UserDetailResponse":
         """Convert a User to a detail response with optional children."""
-        # Lazy imports - module-level imports of other DTO modules would create circular imports.
-        from vapi.domain.controllers.assets.dto import S3AssetResponse
-        from vapi.domain.controllers.character.dto import CharacterResponse
-        from vapi.domain.controllers.notes.dto import NoteResponse
-
         includes = includes or set()
         base = UserResponse.from_model(m)
         fields: dict[str, object] = {f: getattr(base, f) for f in base.__struct_fields__}

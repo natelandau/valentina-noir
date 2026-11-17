@@ -5,7 +5,7 @@ from uuid import UUID
 
 import msgspec
 
-from vapi.constants import TrackerType
+from vapi.constants import SpecialtyType, TrackerType
 from vapi.db.sql_models.character_classes import (
     VampireClan,
     WerewolfAuspice,
@@ -61,7 +61,7 @@ class TraitCategoryResponse(msgspec.Struct):
     show_when_empty: bool
     order: int
     sheet_section_id: UUID
-    sheet_section_name: str | None
+    sheet_section_name: str
     initial_cost: int
     upgrade_cost: int
     count_based_cost_multiplier: int | None
@@ -83,7 +83,7 @@ class TraitCategoryResponse(msgspec.Struct):
             show_when_empty=m.show_when_empty,
             order=m.order,
             sheet_section_id=m.sheet_section.id,
-            sheet_section_name=m.sheet_section_name,
+            sheet_section_name=m.sheet_section.name,
             initial_cost=m.initial_cost,
             upgrade_cost=m.upgrade_cost,
             count_based_cost_multiplier=m.count_based_cost_multiplier,
@@ -108,8 +108,8 @@ class TraitSubcategoryResponse(msgspec.Struct):
     pool: str | None
     system: str | None
     hunter_edge_type: str | None
-    category_id: UUID | None
-    category_name: str | None
+    category_id: UUID
+    category_name: str
     sheet_section_id: UUID | None
     sheet_section_name: str | None
     date_created: datetime
@@ -135,8 +135,8 @@ class TraitSubcategoryResponse(msgspec.Struct):
             pool=m.pool,
             system=m.system,
             hunter_edge_type=m.hunter_edge_type.value if m.hunter_edge_type else None,
-            category_id=m.category.id if m.category else None,
-            category_name=m.category_name,
+            category_id=m.category.id,
+            category_name=m.category.name,
             sheet_section_id=m.sheet_section.id if m.sheet_section else None,
             sheet_section_name=m.sheet_section_name,
             date_created=m.date_created,
@@ -205,9 +205,9 @@ class TraitResponse(msgspec.Struct):
     count_based_cost_multiplier: int | None
     is_rollable: bool
     sheet_section_id: UUID
-    sheet_section_name: str | None
+    sheet_section_name: str
     category_id: UUID
-    category_name: str | None
+    category_name: str
     custom_for_character_id: UUID | None
     subcategory_id: UUID | None
     subcategory_name: str | None
@@ -268,9 +268,9 @@ class TraitResponse(msgspec.Struct):
             count_based_cost_multiplier=m.count_based_cost_multiplier,
             is_rollable=m.is_rollable,
             sheet_section_id=m.sheet_section.id,
-            sheet_section_name=m.sheet_section_name,
+            sheet_section_name=m.sheet_section.name,
             category_id=m.category.id,
-            category_name=m.category_name,
+            category_name=m.category.name,
             custom_for_character_id=m.custom_for_character_id,  # ty:ignore[unresolved-attribute]
             subcategory_id=m.subcategory.id if m.subcategory else None,
             subcategory_name=m.subcategory_name,
@@ -286,6 +286,14 @@ class TraitResponse(msgspec.Struct):
         )
 
 
+class ConceptSpecialtyResponse(msgspec.Struct):
+    """A specialty suggested by a character concept."""
+
+    name: str
+    description: str
+    type: SpecialtyType
+
+
 class CharacterConceptResponse(msgspec.Struct):
     """Character concept response (company_id excluded)."""
 
@@ -294,7 +302,7 @@ class CharacterConceptResponse(msgspec.Struct):
     description: str
     examples: list[str]
     max_specialties: int
-    specialties: list[dict]
+    specialties: list[ConceptSpecialtyResponse]
     favored_ability_names: list[str]
     date_created: datetime
     date_modified: datetime
@@ -308,7 +316,7 @@ class CharacterConceptResponse(msgspec.Struct):
             description=m.description,
             examples=m.examples or [],
             max_specialties=m.max_specialties,
-            specialties=m.specialties or [],
+            specialties=msgspec.convert(m.specialties or [], list[ConceptSpecialtyResponse]),
             favored_ability_names=m.favored_ability_names or [],
             date_created=m.date_created,
             date_modified=m.date_modified,

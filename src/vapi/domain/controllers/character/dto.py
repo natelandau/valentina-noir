@@ -20,16 +20,20 @@ from vapi.constants import (
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import CharacterInventory, CharacterTrait
 from vapi.db.sql_models.notes import Note
+from vapi.domain.controllers.assets.dto import S3AssetResponse
 from vapi.domain.controllers.character_blueprint.dto import TraitResponse
 from vapi.domain.controllers.character_health.dto import HealthResponse, HealthStateSet
+from vapi.domain.controllers.character_inventory.dto import InventoryItemResponse
 from vapi.domain.controllers.character_trait.dto import (
     CHARACTER_TRAIT_PREFETCH,
+    CharacterTraitResponse,
     CharacterTraitSpecialtyResponse,
     TrackerResponse,
     TrackerStateSet,
     active_specialties,
     build_tracker_response,
 )
+from vapi.domain.controllers.notes.dto import NoteResponse
 from vapi.domain.controllers.request_types import (
     Age,
     Generation,
@@ -654,13 +658,10 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
     CharacterResponse (child fields are omitted via omit_defaults).
     """
 
-    # Optional children - omitted from JSON when not requested.
-    # Types use msgspec.Struct base because the concrete DTO modules can't be
-    # imported at module level without causing circular imports.
-    traits: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    inventory: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    notes: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
-    assets: list[msgspec.Struct] | msgspec.UnsetType = msgspec.UNSET
+    traits: list[CharacterTraitResponse] | msgspec.UnsetType = msgspec.UNSET
+    inventory: list[InventoryItemResponse] | msgspec.UnsetType = msgspec.UNSET
+    notes: list[NoteResponse] | msgspec.UnsetType = msgspec.UNSET
+    assets: list[S3AssetResponse] | msgspec.UnsetType = msgspec.UNSET
 
     @classmethod
     def from_model(
@@ -677,13 +678,6 @@ class CharacterDetailResponse(CharacterResponse, omit_defaults=True):
             m: The Character model instance with relations prefetched.
             includes: Set of CharacterInclude values indicating which children to embed.
         """
-        # Lazy imports to avoid circular dependency: these controller dto modules
-        # import from deps.py which imports from this file at module level.
-        from vapi.domain.controllers.assets.dto import S3AssetResponse
-        from vapi.domain.controllers.character_inventory.dto import InventoryItemResponse
-        from vapi.domain.controllers.character_trait.dto import CharacterTraitResponse
-        from vapi.domain.controllers.notes.dto import NoteResponse
-
         includes = includes or set()
         base = CharacterResponse.from_model(m)
 
