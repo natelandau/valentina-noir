@@ -14,6 +14,7 @@ from vapi.constants import (
     PermissionManageNPC,
     UserRole,
 )
+from vapi.domain.deps import provide_acting_user
 from vapi.lib.exceptions import (
     ClientError,
     NotFoundError,
@@ -718,3 +719,90 @@ class TestStorytellerCharacterAccessGuard:
         # When/Then the guard raises
         with pytest.raises(PermissionDeniedError, match="On-Behalf-Of header is required"):
             await storyteller_character_access_guard(connection, _mock_handler(mocker))
+
+    async def test_malformed_company_id_is_not_found(
+        self,
+        mocker: MockerFixture,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a malformed company_id is not-found instead of reaching the character query."""
+        # Given a valid acting user and a malformed company_id
+        user = await user_factory(company=await company_factory(), role=UserRole.STORYTELLER)
+        connection = _mock_connection(
+            mocker,
+            {"character_id": str(uuid4()), "company_id": "not-a-uuid"},
+            headers={"On-Behalf-Of": str(user.id)},
+        )
+
+        # When/Then the guard raises NotFoundError
+        with pytest.raises(NotFoundError):
+            await storyteller_character_access_guard(connection, _mock_handler(mocker))
+
+
+class TestMalformedPathCompanyId:
+    """Test that a malformed company_id never reaches an ORM filter as a raw string."""
+
+    async def test_global_admin_acting_user_lookup_is_not_found(
+        self,
+        mocker: MockerFixture,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+    ) -> None:
+        """Verify a global admin with a malformed company_id gets not-found from the acting user lookup."""
+        # Given a global admin, a valid acting user, and a malformed company_id
+        user = await user_factory(company=await company_factory())
+        connection = _mock_connection(
+            mocker, {"company_id": "not-a-uuid"}, headers={"On-Behalf-Of": str(user.id)}
+        )
+        connection.user = mocker.MagicMock(is_global_admin=True, id=uuid4())
+
+        # When the developer guard passes the admin through
+        await developer_company_user_guard(connection, _mock_handler(mocker))
+
+        # Then the acting user lookup raises NotFoundError
+        with pytest.raises(NotFoundError, match="Company 'not-a-uuid' not found"):
+            await user_active_guard(connection, _mock_handler(mocker))
+
+    async def test_manage_campaign_is_not_found(
+        self,
+        mocker: MockerFixture,
+        company_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+    ) -> None:
+        """Verify user_can_manage_campaign treats a malformed company_id as not-found."""
+        # Given a valid acting user and a malformed company_id
+        user = await user_factory(company=await company_factory())
+        connection = _mock_connection(
+            mocker, {"company_id": "not-a-uuid"}, headers={"On-Behalf-Of": str(user.id)}
+        )
+
+        # When/Then the guard raises NotFoundError
+        with pytest.raises(NotFoundError, match="Company 'not-a-uuid' not found"):
+            await user_can_manage_campaign(connection, _mock_handler(mocker))
+
+
+class TestMalformedOnBehalfOf:
+    """Test that a malformed On-Behalf-Of header is a validation error in guards and the provider."""
+
+    async def test_guard_raises_validation_error(self, mocker: MockerFixture) -> None:
+        """Verify a guard rejects a malformed On-Behalf-Of header with ValidationError."""
+        # Given a malformed On-Behalf-Of header
+        connection = _mock_connection(
+            mocker, {"company_id": str(uuid4())}, headers={"On-Behalf-Of": "not-a-uuid"}
+        )
+
+        # When/Then the guard raises ValidationError
+        with pytest.raises(ValidationError, match="On-Behalf-Of header must be a valid UUID"):
+            await user_active_guard(connection, _mock_handler(mocker))
+
+    async def test_provider_raises_validation_error(self, mocker: MockerFixture) -> None:
+        """Verify provide_acting_user rejects a malformed On-Behalf-Of header with ValidationError."""
+        # Given a request with no stashed acting user
+        request = mocker.MagicMock()
+        request.state = mocker.MagicMock(spec=[])
+        company = mocker.MagicMock(id=uuid4())
+
+        # When/Then the provider raises ValidationError
+        with pytest.raises(ValidationError, match="On-Behalf-Of header must be a valid UUID"):
+            await provide_acting_user(request=request, company=company, on_behalf_of="not-a-uuid")
