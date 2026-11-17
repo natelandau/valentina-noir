@@ -14,7 +14,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, urls
-from vapi.domain.paginator import Offset, OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import DiceRollService
 from vapi.lib.exceptions import NotFoundError, PermissionDeniedError
 from vapi.lib.guards import STORYTELLER_ROLES, developer_company_user_guard, user_active_guard
@@ -43,7 +43,7 @@ class DiceRollController(Controller):
         self,
         company: Company,
         acting_user: User,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: Limit = 10,
         offset: Offset = 0,
         userid: Annotated[
             UUID | None, Parameter(description="Show dice rolls for this user.")

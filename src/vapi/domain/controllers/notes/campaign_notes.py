@@ -1,18 +1,15 @@
 """Campaign notes controller."""
 
-from typing import Annotated
-
 from litestar import Request
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
-from litestar.params import Parameter
 
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import Offset, OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_can_manage_campaign
 from vapi.openapi.tags import APITags
 
@@ -47,7 +44,7 @@ class CampaignNoteController(BaseNoteController):
         self,
         *,
         campaign: Campaign,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: Limit = 10,
         offset: Offset = 0,
     ) -> OffsetPagination[dto.NoteResponse]:
         """List all campaign notes."""

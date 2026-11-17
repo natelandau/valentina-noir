@@ -15,7 +15,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.assets import dto
-from vapi.domain.paginator import Offset, OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_can_manage_campaign
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
@@ -48,7 +48,7 @@ class ChapterAssetsController(BaseAssetsController):
     async def list_chapter_assets(
         self,
         chapter: CampaignChapter,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: Limit = 10,
         offset: Offset = 0,
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")

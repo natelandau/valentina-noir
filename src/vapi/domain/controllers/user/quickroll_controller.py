@@ -1,19 +1,16 @@
 """Quick roll controller."""
 
-from typing import Annotated
-
 import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
-from litestar.params import Parameter
 from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import Offset, OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.patch import archive_active, save_active_patch
@@ -44,7 +41,7 @@ class QuickRollController(Controller):
     async def list_user_quickrolls(
         self,
         target_user: User,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: Limit = 10,
         offset: Offset = 0,
     ) -> OffsetPagination[dto.QuickRollResponse]:
         """List all user quick rolls."""
@@ -135,11 +132,13 @@ class QuickRollController(Controller):
             )
 
             if traits is not None:
-                old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
-                await quickroll.traits.clear()
-                await quickroll.traits.add(*traits)
+                old_trait_ids = sorted(
+                    str(tid) for tid in await quickroll.traits.all().values_list("id", flat=True)
+                )
                 new_trait_ids = sorted(str(t.id) for t in traits)
                 if old_trait_ids != new_trait_ids:
+                    await quickroll.traits.clear()
+                    await quickroll.traits.add(*traits)
                     changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
 
         request.state.audit_changes = changes

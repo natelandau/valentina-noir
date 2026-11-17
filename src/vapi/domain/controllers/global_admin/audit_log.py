@@ -1,13 +1,11 @@
 """Global admin audit log controller."""
 
 from datetime import datetime
-from typing import Annotated
 from uuid import UUID
 
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get
-from litestar.params import Parameter
 
 from vapi.constants import AuditEntityType, AuditOperation
 from vapi.db.sql_models.developer import Developer
@@ -19,7 +17,7 @@ from vapi.domain.audit import (
     build_audit_log_filters,
     list_audit_logs,
 )
-from vapi.domain.paginator import Offset, OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import global_admin_guard
 from vapi.openapi.tags import APITags
 
@@ -46,7 +44,7 @@ class GlobalAdminAuditLogController(Controller):
         self,
         *,
         developer: Developer,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
+        limit: Limit = 10,
         offset: Offset = 0,
         company_id: UUID | None = None,
         acting_user_id: UUID | None = None,
