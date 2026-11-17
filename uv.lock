@@ -467,14 +467,14 @@ wheels = [
 
 [[package]]
 name = "gate-cache"
-version = "0.6.0"
+version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/1d/cf10017103862e1d9ad958f73bb27c8e001b6d2d907c4e9478b11b8a6da0/gate_cache-0.6.0.tar.gz", hash = "sha256:f497a7b9e71eb46879b53e6f063c208d5dc52aaf69752e705287cd611d1a5ba3", size = 25124, upload-time = "2026-10-12T22:00:38.31Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/58/2f1dfc15d73f003230b743d8bb15d397948980b8f9283a6b2f4c24b209f4/gate_cache-0.7.0.tar.gz", hash = "sha256:b7f123d53d3cfa2120a2ef8d830623e5c749022b65773550d77b3fa521773694", size = 34154, upload-time = "2026-11-16T20:24:04.873Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/db/a29706b63d669da6be65bd7b1a0aae91258e66c840ff4e7f27c5a540d2e4/gate_cache-0.6.0-py3-none-any.whl", hash = "sha256:fb200c9f100e6863df6a90e22f918e48c0cdd48849fb571708a416d60dc86ed7", size = 26502, upload-time = "2026-10-12T22:00:37.057Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/40/5aa61ea523767814378d034cee942f102bec5ac087c988026d850bea67bf/gate_cache-0.7.0-py3-none-any.whl", hash = "sha256:473179c8caf47f641de6897ac61a8b431a3de8b697f38fa2ca1d69164878543e", size = 32357, upload-time = "2026-11-16T20:24:03.932Z" },
 ]
 
 [[package]]
@@ -878,11 +878,11 @@ wheels = [
 
 [[package]]
 name = "platformdirs"
-version = "4.14.3"
+version = "4.14.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/9a/6e/886dc7c9d21e2d95aceb696f1e31271742033aeef3661f6e9c8921493592/platformdirs-4.14.3.tar.gz", hash = "sha256:021add1ab113483edbcd4694f5fbb2d688b893ea30d35e1155bb371cf4be0be8", size = 71124, upload-time = "2026-11-01T16:27:32.928Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/9a/8475be631fb33ca1466915e70fd594c42a4e84b512db650eaa14f90fe75d/platformdirs-4.14.5.tar.gz", hash = "sha256:32e9921db7385aa8169bee4fe9501923e5715ba9fb7ea3b9c69b0d8e0639f7a1", size = 71464, upload-time = "2026-11-04T16:54:50.358Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/41/f0aa003909ee77a9e7e55f8659abb635ca23ab0d022a449bbb18da87a1ef/platformdirs-4.14.3-py3-none-any.whl", hash = "sha256:cba2d05fe5e18b26b1fa6f376b8e6234c012abe1f8696c486fface7d0054e931", size = 35276, upload-time = "2026-11-01T16:27:31.498Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/ae/ecbbbfd0e4343a6a521d49b3c8656fb4643dee2a4f6eaf941cf3280391a8/platformdirs-4.14.5-py3-none-any.whl", hash = "sha256:8e778c6fa421516f4d3369449f8df3b0e1b72c0e0005fe88e3ec772d0a14e750", size = 35402, upload-time = "2026-11-04T16:54:48.875Z" },
 ]
 
 [[package]]
@@ -1642,7 +1642,7 @@ dev = [
     { name = "debugpy", specifier = ">=1.8.22" },
     { name = "duty", specifier = ">=1.10.1" },
     { name = "faker", specifier = ">=40.44.0" },
-    { name = "gate-cache", specifier = ">=0.6.0" },
+    { name = "gate-cache", specifier = ">=0.7.0" },
     { name = "prek", specifier = ">=0.5.9" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-clarity", specifier = ">=1.0.1" },
