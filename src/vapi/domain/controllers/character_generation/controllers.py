@@ -13,6 +13,7 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get, post
 from litestar.params import Parameter
+from tortoise.transactions import in_transaction
 
 from vapi.constants import CHARGEN_SESSION_RETENTION_HOURS, CharacterType
 from vapi.db.sql_models import (
@@ -200,13 +201,14 @@ class CharacterGenerationController(Controller):
         )
         await session.characters.add(*characters)
 
+        session_id = session.id
         session = (
-            await ChargenSession.filter(id=session.id)
+            await ChargenSession.filter(id=session_id)
             .prefetch_related(*CHARGEN_SESSION_PREFETCH)
             .first()
         )
         if not session:
-            msg = f"Chargen session not found for id {session.id}"  # ty:ignore[unresolved-attribute]
+            msg = f"Chargen session not found for id {session_id}"
             raise ValueError(msg)
 
         return ChargenSessionResponse.from_model(session)
@@ -255,27 +257,39 @@ class CharacterGenerationController(Controller):
                 ]
             )
 
-        selected_character.is_temporary = False
-        selected_character.is_chargen = False
-        selected_character.starting_points = company.settings.character_autogen_starting_points
+        async with in_transaction():
+            # Serialize concurrent finalizes of one session; a second call finds it deleted
+            if not await ChargenSession.filter(id=session.id).select_for_update().first():
+                raise ValidationError(
+                    invalid_parameters=[
+                        {"field": "session_id", "message": "Session not found or expired"}
+                    ]
+                )
+            # The session prefetch includes archived characters and may predate a
+            # storyteller's change, so promote the committed row, never the prefetched copy.
+            if not await selected_character.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="Character not found")
 
-        service = CharacterService()
-        await service.prepare_for_save(selected_character)
-        await selected_character.save()
+            selected_character.is_temporary = False
+            selected_character.is_chargen = False
+            selected_character.starting_points = company.settings.character_autogen_starting_points
 
-        unselected_ids = [c.id for c in session.characters if c.id != selected_character.id]
-        if unselected_ids:
-            await Character.filter(id__in=unselected_ids).delete()
+            service = CharacterService()
+            await service.prepare_for_save(selected_character)
+            await selected_character.save()
 
-        await session.delete()
+            unselected_ids = [c.id for c in session.characters if c.id != selected_character.id]
+            if unselected_ids:
+                await Character.filter(id__in=unselected_ids).delete()
 
+            await session.delete()
+
+        selected_id = selected_character.id
         selected_character = await annotate_character_counts(
-            Character.filter(id=selected_character.id).prefetch_related(
-                *CHARACTER_RESPONSE_PREFETCH
-            )
+            Character.filter(id=selected_id).prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
         ).first()
         if not selected_character:
-            msg = f"Selected character not found for id {selected_character.id}"  # ty:ignore[unresolved-attribute]
+            msg = f"Selected character not found for id {selected_id}"
             raise ValueError(msg)
 
         request.state.audit_description = f"Finalize chargen session {session.id} and promote character '{selected_character.name_first} {selected_character.name_last} ({selected_character.character_class.value.lower()})'"

@@ -288,16 +288,7 @@ class CharacterController(Controller):
             service.assert_can_assign_npc_type(
                 company=company, user=acting_user, requested_type=data.type
             )
-        service.reconcile_type_and_player(character, data)
-        if (
-            data.user_player_id is not msgspec.UNSET
-            and data.user_player_id is not None
-            and data.user_player_id != character.user_player_id  # ty:ignore[unresolved-attribute]
-        ):
-            await service.validate_player_assignment(
-                user_player_id=data.user_player_id, company_id=company.id
-            )
-        changes = await service.save_character_patch(character, data)
+        changes = await service.save_character_patch(character, data, acting_user=acting_user)
 
         request.state.audit_changes = changes
 

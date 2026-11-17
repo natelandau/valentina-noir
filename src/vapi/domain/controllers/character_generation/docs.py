@@ -42,6 +42,7 @@ All other characters from the session will be deleted.
 - The selected character must belong to the provided session
 
 Returns `400` if the session does not exist, has expired, or belongs to another user.
+Returns `404` if the selected character was deleted.
 """
 
 CHARGEN_SESSIONS_LIST_DOCUMENTATION = """\

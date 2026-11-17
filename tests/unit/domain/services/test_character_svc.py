@@ -20,7 +20,7 @@ from vapi.domain.controllers.character.dto import CharacterTraitCreate
 from vapi.domain.controllers.character_health.dto import HealthStateSet
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet
 from vapi.domain.services import CharacterService, TrackerService
-from vapi.lib.exceptions import PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -131,7 +131,9 @@ class TestApplyStatusChange:
 
         # When a patch kills the character
         changes = await CharacterService().save_character_patch(
-            character, CharacterPatch(status=CharacterStatus.DEAD)
+            character,
+            CharacterPatch(status=CharacterStatus.DEAD),
+            acting_user=await character.user_player,
         )
 
         # Then the stored age change is recorded
@@ -1094,3 +1096,118 @@ class TestValidatePlayerAssignment:
         await CharacterService().validate_player_assignment(
             user_player_id=user.id, company_id=company.id
         )
+
+
+class TestSaveCharacterPatchStaleInstance:
+    """Test that save_character_patch acts on the committed row, not the copy loaded earlier."""
+
+    async def test_storyteller_archive_survives_player_patch(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a player's patch on a stale copy cannot unarchive the character."""
+        from vapi.domain.controllers.character.dto import CharacterPatch
+
+        # Given a player's character loaded before a storyteller archives it
+        company = await company_factory()
+        stale = await character_factory(company=company)
+        player = await stale.user_player
+        await CharacterService().archive_character(await Character.get(id=stale.id))
+
+        # When the player saves a name change through the stale copy
+        # Then the save is rejected as not found
+        with pytest.raises(NotFoundError):
+            await CharacterService().save_character_patch(
+                stale, CharacterPatch(name_first="Renamed"), acting_user=player
+            )
+
+        # And the archive persists
+        committed = await Character.get(id=stale.id)
+        assert committed.is_archived is True
+        assert committed.archive_date is not None
+        assert committed.archive_batch_id is not None
+        assert committed.name_first != "Renamed"
+
+    async def test_storyteller_reassignment_survives_player_patch(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a former player's patch on a stale copy cannot take the character back."""
+        from vapi.domain.controllers.character.dto import CharacterPatch
+
+        # Given a player's character loaded before a storyteller reassigns it
+        company = await company_factory()
+        stale = await character_factory(company=company)
+        player = await stale.user_player
+        other_player = await user_factory(company=company)
+        await Character.filter(id=stale.id).update(user_player_id=other_player.id)
+
+        # When the former player saves a biography change through the stale copy
+        # Then the save is rejected
+        with pytest.raises(PermissionDeniedError):
+            await CharacterService().save_character_patch(
+                stale, CharacterPatch(biography="Mine again"), acting_user=player
+            )
+
+        # And the new player keeps the character
+        committed = await Character.get(id=stale.id)
+        assert committed.user_player_id == other_player.id  # ty:ignore[unresolved-attribute]
+        assert committed.biography != "Mine again"
+
+    async def test_storyteller_type_change_survives_player_patch(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a former player's patch on a stale copy cannot revert a STORYTELLER conversion."""
+        from vapi.domain.controllers.character.dto import CharacterPatch
+
+        # Given a player's character loaded before a storyteller converts it
+        company = await company_factory()
+        stale = await character_factory(company=company)
+        player = await stale.user_player
+        await Character.filter(id=stale.id).update(
+            type=CharacterType.STORYTELLER, user_player_id=None
+        )
+
+        # When the former player saves a name change through the stale copy
+        # Then the save is rejected
+        with pytest.raises(PermissionDeniedError):
+            await CharacterService().save_character_patch(
+                stale, CharacterPatch(name_first="Renamed"), acting_user=player
+            )
+
+        # And the character stays a storyteller character with no player
+        committed = await Character.get(id=stale.id)
+        assert committed.type == CharacterType.STORYTELLER
+        assert committed.user_player_id is None  # ty:ignore[unresolved-attribute]
+
+    async def test_storyteller_patch_keeps_concurrent_reassignment(
+        self,
+        character_factory: "Callable[..., Any]",
+        company_factory: "Callable[..., Any]",
+        user_factory: "Callable[..., Any]",
+    ) -> None:
+        """Verify a permitted patch on a stale copy keeps columns it did not change."""
+        from vapi.domain.controllers.character.dto import CharacterPatch
+
+        # Given a character loaded before another storyteller reassigns it
+        company = await company_factory()
+        stale = await character_factory(company=company)
+        storyteller = await user_factory(company=company, role=UserRole.STORYTELLER)
+        other_player = await user_factory(company=company)
+        await Character.filter(id=stale.id).update(user_player_id=other_player.id)
+
+        # When a storyteller saves a name change through the stale copy
+        changes = await CharacterService().save_character_patch(
+            stale, CharacterPatch(name_first="Renamed"), acting_user=storyteller
+        )
+
+        # Then the name changes and the reassignment persists
+        committed = await Character.get(id=stale.id)
+        assert committed.name_first == "Renamed"
+        assert committed.user_player_id == other_player.id  # ty:ignore[unresolved-attribute]
+        assert "user_player_id" not in changes
