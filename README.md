@@ -68,7 +68,13 @@ All application configuration variables from `.env.example` are also supported a
 
 ### Behind a reverse proxy
 
-The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address. Callers can send any header, so set this to a header your edge proxy overwrites: Railway's edge overwrites `X-Real-IP`, and Cloudflare sets `CF-Connecting-IP`. Set it to an empty value when no proxy sits in front, so the connecting peer's address is used.
+The API reads the real client address from one header, named by `VAPI_SERVER__CLIENT_IP_HEADER` (default `X-Real-IP`). Rate limiting for requests without an API key, the failed-authentication throttle, and request logs all use that address.
+
+The API reads the header only when the connecting peer is in `VAPI_SERVER__TRUSTED_PROXIES`. A request from any other peer keeps its socket address, whatever headers it sends. Set the variable to a comma-separated list of networks in CIDR notation. Give each network by its network address, such as `10.0.0.0/8` and not `10.1.2.3/8`, or the API does not start. A bare address trusts that one host. An empty value trusts no peer.
+
+The default trusts the private, CGNAT, and loopback ranges: `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,127.0.0.0/8,fc00::/7,::1/128`. Railway's edge reaches the container over the project's private network and publishes no fixed address range, so the default covers all of these. The default also trusts other services on the same private network, so do not run untrusted workloads there. When you publish the container's port with Docker and no proxy sits in front, outside callers can arrive from the Docker bridge gateway (for example `172.17.0.1`), which the default trusts. In that case, set `VAPI_SERVER__TRUSTED_PROXIES` to an empty value.
+
+Callers can send any header, so set `VAPI_SERVER__CLIENT_IP_HEADER` to a header your edge proxy overwrites: Railway's edge overwrites `X-Real-IP`, and Cloudflare sets `CF-Connecting-IP`. When a request carries the header more than once, the API uses the last line. In a comma-separated value it uses the rightmost entry. A proxy that appends adds its value in those positions, after the caller's. Set the header to an empty value when no proxy sits in front, so the connecting peer's address is used.
 
 ### Rate limits
 

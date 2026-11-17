@@ -8,6 +8,7 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     Field,
+    IPvAnyNetwork,
     computed_field,
     field_validator,
     model_validator,
@@ -126,6 +127,19 @@ def parse_str_collection(value: str | list[str] | set[str] | None) -> list[str]:
 # JSON parsing and BeforeValidator accepts comma-separated values instead.
 CsvList = Annotated[list[str], NoDecode, BeforeValidator(parse_str_collection)]
 CsvSet = Annotated[set[str], NoDecode, BeforeValidator(parse_str_collection)]
+CsvNetworks = Annotated[list[IPvAnyNetwork], NoDecode, BeforeValidator(parse_str_collection)]
+
+# Railway publishes no ranges for its edge proxy, which reaches the container over the
+# project's private network, so trust every private, CGNAT, and loopback range.
+DEFAULT_TRUSTED_PROXIES = (
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "fc00::/7",
+    "::1/128",
+)
 
 
 class Server(BaseModel):
@@ -141,6 +155,9 @@ class Server(BaseModel):
     # The one header that carries the real client IP. Trust only a header the edge
     # proxy overwrites, since callers can send any header; empty trusts none.
     client_ip_header: str = Field(default="X-Real-IP")
+    # Peers allowed to set client_ip_header. A request from any other peer keeps its
+    # socket address; empty trusts no peer.
+    trusted_proxies: CsvNetworks = Field(default=DEFAULT_TRUSTED_PROXIES, validate_default=True)
 
     @computed_field
     @property

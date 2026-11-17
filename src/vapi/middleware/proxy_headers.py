@@ -4,10 +4,11 @@ Rewrite the ASGI scope ``client`` tuple so that downstream middleware (logging,
 rate limiting) sees the real client IP instead of the reverse-proxy's internal
 address.
 
-Only the header named by ``settings.server.client_ip_header`` is trusted. Callers can
-send any header, so trusting one the edge proxy does not overwrite would let them pick
-their own address. When the header is absent or invalid, the existing
-``scope["client"]`` is kept.
+Only the header named by ``settings.server.client_ip_header`` is read, and only when the
+connecting peer is in ``settings.server.trusted_proxies``. Callers can send any header, so
+trusting it from any peer, or trusting one the edge proxy does not overwrite, would let
+them pick their own address. When the peer is untrusted or the header is absent or
+invalid, the existing ``scope["client"]`` is kept.
 """
 
 from __future__ import annotations
@@ -46,31 +47,49 @@ class ProxyHeadersMiddleware(ASGIMiddleware):
             send: The ASGI send function.
             next_app: The next ASGI application in the middleware stack to call.
         """
+        client = scope.get("client")
         trusted_header = settings.server.client_ip_header.strip().lower().encode("latin-1")
-        if trusted_header:
+        if client and trusted_header and _is_trusted_peer(client[0]):
             real_ip = _client_ip_from_headers(scope.get("headers", []), trusted_header)
             if real_ip:
-                client = scope.get("client")
-                scope["client"] = (real_ip, client[1] if client else 0)
+                scope["client"] = (real_ip, client[1])
 
         await next_app(scope, receive, send)
+
+
+def _is_trusted_peer(host: str) -> bool:
+    """Return whether the connecting peer is a proxy allowed to set the client IP header."""
+    address = _parse_ip(host)
+    if address is None:
+        return False
+    return any(address in network for network in settings.server.trusted_proxies)
 
 
 def _client_ip_from_headers(
     headers: Iterable[tuple[bytes, bytes]], trusted_header: bytes
 ) -> str | None:
-    """Return the valid IP address in the trusted header, or None."""
-    for header_name, header_value in headers:
-        if header_name != trusted_header:
-            continue
-        # A list-valued header (X-Forwarded-For) gains its rightmost entry from the
-        # nearest proxy; earlier entries come from the caller.
-        candidate = header_value.decode("latin-1").split(",")[-1].strip()
-        try:
-            return str(ipaddress.ip_address(candidate))
-        except ValueError:
-            return None
-    return None
+    """Return the valid IP address the nearest proxy added to the trusted header, or None."""
+    # A proxy that appends adds its line, or its comma entry, after the caller's, so the
+    # rightmost entry of the last line is the only one a caller cannot forge.
+    last_value: bytes | None = None
+    for name, value in headers:
+        if name == trusted_header:
+            last_value = value
+    if last_value is None:
+        return None
+    address = _parse_ip(last_value.decode("latin-1").split(",")[-1].strip())
+    return str(address) if address is not None else None
+
+
+def _parse_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """Return the address in value, unwrapping IPv4-mapped IPv6, or None when invalid."""
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
 
 
 proxy_headers_middleware = ProxyHeadersMiddleware()
