@@ -1,19 +1,16 @@
 """Quick roll controller."""
 
-from typing import Annotated
-
 import msgspec
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
-from litestar.params import Parameter
 from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.lib.patch import archive_active, save_active_patch
@@ -44,8 +41,8 @@ class QuickRollController(Controller):
     async def list_user_quickrolls(
         self,
         target_user: User,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        limit: Limit = 10,
+        offset: Offset = 0,
     ) -> OffsetPagination[dto.QuickRollResponse]:
         """List all user quick rolls."""
         qs = QuickRoll.filter(user=target_user, is_archived=False).order_by("name")
@@ -122,23 +119,26 @@ class QuickRollController(Controller):
             requesting_user_id=acting_user.id,
             user_to_manage_id=target_user.id,
         )
-        # One transaction so a rejected trait list also rolls back the field edits
+        traits = None
+        if not isinstance(data.trait_ids, msgspec.UnsetType):
+            traits = await UserQuickRollService().validate_quickroll_traits(
+                data.trait_ids,
+                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+            )
+
         async with in_transaction():
             changes = await save_active_patch(
                 quickroll, data, label="Quick roll", exclude=frozenset({"trait_ids"})
             )
 
-            if not isinstance(data.trait_ids, msgspec.UnsetType):
-                old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
-                service = UserQuickRollService()
-                traits = await service.validate_quickroll_traits(
-                    data.trait_ids,
-                    company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+            if traits is not None:
+                old_trait_ids = sorted(
+                    str(tid) for tid in await quickroll.traits.all().values_list("id", flat=True)
                 )
-                await quickroll.traits.clear()
-                await quickroll.traits.add(*traits)
-                new_trait_ids = sorted(str(tid) for tid in data.trait_ids)
+                new_trait_ids = sorted(str(t.id) for t in traits)
                 if old_trait_ids != new_trait_ids:
+                    await quickroll.traits.clear()
+                    await quickroll.traits.add(*traits)
                     changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
 
         request.state.audit_changes = changes

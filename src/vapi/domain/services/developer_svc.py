@@ -8,7 +8,7 @@ from tortoise.transactions import in_transaction
 from vapi.db.sql_models.developer import Developer
 from vapi.lib.crypt import CryptService, hmac_sha256_hex
 from vapi.lib.exceptions import NotAuthorizedError, NotFoundError, ValidationError
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import apply_patch, archive_active
 from vapi.utils.authentication import generate_api_key
 from vapi.utils.time import time_now
 
@@ -200,10 +200,7 @@ class DeveloperService:
         Args:
             developer: The Developer instance to archive. Refreshed from the database.
         """
-        async with in_transaction():
-            await self._lock_active_developer(developer)
-            developer.is_archived = True
-            await developer.save(update_fields=["is_archived"])
+        await archive_active(developer, label="Developer")
 
     @staticmethod
     async def _lock_active_developer(

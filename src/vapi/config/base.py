@@ -103,6 +103,7 @@ class AWSSettings(BaseModel):
     s3_bucket_name: str | None = Field(default=None)
     cloudfront_origin_path: str | None = Field(default=None)
     cloudfront_url: str | None = Field(default=None)
+    cloudfront_distribution_id: str | None = Field(default=None)
     endpoint_url: str | None = Field(default=None)
 
 
@@ -215,6 +216,16 @@ class StoresSettings(BaseModel):
     idempotency_key: str = Field(default="idempotency")
     recoup_session_key: str = Field(default="recoup_session")
     jwks_key: str = Field(default="jwks")
+
+    @property
+    def generation_ttl(self) -> int:
+        """Seconds a cache flush generation is kept.
+
+        A request compares the generation it read before its database lookup with the one
+        after it cached the result. The generation must outlive any request, or an expiry
+        between the two reads hides a flush.
+        """
+        return max(2 * self.ttl, 3600)
 
 
 class RateLimitPolicy(BaseModel):

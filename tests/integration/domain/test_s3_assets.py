@@ -18,6 +18,7 @@ from PIL import Image
 
 from vapi.constants import AssetType
 from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.user import User as UserModel
 from vapi.domain.urls import Campaigns, Characters, Users
 
 if TYPE_CHECKING:
@@ -328,3 +329,37 @@ async def test_delete_image(
 
     # And the asset is deleted from the database
     assert await S3Asset.filter(id=asset.id).first() is None
+
+
+async def test_delete_user_avatar_asset_clears_avatar(
+    client: AsyncClient,
+    token_company_admin: dict[str, str],
+    build_url: Callable[[str, Any], str],
+    session_company: Company,
+    session_company_admin: Developer,
+    user_factory: Callable,
+    s3asset_factory: Callable,
+) -> None:
+    """Verify deleting a user's active avatar through the asset route clears the avatar."""
+    # Given a user whose avatar is one of their assets
+    user = await user_factory(company=session_company, role="PLAYER")
+    asset = await s3asset_factory(company=session_company, user_parent=user)
+    await UserModel.filter(id=user.id).update(avatar_url=asset.public_url, avatar_asset_id=asset.id)
+
+    # When deleting that asset through the generic user asset route
+    response = await client.delete(
+        build_url(
+            Users.ASSET_DELETE,
+            company_id=session_company.id,
+            user_id=user.id,
+            asset_id=asset.id,
+        ),
+        headers=token_company_admin | {"On-Behalf-Of": str(user.id)},
+    )
+
+    # Then the asset is gone and the user no longer points at it
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert await S3Asset.filter(id=asset.id).first() is None
+    refreshed = await UserModel.filter(id=user.id).first()
+    assert refreshed.avatar_asset_id is None
+    assert refreshed.avatar_url is None

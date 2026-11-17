@@ -1,18 +1,16 @@
 """Character inventory controllers."""
 
 import asyncio
-from typing import Annotated
 
 from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
-from litestar.params import Parameter
 
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
     storyteller_character_access_guard,
@@ -49,8 +47,8 @@ class CharacterInventoryController(Controller):
     async def list_inventory_items(
         self,
         character: Character,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        limit: Limit = 10,
+        offset: Offset = 0,
     ) -> OffsetPagination[InventoryItemResponse]:
         """List all inventory items."""
         qs = CharacterInventory.filter(character_id=character.id, is_archived=False).order_by(

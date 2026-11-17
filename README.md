@@ -91,6 +91,12 @@ To change them, define numbered `VAPI_RATE_LIMIT__POLICIES__<n>__*` blocks as sh
 
 `VAPI_RATE_LIMIT__ALLOW_IGNORE_HEADER` lets requests skip rate limiting with the `X-Testing-Ignore-Rate-Limit` header. It defaults to `false`. Keep it `false` in production, because any caller can send that header. The test suite enables it.
 
+### Asset CDN invalidation
+
+Images are served through CloudFront with a one-year `immutable` cache header. To remove a deleted asset from the CDN, set `VAPI_AWS__CLOUDFRONT_DISTRIBUTION_ID` to the distribution's ID. The API then sends a CloudFront invalidation for each deleted asset. The daily purge of archived assets, which deletes assets archived longer than `VAPI_RETENTION__ARCHIVED_DAYS` (default 30), batches its paths into as few invalidations as it can, up to 3,000 paths each.
+
+The IAM user behind `VAPI_AWS__ACCESS_KEY_ID` needs `cloudfront:CreateInvalidation` on `arn:aws:cloudfront::<account-id>:distribution/<distribution-id>`. If the setting is empty, the API skips invalidation and deleted files stay in edge caches until the cache lifetime ends. A failed invalidation is logged and does not fail the delete.
+
 ## Database Backups
 
 Valentina Noir can automatically back up the PostgreSQL database to S3 on a daily schedule. Backups use `pg_dump` in custom format (`.dump`) and are stored under `db_backups/` in the configured S3 bucket. Point the CloudFront distribution's origin path at `VAPI_AWS__CLOUDFRONT_ORIGIN_PATH`, and grant CloudFront read access to that prefix only, so the CDN never serves `db_backups/`. The API refuses to start S3 work when the origin path is empty or falls under `db_backups/`.

@@ -186,7 +186,7 @@ The API records only the damage on the track. It does not calculate dice penalti
 
 ### Set the health state
 
-To set the health state, send `damage` and, if necessary, `extra_levels`. Omitted fields reset to 0.
+To set the health state, send `damage` and, if necessary, `extra_levels` (0-20). Omitted fields reset to 0.
 
 ```json
 {

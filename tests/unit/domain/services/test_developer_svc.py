@@ -299,3 +299,72 @@ class TestVerifyApiKey:
 
         # Then verification returns False without error
         assert result is False
+
+
+class TestConcurrentGlobalAdmins:
+    """Tests for two global admins editing or deleting the same developer at once.
+
+    Each admin's request loads the developer in its dependency provider, so the
+    service receives a copy that may predate the other admin's committed change.
+    """
+
+    async def test_concurrent_updates_keep_both_changes(
+        self, developer_factory: Callable[..., Developer]
+    ) -> None:
+        """Verify an admin update keeps another admin's change to a different column."""
+        # Given two admin requests that loaded the same developer
+        service = DeveloperService()
+        developer = await developer_factory(username="original-name")
+        loaded_by_a = await Developer.get(id=developer.id)
+        loaded_by_b = await Developer.get(id=developer.id)
+
+        # When admin B promotes the developer, then admin A renames it from its older copy
+        await service.update(loaded_by_b, AdminDeveloperPatch(is_global_admin=True))
+        await service.update(loaded_by_a, AdminDeveloperPatch(username="renamed-by-a"))
+
+        # Then both changes hold
+        refreshed = await Developer.get(id=developer.id)
+        assert refreshed.username == "renamed-by-a"
+        assert refreshed.is_global_admin is True
+
+    async def test_delete_keeps_concurrent_update(
+        self, developer_factory: Callable[..., Developer]
+    ) -> None:
+        """Verify an admin delete archives the developer without undoing another admin's edit."""
+        # Given two admin requests that loaded the same developer
+        service = DeveloperService()
+        developer = await developer_factory(username="original-name")
+        loaded_by_a = await Developer.get(id=developer.id)
+        loaded_by_b = await Developer.get(id=developer.id)
+
+        # When admin B renames the developer, then admin A deletes it from its older copy
+        await service.update(loaded_by_b, AdminDeveloperPatch(username="renamed-by-b"))
+        await service.archive(loaded_by_a)
+
+        # Then the developer is archived and keeps admin B's rename
+        refreshed = await Developer.get(id=developer.id)
+        assert refreshed.is_archived is True
+        assert refreshed.username == "renamed-by-b"
+
+    async def test_delete_refused_after_concurrent_delete(
+        self, developer_factory: Callable[..., Developer]
+    ) -> None:
+        """Verify a second admin delete is refused and keeps the first delete's batch."""
+        # Given two admin requests that loaded the same developer
+        service = DeveloperService()
+        developer = await developer_factory()
+        loaded_by_a = await Developer.get(id=developer.id)
+        loaded_by_b = await Developer.get(id=developer.id)
+
+        # When admin B deletes the developer first
+        await service.archive(loaded_by_b)
+        first = await Developer.get(id=developer.id)
+
+        # Then admin A's delete from its older copy is refused
+        with pytest.raises(NotFoundError):
+            await service.archive(loaded_by_a)
+
+        # And the archive stamps from admin B's delete are unchanged
+        refreshed = await Developer.get(id=developer.id)
+        assert refreshed.archive_batch_id == first.archive_batch_id
+        assert refreshed.archive_date == first.archive_date

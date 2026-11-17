@@ -1236,7 +1236,7 @@ class TestVampireAttributes:
             headers=token_global_admin | on_behalf_of_header,
             json={
                 "name_first": "Updated name",
-                "vampire_attributes": {"sire": "Updated Sire", "generation": 22},
+                "vampire_attributes": {"sire": "Updated Sire", "generation": 12},
             },
         )
 
@@ -1245,7 +1245,7 @@ class TestVampireAttributes:
         data = response.json()
         assert data["name_first"] == "Updated name"
         assert data["vampire_attributes"]["sire"] == "Updated Sire"
-        assert data["vampire_attributes"]["generation"] == 22
+        assert data["vampire_attributes"]["generation"] == 12
         assert data["vampire_attributes"]["clan_id"] == str(vampire_clan.id)
         assert data["vampire_attributes"]["clan_name"] == vampire_clan.name
 
