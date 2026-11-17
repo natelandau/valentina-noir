@@ -1,18 +1,30 @@
 """Tests for batch restore."""
 
+from collections.abc import Coroutine
+from typing import Any
+
 import pytest
 
-from vapi.db.sql_models.base import new_uuid
-from vapi.db.sql_models.character import Character, CharacterTraitSpecialty, Specialty
+from vapi.db.sql_models.base import BaseModel, new_uuid
+from vapi.db.sql_models.character import (
+    Character,
+    CharacterInventory,
+    CharacterTraitSpecialty,
+    Specialty,
+)
 from vapi.db.sql_models.character_sheet import Trait, TraitPower
 from vapi.db.sql_models.notes import Note
+from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import CampaignExperience
 from vapi.domain.handlers import (
+    ArchiveContext,
     archive_campaign,
     archive_character,
     archive_user,
     restore_archive_batch,
 )
+from vapi.lib.exceptions import NotFoundError
+from vapi.lib.patch import archive_active
 
 pytestmark = pytest.mark.anyio
 
@@ -173,3 +185,74 @@ async def test_restore_user_keeps_rows_inside_archived_campaign_archived(
     # Then the stranded character and its data come back with it
     for model, obj in [(Character, stranded), (Note, note), (CampaignExperience, experience)]:
         assert (await model.get(id=obj.id)).is_archived is False
+
+
+async def _delete_loaded_child_after_cascade(
+    child: BaseModel, delete_parent: Coroutine[Any, Any, ArchiveContext]
+) -> ArchiveContext:
+    """Run a child DELETE whose row was loaded before a parent delete committed.
+
+    The child handler's provider has already loaded the row, the parent cascade
+    commits, and only then does the child handler write its archive.
+    """
+    model = type(child)
+    loaded_by_child_delete = await model.get(id=child.id)
+    ctx = await delete_parent
+    with pytest.raises(NotFoundError):
+        await archive_active(loaded_by_child_delete, label=model.__name__)
+    return ctx
+
+
+async def test_restore_brings_back_inventory_deleted_during_character_delete(
+    company_factory, user_factory, character_factory, character_inventory_factory
+) -> None:
+    """Verify an inventory delete racing a character delete leaves the item in the character's batch."""
+    # Given an inventory item whose DELETE loaded it before its character was deleted
+    company = await company_factory()
+    user = await user_factory(company=company)
+    character = await character_factory(company=company, user_player=user, user_creator=user)
+    item = await character_inventory_factory(character=character)
+    ctx = await _delete_loaded_child_after_cascade(item, archive_character(character=character))
+
+    # When the character is restored
+    await restore_archive_batch(batch_id=ctx.batch_id)
+
+    # Then the item comes back with it
+    refreshed = await CharacterInventory.get(id=item.id)
+    assert refreshed.is_archived is False
+
+
+async def test_restore_brings_back_quickroll_deleted_during_user_delete(
+    company_factory, user_factory, quickroll_factory
+) -> None:
+    """Verify a quick roll delete racing a user delete leaves the roll in the user's batch."""
+    # Given a quick roll whose DELETE loaded it before its user was deleted
+    user = await user_factory(company=await company_factory())
+    quickroll = await quickroll_factory(user=user)
+    ctx = await _delete_loaded_child_after_cascade(quickroll, archive_user(user=user))
+
+    # When the user is restored
+    await restore_archive_batch(batch_id=ctx.batch_id)
+
+    # Then the quick roll comes back with it
+    refreshed = await QuickRoll.get(id=quickroll.id)
+    assert refreshed.is_archived is False
+
+
+async def test_restore_brings_back_note_deleted_during_character_delete(
+    company_factory, user_factory, character_factory, note_factory
+) -> None:
+    """Verify a note delete racing a character delete leaves the note in the character's batch."""
+    # Given a character note whose DELETE loaded it before its character was deleted
+    company = await company_factory()
+    user = await user_factory(company=company)
+    character = await character_factory(company=company, user_player=user, user_creator=user)
+    note = await note_factory(company=company, character=character)
+    ctx = await _delete_loaded_child_after_cascade(note, archive_character(character=character))
+
+    # When the character is restored
+    await restore_archive_batch(batch_id=ctx.batch_id)
+
+    # Then the note comes back with it
+    refreshed = await Note.get(id=note.id)
+    assert refreshed.is_archived is False

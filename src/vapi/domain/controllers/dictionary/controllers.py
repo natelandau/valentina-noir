@@ -93,7 +93,7 @@ class DictionaryTermController(Controller):
             synonyms=data.synonyms,
             company_id=company.id,
         )
-        await dictionary_term.save()
+        await dictionary_term.save(force_create=True)
 
         request.state.audit_description = f"Create dictionary term '{dictionary_term.term}'"
         return DictionaryTermResponse.from_model(dictionary_term)
