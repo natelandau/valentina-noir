@@ -15,7 +15,7 @@ from vapi.lib.stores import delete_authentication_cache_for_developer
 from vapi.openapi.tags import APITags
 
 from . import docs
-from .dto import DeveloperPatch, DeveloperResponse
+from .dto import DeveloperApiKeyResponse, DeveloperPatch, DeveloperResponse
 
 
 class DeveloperController(Controller):
@@ -45,7 +45,9 @@ class DeveloperController(Controller):
         after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [DEVELOPER_KEY_ROTATION_LIMIT], SENSITIVE_RESPONSE_OPT_KEY: True},
     )
-    async def new_api_key(self, *, developer: Developer, request: Request) -> dict[str, str]:
+    async def new_api_key(
+        self, *, developer: Developer, request: Request
+    ) -> DeveloperApiKeyResponse:
         """Generate a new API key for a developer."""
         # Use the presented key, not the loaded row's, so a rotation that lands between
         # authentication and loading the developer is refused. Evict after the new key is
@@ -59,16 +61,7 @@ class DeveloperController(Controller):
         )
 
         request.state.audit_description = f"Regenerate API key for developer '{developer.username}'"
-        if developer.key_generated is None:
-            msg = f"key_generated not set after generating API key for developer {developer.id}"
-            raise ValueError(msg)
-        return {
-            "id": str(developer.id),
-            "username": developer.username,
-            "email": developer.email,
-            "api_key": new_key,
-            "key_generated": developer.key_generated.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
+        return DeveloperApiKeyResponse.from_model(developer, api_key=new_key)
 
     @patch(
         path=urls.Developers.UPDATE,

@@ -64,6 +64,29 @@ class DeveloperAdminResponse(msgspec.Struct):
         )
 
 
+class DeveloperAdminApiKeyResponse(DeveloperAdminResponse):
+    """Admin developer response that also carries a newly generated API key."""
+
+    api_key: str
+
+    @classmethod
+    def from_model_with_key(cls, m: "Developer", api_key: str) -> "DeveloperAdminApiKeyResponse":
+        """Convert a Developer and its new plaintext key to a response.
+
+        Requires the permissions and their related company relations to be prefetched.
+
+        Args:
+            m: The developer the key was generated for.
+            api_key: The plaintext API key.
+
+        Returns:
+            The admin developer response plus api_key.
+        """
+        base = DeveloperAdminResponse.from_model(m)
+        fields = {f: getattr(base, f) for f in base.__struct_fields__}
+        return cls(**fields, api_key=api_key)
+
+
 class AdminDeveloperPatch(msgspec.Struct):
     """Request body for partially updating a developer as global admin."""
 

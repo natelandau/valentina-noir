@@ -74,6 +74,29 @@ POST /api/v1/admin/developers/{developer_id}/new-key
 
 Generate a new API key for a developer. Their current key is invalidated immediately. Save the returned key, as it will not be displayed again.
 
+The response has the same fields as [Get developer](#get-developer), plus `api_key`:
+
+```json
+{
+    "id": "01a1e740-afd8-744b-a23a-c9ce08d6ce2b",
+    "date_created": "2026-01-02T03:04:05Z",
+    "date_modified": "2026-01-02T03:04:05Z",
+    "username": "my-app",
+    "email": "dev@example.com",
+    "is_global_admin": false,
+    "key_generated": "2026-01-02T03:04:05Z",
+    "provider_audiences": null,
+    "companies": [
+        {
+            "company_id": "01a1e740-b012-7c4d-9e21-4f3a6b8c0d1e",
+            "name": "Friday Night Games",
+            "permission": "USER"
+        }
+    ],
+    "api_key": "<new API key>"
+}
+```
+
 ### Developer audit logs
 
 ```shell

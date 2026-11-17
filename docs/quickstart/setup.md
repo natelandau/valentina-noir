@@ -29,10 +29,14 @@ A successful response confirms your key is valid:
 
 ```json
 {
-    "id": "68c1f7152cae3787a09a74fa",
-    "name": "My Application",
-    "companies": [],
-    "is_global_admin": false
+    "id": "01a1e740-afd8-744b-a23a-c9ce08d6ce2b",
+    "date_created": "2026-01-02T03:04:05Z",
+    "date_modified": "2026-01-02T03:04:05Z",
+    "username": "my-app",
+    "email": "dev@example.com",
+    "key_generated": "2026-01-02T03:04:05Z",
+    "provider_audiences": null,
+    "companies": []
 }
 ```
 

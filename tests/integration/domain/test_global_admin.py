@@ -12,6 +12,7 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
 )
 
+from vapi.constants import CompanyPermission
 from vapi.db.sql_models.developer import Developer
 from vapi.domain.urls import GlobalAdmin
 
@@ -161,10 +162,16 @@ async def test_new_api_key(
     build_url: Callable[[str, Any], str],
     session_global_admin: Developer,
     developer_factory: Callable[..., Developer],
+    company_factory: Callable[..., Any],
+    developer_company_permission_factory: Callable[..., Any],
 ) -> None:
     """Verify the admin can generate a new API key for a Developer."""
-    # Given a developer with an existing key
-    new_developer = await developer_factory()
+    # Given a global admin developer with an existing key and access to a company
+    new_developer = await developer_factory(is_global_admin=True)
+    company = await company_factory()
+    await developer_company_permission_factory(
+        developer=new_developer, company=company, permission=CompanyPermission.USER
+    )
     original_hashed_api_key = new_developer.hashed_api_key
     original_api_key_fingerprint = new_developer.api_key_fingerprint
 
@@ -183,7 +190,14 @@ async def test_new_api_key(
     assert json_data["email"] == new_developer.email
     assert json_data["date_created"] is not None
     assert json_data["date_modified"] is not None
-    assert json_data["is_global_admin"] == str(new_developer.is_global_admin)
+    assert json_data["is_global_admin"] is True
+    assert json_data["companies"] == [
+        {
+            "company_id": str(company.id),
+            "name": company.name,
+            "permission": CompanyPermission.USER.value,
+        }
+    ]
 
     # And the key is updated in the database
     db_developer = await Developer.get(id=new_developer.id)
@@ -193,8 +207,6 @@ async def test_new_api_key(
     assert db_developer.api_key_fingerprint is not None
     assert db_developer.hashed_api_key != original_hashed_api_key
     assert db_developer.api_key_fingerprint != original_api_key_fingerprint
-    assert "companies" in json_data
-    assert isinstance(json_data["companies"], list)
 
 
 async def test_patch_developer_provider_audiences_valid(
