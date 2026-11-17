@@ -6,11 +6,13 @@ from typing import Any
 import pytest
 from litestar.stores.memory import MemoryStore
 
+from vapi.config import settings
 from vapi.lib.stores import (
     cache_authenticated_developer,
     delete_authentication_cache_for_developer,
     get_authentication_generation,
 )
+from vapi.server.stores import RedisStore
 
 pytestmark = pytest.mark.anyio
 
@@ -72,3 +74,20 @@ async def test_cache_authenticated_developer_writes_after_earlier_eviction() -> 
 
     # Then the entry is stored
     assert await store.get(FINGERPRINT) == b"fresh"
+
+
+async def test_authentication_generation_outlives_the_cache_entry(redis: Any) -> None:
+    """Verify an eviction's generation outlives the auth cache, so a slow lookup still sees it."""
+    # Given the authentication store on Redis
+    store = RedisStore(redis, namespace="test-auth-generation")
+    app = _app_with_store(store)
+
+    # When a developer is evicted
+    await delete_authentication_cache_for_developer(
+        app, SimpleNamespace(api_key_fingerprint=FINGERPRINT)
+    )
+
+    # Then the generation lasts at least twice as long as an auth cache entry
+    ttl = await store.expires_in(f"generation:{FINGERPRINT}")
+    assert ttl is not None
+    assert ttl >= 2 * settings.stores.ttl

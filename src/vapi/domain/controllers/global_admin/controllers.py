@@ -11,7 +11,7 @@ from litestar.params import Parameter
 from vapi.constants import SENSITIVE_RESPONSE_OPT_KEY
 from vapi.db.sql_models.developer import Developer
 from vapi.domain import deps, hooks, urls
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import DeveloperService
 from vapi.lib.guards import global_admin_guard
 from vapi.lib.stores import delete_authentication_cache_for_developer
@@ -45,8 +45,8 @@ class GlobalAdminController(Controller):
     )
     async def list_developers(
         self,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        limit: Limit = 10,
+        offset: Offset = 0,
         is_global_admin: Annotated[
             bool | None, Parameter(description="Filter by global admin status.")
         ] = None,

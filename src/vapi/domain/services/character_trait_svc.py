@@ -20,7 +20,6 @@ from vapi.constants import (
     PermissionsRecoupXP,
     SpecialtyRules,
     TraitModifyCurrency,
-    UserRole,
 )
 from vapi.db.sql_models.character import (
     Character,
@@ -52,7 +51,7 @@ from vapi.lib.exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
-from vapi.lib.guards import user_can_edit_character
+from vapi.lib.guards import STORYTELLER_ROLES, user_can_edit_character
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -334,7 +333,7 @@ class CharacterTraitService:
         Raises:
             PermissionDeniedError: If the user does not have permissions.
         """
-        if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
+        if user.role in STORYTELLER_ROLES:
             return True
 
         # NPC/STORYTELLER characters are NO_COST-only and governed by permission_manage_npc

@@ -29,7 +29,6 @@ from msgspec import Struct
 
 from vapi.config import settings
 from vapi.constants import (
-    AUTH_HEADER_KEY,
     IDEMPOTENCY_IN_FLIGHT_TTL_SECONDS,
     IDEMPOTENCY_IN_PROGRESS_CODE,
     IDEMPOTENCY_IN_PROGRESS_RETRY_AFTER_SECONDS,
@@ -38,12 +37,10 @@ from vapi.constants import (
     IDEMPOTENCY_KEY_STATE_KEY,
     IDEMPOTENCY_MAX_CACHED_BODY_BYTES,
     IDEMPOTENCY_TTL_SECONDS,
-    ON_BEHALF_OF_HEADER_KEY,
     SENSITIVE_RESPONSE_OPT_KEY,
 )
-from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import ConflictError, ValidationError
-from vapi.lib.stores import claim_store_key
+from vapi.lib.stores import caller_key_prefix, claim_store_key
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -313,12 +310,13 @@ class IdempotencyMiddleware(ASGIMiddleware):
         Returns:
             str: A unique cache key for this request.
         """
-        api_key = request.headers.get(AUTH_HEADER_KEY, "anonymous")
-        fingerprint = hmac_sha256_hex(data=api_key)[:16]
-        acting_user = request.headers.get(ON_BEHALF_OF_HEADER_KEY, "")
+        # The idempotency key may contain ":" and the decoded path may contain "?", so
+        # length-prefix both like the acting user
         path = request.url.path
-        query = request.url.query
-        return f"{fingerprint}:{acting_user}:{idempotency_key}:{method}:{path}?{query}"
+        return (
+            f"{caller_key_prefix(request)}:{len(idempotency_key)}:{idempotency_key}:"
+            f"{method}:{len(path)}:{path}?{request.url.query}"
+        )
 
     async def _send_cached_response(self, send: Send, cached: CachedResponse) -> None:
         """Send a cached response to the client.

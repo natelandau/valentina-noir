@@ -1,13 +1,11 @@
 """Company-scoped audit log controller."""
 
 from datetime import datetime
-from typing import Annotated
 from uuid import UUID
 
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import get
-from litestar.params import Parameter
 
 from vapi.constants import AuditEntityType, AuditOperation
 from vapi.db.sql_models.company import Company
@@ -19,7 +17,7 @@ from vapi.domain.audit import (
     build_audit_log_filters,
     list_audit_logs,
 )
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
 
@@ -47,8 +45,8 @@ class CompanyAuditLogController(Controller):
         self,
         *,
         company: Company,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        limit: Limit = 10,
+        offset: Offset = 0,
         acting_user_id: UUID | None = None,
         user_id: UUID | None = None,
         campaign_id: UUID | None = None,

@@ -16,6 +16,16 @@ MAX_LONG_TEXT_LENGTH: Final[int] = 20_000
 MAX_URL_LENGTH: Final[int] = 2048
 MAX_PROVIDER_TOKEN_LENGTH: Final[int] = 16_384  # provider ID and access tokens are a few KB
 MAX_DICTIONARY_SYNONYMS: Final[int] = 50
+# Game-range caps on request integers that land in 32-bit columns. Ancient vampires reach
+# many millennia; generation runs from Caine (1st) to thin-bloods (16th); trait values
+# share the custom trait max_value cap.
+MAX_CHARACTER_AGE: Final[int] = 100_000
+MIN_VAMPIRE_GENERATION: Final[int] = 1
+MAX_VAMPIRE_GENERATION: Final[int] = 16
+MAX_TRAIT_VALUE: Final[int] = 100
+MAX_EXTRA_HEALTH_LEVELS: Final[int] = 20
+MAX_PAGINATION_OFFSET: Final[int] = 100_000
+MAX_PAGE_LIMIT: Final[int] = 100
 MAX_STATISTICS_TOP_TRAITS: Final[int] = 50
 URL_ROOT_PATH: Final[str] = "/api/v1"
 DOCS_URL: Final[str] = "https://docs.valentina-noir.com"

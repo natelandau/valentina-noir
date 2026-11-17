@@ -94,21 +94,16 @@ async def _purge_s3_assets() -> None:
         logger.exception("Failed to purge S3Assets.", extra=_LOG_EXTRA)
         return
 
-    results = await asyncio.gather(
-        *(aws_service.delete_asset(asset) for asset in assets),
-        return_exceptions=True,
-    )
-    failed = 0
-    for asset, result in zip(assets, results, strict=True):
-        if isinstance(result, BaseException):
-            failed += 1
+    errors = await aws_service.delete_assets(assets)
+    for asset, error in zip(assets, errors, strict=True):
+        if error is not None:
             logger.exception(  # noqa: LOG004
                 "Failed to purge S3Asset %s.",
                 asset.id,
-                exc_info=result,
+                exc_info=error,
                 extra=_LOG_EXTRA,
             )
-    purged = len(assets) - failed
+    purged = errors.count(None)
 
     logger.info(
         "Purge old S3Assets.",
@@ -285,9 +280,11 @@ async def purge_db_expired_items(_: Context) -> None:
     await init_tortoise()
 
     try:
+        # Assets go first: purging an archived company cascades to its asset rows, which
+        # would orphan their S3 objects and leave them on the CDN.
+        await _purge_s3_assets()
         await _purge_archived_models()
         await _purge_audit_logs()
-        await _purge_s3_assets()
         await _purge_chargen_sessions()
         await _purge_temporary_characters()
     finally:

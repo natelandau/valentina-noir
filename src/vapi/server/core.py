@@ -81,6 +81,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from vapi.middleware.proxy_headers import proxy_headers_middleware
         from vapi.middleware.rate_limit import rate_limit_middleware
         from vapi.middleware.request_id import request_id_middleware
+        from vapi.middleware.response_cache_generation import response_cache_generation_middleware
         from vapi.openapi.config import create_openapi_config
         from vapi.openapi.refine import refine_openapi_schema
         from vapi.server import plugins
@@ -109,6 +110,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 rate_limit_middleware,
                 idempotency_middleware,
                 cache_control_middleware,
+                response_cache_generation_middleware,
                 middleware_logging_config.middleware,
             ]
         )

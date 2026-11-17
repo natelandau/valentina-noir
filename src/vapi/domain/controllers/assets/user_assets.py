@@ -14,7 +14,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
 from vapi.domain import deps, hooks, urls
 from vapi.domain.controllers.assets import dto
-from vapi.domain.paginator import OffsetPagination
+from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_self_or_admin_guard
 from vapi.lib.rate_limit_policies import ASSET_UPLOAD_LIMIT
 from vapi.openapi.tags import APITags
@@ -45,8 +45,8 @@ class UserAssetsController(BaseAssetsController):
     async def list_user_assets(
         self,
         target_user: User,
-        limit: Annotated[int, Parameter(ge=0, le=100)] = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        limit: Limit = 10,
+        offset: Offset = 0,
         asset_type: Annotated[
             AssetType | None, Parameter(description="Filter assets by type.")
         ] = None,
@@ -108,5 +108,5 @@ class UserAssetsController(BaseAssetsController):
         asset: S3Asset,
         acting_user: User,  # noqa: ARG002
     ) -> None:
-        """Delete a user asset."""
+        """Delete a user asset, clearing the user's avatar if it is this asset."""
         await self._delete_asset(asset=asset, parent_id=target_user.id)

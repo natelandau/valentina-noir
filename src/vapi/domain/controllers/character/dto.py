@@ -29,7 +29,14 @@ from vapi.domain.controllers.character_trait.dto import (
     active_specialties,
     build_tracker_response,
 )
-from vapi.domain.controllers.request_types import Age, LongText, Name3to50, NameMax50
+from vapi.domain.controllers.request_types import (
+    Age,
+    Generation,
+    LongText,
+    Name3to50,
+    NameMax50,
+    TraitScore,
+)
 from vapi.lib.detail_includes import active_prefetch
 
 if TYPE_CHECKING:
@@ -349,7 +356,7 @@ class VampireAttributesCreate(msgspec.Struct):
     """Vampire attributes for character creation."""
 
     clan_id: UUID
-    generation: int | None = None
+    generation: Generation | None = None
     sire: NameMax50 | None = None
     bane_name: NameMax50 | None = None
     bane_description: LongText | None = None
@@ -387,7 +394,7 @@ class VampireAttributesPatch(msgspec.Struct):
     """Vampire attributes for character patch."""
 
     clan_id: UUID | msgspec.UnsetType = msgspec.UNSET
-    generation: int | msgspec.UnsetType | None = msgspec.UNSET
+    generation: Generation | msgspec.UnsetType | None = msgspec.UNSET
     sire: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     bane_name: NameMax50 | msgspec.UnsetType | None = msgspec.UNSET
     bane_description: LongText | msgspec.UnsetType | None = msgspec.UNSET
@@ -425,7 +432,7 @@ class CharacterTraitCreate(msgspec.Struct):
     """Trait to assign during character creation."""
 
     trait_id: UUID
-    value: int = 0
+    value: TraitScore = 0
     tracker: TrackerStateSet | None = None
 
 
