@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Builder - install dependencies and compile
 # ============================================================
-FROM ghcr.io/astral-sh/uv:0.13.6-python3.13-trixie-slim@sha256:e586c1c65b7071aec78f02c5587c76c5011159cd76b3d6f1255f40e48e850abc AS builder
+FROM ghcr.io/astral-sh/uv:0.13.9-python3.13-trixie-slim@sha256:803d2b80b6913e562837d69f037f39bfea80f51ef3f0dd0d8fdffbd95688fd6d AS builder
 
 # Build-time system deps for native extensions (numpy, argon2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
