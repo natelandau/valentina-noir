@@ -10,7 +10,7 @@ from vapi.constants import AuditOperation, IdentityProvider, UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.controllers.identity import docs
 from vapi.domain.controllers.identity.dto import (
     IdentifyRequest,
@@ -66,7 +66,6 @@ class IdentityController(Controller):
         summary="Identify user",
         operation_id="identifyUser",
         description=docs.IDENTIFY_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [USER_REGISTRATION_LIMIT], "allow_unapproved_user": True},
     )
     async def identify(
@@ -124,7 +123,6 @@ class IdentityController(Controller):
         summary="Link identity",
         operation_id="linkUserIdentity",
         description=docs.LINK_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def link_identity(
         self,
@@ -168,7 +166,6 @@ class IdentityController(Controller):
         summary="Unlink identity",
         operation_id="unlinkUserIdentity",
         description=docs.UNLINK_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def unlink_identity(
         self,

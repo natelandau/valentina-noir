@@ -7,7 +7,7 @@ from litestar.handlers import get, patch, post
 
 from vapi.constants import SENSITIVE_RESPONSE_OPT_KEY
 from vapi.db.sql_models.developer import Developer
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.services import DeveloperService
 from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.rate_limit_policies import DEVELOPER_KEY_ROTATION_LIMIT
@@ -42,7 +42,6 @@ class DeveloperController(Controller):
         summary="Regenerate API key",
         operation_id="regenerateDeveloperMeApiKey",
         description=docs.REGENERATE_API_KEY_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [DEVELOPER_KEY_ROTATION_LIMIT], SENSITIVE_RESPONSE_OPT_KEY: True},
     )
     async def new_api_key(
@@ -68,7 +67,6 @@ class DeveloperController(Controller):
         summary="Update current developer",
         operation_id="updateDeveloperMe",
         description=docs.UPDATE_ME_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def update_developer(
         self, *, developer: Developer, data: DeveloperPatch, request: Request

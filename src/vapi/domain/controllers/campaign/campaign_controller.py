@@ -10,7 +10,7 @@ from litestar.handlers import delete, get, patch, post
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.domain.services.campaign_svc import annotate_campaign_counts
@@ -88,7 +88,6 @@ class CampaignController(Controller):
         operation_id="createCampaign",
         description=docs.CREATE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def create_campaign(
         self,
@@ -119,7 +118,6 @@ class CampaignController(Controller):
         operation_id="updateCampaign",
         description=docs.UPDATE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def update_campaign(
         self,
@@ -143,7 +141,6 @@ class CampaignController(Controller):
         operation_id="deleteCampaign",
         description=docs.DELETE_CAMPAIGN_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_campaign(
         self,

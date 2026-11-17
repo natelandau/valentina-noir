@@ -8,7 +8,7 @@ from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_can_manage_campaign
 from vapi.openapi.tags import APITags
@@ -68,7 +68,6 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Create chapter note",
         operation_id="createChapterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_can_manage_campaign],
     )
     async def create_chapter_note(
@@ -90,7 +89,6 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Update chapter note",
         operation_id="updateChapterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_can_manage_campaign],
     )
     async def update_chapter_note(
@@ -109,7 +107,6 @@ class CampaignChapterNoteController(BaseNoteController):
         summary="Delete chapter note",
         operation_id="deleteChapterNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_can_manage_campaign],
     )
     async def delete_chapter_note(

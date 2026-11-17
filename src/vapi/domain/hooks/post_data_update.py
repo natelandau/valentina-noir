@@ -1,14 +1,17 @@
-"""After-response hooks for audit logging, cache invalidation, and timestamp updates.
+"""Post-write hook for audit logging, cache invalidation, and timestamp updates.
 
-The post_data_update_hook is the primary hook wired to all mutating endpoints via
-Litestar's after_response parameter. It:
+The app-level post_data_update_middleware runs post_data_update_hook for every
+successful POST, PUT, PATCH, or DELETE, after the handler and before the response
+starts, so a client that reads right after a write never gets a cached response the
+write made stale. A route opts out with ``opt={SKIP_POST_DATA_UPDATE_OPT_KEY: True}``.
+The hook:
 
 1. Parses the request body
 2. Calls build_audit_entry() to derive structured fields (entity_type, operation,
    FK columns, description, changes) from the request context
 3. Creates the AuditLog row with both raw request data and structured fields
-4. Invalidates the response cache for the developer's API key
-5. Updates the company's resources_modified_at timestamp
+4. Invalidates the response cache for the developer's API key and the affected company
+5. Updates the company's resources_modified_at timestamp after that flush
 
 Controllers do NOT need to pass any extra arguments — the hook derives everything
 from path_params, HTTP method, and operation_id automatically.
@@ -39,24 +42,41 @@ audit entry) by setting:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import logging
 from typing import TYPE_CHECKING, Any
 
 import msgspec
+from litestar import Request
+from litestar.enums import ScopeType
+from litestar.handlers import HTTPRouteHandler
+from litestar.middleware import ASGIMiddleware
+from litestar.status_codes import HTTP_400_BAD_REQUEST
 
-from vapi.constants import AUDIT_MAX_BODY_BYTES, REQUEST_ID_STATE_KEY
+from vapi.constants import (
+    AUDIT_MAX_BODY_BYTES,
+    REQUEST_ID_STATE_KEY,
+    SKIP_POST_DATA_UPDATE_OPT_KEY,
+)
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
+from vapi.db.sql_models.developer import Developer
 from vapi.domain.hooks.audit_helpers import build_audit_entry
 from vapi.lib.redaction import sanitize_json
 from vapi.lib.stores import (
     delete_response_cache_for_api_key,
     delete_response_cache_for_company,
 )
+from vapi.middleware.api_key_auth import CachedDeveloper
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
-    from litestar import Request
+    from litestar.types import ASGIApp, Message, Receive, Scope, Send
+
+__all__ = ("add_audit_log", "post_data_update_middleware")
+
+logger = logging.getLogger("vapi")
 
 
 async def _sanitized_request_body(request: Request) -> tuple[str | None, Any]:
@@ -139,7 +159,8 @@ async def add_audit_log(request: Request) -> None:
 async def post_data_update_hook(request: Request) -> None:
     """Create an audit log, invalidate response cache, and update company timestamp."""
     # The mutation is already committed, so a failed audit insert must not leave
-    # caches and the staleness timestamp out of date.
+    # caches and the staleness timestamp out of date. The insert finishes before the
+    # flush so a read between the two cannot cache an audit list missing this entry.
     try:
         await add_audit_log(request)
     finally:
@@ -155,10 +176,63 @@ async def _invalidate_after_mutation(request: Request) -> None:
     if getattr(request.state, "resources_unmodified", False):
         return
 
-    await delete_response_cache_for_api_key(request)
     company_id = request.path_params.get("company_id") or getattr(
         request.state, "affected_company_id", None
     )
-    if company_id:
-        await delete_response_cache_for_company(request, str(company_id))
-        await Company.filter(id=company_id).update(resources_modified_at=time_now())
+    if not company_id:
+        await delete_response_cache_for_api_key(request)
+        return
+
+    await asyncio.gather(
+        delete_response_cache_for_api_key(request),
+        delete_response_cache_for_company(request, str(company_id)),
+    )
+    # Bump only after the flush: a client that sees the new timestamp and refetches
+    # must not be served a cached response this write made stale.
+    await Company.filter(id=company_id).update(resources_modified_at=time_now())
+
+
+_WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+class PostDataUpdateMiddleware(ASGIMiddleware):
+    """Run post_data_update_hook on a successful write before its response starts."""
+
+    scopes = (ScopeType.HTTP,)
+    exclude_opt_key = SKIP_POST_DATA_UPDATE_OPT_KEY
+
+    async def handle(self, scope: Scope, receive: Receive, send: Send, next_app: ASGIApp) -> None:
+        """Hold the response start until the hook has run for a response below 400.
+
+        Args:
+            scope (Scope): The ASGI connection scope.
+            receive (Receive): The ASGI receive function.
+            send (Send): The ASGI send function.
+            next_app (ASGIApp): The next ASGI application in the middleware stack to call.
+        """
+        # Only API-key callers are audited; basic-auth admin tools such as the SAQ UI are not.
+        if (
+            scope.get("method") not in _WRITE_METHODS
+            or not isinstance(scope.get("route_handler"), HTTPRouteHandler)
+            or not isinstance(scope.get("user"), Developer | CachedDeveloper)
+        ):
+            await next_app(scope, receive, send)
+            return
+
+        async def send_after_hook(message: Message) -> None:
+            if (
+                message["type"] == "http.response.start"
+                and message["status"] < HTTP_400_BAD_REQUEST
+            ):
+                try:
+                    await post_data_update_hook(Request(scope, receive))
+                except Exception:
+                    # The write is committed. An error response would invite a retry
+                    # that repeats it, so log the failure and send the response.
+                    logger.exception("Post-update hook failed")
+            await send(message)
+
+        await next_app(scope, receive, send_after_hook)
+
+
+post_data_update_middleware = PostDataUpdateMiddleware()

@@ -12,7 +12,7 @@ from litestar.params import Parameter
 
 from vapi.constants import UserRole
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import GlobalAdminUserService
 from vapi.domain.services.user_svc import annotate_user_counts
@@ -99,7 +99,6 @@ class GlobalAdminUserController(Controller):
         summary="Create user",
         operation_id="globalAdminCreateUser",
         description=docs.ADMIN_CREATE_USER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_user(self, *, data: AdminUserCreate, request: Request) -> AdminUserResponse:
         """Create a user in the company named by company_id in the body."""
@@ -120,7 +119,6 @@ class GlobalAdminUserController(Controller):
         summary="Update user",
         operation_id="globalAdminUpdateUser",
         description=docs.ADMIN_UPDATE_USER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def update_user(
         self, *, target_user: User, data: AdminUserPatch, request: Request
@@ -142,7 +140,6 @@ class GlobalAdminUserController(Controller):
         summary="Delete user",
         operation_id="globalAdminDeleteUser",
         description=docs.ADMIN_DELETE_USER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_user(self, *, target_user: User, request: Request) -> None:
         """Soft-delete a user by ID."""

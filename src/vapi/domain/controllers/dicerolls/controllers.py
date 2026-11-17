@@ -9,7 +9,7 @@ from litestar.handlers import get, post
 from litestar.params import Parameter
 from tortoise.expressions import Q
 
-from vapi.constants import CharacterType
+from vapi.constants import SKIP_POST_DATA_UPDATE_OPT_KEY, CharacterType
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.diceroll import DiceRoll
 from vapi.db.sql_models.user import User
@@ -124,6 +124,7 @@ class DiceRollController(Controller):
         path=urls.DiceRolls.CREATE,
         operation_id="createDiceRoll",
         cache=False,
+        opt={SKIP_POST_DATA_UPDATE_OPT_KEY: True},
         summary="Roll dice",
         description=docs.CREATE_DICEROLL_DESCRIPTION,
     )
@@ -141,6 +142,7 @@ class DiceRollController(Controller):
         path=urls.DiceRolls.QUICKROLL,
         operation_id="createQuickRoll",
         cache=False,
+        opt={SKIP_POST_DATA_UPDATE_OPT_KEY: True},
         summary="Execute quick roll",
         description=docs.QUICKROLL_DESCRIPTION,
     )

@@ -35,6 +35,9 @@ EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
 # Route opt flag for responses that carry a secret (a freshly minted API key): the idempotency
 # cache never stores them and request logging masks their body.
 SENSITIVE_RESPONSE_OPT_KEY: Final[str] = "sensitive_response"
+# Route opt flag for a write that skips the post-write hook: no audit entry, cache flush, or
+# company timestamp bump.
+SKIP_POST_DATA_UPDATE_OPT_KEY: Final[str] = "skip_post_data_update"
 # Lowercase request body keys whose values are credentials (e.g. identity-provider tokens on
 # identify and link). Request logging and audit logging both mask them, matching case-insensitively.
 SENSITIVE_BODY_KEYS: Final[frozenset[str]] = frozenset(

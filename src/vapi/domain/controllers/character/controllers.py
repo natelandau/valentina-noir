@@ -23,7 +23,7 @@ from vapi.db.sql_models.character import (
 from vapi.db.sql_models.character_sheet import TraitCategory
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import CharacterService, CharacterSheetService, TrackerService
 from vapi.domain.services.character_svc import annotate_character_counts
@@ -168,7 +168,6 @@ class CharacterController(Controller):
         summary="Create character",
         operation_id="createCharacter",
         description=docs.CREATE_CHARACTER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_character(
         self,
@@ -271,7 +270,6 @@ class CharacterController(Controller):
         operation_id="updateCharacter",
         description=docs.UPDATE_CHARACTER_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def update_character(
         self,
@@ -307,7 +305,6 @@ class CharacterController(Controller):
         operation_id="deleteCharacter",
         description=docs.DELETE_CHARACTER_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_character(
         self,

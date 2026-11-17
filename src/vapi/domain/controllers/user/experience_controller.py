@@ -8,7 +8,7 @@ from litestar.handlers import get, post
 from vapi.db.sql_models.campaign import Campaign
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.services import UserXPService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
 from vapi.openapi.tags import APITags
@@ -49,7 +49,6 @@ class ExperienceController(Controller):
         summary="Add XP",
         operation_id="addXp",
         description=docs.ADD_XP_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def add_xp_to_campaign_experience(
         self,
@@ -76,7 +75,6 @@ class ExperienceController(Controller):
         summary="Remove XP",
         operation_id="removeXp",
         description=docs.REMOVE_XP_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def remove_xp_from_campaign_experience(
         self,
@@ -103,7 +101,6 @@ class ExperienceController(Controller):
         summary="Add cool points",
         operation_id="addCpToCampaignExperience",
         description=docs.ADD_CP_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def add_cp_to_campaign_experience(
         self,

@@ -9,7 +9,7 @@ from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
@@ -71,7 +71,6 @@ class QuickRollController(Controller):
         summary="Create quick roll",
         operation_id="createUserQuickroll",
         description=docs.CREATE_QUICKROLL_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_user_quickroll(
         self, *, request: Request, target_user: User, acting_user: User, data: dto.QuickRollCreate
@@ -103,7 +102,6 @@ class QuickRollController(Controller):
         summary="Update quick roll",
         operation_id="updateUserQuickroll",
         description=docs.UPDATE_QUICKROLL_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def update_user_quickroll(
         self,
@@ -153,7 +151,6 @@ class QuickRollController(Controller):
         summary="Delete quick roll",
         operation_id="deleteUserQuickroll",
         description=docs.DELETE_QUICKROLL_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_user_quickroll(
         self, *, request: Request, target_user: User, acting_user: User, quickroll: QuickRoll

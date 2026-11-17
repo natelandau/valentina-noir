@@ -1,6 +1,6 @@
-"""Test the after response hooks.
+"""Test the post-write hook.
 
-These are smoke tests to ensure the hooks are working as expected. We do not test that they are added to every endpoint that should have them. This is because the hooks are applied to every endpoint that uses the `after_response` parameter.
+These are smoke tests to ensure the hook works as expected. Which requests run the hook is covered by the middleware's unit tests.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-class TestAfterResponseHooks:
-    """Test the after response hooks."""
+class TestPostDataUpdateHooks:
+    """Test the post-write hook."""
 
     async def test_mutation_flushes_other_developers_company_cache(
         self,

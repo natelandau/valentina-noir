@@ -14,7 +14,7 @@ from vapi.constants import CompanyPermission, UserRole
 from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.handlers import archive_company
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import CompanyService
@@ -101,7 +101,6 @@ class CompanyController(Controller):
         summary="Create company",
         operation_id="createCompany",
         description=docs.CREATE_COMPANY_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_company(
         self, request: Request, requesting_developer: Developer, data: CompanyCreate
@@ -152,7 +151,6 @@ class CompanyController(Controller):
         operation_id="updateCompany",
         description=docs.UPDATE_COMPANY_DESCRIPTION,
         guards=[developer_company_admin_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def update_company(
         self, request: Request, company: Company, data: CompanyPatch
@@ -189,7 +187,6 @@ class CompanyController(Controller):
         operation_id="deleteCompany",
         description=docs.DELETE_COMPANY_DESCRIPTION,
         guards=[developer_company_owner_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_company(self, request: Request, company: Company) -> None:
         """Soft-delete a company and cascade the archive to its entire tenant."""
@@ -202,7 +199,6 @@ class CompanyController(Controller):
         operation_id="addDeveloperToCompany",
         description=docs.DEVELOPER_ACCESS_DESCRIPTION,
         guards=[developer_company_owner_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def developer_company_permissions(
         self,

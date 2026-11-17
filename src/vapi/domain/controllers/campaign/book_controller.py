@@ -9,7 +9,7 @@ from litestar.handlers import delete, get, patch, post, put
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import CampaignService
 from vapi.domain.services.campaign_svc import annotate_book_counts
@@ -120,7 +120,6 @@ class CampaignBookController(Controller):
         operation_id="createCampaignBook",
         description=docs.CREATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def create_book(
         self,
@@ -161,7 +160,6 @@ class CampaignBookController(Controller):
         operation_id="updateCampaignBook",
         description=docs.UPDATE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def update_book(
         self,
@@ -193,7 +191,6 @@ class CampaignBookController(Controller):
         operation_id="deleteCampaignBook",
         description=docs.DELETE_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_book(
         self,
@@ -212,7 +209,6 @@ class CampaignBookController(Controller):
         operation_id="renumberCampaignBook",
         description=docs.RENUMBER_BOOK_DESCRIPTION,
         guards=[user_can_manage_campaign],
-        after_response=hooks.post_data_update_hook,
     )
     async def renumber_book(
         self,

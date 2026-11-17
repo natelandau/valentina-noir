@@ -12,7 +12,7 @@ from litestar.params import Body
 
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.services import AvatarService
 from vapi.lib.guards import (
     developer_company_user_guard,
@@ -43,7 +43,6 @@ class UserAvatarController(Controller):
         summary="Set user avatar",
         operation_id="setUserAvatar",
         description=docs.SET_AVATAR_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
     async def set_user_avatar(
@@ -70,7 +69,6 @@ class UserAvatarController(Controller):
         summary="Remove user avatar",
         operation_id="deleteUserAvatar",
         description=docs.DELETE_AVATAR_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         status_code=200,
     )
     async def delete_user_avatar(

@@ -10,7 +10,7 @@ from litestar.params import Parameter
 
 from vapi.constants import SENSITIVE_RESPONSE_OPT_KEY
 from vapi.db.sql_models.developer import Developer
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import DeveloperService
 from vapi.lib.guards import global_admin_guard
@@ -87,7 +87,6 @@ class GlobalAdminController(Controller):
         summary="Create developer",
         operation_id="globalAdminCreateDeveloper",
         description=docs.CREATE_DEVELOPER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_developer(self, *, data: DeveloperCreate) -> DeveloperAdminResponse:
         """Create a Developer."""
@@ -109,7 +108,6 @@ class GlobalAdminController(Controller):
         summary="Update developer",
         operation_id="globalAdminUpdateDeveloper",
         description=docs.UPDATE_DEVELOPER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def update_developer(
         self,
@@ -130,7 +128,6 @@ class GlobalAdminController(Controller):
         summary="Delete developer",
         operation_id="globalAdminDeleteDeveloper",
         description=docs.DELETE_DEVELOPER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_developer(self, *, developer: Developer, request: Request) -> None:
         """Delete a Developer by ID."""
@@ -142,7 +139,6 @@ class GlobalAdminController(Controller):
         summary="Create API key",
         operation_id="globalAdminCreateDeveloperApiKey",
         description=docs.CREATE_API_KEY_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         opt={SENSITIVE_RESPONSE_OPT_KEY: True},
     )
     async def new_api_key(

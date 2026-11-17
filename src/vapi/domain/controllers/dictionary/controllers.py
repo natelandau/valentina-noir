@@ -10,7 +10,7 @@ from litestar.params import Parameter
 
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.dictionary import DictionaryTerm
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Offset, OffsetPagination, ReferenceLimit
 from vapi.domain.services import DictionaryService
 from vapi.lib.guards import developer_company_user_guard
@@ -80,7 +80,6 @@ class DictionaryTermController(Controller):
         summary="Create dictionary term",
         operation_id="createDictionaryTerm",
         description=docs.CREATE_DICTIONARY_TERM_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_dictionary_term(
         self, request: Request, company: Company, data: DictionaryTermCreate
@@ -103,7 +102,6 @@ class DictionaryTermController(Controller):
         summary="Update dictionary term",
         operation_id="updateDictionaryTerm",
         description=docs.UPDATE_DICTIONARY_TERM_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def update_dictionary_term(
         self,
@@ -127,7 +125,6 @@ class DictionaryTermController(Controller):
         summary="Delete dictionary term",
         operation_id="deleteDictionaryTerm",
         description=docs.DELETE_DICTIONARY_TERM_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_dictionary_term(
         self, request: Request, company: Company, dictionary_term: DictionaryTerm

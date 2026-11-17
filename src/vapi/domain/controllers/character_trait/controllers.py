@@ -14,7 +14,7 @@ from vapi.constants import MAX_BULK_TRAIT_ASSIGN, AuditOperation, TraitModifyCur
 from vapi.db.sql_models.character import Character, CharacterTrait, CharacterTraitSpecialty
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import CharacterTraitService, TrackerService
 from vapi.lib.exceptions import NotFoundError, ValidationError
@@ -107,7 +107,6 @@ class CharacterTraitController(Controller):
         summary="Assign trait to character",
         operation_id="assignTraitToCharacter",
         description=docs.ASSIGN_TRAIT_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def assign_trait_to_character(
         self,
@@ -135,7 +134,6 @@ class CharacterTraitController(Controller):
         summary="Bulk assign traits to character",
         operation_id="bulkAssignTraitsToCharacter",
         description=docs.BULK_ASSIGN_TRAITS_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         status_code=200,
     )
     async def bulk_assign_traits_to_character(
@@ -165,7 +163,6 @@ class CharacterTraitController(Controller):
         summary="Create custom trait",
         operation_id="createCustomTrait",
         description=docs.CREATE_CUSTOM_TRAIT_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def create_custom_trait(
         self,
@@ -211,7 +208,6 @@ class CharacterTraitController(Controller):
         operation_id="modifyTraitValue",
         description=docs.MODIFY_VALUE_DESCRIPTION,
         tags=[APITags.EXPERIENCE.name],
-        after_response=hooks.post_data_update_hook,
     )
     async def modify_value(
         self,
@@ -246,7 +242,6 @@ class CharacterTraitController(Controller):
         summary="Remove trait from character",
         operation_id="deleteCharacterTrait",
         description=docs.DELETE_CHARACTER_TRAIT_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_character_trait(
         self,
@@ -284,7 +279,6 @@ class CharacterTraitController(Controller):
         operation_id="addCharacterTraitSpecialty",
         description=docs.ADD_SPECIALTY_DESCRIPTION,
         tags=[APITags.CHARACTERS_TRAITS.name, APITags.EXPERIENCE.name],
-        after_response=hooks.post_data_update_hook,
         status_code=201,
     )
     async def add_specialty(
@@ -314,7 +308,6 @@ class CharacterTraitController(Controller):
         summary="Update trait specialty",
         operation_id="updateCharacterTraitSpecialty",
         description=docs.UPDATE_SPECIALTY_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def update_specialty(
         self,
@@ -345,7 +338,6 @@ class CharacterTraitController(Controller):
         operation_id="deleteCharacterTraitSpecialty",
         description=docs.DELETE_SPECIALTY_DESCRIPTION,
         tags=[APITags.CHARACTERS_TRAITS.name, APITags.EXPERIENCE.name],
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_specialty(
         self,
@@ -388,7 +380,6 @@ class CharacterTraitController(Controller):
         operation_id="setTraitTracker",
         description=docs.SET_TRAIT_TRACKER_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
         status_code=200,
     )
     async def set_trait_tracker(
@@ -414,7 +405,6 @@ class CharacterTraitController(Controller):
         operation_id="applyTraitTrackerAction",
         description=docs.APPLY_TRAIT_TRACKER_ACTION_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
         status_code=200,
     )
     async def apply_trait_tracker_action(
