@@ -22,7 +22,7 @@ async def test_archive_single_asset_sets_archive_fields(
     asset = await s3asset_factory(company=company, uploaded_by=uploader)
 
     # When archiving it as a single unit
-    ctx = await archive_single_asset(asset)
+    ctx = await archive_single_asset(asset.id)
 
     # Then the row is archived with a date and batch id matching the context
     refreshed = await S3Asset.filter(id=asset.id).first()
