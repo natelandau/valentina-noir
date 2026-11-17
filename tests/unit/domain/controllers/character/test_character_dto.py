@@ -170,3 +170,42 @@ async def test_character_detail_include_traits_loads_specialties(
 
     # Then the embedded trait lists its specialty
     assert [sp.name for sp in response.traits[0].specialties] == ["Sniping"]
+
+
+async def test_character_detail_include_traits_loads_gift_tribe_and_auspice(
+    character_factory: "Callable[..., Any]",
+    character_trait_factory: "Callable[..., Any]",
+) -> None:
+    """Verify include=traits embeds a werewolf gift's tribe and auspice."""
+    from vapi.db.sql_models.character import Character
+    from vapi.db.sql_models.character_sheet import Trait
+    from vapi.domain.controllers.character.dto import (
+        CHARACTER_RESPONSE_PREFETCH,
+        CharacterDetailResponse,
+        CharacterInclude,
+        get_character_include_prefetch_map,
+    )
+    from vapi.lib.detail_includes import apply_includes
+
+    # Given a character that owns a tribe gift and an auspice gift
+    character = await character_factory()
+    tribe_gift = await Trait.filter(gift_tribe_id__isnull=False, is_archived=False).first()
+    auspice_gift = await Trait.filter(gift_auspice_id__isnull=False, is_archived=False).first()
+    await character_trait_factory(character=character, trait=tribe_gift, value=1)
+    await character_trait_factory(character=character, trait=auspice_gift, value=1)
+    loaded = (
+        await Character.filter(id=character.id)
+        .prefetch_related(*CHARACTER_RESPONSE_PREFETCH)
+        .first()
+    )
+
+    # When applying the traits include and building the detail response
+    requested = await apply_includes(
+        loaded, [CharacterInclude.TRAITS], get_character_include_prefetch_map()
+    )
+    response = CharacterDetailResponse.from_model(loaded, requested)
+
+    # Then each gift names its tribe or auspice
+    gifts = {t.trait.id: t.trait.gift_attributes for t in response.traits}
+    assert gifts[tribe_gift.id].tribe_id == tribe_gift.gift_tribe_id  # ty:ignore[unresolved-attribute]
+    assert gifts[auspice_gift.id].auspice_id == auspice_gift.gift_auspice_id  # ty:ignore[unresolved-attribute]
