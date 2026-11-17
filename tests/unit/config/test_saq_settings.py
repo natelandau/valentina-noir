@@ -16,8 +16,20 @@ class TestSAQCredentialValidation:
             {"admin_password": "secret"},
             {"admin_username": "admin"},
             {},
+            {"admin_username": "admin", "admin_password": ""},
+            {"admin_username": "admin", "admin_password": "   "},
+            {"admin_username": "", "admin_password": "secret"},
+            {"admin_username": " \t", "admin_password": "secret"},
         ],
-        ids=["missing-username", "missing-password", "missing-both"],
+        ids=[
+            "missing-username",
+            "missing-password",
+            "missing-both",
+            "empty-password",
+            "blank-password",
+            "empty-username",
+            "blank-username",
+        ],
     )
     def test_web_enabled_without_full_credentials_raises(self, kwargs: dict[str, str]) -> None:
         """Verify construction fails when web_enabled is True but credentials are incomplete."""
@@ -50,6 +62,15 @@ class TestSAQCredentialValidation:
         # Then settings are created with None credentials
         assert settings.admin_username is None
         assert settings.admin_password is None
+
+    def test_web_disabled_with_blank_credentials_succeeds(self) -> None:
+        """Verify blank credentials are allowed while the web UI is off."""
+        # Given web_enabled is False with empty credentials
+        # When creating SAQSettings
+        settings = SAQSettings(admin_username="", admin_password="")
+
+        # Then settings are created
+        assert settings.web_enabled is False
 
     def test_web_disabled_is_default(self) -> None:
         """Verify web_enabled defaults to False."""

@@ -69,7 +69,9 @@ class SAQSettings(BaseModel):
     @model_validator(mode="after")
     def validate_web_credentials(self) -> Self:
         """Ensure admin credentials are set when the SAQ web UI is enabled."""
-        if self.web_enabled and (self.admin_username is None or self.admin_password is None):
+        if self.web_enabled and not (
+            (self.admin_username or "").strip() and (self.admin_password or "").strip()
+        ):
             msg = "SAQ admin_username and admin_password must be set when web_enabled is True"
             raise ValueError(msg)
         return self
