@@ -21,7 +21,7 @@ from vapi.lib.exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
-from vapi.lib.guards import INACTIVE_ROLES
+from vapi.lib.guards import INACTIVE_ROLES, STORYTELLER_ROLES
 from vapi.lib.patch import apply_patch
 
 from .validation_svc import GetModelByIdValidationService
@@ -140,7 +140,7 @@ class UserService:
 
         requester_role = requesting_user.role
 
-        if requester_role not in {UserRole.ADMIN, UserRole.STORYTELLER}:
+        if requester_role not in STORYTELLER_ROLES:
             raise PermissionDeniedError(
                 detail="Requesting user is not authorized to change user roles",
             )

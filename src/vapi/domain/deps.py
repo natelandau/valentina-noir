@@ -293,7 +293,7 @@ async def provide_acting_user(
     )
 
     if not user:
-        raise NotFoundError(detail="Acting user not found")
+        raise NotFoundError(detail=f"User '{on_behalf_of}' not found")
 
     request.state.acting_user = user
     return user

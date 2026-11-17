@@ -64,7 +64,7 @@ class TestProvideActingUser:
 
         # When calling provide_acting_user
         # Then a NotFoundError is raised
-        with pytest.raises(NotFoundError, match="Acting user not found"):
+        with pytest.raises(NotFoundError, match=r"User .* not found"):
             await provide_acting_user(
                 request=request, company=company, on_behalf_of=str(new_uuid())
             )
@@ -120,7 +120,7 @@ class TestProvideActingUser:
 
         # When calling provide_acting_user with the second company
         # Then a NotFoundError is raised
-        with pytest.raises(NotFoundError, match="Acting user not found"):
+        with pytest.raises(NotFoundError, match=r"User .* not found"):
             await provide_acting_user(request=request, company=company_b, on_behalf_of=str(user.id))
 
     async def test_archived_user_raises_not_found(
@@ -136,5 +136,5 @@ class TestProvideActingUser:
 
         # When calling provide_acting_user
         # Then a NotFoundError is raised
-        with pytest.raises(NotFoundError, match="Acting user not found"):
+        with pytest.raises(NotFoundError, match=r"User .* not found"):
             await provide_acting_user(request=request, company=company, on_behalf_of=str(user.id))
