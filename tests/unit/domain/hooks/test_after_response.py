@@ -5,123 +5,10 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import msgspec
 import pytest
 
 from vapi.domain.hooks import after_response
-from vapi.domain.hooks.after_response import _sanitize_body
-
-
-class TestApplyRedactions:
-    """Test _sanitize_body."""
-
-    def test_redacts_top_level_keys_in_dict_body(self) -> None:
-        """Verify sensitive top-level keys are replaced in dict bodies."""
-        # Given a dict request body containing a sensitive field
-        request_json = {"provider": "apple", "token": "live-credential"}
-        request_body = json.dumps(request_json)
-
-        # When redactions are applied
-        body, parsed = _sanitize_body(
-            request_body=request_body,
-            request_json=request_json,
-            redact_fields=frozenset({"token"}),
-        )
-
-        # Then the sensitive value is replaced and the raw body stays consistent
-        assert parsed == {"provider": "apple", "token": "[REDACTED]"}
-        assert body is not None
-        assert "live-credential" not in body
-
-    def test_list_body_without_sensitive_keys_passes_through_unchanged(self) -> None:
-        """Verify array bodies (e.g. bulk-endpoint arrays) with no sensitive keys are untouched."""
-        # Given a list request body, as posted by bulk endpoints
-        request_json = [{"trait_id": "abc", "value": 3}]
-        request_body = json.dumps(request_json)
-
-        # When redactions are applied
-        body, parsed = _sanitize_body(
-            request_body=request_body,
-            request_json=request_json,
-            redact_fields=frozenset({"token"}),
-        )
-
-        # Then the body is returned unchanged without raising
-        assert body == request_body
-        assert parsed == request_json
-
-    def test_redacts_keys_in_nested_objects(self) -> None:
-        """Verify sensitive keys inside nested objects are replaced."""
-        # Given a body with a credential nested two levels deep
-        request_json = {"provider": "apple", "auth": {"meta": {"secret": "s3cr3t"}, "ok": 1}}
-        request_body = json.dumps(request_json)
-
-        # When redactions are applied
-        body, parsed = _sanitize_body(
-            request_body=request_body,
-            request_json=request_json,
-            redact_fields=frozenset({"secret"}),
-        )
-
-        # Then the nested value is replaced and the raw body no longer carries it
-        assert parsed == {"provider": "apple", "auth": {"meta": {"secret": "[REDACTED]"}, "ok": 1}}
-        assert body is not None
-        assert "s3cr3t" not in body
-
-    def test_redacts_keys_inside_array_bodies(self) -> None:
-        """Verify sensitive keys in objects inside arrays, including nested arrays, are replaced."""
-        # Given an array body whose items carry credentials at different depths
-        request_json = [
-            {"name": "a", "token": "t1"},
-            {"name": "b", "items": [{"api_key": "k1"}, "plain"]},
-        ]
-        request_body = json.dumps(request_json)
-
-        # When redactions are applied
-        body, parsed = _sanitize_body(
-            request_body=request_body,
-            request_json=request_json,
-            redact_fields=frozenset({"token", "api_key"}),
-        )
-
-        # Then every sensitive value is replaced and other values are kept
-        assert parsed == [
-            {"name": "a", "token": "[REDACTED]"},
-            {"name": "b", "items": [{"api_key": "[REDACTED]"}, "plain"]},
-        ]
-        assert body is not None
-        assert "t1" not in body
-        assert "k1" not in body
-
-    def test_redacts_whole_value_of_sensitive_key(self) -> None:
-        """Verify a sensitive key holding an object is replaced as a whole."""
-        # Given a sensitive key whose value is itself an object
-        request_json = {"secret": {"inner": "value"}}
-
-        # When redactions are applied
-        _, parsed = _sanitize_body(
-            request_body=json.dumps(request_json),
-            request_json=request_json,
-            redact_fields=frozenset({"secret"}),
-        )
-
-        # Then the whole value is redacted
-        assert parsed == {"secret": "[REDACTED]"}
-
-    def test_none_body_passes_through_unchanged(self) -> None:
-        """Verify non-JSON bodies are untouched."""
-        # Given a request with no parseable JSON body
-        request_body = "raw-bytes"
-
-        # When redactions are applied
-        body, parsed = _sanitize_body(
-            request_body=request_body,
-            request_json=None,
-            redact_fields=frozenset({"token"}),
-        )
-
-        # Then the body is returned unchanged
-        assert body == "raw-bytes"
-        assert parsed is None
 
 
 @pytest.mark.anyio
@@ -244,26 +131,28 @@ class TestPostDataUpdateHook:
         company.filter.assert_not_called()
 
 
+@pytest.fixture
+def create(mocker) -> MagicMock:
+    """Patch the audit insert and structured-field builder, returning the insert mock."""
+    mocker.patch.object(after_response, "build_audit_entry", return_value={})
+    return mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+
+
+def _audit_request(mocker, body: bytes) -> MagicMock:
+    """Build a mock JSON request carrying ``body`` for add_audit_log."""
+    request = mocker.MagicMock()
+    request.headers = {"content-type": "application/json"}
+    request.body = mocker.AsyncMock(return_value=body)
+    request.state = SimpleNamespace()
+    request.scope = {"state": {}}
+    request.path_params = {}
+    request.query_params = {}
+    return request
+
+
 @pytest.mark.anyio
 class TestAddAuditLogBodyCap:
     """Test that add_audit_log persists a bounded summary of the request body."""
-
-    @pytest.fixture
-    def create(self, mocker) -> MagicMock:
-        """Patch the audit insert and structured-field builder, returning the insert mock."""
-        mocker.patch.object(after_response, "build_audit_entry", return_value={})
-        return mocker.patch.object(after_response.AuditLog, "create", autospec=True)
-
-    @staticmethod
-    def _request(mocker, body: bytes) -> MagicMock:
-        request = mocker.MagicMock()
-        request.headers = {"content-type": "application/json"}
-        request.body = mocker.AsyncMock(return_value=body)
-        request.state = SimpleNamespace()
-        request.scope = {"state": {}}
-        request.path_params = {}
-        request.query_params = {}
-        return request
 
     async def test_oversized_body_with_unknown_field_is_not_persisted(self, mocker, create) -> None:
         """Verify an oversized body is stored as its length and hash, not its content."""
@@ -272,7 +161,7 @@ class TestAddAuditLogBodyCap:
         body = json.dumps(payload).encode()
 
         # When the audit entry is written
-        await after_response.add_audit_log(self._request(mocker, body))
+        await after_response.add_audit_log(_audit_request(mocker, body))
 
         # Then neither stored column carries the body and the summary is bounded
         kwargs = create.call_args.kwargs
@@ -287,7 +176,7 @@ class TestAddAuditLogBodyCap:
         body = json.dumps(payload).encode()
 
         # When the audit entry is written
-        await after_response.add_audit_log(self._request(mocker, body))
+        await after_response.add_audit_log(_audit_request(mocker, body))
 
         # Then the raw and parsed bodies are stored in full
         kwargs = create.call_args.kwargs
@@ -301,23 +190,13 @@ class TestAddAuditLogBodyCap:
         body = json.dumps(payload).encode()
 
         # When the audit entry is written
-        await after_response.add_audit_log(self._request(mocker, body))
+        await after_response.add_audit_log(_audit_request(mocker, body))
 
         # Then the hash is of the redacted serialization, not the original bytes
-        redacted = json.dumps({"token": "[REDACTED]", "junk": "x" * 100_000}).encode()
+        redacted = msgspec.json.encode({"token": "[REDACTED]", "junk": "x" * 100_000})
         stored = create.call_args.kwargs["request_body"]
         assert hashlib.sha256(redacted).hexdigest() in stored
         assert hashlib.sha256(body).hexdigest() not in stored
-
-    async def test_non_utf8_body_does_not_raise(self, mocker, create) -> None:
-        """Verify a body that is not valid UTF-8 is still audited."""
-        # Given a body with invalid UTF-8 bytes
-
-        # When the audit entry is written
-        await after_response.add_audit_log(self._request(mocker, b"\xff\xfe"))
-
-        # Then an entry is created without parsed JSON
-        assert create.call_args.kwargs["request_json"] is None
 
     async def test_nul_in_unknown_field_is_replaced(self, mocker, create) -> None:
         """Verify a JSON NUL escape is replaced so PostgreSQL accepts the audit row."""
@@ -325,7 +204,7 @@ class TestAddAuditLogBodyCap:
         body = b'{"term": "Abc", "junk": "a\\u0000b"}'
 
         # When the audit entry is written
-        await after_response.add_audit_log(self._request(mocker, body))
+        await after_response.add_audit_log(_audit_request(mocker, body))
 
         # Then neither stored column holds a NUL
         kwargs = create.call_args.kwargs
@@ -333,20 +212,10 @@ class TestAddAuditLogBodyCap:
         assert "\\u0000" not in kwargs["request_body"]
         assert json.loads(kwargs["request_body"]) == kwargs["request_json"]
 
-    async def test_raw_nul_byte_in_body_is_replaced(self, mocker, create) -> None:
-        """Verify a raw NUL byte in a non-JSON body is replaced."""
-        # Given a non-JSON body that contains a NUL byte
-
-        # When the audit entry is written
-        await after_response.add_audit_log(self._request(mocker, b"a\x00b"))
-
-        # Then the stored body holds no NUL
-        assert create.call_args.kwargs["request_body"] == "a\ufffdb"
-
     async def test_nul_in_query_param_is_replaced(self, mocker, create) -> None:
         """Verify a NUL in a query parameter is replaced so PostgreSQL accepts the audit row."""
         # Given a request whose query string decodes to a NUL
-        request = self._request(mocker, b"")
+        request = _audit_request(mocker, b"")
         request.query_params = {"junk": "a\x00b"}
 
         # When the audit entry is written
@@ -354,3 +223,75 @@ class TestAddAuditLogBodyCap:
 
         # Then the stored query params hold no NUL
         assert create.call_args.kwargs["query_params"] == {"junk": "a\ufffdb"}
+
+
+@pytest.mark.anyio
+class TestAddAuditLogRedaction:
+    """Test that add_audit_log never persists credentials or unparsed request text."""
+
+    async def test_redacts_identity_provider_tokens(self, mocker, create) -> None:
+        """Verify id_token and access_token values are redacted in the stored body."""
+        # Given a body carrying identity-provider tokens
+        payload = {"provider": "google", "id_token": "jwt-secret", "access_token": "at-secret"}
+        body = json.dumps(payload).encode()
+
+        # When the audit entry is written
+        await after_response.add_audit_log(_audit_request(mocker, body))
+
+        # Then neither stored column holds a token value
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_json"] == {
+            "provider": "google",
+            "id_token": "[REDACTED]",
+            "access_token": "[REDACTED]",
+        }
+        assert "jwt-secret" not in kwargs["request_body"]
+        assert "at-secret" not in kwargs["request_body"]
+
+    async def test_redacts_sensitive_keys_regardless_of_case(self, mocker, create) -> None:
+        """Verify a sensitive key is redacted when the client sends it in another case."""
+        # Given a body with a capitalized credential key
+        body = json.dumps({"Password": "hunter2"}).encode()
+
+        # When the audit entry is written
+        await after_response.add_audit_log(_audit_request(mocker, body))
+
+        # Then the value is redacted
+        assert create.call_args.kwargs["request_json"] == {"Password": "[REDACTED]"}
+        assert "hunter2" not in create.call_args.kwargs["request_body"]
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            pytest.param(b'{"token": "live-credential", ', id="malformed-json"),
+            pytest.param(b'{"token": "live-credential"}\xff', id="invalid-utf8"),
+            pytest.param(b'{"token": "live-credential", "a": "\xff"}', id="invalid-utf8-in-string"),
+            pytest.param(b"\xff\xfe", id="not-utf8"),
+            pytest.param(b"token=live-credential\x00", id="not-json"),
+        ],
+    )
+    async def test_unparsable_body_is_not_persisted(self, mocker, create, body: bytes) -> None:
+        """Verify a body that fails to parse is not stored, so no unredacted text leaks."""
+        # Given a body that cannot be parsed as JSON
+
+        # When the audit entry is written
+        await after_response.add_audit_log(_audit_request(mocker, body))
+
+        # Then the entry is written with no request body
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_body"] is None
+        assert kwargs["request_json"] is None
+
+    @pytest.mark.parametrize("depth", [1_200, 100_000])
+    async def test_deeply_nested_body_is_not_persisted(self, mocker, create, depth: int) -> None:
+        """Verify a body nested too deeply to process is audited without its content."""
+        # Given a credential beside a deeply nested value
+        body = b'{"token": "live-credential", "x": ' + b"[" * depth + b"]" * depth + b"}"
+
+        # When the audit entry is written
+        await after_response.add_audit_log(_audit_request(mocker, body))
+
+        # Then the entry is written with no request body
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_body"] is None
+        assert kwargs["request_json"] is None

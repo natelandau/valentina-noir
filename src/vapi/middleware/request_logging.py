@@ -33,6 +33,7 @@ from vapi.constants import (
     SENSITIVE_RESPONSE_OPT_KEY,
 )
 from vapi.lib.log_formatters import render_log_value
+from vapi.lib.redaction import sanitize_json
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -77,36 +78,32 @@ _RESPONSE_OUTPUT_NAMES = {
 }
 
 
-# Body keys that carry credentials, such as identity-provider tokens on identify and link
-_REDACTED_BODY_KEYS = frozenset({"token", "id_token", "access_token", "api_key", "password"})
 _REDACTED = "********"
-
-
-def _redact_body(body: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of a request body with credential values masked for logging."""
-    return {
-        key: _REDACTED if key.lower() in _REDACTED_BODY_KEYS else value
-        for key, value in body.items()
-    }
 
 
 def _redact_request_body(body: object) -> object:
     """Mask credentials in a logged request body, whether parsed or raw.
 
     Litestar parses the body only for structlog loggers; the stdlib logger receives the raw
-    bytes, so a JSON object body is decoded here before redaction and re-encoded after.
+    bytes, so a JSON body is decoded here before redaction and re-encoded after. A body that
+    is not JSON is logged as-is, so malformed requests stay visible when debugging.
     """
-    if isinstance(body, dict):
-        return _redact_body(body)
-    if isinstance(body, bytes | str) and body:
-        try:
-            decoded = msgspec.json.decode(body)
-        except msgspec.DecodeError:
-            return body
-        if isinstance(decoded, dict):
-            redacted = msgspec.json.encode(_redact_body(decoded))
-            return redacted if isinstance(body, bytes) else redacted.decode()
-    return body
+    is_raw = isinstance(body, bytes | str)
+    if is_raw and not body:
+        return body
+    try:
+        parsed = msgspec.json.decode(body) if is_raw else body
+        redacted = sanitize_json(parsed, placeholder=_REDACTED)
+        if not is_raw:
+            return redacted
+        encoded = msgspec.json.encode(redacted)
+    # msgspec raises UnicodeDecodeError, not DecodeError, for invalid UTF-8 inside a string
+    except (msgspec.DecodeError, UnicodeDecodeError):
+        return body
+    except RecursionError:
+        # Too deep to redact; a raw copy could carry credentials
+        return _REDACTED
+    return encoded if isinstance(body, bytes) else encoded.decode()
 
 
 # Scope fields read by a plain state lookup; the attribute-derived ones
