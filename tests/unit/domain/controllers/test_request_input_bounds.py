@@ -14,6 +14,7 @@ from vapi.asgi import create_app
 from vapi.constants import (
     MAX_CHARACTER_AGE,
     MAX_DICTIONARY_SYNONYMS,
+    MAX_EXTRA_HEALTH_LEVELS,
     MAX_PAGINATION_OFFSET,
     MAX_TRAIT_VALUE,
     MAX_URL_LENGTH,
@@ -27,6 +28,7 @@ from vapi.domain.controllers.character.dto import (
     VampireAttributesCreate,
     VampireAttributesPatch,
 )
+from vapi.domain.controllers.character_health.dto import HealthStateSet
 from vapi.domain.controllers.character_trait.dto import (
     CharacterTraitAddConstant,
     TraitModifyRequest,
@@ -70,6 +72,8 @@ def _decode(struct: type[msgspec.Struct], payload: dict[str, Any]) -> msgspec.St
         (CharacterTraitAddConstant, {"trait_id": str(uuid4()), "value": -1}),
         (TraitModifyRequest, {"target_value": INT4_OVERFLOW, "currency": "NO_COST"}),
         (TraitModifyRequest, {"target_value": -1, "currency": "NO_COST"}),
+        (HealthStateSet, {"extra_levels": MAX_EXTRA_HEALTH_LEVELS + 1}),
+        (HealthStateSet, {"extra_levels": INT4_OVERFLOW}),
     ],
 )
 def test_out_of_range_integers_fail_decoding(
@@ -95,6 +99,7 @@ def test_out_of_range_integers_fail_decoding(
         (CharacterTraitCreate, {"trait_id": str(uuid4()), "value": MAX_TRAIT_VALUE}),
         (CharacterTraitAddConstant, {"trait_id": str(uuid4()), "value": 0}),
         (TraitModifyRequest, {"target_value": MAX_TRAIT_VALUE, "currency": "NO_COST"}),
+        (HealthStateSet, {"extra_levels": MAX_EXTRA_HEALTH_LEVELS}),
     ],
 )
 def test_in_range_integers_decode(struct: type[msgspec.Struct], payload: dict[str, Any]) -> None:

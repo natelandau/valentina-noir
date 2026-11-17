@@ -9,6 +9,7 @@ import re
 from http import HTTPStatus
 from typing import TYPE_CHECKING, NamedTuple, cast
 
+import asyncpg
 import msgspec
 from litestar import Response, status_codes
 from litestar.exceptions import InternalServerException, ValidationException
@@ -582,24 +583,38 @@ def tortoise_validation_to_http_response(
     return app_exc.to_response(request)
 
 
+# Only size errors map to 400: other data errors (division by zero, bad casts in our own
+# SQL) are server bugs and must stay 500.
+_VALUE_TOO_LARGE_ERRORS = (
+    asyncpg.exceptions.NumericValueOutOfRangeError,
+    asyncpg.exceptions.StringDataRightTruncationError,
+)
+
+
 def operational_error_to_http_response(
     request: Request[Any, Any, Any],
-    exc: Exception,  # noqa: ARG001  # Litestar handler signature requires Exception
+    exc: Exception,  # Litestar handler signature requires Exception
 ) -> Response[dict[str, Any]]:
-    """Convert Tortoise ORM OperationalError to HTTP 500 response.
+    """Convert Tortoise ORM OperationalError to an HTTP 400 or 500 response.
 
-    Catch-all for database operational errors (deadlocks, connection issues,
-    ``MultipleObjectsReturned``, etc.) that aren't handled by a more specific
-    handler. Returns a clean RFC 9457 InternalServerError without leaking
-    stack traces or DB internals. The traceback is logged centrally by the
-    uncaught-exception handler, so this no longer logs it directly.
+    A value too large for its column is a request no field bound caught, so it becomes
+    a 400. Every other operational error (deadlocks, connection issues,
+    ``MultipleObjectsReturned``, etc.) is a 500. Neither response leaks stack traces
+    or DB internals. The traceback is logged centrally by the uncaught-exception
+    handler.
 
     Args:
         request: The incoming request object.
         exc: The Tortoise ORM OperationalError.
 
     Returns:
-        Response[dict[str, Any]]: A properly formatted HTTP 500 response.
+        Response[dict[str, Any]]: A properly formatted HTTP 400 or 500 response.
     """
+    if isinstance(exc.__cause__, _VALUE_TOO_LARGE_ERRORS):
+        logger.info(
+            "Value did not fit its database column",
+            extra={"error": str(exc.__cause__), "component": "database"},
+        )
+        return ValidationError(detail="One or more values are out of range.").to_response(request)
     app_exc = InternalServerError()
     return app_exc.to_response(request)
