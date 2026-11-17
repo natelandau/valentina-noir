@@ -1015,6 +1015,24 @@ class TestCdnInvalidation:
         paths = clients["cloudfront"].create_invalidation.call_args.kwargs["InvalidationBatch"]
         assert paths["Paths"] == {"Quantity": 1, "Items": ["/b.png"]}
 
+    async def test_invalidate_cdn_keys_splits_large_batches(
+        self, clients: dict[str, MagicMock], mocker: MockerFixture
+    ) -> None:
+        """Verify more paths than one invalidation allows are sent across several requests."""
+        # Given a per-request limit of two paths
+        mocker.patch("vapi.domain.services.aws_svc.MAX_INVALIDATION_PATHS", 2)
+        service = AWSS3Service()
+
+        # When invalidating three keys
+        await service.invalidate_cdn_keys([f"{service.prefix}{name}.png" for name in "abc"])
+
+        # Then two requests cover all three paths
+        calls = clients["cloudfront"].create_invalidation.call_args_list
+        assert [call.kwargs["InvalidationBatch"]["Paths"]["Items"] for call in calls] == [
+            ["/a.png", "/b.png"],
+            ["/c.png"],
+        ]
+
 
 class TestClientEndpoint:
     """Test the S3 client endpoint configuration."""

@@ -37,6 +37,11 @@ __all__ = ("AWSS3Service",)
 
 logger = logging.getLogger("vapi")
 
+# CloudFront rejects an invalidation request that lists more paths than this.
+MAX_INVALIDATION_PATHS = 3000
+# Matches botocore's default connection pool, so bulk deletes never queue on it.
+MAX_CONCURRENT_DELETES = 10
+
 
 class AWSS3Service:
     """Service for interacting with AWS."""
@@ -238,21 +243,23 @@ class AWSS3Service:
             return
 
         paths = [f"/{self._cdn_path(key)}" for key in keys]
-        try:
-            await asyncio.to_thread(
-                self._cloudfront.create_invalidation,
-                DistributionId=self.distribution_id,
-                InvalidationBatch={
-                    "Paths": {"Quantity": len(paths), "Items": paths},
-                    "CallerReference": uuid4().hex,
-                },
-            )
-        except (BotoCoreError, ClientError):
-            logger.exception(
-                "Failed to invalidate %d CDN path(s) on distribution %s.",
-                len(paths),
-                self.distribution_id,
-            )
+        for start in range(0, len(paths), MAX_INVALIDATION_PATHS):
+            batch = paths[start : start + MAX_INVALIDATION_PATHS]
+            try:
+                await asyncio.to_thread(
+                    self._cloudfront.create_invalidation,
+                    DistributionId=self.distribution_id,
+                    InvalidationBatch={
+                        "Paths": {"Quantity": len(batch), "Items": batch},
+                        "CallerReference": uuid4().hex,
+                    },
+                )
+            except (BotoCoreError, ClientError):
+                logger.exception(
+                    "Failed to invalidate %d CDN path(s) on distribution %s.",
+                    len(batch),
+                    self.distribution_id,
+                )
 
     async def _delete_asset_without_invalidation(self, asset: S3Asset) -> None:
         """Delete an asset from S3 and the database, clearing any user avatar that uses it.
@@ -293,14 +300,19 @@ class AWSS3Service:
             One entry per asset, in order: None when it was deleted, or the exception that
             stopped it.
         """
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_DELETES)
+
+        async def _delete(asset: S3Asset) -> None:
+            async with semaphore:
+                await self._delete_asset_without_invalidation(asset)
+
         results = await asyncio.gather(
-            *(self._delete_asset_without_invalidation(asset) for asset in assets),
-            return_exceptions=True,
+            *(_delete(asset) for asset in assets), return_exceptions=True
         )
         await self.invalidate_cdn_keys(
             [asset.s3_key for asset, result in zip(assets, results, strict=True) if result is None]
         )
-        return [result if isinstance(result, BaseException) else None for result in results]
+        return list(results)
 
     async def upload_asset(
         self,
