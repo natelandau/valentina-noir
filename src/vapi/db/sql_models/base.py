@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Self
 from uuid import UUID
 
 from tortoise import fields
@@ -114,10 +114,36 @@ class BaseModel(Model):
         locked = await type(self).filter(id=self.id, **filters).select_for_update().first()
         if locked is None:
             return False
-        for field_name in self._meta.db_fields:
-            setattr(self, field_name, getattr(locked, field_name))
-        self._stored_is_archived = locked.is_archived
+        self.reload_from(locked)
         return True
+
+    @classmethod
+    async def lock_rows(cls, ids: Iterable[UUID], **filters: object) -> dict[UUID, Self]:
+        """Lock several rows that still match ``filters`` and return them by id.
+
+        Call inside a transaction when one operation must act on the committed state of
+        more than one row. Rows are locked in id order so two requests locking the same
+        rows cannot deadlock.
+
+        Args:
+            ids: The ids of the rows to lock.
+            **filters: Extra conditions each row must meet, such as ``is_archived=False``.
+
+        Returns:
+            The locked rows that matched, keyed by id.
+        """
+        rows = await cls.filter(id__in=list(ids), **filters).order_by("id").select_for_update()
+        return {row.id: row for row in rows}
+
+    def reload_from(self, other: Self) -> None:
+        """Copy every database column from another instance of the same row onto this one.
+
+        Use after locking a row by a separate query, so callers holding this instance
+        act on the committed values instead of the copy loaded earlier in the request.
+        """
+        for field_name in self._meta.db_fields:
+            setattr(self, field_name, getattr(other, field_name))
+        self._stored_is_archived = other.is_archived
 
     @staticmethod
     def _with_stamp_fields(update_fields: Iterable[str]) -> list[str]:

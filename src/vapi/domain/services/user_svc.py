@@ -69,10 +69,47 @@ class UserService:
             PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
         """
         requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        self._reject_inactive_requester(requesting_user)
+        return requesting_user
+
+    @staticmethod
+    def _reject_inactive_requester(requesting_user: User) -> None:
+        """Refuse a requester whose role grants no actions.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
+        """
         if requesting_user.role == UserRole.UNAPPROVED:
             raise PermissionDeniedError(detail="User has not been approved yet")
         if requesting_user.role == UserRole.DEACTIVATED:
             raise PermissionDeniedError(detail="User account is deactivated")
+
+    async def _lock_target_and_requester(self, *, target: User, requesting_user_id: UUID) -> User:
+        """Lock and reload the target and the requester, then return the active requester.
+
+        Call inside the transaction of an edit whose rules depend on both users' roles,
+        so a demotion, deactivation, or delete of either one that commits mid-request
+        is enforced instead of the roles loaded before the transaction.
+
+        Args:
+            target: The user being edited; reloaded in place from the locked row.
+            requesting_user_id: The ID of the acting user.
+
+        Raises:
+            NotFoundError: If the target is archived.
+            ValidationError: If the requester is archived.
+        """
+        rows = await User.lock_rows([target.id, requesting_user_id], is_archived=False)
+        if target.id not in rows:
+            raise NotFoundError(detail="User not found")
+        target.reload_from(rows[target.id])
+        if requesting_user_id == target.id:
+            requesting_user = target
+        elif requesting_user_id in rows:
+            requesting_user = rows[requesting_user_id]
+        else:
+            raise ValidationError(detail=f"User {requesting_user_id} not found")
+        self._reject_inactive_requester(requesting_user)
         return requesting_user
 
     async def _validate_role_assignment(
@@ -142,11 +179,15 @@ class UserService:
         if target_user.role != UserRole.ADMIN:
             return
 
-        admins = await User.filter(
-            company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
-            role=UserRole.ADMIN,
-            is_archived=False,
-        ).select_for_update()
+        admins = (
+            await User.filter(
+                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+                role=UserRole.ADMIN,
+                is_archived=False,
+            )
+            .order_by("id")
+            .select_for_update()
+        )
 
         if not any(admin.id != target_user.id for admin in admins):
             raise ConflictError(
@@ -172,6 +213,19 @@ class UserService:
             return
 
         requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        self._assert_can_manage(
+            requesting_user=requesting_user, user_to_manage_id=user_to_manage_id
+        )
+
+    @staticmethod
+    def _assert_can_manage(*, requesting_user: User, user_to_manage_id: UUID | None) -> None:
+        """Allow a self-edit or an admin, using a requester the caller already loaded.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is not authorized.
+        """
+        if user_to_manage_id and requesting_user.id == user_to_manage_id:
+            return
         if requesting_user.role != UserRole.ADMIN:
             raise PermissionDeniedError(
                 detail="Requesting user is not authorized to manage this user",
@@ -244,8 +298,8 @@ class UserService:
         """
         from vapi.domain import deps
 
-        await self._assert_requester_active(acting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=acting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
+        self._assert_can_manage(requesting_user=requesting_user, user_to_manage_id=None)
 
         if primary_user_id == secondary_user_id:
             raise ValidationError(detail="Cannot merge a user with themselves")
@@ -255,14 +309,19 @@ class UserService:
             deps.provide_target_user(user_id=secondary_user_id, company=company),
         )
 
-        if secondary_user.role != UserRole.UNAPPROVED:
-            raise ValidationError(detail="Secondary user must have UNAPPROVED role")
+        async with in_transaction():
+            rows = await User.lock_rows([primary_user.id, secondary_user.id], is_archived=False)
+            if primary_user.id not in rows or secondary_user.id not in rows:
+                raise NotFoundError(detail="User not found")
+            primary_user.reload_from(rows[primary_user.id])
+            secondary_user.reload_from(rows[secondary_user.id])
+            if secondary_user.role != UserRole.UNAPPROVED:
+                raise ValidationError(detail="Secondary user must have UNAPPROVED role")
+            absorbed_fields = self._absorb_profiles(primary=primary_user, secondary=secondary_user)
+            if absorbed_fields:
+                await primary_user.save(update_fields=absorbed_fields)
 
-        absorbed_fields = self._absorb_profiles(primary=primary_user, secondary=secondary_user)
-        if absorbed_fields:
-            await primary_user.save(update_fields=absorbed_fields)
-
-        await self.remove_and_archive_user(user=secondary_user, company=company)
+            await self.remove_and_archive_user(user=secondary_user, company=company)
 
         await primary_user.fetch_related("campaign_experiences")
         return primary_user
@@ -314,11 +373,10 @@ class UserService:
         Returns:
             Tuple of (updated user with campaign_experiences prefetched, changes dict).
         """
-        requesting_user = await self._assert_requester_active(acting_user_id)
-
         async with in_transaction():
-            if not await user.lock_for_update(is_archived=False):
-                raise NotFoundError(detail="User not found")
+            requesting_user = await self._lock_target_and_requester(
+                target=user, requesting_user_id=acting_user_id
+            )
 
             role_change: dict[str, dict[str, object]] = {}
             if not isinstance(data.role, msgspec.UnsetType):
@@ -335,10 +393,7 @@ class UserService:
                     role_change["role"] = {"old": old_role, "new": new_role}
                 user.role = new_role
 
-            await self.validate_user_can_manage_user(
-                requesting_user_id=acting_user_id,
-                user_to_manage_id=user.id,
-            )
+            self._assert_can_manage(requesting_user=requesting_user, user_to_manage_id=user.id)
 
             changes = apply_patch(user, data, exclude=frozenset({"role"}))
             changes.update(role_change)
@@ -436,8 +491,8 @@ class UserService:
             ValidationError: If the user is not UNAPPROVED.
             PermissionDeniedError: If the requesting user is not an admin.
         """
-        await self._assert_requester_active(acting_user_id)
-        await self.validate_user_can_manage_user(requesting_user_id=acting_user_id)
+        requesting_user = await self._assert_requester_active(acting_user_id)
+        self._assert_can_manage(requesting_user=requesting_user, user_to_manage_id=None)
 
         if user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="User is not in UNAPPROVED status")
