@@ -122,22 +122,23 @@ class QuickRollController(Controller):
             requesting_user_id=acting_user.id,
             user_to_manage_id=target_user.id,
         )
-        # One transaction so a rejected trait list also rolls back the field edits
+        traits = None
+        if not isinstance(data.trait_ids, msgspec.UnsetType):
+            traits = await UserQuickRollService().validate_quickroll_traits(
+                data.trait_ids,
+                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+            )
+
         async with in_transaction():
             changes = await save_active_patch(
                 quickroll, data, label="Quick roll", exclude=frozenset({"trait_ids"})
             )
 
-            if not isinstance(data.trait_ids, msgspec.UnsetType):
+            if traits is not None:
                 old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
-                service = UserQuickRollService()
-                traits = await service.validate_quickroll_traits(
-                    data.trait_ids,
-                    company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
-                )
                 await quickroll.traits.clear()
                 await quickroll.traits.add(*traits)
-                new_trait_ids = sorted(str(tid) for tid in data.trait_ids)
+                new_trait_ids = sorted(str(t.id) for t in traits)
                 if old_trait_ids != new_trait_ids:
                     changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
 

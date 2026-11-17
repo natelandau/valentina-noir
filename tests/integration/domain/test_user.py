@@ -1157,6 +1157,42 @@ class TestQuickRollController:
         assert len(data["trait_ids"]) == 3
         assert set(data["trait_ids"]) == {str(t.id) for t in replacement_traits}
 
+    async def test_patch_user_quickroll_invalid_traits_saves_nothing(
+        self,
+        client: AsyncClient,
+        build_url: Callable[..., str],
+        token_company_user: dict[str, str],
+        session_company: Company,
+        session_company_user: Developer,
+        session_user: User,
+        quickroll_factory: Callable[..., QuickRoll],
+    ) -> None:
+        """Verify a patch rejected for bad trait_ids leaves the other fields unchanged."""
+        # Given a quickroll
+        traits = await Trait.filter(is_archived=False).limit(2)
+        quickroll = await quickroll_factory(
+            name="Quick Roll 1", description="Original", user=session_user, traits=traits
+        )
+
+        # When we patch the name and description with an unknown trait id
+        response = await client.patch(
+            build_url(
+                UsersURL.QUICKROLL_UPDATE,
+                company_id=session_company.id,
+                user_id=session_user.id,
+                quickroll_id=quickroll.id,
+            ),
+            headers=token_company_user | {"On-Behalf-Of": str(session_user.id)},
+            json={"name": "Renamed", "description": "Changed", "trait_ids": [str(uuid4())]},
+        )
+
+        # Then the request fails and nothing was saved
+        assert response.status_code == HTTP_400_BAD_REQUEST
+        await quickroll.refresh_from_db()
+        assert quickroll.name == "Quick Roll 1"
+        assert quickroll.description == "Original"
+        assert {t.id for t in await quickroll.traits.all()} == {t.id for t in traits}
+
     async def test_delete_user_quickroll(
         self,
         client: AsyncClient,
