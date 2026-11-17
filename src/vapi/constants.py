@@ -25,6 +25,11 @@ EXCLUDE_FROM_RATE_LIMIT_KEY: Final[str] = "exclude_from_rate_limit"
 # Route opt flag for responses that carry a secret (a freshly minted API key): the idempotency
 # cache never stores them and request logging masks their body.
 SENSITIVE_RESPONSE_OPT_KEY: Final[str] = "sensitive_response"
+# Lowercase request body keys whose values are credentials (e.g. identity-provider tokens on
+# identify and link). Request logging and audit logging both mask them, matching case-insensitively.
+SENSITIVE_BODY_KEYS: Final[frozenset[str]] = frozenset(
+    {"token", "id_token", "access_token", "api_key", "password", "secret"}
+)
 COOL_POINT_VALUE: Final[int] = 10
 MAX_EXPERIENCE_GRANT: Final[int] = 10_000  # max XP or CP amount per add/remove request
 MAX_INT_FIELD_VALUE: Final[int] = 2_147_483_647  # upper bound of a 32-bit IntField column

@@ -19,14 +19,10 @@ the response returns:
     request.state.audit_description = "Sofia updated trait 'Strength' from 2 to 3"
     request.state.audit_changes = {"value": {"old": 2, "new": 3}}
 
-To redact sensitive fields from the persisted request body, set this before
-the response returns:
-
-    request.state.audit_redact_fields = ["token", "password"]
-
-Each named key anywhere in the parsed request JSON, including inside nested
-objects and arrays, will have its value replaced with "[REDACTED]" before the
-entry is written.
+Every key in ``SENSITIVE_BODY_KEYS``, anywhere in the request JSON, path params,
+or query params, has its value replaced with "[REDACTED]" before the entry is
+written. A body that does not parse as JSON is not stored, since redaction
+cannot see into it.
 
 A route without a ``company_id`` path parameter that changes a company's
 resources (e.g. a global-admin user edit) names that company so its cached
@@ -44,13 +40,15 @@ audit entry) by setting:
 from __future__ import annotations
 
 import hashlib
-import json
 from typing import TYPE_CHECKING, Any
+
+import msgspec
 
 from vapi.constants import AUDIT_MAX_BODY_BYTES, REQUEST_ID_STATE_KEY
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
 from vapi.domain.hooks.audit_helpers import build_audit_entry
+from vapi.lib.redaction import sanitize_json
 from vapi.lib.stores import (
     delete_response_cache_for_api_key,
     delete_response_cache_for_company,
@@ -60,17 +58,18 @@ from vapi.utils.time import time_now
 if TYPE_CHECKING:
     from litestar import Request
 
-# Fields always redacted from persisted request bodies regardless of per-endpoint configuration.
-# Endpoints may extend this via ``request.state.audit_redact_fields`` for additional fields.
-_DEFAULT_REDACT_FIELDS: frozenset[str] = frozenset({"token", "password", "secret", "api_key"})
 
+async def _sanitized_request_body(request: Request) -> tuple[str | None, Any]:
+    """Return the request body text and parsed JSON with credentials redacted.
 
-async def _parse_request_body(request: Request) -> tuple[str | None, Any]:
-    """Extract raw request body and parsed JSON from the request."""
-    content_type = request.headers.get("content-type", "")
-    is_multipart = "multipart/form-data" in content_type
+    Parse with msgspec, as the handler did. A body that does not parse, or that nests
+    deeper than the redaction walk can follow, is dropped rather than stored raw, where
+    credentials would bypass redaction.
 
-    if is_multipart:
+    Returns:
+        Tuple of (body_text, parsed_json); both None when there is nothing safe to store.
+    """
+    if "multipart/form-data" in request.headers.get("content-type", ""):
         return "[file upload]", None
 
     body_bytes = await request.body()
@@ -78,67 +77,15 @@ async def _parse_request_body(request: Request) -> tuple[str | None, Any]:
         return None, None
 
     try:
-        request_body = body_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        return body_bytes.decode("utf-8", errors="replace"), None
-
-    try:
-        request_json = json.loads(request_body)
-    except ValueError:
-        request_json = None
-
-    return request_body, request_json
-
-
-def _sanitize_value(value: Any, redact_fields: frozenset[str]) -> Any:
-    """Return a copy of a parsed JSON value with sensitive keys redacted and NULs replaced.
-
-    PostgreSQL text and jsonb columns reject NUL, so one left in a field the endpoint
-    ignores would fail the audit insert and leave the request unlogged.
-    """
-    if isinstance(value, str):
-        return value.replace("\x00", "\ufffd")
-    if isinstance(value, dict):
-        return {
-            _sanitize_value(k, redact_fields): "[REDACTED]"
-            if k in redact_fields
-            else _sanitize_value(v, redact_fields)
-            for k, v in value.items()
-        }
-    if isinstance(value, list):
-        return [_sanitize_value(item, redact_fields) for item in value]
-    return value
-
-
-def _sanitize_body(
-    request_body: str | None,
-    request_json: Any,
-    redact_fields: frozenset[str],
-) -> tuple[str | None, Any]:
-    """Redact sensitive keys and replace NUL characters in the persisted request body.
-
-    Use when a request body contains credentials (e.g. provider tokens) that must
-    not be stored in the audit log. Keys are matched at every depth, inside nested
-    objects and arrays alike.
-
-    Args:
-        request_body: Raw request body string.
-        request_json: Parsed request JSON, or None if not JSON.
-        redact_fields: Key names whose values to redact.
-
-    Returns:
-        Tuple of (sanitized_body, sanitized_json).
-    """
-    if request_json is None:
-        if request_body is None:
-            return None, None
-        return request_body.replace("\x00", "\ufffd"), None
-
-    sanitized_json = _sanitize_value(request_json, redact_fields)
-    if sanitized_json == request_json:
-        return request_body, request_json
-    # Re-serialize so request_body stays consistent with request_json
-    return json.dumps(sanitized_json), sanitized_json
+        request_json = msgspec.json.decode(body_bytes)
+        sanitized_json = sanitize_json(request_json, placeholder="[REDACTED]")
+        if sanitized_json == request_json:
+            return body_bytes.decode("utf-8"), request_json
+        # Re-serialize so request_body stays consistent with request_json
+        return msgspec.json.encode(sanitized_json).decode("utf-8"), sanitized_json
+    # msgspec raises UnicodeDecodeError, not DecodeError, for invalid UTF-8 inside a string
+    except (msgspec.DecodeError, UnicodeDecodeError, RecursionError):
+        return None, None
 
 
 def _cap_request_body(request_body: str | None, request_json: Any) -> tuple[str | None, Any]:
@@ -166,17 +113,7 @@ def _cap_request_body(request_body: str | None, request_json: Any) -> tuple[str 
 
 async def add_audit_log(request: Request) -> None:
     """Create an audit log entry with both raw request data and structured fields."""
-    request_body, request_json = await _parse_request_body(request)
-
-    per_request: list[str] = getattr(request.state, "audit_redact_fields", None) or []
-    # Always merge per-request fields with the module-level defaults so sensitive
-    # fields are redacted even when a controller doesn't set audit_redact_fields.
-    request_body, request_json = _sanitize_body(
-        request_body=request_body,
-        request_json=request_json,
-        redact_fields=_DEFAULT_REDACT_FIELDS | set(per_request),
-    )
-    request_body, request_json = _cap_request_body(request_body, request_json)
+    request_body, request_json = _cap_request_body(*await _sanitized_request_body(request))
 
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 
@@ -192,8 +129,8 @@ async def add_audit_log(request: Request) -> None:
         url=str(request.url),
         request_json=request_json,
         request_body=request_body,
-        path_params=_sanitize_value(request.path_params, frozenset()),
-        query_params=_sanitize_value(dict(request.query_params), frozenset()),
+        path_params=sanitize_json(request.path_params, placeholder="[REDACTED]"),
+        query_params=sanitize_json(dict(request.query_params), placeholder="[REDACTED]"),
         request_id=request_id,
         **structured,
     )

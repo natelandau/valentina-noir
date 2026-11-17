@@ -134,7 +134,9 @@ This adds the following fields to each entry:
 | `operation_id` | `string|null` | OpenAPI operation identifier  |
 | `handler_name` | `string|null` | Internal handler name         |
 
-Sensitive fields such as `token`, `password`, `secret`, and `api_key` are stored as `"[REDACTED]"`.
+Sensitive fields such as `token`, `id_token`, `access_token`, `password`, `secret`, and `api_key` are stored as `"[REDACTED]"`, at any depth and in any letter case.
+
+A request body that is not valid JSON is not stored. For these requests, both `request_json` and `request_body` are `null`.
 
 Request bodies larger than 64 KiB are not stored. For these requests, `request_json` is `null` and `request_body` holds a summary of the body's size and SHA-256 hash, for example `"[truncated: 120000 bytes, sha256=9f86d0...]"`. The hash is of the body after redaction.
 

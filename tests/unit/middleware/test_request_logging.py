@@ -31,7 +31,6 @@ from vapi.middleware.request_logging import (
     CombinedLoggingMiddlewareConfig,
     _extract_scope_log_fields,
     _level_for_status,
-    _redact_body,
     _redact_request_body,
 )
 
@@ -668,18 +667,32 @@ def test_streaming_response_logs_single_entry() -> None:
     assert len(entries) == 1
 
 
-def test_redact_body_masks_credentials() -> None:
-    """Verify credential values in a logged request body are masked and other fields kept."""
-    # Given an identify request body
-    body = {"provider": "google", "token": "fake-id-token", "email": "a@example.com"}
+def test_redact_request_body_masks_parsed_body_at_any_depth() -> None:
+    """Verify a parsed body, as structlog receives it, has nested credentials masked."""
+    # Given a parsed body with a top-level and a nested credential
+    body = {"provider": "google", "token": "t", "link": {"Access_Token": "a"}}
 
     # When redacting it
-    redacted = _redact_body(body)
+    redacted = _redact_request_body(body)
 
-    # Then only the token is masked
-    assert redacted["token"] != body["token"]
-    assert redacted["provider"] == "google"
-    assert redacted["email"] == "a@example.com"
+    # Then both credentials are masked and other fields kept
+    assert redacted == {
+        "provider": "google",
+        "token": "********",
+        "link": {"Access_Token": "********"},
+    }
+
+
+def test_redact_request_body_masks_too_deep_body() -> None:
+    """Verify a body nested too deeply to redact is not logged raw."""
+    # Given a credential beside a value nested beyond the recursion limit
+    body = b'{"token": "live-credential", "x": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+
+    # When redacting it
+    redacted = _redact_request_body(body)
+
+    # Then the whole body is masked
+    assert redacted == "********"
 
 
 def test_redact_request_body_masks_raw_json_bytes() -> None:
@@ -700,6 +713,18 @@ def test_redact_request_body_keeps_non_json_bytes() -> None:
     """Verify a body that is not a JSON object is logged unchanged."""
     # Given a multipart body
     body = b"--boundary\r\ncontent"
+
+    # When redacting it
+    redacted = _redact_request_body(body)
+
+    # Then it is unchanged
+    assert redacted == body
+
+
+def test_redact_request_body_keeps_invalid_utf8_json_bytes() -> None:
+    """Verify a JSON body with invalid UTF-8 inside a string is logged unchanged, not raised."""
+    # Given a JSON body whose string value is not valid UTF-8
+    body = b'{"name": "\xff"}'
 
     # When redacting it
     redacted = _redact_request_body(body)
