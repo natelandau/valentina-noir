@@ -7,15 +7,11 @@ the target doesn't have are silently skipped.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import msgspec
 from tortoise.transactions import in_transaction
 
+from vapi.db.sql_models.base import BaseModel
 from vapi.lib.exceptions import NotFoundError
-
-if TYPE_CHECKING:
-    from vapi.db.sql_models.base import BaseModel
 
 
 def apply_patch(
@@ -78,7 +74,10 @@ def apply_patch(
         if old != value:
             key = f"{prefix}{field_name}" if prefix else field_name
             changes[key] = {"old": old, "new": value}
-            setattr(target, field_name, value)
+            if isinstance(target, BaseModel):
+                target.set_column(field_name, value)
+            else:
+                setattr(target, field_name, value)
 
     return changes
 

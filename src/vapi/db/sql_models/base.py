@@ -142,8 +142,35 @@ class BaseModel(Model):
         act on the committed values instead of the copy loaded earlier in the request.
         """
         for field_name in self._meta.db_fields:
-            setattr(self, field_name, getattr(other, field_name))
+            self.set_column(field_name, getattr(other, field_name))
         self._stored_is_archived = other.is_archived
+
+    def set_column(self, field_name: str, value: object) -> None:
+        """Set a field and drop the related object cached under it if its foreign key moved.
+
+        Tortoise keeps a loaded relation (``character.campaign``) after its ``*_id`` column
+        changes, so writing the column directly would leave reads of the relation pointing
+        at the old row. Use this whenever code assigns a foreign key id in place.
+
+        Args:
+            field_name: The model field to set, such as ``campaign_id``.
+            value: The new value.
+        """
+        if getattr(self, field_name, None) != value:
+            relation = self._relation_by_source_field().get(field_name)
+            if relation is not None:
+                self.__dict__.pop(f"_{relation}", None)
+        setattr(self, field_name, value)
+
+    @classmethod
+    def _relation_by_source_field(cls) -> dict[str, str]:
+        """Map each foreign key column (``campaign_id``) to its relation name (``campaign``)."""
+        meta = cls._meta
+        return {
+            source: relation
+            for relation in (*meta.fk_fields, *meta.o2o_fields)
+            if (source := meta.fields_map[relation].source_field)
+        }
 
     @staticmethod
     def _with_stamp_fields(update_fields: Iterable[str]) -> list[str]:
