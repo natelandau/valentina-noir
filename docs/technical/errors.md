@@ -37,7 +37,7 @@ All error responses use the `application/problem+json` media type with these fie
 
 | Code | Title                   | Description                                                        |
 | ---- | ----------------------- | ------------------------------------------------------------------ |
-| 400  | Bad Request             | Invalid request syntax or parameters                               |
+| 400  | Bad Request             | Invalid syntax, or a value outside its allowed range               |
 | 401  | Unauthorized            | Missing or invalid API key                                         |
 | 403  | Forbidden               | Valid API key but insufficient permissions                         |
 | 404  | Not Found               | Requested resource does not exist                                  |
@@ -109,7 +109,9 @@ Some rules depend on more than one property of a field, for example text that is
 
 ### Text limits
 
-Each text field in a request body has a maximum length. Names are at most 50 characters. Longer free-form text, such as a character `biography`, a `description`, note `content`, or a dictionary `definition`, is at most 20,000 characters. A dictionary `link` is at most 2,048 characters, and a term has at most 50 `synonyms` of 50 characters or fewer. An identity provider `token` is at most 16,384 characters. If a field is too long, the API returns `400 Bad Request` with a `Must be at most N characters.` message.
+Each text field in a request body has a maximum length. Names are at most 50 characters. Longer free-form text, such as a character `biography`, a `description`, note `content`, or a dictionary `definition`, is at most 20,000 characters. A dictionary `link` is at most 2,048 characters, starts with `http://` or `https://`, and contains no spaces. A term has at most 50 `synonyms`, each 1-50 characters and not blank. An identity provider `token` is at most 16,384 characters. If a field is too long, the API returns `400 Bad Request` with a `Must be at most N characters.` message.
+
+If a value is too large to store and no field limit caught it, the API returns `400 Bad Request` with the detail `One or more values are out of range.` and no `invalid_parameters`.
 
 ### Limits in the OpenAPI schema
 
