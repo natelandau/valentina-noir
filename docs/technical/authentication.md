@@ -269,14 +269,14 @@ Grant a single API key access to multiple companies, each with its own permissio
 
 ```json
 {
-    "id": "68c1f7152cae3787a09a74fa",
-    "name": "My Application",
+    "id": "01a1e740-afd8-744b-a23a-c9ce08d6ce2b",
+    "username": "my-app",
+    ...
     "companies": [
-        { "company_id": "abc123", "permission": "OWNER", ... },
-        { "company_id": "def456", "permission": "USER", ... },
-        { "company_id": "ghi789", "permission": "ADMIN", ... }
-    ],
-    "is_global_admin": false
+        { "company_id": "abc123", "name": "Friday Night Games", "permission": "OWNER" },
+        { "company_id": "def456", "name": "Sunday Chronicle", "permission": "USER" },
+        { "company_id": "ghi789", "name": "Camarilla LARP", "permission": "ADMIN" }
+    ]
 }
 ```
 
