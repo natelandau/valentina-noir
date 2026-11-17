@@ -312,6 +312,23 @@ class TestValidationService:
         with pytest.raises(ValidationError, match=r"Quick roll.*not found"):
             await service.get_quickroll_by_id(quickroll.id, company_id=company.id)
 
+    async def test_get_quickroll_by_id_archived_owner(
+        self,
+        quickroll_factory: Callable[..., QuickRoll],
+        company_factory: Callable,
+        user_factory: Callable,
+    ) -> None:
+        """Verify get_quickroll_by_id rejects an active quick roll whose owner is archived."""
+        # Given an active quick roll owned by an archived user
+        company = await company_factory()
+        user = await user_factory(company=company, is_archived=True)
+        quickroll = await quickroll_factory(user=user)
+
+        # When/Then a ValidationError is raised
+        service = GetModelByIdValidationService()
+        with pytest.raises(ValidationError, match=r"Quick roll.*not found"):
+            await service.get_quickroll_by_id(quickroll.id, company_id=company.id)
+
 
 class TestValidateTraitIdsFromMixedSources:
     """Test resolving trait and character trait IDs."""

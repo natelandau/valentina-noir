@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
     from tortoise.backends.base.client import BaseDBAsyncClient
 
+_ARCHIVE_FIELDS = frozenset({"is_archived", "archive_date", "archive_batch_id"})
+
 
 def new_uuid() -> UUID:
     """Mint a time-ordered uuid7 as a stdlib UUID.
@@ -47,11 +49,31 @@ class BaseModel(Model):
     archive_batch_id = fields.UUIDField(null=True, db_index=True)
 
     _empty_string_to_none_fields: ClassVar[frozenset[str]] = frozenset()
+    # is_archived as last read from or written to the database; None when never loaded
+    _stored_is_archived: bool | None = None
 
     class Meta:
         """Tortoise ORM meta options."""
 
         abstract = True
+
+    @classmethod
+    def _init_from_db(cls, **kwargs: object) -> BaseModel:
+        instance = super()._init_from_db(**kwargs)
+        # A partial (.only()) load may omit the column, so read the instance dict
+        instance._stored_is_archived = vars(instance).get("is_archived")  # noqa: SLF001
+        return instance
+
+    async def refresh_from_db(
+        self,
+        fields: Iterable[str] | None = None,
+        using_db: BaseDBAsyncClient | None = None,
+    ) -> None:
+        """Reload fields from the database and record the stored archive flag they carry."""
+        fields = list(fields) if fields is not None else None
+        await super().refresh_from_db(fields=fields, using_db=using_db)
+        if not fields or "is_archived" in fields:
+            self._stored_is_archived = self.is_archived
 
     def normalize_string_fields(self) -> None:
         """Strip whitespace on string fields and blank opted-in nullable fields to None.
@@ -94,6 +116,7 @@ class BaseModel(Model):
             return False
         for field_name in self._meta.db_fields:
             setattr(self, field_name, getattr(locked, field_name))
+        self._stored_is_archived = locked.is_archived
         return True
 
     @staticmethod
@@ -118,7 +141,12 @@ class BaseModel(Model):
         force_create: bool = False,  # noqa: FBT001, FBT002
         force_update: bool = False,  # noqa: FBT001, FBT002
     ) -> None:
-        """Strip whitespace, convert empty strings to None, and manage archive stamps (date and batch id)."""
+        """Strip whitespace, convert empty strings to None, and manage archive stamps (date and batch id).
+
+        A full-row save of a loaded row writes the archive columns only when the caller
+        changed ``is_archived`` on the instance, so a stale copy cannot undo an archive
+        (such as a parent delete's cascade) committed after it was loaded.
+        """
         self.normalize_string_fields()
 
         # Invariant: archived rows always carry both a date and a batch id; a
@@ -134,9 +162,18 @@ class BaseModel(Model):
             self.archive_batch_id = None
         if update_fields is not None:
             update_fields = self._with_stamp_fields(update_fields)
+        elif (
+            self._saved_in_db and not force_create and self.is_archived == self._stored_is_archived
+        ):
+            update_fields = [
+                name
+                for name in self._meta.db_fields
+                if name not in _ARCHIVE_FIELDS and name != self._meta.pk_attr
+            ]
         await super().save(
             using_db=using_db,
             update_fields=update_fields,
             force_create=force_create,
             force_update=force_update,
         )
+        self._stored_is_archived = self.is_archived

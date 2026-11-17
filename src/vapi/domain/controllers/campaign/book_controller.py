@@ -23,7 +23,7 @@ from vapi.lib.guards import (
     user_active_guard,
     user_can_manage_campaign,
 )
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs
@@ -173,10 +173,9 @@ class CampaignBookController(Controller):
         request: Request,
     ) -> CampaignBookResponse:
         """Update a book by ID."""
-        changes = apply_patch(book, data)
+        changes = await save_active_patch(book, data, label="Book")
         request.state.audit_changes = changes
         request.state.audit_description = f"Update book '{book.number}: {book.name}'"
-        await book.save()
         annotated = (
             await annotate_book_counts(CampaignBook.filter(id=book.id))
             .prefetch_related(

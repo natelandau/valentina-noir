@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from vapi.db.sql_models.base import new_uuid
 from vapi.db.sql_models.company import Company
+from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -82,3 +84,76 @@ async def test_partial_save_writes_archive_stamps_and_date_modified(
     assert stored.archive_date is not None
     assert stored.archive_batch_id is not None
     assert stored.date_modified > original_modified
+
+
+async def test_stale_full_save_keeps_concurrent_archive(
+    company_factory: "Callable[..., Company]",
+) -> None:
+    """Verify a full-row save of a row archived after load keeps the archive and its batch."""
+    # Given a company loaded while active, then archived by a bulk cascade UPDATE
+    company = await company_factory(is_archived=False)
+    stale = await Company.get(id=company.id)
+    batch_id = new_uuid()
+    await Company.filter(id=company.id).update(
+        is_archived=True, archive_date=time_now(), archive_batch_id=batch_id
+    )
+
+    # When the stale instance is edited and saved without update_fields
+    stale.name = "edited name"
+    await stale.save()
+
+    # Then the edit lands but the row stays archived in the cascade batch
+    row = await Company.get(id=company.id)
+    assert row.name == "edited name"
+    assert row.is_archived is True
+    assert row.archive_batch_id == batch_id
+
+
+async def test_full_save_writes_archive_changed_in_memory(
+    company_factory: "Callable[..., Company]",
+) -> None:
+    """Verify a full-row save still writes an archive or restore set on the instance."""
+    # Given a loaded active company
+    company = await company_factory(is_archived=False)
+    loaded = await Company.get(id=company.id)
+
+    # When it is archived in memory and saved
+    loaded.is_archived = True
+    await loaded.save()
+
+    # Then it is archived with stamps
+    row = await Company.get(id=company.id)
+    assert row.is_archived is True
+    assert row.archive_batch_id is not None
+
+    # When the same instance is restored in memory and saved again
+    loaded.is_archived = False
+    await loaded.save()
+
+    # Then it is active with cleared stamps
+    row = await Company.get(id=company.id)
+    assert row.is_archived is False
+    assert row.archive_batch_id is None
+    assert row.archive_date is None
+
+
+async def test_restore_after_refresh_writes_archive_flag(
+    company_factory: "Callable[..., Company]",
+) -> None:
+    """Verify a full-row save restores a row whose archive was picked up by refresh_from_db."""
+    # Given a company loaded active, archived elsewhere, then refreshed
+    company = await company_factory(is_archived=False)
+    loaded = await Company.get(id=company.id)
+    await Company.filter(id=company.id).update(
+        is_archived=True, archive_date=time_now(), archive_batch_id=new_uuid()
+    )
+    await loaded.refresh_from_db()
+
+    # When the instance is restored in memory and saved
+    loaded.is_archived = False
+    await loaded.save()
+
+    # Then the row is active with cleared stamps
+    row = await Company.get(id=company.id)
+    assert row.is_archived is False
+    assert row.archive_batch_id is None

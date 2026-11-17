@@ -8,6 +8,7 @@ from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post
 from litestar.params import Parameter
+from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.quickroll import QuickRoll
 from vapi.db.sql_models.user import User
@@ -15,7 +16,7 @@ from vapi.domain import deps, hooks, urls
 from vapi.domain.paginator import OffsetPagination
 from vapi.domain.services import UserQuickRollService, UserService
 from vapi.lib.guards import developer_company_user_guard, user_active_guard
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import archive_active, save_active_patch
 from vapi.openapi.tags import APITags
 
 from . import docs, dto
@@ -121,21 +122,24 @@ class QuickRollController(Controller):
             requesting_user_id=acting_user.id,
             user_to_manage_id=target_user.id,
         )
-        changes = apply_patch(quickroll, data, exclude=frozenset({"trait_ids"}))
-        await quickroll.save()
-
-        if not isinstance(data.trait_ids, msgspec.UnsetType):
-            old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
-            service = UserQuickRollService()
-            traits = await service.validate_quickroll_traits(
-                data.trait_ids,
-                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+        # One transaction so a rejected trait list also rolls back the field edits
+        async with in_transaction():
+            changes = await save_active_patch(
+                quickroll, data, label="Quick roll", exclude=frozenset({"trait_ids"})
             )
-            await quickroll.traits.clear()
-            await quickroll.traits.add(*traits)
-            new_trait_ids = sorted(str(tid) for tid in data.trait_ids)
-            if old_trait_ids != new_trait_ids:
-                changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
+
+            if not isinstance(data.trait_ids, msgspec.UnsetType):
+                old_trait_ids = sorted(str(t.id) for t in await quickroll.traits.all())
+                service = UserQuickRollService()
+                traits = await service.validate_quickroll_traits(
+                    data.trait_ids,
+                    company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+                )
+                await quickroll.traits.clear()
+                await quickroll.traits.add(*traits)
+                new_trait_ids = sorted(str(tid) for tid in data.trait_ids)
+                if old_trait_ids != new_trait_ids:
+                    changes["trait_ids"] = {"old": old_trait_ids, "new": new_trait_ids}
 
         request.state.audit_changes = changes
 
@@ -159,6 +163,5 @@ class QuickRollController(Controller):
             requesting_user_id=acting_user.id,
             user_to_manage_id=target_user.id,
         )
-        quickroll.is_archived = True
-        await quickroll.save()
+        await archive_active(quickroll, label="Quick roll")
         request.state.audit_description = f"Delete quick roll '{quickroll.name}'"

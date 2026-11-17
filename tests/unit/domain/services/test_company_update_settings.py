@@ -21,6 +21,7 @@ from vapi.db.sql_models.company import CompanySettings
 from vapi.db.sql_models.user import CampaignExperience
 from vapi.domain.controllers.company.dto import CompanySettingsPatch
 from vapi.domain.services import CompanyService
+from vapi.lib.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -63,6 +64,31 @@ class TestApplySettingsPatchScalars:
         assert settings.character_autogen_xp_cost == 20
         assert settings.character_autogen_num_choices == 5
         assert settings.character_autogen_starting_points == 25
+
+
+class TestApplySettingsPatchConcurrency:
+    """Test that a settings patch never overwrites changes made after the row was loaded."""
+
+    async def test_settings_archived_after_load_stay_archived(
+        self,
+        company_factory: Callable[..., Any],
+    ) -> None:
+        """Verify patching settings archived by a company delete raises 404 and keeps the archive."""
+        # Given settings loaded by a request, then archived by a concurrent company delete
+        company = await company_factory()
+        settings = await CompanySettings.filter(company=company).first()
+        await CompanySettings.filter(id=settings.id).update(is_archived=True)
+
+        # When/Then the patch raises NotFoundError
+        with pytest.raises(NotFoundError, match="Company settings not found"):
+            await CompanyService().update_settings(
+                settings=settings, patch=CompanySettingsPatch(character_autogen_xp_cost=20)
+            )
+
+        # And the settings stay archived with the old value
+        row = await CompanySettings.get(id=settings.id)
+        assert row.is_archived is True
+        assert row.character_autogen_xp_cost == 10
 
 
 class TestApplySettingsPatchStartingPoints:

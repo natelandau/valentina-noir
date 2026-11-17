@@ -14,7 +14,7 @@ from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.domain.services.character_trait_svc import CharacterTraitService
 from vapi.lib.exceptions import PermissionDeniedError, ValidationError
-from vapi.lib.patch import apply_patch
+from vapi.lib.patch import save_active_patch
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -78,8 +78,9 @@ class CompanyService:
             field, for audit logging.
         """
         async with in_transaction():
-            changes = apply_patch(settings, patch, prefix="settings.")
-            await settings.save()
+            changes = await save_active_patch(
+                settings, patch, label="Company settings", prefix="settings."
+            )
             # Players did not choose the new rules, so refund in full whatever the recoup setting.
             if "settings.specialty_rules" in changes:
                 await CharacterTraitService().remove_ineligible_specialties(

@@ -136,5 +136,8 @@ class GetModelByIdValidationService:
     async def get_quickroll_by_id(self, quickroll_id: UUID, *, company_id: UUID) -> QuickRoll:
         """Get a quick roll by ID owned by a user in a company."""
         return await _get_or_raise(
-            QuickRoll, quickroll_id, "Quick roll", Q(user__company_id=company_id)
+            QuickRoll,
+            quickroll_id,
+            "Quick roll",
+            Q(user__company_id=company_id, user__is_archived=False),
         )
