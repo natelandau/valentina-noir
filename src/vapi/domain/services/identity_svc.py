@@ -6,7 +6,7 @@ auto-link by verified email, or create a new UNAPPROVED user.
 """
 
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tortoise.expressions import RawSQL
 from tortoise.transactions import in_transaction
@@ -51,7 +51,6 @@ class IdentityService:
             await User.filter(company_id=company.id, is_archived=False)
             .annotate(_provider_id=RawSQL(f"{profile_field}->>'id'"))
             .filter(_provider_id=provider_id)
-            .prefetch_related("campaign_experiences")
             .first()
         )
 
@@ -131,7 +130,6 @@ class IdentityService:
                 user = matches[0]
                 setattr(user, profile_field, identity.profile)
                 await user.save(update_fields=[profile_field])
-                await user.fetch_related("campaign_experiences")
                 return user, IdentityResolution.LINKED, True
 
         user = await self._create_user(
@@ -162,16 +160,17 @@ class IdentityService:
 
     async def link_identity(
         self, *, company: "Company", user: User, identity: "VerifiedIdentity"
-    ) -> User:
+    ) -> dict[str, Any] | None:
         """Attach an additional verified provider identity to a user.
 
         Args:
             company: The company scope for conflict checks.
-            user: The user receiving the identity.
+            user: The user receiving the identity. Refreshed from the database and
+                updated in place.
             identity: The verified provider identity to attach.
 
         Returns:
-            The updated user.
+            The profile the committed row held before the link, for the audit log.
 
         Raises:
             NotFoundError: The user was archived before the link was saved.
@@ -198,7 +197,8 @@ class IdentityService:
             if not await user.lock_for_update(is_archived=False):
                 raise NotFoundError(detail="User not found")
 
-            current = getattr(user, profile_field) or {}
+            old_profile = getattr(user, profile_field)
+            current = old_profile or {}
             if current.get("id") and str(current["id"]) != identity.provider_id:
                 raise ConflictError(
                     detail=f"User already has a different {identity.provider} identity linked.",
@@ -211,10 +211,11 @@ class IdentityService:
                 user.email_trusted = True
                 update_fields.append("email_trusted")
             await user.save(update_fields=update_fields)
-        await user.fetch_related("campaign_experiences")
-        return user
+        return old_profile
 
-    async def unlink_identity(self, *, user: User, provider: IdentityProvider) -> User:
+    async def unlink_identity(
+        self, *, user: User, provider: IdentityProvider
+    ) -> dict[str, Any] | None:
         """Remove a linked provider identity from a user.
 
         Use this for "disconnect account" settings flows. The user's last
@@ -222,11 +223,12 @@ class IdentityService:
         with no way to authenticate.
 
         Args:
-            user: The user to remove the identity from.
+            user: The user to remove the identity from. Refreshed from the database
+                and updated in place.
             provider: The provider whose identity to remove.
 
         Returns:
-            The updated user.
+            The removed profile, as the committed row held it, for the audit log.
 
         Raises:
             NotFoundError: The user is archived or has no identity from this provider.
@@ -240,7 +242,8 @@ class IdentityService:
 
             # A linked identity is a non-null JSON column; compare to None rather than
             # truthiness so an empty-dict profile still counts as linked.
-            if getattr(user, profile_field) is None:
+            old_profile = getattr(user, profile_field)
+            if old_profile is None:
                 raise NotFoundError(
                     detail=f"No {provider.value} identity is linked to this user.",
                     code="IDENTITY_NOT_LINKED",
@@ -257,8 +260,7 @@ class IdentityService:
 
             setattr(user, profile_field, None)
             await user.save(update_fields=[profile_field])
-        await user.fetch_related("campaign_experiences")
-        return user
+        return old_profile
 
     async def _create_user(
         self,
@@ -306,7 +308,6 @@ class IdentityService:
         )
         setattr(user, profile_field, identity.profile)
         await user.save()
-        await user.fetch_related("campaign_experiences")
         return user
 
     @staticmethod
