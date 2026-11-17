@@ -1,16 +1,18 @@
 """Tests for after-response hook helpers."""
 
+import hashlib
 import json
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
 from vapi.domain.hooks import after_response
-from vapi.domain.hooks.after_response import _apply_redactions
+from vapi.domain.hooks.after_response import _sanitize_body
 
 
 class TestApplyRedactions:
-    """Test _apply_redactions."""
+    """Test _sanitize_body."""
 
     def test_redacts_top_level_keys_in_dict_body(self) -> None:
         """Verify sensitive top-level keys are replaced in dict bodies."""
@@ -19,10 +21,10 @@ class TestApplyRedactions:
         request_body = json.dumps(request_json)
 
         # When redactions are applied
-        body, parsed = _apply_redactions(
+        body, parsed = _sanitize_body(
             request_body=request_body,
             request_json=request_json,
-            redact_fields=["token"],
+            redact_fields=frozenset({"token"}),
         )
 
         # Then the sensitive value is replaced and the raw body stays consistent
@@ -37,10 +39,10 @@ class TestApplyRedactions:
         request_body = json.dumps(request_json)
 
         # When redactions are applied
-        body, parsed = _apply_redactions(
+        body, parsed = _sanitize_body(
             request_body=request_body,
             request_json=request_json,
-            redact_fields=["token"],
+            redact_fields=frozenset({"token"}),
         )
 
         # Then the body is returned unchanged without raising
@@ -54,10 +56,10 @@ class TestApplyRedactions:
         request_body = json.dumps(request_json)
 
         # When redactions are applied
-        body, parsed = _apply_redactions(
+        body, parsed = _sanitize_body(
             request_body=request_body,
             request_json=request_json,
-            redact_fields=["secret"],
+            redact_fields=frozenset({"secret"}),
         )
 
         # Then the nested value is replaced and the raw body no longer carries it
@@ -75,10 +77,10 @@ class TestApplyRedactions:
         request_body = json.dumps(request_json)
 
         # When redactions are applied
-        body, parsed = _apply_redactions(
+        body, parsed = _sanitize_body(
             request_body=request_body,
             request_json=request_json,
-            redact_fields=["token", "api_key"],
+            redact_fields=frozenset({"token", "api_key"}),
         )
 
         # Then every sensitive value is replaced and other values are kept
@@ -96,10 +98,10 @@ class TestApplyRedactions:
         request_json = {"secret": {"inner": "value"}}
 
         # When redactions are applied
-        _, parsed = _apply_redactions(
+        _, parsed = _sanitize_body(
             request_body=json.dumps(request_json),
             request_json=request_json,
-            redact_fields=["secret"],
+            redact_fields=frozenset({"secret"}),
         )
 
         # Then the whole value is redacted
@@ -111,10 +113,10 @@ class TestApplyRedactions:
         request_body = "raw-bytes"
 
         # When redactions are applied
-        body, parsed = _apply_redactions(
+        body, parsed = _sanitize_body(
             request_body=request_body,
             request_json=None,
-            redact_fields=["token"],
+            redact_fields=frozenset({"token"}),
         )
 
         # Then the body is returned unchanged
@@ -240,3 +242,115 @@ class TestPostDataUpdateHook:
         # Then no company cache is cleared
         delete_company_cache.assert_not_awaited()
         company.filter.assert_not_called()
+
+
+@pytest.mark.anyio
+class TestAddAuditLogBodyCap:
+    """Test that add_audit_log persists a bounded summary of the request body."""
+
+    @pytest.fixture
+    def create(self, mocker) -> MagicMock:
+        """Patch the audit insert and structured-field builder, returning the insert mock."""
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+        return mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+
+    @staticmethod
+    def _request(mocker, body: bytes) -> MagicMock:
+        request = mocker.MagicMock()
+        request.headers = {"content-type": "application/json"}
+        request.body = mocker.AsyncMock(return_value=body)
+        request.state = SimpleNamespace()
+        request.scope = {"state": {}}
+        request.path_params = {}
+        request.query_params = {}
+        return request
+
+    async def test_oversized_body_with_unknown_field_is_not_persisted(self, mocker, create) -> None:
+        """Verify an oversized body is stored as its length and hash, not its content."""
+        # Given a small valid payload padded with a large unknown field
+        payload = {"term": "Abc", "definition": "short", "junk": "x" * 4_000_000}
+        body = json.dumps(payload).encode()
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then neither stored column carries the body and the summary is bounded
+        kwargs = create.call_args.kwargs
+        digest = hashlib.sha256(body).hexdigest()
+        assert kwargs["request_json"] is None
+        assert kwargs["request_body"] == f"[truncated: {len(body)} bytes, sha256={digest}]"
+
+    async def test_body_within_budget_is_persisted(self, mocker, create) -> None:
+        """Verify a body within the size budget is stored unchanged."""
+        # Given a normal-sized JSON body
+        payload = {"term": "Abc", "definition": "y" * 20_000}
+        body = json.dumps(payload).encode()
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then the raw and parsed bodies are stored in full
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_json"] == payload
+        assert kwargs["request_body"] == body.decode()
+
+    async def test_oversized_body_hash_covers_redacted_body(self, mocker, create) -> None:
+        """Verify the stored hash is of the redacted body so it cannot confirm a secret."""
+        # Given an oversized body that carries a credential
+        payload = {"token": "live-credential", "junk": "x" * 100_000}
+        body = json.dumps(payload).encode()
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then the hash is of the redacted serialization, not the original bytes
+        redacted = json.dumps({"token": "[REDACTED]", "junk": "x" * 100_000}).encode()
+        stored = create.call_args.kwargs["request_body"]
+        assert hashlib.sha256(redacted).hexdigest() in stored
+        assert hashlib.sha256(body).hexdigest() not in stored
+
+    async def test_non_utf8_body_does_not_raise(self, mocker, create) -> None:
+        """Verify a body that is not valid UTF-8 is still audited."""
+        # Given a body with invalid UTF-8 bytes
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, b"\xff\xfe"))
+
+        # Then an entry is created without parsed JSON
+        assert create.call_args.kwargs["request_json"] is None
+
+    async def test_nul_in_unknown_field_is_replaced(self, mocker, create) -> None:
+        """Verify a JSON NUL escape is replaced so PostgreSQL accepts the audit row."""
+        # Given a body whose unknown field carries an escaped NUL
+        body = b'{"term": "Abc", "junk": "a\\u0000b"}'
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then neither stored column holds a NUL
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_json"] == {"term": "Abc", "junk": "a\ufffdb"}
+        assert "\\u0000" not in kwargs["request_body"]
+        assert json.loads(kwargs["request_body"]) == kwargs["request_json"]
+
+    async def test_raw_nul_byte_in_body_is_replaced(self, mocker, create) -> None:
+        """Verify a raw NUL byte in a non-JSON body is replaced."""
+        # Given a non-JSON body that contains a NUL byte
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, b"a\x00b"))
+
+        # Then the stored body holds no NUL
+        assert create.call_args.kwargs["request_body"] == "a\ufffdb"
+
+    async def test_nul_in_query_param_is_replaced(self, mocker, create) -> None:
+        """Verify a NUL in a query parameter is replaced so PostgreSQL accepts the audit row."""
+        # Given a request whose query string decodes to a NUL
+        request = self._request(mocker, b"")
+        request.query_params = {"junk": "a\x00b"}
+
+        # When the audit entry is written
+        await after_response.add_audit_log(request)
+
+        # Then the stored query params hold no NUL
+        assert create.call_args.kwargs["query_params"] == {"junk": "a\ufffdb"}

@@ -43,10 +43,11 @@ audit entry) by setting:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
-from vapi.constants import REQUEST_ID_STATE_KEY
+from vapi.constants import AUDIT_MAX_BODY_BYTES, REQUEST_ID_STATE_KEY
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.company import Company
 from vapi.domain.hooks.audit_helpers import build_audit_entry
@@ -76,33 +77,45 @@ async def _parse_request_body(request: Request) -> tuple[str | None, Any]:
     if not body_bytes:
         return None, None
 
-    request_body = body_bytes.decode("utf-8")
+    try:
+        request_body = body_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return body_bytes.decode("utf-8", errors="replace"), None
+
     try:
         request_json = json.loads(request_body)
-    except (ValueError, UnicodeDecodeError):
+    except ValueError:
         request_json = None
 
     return request_body, request_json
 
 
-def _redact_value(value: Any, redact_fields: frozenset[str]) -> Any:
-    """Return a copy of a parsed JSON value with sensitive keys redacted at any depth."""
+def _sanitize_value(value: Any, redact_fields: frozenset[str]) -> Any:
+    """Return a copy of a parsed JSON value with sensitive keys redacted and NULs replaced.
+
+    PostgreSQL text and jsonb columns reject NUL, so one left in a field the endpoint
+    ignores would fail the audit insert and leave the request unlogged.
+    """
+    if isinstance(value, str):
+        return value.replace("\x00", "\ufffd")
     if isinstance(value, dict):
         return {
-            k: "[REDACTED]" if k in redact_fields else _redact_value(v, redact_fields)
+            _sanitize_value(k, redact_fields): "[REDACTED]"
+            if k in redact_fields
+            else _sanitize_value(v, redact_fields)
             for k, v in value.items()
         }
     if isinstance(value, list):
-        return [_redact_value(item, redact_fields) for item in value]
+        return [_sanitize_value(item, redact_fields) for item in value]
     return value
 
 
-def _apply_redactions(
+def _sanitize_body(
     request_body: str | None,
     request_json: Any,
-    redact_fields: list[str],
+    redact_fields: frozenset[str],
 ) -> tuple[str | None, Any]:
-    """Replace sensitive keys in the persisted request body with [REDACTED].
+    """Redact sensitive keys and replace NUL characters in the persisted request body.
 
     Use when a request body contains credentials (e.g. provider tokens) that must
     not be stored in the audit log. Keys are matched at every depth, inside nested
@@ -114,17 +127,41 @@ def _apply_redactions(
         redact_fields: Key names whose values to redact.
 
     Returns:
-        Tuple of (redacted_body, redacted_json).
+        Tuple of (sanitized_body, sanitized_json).
     """
-    if not redact_fields or not isinstance(request_json, dict | list):
-        return request_body, request_json
+    if request_json is None:
+        if request_body is None:
+            return None, None
+        return request_body.replace("\x00", "\ufffd"), None
 
-    redacted_json = _redact_value(request_json, frozenset(redact_fields))
-    if redacted_json == request_json:
+    sanitized_json = _sanitize_value(request_json, redact_fields)
+    if sanitized_json == request_json:
         return request_body, request_json
     # Re-serialize so request_body stays consistent with request_json
-    redacted_body = json.dumps(redacted_json)
-    return redacted_body, redacted_json
+    return json.dumps(sanitized_json), sanitized_json
+
+
+def _cap_request_body(request_body: str | None, request_json: Any) -> tuple[str | None, Any]:
+    """Replace a body over the audit size budget with its length and SHA-256 hash.
+
+    Run after redaction so the hash is of the redacted body and cannot confirm a guessed secret.
+
+    Args:
+        request_body: Request body text, already redacted.
+        request_json: Parsed request JSON, already redacted.
+
+    Returns:
+        Tuple of (body, json): unchanged when within budget, else a summary string and None.
+    """
+    if request_body is None:
+        return request_body, request_json
+
+    body_bytes = request_body.encode("utf-8")
+    if len(body_bytes) <= AUDIT_MAX_BODY_BYTES:
+        return request_body, request_json
+
+    digest = hashlib.sha256(body_bytes).hexdigest()
+    return f"[truncated: {len(body_bytes)} bytes, sha256={digest}]", None
 
 
 async def add_audit_log(request: Request) -> None:
@@ -134,13 +171,12 @@ async def add_audit_log(request: Request) -> None:
     per_request: list[str] = getattr(request.state, "audit_redact_fields", None) or []
     # Always merge per-request fields with the module-level defaults so sensitive
     # fields are redacted even when a controller doesn't set audit_redact_fields.
-    redact_fields: list[str] = list(_DEFAULT_REDACT_FIELDS | set(per_request))
-    if redact_fields:
-        request_body, request_json = _apply_redactions(
-            request_body=request_body,
-            request_json=request_json,
-            redact_fields=redact_fields,
-        )
+    request_body, request_json = _sanitize_body(
+        request_body=request_body,
+        request_json=request_json,
+        redact_fields=_DEFAULT_REDACT_FIELDS | set(per_request),
+    )
+    request_body, request_json = _cap_request_body(request_body, request_json)
 
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)
 
@@ -156,8 +192,8 @@ async def add_audit_log(request: Request) -> None:
         url=str(request.url),
         request_json=request_json,
         request_body=request_body,
-        path_params=request.path_params,
-        query_params=dict(request.query_params),
+        path_params=_sanitize_value(request.path_params, frozenset()),
+        query_params=_sanitize_value(dict(request.query_params), frozenset()),
         request_id=request_id,
         **structured,
     )

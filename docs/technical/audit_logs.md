@@ -127,12 +127,18 @@ This adds the following fields to each entry:
 | -------------- | ------------- | ----------------------------- |
 | `method`       | `string`      | HTTP method (GET, POST, etc.) |
 | `url`          | `string`      | Full request URL              |
-| `request_json` | `object|null` | Parsed request body           |
-| `request_body` | `string|null` | Raw request body text         |
+| `request_json` | `object|null` | Parsed request body, see below |
+| `request_body` | `string|null` | Request body text, see below  |
 | `path_params`  | `object|null` | URL path parameters           |
 | `query_params` | `object|null` | URL query parameters          |
 | `operation_id` | `string|null` | OpenAPI operation identifier  |
 | `handler_name` | `string|null` | Internal handler name         |
+
+Sensitive fields such as `token`, `password`, `secret`, and `api_key` are stored as `"[REDACTED]"`.
+
+Request bodies larger than 64 KiB are not stored. For these requests, `request_json` is `null` and `request_body` holds a summary of the body's size and SHA-256 hash, for example `"[truncated: 120000 bytes, sha256=9f86d0...]"`. The hash is of the body after redaction.
+
+NUL characters in request bodies, path parameters, and query parameters are stored as the Unicode replacement character (U+FFFD).
 
 ## Examples
 
