@@ -225,7 +225,11 @@ class CompanyArchiveHandler:
             await _archive_where(model, self.ctx, company_id=self.company.id)
 
     async def handle(self) -> None:
-        """Cascade through all child entities, then flip the company itself."""
+        """Flip the company (idempotent) and cascade to every entity belonging to it."""
+        # Flip the company row first, the lock order a company PATCH takes, so a concurrent
+        # PATCH waits and then finds no active company instead of deadlocking on its settings.
+        await _archive_where(Company, self.ctx, id=self.company.id)
+
         for campaign in await Campaign.filter(company_id=self.company.id, is_archived=False):
             await CampaignArchiveHandler(campaign=campaign, ctx=self.ctx).handle()
 
@@ -236,7 +240,6 @@ class CompanyArchiveHandler:
             await UserArchiveHandler(user=user, ctx=self.ctx).handle()
 
         await self._archive_company_scoped()
-        await _archive_where(Company, self.ctx, id=self.company.id)
 
 
 def _new_context() -> ArchiveContext:

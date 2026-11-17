@@ -651,33 +651,33 @@ class TestCompanyArchiveHandler:
         note = await note_factory(company=company, is_archived=False)
 
         # And an injection point: the real _archive_where runs for every model
-        # except Company (the final flip), where it raises. By the time the cascade
-        # reaches the Company flip, the campaign/user/note rows have already been
-        # flipped inside the transaction, so the raise must revert all of them.
+        # except CompanySettings (the final flip), where it raises. By then the
+        # company, campaign, user, and note rows have already been flipped inside
+        # the transaction, so the raise must revert all of them.
         from vapi.domain.handlers import archive_handlers
 
         real_archive_where = archive_handlers._archive_where
         flipped_models: list[type[Model]] = []
 
-        async def _raise_on_company(model, ctx, **filters) -> int:
-            if model is Company:
+        async def _raise_on_settings(model, ctx, **filters) -> int:
+            if model is CompanySettings:
                 msg = "boom"
                 raise RuntimeError(msg)
             flipped_models.append(model)
             return await real_archive_where(model, ctx, **filters)
 
         mocker.patch.object(
-            archive_handlers, "_archive_where", side_effect=_raise_on_company, autospec=True
+            archive_handlers, "_archive_where", side_effect=_raise_on_settings, autospec=True
         )
 
         # When we archive the company
         with pytest.raises(RuntimeError, match="boom"):
             await archive_company(company=company)
 
-        # Then real rows were flipped before the failure (guards against the cascade
-        # being reordered to flip Company first, which would make this test pass
-        # vacuously), and the transaction rolled every one of them back
-        assert flipped_models  # at least one non-Company flip happened pre-failure
+        # Then the company and its children were flipped before the failure, and the
+        # transaction rolled every one of them back
+        assert Company in flipped_models
+        assert Note in flipped_models
         assert (await Company.get(id=company.id)).is_archived is False
         assert (await Campaign.get(id=campaign.id)).is_archived is False
         assert (await User.get(id=user.id)).is_archived is False

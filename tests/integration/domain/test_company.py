@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,6 +12,7 @@ from litestar.status_codes import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
+    HTTP_404_NOT_FOUND,
 )
 
 from vapi.constants import CompanyPermission
@@ -20,6 +22,9 @@ from vapi.db.sql_models.company import Company, CompanySettings
 from vapi.db.sql_models.developer import Developer, DeveloperCompanyPermission
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
+from vapi.domain import deps
+from vapi.domain.handlers import archive_company
+from vapi.domain.handlers.archive_handlers import CompanyArchiveHandler
 from vapi.domain.urls import Companies
 
 if TYPE_CHECKING:
@@ -561,3 +566,106 @@ class TestCompanyValidation:
 
         # Then the request is rejected
         assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+class TestCompanyPatchRacesDelete:
+    """Test that a company PATCH never undoes a company delete that commits after it loaded."""
+
+    async def test_patch_after_concurrent_delete_returns_404(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_admin: dict[str, str],
+        session_company_admin: Developer,
+        company_factory: Callable[..., Any],
+        developer_company_permission_factory: Callable[..., Any],
+        user_factory: Callable[..., Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify a PATCH whose company is deleted after the request loads it gets 404."""
+        # Given an ADMIN developer's company with a user in its tenant
+        company = await company_factory(description="original")
+        await developer_company_permission_factory(
+            developer=session_company_admin, company=company, permission=CompanyPermission.ADMIN
+        )
+        user = await user_factory(company=company)
+
+        # And an owner deletes the company right after the PATCH request loads it
+        real_find_or_404 = deps._find_or_404
+
+        async def find_then_delete(model: type, *args: Any, **kwargs: Any) -> Any:
+            found = await real_find_or_404(model, *args, **kwargs)
+            if model is Company:
+                await archive_company(company=await Company.get(id=found.id))
+            return found
+
+        monkeypatch.setattr(deps, "_find_or_404", find_then_delete)
+
+        # When the ADMIN developer's PATCH saves its stale copy
+        response = await client.patch(
+            build_url(Companies.UPDATE, company_id=company.id),
+            headers=token_company_admin,
+            json={"description": "admin-edit"},
+        )
+
+        # Then the PATCH fails and the company stays archived with its tenant
+        assert response.status_code == HTTP_404_NOT_FOUND
+        row = await Company.get(id=company.id)
+        user_row = await User.get(id=user.id)
+        assert row.is_archived is True
+        assert row.archive_batch_id is not None
+        assert row.archive_batch_id == user_row.archive_batch_id
+        assert row.description == "original"
+
+    async def test_settings_patch_during_delete_returns_404(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, ...], str],
+        token_company_admin: dict[str, str],
+        session_company_admin: Developer,
+        company_factory: Callable[..., Any],
+        developer_company_permission_factory: Callable[..., Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify a settings PATCH sent while a delete is mid-cascade waits for it, then gets 404."""
+        # Given an ADMIN developer's company
+        company = await company_factory(description="original")
+        await developer_company_permission_factory(
+            developer=session_company_admin, company=company, permission=CompanyPermission.ADMIN
+        )
+
+        # And a delete that pauses after archiving the company's settings
+        cascade_paused = asyncio.Event()
+        release_cascade = asyncio.Event()
+        real_archive_scoped = CompanyArchiveHandler._archive_company_scoped
+
+        async def paused_archive_scoped(handler: CompanyArchiveHandler) -> None:
+            await real_archive_scoped(handler)
+            cascade_paused.set()
+            await release_cascade.wait()
+
+        monkeypatch.setattr(CompanyArchiveHandler, "_archive_company_scoped", paused_archive_scoped)
+        delete = asyncio.create_task(archive_company(company=await Company.get(id=company.id)))
+        await asyncio.wait_for(cascade_paused.wait(), timeout=5)
+
+        # When the ADMIN developer patches the company and its settings mid-cascade
+        patch = asyncio.create_task(
+            client.patch(
+                build_url(Companies.UPDATE, company_id=company.id),
+                headers=token_company_admin,
+                json={"description": "admin-edit", "settings": {"character_autogen_xp_cost": 20}},
+            )
+        )
+        await asyncio.sleep(0.3)
+        release_cascade.set()
+        _, response = await asyncio.wait_for(asyncio.gather(delete, patch), timeout=10)
+
+        # Then the delete commits, the PATCH gets 404, and nothing is un-archived
+        assert response.status_code == HTTP_404_NOT_FOUND
+        row = await Company.get(id=company.id)
+        settings = await CompanySettings.get(company_id=company.id)
+        assert row.is_archived is True
+        assert row.description == "original"
+        assert settings.is_archived is True
+        assert settings.archive_batch_id == row.archive_batch_id
+        assert settings.character_autogen_xp_cost != 20
