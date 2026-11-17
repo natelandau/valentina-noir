@@ -132,6 +132,39 @@ def _apply_redactions(
     return redacted_body, redacted_json
 
 
+def _replace_nul_value(value: Any) -> Any:
+    """Return a copy of a parsed JSON value with NUL characters replaced in keys and strings."""
+    if isinstance(value, str):
+        return value.replace("\x00", "\ufffd")
+    if isinstance(value, dict):
+        return {_replace_nul_value(k): _replace_nul_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_replace_nul_value(item) for item in value]
+    return value
+
+
+def _replace_nul(request_body: str | None, request_json: Any) -> tuple[str | None, Any]:
+    """Replace NUL characters, which PostgreSQL text and jsonb columns reject.
+
+    Without this, a NUL in a field the endpoint ignores fails the audit insert and the
+    request goes unlogged.
+
+    Args:
+        request_body: Request body text, already redacted.
+        request_json: Parsed request JSON, already redacted.
+
+    Returns:
+        Tuple of (body, json) with every NUL replaced by U+FFFD.
+    """
+    if request_body is None or ("\x00" not in request_body and "\\u0000" not in request_body):
+        return request_body, request_json
+
+    cleaned_json = _replace_nul_value(request_json)
+    if cleaned_json != request_json:
+        request_body = json.dumps(cleaned_json)
+    return request_body.replace("\x00", "\ufffd"), cleaned_json
+
+
 def _cap_request_body(request_body: str | None, request_json: Any) -> tuple[str | None, Any]:
     """Replace a body over the audit size budget with its length and SHA-256 hash.
 
@@ -169,6 +202,7 @@ async def add_audit_log(request: Request) -> None:
             request_json=request_json,
             redact_fields=redact_fields,
         )
+    request_body, request_json = _replace_nul(request_body, request_json)
     request_body, request_json = _cap_request_body(request_body, request_json)
 
     request_id = request.scope["state"].get(REQUEST_ID_STATE_KEY)

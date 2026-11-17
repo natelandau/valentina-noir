@@ -318,3 +318,31 @@ class TestAddAuditLogBodyCap:
 
         # Then an entry is created without parsed JSON
         assert create.call_args.kwargs["request_json"] is None
+
+    async def test_nul_in_unknown_field_is_replaced(self, mocker) -> None:
+        """Verify a JSON NUL escape is replaced so PostgreSQL accepts the audit row."""
+        # Given a body whose unknown field carries an escaped NUL
+        body = b'{"term": "Abc", "junk": "a\\u0000b"}'
+        create = mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, body))
+
+        # Then neither stored column holds a NUL
+        kwargs = create.call_args.kwargs
+        assert kwargs["request_json"] == {"term": "Abc", "junk": "a\ufffdb"}
+        assert "\\u0000" not in kwargs["request_body"]
+        assert json.loads(kwargs["request_body"]) == kwargs["request_json"]
+
+    async def test_raw_nul_byte_in_body_is_replaced(self, mocker) -> None:
+        """Verify a raw NUL byte in a non-JSON body is replaced."""
+        # Given a non-JSON body that contains a NUL byte
+        create = mocker.patch.object(after_response.AuditLog, "create", autospec=True)
+        mocker.patch.object(after_response, "build_audit_entry", return_value={})
+
+        # When the audit entry is written
+        await after_response.add_audit_log(self._request(mocker, b"a\x00b"))
+
+        # Then the stored body holds no NUL
+        assert create.call_args.kwargs["request_body"] == "a\ufffdb"
