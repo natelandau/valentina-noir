@@ -11,8 +11,10 @@ from vapi.config.base import settings
 from vapi.db.sql_models.audit_log import AuditLog
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character, CharacterTrait
+from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.domain.services import AWSS3Service
+from vapi.lib.exceptions import AWSS3Error
 from vapi.lib.scheduled_tasks import (
     _purge_archived_models,
     _purge_audit_logs,
@@ -179,28 +181,20 @@ class TestPurgeS3AssetsErrorIsolation:
         await S3Asset.filter(id=asset_1.id).update(archive_date=old_date)
         await S3Asset.filter(id=asset_2.id).update(archive_date=old_date)
 
-        # Given delete_asset fails on the first asset but succeeds on the second
-        call_count = 0
-
+        # Given the S3 delete fails on the first asset but succeeds on the second
         asset_1_id = asset_1.id
 
-        async def mock_delete_asset(asset: S3Asset) -> None:
-            nonlocal call_count
-            call_count += 1
-            if asset.id == asset_1_id:
-                msg = "Simulated S3 failure"
-                raise RuntimeError(msg)
-            await asset.delete()
+        async def mock_delete_key(key: str) -> None:
+            if key == asset_1.s3_key:
+                raise AWSS3Error(detail="Simulated S3 failure")
 
-        mocker.patch.object(
-            AWSS3Service, "_delete_asset_without_invalidation", side_effect=mock_delete_asset
-        )
+        delete_key = mocker.patch.object(AWSS3Service, "delete_key", side_effect=mock_delete_key)
 
         # When we run the task
         await purge_db_expired_items({})
 
-        # Then both assets were attempted (delete_asset called twice)
-        assert call_count == 2
+        # Then both assets were attempted
+        assert delete_key.call_count == 2
 
         # Then asset_1 still exists (delete failed) and asset_2 was deleted
         assert await S3Asset.filter(id=asset_1_id).first() is not None
@@ -232,6 +226,34 @@ class TestPurgeS3AssetsErrorIsolation:
         # Then both assets go to a single bulk delete call
         delete_assets.assert_called_once()
         assert {asset.id for asset in delete_assets.call_args.args[0]} == {first.id, second.id}
+
+
+class TestPurgeArchivedCompanyAssets:
+    """Tests for purging the assets of an archived company."""
+
+    async def test_archived_company_assets_are_deleted_from_s3(
+        self,
+        company_factory: Callable[..., Any],
+        s3asset_factory: Callable[..., Any],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify an expired archived company's assets are deleted from S3, not only cascaded away."""
+        # Given an archived company and its archived asset, both past the retention window
+        mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
+        old_date = time_now() - timedelta(days=settings.retention.archived_days + 1)
+        company = await company_factory()
+        asset = await s3asset_factory(company=company, is_archived=True)
+        await S3Asset.filter(id=asset.id).update(archive_date=old_date)
+        await Company.filter(id=company.id).update(is_archived=True, archive_date=old_date)
+        delete_key = mocker.patch.object(AWSS3Service, "delete_key")
+
+        # When the purge runs
+        await purge_db_expired_items({})
+
+        # Then the asset's S3 object was deleted along with the company
+        delete_key.assert_any_call(key=asset.s3_key)
+        assert not await Company.filter(id=company.id).exists()
 
 
 class TestPurgeTemporaryCharacters:

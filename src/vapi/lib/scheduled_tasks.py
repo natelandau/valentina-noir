@@ -280,9 +280,11 @@ async def purge_db_expired_items(_: Context) -> None:
     await init_tortoise()
 
     try:
+        # Assets go first: purging an archived company cascades to its asset rows, which
+        # would orphan their S3 objects and leave them on the CDN.
+        await _purge_s3_assets()
         await _purge_archived_models()
         await _purge_audit_logs()
-        await _purge_s3_assets()
         await _purge_chargen_sessions()
         await _purge_temporary_characters()
     finally:
