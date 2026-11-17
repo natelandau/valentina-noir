@@ -11,6 +11,7 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
 )
 
+from vapi.constants import CharacterType, UserRole
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
@@ -612,3 +613,74 @@ async def test_chapter_excludes_archived_character(
     # Then the rollup also excludes the archived character
     assert response.status_code == HTTP_200_OK
     assert response.json()["character_ids"] == [str(keep.id)]
+
+
+async def test_player_chapter_update_preserves_and_rejects_storyteller_characters(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    user_factory: Callable[..., User],
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify a player's chapter update keeps hidden STORYTELLER links and rejects STORYTELLER ids."""
+    # Given a chapter linked to a player character and a STORYTELLER character
+    campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book)
+    pc = await character_factory(company=session_company, campaign=campaign)
+    hidden = await character_factory(
+        company=session_company, campaign=campaign, type=CharacterType.STORYTELLER
+    )
+    other_hidden = await character_factory(
+        company=session_company, campaign=campaign, type=CharacterType.STORYTELLER
+    )
+    await chapter.characters.add(pc, hidden)
+    player = await user_factory(company=session_company, role=UserRole.PLAYER.value)
+    headers = token_global_admin | {"On-Behalf-Of": str(player.id)}
+    ids = {
+        "company_id": session_company.id,
+        "campaign_id": campaign.id,
+        "book_id": book.id,
+        "chapter_id": chapter.id,
+    }
+
+    # When the player resubmits the character list it can see
+    resubmit = await client.patch(
+        build_url(Campaigns.CHAPTER_UPDATE, **ids),
+        headers=headers,
+        json={"character_ids": [str(pc.id)]},
+    )
+    # And the player submits a STORYTELLER character id
+    add_hidden = await client.patch(
+        build_url(Campaigns.CHAPTER_UPDATE, **ids),
+        headers=headers,
+        json={"character_ids": [str(pc.id), str(other_hidden.id)]},
+    )
+
+    # Then the resubmit succeeds and the hidden link survives
+    assert resubmit.status_code == HTTP_200_OK
+    assert resubmit.json()["character_ids"] == [str(pc.id)]
+    # And the STORYTELLER id is rejected without linking it
+    assert add_hidden.status_code == HTTP_400_BAD_REQUEST
+    linked = {c.id for c in await chapter.characters.all()}
+    assert linked == {pc.id, hidden.id}
+
+    # When the player creates a chapter with a STORYTELLER character id
+    create = await client.post(
+        build_url(
+            Campaigns.CHAPTER_CREATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+        ),
+        headers=headers,
+        json={"name": "Sneaky", "character_ids": [str(other_hidden.id)]},
+    )
+
+    # Then it is rejected
+    assert create.status_code == HTTP_400_BAD_REQUEST

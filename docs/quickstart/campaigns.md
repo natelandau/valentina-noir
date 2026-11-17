@@ -127,13 +127,14 @@ requests.post(
 )
 ```
 
-Every ID in `character_ids` must reference an active character that belongs to the same campaign as the chapter. If any ID is missing, archived, or from another campaign, the request fails with a `400`.
+Every ID in `character_ids` must reference an active character that belongs to the same campaign as the chapter. If any ID is missing, archived, or from another campaign, the request fails with a `400`. A `STORYTELLER` character is valid only when the acting user in `On-Behalf-Of` is a storyteller or admin. For any other user, its ID also fails with a `400`.
 
-On `PATCH`, `character_ids` replaces the chapter's entire list:
+On `PATCH`, `character_ids` replaces the list of characters that the acting user can see:
 
 - Omit the field to leave the existing associations unchanged.
 - Send `[]` to clear all associations.
 - Send a new array to replace the list with exactly those characters.
+- If the acting user is not a storyteller or admin, the request does not change links to `STORYTELLER` characters.
 
 ```python
 # Replace a chapter's associated characters

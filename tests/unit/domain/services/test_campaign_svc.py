@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from vapi.constants import CharacterType
 from vapi.domain.services import CampaignService
 from vapi.lib.exceptions import ValidationError
 
@@ -540,7 +541,7 @@ class TestCampaignService:
 
         # When validating those IDs
         result = await CampaignService().validate_campaign_characters(
-            character_ids=[char_a.id, char_b.id], campaign_id=campaign.id
+            character_ids=[char_a.id, char_b.id], campaign_id=campaign.id, include_storyteller=True
         )
 
         # Then both characters are returned
@@ -563,7 +564,7 @@ class TestCampaignService:
         # Then a ValidationError is raised
         with pytest.raises(ValidationError):
             await CampaignService().validate_campaign_characters(
-                character_ids=[foreign.id], campaign_id=campaign.id
+                character_ids=[foreign.id], campaign_id=campaign.id, include_storyteller=True
             )
 
     async def test_validate_campaign_characters_rejects_archived(
@@ -582,7 +583,7 @@ class TestCampaignService:
         # Then a ValidationError is raised
         with pytest.raises(ValidationError):
             await CampaignService().validate_campaign_characters(
-                character_ids=[archived.id], campaign_id=campaign.id
+                character_ids=[archived.id], campaign_id=campaign.id, include_storyteller=True
             )
 
     async def test_validate_campaign_characters_empty_returns_empty(
@@ -597,7 +598,7 @@ class TestCampaignService:
 
         # When validating an empty list
         result = await CampaignService().validate_campaign_characters(
-            character_ids=[], campaign_id=campaign.id
+            character_ids=[], campaign_id=campaign.id, include_storyteller=True
         )
 
         # Then the result is empty
@@ -617,7 +618,7 @@ class TestCampaignService:
 
         # When the same ID is submitted twice
         result = await CampaignService().validate_campaign_characters(
-            character_ids=[char.id, char.id], campaign_id=campaign.id
+            character_ids=[char.id, char.id], campaign_id=campaign.id, include_storyteller=True
         )
 
         # Then exactly one character object is returned
@@ -642,5 +643,75 @@ class TestCampaignService:
         # Then a ValidationError is raised
         with pytest.raises(ValidationError):
             await CampaignService().validate_campaign_characters(
-                character_ids=[valid.id, foreign.id], campaign_id=campaign.id
+                character_ids=[valid.id, foreign.id],
+                campaign_id=campaign.id,
+                include_storyteller=True,
             )
+
+    @pytest.mark.parametrize("include_storyteller", [True, False])
+    async def test_validate_campaign_characters_storyteller_visibility(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        character_factory: Callable[..., Character],
+        include_storyteller: bool,
+    ) -> None:
+        """Verify a STORYTELLER character is accepted only for callers who may see it."""
+        # Given a STORYTELLER character in the campaign
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        storyteller_char = await character_factory(
+            company=company, campaign=campaign, type=CharacterType.STORYTELLER
+        )
+
+        # When validating its ID
+        validate = CampaignService().validate_campaign_characters(
+            character_ids=[storyteller_char.id],
+            campaign_id=campaign.id,
+            include_storyteller=include_storyteller,
+        )
+
+        # Then it is returned to storytellers and rejected for everyone else
+        if include_storyteller:
+            assert [c.id for c in await validate] == [storyteller_char.id]
+        else:
+            with pytest.raises(ValidationError):
+                await validate
+
+    @pytest.mark.parametrize("include_storyteller", [True, False])
+    async def test_replace_chapter_characters_storyteller_links(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        character_factory: Callable[..., Character],
+        include_storyteller: bool,
+    ) -> None:
+        """Verify replacing chapter characters leaves links the caller cannot see untouched."""
+        # Given a chapter linked to a player character and a STORYTELLER character
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(book=book)
+        old_pc = await character_factory(company=company, campaign=campaign)
+        storyteller_char = await character_factory(
+            company=company, campaign=campaign, type=CharacterType.STORYTELLER
+        )
+        new_pc = await character_factory(company=company, campaign=campaign)
+        await chapter.characters.add(old_pc, storyteller_char)
+
+        # When the character list is replaced with only the new player character
+        previous = await CampaignService().replace_chapter_characters(
+            chapter=chapter, characters=[new_pc], include_storyteller=include_storyteller
+        )
+
+        # Then storytellers replace every link, while others keep the hidden STORYTELLER link
+        linked = {c.id for c in await chapter.characters.all()}
+        previous_ids = {c.id for c in previous}
+        if include_storyteller:
+            assert linked == {new_pc.id}
+            assert previous_ids == {old_pc.id, storyteller_char.id}
+        else:
+            assert linked == {new_pc.id, storyteller_char.id}
+            assert previous_ids == {old_pc.id}
