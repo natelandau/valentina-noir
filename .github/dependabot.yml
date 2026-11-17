@@ -31,3 +31,15 @@ updates:
       runtime-deps:
         patterns:
           - "*"
+  # Updates the Dockerfile base images, refreshing the tag and its pinned digest together
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "build"
+      include: scope
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
