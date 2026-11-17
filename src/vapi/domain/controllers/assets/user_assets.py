@@ -108,5 +108,5 @@ class UserAssetsController(BaseAssetsController):
         asset: S3Asset,
         acting_user: User,  # noqa: ARG002
     ) -> None:
-        """Delete a user asset."""
+        """Delete a user asset, clearing the user's avatar if it is this asset."""
         await self._delete_asset(asset=asset, parent_id=target_user.id)
