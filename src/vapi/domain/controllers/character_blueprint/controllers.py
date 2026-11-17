@@ -27,7 +27,7 @@ from vapi.db.sql_models.character_sheet import (
 )
 from vapi.db.sql_models.company import Company
 from vapi.domain import deps, urls
-from vapi.domain.paginator import OffsetPagination, ReferenceLimit
+from vapi.domain.paginator import Offset, OffsetPagination, ReferenceLimit
 from vapi.domain.services import CharacterBlueprintService
 from vapi.lib.guards import developer_company_user_guard
 from vapi.openapi.tags import APITags
@@ -65,7 +65,7 @@ class CharacterBlueprintSectionController(Controller):
     async def list_character_blueprint_sections(
         self,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(description="Filter sections by game version.", title="Game Version"),
@@ -121,7 +121,7 @@ class CharacterBlueprintSectionController(Controller):
         self,
         *,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(description="Filter categories by game version.", title="Game Version"),
@@ -185,7 +185,7 @@ class CharacterBlueprintSectionController(Controller):
         self,
         *,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(description="Filter subcategories by game version.", title="Game Version"),
@@ -249,7 +249,7 @@ class CharacterBlueprintSectionController(Controller):
         self,
         *,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(description="Filter traits by game version.", title="Game Version"),
@@ -326,7 +326,7 @@ class CharacterBlueprintSectionController(Controller):
         *,
         company: Company,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
     ) -> OffsetPagination[CharacterConceptResponse]:
         """List the shared concepts and the company's own concepts."""
         service = CharacterBlueprintService()
@@ -367,7 +367,7 @@ class CharacterBlueprintSectionController(Controller):
         self,
         *,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(
@@ -414,7 +414,7 @@ class CharacterBlueprintSectionController(Controller):
         self,
         *,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(
@@ -461,7 +461,7 @@ class CharacterBlueprintSectionController(Controller):
         self,
         *,
         limit: ReferenceLimit = 10,
-        offset: Annotated[int, Parameter(ge=0)] = 0,
+        offset: Offset = 0,
         game_version: Annotated[
             GameVersion | None,
             Parameter(

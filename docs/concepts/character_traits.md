@@ -112,7 +112,7 @@ Add traits to a character using one of two approaches.
 
 ### Assigning Constant Traits
 
-Assign an existing system trait to a character by providing the `trait_id`, starting `value`, and `currency`.
+Assign an existing system trait to a character by providing the `trait_id`, starting `value` (0-100), and `currency`.
 
 ```json
 {
@@ -481,7 +481,7 @@ The response includes:
 
 ### PUT `/traits/{character_trait_id}/value`
 
-Modify a trait to a target value using the specified currency. The system automatically determines direction (increase or decrease) from the current value.
+Modify a trait to a target value using the specified currency. The system automatically determines direction (increase or decrease) from the current value. `target_value` must be from 0 to 100; a value in that range must also fall within the trait's own min/max bounds.
 
 **Request body:**
 
