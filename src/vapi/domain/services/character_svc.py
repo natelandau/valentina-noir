@@ -113,7 +113,7 @@ class CharacterService:
         if not clan:
             raise ValidationError(detail=f"Vampire clan {clan_id} not found")
 
-        updates: dict[str, object] = {"clan": clan}
+        updates: dict[str, object] = {}
 
         if not vampire_attrs.bane_name or vampire_attrs.bane_name not in [
             clan.bane_name,
@@ -129,12 +129,14 @@ class CharacterService:
             updates["compulsion_name"] = clan.compulsion_name
             updates["compulsion_description"] = clan.compulsion_description
 
+        if not updates:
+            return
         for key, value in updates.items():
             setattr(vampire_attrs, key, value)
-        await vampire_attrs.save()
+        await vampire_attrs.save(update_fields=list(updates))
 
     async def assign_werewolf_attributes(self, character: Character) -> None:
-        """Validate and populate werewolf attributes from tribe and auspice FKs.
+        """Validate that the werewolf attributes name an active tribe and auspice.
 
         Args:
             character: The character to validate.
@@ -169,10 +171,6 @@ class CharacterService:
             raise ValidationError(detail=f"Werewolf tribe {tribe_id} not found")
         if not auspice:
             raise ValidationError(detail=f"Werewolf auspice {auspice_id} not found")
-
-        werewolf_attrs.tribe = tribe  # ty:ignore[invalid-assignment]
-        werewolf_attrs.auspice = auspice  # ty:ignore[invalid-assignment]
-        await werewolf_attrs.save()
 
     async def validate_unique_name(self, character: Character) -> None:
         """Validate that the character name is unique within the company.
@@ -422,8 +420,10 @@ class CharacterService:
             if not row:
                 row = await model_cls.create(character=character)
 
-            changes.update(apply_patch(row, attr_data, prefix=prefix))
-            await row.save()
+            row_changes = apply_patch(row, attr_data, prefix=prefix)
+            if row_changes:
+                await row.save(update_fields=[key.removeprefix(prefix) for key in row_changes])
+            changes.update(row_changes)
 
         return changes
 

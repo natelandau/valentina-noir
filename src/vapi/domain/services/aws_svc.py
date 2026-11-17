@@ -267,7 +267,7 @@ class AWSS3Service:
         # a row whose public URL points at nothing
         await self._upload_to_s3(asset=asset, data=data)
         try:
-            await asset.save()
+            await asset.save(force_create=True)
         except BaseException:
             # The purge only finds objects through their rows, so an object without one
             # would never be removed
