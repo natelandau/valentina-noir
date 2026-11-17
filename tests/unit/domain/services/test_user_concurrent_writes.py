@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import pytest
@@ -19,6 +20,7 @@ from vapi.domain.services import (
     GlobalAdminUserService,
     IdentityService,
     UserService,
+    user_svc,
 )
 from vapi.lib.exceptions import (
     ConflictError,
@@ -28,7 +30,7 @@ from vapi.lib.exceptions import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Awaitable, Callable
     from uuid import UUID
 
     from vapi.db.sql_models.company import Company
@@ -44,6 +46,33 @@ async def _archive_concurrently(user_id: UUID) -> None:
 async def _patch_concurrently(user_id: UUID, **fields: object) -> None:
     """Patch a user through a separate instance, as a concurrent request would."""
     await GlobalAdminUserService().update_user(await User.get(id=user_id), AdminUserPatch(**fields))
+
+
+def _run_before_transaction(
+    monkeypatch: pytest.MonkeyPatch, concurrent_change: Callable[[], Awaitable[None]]
+) -> None:
+    """Commit a concurrent change once, just before the user service opens its transaction.
+
+    This lands the change after the request loaded its rows and before it locks them.
+    """
+    original = user_svc.in_transaction
+    done = False
+
+    @asynccontextmanager
+    async def _change_then_transaction(*args: object, **kwargs: object) -> AsyncIterator[object]:
+        nonlocal done
+        if not done:
+            done = True
+            await concurrent_change()
+        async with original(*args, **kwargs) as connection:
+            yield connection
+
+    monkeypatch.setattr(user_svc, "in_transaction", _change_then_transaction)
+
+
+async def _tenant_delete(user_id: UUID, company: Company) -> None:
+    """Delete a user through the company user service, as a concurrent admin request would."""
+    await UserService().remove_and_archive_user(user=await User.get(id=user_id), company=company)
 
 
 async def test_update_user_refused_after_concurrent_archive(
@@ -431,20 +460,12 @@ async def test_update_user_self_role_refused_after_concurrent_revocation(
     revoked_role: UserRole,
 ) -> None:
     """Verify a self edit in flight cannot restore admin authority revoked concurrently."""
-    # Given an admin whose demotion or deactivation commits after their self edit
-    # passed the requester check but before it saves
+    # Given an admin whose demotion or deactivation commits while their self edit is in flight
     company = await company_factory()
     await user_factory(role=UserRole.ADMIN, company=company)
     target = await user_factory(role=UserRole.ADMIN, company=company)
     stale = await User.get(id=target.id)
-    check_requester = UserService._assert_requester_active
-
-    async def _check_then_revoke(self: UserService, requesting_user_id: UUID) -> User:
-        requester = await check_requester(self, requesting_user_id)
-        await _patch_concurrently(target.id, role=revoked_role)
-        return requester
-
-    monkeypatch.setattr(UserService, "_assert_requester_active", _check_then_revoke)
+    _run_before_transaction(monkeypatch, lambda: _patch_concurrently(target.id, role=revoked_role))
 
     # When the self edit resends the admin role
     # Then it is refused and the revocation holds
@@ -463,20 +484,15 @@ async def test_update_user_refused_after_concurrent_requester_demotion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify an admin demoted mid-request cannot still change another user's role."""
-    # Given an admin demoted after their request passed the requester check
+    # Given an admin demoted while their edit of another user is in flight
     company = await company_factory()
     await user_factory(role=UserRole.ADMIN, company=company)
     admin = await user_factory(role=UserRole.ADMIN, company=company)
     target = await user_factory(role=UserRole.PLAYER, company=company)
     stale = await User.get(id=target.id)
-    check_requester = UserService._assert_requester_active
-
-    async def _check_then_demote(self: UserService, requesting_user_id: UUID) -> User:
-        requester = await check_requester(self, requesting_user_id)
-        await _patch_concurrently(admin.id, role=UserRole.PLAYER)
-        return requester
-
-    monkeypatch.setattr(UserService, "_assert_requester_active", _check_then_demote)
+    _run_before_transaction(
+        monkeypatch, lambda: _patch_concurrently(admin.id, role=UserRole.PLAYER)
+    )
 
     # When the demoted admin's request promotes the target
     # Then it is refused and the target keeps their role
@@ -494,19 +510,12 @@ async def test_update_user_self_edit_refused_after_concurrent_delete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify a self edit in flight cannot un-delete the user or detach their archive batch."""
-    # Given a user deleted after their self edit passed the requester check
+    # Given a user deleted while their self edit is in flight
     company = await company_factory()
     await user_factory(role=UserRole.ADMIN, company=company)
     target = await user_factory(role=UserRole.PLAYER, company=company)
     stale = await User.get(id=target.id)
-    check_requester = UserService._assert_requester_active
-
-    async def _check_then_delete(self: UserService, requesting_user_id: UUID) -> User:
-        requester = await check_requester(self, requesting_user_id)
-        await self.remove_and_archive_user(user=await User.get(id=target.id), company=company)
-        return requester
-
-    monkeypatch.setattr(UserService, "_assert_requester_active", _check_then_delete)
+    _run_before_transaction(monkeypatch, lambda: _tenant_delete(target.id, company))
 
     # When the self edit saves a name change
     # Then it is refused and the archive and its batch id hold
@@ -526,27 +535,12 @@ async def test_merge_users_refused_after_concurrent_primary_delete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify a merge cannot absorb into, or archive the secondary for, a primary deleted mid-request."""
-    # Given a primary user deleted after the merge loaded it
+    # Given a primary user deleted while the merge is in flight
     company = await company_factory()
     admin = await user_factory(role=UserRole.ADMIN, company=company)
     primary = await user_factory(role=UserRole.PLAYER, company=company)
     secondary = await user_factory(role=UserRole.UNAPPROVED, company=company)
-    deleted: list[bool] = []
-
-    async def _delete_primary() -> None:
-        await UserService().remove_and_archive_user(
-            user=await User.get(id=primary.id), company=company
-        )
-
-    original_lock = User.lock_for_update
-
-    async def _delete_then_lock(self: User, **filters: object) -> bool:
-        if self.id == primary.id and not deleted:
-            deleted.append(True)
-            await _delete_primary()
-        return await original_lock(self, **filters)
-
-    monkeypatch.setattr(User, "lock_for_update", _delete_then_lock)
+    _run_before_transaction(monkeypatch, lambda: _tenant_delete(primary.id, company))
 
     # When the admin merges the secondary into the deleted primary
     # Then the merge is refused and the secondary stays active

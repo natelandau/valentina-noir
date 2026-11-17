@@ -97,17 +97,18 @@ class UserService:
 
         Raises:
             NotFoundError: If the target is archived.
+            ValidationError: If the requester is archived.
         """
-        # Lock both rows in id order so two users editing each other cannot deadlock
-        await User.filter(id__in=[target.id, requesting_user_id]).order_by("id").select_for_update()
-        if not await target.lock_for_update(is_archived=False):
+        rows = await User.lock_rows([target.id, requesting_user_id], is_archived=False)
+        if target.id not in rows:
             raise NotFoundError(detail="User not found")
+        target.reload_from(rows[target.id])
         if requesting_user_id == target.id:
             requesting_user = target
+        elif requesting_user_id in rows:
+            requesting_user = rows[requesting_user_id]
         else:
-            requesting_user = await GetModelByIdValidationService().get_user_by_id(
-                requesting_user_id
-            )
+            raise ValidationError(detail=f"User {requesting_user_id} not found")
         self._reject_inactive_requester(requesting_user)
         return requesting_user
 
@@ -208,6 +209,19 @@ class UserService:
             return
 
         requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        self._assert_can_manage(
+            requesting_user=requesting_user, user_to_manage_id=user_to_manage_id
+        )
+
+    @staticmethod
+    def _assert_can_manage(*, requesting_user: User, user_to_manage_id: UUID | None) -> None:
+        """Allow a self-edit or an admin, using a requester the caller already loaded.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is not authorized.
+        """
+        if user_to_manage_id and requesting_user.id == user_to_manage_id:
+            return
         if requesting_user.role != UserRole.ADMIN:
             raise PermissionDeniedError(
                 detail="Requesting user is not authorized to manage this user",
@@ -353,8 +367,6 @@ class UserService:
         Returns:
             Tuple of (updated user with campaign_experiences prefetched, changes dict).
         """
-        await self._assert_requester_active(acting_user_id)
-
         async with in_transaction():
             requesting_user = await self._lock_target_and_requester(
                 target=user, requesting_user_id=acting_user_id
@@ -375,10 +387,7 @@ class UserService:
                     role_change["role"] = {"old": old_role, "new": new_role}
                 user.role = new_role
 
-            await self.validate_user_can_manage_user(
-                requesting_user_id=acting_user_id,
-                user_to_manage_id=user.id,
-            )
+            self._assert_can_manage(requesting_user=requesting_user, user_to_manage_id=user.id)
 
             changes = apply_patch(user, data, exclude=frozenset({"role"}))
             changes.update(role_change)

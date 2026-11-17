@@ -158,7 +158,7 @@ class TestUserService:
     ) -> None:
         """Verify updating a user succeeds with valid patch data."""
         # Given an existing user with profile data
-        spy = mocker.spy(UserService, "validate_user_can_manage_user")
+        spy = mocker.spy(UserService, "_assert_can_manage")
         company = await company_factory()
         target_user = await user_factory(
             name_first="Test",
