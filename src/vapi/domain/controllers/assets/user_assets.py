@@ -12,7 +12,7 @@ from vapi.constants import AssetType
 from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.controllers.assets import dto
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_self_or_admin_guard
@@ -75,7 +75,6 @@ class UserAssetsController(BaseAssetsController):
         summary="Upload a user asset",
         operation_id="uploadUserAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_self_or_admin_guard],
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
@@ -99,7 +98,6 @@ class UserAssetsController(BaseAssetsController):
         summary="Delete a user asset",
         operation_id="deleteUserAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_self_or_admin_guard],
     )
     async def delete_user_asset(

@@ -10,7 +10,7 @@ from litestar.handlers import delete, get, patch, post
 from vapi.constants import UserRole
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.domain.services import UserService
 from vapi.domain.services.user_svc import annotate_user_counts
@@ -109,7 +109,6 @@ class UserController(Controller):
         operation_id="createUser",
         description=docs.CREATE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def create_user(
         self, data: UserCreate, company: Company, acting_user: User
@@ -125,7 +124,6 @@ class UserController(Controller):
         operation_id="updateUser",
         description=docs.UPDATE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def update_user(
         self, target_user: User, data: UserPatch, acting_user: User, request: Request
@@ -144,7 +142,6 @@ class UserController(Controller):
         operation_id="deleteUser",
         description=docs.DELETE_USER_DESCRIPTION,
         guards=[developer_company_user_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def delete_user(self, target_user: User, company: Company, acting_user: User) -> None:
         """Delete a user by ID."""
@@ -195,7 +192,6 @@ class UserController(Controller):
         summary="Approve user",
         operation_id="approveUser",
         description=docs.APPROVE_USER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         opt={"allow_unapproved_user": True},
     )
     async def approve_user(
@@ -216,7 +212,6 @@ class UserController(Controller):
         summary="Deny user",
         operation_id="denyUser",
         description=docs.DENY_USER_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         opt={"allow_unapproved_user": True},
     )
     async def deny_user(
@@ -236,7 +231,6 @@ class UserController(Controller):
         summary="Merge users",
         operation_id="mergeUsers",
         description=docs.MERGE_USERS_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
     )
     async def merge_users(
         self, request: Request, data: UserMerge, company: Company, acting_user: User

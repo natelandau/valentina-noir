@@ -62,7 +62,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from tortoise.exceptions import OperationalError as TortoiseOperationalError
         from tortoise.exceptions import ValidationError as TortoiseValidationError
 
-        from vapi.domain import route_handlers
+        from vapi.domain import hooks, route_handlers
         from vapi.lib.exceptions import (
             HTTPError,
             does_not_exist_to_http_response,
@@ -111,6 +111,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 idempotency_middleware,
                 cache_control_middleware,
                 response_cache_generation_middleware,
+                hooks.post_data_update_middleware,
                 middleware_logging_config.middleware,
             ]
         )

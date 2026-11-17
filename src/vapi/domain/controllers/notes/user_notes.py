@@ -7,7 +7,7 @@ from litestar.handlers import delete, get, patch, post
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_self_or_admin_guard
 from vapi.openapi.tags import APITags
@@ -66,7 +66,6 @@ class UserNoteController(BaseNoteController):
         summary="Create user note",
         operation_id="createUserNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_self_or_admin_guard],
     )
     async def create_user_note(
@@ -88,7 +87,6 @@ class UserNoteController(BaseNoteController):
         summary="Update user note",
         operation_id="updateUserNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_self_or_admin_guard],
     )
     async def update_user_note(
@@ -109,7 +107,6 @@ class UserNoteController(BaseNoteController):
         summary="Delete user note",
         operation_id="deleteUserNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_self_or_admin_guard],
     )
     async def delete_user_note(

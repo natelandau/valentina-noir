@@ -9,7 +9,7 @@ from litestar.handlers import delete, get, patch, post
 
 from vapi.db.sql_models.character import Character, CharacterInventory
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
@@ -83,7 +83,6 @@ class CharacterInventoryController(Controller):
         summary="Create inventory item",
         operation_id="createCharacterInventoryItem",
         description=docs.CREATE_INVENTORY_ITEM_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def create_inventory_item(
@@ -109,7 +108,6 @@ class CharacterInventoryController(Controller):
         summary="Update inventory item",
         operation_id="updateCharacterInventoryItem",
         description=docs.UPDATE_INVENTORY_ITEM_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def update_inventory_item(
@@ -131,7 +129,6 @@ class CharacterInventoryController(Controller):
         summary="Delete inventory item",
         operation_id="deleteCharacterInventoryItem",
         description=docs.DELETE_INVENTORY_ITEM_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_inventory_item(

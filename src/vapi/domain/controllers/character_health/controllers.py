@@ -8,7 +8,7 @@ from litestar.handlers import get, post, put
 from vapi.constants import AuditOperation
 from vapi.db.sql_models.character import Character, CharacterHealth
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.controllers.character_trait.dto import TrackerActionRequest
 from vapi.domain.services import TrackerService
 from vapi.lib.exceptions import NotFoundError
@@ -56,7 +56,6 @@ class CharacterHealthController(Controller):
         operation_id="setCharacterHealth",
         description=docs.SET_HEALTH_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
         status_code=200,
     )
     async def set_character_health(
@@ -79,7 +78,6 @@ class CharacterHealthController(Controller):
         operation_id="applyCharacterHealthAction",
         description=docs.APPLY_HEALTH_ACTION_DESCRIPTION,
         guards=[user_character_player_or_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
         status_code=200,
     )
     async def apply_character_health_action(

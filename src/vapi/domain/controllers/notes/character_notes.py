@@ -8,7 +8,7 @@ from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.notes import Note
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import (
     developer_company_user_guard,
@@ -75,7 +75,6 @@ class CharacterNoteController(BaseNoteController):
         summary="Create character note",
         operation_id="createCharacterNote",
         description=docs.CREATE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def create_note(
@@ -97,7 +96,6 @@ class CharacterNoteController(BaseNoteController):
         summary="Update character note",
         operation_id="updateCharacterNote",
         description=docs.UPDATE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def update_note(
@@ -118,7 +116,6 @@ class CharacterNoteController(BaseNoteController):
         summary="Delete character note",
         operation_id="deleteCharacterNote",
         description=docs.DELETE_NOTE_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_note(

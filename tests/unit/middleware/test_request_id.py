@@ -276,12 +276,12 @@ class TestRequestIdInAuditLog:
 
         # Given AuditLog.create is mocked
         mock_create = mocker.patch(
-            "vapi.domain.hooks.after_response.AuditLog.create",
+            "vapi.domain.hooks.post_data_update.AuditLog.create",
             new_callable=AsyncMock,
         )
 
         # When add_audit_log is called
-        from vapi.domain.hooks.after_response import add_audit_log
+        from vapi.domain.hooks.post_data_update import add_audit_log
 
         await add_audit_log(mock_request)
 
@@ -296,12 +296,12 @@ class TestRequestIdInAuditLog:
 
         # Given AuditLog.create is mocked
         mock_create = mocker.patch(
-            "vapi.domain.hooks.after_response.AuditLog.create",
+            "vapi.domain.hooks.post_data_update.AuditLog.create",
             new_callable=AsyncMock,
         )
 
         # When add_audit_log is called
-        from vapi.domain.hooks.after_response import add_audit_log
+        from vapi.domain.hooks.post_data_update import add_audit_log
 
         await add_audit_log(mock_request)
 

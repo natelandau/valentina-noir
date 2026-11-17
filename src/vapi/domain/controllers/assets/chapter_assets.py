@@ -13,7 +13,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.campaign import CampaignChapter
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.controllers.assets import dto
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import user_can_manage_campaign
@@ -80,7 +80,6 @@ class ChapterAssetsController(BaseAssetsController):
         summary="Upload a chapter asset",
         operation_id="uploadChapterAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_can_manage_campaign],
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
@@ -104,7 +103,6 @@ class ChapterAssetsController(BaseAssetsController):
         summary="Delete a chapter asset",
         operation_id="deleteChapterAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_can_manage_campaign],
     )
     async def delete_chapter_asset(

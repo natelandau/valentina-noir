@@ -13,7 +13,7 @@ from vapi.db.sql_models.aws import S3Asset
 from vapi.db.sql_models.character import Character
 from vapi.db.sql_models.company import Company
 from vapi.db.sql_models.user import User
-from vapi.domain import deps, hooks, urls
+from vapi.domain import deps, urls
 from vapi.domain.controllers.assets import dto
 from vapi.domain.paginator import Limit, Offset, OffsetPagination
 from vapi.lib.guards import (
@@ -88,7 +88,6 @@ class CharacterAssetsController(BaseAssetsController):
         summary="Upload a character asset",
         operation_id="uploadCharacterAsset",
         description=docs.UPLOAD_ASSET_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
         opt={"rate_limits": [ASSET_UPLOAD_LIMIT]},
     )
@@ -112,7 +111,6 @@ class CharacterAssetsController(BaseAssetsController):
         summary="Delete a character asset",
         operation_id="deleteCharacterAsset",
         description=docs.DELETE_ASSET_DESCRIPTION,
-        after_response=hooks.post_data_update_hook,
         guards=[user_character_player_or_storyteller_guard],
     )
     async def delete_character_asset(

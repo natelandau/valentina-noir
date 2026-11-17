@@ -23,7 +23,7 @@ from vapi.db.sql_models import (
     Company,
     User,
 )
-from vapi.domain import hooks, urls
+from vapi.domain import urls
 from vapi.domain.controllers.character.dto import CHARACTER_RESPONSE_PREFETCH, CharacterResponse
 from vapi.domain.deps import (
     provide_acting_user,
@@ -77,7 +77,6 @@ class CharacterGenerationController(Controller):
         operation_id="autogenerateCharacter",
         description=AUTOGEN_DOCUMENTATION,
         guards=[user_storyteller_guard],
-        after_response=hooks.post_data_update_hook,
     )
     async def autogenerate_character_all_random(
         self,
@@ -153,7 +152,6 @@ class CharacterGenerationController(Controller):
         summary="Start player character generation",
         operation_id="startChargenSession",
         description=CHARGEN_START_DOCUMENTATION,
-        after_response=hooks.post_data_update_hook,
     )
     async def start_chargen(
         self,
@@ -218,7 +216,6 @@ class CharacterGenerationController(Controller):
         summary="Finalize character selection",
         operation_id="finalizeChargenSession",
         description=CHARGEN_FINALIZE_DOCUMENTATION,
-        after_response=hooks.post_data_update_hook,
     )
     async def finalize_chargen(
         self,
