@@ -8,7 +8,7 @@ import struct
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import ExifTags, Image, UnidentifiedImageError
 
 from vapi.constants import ALLOWED_IMAGE_UPLOAD_FORMATS
 from vapi.lib.exceptions import ValidationError
@@ -31,6 +31,25 @@ AVATAR_SIZE = 512
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 _ALLOWED_FORMATS = frozenset(ALLOWED_IMAGE_UPLOAD_FORMATS)
 _WEBP_QUALITY = 85
+
+# Pillow can only downscale JPEG while decoding, so other formats are shrunk in bands of about
+# this many RGBA bytes instead of being converted or rotated as one full-size copy.
+_BAND_BYTES = 4 * 1024 * 1024
+
+_ORIENTATION_TRANSPOSE = {
+    2: Image.Transpose.FLIP_LEFT_RIGHT,
+    3: Image.Transpose.ROTATE_180,
+    4: Image.Transpose.FLIP_TOP_BOTTOM,
+    5: Image.Transpose.TRANSPOSE,
+    6: Image.Transpose.ROTATE_270,
+    7: Image.Transpose.TRANSVERSE,
+    8: Image.Transpose.ROTATE_90,
+}
+
+# Formats whose truncation is caught without decoding pixels: PNG's verify() checks every chunk
+# CRC through IEND, and a truncated WEBP fails to open. Neither check inspects the compressed
+# image stream, so a crafted file with valid framing but a broken stream is stored as uploaded.
+_STRUCTURE_CHECKED_FORMATS = frozenset({"PNG", "WEBP"})
 
 # A tiny upload can declare a raster that takes hundreds of MB to decode, so decodes run on
 # their own small pool: a burst of uploads queues instead of decoding all at once.
@@ -90,6 +109,28 @@ def _check_pixel_budget(img: Image.Image, message: str) -> None:
         raise _invalid(message)
 
 
+def _reduce_center_square(img: Image.Image) -> Image.Image:
+    """Center-crop an image to a square, box-reduced to between 2x and 4x the avatar size, in RGBA.
+
+    The source is processed in horizontal bands, so beyond the decoded source only one band and
+    the reduced output are ever held in memory. Box reduction is exact per band, so the result
+    matches reducing the whole square at once.
+    """
+    side = min(img.size)
+    factor = max(1, side // (AVATAR_SIZE * 2))
+    side -= side % factor
+    left = (img.width - side) // 2
+    top = (img.height - side) // 2
+    band_rows = max(factor, _BAND_BYTES // (side * 4) // factor * factor)
+
+    out = Image.new("RGBA", (side // factor, side // factor))
+    for y in range(0, side, band_rows):
+        rows = min(band_rows, side - y)
+        band = img.crop((left, top + y, left + side, top + y + rows)).convert("RGBA")
+        out.paste(band.reduce(factor), (0, y // factor))
+    return out
+
+
 def normalize_avatar(data: bytes) -> bytes:
     """Validate and normalize an uploaded avatar to a 512x512 WebP image.
 
@@ -122,16 +163,22 @@ def normalize_avatar(data: bytes) -> bytes:
 
             if src.format == "JPEG":
                 # Let the decoder scale down by up to 8x, which cuts decode memory for the
-                # common case of a large photo while keeping enough pixels for the fit.
+                # common case of a large photo while keeping enough pixels for the resize.
                 src.draft("RGB", (AVATAR_SIZE * 2, AVATAR_SIZE * 2))
             src.seek(0)  # First frame only; flattens animated GIFs.
-            img = ImageOps.exif_transpose(src)  # Honor orientation, then drop EXIF.
-            img = img.convert("RGBA")
-            img = ImageOps.fit(img, (AVATAR_SIZE, AVATAR_SIZE), method=Image.Resampling.LANCZOS)
+            orientation = src.getexif().get(ExifTags.Base.Orientation)
+            img = _reduce_center_square(src)
 
-            out = io.BytesIO()
-            img.save(out, format="WEBP", quality=_WEBP_QUALITY)
-            return out.getvalue()
+        # A centered square crop and a square resize both commute with every EXIF orientation
+        # (to within a pixel of crop offset), so the small final square is the one rotated.
+        # The new image carries no EXIF or metadata.
+        img = img.resize((AVATAR_SIZE, AVATAR_SIZE), Image.Resampling.LANCZOS)
+        if transpose := _ORIENTATION_TRANSPOSE.get(orientation):
+            img = img.transpose(transpose)
+
+        out = io.BytesIO()
+        img.save(out, format="WEBP", quality=_WEBP_QUALITY)
+        return out.getvalue()
     except _DECODE_ERRORS as e:
         msg = "Avatar image could not be read."
         raise _invalid(msg) from e
@@ -140,13 +187,15 @@ def normalize_avatar(data: bytes) -> bytes:
 def validate_image_upload(*, data: bytes) -> str:
     """Validate that uploaded bytes are an allowed image and return their canonical MIME type.
 
-    Decode the bytes with Pillow, confirm the detected format is one of the allowed
+    Open the bytes with Pillow, confirm the detected format is one of the allowed
     upload formats (PNG/JPEG/GIF/WEBP), and return the canonical MIME type for that
     format. The client-declared content type is deliberately ignored: the returned
     value comes from the bytes themselves, so a caller can store a trustworthy MIME
-    type that cannot be spoofed (e.g. HTML or SVG mislabeled as image/png). Decoding
-    also rejects non-image payloads and trips Pillow's decompression-bomb guard. Call
-    this before persisting any user-supplied asset so only verified images reach S3.
+    type that cannot be spoofed (e.g. HTML or SVG mislabeled as image/png). Non-image
+    payloads, rasters over the pixel budget, and truncated files are rejected; PNG and
+    WEBP are checked structurally without decoding pixels, while JPEG and GIF are
+    decoded. Call this before persisting any user-supplied asset so only verified
+    images reach S3.
 
     Args:
         data: Raw uploaded file bytes.
@@ -163,10 +212,12 @@ def validate_image_upload(*, data: bytes) -> str:
             detected_format = img.format
             _check_pixel_budget(img, "Upload image is too large.")
             img.verify()  # Check stream structure and checksums
-        # verify() leaves the image unusable and skips pixel data, so decode a fresh copy
-        # to reject truncated or corrupt rasters
-        with Image.open(io.BytesIO(data)) as img:
-            img.load()
+        if detected_format not in _STRUCTURE_CHECKED_FORMATS:
+            # verify() leaves the image unusable and skips pixel data, so decode a fresh copy to
+            # reject truncated rasters. draft() decodes JPEG at 1/8 scale and is a no-op elsewhere.
+            with Image.open(io.BytesIO(data)) as img:
+                img.draft(img.mode, (1, 1))
+                img.load()
     except _DECODE_ERRORS as e:
         msg = "Upload must be a PNG, JPEG, GIF, or WEBP image."
         raise _invalid(msg) from e

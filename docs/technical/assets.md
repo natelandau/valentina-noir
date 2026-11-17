@@ -154,7 +154,7 @@ A successful delete returns `204 No Content`.
 
 | Status | Cause                                                                                  |
 | ------ | -------------------------------------------------------------------------------------- |
-| `400`  | The upload is not a PNG, JPEG, GIF, or WEBP image (including SVG or a corrupt file)     |
+| `400`  | The upload is not a PNG, JPEG, GIF, or WEBP image (including SVG or a truncated file)   |
 | `404`  | The asset, the parent object, or the company does not exist or is not visible to you   |
 | `429`  | The upload rate limit was exceeded                                                     |
 

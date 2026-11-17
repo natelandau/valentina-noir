@@ -2,12 +2,15 @@
 
 import asyncio
 import io
+import json
+import subprocess
+import sys
 import threading
 import time
 import warnings
 
 import pytest
-from PIL import Image
+from PIL import ExifTags, Image, ImageDraw
 
 from vapi.lib.exceptions import ValidationError
 from vapi.utils.images import (
@@ -236,17 +239,6 @@ def test_validate_image_upload_rejects_corrupt_image_without_crashing() -> None:
         validate_image_upload(data=data)
 
 
-def test_validate_image_upload_rejects_truncated_image() -> None:
-    """Verify an image whose pixel data is cut short is rejected."""
-    # Given a JPEG with its tail removed
-    data = _img_bytes("JPEG", size=(256, 256))
-    truncated = data[: len(data) // 2]
-
-    # When/Then validation raises ValidationError
-    with pytest.raises(ValidationError):
-        validate_image_upload(data=truncated)
-
-
 def test_normalize_avatar_scales_down_large_jpeg() -> None:
     """Verify a large JPEG avatar still normalizes to a 512x512 WebP after draft decoding."""
     # Given a 4000x3000 JPEG photo
@@ -285,3 +277,172 @@ async def test_run_image_decode_bounds_concurrency() -> None:
     # Then every result comes back and concurrency stays within the bound
     assert results == list(range(8))
     assert peak <= MAX_CONCURRENT_IMAGE_DECODES
+
+
+def test_normalize_avatar_honors_exif_orientation() -> None:
+    """Verify the EXIF orientation is applied before the avatar is cropped and resized."""
+    # Given a PNG with a red top half and blue bottom half, tagged "rotate 90 degrees clockwise"
+    img = Image.new("RGB", (400, 400), (255, 0, 0))
+    ImageDraw.Draw(img).rectangle((0, 200, 399, 399), fill=(0, 0, 255))
+    exif = img.getexif()
+    exif[ExifTags.Base.Orientation] = 6
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", exif=exif)
+
+    # When normalizing
+    result = normalize_avatar(buf.getvalue())
+
+    # Then the rotated image has blue on the left and red on the right
+    with Image.open(io.BytesIO(result)) as out:
+        rgb = out.convert("RGB")
+        left = rgb.getpixel((100, 256))
+        right = rgb.getpixel((400, 256))
+    assert left[2] > 200 > left[0]
+    assert right[0] > 200 > right[2]
+
+
+def test_normalize_avatar_keeps_palette_transparency() -> None:
+    """Verify a transparent palette pixel stays transparent in the normalized avatar."""
+    # Given a palette GIF whose whole frame uses the transparent index
+    img = Image.new("P", (300, 300), color=0)
+    buf = io.BytesIO()
+    img.save(buf, format="GIF", transparency=0)
+
+    # When normalizing
+    result = normalize_avatar(buf.getvalue())
+
+    # Then the output pixels are fully transparent
+    with Image.open(io.BytesIO(result)) as out:
+        assert out.convert("RGBA").getpixel((256, 256))[3] == 0
+
+
+def test_normalize_avatar_center_crops_large_wide_png() -> None:
+    """Verify a large, wide PNG is center-cropped to the middle square and resized to 512x512."""
+    # Given a 6000x2000 PNG that is green in its middle third and red outside it
+    img = Image.new("RGB", (6000, 2000), (255, 0, 0))
+    ImageDraw.Draw(img).rectangle((2000, 0, 3999, 1999), fill=(0, 255, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+
+    # When normalizing
+    result = normalize_avatar(buf.getvalue())
+
+    # Then the avatar is the green middle square, edge to edge
+    with Image.open(io.BytesIO(result)) as out:
+        assert out.size == (AVATAR_SIZE, AVATAR_SIZE)
+        rgb = out.convert("RGB")
+        for x in (2, 256, 509):
+            pixel = rgb.getpixel((x, 256))
+            assert pixel[1] > 200 > pixel[0]
+
+
+@pytest.mark.parametrize(
+    ("fmt", "save_kwargs"),
+    [("PNG", {}), ("JPEG", {}), ("GIF", {}), ("WEBP", {}), ("WEBP", {"lossless": True})],
+)
+def test_validate_image_upload_rejects_truncated_image(
+    fmt: str, save_kwargs: dict[str, object]
+) -> None:
+    """Verify a truncated upload of every allowed format is rejected."""
+    # Given a noisy image cut to 90% of its bytes
+    img = Image.effect_noise((256, 256), 64).convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format=fmt, **save_kwargs)
+    data = buf.getvalue()
+
+    # When/Then validation raises ValidationError
+    with pytest.raises(ValidationError):
+        validate_image_upload(data=data[: len(data) * 9 // 10])
+
+
+# Decode memory budgets. Pillow can only downscale JPEG while decoding, so a PNG, GIF, or WEBP
+# avatar is decoded at full size once (about 4 bytes per pixel for RGB PNG, about 16 for WEBP,
+# whose decoder keeps extra canvases). The budgets cover everything beyond that:
+# - The avatar pipeline adds at most 48 x (512 x 512 x 4) bytes on top of that one decode.
+# - Asset validation never decodes a PNG or WEBP raster and stays under 32 MiB for them.
+_MIB = 1024 * 1024
+AVATAR_OVERHEAD_BUDGET = 48 * AVATAR_SIZE * AVATAR_SIZE * 4
+ASSET_VALIDATION_BUDGET = 32 * _MIB
+
+# Run in a fresh interpreter so the peak RSS high-water mark covers one decode and nothing else.
+_MEASURE_SCRIPT = """
+import io, json, resource, sys
+from PIL import Image
+from vapi.utils import images
+
+mode, path = sys.argv[1], sys.argv[2]
+with open(path, "rb") as f:
+    data = f.read()
+
+def peak():
+    unit = 1 if sys.platform == "darwin" else 1024  # ru_maxrss is bytes on macOS, KiB on Linux
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * unit
+
+before = peak()
+if mode == "decode":
+    with Image.open(io.BytesIO(data)) as img:
+        img.load()
+elif mode == "avatar":
+    images.normalize_avatar(data)
+else:
+    images.validate_image_upload(data=data)
+print(json.dumps({"peak_bytes": peak() - before}))
+"""
+
+
+def _measure_peak(mode: str, path: str) -> int:
+    """Return the peak RSS growth, in bytes, of one decode run in a fresh interpreter."""
+    proc = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", _MEASURE_SCRIPT, mode, path],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(proc.stdout.strip().splitlines()[-1])["peak_bytes"]
+
+
+@pytest.fixture(scope="module")
+def near_cap_images(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
+    """Write a lossless WEBP and a PNG just under the pixel cap; both compress to a few KB."""
+    side = int(MAX_IMAGE_PIXELS**0.5)
+    directory = tmp_path_factory.mktemp("near_cap")
+    paths = {}
+    img = Image.new("RGB", (side, side), (20, 40, 60))
+    for fmt, kwargs in (("WEBP", {"lossless": True}), ("PNG", {})):
+        path = directory / f"near_cap.{fmt.lower()}"
+        img.save(path, format=fmt, **kwargs)
+        paths[fmt] = str(path)
+    return paths
+
+
+@pytest.mark.parametrize("fmt", ["WEBP", "PNG"])
+def test_normalize_avatar_peak_memory_stays_within_budget(
+    near_cap_images: dict[str, str], fmt: str
+) -> None:
+    """Verify the avatar pipeline adds no full-size copies on top of the one unavoidable decode."""
+    # Given a lossless WEBP or PNG just under the pixel cap
+    path = near_cap_images[fmt]
+
+    # When measuring a bare decode and a full avatar normalization of the same file
+    decode_peak = _measure_peak("decode", path)
+    avatar_peak = _measure_peak("avatar", path)
+
+    # Then normalization stays within the fixed budget above the bare decode
+    assert avatar_peak - decode_peak < AVATAR_OVERHEAD_BUDGET, (
+        f"{fmt}: avatar {avatar_peak / _MIB:.1f} MiB vs decode {decode_peak / _MIB:.1f} MiB"
+    )
+
+
+@pytest.mark.parametrize("fmt", ["WEBP", "PNG"])
+def test_validate_image_upload_peak_memory_stays_within_budget(
+    near_cap_images: dict[str, str], fmt: str
+) -> None:
+    """Verify asset validation checks integrity without decoding the full raster."""
+    # Given a lossless WEBP or PNG just under the pixel cap
+    path = near_cap_images[fmt]
+
+    # When validating the upload
+    peak = _measure_peak("asset", path)
+
+    # Then validation stays within the fixed budget
+    assert peak < ASSET_VALIDATION_BUDGET, f"{fmt}: asset validation {peak / _MIB:.1f} MiB"
