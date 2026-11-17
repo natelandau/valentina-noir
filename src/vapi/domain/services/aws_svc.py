@@ -9,6 +9,7 @@ from uuid import uuid4
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
+from tortoise.transactions import in_transaction
 
 from vapi.config.base import settings
 from vapi.constants import (
@@ -20,6 +21,7 @@ from vapi.constants import (
     AssetType,
 )
 from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.user import User
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError
 from vapi.utils.assets import sanitize_filename
 from vapi.utils.images import run_image_decode, validate_image_upload
@@ -202,9 +204,20 @@ class AWSS3Service:
             raise AWSS3Error(detail=msg) from e
 
     async def delete_asset(self, asset: S3Asset) -> None:
-        """Delete an asset from S3 and the database."""
+        """Delete an asset from S3 and the database, clearing any user avatar that uses it.
+
+        The S3 object goes first so a failed S3 call leaves the row and the avatar intact.
+        The avatar update matches on the asset id in the row, so a concurrent change to a
+        different avatar is left alone.
+        """
         await self.delete_key(key=asset.s3_key)
-        await asset.delete()
+        user_parent_id = asset.user_parent_id  # ty:ignore[unresolved-attribute]
+        async with in_transaction():
+            if user_parent_id is not None:
+                await User.filter(id=user_parent_id, avatar_asset_id=asset.id).update(
+                    avatar_url=None, avatar_asset_id=None
+                )
+            await asset.delete()
 
     async def upload_asset(
         self,

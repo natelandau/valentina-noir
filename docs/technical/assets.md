@@ -35,7 +35,15 @@ Five object types accept image assets. Each has the same four endpoints under an
 | Chapter   | `/companies/{company_id}/campaigns/{campaign_id}/books/{book_id}/chapters/{chapter_id}/assets` |
 | User      | `/companies/{company_id}/users/{user_id}/assets`                                          |
 
-Every asset endpoint requires the `X-API-KEY` header and the [`On-Behalf-Of`](authentication.md#the-on-behalf-of-header) header that identifies the acting user. Uploading and deleting also require that user to have permission to manage the parent object (for example, a campaign manager for campaign assets, the character's player or a storyteller for character assets, or the user themself or a company admin for user assets).
+Every asset endpoint requires the `X-API-KEY` header and the [`On-Behalf-Of`](authentication.md#the-on-behalf-of-header) header that identifies the acting user.
+
+Read access is company-wide. Any active user in the company can list and retrieve the assets of every object in that company, including the assets of other users. Uploading and deleting require that the acting user can manage the parent object:
+
+| Object                   | Who can upload and delete                      |
+| ------------------------ | ---------------------------------------------- |
+| Campaign, Book, Chapter  | A user who can manage the campaign             |
+| Character                | The character's player, or a storyteller       |
+| User                     | The user, or a company admin                   |
 
 ## Upload an image
 
@@ -149,6 +157,8 @@ curl -X DELETE "$API/companies/$COMPANY_ID/characters/$CHARACTER_ID/assets/$ASSE
 ```
 
 A successful delete returns `204 No Content`.
+
+If you delete the user asset that is the user's custom avatar, the API also removes that avatar from the user. The user's `avatar_url` then falls back to the avatar from a linked identity provider, or to `null`. To remove an avatar on purpose, use the [avatar endpoint](user_management.md#avatars) instead.
 
 ## Errors
 

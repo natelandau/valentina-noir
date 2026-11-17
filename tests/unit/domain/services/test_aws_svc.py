@@ -19,6 +19,7 @@ from vapi.constants import (
     AssetType,
 )
 from vapi.db.sql_models.aws import S3Asset
+from vapi.db.sql_models.user import User
 from vapi.domain.services.aws_svc import AWSS3Service
 from vapi.lib.exceptions import AWSS3Error, MissingConfigurationError, ValidationError
 
@@ -838,6 +839,81 @@ class TestDeleteAsset:
         service = AWSS3Service()
         with pytest.raises(AWSS3Error):
             await service.delete_asset(asset)
+
+    async def test_delete_asset_clears_user_avatar(
+        self,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify deleting a user's active avatar asset nulls the avatar columns."""
+        # Given a user whose avatar is one of their assets
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(company=company, user_parent=user)
+        await User.filter(id=user.id).update(avatar_url=asset.public_url, avatar_asset_id=asset.id)
+        mocker.patch.object(AWSS3Service, "delete_key")
+
+        # When deleting that asset
+        await AWSS3Service().delete_asset(asset)
+
+        # Then the user no longer points at it
+        refreshed = await User.get(id=user.id)
+        assert refreshed.avatar_asset_id is None
+        assert refreshed.avatar_url is None
+
+    async def test_delete_asset_leaves_other_avatar(
+        self,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify deleting an asset that is not the avatar leaves the avatar columns alone."""
+        # Given a user with an avatar and a second, unrelated asset
+        company = await company_factory()
+        user = await user_factory(company=company)
+        avatar = await s3asset_factory(company=company, user_parent=user)
+        other = await s3asset_factory(company=company, user_parent=user)
+        await User.filter(id=user.id).update(
+            avatar_url=avatar.public_url, avatar_asset_id=avatar.id
+        )
+        mocker.patch.object(AWSS3Service, "delete_key")
+
+        # When deleting the unrelated asset
+        await AWSS3Service().delete_asset(other)
+
+        # Then the avatar is unchanged
+        refreshed = await User.get(id=user.id)
+        assert refreshed.avatar_asset_id == avatar.id
+        assert refreshed.avatar_url == avatar.public_url
+
+    async def test_delete_asset_keeps_avatar_on_s3_error(
+        self,
+        s3asset_factory: Callable,
+        company_factory: Callable,
+        user_factory: Callable,
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a failed S3 delete leaves the asset row and the user's avatar intact."""
+        # Given a user whose avatar is an asset, and an S3 delete that fails
+        company = await company_factory()
+        user = await user_factory(company=company)
+        asset = await s3asset_factory(company=company, user_parent=user)
+        await User.filter(id=user.id).update(avatar_url=asset.public_url, avatar_asset_id=asset.id)
+        mocker.patch.object(
+            AWSS3Service, "delete_key", side_effect=AWSS3Error(detail="S3 deletion failed")
+        )
+
+        # When deleting the asset
+        with pytest.raises(AWSS3Error):
+            await AWSS3Service().delete_asset(asset)
+
+        # Then the row and the avatar are kept
+        assert await S3Asset.filter(id=asset.id).exists()
+        refreshed = await User.get(id=user.id)
+        assert refreshed.avatar_asset_id == asset.id
 
 
 class TestClientEndpoint:
