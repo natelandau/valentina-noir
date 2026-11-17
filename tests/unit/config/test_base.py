@@ -12,6 +12,7 @@ from vapi.config.base import (
     OAuthSettings,
     PostgresSettings,
     RateLimitSettings,
+    Server,
     Settings,
     parse_str_collection,
 )
@@ -81,6 +82,29 @@ def test_rate_limit_policies_from_env_replace_defaults(monkeypatch: pytest.Monke
 
     # Then only the configured policy applies
     assert [policy.name for policy in loaded.rate_limit.policies.values()] == ["custom"]
+
+
+def test_trusted_proxies_parse_csv_networks() -> None:
+    """Verify trusted proxies accept comma-separated CIDRs and bare addresses."""
+    # Given trusted proxies as a comma-separated string
+    # When the server settings are built
+    server = Server(trusted_proxies="10.0.0.0/8, fd12::/16,203.0.113.9")
+
+    # Then each entry becomes a network, with a bare address as a single-host network
+    assert [str(network) for network in server.trusted_proxies] == [
+        "10.0.0.0/8",
+        "fd12::/16",
+        "203.0.113.9/32",
+    ]
+
+
+def test_trusted_proxies_reject_invalid_network() -> None:
+    """Verify a malformed trusted proxy entry fails at startup instead of trusting nothing."""
+    # Given a trusted proxy entry that is not a network
+    # When the server settings are built
+    # Then validation fails
+    with pytest.raises(ValidationError):
+        Server(trusted_proxies="10.0.0.0/8,not-a-network")
 
 
 class TestParseStrCollection:

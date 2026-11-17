@@ -88,6 +88,17 @@ class TestTrustedHeader:
         # Then the connecting peer's address is kept
         assert result["client"] == _PEER
 
+    async def test_ipv4_mapped_address_is_unwrapped(self) -> None:
+        """Verify an IPv4-mapped header value resolves to the same address as plain IPv4."""
+        # Given a request whose trusted header holds an IPv4-mapped IPv6 address
+        scope = _make_scope(headers=[(b"x-real-ip", b"::ffff:198.51.100.7")])
+
+        # When the middleware handles the request
+        result = await _run_middleware(scope)
+
+        # Then the plain IPv4 address is used
+        assert result["client"] == ("198.51.100.7", 44358)
+
     async def test_configured_list_header_uses_rightmost_entry(self, mocker: MockerFixture) -> None:
         """Verify a list-valued trusted header uses the entry added by the nearest proxy."""
         # Given X-Forwarded-For is the trusted header and the caller prepended a fake entry
@@ -112,16 +123,95 @@ class TestTrustedHeader:
         # Then the connecting peer's address is kept
         assert result["client"] == _PEER
 
-    async def test_no_client_in_scope_uses_port_zero(self) -> None:
-        """Verify port defaults to 0 when scope has no client."""
-        # Given a request with the trusted header but no existing client
+
+class TestTrustedPeer:
+    """Test that the header is used only when the connecting peer is a trusted proxy."""
+
+    @pytest.mark.parametrize(
+        "peer",
+        ["203.0.113.5", "2001:db8::5", "testclient"],
+        ids=["public-ipv4", "public-ipv6", "not-an-ip"],
+    )
+    async def test_untrusted_peer_keeps_socket_address(self, peer: str) -> None:
+        """Verify a peer outside the trusted networks cannot choose its address."""
+        # Given a request from an untrusted peer that sends X-Real-IP
+        scope = _make_scope(headers=[(b"x-real-ip", b"198.51.100.7")], client=(peer, 5000))
+
+        # When the middleware handles the request
+        result = await _run_middleware(scope)
+
+        # Then the socket address is kept
+        assert result["client"] == (peer, 5000)
+
+    @pytest.mark.parametrize(
+        "peer",
+        [
+            "10.251.215.226",
+            "fd12:632a:abc8:1:3000:13b:ca28:50de",
+            "::ffff:100.64.0.17",
+            "127.0.0.1",
+        ],
+        ids=["private-ipv4", "railway-private-ipv6", "ipv4-mapped-cgnat", "loopback"],
+    )
+    async def test_trusted_peer_header_is_used(self, peer: str) -> None:
+        """Verify the default trusted networks cover private, CGNAT, and loopback peers."""
+        # Given a request from a peer on a default trusted network
+        scope = _make_scope(headers=[(b"x-real-ip", b"198.51.100.7")], client=(peer, 5000))
+
+        # When the middleware handles the request
+        result = await _run_middleware(scope)
+
+        # Then the header's address is used
+        assert result["client"] == ("198.51.100.7", 5000)
+
+    async def test_no_client_in_scope_keeps_scope(self) -> None:
+        """Verify a scope without a peer address never trusts the header."""
+        # Given a request with the trusted header but no connecting peer
         scope = _make_scope(headers=[(b"x-real-ip", b"198.51.100.7")], client=None)
 
         # When the middleware handles the request
         result = await _run_middleware(scope)
 
-        # Then the client is set with port 0
-        assert result["client"] == ("198.51.100.7", 0)
+        # Then no client address is invented
+        assert "client" not in result
+
+    async def test_empty_trusted_networks_trust_no_peer(self, mocker: MockerFixture) -> None:
+        """Verify an empty trusted network list keeps every socket address."""
+        # Given no trusted proxy networks
+        mocker.patch.object(settings.server, "trusted_proxies", new=[])
+        scope = _make_scope(headers=[(b"x-real-ip", b"198.51.100.7")])
+
+        # When the middleware handles the request
+        result = await _run_middleware(scope)
+
+        # Then the connecting peer's address is kept
+        assert result["client"] == _PEER
+
+
+class TestDuplicateHeaderLines:
+    """Test that repeated header lines resolve to the value the nearest proxy added."""
+
+    async def test_last_line_wins(self) -> None:
+        """Verify a caller's line before the edge's line cannot set the address."""
+        # Given a caller line followed by the edge's appended line
+        scope = _make_scope(headers=[(b"x-real-ip", b"192.0.2.10"), (b"x-real-ip", b"192.0.2.20")])
+
+        # When the middleware handles the request
+        result = await _run_middleware(scope)
+
+        # Then the last line's address is used
+        assert result["client"] == ("192.0.2.20", 44358)
+
+    async def test_invalid_last_line_keeps_socket_address(self) -> None:
+        """Verify an invalid last line does not fall back to an earlier caller line."""
+        # Given a valid first line and an invalid last line
+        scope = _make_scope(headers=[(b"x-real-ip", b"192.0.2.10"), (b"x-real-ip", b"garbage")])
+
+        # When the middleware handles the request
+        result = await _run_middleware(scope)
+
+        # Then the connecting peer's address is kept
+        assert result["client"] == _PEER
 
 
 async def test_next_app_always_called() -> None:
