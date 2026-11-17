@@ -32,8 +32,8 @@ def test_cache_key_builder(monkeypatch: pytest.MonkeyPatch) -> None:
     # When the cache key is built
     default_cache_key = default_cache_key_builder(request)
 
-    # Then it includes an empty acting-user segment between fingerprint and default key
-    assert response_cache_key_builder(request) == f"{api_key_fingerprint}::{default_cache_key}"
+    # Then it includes an empty, length-prefixed acting-user segment before the default key
+    assert response_cache_key_builder(request) == f"{api_key_fingerprint}:0::{default_cache_key}"
 
 
 def test_cache_key_builder_varies_by_acting_user(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -117,3 +117,13 @@ def test_cache_key_ignores_repeated_scalar_query_params() -> None:
     # When cache keys are built for each
     # Then they are equal
     assert response_cache_key_builder(padded) == response_cache_key_builder(plain)
+
+
+def test_cache_key_builder_keeps_colon_bearing_acting_users_apart() -> None:
+    """Verify a ':' in On-Behalf-Of cannot make two acting users and paths share a key."""
+    # Given two requests whose acting user and path differ only in where ":GET" falls
+    first = RequestFactory().get("/a:GET/b", headers={ON_BEHALF_OF_HEADER_KEY: "user"})
+    second = RequestFactory().get("/b", headers={ON_BEHALF_OF_HEADER_KEY: "user:GET/a"})
+
+    # When building their cache keys / Then they differ
+    assert response_cache_key_builder(first) != response_cache_key_builder(second)

@@ -22,6 +22,7 @@ from vapi.constants import (
 )
 from vapi.domain.controllers.developer.controllers import DeveloperController
 from vapi.domain.controllers.global_admin.controllers import GlobalAdminController
+from vapi.lib.crypt import hmac_sha256_hex
 from vapi.lib.exceptions import HTTPError, http_error_to_http_response
 from vapi.middleware.idempotency import (
     IN_PROGRESS_DETAIL,
@@ -179,30 +180,65 @@ class TestResponseCaptureCaching:
         store.set.assert_awaited_once()
 
 
+def _cache_key(path: str = "/thing", on_behalf_of: str = "", idempotency_key: str = "k") -> str:
+    """Build the replay key for a POST with the API key ``key``."""
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": path.split("?", maxsplit=1)[0],
+        "query_string": path.partition("?")[2].encode(),
+        "headers": [(b"x-api-key", b"key"), (b"on-behalf-of", on_behalf_of.encode())],
+    }
+    return IdempotencyMiddleware()._build_cache_key(
+        Request(scope), idempotency_key=idempotency_key, method="POST"
+    )
+
+
 def test_cache_key_separates_acting_users_and_query_strings() -> None:
     """Verify the replay key differs per On-Behalf-Of user and per query string."""
-
     # Given requests that differ only in acting user or query string
-    def _request(path: str, on_behalf_of: str) -> Request:
+    # When building cache keys / Then each difference yields a distinct key
+    assert _cache_key(on_behalf_of="user-a") != _cache_key(on_behalf_of="user-b")
+    assert _cache_key("/thing?a=1", "user-a") != _cache_key("/thing?a=2", "user-a")
+
+
+def test_cache_key_keeps_colon_bearing_headers_apart() -> None:
+    """Verify a ':' in On-Behalf-Of or Idempotency-Key cannot make two requests share a key."""
+    # Given two requests whose acting user and idempotency key differ only in where a ':' falls
+    # When building their cache keys / Then they differ
+    assert _cache_key(on_behalf_of="user:a", idempotency_key="b") != _cache_key(
+        on_behalf_of="user", idempotency_key="a:b"
+    )
+
+
+def test_cache_key_uses_the_full_api_key_fingerprint() -> None:
+    """Verify the replay key carries the whole API key fingerprint, not a truncated prefix."""
+    # Given a request with an API key
+    # When building its cache key
+    key = _cache_key()
+
+    # Then the full fingerprint is the key's first segment
+    assert key.split(":", 1)[0] == hmac_sha256_hex(data="key")
+
+
+def test_cache_key_keeps_a_question_mark_in_the_path_apart_from_the_query() -> None:
+    """Verify a decoded '?' in the path cannot make two requests share a replay key."""
+
+    # Given a request whose decoded path holds a "?" and one with that text as its query
+    def _key(path: str, query: str) -> str:
         scope = {
             "type": "http",
             "method": "POST",
-            "path": path.split("?", maxsplit=1)[0],
-            "query_string": path.partition("?")[2].encode(),
-            "headers": [(b"x-api-key", b"key"), (b"on-behalf-of", on_behalf_of.encode())],
+            "path": path,
+            "query_string": query.encode(),
+            "headers": [(b"x-api-key", b"key")],
         }
-        return Request(scope)
-
-    middleware = IdempotencyMiddleware()
-
-    def _key(path: str, on_behalf_of: str) -> str:
-        return middleware._build_cache_key(
-            _request(path, on_behalf_of), idempotency_key="k", method="POST"
+        return IdempotencyMiddleware()._build_cache_key(
+            Request(scope), idempotency_key="k", method="POST"
         )
 
-    # When building cache keys / Then each difference yields a distinct key
-    assert _key("/thing", "user-a") != _key("/thing", "user-b")
-    assert _key("/thing?a=1", "user-a") != _key("/thing?a=2", "user-a")
+    # When building their cache keys / Then they differ
+    assert _key("/a?b", "") != _key("/a", "b?")
 
 
 class TestInFlightMarker:
