@@ -1,5 +1,6 @@
 """Character trait DTOs: msgspec Structs for request and response bodies."""
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Literal
 from uuid import UUID
 
@@ -96,8 +97,8 @@ class CharacterTraitSpecialtyResponse(msgspec.Struct):
 
     id: UUID
     name: str
-    date_created: str
-    date_modified: str
+    date_created: datetime
+    date_modified: datetime
 
     @classmethod
     def from_model(cls, m: "CharacterTraitSpecialty") -> "CharacterTraitSpecialtyResponse":
@@ -105,8 +106,8 @@ class CharacterTraitSpecialtyResponse(msgspec.Struct):
         return cls(
             id=m.id,
             name=m.name,
-            date_created=m.date_created.isoformat(),
-            date_modified=m.date_modified.isoformat(),
+            date_created=m.date_created,
+            date_modified=m.date_modified,
         )
 
 
@@ -203,8 +204,8 @@ class CharacterTraitResponse(msgspec.Struct):
     trait: TraitResponse
     specialties: list[CharacterTraitSpecialtyResponse]
     tracker: TrackerResponse | None
-    date_created: str
-    date_modified: str
+    date_created: datetime
+    date_modified: datetime
 
     @classmethod
     def from_model(cls, m: "CharacterTrait", *, character: "Character") -> "CharacterTraitResponse":
@@ -225,8 +226,8 @@ class CharacterTraitResponse(msgspec.Struct):
                 CharacterTraitSpecialtyResponse.from_model(s) for s in active_specialties(m)
             ],
             tracker=build_tracker_response(m, character=character),
-            date_created=m.date_created.isoformat(),
-            date_modified=m.date_modified.isoformat(),
+            date_created=m.date_created,
+            date_modified=m.date_modified,
         )
 
 
