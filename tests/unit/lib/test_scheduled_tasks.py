@@ -184,7 +184,7 @@ class TestPurgeS3AssetsErrorIsolation:
 
         asset_1_id = asset_1.id
 
-        async def mock_delete_asset(asset: S3Asset) -> None:
+        async def mock_delete_asset(asset: S3Asset, **_: Any) -> None:
             nonlocal call_count
             call_count += 1
             if asset.id == asset_1_id:
@@ -206,6 +206,42 @@ class TestPurgeS3AssetsErrorIsolation:
 
         # Cleanup
         await S3Asset.filter(id=asset_1_id).delete()
+
+    async def test_s3_purge_invalidates_purged_keys_once(
+        self,
+        s3asset_factory: Callable[..., Any],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify the purge sends one CDN invalidation for the assets it deleted, and only those."""
+        # Given two expired archived assets, one of which fails to delete
+        mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
+        mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
+        old_date = time_now() - timedelta(days=settings.retention.archived_days + 1)
+        failing = await s3asset_factory(is_archived=True)
+        purged = await s3asset_factory(is_archived=True)
+        await S3Asset.filter(id__in=[failing.id, purged.id]).update(archive_date=old_date)
+
+        async def mock_delete_asset(asset: S3Asset, **_: Any) -> None:
+            if asset.id == failing.id:
+                msg = "Simulated S3 failure"
+                raise RuntimeError(msg)
+            await asset.delete()
+
+        delete_asset = mocker.patch.object(
+            AWSS3Service, "delete_asset", side_effect=mock_delete_asset
+        )
+        invalidate = mocker.patch.object(AWSS3Service, "invalidate_cdn_keys")
+
+        # When the purge runs
+        await purge_db_expired_items({})
+
+        # Then each delete skips its own invalidation and one batch covers the purged key
+        for call in delete_asset.call_args_list:
+            assert call.kwargs == {"invalidate": False}
+        invalidate.assert_called_once_with([purged.s3_key])
+
+        # Cleanup
+        await S3Asset.filter(id=failing.id).delete()
 
 
 class TestPurgeTemporaryCharacters:

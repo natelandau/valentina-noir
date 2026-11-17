@@ -916,6 +916,89 @@ class TestDeleteAsset:
         assert refreshed.avatar_asset_id == asset.id
 
 
+class TestCdnInvalidation:
+    """Test that deleting an asset clears it from the CloudFront CDN."""
+
+    DISTRIBUTION_ID = "E2TESTDISTRIBUTION"
+
+    async def test_delete_asset_invalidates_cdn_path(
+        self, s3asset_factory: Callable, mocker: MockerFixture
+    ) -> None:
+        """Verify deleting an asset invalidates its public path on the distribution."""
+        # Given a configured distribution and an asset stored under the origin prefix
+        mocker.patch.object(settings.aws, "cloudfront_distribution_id", self.DISTRIBUTION_ID)
+        client = mocker.MagicMock()
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=client)
+        service = AWSS3Service()
+        asset = await s3asset_factory(s3_key=f"{service.prefix}company/parent/image/a.png")
+
+        # When deleting the asset
+        await service.delete_asset(asset)
+
+        # Then CloudFront is asked to drop the path the CDN serves it at
+        client.create_invalidation.assert_called_once()
+        kwargs = client.create_invalidation.call_args.kwargs
+        assert kwargs["DistributionId"] == self.DISTRIBUTION_ID
+        assert kwargs["InvalidationBatch"]["Paths"] == {
+            "Quantity": 1,
+            "Items": ["/company/parent/image/a.png"],
+        }
+        assert kwargs["InvalidationBatch"]["CallerReference"]
+
+    async def test_delete_asset_skips_invalidation_without_distribution(
+        self, s3asset_factory: Callable, mocker: MockerFixture
+    ) -> None:
+        """Verify no invalidation is sent when no distribution is configured."""
+        # Given no configured distribution
+        mocker.patch.object(settings.aws, "cloudfront_distribution_id", None)
+        client = mocker.MagicMock()
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=client)
+        asset = await s3asset_factory()
+
+        # When deleting the asset
+        await AWSS3Service().delete_asset(asset)
+
+        # Then the asset is gone and CloudFront is never called
+        assert not await S3Asset.filter(id=asset.id).exists()
+        client.create_invalidation.assert_not_called()
+
+    async def test_delete_asset_succeeds_when_invalidation_fails(
+        self, s3asset_factory: Callable, mocker: MockerFixture
+    ) -> None:
+        """Verify a failed invalidation does not fail the delete."""
+        # Given a configured distribution whose invalidation call fails
+        mocker.patch.object(settings.aws, "cloudfront_distribution_id", self.DISTRIBUTION_ID)
+        client = mocker.MagicMock()
+        client.create_invalidation.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "CreateInvalidation"
+        )
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=client)
+        asset = await s3asset_factory()
+
+        # When deleting the asset
+        await AWSS3Service().delete_asset(asset)
+
+        # Then the S3 object and the row are still deleted
+        client.delete_object.assert_called_once()
+        assert not await S3Asset.filter(id=asset.id).exists()
+
+    async def test_invalidate_cdn_keys_batches_paths(self, mocker: MockerFixture) -> None:
+        """Verify several keys go to CloudFront in one invalidation request."""
+        # Given a configured distribution
+        mocker.patch.object(settings.aws, "cloudfront_distribution_id", self.DISTRIBUTION_ID)
+        client = mocker.MagicMock()
+        mocker.patch("vapi.domain.services.aws_svc.boto3.client", return_value=client)
+        service = AWSS3Service()
+
+        # When invalidating two keys
+        await service.invalidate_cdn_keys([f"{service.prefix}a.png", f"{service.prefix}b.png"])
+
+        # Then one request carries both paths
+        client.create_invalidation.assert_called_once()
+        paths = client.create_invalidation.call_args.kwargs["InvalidationBatch"]["Paths"]
+        assert paths == {"Quantity": 2, "Items": ["/a.png", "/b.png"]}
+
+
 class TestClientEndpoint:
     """Test the S3 client endpoint configuration."""
 

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 from tortoise.transactions import in_transaction
 
 from vapi.config.base import settings
@@ -32,6 +33,8 @@ if TYPE_CHECKING:
     from uuid import UUID
 
 __all__ = ("AWSS3Service",)
+
+logger = logging.getLogger("vapi")
 
 
 class AWSS3Service:
@@ -69,6 +72,18 @@ class AWSS3Service:
             aws_secret_access_key=aws_secret_access_key,
             config=Config(**config_kwargs),
             **client_kwargs,
+        )
+
+        self.distribution_id = settings.aws.cloudfront_distribution_id
+        self.cloudfront = (
+            boto3.client(
+                "cloudfront",
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                config=Config(retries={"max_attempts": 10, "mode": "standard"}),
+            )
+            if self.distribution_id
+            else None
         )
 
     def _generate_aws_key(
@@ -203,12 +218,48 @@ class AWSS3Service:
             msg = "Failed to upload file to AWS S3"
             raise AWSS3Error(detail=msg) from e
 
-    async def delete_asset(self, asset: S3Asset) -> None:
+    async def invalidate_cdn_keys(self, keys: list[str]) -> None:
+        """Remove deleted objects from the CloudFront edge caches in one invalidation request.
+
+        Assets are served with a one-year immutable cache header, so without an invalidation
+        the CDN keeps serving a deleted file until that lifetime runs out. Failures are logged
+        and swallowed: the S3 object is already gone, and the caller's delete must not fail
+        on a cache clean-up step. Does nothing when no distribution is configured.
+
+        Args:
+            keys: Full S3 keys of the deleted objects, including the origin prefix.
+        """
+        if self.cloudfront is None or not keys:
+            return
+
+        paths = [f"/{key.removeprefix(self.prefix)}" for key in keys]
+        try:
+            await asyncio.to_thread(
+                self.cloudfront.create_invalidation,
+                DistributionId=self.distribution_id,
+                InvalidationBatch={
+                    "Paths": {"Quantity": len(paths), "Items": paths},
+                    "CallerReference": uuid4().hex,
+                },
+            )
+        except (BotoCoreError, ClientError):
+            logger.exception(
+                "Failed to invalidate %d CDN path(s) on distribution %s.",
+                len(paths),
+                self.distribution_id,
+            )
+
+    async def delete_asset(self, asset: S3Asset, *, invalidate: bool = True) -> None:
         """Delete an asset from S3 and the database, clearing any user avatar that uses it.
 
         The S3 object goes first so a failed S3 call leaves the row and the avatar intact.
         The avatar update matches on the asset id in the row, so a concurrent change to a
         different avatar is left alone.
+
+        Args:
+            asset: The asset to delete.
+            invalidate: Clear the asset from the CDN. Pass False when deleting many assets
+                and invalidating their keys together with `invalidate_cdn_keys`.
         """
         await self.delete_key(key=asset.s3_key)
         user_parent_id = asset.user_parent_id  # ty:ignore[unresolved-attribute]
@@ -218,6 +269,8 @@ class AWSS3Service:
                     avatar_url=None, avatar_asset_id=None
                 )
             await asset.delete()
+        if invalidate:
+            await self.invalidate_cdn_keys([asset.s3_key])
 
     async def upload_asset(
         self,
