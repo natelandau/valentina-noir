@@ -69,10 +69,46 @@ class UserService:
             PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
         """
         requesting_user = await GetModelByIdValidationService().get_user_by_id(requesting_user_id)
+        self._reject_inactive_requester(requesting_user)
+        return requesting_user
+
+    @staticmethod
+    def _reject_inactive_requester(requesting_user: User) -> None:
+        """Refuse a requester whose role grants no actions.
+
+        Raises:
+            PermissionDeniedError: If the requesting user is UNAPPROVED or DEACTIVATED.
+        """
         if requesting_user.role == UserRole.UNAPPROVED:
             raise PermissionDeniedError(detail="User has not been approved yet")
         if requesting_user.role == UserRole.DEACTIVATED:
             raise PermissionDeniedError(detail="User account is deactivated")
+
+    async def _lock_target_and_requester(self, *, target: User, requesting_user_id: UUID) -> User:
+        """Lock and reload the target and the requester, then return the active requester.
+
+        Call inside the transaction of an edit whose rules depend on both users' roles,
+        so a demotion, deactivation, or delete of either one that commits mid-request
+        is enforced instead of the roles loaded before the transaction.
+
+        Args:
+            target: The user being edited; reloaded in place from the locked row.
+            requesting_user_id: The ID of the acting user.
+
+        Raises:
+            NotFoundError: If the target is archived.
+        """
+        # Lock both rows in id order so two users editing each other cannot deadlock
+        await User.filter(id__in=[target.id, requesting_user_id]).order_by("id").select_for_update()
+        if not await target.lock_for_update(is_archived=False):
+            raise NotFoundError(detail="User not found")
+        if requesting_user_id == target.id:
+            requesting_user = target
+        else:
+            requesting_user = await GetModelByIdValidationService().get_user_by_id(
+                requesting_user_id
+            )
+        self._reject_inactive_requester(requesting_user)
         return requesting_user
 
     async def _validate_role_assignment(
@@ -258,11 +294,14 @@ class UserService:
         if secondary_user.role != UserRole.UNAPPROVED:
             raise ValidationError(detail="Secondary user must have UNAPPROVED role")
 
-        absorbed_fields = self._absorb_profiles(primary=primary_user, secondary=secondary_user)
-        if absorbed_fields:
-            await primary_user.save(update_fields=absorbed_fields)
+        async with in_transaction():
+            if not await primary_user.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="User not found")
+            absorbed_fields = self._absorb_profiles(primary=primary_user, secondary=secondary_user)
+            if absorbed_fields:
+                await primary_user.save(update_fields=absorbed_fields)
 
-        await self.remove_and_archive_user(user=secondary_user, company=company)
+            await self.remove_and_archive_user(user=secondary_user, company=company)
 
         await primary_user.fetch_related("campaign_experiences")
         return primary_user
@@ -314,11 +353,12 @@ class UserService:
         Returns:
             Tuple of (updated user with campaign_experiences prefetched, changes dict).
         """
-        requesting_user = await self._assert_requester_active(acting_user_id)
+        await self._assert_requester_active(acting_user_id)
 
         async with in_transaction():
-            if not await user.lock_for_update(is_archived=False):
-                raise NotFoundError(detail="User not found")
+            requesting_user = await self._lock_target_and_requester(
+                target=user, requesting_user_id=acting_user_id
+            )
 
             role_change: dict[str, dict[str, object]] = {}
             if not isinstance(data.role, msgspec.UnsetType):

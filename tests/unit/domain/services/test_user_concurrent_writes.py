@@ -20,7 +20,12 @@ from vapi.domain.services import (
     IdentityService,
     UserService,
 )
-from vapi.lib.exceptions import ConflictError, NotFoundError, ValidationError
+from vapi.lib.exceptions import (
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -416,3 +421,141 @@ async def test_unlink_identity_reports_committed_profile(
 
     # Then the reported profile is the committed one
     assert old_profile == {"id": "apple-sub-001", "email": "person@example.com"}
+
+
+@pytest.mark.parametrize("revoked_role", [UserRole.PLAYER, UserRole.DEACTIVATED])
+async def test_update_user_self_role_refused_after_concurrent_revocation(
+    company_factory: Callable[..., Company],
+    user_factory: Callable[..., User],
+    monkeypatch: pytest.MonkeyPatch,
+    revoked_role: UserRole,
+) -> None:
+    """Verify a self edit in flight cannot restore admin authority revoked concurrently."""
+    # Given an admin whose demotion or deactivation commits after their self edit
+    # passed the requester check but before it saves
+    company = await company_factory()
+    await user_factory(role=UserRole.ADMIN, company=company)
+    target = await user_factory(role=UserRole.ADMIN, company=company)
+    stale = await User.get(id=target.id)
+    check_requester = UserService._assert_requester_active
+
+    async def _check_then_revoke(self: UserService, requesting_user_id: UUID) -> User:
+        requester = await check_requester(self, requesting_user_id)
+        await _patch_concurrently(target.id, role=revoked_role)
+        return requester
+
+    monkeypatch.setattr(UserService, "_assert_requester_active", _check_then_revoke)
+
+    # When the self edit resends the admin role
+    # Then it is refused and the revocation holds
+    with pytest.raises(PermissionDeniedError):
+        await UserService().update_user(
+            stale, UserPatch(name_first="Renamed", role=UserRole.ADMIN), acting_user_id=target.id
+        )
+    stored = await User.get(id=target.id)
+    assert stored.role == revoked_role
+    assert stored.name_first == target.name_first
+
+
+async def test_update_user_refused_after_concurrent_requester_demotion(
+    company_factory: Callable[..., Company],
+    user_factory: Callable[..., User],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify an admin demoted mid-request cannot still change another user's role."""
+    # Given an admin demoted after their request passed the requester check
+    company = await company_factory()
+    await user_factory(role=UserRole.ADMIN, company=company)
+    admin = await user_factory(role=UserRole.ADMIN, company=company)
+    target = await user_factory(role=UserRole.PLAYER, company=company)
+    stale = await User.get(id=target.id)
+    check_requester = UserService._assert_requester_active
+
+    async def _check_then_demote(self: UserService, requesting_user_id: UUID) -> User:
+        requester = await check_requester(self, requesting_user_id)
+        await _patch_concurrently(admin.id, role=UserRole.PLAYER)
+        return requester
+
+    monkeypatch.setattr(UserService, "_assert_requester_active", _check_then_demote)
+
+    # When the demoted admin's request promotes the target
+    # Then it is refused and the target keeps their role
+    with pytest.raises(PermissionDeniedError):
+        await UserService().update_user(
+            stale, UserPatch(role=UserRole.ADMIN), acting_user_id=admin.id
+        )
+    stored = await User.get(id=target.id)
+    assert stored.role == UserRole.PLAYER
+
+
+async def test_update_user_self_edit_refused_after_concurrent_delete(
+    company_factory: Callable[..., Company],
+    user_factory: Callable[..., User],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify a self edit in flight cannot un-delete the user or detach their archive batch."""
+    # Given a user deleted after their self edit passed the requester check
+    company = await company_factory()
+    await user_factory(role=UserRole.ADMIN, company=company)
+    target = await user_factory(role=UserRole.PLAYER, company=company)
+    stale = await User.get(id=target.id)
+    check_requester = UserService._assert_requester_active
+
+    async def _check_then_delete(self: UserService, requesting_user_id: UUID) -> User:
+        requester = await check_requester(self, requesting_user_id)
+        await self.remove_and_archive_user(user=await User.get(id=target.id), company=company)
+        return requester
+
+    monkeypatch.setattr(UserService, "_assert_requester_active", _check_then_delete)
+
+    # When the self edit saves a name change
+    # Then it is refused and the archive and its batch id hold
+    with pytest.raises(NotFoundError):
+        await UserService().update_user(
+            stale, UserPatch(name_first="Renamed"), acting_user_id=target.id
+        )
+    stored = await User.get(id=target.id)
+    assert stored.is_archived is True
+    assert stored.archive_batch_id is not None
+    assert stored.name_first == target.name_first
+
+
+async def test_merge_users_refused_after_concurrent_primary_delete(
+    company_factory: Callable[..., Company],
+    user_factory: Callable[..., User],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify a merge cannot absorb into, or archive the secondary for, a primary deleted mid-request."""
+    # Given a primary user deleted after the merge loaded it
+    company = await company_factory()
+    admin = await user_factory(role=UserRole.ADMIN, company=company)
+    primary = await user_factory(role=UserRole.PLAYER, company=company)
+    secondary = await user_factory(role=UserRole.UNAPPROVED, company=company)
+    deleted: list[bool] = []
+
+    async def _delete_primary() -> None:
+        await UserService().remove_and_archive_user(
+            user=await User.get(id=primary.id), company=company
+        )
+
+    original_lock = User.lock_for_update
+
+    async def _delete_then_lock(self: User, **filters: object) -> bool:
+        if self.id == primary.id and not deleted:
+            deleted.append(True)
+            await _delete_primary()
+        return await original_lock(self, **filters)
+
+    monkeypatch.setattr(User, "lock_for_update", _delete_then_lock)
+
+    # When the admin merges the secondary into the deleted primary
+    # Then the merge is refused and the secondary stays active
+    with pytest.raises(NotFoundError):
+        await UserService().merge_users(
+            primary_user_id=primary.id,
+            secondary_user_id=secondary.id,
+            company=company,
+            acting_user_id=admin.id,
+        )
+    stored_secondary = await User.get(id=secondary.id)
+    assert stored_secondary.is_archived is False
