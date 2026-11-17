@@ -29,6 +29,8 @@ Only include fields that need to be changed; omitted fields remain unchanged. Us
 Changing `user_player_id` to an `UNAPPROVED` or `DEACTIVATED` user returns 400.
 
 **Note:** Only the character's player or a storyteller can update the character.
+
+Returns `404` if the character was deleted while the request was in progress, and `403` if a storyteller reassigned or converted it so the acting user can no longer edit it.
 """
 
 DELETE_CHARACTER_DESCRIPTION = """\

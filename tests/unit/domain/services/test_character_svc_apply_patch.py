@@ -338,3 +338,23 @@ class TestNestedAttributeFieldsSync:
 
         # Then the service's exclusion set matches
         assert nested_on_dto == CharacterService._NESTED_ATTRIBUTE_FIELDS
+
+
+async def test_concept_change_drops_cached_concept(
+    character_factory: Callable[..., Any],
+    character_concept_factory: Callable[..., Any],
+) -> None:
+    """Verify a patched concept_id is what a later read of the concept relation returns."""
+    # Given a character with its concept loaded
+    old_concept = await character_concept_factory(name="Old Concept")
+    new_concept = await character_concept_factory(name="New Concept")
+    character = await character_factory(concept=old_concept)
+    await character.fetch_related("concept")
+
+    # When a patch changes the concept
+    await CharacterService().apply_character_patch(
+        character, CharacterPatch(concept_id=new_concept.id)
+    )
+
+    # Then the concept relation resolves to the new concept
+    assert (await character.concept).id == new_concept.id

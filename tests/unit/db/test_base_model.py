@@ -1,6 +1,6 @@
 """Tests for BaseModel archive-stamp and primary-key invariants."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -157,3 +157,29 @@ async def test_restore_after_refresh_writes_archive_flag(
     row = await Company.get(id=company.id)
     assert row.is_archived is False
     assert row.archive_batch_id is None
+
+
+async def test_lock_for_update_drops_relation_cache_when_foreign_key_moves(
+    character_factory: "Callable[..., Any]",
+    campaign_factory: "Callable[..., Any]",
+    company_factory: "Callable[..., Any]",
+) -> None:
+    """Verify a reload that moves a foreign key does not leave the old related object cached."""
+    from tortoise.transactions import in_transaction
+
+    from vapi.db.sql_models.character import Character
+
+    # Given a character with its campaign loaded, moved to another campaign in the database
+    company = await company_factory()
+    old_campaign = await campaign_factory(company=company)
+    new_campaign = await campaign_factory(company=company)
+    character = await character_factory(company=company, campaign=old_campaign)
+    await character.fetch_related("campaign")
+    await Character.filter(id=character.id).update(campaign_id=new_campaign.id)
+
+    # When the row is locked and reloaded
+    async with in_transaction():
+        assert await character.lock_for_update()
+
+    # Then the campaign relation resolves to the new campaign
+    assert (await character.campaign).id == new_campaign.id

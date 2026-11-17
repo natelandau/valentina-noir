@@ -52,7 +52,7 @@ from vapi.lib.exceptions import (
     PermissionDeniedError,
     ValidationError,
 )
-from vapi.lib.guards import npc_management_permitted
+from vapi.lib.guards import user_can_edit_character
 from vapi.utils.time import time_now
 
 if TYPE_CHECKING:
@@ -314,16 +314,7 @@ class CharacterTraitService:
         Raises:
             PermissionDeniedError: If the user does not have permission.
         """
-        if user.role in [UserRole.STORYTELLER, UserRole.ADMIN]:
-            return True
-        if character.type == CharacterType.NPC:
-            settings = await CompanySettings.filter(company_id=character.company_id).first()  # ty:ignore[unresolved-attribute]
-            if settings is None:
-                raise PermissionDeniedError(detail="No rights to access this resource")
-            if npc_management_permitted(settings.permission_manage_npc, user):
-                return True
-            raise PermissionDeniedError(detail="User does not own this character")
-        if character.user_player_id == user.id:  # ty:ignore[unresolved-attribute]
+        if await user_can_edit_character(character=character, user=user):
             return True
         raise PermissionDeniedError(detail="User does not own this character")
 

@@ -36,6 +36,7 @@ __all__ = (
     "npc_management_permitted",
     "storyteller_character_access_guard",
     "user_active_guard",
+    "user_can_edit_character",
     "user_can_manage_campaign",
     "user_character_player_or_storyteller_guard",
     "user_self_or_admin_guard",
@@ -304,8 +305,8 @@ async def user_character_player_or_storyteller_guard(
     """Guard requiring character player or storyteller/admin role.
 
     Read the acting user from the On-Behalf-Of header and character_id from
-    path params. Raise PermissionDeniedError unless the acting user is the
-    character's player or has STORYTELLER/ADMIN role.
+    path params. Raise PermissionDeniedError unless ``user_can_edit_character``
+    allows the acting user to edit the character.
     """
     character_id_str = connection.path_params.get("character_id")
     if not character_id_str:
@@ -330,31 +331,37 @@ async def user_character_player_or_storyteller_guard(
     if not character:
         raise NotFoundError(detail=f"Character '{character_id_str}' not found")
 
-    if not user:
+    if not user or not await user_can_edit_character(character=character, user=user):
         raise PermissionDeniedError(detail="No rights to access this resource")
 
+
+async def user_can_edit_character(*, character: Character, user: User) -> bool:
+    """Return whether the user may edit the character as its player or as a storyteller.
+
+    Shared by the route guard and by saves that re-check access against the locked row,
+    because a storyteller can archive, reassign, or convert the character mid-request.
+
+    Args:
+        character: The character to edit, as currently stored.
+        user: The acting user.
+
+    Returns:
+        True when the user is an active storyteller or admin, the character's player, or
+        permitted to manage the company's NPCs when the character is an NPC.
+    """
     if user.role in {UserRole.UNAPPROVED, UserRole.DEACTIVATED}:
-        raise PermissionDeniedError(detail="No rights to access this resource")
+        return False
+    if user.role in STORYTELLER_ROLES:
+        return True
 
-    # NPC characters are governed by the company's permission_manage_npc setting,
-    # not by player ownership (NPCs are ownerless). Storytellers/admins always pass,
-    # so resolve them before the settings query (also avoids a needless round-trip).
+    # NPCs are ownerless, so the company's permission_manage_npc setting decides
     if character.type == CharacterType.NPC:
-        if user.role in STORYTELLER_ROLES:
-            return
-        # company_id is only known after the character resolves, so this query is
-        # sequential rather than gathered with the character lookup.
-
         settings = await CompanySettings.filter(company_id=character.company_id).first()  # ty:ignore[unresolved-attribute]
-        if settings is not None and npc_management_permitted(settings.permission_manage_npc, user):
-            return
-        raise PermissionDeniedError(detail="No rights to access this resource")
+        return settings is not None and npc_management_permitted(
+            settings.permission_manage_npc, user
+        )
 
-    if (
-        user.role not in {UserRole.STORYTELLER, UserRole.ADMIN}
-        and character.user_player_id != user.id  # ty:ignore[unresolved-attribute]
-    ):
-        raise PermissionDeniedError(detail="No rights to access this resource")
+    return character.user_player_id == user.id  # ty:ignore[unresolved-attribute]
 
 
 async def user_can_manage_campaign(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:

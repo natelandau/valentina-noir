@@ -1,6 +1,7 @@
 """Character business logic services."""
 
 import asyncio
+from copy import copy
 from typing import TYPE_CHECKING, Any
 
 import msgspec
@@ -27,8 +28,8 @@ from vapi.db.sql_models.company import CompanySettings
 from vapi.db.sql_models.user import User
 from vapi.domain.controllers.character_trait.dto import TrackerStateSet, tracker_type_for
 from vapi.domain.services.tracker_svc import TrackerService, is_derived_trait
-from vapi.lib.exceptions import PermissionDeniedError, ValidationError
-from vapi.lib.guards import npc_management_permitted
+from vapi.lib.exceptions import NotFoundError, PermissionDeniedError, ValidationError
+from vapi.lib.guards import npc_management_permitted, user_can_edit_character
 from vapi.lib.patch import apply_patch
 from vapi.utils.time import time_now
 
@@ -290,10 +291,9 @@ class CharacterService:
         """Enforce the character type/player coherence rules on a patch in-place.
 
         PLAYER characters must always keep a player; NPC and STORYTELLER characters
-        never have one, so any provided ``user_player_id`` is silently cleared. Call
-        before :meth:`apply_character_patch` because the rules depend on whether
-        ``user_player_id`` was provided in the request (``msgspec.UNSET``), which is
-        lost once the patch is flattened onto the model.
+        never have one, so any provided ``user_player_id`` is silently cleared. The rules
+        depend on whether ``user_player_id`` was provided in the request
+        (``msgspec.UNSET``), which is lost once the patch is flattened onto the model.
 
         Args:
             character: The current character being patched.
@@ -320,28 +320,50 @@ class CharacterService:
             data.user_player_id = None
 
     async def save_character_patch(
-        self, character: Character, data: "CharacterPatch"
+        self, character: Character, data: "CharacterPatch", *, acting_user: User
     ) -> dict[str, dict[str, object]]:
         """Apply a partial update, save the character, and drop specialties a new concept voids.
 
-        A concept change can lower which abilities count as favored, so specialties those
-        abilities no longer qualify for are removed and refunded under the company's XP
-        recoup setting.
+        The character row is locked and reloaded first, and the acting user's access is
+        checked again against it, so a storyteller's archive, reassignment, or type change
+        that commits after the request loaded the character is neither overwritten nor
+        bypassed. A concept change can lower which abilities count as favored, so
+        specialties those abilities no longer qualify for are removed and refunded under
+        the company's XP recoup setting.
 
         Args:
             character: The character model instance to mutate and save.
             data: The patch DTO with UNSET defaults for omitted fields.
+            acting_user: The user making the change.
 
         Returns:
             Dict mapping changed field names to ``{"old": ..., "new": ...}`` diffs.
+
+        Raises:
+            NotFoundError: If the character was archived.
+            PermissionDeniedError: If the acting user may no longer edit the character.
         """
         from vapi.domain.services.character_trait_svc import CharacterTraitService
 
         async with in_transaction():
+            if not await character.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="Character not found")
+            if not await user_can_edit_character(character=character, user=acting_user):
+                raise PermissionDeniedError(detail="No rights to access this resource")
+            self.reconcile_type_and_player(character, data)
+            if (
+                data.user_player_id is not msgspec.UNSET
+                and data.user_player_id is not None
+                and data.user_player_id != character.user_player_id  # ty:ignore[unresolved-attribute]
+            ):
+                await self.validate_player_assignment(
+                    user_player_id=data.user_player_id,
+                    company_id=character.company_id,  # ty:ignore[unresolved-attribute]
+                )
             # The same patch can reassign the player or clear it, so refunds go to a copy
             # of the character as it was before the patch: the owner who paid.
             payer = (
-                await Character.get(id=character.id)
+                copy(character)
                 if data.concept_id is not msgspec.UNSET and data.concept_id != character.concept_id  # ty:ignore[unresolved-attribute]
                 else None
             )

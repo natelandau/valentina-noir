@@ -1224,7 +1224,11 @@ class TestIneligibleSpecialtiesRemoved:
         assert await _xp(s) == 5
 
     async def test_concept_change_that_clears_the_player_refunds_the_old_player(
-        self, make_scenario, character_trait_specialty_factory, character_concept_factory
+        self,
+        make_scenario,
+        character_trait_specialty_factory,
+        character_concept_factory,
+        user_factory,
     ) -> None:
         """Verify a patch that changes concept and clears the player refunds whoever paid."""
         # Given RATING_BASED rules and favored Medicine at 3 with an XP-paid specialty
@@ -1237,11 +1241,13 @@ class TestIneligibleSpecialtiesRemoved:
         await _set_concept(s, favoring)
         await _paid(character_trait_specialty_factory, s, cost=3)
         other = await character_concept_factory(name="Other Concept", favored_ability_names=[])
+        storyteller = await user_factory(company=s.company, role=UserRole.STORYTELLER)
 
         # When one patch changes the concept and turns the character into an NPC
         changes = await CharacterService().save_character_patch(
             s.character,
             CharacterPatch(concept_id=other.id, type=CharacterType.NPC, user_player_id=None),
+            acting_user=storyteller,
         )
 
         # Then the specialty is removed, audited, and refunded to the former player

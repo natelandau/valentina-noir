@@ -44,6 +44,8 @@ user.
   response. Only storytellers and admins can create a storyteller character,
   convert an existing character to the storyteller type, or edit and delete one.
 
+An update is checked against the character as it is when the change is saved. If a storyteller deletes, reassigns, or converts the character while your update is in progress, the update returns `404` (deleted) or `403` (you can no longer edit it) and changes nothing.
+
 ### Game Versions
 
 Each character targets a specific game version, which determines available traits and mechanics.
@@ -123,7 +125,7 @@ The multiple autogeneration flow works as follows:
 2. Optionally retrieve active sessions later using the list or detail session endpoints.
 3. Finalize the session by selecting your preferred character. The system keeps your selection and removes the others.
 
-A session belongs to the user who started it. The detail and finalize endpoints accept only a session that the acting user in `On-Behalf-Of` started and that has not expired. Otherwise they return `400`.
+A session belongs to the user who started it. The detail and finalize endpoints accept only a session that the acting user in `On-Behalf-Of` started and that has not expired. Otherwise they return `400`. Finalize returns `404` if the selected character was deleted, for example by a storyteller, after the session started.
 
 !!! info "Experience Cost"
 

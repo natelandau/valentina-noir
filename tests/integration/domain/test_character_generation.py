@@ -13,6 +13,7 @@ from litestar.status_codes import (
     HTTP_201_CREATED,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
+    HTTP_404_NOT_FOUND,
 )
 
 from vapi.constants import CharacterClass, CharacterType
@@ -25,7 +26,7 @@ from vapi.domain.handlers.character_autogeneration.constants import (
     AbilityFocus,
     AutoGenExperienceLevel,
 )
-from vapi.domain.services import GetModelByIdValidationService
+from vapi.domain.services import CharacterService, GetModelByIdValidationService
 from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.domain.urls import Characters as CharacterURL
 from vapi.utils.time import time_now
@@ -321,6 +322,44 @@ class TestCharacterChargen:
 
         # Then we should get a 400 bad request response
         assert response.status_code == HTTP_400_BAD_REQUEST
+
+    async def test_finalize_chargen_does_not_unarchive_character(
+        self,
+        client: AsyncClient,
+        build_url: Callable[[str, Any], str],
+        token_global_admin: dict[str, str],
+        session_company: Company,
+        session_global_admin: Any,
+        session_user: User,
+        session_campaign: Campaign,
+    ) -> None:
+        """Verify finalize cannot restore a chargen character a storyteller archived."""
+        # Given a chargen session whose selected character a storyteller has archived
+        await CompanySettings.filter(company=session_company).update(
+            character_autogen_num_choices=2
+        )
+        await UserXPService().add_xp(session_user.id, session_campaign.id, 100)
+        response = await client.post(
+            build_url(CharacterURL.CHARGEN_START, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            params={"campaign_id": str(session_campaign.id)},
+        )
+        chargen_session_id = response.json()["id"]
+        selected_character_id = response.json()["characters"][0]["id"]
+        await CharacterService().archive_character(await Character.get(id=selected_character_id))
+
+        # When the player finalizes the session with that character
+        response = await client.post(
+            build_url(CharacterURL.CHARGEN_FINALIZE, company_id=session_company.id),
+            headers=token_global_admin | {"On-Behalf-Of": str(session_user.id)},
+            json={"session_id": chargen_session_id, "selected_character_id": selected_character_id},
+        )
+
+        # Then the character is not found and stays archived
+        assert response.status_code == HTTP_404_NOT_FOUND
+        character = await Character.get(id=selected_character_id)
+        assert character.is_archived is True
+        assert character.archive_batch_id is not None
 
     async def test_finalize_chargen_invalid_selected_character_id(
         self,
