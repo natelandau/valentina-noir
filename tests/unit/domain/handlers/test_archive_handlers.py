@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
+from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterType, SpecialtyType
 from vapi.db.sql_models.aws import S3Asset
@@ -35,15 +37,20 @@ from vapi.domain.handlers import (
     archive_chapter,
     archive_character,
     archive_company,
+    archive_handlers,
     archive_user,
     cascade_archive_user,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Coroutine
+    from typing import Any
 
     from pytest_mock import MockerFixture
     from tortoise.models import Model
+
+    from vapi.db.sql_models.base import BaseModel
+    from vapi.domain.handlers import ArchiveContext
 
 pytestmark = pytest.mark.anyio
 
@@ -654,8 +661,6 @@ class TestCompanyArchiveHandler:
         # except CompanySettings (the final flip), where it raises. By then the
         # company, campaign, user, and note rows have already been flipped inside
         # the transaction, so the raise must revert all of them.
-        from vapi.domain.handlers import archive_handlers
-
         real_archive_where = archive_handlers._archive_where
         flipped_models: list[type[Model]] = []
 
@@ -682,3 +687,91 @@ class TestCompanyArchiveHandler:
         assert (await Campaign.get(id=campaign.id)).is_archived is False
         assert (await User.get(id=user.id)).is_archived is False
         assert (await Note.get(id=note.id)).is_archived is False
+
+
+class TestCascadeHoldsParentLock:
+    """Test that a running cascade blocks writers of its parent row until it commits.
+
+    Each cascade's first statement is the guarded UPDATE that flips the parent, and
+    Postgres holds that row lock to commit. A writer that locks the parent (every
+    PATCH or DELETE does) must wait, then find the row archived, instead of saving
+    over a half-finished cascade.
+    """
+
+    @pytest.mark.parametrize(
+        "parent_kind", ["company", "campaign", "book", "chapter", "character", "user"]
+    )
+    async def test_parent_writer_waits_for_cascade_and_finds_row_archived(
+        self,
+        parent_kind: str,
+        company_factory: Callable[..., Company],
+        user_factory: Callable[..., User],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+        character_factory: Callable[..., Character],
+        mocker: MockerFixture,
+    ) -> None:
+        """Verify a parent writer blocks behind an in-flight cascade and then gets no row."""
+        # Given an active parent row, loaded by a writer's request before the delete starts
+        company = await company_factory()
+        parent: BaseModel
+        delete: Coroutine[Any, Any, ArchiveContext]
+        match parent_kind:
+            case "company":
+                parent, delete = company, archive_company(company)
+            case "user":
+                user = await user_factory(company=company)
+                parent, delete = user, archive_user(user)
+            case "character":
+                user = await user_factory(company=company)
+                character = await character_factory(
+                    company=company, user_player=user, user_creator=user
+                )
+                parent, delete = character, archive_character(character)
+            case "campaign":
+                campaign = await campaign_factory(company=company)
+                parent, delete = campaign, archive_campaign(campaign)
+            case "book":
+                book = await campaign_book_factory(campaign=await campaign_factory(company=company))
+                parent, delete = book, archive_book(book)
+            case "chapter":
+                book = await campaign_book_factory(campaign=await campaign_factory(company=company))
+                chapter = await campaign_chapter_factory(book=book)
+                parent, delete = chapter, archive_chapter(chapter)
+        loaded_by_writer = await type(parent).get(id=parent.id)
+
+        # And a cascade that pauses right after it flips the parent row
+        real_archive_where = archive_handlers._archive_where
+        parent_flipped = asyncio.Event()
+        release_cascade = asyncio.Event()
+
+        async def _pause_after_parent_flip(model, ctx, **filters) -> int:
+            count = await real_archive_where(model, ctx, **filters)
+            if not parent_flipped.is_set():
+                parent_flipped.set()
+                await release_cascade.wait()
+            return count
+
+        mocker.patch.object(archive_handlers, "_archive_where", _pause_after_parent_flip)
+
+        async def _writer() -> bool:
+            async with in_transaction():
+                return await loaded_by_writer.lock_for_update(is_archived=False)
+
+        # When the writer tries to lock the parent while the cascade is mid-flight
+        cascade = asyncio.create_task(delete)
+        try:
+            await asyncio.wait_for(parent_flipped.wait(), timeout=5)
+            writer = asyncio.create_task(_writer())
+            await asyncio.sleep(0.2)
+            writer_blocked = not writer.done()
+        finally:
+            # A paused cascade holds its transaction open, so always let it finish
+            release_cascade.set()
+        await asyncio.wait_for(cascade, timeout=5)
+        locked = await asyncio.wait_for(writer, timeout=5)
+
+        # Then the writer waited for the cascade and found the parent archived
+        assert writer_blocked
+        assert locked is False
