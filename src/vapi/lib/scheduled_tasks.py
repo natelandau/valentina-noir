@@ -94,23 +94,16 @@ async def _purge_s3_assets() -> None:
         logger.exception("Failed to purge S3Assets.", extra=_LOG_EXTRA)
         return
 
-    results = await asyncio.gather(
-        *(aws_service.delete_asset(asset, invalidate=False) for asset in assets),
-        return_exceptions=True,
-    )
-    purged_keys: list[str] = []
-    for asset, result in zip(assets, results, strict=True):
-        if isinstance(result, BaseException):
+    errors = await aws_service.delete_assets(assets)
+    for asset, error in zip(assets, errors, strict=True):
+        if error is not None:
             logger.exception(  # noqa: LOG004
                 "Failed to purge S3Asset %s.",
                 asset.id,
-                exc_info=result,
+                exc_info=error,
                 extra=_LOG_EXTRA,
             )
-        else:
-            purged_keys.append(asset.s3_key)
-    await aws_service.invalidate_cdn_keys(purged_keys)
-    purged = len(purged_keys)
+    purged = errors.count(None)
 
     logger.info(
         "Purge old S3Assets.",

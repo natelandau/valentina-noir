@@ -184,7 +184,7 @@ class TestPurgeS3AssetsErrorIsolation:
 
         asset_1_id = asset_1.id
 
-        async def mock_delete_asset(asset: S3Asset, **_: Any) -> None:
+        async def mock_delete_asset(asset: S3Asset) -> None:
             nonlocal call_count
             call_count += 1
             if asset.id == asset_1_id:
@@ -192,7 +192,9 @@ class TestPurgeS3AssetsErrorIsolation:
                 raise RuntimeError(msg)
             await asset.delete()
 
-        mocker.patch.object(AWSS3Service, "delete_asset", side_effect=mock_delete_asset)
+        mocker.patch.object(
+            AWSS3Service, "_delete_asset_without_invalidation", side_effect=mock_delete_asset
+        )
 
         # When we run the task
         await purge_db_expired_items({})
@@ -207,41 +209,29 @@ class TestPurgeS3AssetsErrorIsolation:
         # Cleanup
         await S3Asset.filter(id=asset_1_id).delete()
 
-    async def test_s3_purge_invalidates_purged_keys_once(
+    async def test_s3_purge_deletes_through_bulk_delete(
         self,
         s3asset_factory: Callable[..., Any],
         mocker: MockerFixture,
     ) -> None:
-        """Verify the purge sends one CDN invalidation for the assets it deleted, and only those."""
-        # Given two expired archived assets, one of which fails to delete
+        """Verify the purge hands every expired asset to one bulk delete, so the CDN gets one batch."""
+        # Given two expired archived assets
         mocker.patch("vapi.lib.database.init_tortoise", return_value=None)
         mocker.patch("tortoise.Tortoise.close_connections", return_value=None)
         old_date = time_now() - timedelta(days=settings.retention.archived_days + 1)
-        failing = await s3asset_factory(is_archived=True)
-        purged = await s3asset_factory(is_archived=True)
-        await S3Asset.filter(id__in=[failing.id, purged.id]).update(archive_date=old_date)
-
-        async def mock_delete_asset(asset: S3Asset, **_: Any) -> None:
-            if asset.id == failing.id:
-                msg = "Simulated S3 failure"
-                raise RuntimeError(msg)
-            await asset.delete()
-
-        delete_asset = mocker.patch.object(
-            AWSS3Service, "delete_asset", side_effect=mock_delete_asset
+        first = await s3asset_factory(is_archived=True)
+        second = await s3asset_factory(is_archived=True)
+        await S3Asset.filter(id__in=[first.id, second.id]).update(archive_date=old_date)
+        delete_assets = mocker.patch.object(
+            AWSS3Service, "delete_assets", return_value=[None, None]
         )
-        invalidate = mocker.patch.object(AWSS3Service, "invalidate_cdn_keys")
 
         # When the purge runs
         await purge_db_expired_items({})
 
-        # Then each delete skips its own invalidation and one batch covers the purged key
-        for call in delete_asset.call_args_list:
-            assert call.kwargs == {"invalidate": False}
-        invalidate.assert_called_once_with([purged.s3_key])
-
-        # Cleanup
-        await S3Asset.filter(id=failing.id).delete()
+        # Then both assets go to a single bulk delete call
+        delete_assets.assert_called_once()
+        assert {asset.id for asset in delete_assets.call_args.args[0]} == {first.id, second.id}
 
 
 class TestPurgeTemporaryCharacters:
