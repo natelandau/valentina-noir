@@ -1,3 +1,50 @@
+## v0.33.0 (2026-11-17)
+
+### Feat
+
+- **characters**: price custom flaws from a company setting (#188)
+- **character**: derive age from birth year and campaign date (#184)
+- **traits**: add rating-based specialty rules as a company setting
+
+### Fix
+
+- lock rows parent-first in book, chapter, and trait writes (#217)
+- **traits**: reject custom trait ranges that exclude the start value
+- **admin**: report missing developers without crashing
+- **traits**: send trait and specialty timestamps like every other response
+- **openapi**: describe embedded children and blueprint fields exactly
+- **characters**: load gift tribe and auspice for embedded traits
+- **cache**: flush cached responses before a write responds (#214)
+- **assets**: remove deleted assets from the CDN (#212)
+- **assets**: clear a user's avatar when its asset is deleted (#211)
+- **cache**: close stale-entry gaps in cache and idempotency keys (#208)
+- **api**: bound request integers, page offsets, and dictionary links (#207)
+- harden configuration and the release pipeline (#203)
+- **audit**: share credential redaction with request logging (#202)
+- **server**: trust the client IP header only from proxy networks (#201)
+- **developers**: return typed responses from the new-key endpoints (#198)
+- **audit**: sanitize request data stored in audit logs (#197)
+- **companies**: archive the company row before its tenant on delete (#196)
+- **characters**: stop player edits from undoing storyteller changes (#195)
+- **users**: check user edits and merges against current user state (#194)
+- **identity**: record the correct old profile in identity audit logs (#193)
+- **chapters**: block player edits to storyteller character links (#192)
+- **users**: lock the user row for avatar and identity changes (#191)
+- **api**: save edits and deletes against the locked active row (#190)
+- save only changed columns on developer and user updates (#187)
+- **api**: bound request text and cache keys on declared query params (#186)
+- **logging**: bound log key parsing and quote collection fields (#185)
+
+### Refactor
+
+- **api**: save only the columns each request changes (#210)
+- **guards**: share acting-user and path id parsing (#209)
+
+### Perf
+
+- **images**: bound memory when decoding uploaded images (#199)
+- **characters**: load character relations only where needed (#189)
+
 ## v0.32.1 (2026-11-09)
 
 ### Fix
