@@ -63,7 +63,7 @@ repos:
         entry: yamllint --strict --config-file .yamllint.yml
 
   - repo: "https://github.com/adhtruong/mirrors-typos"
-    rev: v1.51.1
+    rev: v1.52.2
     hooks:
       # Commit messages only; files are checked by the local `duty typos` hook
       - id: typos
@@ -82,7 +82,7 @@ repos:
         args: ["--verbose"]
 
   - repo: "https://github.com/crate-ci/committed"
-    rev: v1.1.11
+    rev: v1.1.12
     hooks:
       - id: committed
         stages: [commit-msg]

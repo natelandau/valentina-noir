@@ -2,16 +2,16 @@
     authors = [{ name = "Nate Landau", email = "github@natelandau.com" }]
     dependencies = [
         "asyncio>=4.0.0,<5.0.0",
-        "boto3>=1.43.123,<2.0.0",
+        "boto3>=1.44.5,<2.0.0",
         "litestar-granian>=0.17.0",
         "litestar-saq>=0.8.0",
         "litestar[jinja,jwt,redis]>=2.25.0,<3.0.0",
         "msgspec[toml]>=0.22.0",
-        "numpy>=2.5.4,<3.0.0",
+        "numpy>=2.5.5,<3.0.0",
         "passlib[argon2]>=1.7.4,<2.0.0",
         "pillow>=13.0.0,<14.0.0",
-        "pydantic-settings>=2.16.2,<3.0.0",
-        "pydantic[email]>=2.14.2,<3.0.0",
+        "pydantic-settings>=2.16.3,<3.0.0",
+        "pydantic[email]>=2.14.3,<3.0.0",
         "pyjwt[crypto]>=2.15.1",
         "python-json-logger>=4.2.0",
         "rich>=15.0.0",
@@ -36,28 +36,28 @@
 [dependency-groups]
     dev = [
         "commitizen>=4.19.3",
-        "coverage>=7.17.0",
+        "coverage>=7.17.3",
         "debugpy>=1.8.22",
         "duty>=1.10.1",
-        "faker>=40.44.0",
-        "gate-cache>=0.7.0",
-        "prek>=0.5.9",
+        "faker>=40.54.0",
+        "gate-cache>=0.8.0",
+        "prek>=0.5.11",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.1.0",
         "pytest-devtools>=1.3.0",
-        "pytest-env>=1.8.4",
+        "pytest-env>=1.8.6",
         "pytest-mock>=3.17.0",
         "pytest-repeat>=0.9.4",
         "pytest-sugar>=1.1.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.2.0",
-        "ruff>=0.17.3",
+        "ruff>=0.17.5",
         "shellcheck-py>=0.11.0.1",
-        "ty>=0.0.95",
-        "typos>=1.51.1",
+        "ty>=0.0.105",
+        "typos>=1.52.2",
         "yamllint>=1.38.0",
     ]
-    docs = ["zensical>=0.0.74"]
+    docs = ["zensical>=0.1.2"]
 
 [tool.commitizen]
     bump_message               = "bump(release): v$current_version → v$new_version"
