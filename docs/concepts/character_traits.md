@@ -133,7 +133,7 @@ Every V5 character already has Willpower, so a request to assign it returns `409
 
 Create a trait unique to a single character. A custom trait has the same fields as a core trait, but other characters cannot use it. Use a custom trait for an ability that is not in the standard trait list.
 
-Provide the trait name, the parent category, and the `currency`. The API always creates the trait at a value of `1`, and charges or credits that first dot in the `currency` you supply. If you omit `initial_cost` or `upgrade_cost`, the trait uses the costs of its parent category. A `min_value` greater than `max_value` returns `400 Bad Request`.
+Provide the trait name, the parent category, and the `currency`. The API always creates the trait at a value of `1`, and charges or credits that first dot in the `currency` you supply. If you omit `initial_cost` or `upgrade_cost`, the trait uses the costs of its parent category. Because of this, a `min_value` more than `1` or a `max_value` less than `1` returns `400 Bad Request`.
 
 Custom flaws have fixed pricing. See [Custom Flaws](#custom-flaws).
 
