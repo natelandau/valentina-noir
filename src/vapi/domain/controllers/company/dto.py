@@ -99,11 +99,11 @@ class CompanyResponse(msgspec.Struct):
             description=m.description,
             email=m.email,
             resources_modified_at=m.resources_modified_at,
-            num_campaigns=m.num_campaigns,  # ty:ignore[unresolved-attribute]
-            num_player_characters=m.num_player_characters,  # ty:ignore[unresolved-attribute]
-            num_storyteller_characters=m.num_storyteller_characters,  # ty:ignore[unresolved-attribute]
-            num_npc_characters=m.num_npc_characters,  # ty:ignore[unresolved-attribute]
-            num_users=m.num_users,  # ty:ignore[unresolved-attribute]
+            num_campaigns=m.num_campaigns,  # ty:ignore[missing-attribute]
+            num_player_characters=m.num_player_characters,  # ty:ignore[missing-attribute]
+            num_storyteller_characters=m.num_storyteller_characters,  # ty:ignore[missing-attribute]
+            num_npc_characters=m.num_npc_characters,  # ty:ignore[missing-attribute]
+            num_users=m.num_users,  # ty:ignore[missing-attribute]
             settings=CompanySettingsResponse.from_model(m.settings),
         )
 
@@ -149,7 +149,7 @@ class UserResponse(msgspec.Struct):
             username=m.username,
             email=m.email,
             role=m.role.value,
-            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
+            company_id=m.company_id,  # ty:ignore[missing-attribute]
         )
 
 

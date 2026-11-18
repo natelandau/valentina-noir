@@ -127,7 +127,7 @@ async def _list_developers() -> None:
             developer_id__in=[dev.id for dev in developers]
         ).prefetch_related("company")
         for perm in permissions:
-            perms_by_developer[perm.developer_id].append(perm)  # ty:ignore[unresolved-attribute]
+            perms_by_developer[perm.developer_id].append(perm)  # ty:ignore[missing-attribute]
 
     console.rule("Developers")
     for dev in developers:

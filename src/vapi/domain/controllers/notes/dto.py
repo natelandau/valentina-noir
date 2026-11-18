@@ -47,10 +47,10 @@ class NoteResponse(msgspec.Struct):
             date_modified=m.date_modified,
             title=m.title,
             content=m.content or "",
-            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
-            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
-            book_id=m.book_id,  # ty:ignore[unresolved-attribute]
-            chapter_id=m.chapter_id,  # ty:ignore[unresolved-attribute]
-            character_id=m.character_id,  # ty:ignore[unresolved-attribute]
-            user_id=m.user_id,  # ty:ignore[unresolved-attribute]
+            company_id=m.company_id,  # ty:ignore[missing-attribute]
+            campaign_id=m.campaign_id,  # ty:ignore[missing-attribute]
+            book_id=m.book_id,  # ty:ignore[missing-attribute]
+            chapter_id=m.chapter_id,  # ty:ignore[missing-attribute]
+            character_id=m.character_id,  # ty:ignore[missing-attribute]
+            user_id=m.user_id,  # ty:ignore[missing-attribute]
         )

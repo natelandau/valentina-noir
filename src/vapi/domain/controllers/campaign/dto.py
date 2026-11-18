@@ -132,13 +132,13 @@ class CampaignResponse(msgspec.Struct):
             in_game_date=m.in_game_date,
             desperation=m.desperation,
             danger=m.danger,
-            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
-            num_books=m.num_books,  # ty:ignore[unresolved-attribute]
-            num_chapters=m.num_chapters,  # ty:ignore[unresolved-attribute]
-            num_notes=m.num_notes,  # ty:ignore[unresolved-attribute]
-            num_player_characters=m.num_player_characters,  # ty:ignore[unresolved-attribute]
-            num_storyteller_characters=m.num_storyteller_characters,  # ty:ignore[unresolved-attribute]
-            num_npc_characters=m.num_npc_characters,  # ty:ignore[unresolved-attribute]
+            company_id=m.company_id,  # ty:ignore[missing-attribute]
+            num_books=m.num_books,  # ty:ignore[missing-attribute]
+            num_chapters=m.num_chapters,  # ty:ignore[missing-attribute]
+            num_notes=m.num_notes,  # ty:ignore[missing-attribute]
+            num_player_characters=m.num_player_characters,  # ty:ignore[missing-attribute]
+            num_storyteller_characters=m.num_storyteller_characters,  # ty:ignore[missing-attribute]
+            num_npc_characters=m.num_npc_characters,  # ty:ignore[missing-attribute]
             date_created=m.date_created,
             date_modified=m.date_modified,
         )
@@ -171,10 +171,10 @@ class CampaignBookResponse(msgspec.Struct):
             name=m.name,
             description=m.description,
             number=m.number,
-            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
-            num_chapters=m.num_chapters,  # ty:ignore[unresolved-attribute]
-            num_notes=m.num_notes,  # ty:ignore[unresolved-attribute]
-            num_assets=m.num_assets,  # ty:ignore[unresolved-attribute]
+            campaign_id=m.campaign_id,  # ty:ignore[missing-attribute]
+            num_chapters=m.num_chapters,  # ty:ignore[missing-attribute]
+            num_notes=m.num_notes,  # ty:ignore[missing-attribute]
+            num_assets=m.num_assets,  # ty:ignore[missing-attribute]
             character_ids=sorted({c.id for ch in m.chapters for c in ch.characters}),
             date_created=m.date_created,
             date_modified=m.date_modified,
@@ -238,7 +238,7 @@ class CampaignChapterResponse(msgspec.Struct):
             name=m.name,
             description=m.description,
             number=m.number,
-            book_id=m.book_id,  # ty:ignore[unresolved-attribute]
+            book_id=m.book_id,  # ty:ignore[missing-attribute]
             # Counts are annotated onto the queryset by annotate_chapter_counts. This struct is
             # also embedded in CampaignBookDetailResponse (book ?include=chapters) where chapters
             # are prefetched without annotations, so default to 0 when the attribute is absent.

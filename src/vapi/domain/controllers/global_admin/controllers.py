@@ -90,16 +90,16 @@ class GlobalAdminController(Controller):
     )
     async def create_developer(self, *, data: DeveloperCreate) -> DeveloperAdminResponse:
         """Create a Developer."""
-        developer = await Developer.create(
+        created = await Developer.create(
             username=data.username,
             email=data.email,
             is_global_admin=data.is_global_admin,
         )
         developer = (
-            await Developer.filter(id=developer.id).prefetch_related("permissions__company").first()
+            await Developer.filter(id=created.id).prefetch_related("permissions__company").first()
         )
         if not developer:
-            msg = f"Developer not found for id {developer.id}"  # ty:ignore[unresolved-attribute]
+            msg = f"Developer not found for id {created.id}"
             raise ValueError(msg)
         return DeveloperAdminResponse.from_model(developer)
 

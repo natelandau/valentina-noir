@@ -83,7 +83,7 @@ class QuickRollController(Controller):
         service = UserQuickRollService()
         traits = await service.validate_quickroll_traits(
             data.trait_ids,
-            company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+            company_id=target_user.company_id,  # ty:ignore[missing-attribute]
         )
 
         quickroll = await QuickRoll.create(
@@ -121,7 +121,7 @@ class QuickRollController(Controller):
         if not isinstance(data.trait_ids, msgspec.UnsetType):
             traits = await UserQuickRollService().validate_quickroll_traits(
                 data.trait_ids,
-                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+                company_id=target_user.company_id,  # ty:ignore[missing-attribute]
             )
 
         async with in_transaction():

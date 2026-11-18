@@ -292,7 +292,10 @@ class CharacterAutogenerationHandler:
         humanity_trait = await Trait.filter(
             name="Humanity", is_archived=False, custom_for_character_id__isnull=True
         ).first()
-        if character.character_class not in humanity_trait.character_classes:  # ty:ignore[unresolved-attribute]
+        if humanity_trait is None:
+            msg = "Humanity trait not found in seed data"
+            raise ValueError(msg)
+        if character.character_class not in humanity_trait.character_classes:
             return
 
         character_trait = await CharacterTrait.create(
@@ -602,8 +605,8 @@ class CharacterAutogenerationHandler:
             raise ValueError(msg)
 
         total_renown = werewolf_attrs.total_renown
-        auspice_id = werewolf_attrs.auspice_id  # ty:ignore[unresolved-attribute]
-        tribe_id = werewolf_attrs.tribe_id  # ty:ignore[unresolved-attribute]
+        auspice_id = werewolf_attrs.auspice_id  # ty:ignore[missing-attribute]
+        tribe_id = werewolf_attrs.tribe_id  # ty:ignore[missing-attribute]
 
         (
             tribe_gifts,

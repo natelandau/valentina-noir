@@ -90,8 +90,8 @@ class CampaignExperienceResponse(msgspec.Struct):
         """Convert a Tortoise CampaignExperience to a response Struct."""
         return cls(
             id=m.id,
-            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
-            user_id=m.user_id,  # ty:ignore[unresolved-attribute]
+            campaign_id=m.campaign_id,  # ty:ignore[missing-attribute]
+            user_id=m.user_id,  # ty:ignore[missing-attribute]
             xp_current=m.xp_current,
             xp_total=m.xp_total,
             cool_points=m.cool_points,
@@ -175,7 +175,7 @@ class UserResponse(msgspec.Struct):
             username=m.username,
             email=m.email,
             role=m.role.value,
-            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
+            company_id=m.company_id,  # ty:ignore[missing-attribute]
             lifetime_xp=m.lifetime_xp,
             lifetime_cool_points=m.lifetime_cool_points,
             google_profile=m.google_profile,
@@ -323,6 +323,6 @@ class QuickRollResponse(msgspec.Struct):
             date_modified=m.date_modified,
             name=m.name,
             description=m.description or "",
-            user_id=m.user_id,  # ty:ignore[unresolved-attribute]
+            user_id=m.user_id,  # ty:ignore[missing-attribute]
             trait_ids=[t.id for t in m.traits],
         )

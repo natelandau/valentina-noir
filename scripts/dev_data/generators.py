@@ -176,8 +176,8 @@ async def create_characters(
     companies_by_id = {company.id: company for company in companies}
     characters: list[Character] = []
     for campaign in campaigns:
-        company = companies_by_id[campaign.company_id]  # ty:ignore[unresolved-attribute]
-        company_users = users_by_company[campaign.company_id]  # ty:ignore[unresolved-attribute]
+        company = companies_by_id[campaign.company_id]  # ty:ignore[missing-attribute]
+        company_users = users_by_company[campaign.company_id]  # ty:ignore[missing-attribute]
         for i in range(cfg.num_characters):
             user = random.choice(company_users)
             handler = CharacterAutogenerationHandler(user=user, company=company, campaign=campaign)
@@ -214,14 +214,14 @@ async def create_dice_rolls(
     service = DiceRollService()
     dice_sizes = list(DiceSize)
     for character in characters:
-        company_users = users_by_company[character.company_id]  # ty:ignore[unresolved-attribute]
+        company_users = users_by_company[character.company_id]  # ty:ignore[missing-attribute]
         if character.type == CharacterType.STORYTELLER:
             company_users = [u for u in company_users if u.role in STORYTELLER_ROLES]
             if not company_users:
                 continue
-        company_id = character.company_id  # ty:ignore[unresolved-attribute]
+        company_id = character.company_id  # ty:ignore[missing-attribute]
         character_id = character.id
-        campaign_id = character.campaign_id or None  # ty:ignore[unresolved-attribute]
+        campaign_id = character.campaign_id or None  # ty:ignore[missing-attribute]
         for _ in range(_count(cfg.dice_rolls_per_char)):
             user = random.choice(company_users)
             data = DiceRollCreate(
@@ -272,18 +272,18 @@ async def create_notes(
     for campaign in campaigns:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=campaign.company_id,  # ty:ignore[unresolved-attribute]
-                user=_author(campaign.company_id),  # ty:ignore[unresolved-attribute]
+                company_id=campaign.company_id,  # ty:ignore[missing-attribute]
+                user=_author(campaign.company_id),  # ty:ignore[missing-attribute]
                 campaign=campaign,
                 title=fake.note_title(),
                 content=fake.note_body(),
             )
     for book in books:
-        campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[unresolved-attribute]
+        campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[missing-attribute]
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=campaign.company_id,  # ty:ignore[unresolved-attribute]
-                user=_author(campaign.company_id),  # ty:ignore[unresolved-attribute]
+                company_id=campaign.company_id,  # ty:ignore[missing-attribute]
+                user=_author(campaign.company_id),  # ty:ignore[missing-attribute]
                 book=book,
                 title=fake.note_title(),
                 content=fake.note_body(),
@@ -291,8 +291,8 @@ async def create_notes(
     for character in characters:
         for _ in range(_count(cfg.notes_per_target)):
             await Note.create(
-                company_id=character.company_id,  # ty:ignore[unresolved-attribute]
-                user=_author(character.company_id),  # ty:ignore[unresolved-attribute]
+                company_id=character.company_id,  # ty:ignore[missing-attribute]
+                user=_author(character.company_id),  # ty:ignore[missing-attribute]
                 character=character,
                 title=fake.note_title(),
                 content=fake.note_body(),
@@ -344,14 +344,14 @@ async def create_assets(
             )
 
     for character in characters:
-        await _attach(company_id=character.company_id, parent_kwarg="character", parent=character)  # ty:ignore[unresolved-attribute]
+        await _attach(company_id=character.company_id, parent_kwarg="character", parent=character)  # ty:ignore[missing-attribute]
     for book in books:
-        campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[unresolved-attribute]
-        await _attach(company_id=campaign.company_id, parent_kwarg="book", parent=book)  # ty:ignore[unresolved-attribute]
+        campaign = campaigns_by_id[str(book.campaign_id)]  # ty:ignore[missing-attribute]
+        await _attach(company_id=campaign.company_id, parent_kwarg="book", parent=book)  # ty:ignore[missing-attribute]
     for chapter in chapters:
-        parent_book = books_by_id[str(chapter.book_id)]  # ty:ignore[unresolved-attribute]
-        campaign = campaigns_by_id[str(parent_book.campaign_id)]  # ty:ignore[unresolved-attribute]
-        await _attach(company_id=campaign.company_id, parent_kwarg="chapter", parent=chapter)  # ty:ignore[unresolved-attribute]
+        parent_book = books_by_id[str(chapter.book_id)]  # ty:ignore[missing-attribute]
+        campaign = campaigns_by_id[str(parent_book.campaign_id)]  # ty:ignore[missing-attribute]
+        await _attach(company_id=campaign.company_id, parent_kwarg="chapter", parent=chapter)  # ty:ignore[missing-attribute]
 
 
 async def populate_data(cfg: PopulateConfig) -> list[Developer]:
@@ -380,7 +380,7 @@ async def build_api_keys(developers: list[Developer]) -> list[DevApiKey]:
     for developer in developers:
         await developer.fetch_related("permissions")
         company_permissions = [
-            (p.company_id, p.permission)  # ty:ignore[unresolved-attribute]
+            (p.company_id, p.permission)  # ty:ignore[missing-attribute]
             for p in developer.permissions
         ]
         keys.append(

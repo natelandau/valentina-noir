@@ -1154,7 +1154,7 @@ class TestSaveCharacterPatchStaleInstance:
 
         # And the new player keeps the character
         committed = await Character.get(id=stale.id)
-        assert committed.user_player_id == other_player.id  # ty:ignore[unresolved-attribute]
+        assert committed.user_player_id == other_player.id  # ty:ignore[missing-attribute]
         assert committed.biography != "Mine again"
 
     async def test_storyteller_type_change_survives_player_patch(
@@ -1183,7 +1183,7 @@ class TestSaveCharacterPatchStaleInstance:
         # And the character stays a storyteller character with no player
         committed = await Character.get(id=stale.id)
         assert committed.type == CharacterType.STORYTELLER
-        assert committed.user_player_id is None  # ty:ignore[unresolved-attribute]
+        assert committed.user_player_id is None  # ty:ignore[missing-attribute]
 
     async def test_storyteller_patch_keeps_concurrent_reassignment(
         self,
@@ -1209,5 +1209,5 @@ class TestSaveCharacterPatchStaleInstance:
         # Then the name changes and the reassignment persists
         committed = await Character.get(id=stale.id)
         assert committed.name_first == "Renamed"
-        assert committed.user_player_id == other_player.id  # ty:ignore[unresolved-attribute]
+        assert committed.user_player_id == other_player.id  # ty:ignore[missing-attribute]
         assert "user_player_id" not in changes

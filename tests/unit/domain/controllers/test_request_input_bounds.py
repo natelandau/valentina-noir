@@ -159,7 +159,7 @@ def test_dictionary_link_accepts_http_urls(struct: type[msgspec.Struct], link: s
     term = _decode(struct, {"term": "Kindred", "link": link})
 
     # Then
-    assert term.link == link  # ty:ignore[unresolved-attribute]
+    assert term.link == link  # ty:ignore[missing-attribute]
 
 
 @pytest.mark.parametrize("struct", [DictionaryTermCreate, DictionaryTermPatch])

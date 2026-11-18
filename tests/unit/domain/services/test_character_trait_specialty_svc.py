@@ -1046,7 +1046,7 @@ class TestRatingBasedSpecialtyRules:
             name="brawl",
             custom_for_character=base.character,
             sheet_section=await CharSheetSection.get(name="Abilities"),
-            category_id=brawl.category_id,  # ty:ignore[unresolved-attribute]
+            category_id=brawl.category_id,  # ty:ignore[missing-attribute]
         )
         custom_char_trait = await character_trait_factory(
             character=base.character, trait=custom, value=3

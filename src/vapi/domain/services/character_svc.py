@@ -96,7 +96,7 @@ class CharacterService:
         # The controller passes clan_id; we need to look it up.
         vampire_attrs = await VampireAttributes.filter(character=character).first()
 
-        clan_id: UUID | None = vampire_attrs.clan_id if vampire_attrs else None  # ty:ignore[unresolved-attribute]
+        clan_id: UUID | None = vampire_attrs.clan_id if vampire_attrs else None  # ty:ignore[missing-attribute]
 
         if not clan_id:
             raise ValidationError(
@@ -151,8 +151,8 @@ class CharacterService:
         if not werewolf_attrs:
             return
 
-        tribe_id: UUID | None = werewolf_attrs.tribe_id if werewolf_attrs else None  # ty:ignore[unresolved-attribute]
-        auspice_id: UUID | None = werewolf_attrs.auspice_id if werewolf_attrs else None  # ty:ignore[unresolved-attribute]
+        tribe_id: UUID | None = werewolf_attrs.tribe_id if werewolf_attrs else None  # ty:ignore[missing-attribute]
+        auspice_id: UUID | None = werewolf_attrs.auspice_id if werewolf_attrs else None  # ty:ignore[missing-attribute]
 
         if not tribe_id or not auspice_id:
             raise ValidationError(
@@ -185,7 +185,7 @@ class CharacterService:
             name_first=character.name_first,
             name_last=character.name_last,
             is_archived=False,
-            company_id=character.company_id,  # ty:ignore[unresolved-attribute]
+            company_id=character.company_id,  # ty:ignore[missing-attribute]
         ).exclude(id=character.id)
 
         if await qs.exists():
@@ -228,12 +228,12 @@ class CharacterService:
         Raises:
             ValidationError: If concept_id is set but concept not found.
         """
-        concept_id: UUID | None = character.concept_id  # ty:ignore[unresolved-attribute]
+        concept_id: UUID | None = character.concept_id  # ty:ignore[missing-attribute]
         if not concept_id:
             return
 
         concept = await CharacterConcept.filter(
-            concept_visible_to_company_q(character.company_id),  # ty:ignore[unresolved-attribute]
+            concept_visible_to_company_q(character.company_id),  # ty:ignore[missing-attribute]
             id=concept_id,
             is_archived=False,
         ).first()
@@ -352,17 +352,17 @@ class CharacterService:
             if (
                 data.user_player_id is not msgspec.UNSET
                 and data.user_player_id is not None
-                and data.user_player_id != character.user_player_id  # ty:ignore[unresolved-attribute]
+                and data.user_player_id != character.user_player_id  # ty:ignore[missing-attribute]
             ):
                 await self.validate_player_assignment(
                     user_player_id=data.user_player_id,
-                    company_id=character.company_id,  # ty:ignore[unresolved-attribute]
+                    company_id=character.company_id,  # ty:ignore[missing-attribute]
                 )
             # The same patch can reassign the player or clear it, so refunds go to a copy
             # of the character as it was before the patch: the owner who paid.
             payer = (
                 copy(character)
-                if data.concept_id is not msgspec.UNSET and data.concept_id != character.concept_id  # ty:ignore[unresolved-attribute]
+                if data.concept_id is not msgspec.UNSET and data.concept_id != character.concept_id  # ty:ignore[missing-attribute]
                 else None
             )
             changes = await self.apply_character_patch(character, data)
@@ -374,10 +374,10 @@ class CharacterService:
                 changes["age"] = {"old": old_age, "new": character.age}
             await character.save()
             if payer is not None:
-                settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
+                settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[missing-attribute]
                 # Only RATING_BASED rules consult the concept.
                 if settings.specialty_rules == SpecialtyRules.RATING_BASED:
-                    payer.concept_id = character.concept_id  # ty:ignore[unresolved-attribute]
+                    payer.concept_id = character.concept_id  # ty:ignore[missing-attribute]
                     removed = await CharacterTraitService().remove_ineligible_specialties(
                         settings=settings, character=payer
                     )
@@ -440,9 +440,9 @@ class CharacterService:
             ValidationError: If the campaign or player is not an active record in the
                 character's company.
         """
-        company_id = character.company_id  # ty:ignore[unresolved-attribute]
-        campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
-        user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
+        company_id = character.company_id  # ty:ignore[missing-attribute]
+        campaign_id = character.campaign_id  # ty:ignore[missing-attribute]
+        user_player_id = character.user_player_id  # ty:ignore[missing-attribute]
 
         if (
             campaign_id is not None

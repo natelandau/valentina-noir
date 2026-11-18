@@ -23,7 +23,7 @@ class DictionaryService:
         Raises:
             ValidationError: If the term is not editable.
         """
-        if dictionary_term.company_id != company_id or dictionary_term.source_type is not None:  # ty:ignore[unresolved-attribute]
+        if dictionary_term.company_id != company_id or dictionary_term.source_type is not None:  # ty:ignore[missing-attribute]
             raise ValidationError(
                 detail="You may not update dictionary terms that are not owned by your company."
             )
@@ -88,5 +88,5 @@ class DictionaryService:
 
         grouped: dict[UUID, list[TraitPower]] = {}
         for power in powers:
-            grouped.setdefault(power.trait_id, []).append(power)  # ty:ignore[unresolved-attribute]
+            grouped.setdefault(power.trait_id, []).append(power)  # ty:ignore[missing-attribute]
         return grouped

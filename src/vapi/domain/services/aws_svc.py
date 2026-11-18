@@ -269,7 +269,7 @@ class AWSS3Service:
         different avatar is left alone.
         """
         await self.delete_key(key=asset.s3_key)
-        user_parent_id = asset.user_parent_id  # ty:ignore[unresolved-attribute]
+        user_parent_id = asset.user_parent_id  # ty:ignore[missing-attribute]
         async with in_transaction():
             if user_parent_id is not None:
                 await User.filter(id=user_parent_id, avatar_asset_id=asset.id).update(

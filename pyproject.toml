@@ -271,4 +271,4 @@
     include = ["src/vapi/db/sql_models/**"]
 
     [tool.ty.overrides.rules]
-        invalid-attribute-override = "ignore"
+        incompatible-attribute-override = "ignore"

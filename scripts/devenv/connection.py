@@ -104,7 +104,7 @@ async def gather_connection(*, keys: dict[UUID, str], origin: str) -> Connection
                 is_global_admin=developer.is_global_admin,
                 api_key=keys.get(developer.id),
                 permissions=[
-                    (permission.company_id, str(permission.permission))  # ty:ignore[unresolved-attribute]
+                    (permission.company_id, str(permission.permission))  # ty:ignore[missing-attribute]
                     for permission in developer.permissions
                 ],
             )
@@ -116,7 +116,7 @@ async def gather_connection(*, keys: dict[UUID, str], origin: str) -> Connection
                 id=user.id,
                 name=_user_name(user),
                 role=str(user.role),
-                company_id=user.company_id,  # ty:ignore[unresolved-attribute]
+                company_id=user.company_id,  # ty:ignore[missing-attribute]
             )
             for user in users
         ],

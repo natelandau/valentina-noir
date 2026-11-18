@@ -197,12 +197,12 @@ class CharacterTraitService:
             NotEnoughXPError: If the user cannot afford the XP cost.
             ValidationError: If the character cannot afford the starting points cost.
         """
-        if await self._is_flaw_category(trait.category_id):  # ty:ignore[unresolved-attribute]
+        if await self._is_flaw_category(trait.category_id):  # ty:ignore[missing-attribute]
             return
 
         multiplier = trait.count_based_cost_multiplier
         if multiplier is not None:
-            count = await self._count_category_traits(character.id, trait.category_id)  # ty:ignore[unresolved-attribute]
+            count = await self._count_category_traits(character.id, trait.category_id)  # ty:ignore[missing-attribute]
             cost = (count + 1) * multiplier
         else:
             cost = 0
@@ -212,8 +212,8 @@ class CharacterTraitService:
         if currency == TraitModifyCurrency.XP and character.type == CharacterType.PLAYER:
             user_svc = UserXPService()
             experience = await user_svc.get_or_create_campaign_experience(
-                character.user_player_id,  # ty:ignore[unresolved-attribute]
-                character.campaign_id,  # ty:ignore[unresolved-attribute]
+                character.user_player_id,  # ty:ignore[missing-attribute]
+                character.campaign_id,  # ty:ignore[missing-attribute]
             )
             if experience.xp_current < cost:
                 raise NotEnoughXPError
@@ -298,7 +298,7 @@ class CharacterTraitService:
         Returns:
             True if the trait belongs to the "Flaws" parent category.
         """
-        return await self._is_flaw_category(character_trait.trait.category_id)  # ty:ignore[unresolved-attribute]
+        return await self._is_flaw_category(character_trait.trait.category_id)  # ty:ignore[missing-attribute]
 
     async def guard_user_can_manage_character(self, character: Character, user: "User") -> bool:
         """Guard to check if the user is able to update traits on the given character.
@@ -377,7 +377,7 @@ class CharacterTraitService:
             upgrade_costs[str(num_dots)] = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
             )
         return upgrade_costs
 
@@ -402,13 +402,13 @@ class CharacterTraitService:
             downgrade_savings[str(num_dots)] = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
             )
 
         downgrade_savings["DELETE"] = await self._calculate_downgrade_savings(
             character_trait,
             character_trait.value,
-            character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+            character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
         )
 
         return downgrade_savings
@@ -431,7 +431,7 @@ class CharacterTraitService:
         return await self._calculate_upgrade_cost(
             character_trait,
             increase_by,
-            character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+            character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
         )
 
     async def _calculate_upgrade_cost(
@@ -464,7 +464,7 @@ class CharacterTraitService:
                 raise ValidationError(detail=msg)
             count = await self._count_category_traits(
                 character_id,
-                character_trait.trait.category_id,  # ty:ignore[unresolved-attribute]
+                character_trait.trait.category_id,  # ty:ignore[missing-attribute]
             )
             return (count + 1) * multiplier
 
@@ -503,7 +503,7 @@ class CharacterTraitService:
         return await self._calculate_downgrade_savings(
             character_trait,
             decrease_by,
-            character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+            character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
         )
 
     async def _calculate_downgrade_savings(
@@ -533,7 +533,7 @@ class CharacterTraitService:
         if multiplier is not None:
             count = await self._count_category_traits(
                 character_id,
-                character_trait.trait.category_id,  # ty:ignore[unresolved-attribute]
+                character_trait.trait.category_id,  # ty:ignore[missing-attribute]
             )
             return count * multiplier
 
@@ -650,8 +650,8 @@ class CharacterTraitService:
         )
         if not specialties:
             return None
-        settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[unresolved-attribute]
-        trait = await Trait.get(id=character_trait.trait_id).select_related("sheet_section")  # ty:ignore[unresolved-attribute]
+        settings = await CompanySettings.get(company_id=character.company_id)  # ty:ignore[missing-attribute]
+        trait = await Trait.get(id=character_trait.trait_id).select_related("sheet_section")  # ty:ignore[missing-attribute]
         min_rating = self.specialty_min_rating(
             rules=settings.specialty_rules,
             trait=trait,
@@ -983,7 +983,7 @@ class CharacterTraitService:
             character_id=character.id,
         ).select_related("trait")
         existing_trait_ids: set[UUID] = {
-            ct.trait_id  # ty:ignore[unresolved-attribute]
+            ct.trait_id  # ty:ignore[missing-attribute]
             for ct in existing_cts
         }
 
@@ -995,8 +995,8 @@ class CharacterTraitService:
         if character.type == CharacterType.PLAYER:
             user_svc = UserXPService()
             campaign_xp = await user_svc.get_or_create_campaign_experience(
-                character.user_player_id,  # ty:ignore[unresolved-attribute]
-                character.campaign_id,  # ty:ignore[unresolved-attribute]
+                character.user_player_id,  # ty:ignore[missing-attribute]
+                character.campaign_id,  # ty:ignore[missing-attribute]
             )
             running_xp = campaign_xp.xp_current
 
@@ -1084,7 +1084,7 @@ class CharacterTraitService:
                         cost = await self._calculate_upgrade_cost(
                             character_trait,
                             num_dots,
-                            character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                            character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
                         )
                         is_flaw = await self._is_flaw_trait(character_trait)
 
@@ -1112,7 +1112,7 @@ class CharacterTraitService:
                         cost = await self._calculate_upgrade_cost(
                             character_trait,
                             num_dots,
-                            character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                            character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
                         )
                         is_flaw = await self._is_flaw_trait(character_trait)
 
@@ -1425,7 +1425,7 @@ class CharacterTraitService:
             cost = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
             )
         else:
             if not deleting_trait:
@@ -1433,7 +1433,7 @@ class CharacterTraitService:
             cost = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
             )
 
         is_flaw = await self._is_flaw_trait(character_trait)
@@ -1449,8 +1449,8 @@ class CharacterTraitService:
             # NPC/STORYTELLER, so this guard is a defensive-depth safeguard.
             if character.type == CharacterType.PLAYER:
                 user_svc = UserXPService()
-                user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
-                campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
+                user_player_id = character.user_player_id  # ty:ignore[missing-attribute]
+                campaign_id = character.campaign_id  # ty:ignore[missing-attribute]
                 # Flaw traits invert the currency direction
                 if is_increase == is_flaw:
                     await user_svc.add_xp(
@@ -1501,7 +1501,7 @@ class CharacterTraitService:
             cost = await self._calculate_upgrade_cost(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
             )
         else:
             if not deleting_trait:
@@ -1509,7 +1509,7 @@ class CharacterTraitService:
             cost = await self._calculate_downgrade_savings(
                 character_trait,
                 num_dots,
-                character_id=character_trait.character_id,  # ty:ignore[unresolved-attribute]
+                character_id=character_trait.character_id,  # ty:ignore[missing-attribute]
             )
 
         is_flaw = await self._is_flaw_trait(character_trait)
@@ -1612,8 +1612,8 @@ class CharacterTraitService:
         xp_current = 0
         if is_player:
             user_svc = UserXPService()
-            user_player_id = character.user_player_id  # ty:ignore[unresolved-attribute]
-            campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
+            user_player_id = character.user_player_id  # ty:ignore[missing-attribute]
+            campaign_id = character.campaign_id  # ty:ignore[missing-attribute]
             campaign_experience = await user_svc.get_or_create_campaign_experience(
                 user_player_id, campaign_id
             )
@@ -1902,7 +1902,7 @@ class CharacterTraitService:
 
             tracker_svc = TrackerService()
             affects_derived = await tracker_svc.affects_derived_values(character_trait)
-            if character_trait.trait.custom_for_character_id == character.id:  # ty:ignore[unresolved-attribute]
+            if character_trait.trait.custom_for_character_id == character.id:  # ty:ignore[missing-attribute]
                 await character_trait.trait.delete()
             await character_trait.delete()
 
@@ -1939,7 +1939,7 @@ class CharacterTraitService:
             case SpecialtyRules.RATING_BASED:
                 if (
                     section == "Abilities"
-                    and trait.custom_for_character_id is None  # ty:ignore[unresolved-attribute]
+                    and trait.custom_for_character_id is None  # ty:ignore[missing-attribute]
                     and trait.name.casefold() in favored_names
                 ):
                     return SPECIALTY_FAVORED_MIN_RATING
@@ -1957,7 +1957,7 @@ class CharacterTraitService:
             The favored names, empty unless the rules are RATING_BASED and the character has an
             active concept.
         """
-        concept_id = character.concept_id  # ty:ignore[unresolved-attribute]
+        concept_id = character.concept_id  # ty:ignore[missing-attribute]
         if rules != SpecialtyRules.RATING_BASED or not concept_id:
             return frozenset()
         favored = await CharacterTraitService._favored_names_by_concept({concept_id})
@@ -2054,7 +2054,7 @@ class CharacterTraitService:
         )
         if exclude_id is not None:
             query = query.exclude(id=exclude_id)
-        return await query.values_list("name", flat=True)  # ty:ignore[invalid-return-type]
+        return await query.values_list("name", flat=True)  # ty:ignore[invalid-explicit-return]
 
     @staticmethod
     def _clean_specialty_name(*, name: str, existing_names: list[str]) -> str:
@@ -2129,8 +2129,8 @@ class CharacterTraitService:
                         )
                     case TraitModifyCurrency.XP:
                         await UserXPService().spend_xp(
-                            user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
-                            campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
+                            user_id=character.user_player_id,  # ty:ignore[missing-attribute]
+                            campaign_id=character.campaign_id,  # ty:ignore[missing-attribute]
                             amount=cost,
                         )
                         cost_paid, currency_paid = cost, TraitModifyCurrency.XP
@@ -2191,10 +2191,10 @@ class CharacterTraitService:
         xp_refund, starting_points_refund = self._specialty_refund_amounts(
             specialty=specialty, recoup_setting=recoup_setting
         )
-        if xp_refund and character.user_player_id is not None:  # ty:ignore[unresolved-attribute]
+        if xp_refund and character.user_player_id is not None:  # ty:ignore[missing-attribute]
             await UserXPService().add_xp(
-                user_id=character.user_player_id,  # ty:ignore[unresolved-attribute]
-                campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
+                user_id=character.user_player_id,  # ty:ignore[missing-attribute]
+                campaign_id=character.campaign_id,  # ty:ignore[missing-attribute]
                 amount=xp_refund,
                 update_total=False,
             )
@@ -2271,7 +2271,7 @@ class CharacterTraitService:
         )
         query = CharacterTraitSpecialty.filter(
             is_archived=False,
-            character_trait__character__company_id=settings.company_id,  # ty:ignore[unresolved-attribute]
+            character_trait__character__company_id=settings.company_id,  # ty:ignore[missing-attribute]
             character_trait__character__is_archived=False,
         )
         if character is not None:
@@ -2287,9 +2287,9 @@ class CharacterTraitService:
         if rules == SpecialtyRules.RATING_BASED:
             favored_by_concept = await self._favored_names_by_concept(
                 {
-                    owner(specialty).concept_id  # ty:ignore[unresolved-attribute]
+                    owner(specialty).concept_id  # ty:ignore[missing-attribute]
                     for specialty in specialties
-                    if owner(specialty).concept_id  # ty:ignore[unresolved-attribute]
+                    if owner(specialty).concept_id  # ty:ignore[missing-attribute]
                 }
             )
 
@@ -2301,7 +2301,7 @@ class CharacterTraitService:
                     rules=rules,
                     trait=character_trait.trait,
                     favored_names=favored_by_concept.get(
-                        owner(specialty).concept_id,  # ty:ignore[unresolved-attribute]
+                        owner(specialty).concept_id,  # ty:ignore[missing-attribute]
                         frozenset(),
                     ),
                 )

@@ -38,7 +38,7 @@ def _assert_can_roll_for_character(*, character: Character, user: User) -> None:
 
 def _assert_campaign_matches_character(*, character: Character, campaign_id: UUID | None) -> None:
     """Reject a roll filed under a campaign other than its character's campaign."""
-    character_campaign_id = character.campaign_id  # ty:ignore[unresolved-attribute]
+    character_campaign_id = character.campaign_id  # ty:ignore[missing-attribute]
     if campaign_id and character_campaign_id and campaign_id != character_campaign_id:
         msg = "campaign_id must match the character's campaign"
         raise ValidationError(
@@ -184,7 +184,7 @@ class DiceRollService:
             company=company,
             user=user,
             character=character,
-            campaign_id=character.campaign_id,  # ty:ignore[unresolved-attribute]
+            campaign_id=character.campaign_id,  # ty:ignore[missing-attribute]
             comment=data.comment or f"Quick roll: {quickroll.name}",
         )
 

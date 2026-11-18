@@ -182,10 +182,10 @@ class TokenBucket(Struct):
 
     async def _allow_request_atomic(self) -> bool:
         """Refill and spend a token in one Redis script so concurrent requests cannot share it."""
-        redis = self.store._redis  # ty:ignore[unresolved-attribute]  # noqa: SLF001
+        redis = self.store._redis  # ty:ignore[missing-attribute]  # noqa: SLF001
         script = redis.register_script(_ALLOW_REQUEST_SCRIPT)
         allowed, tokens, last_refill = await script(
-            keys=[self.store._make_key(self.storage_key)],  # ty:ignore[unresolved-attribute]  # noqa: SLF001
+            keys=[self.store._make_key(self.storage_key)],  # ty:ignore[missing-attribute]  # noqa: SLF001
             args=[self.capacity, self.refill_rate, time.time(), self.expires_in],
         )
         self.tokens = float(tokens)

@@ -182,7 +182,7 @@ class UserService:
 
         admins = (
             await User.filter(
-                company_id=target_user.company_id,  # ty:ignore[unresolved-attribute]
+                company_id=target_user.company_id,  # ty:ignore[missing-attribute]
                 role=UserRole.ADMIN,
                 is_archived=False,
             )

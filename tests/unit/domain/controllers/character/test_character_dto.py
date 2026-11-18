@@ -207,5 +207,5 @@ async def test_character_detail_include_traits_loads_gift_tribe_and_auspice(
 
     # Then each gift names its tribe or auspice
     gifts = {t.trait.id: t.trait.gift_attributes for t in response.traits}
-    assert gifts[tribe_gift.id].tribe_id == tribe_gift.gift_tribe_id  # ty:ignore[unresolved-attribute]
-    assert gifts[auspice_gift.id].auspice_id == auspice_gift.gift_auspice_id  # ty:ignore[unresolved-attribute]
+    assert gifts[tribe_gift.id].tribe_id == tribe_gift.gift_tribe_id  # ty:ignore[missing-attribute]
+    assert gifts[auspice_gift.id].auspice_id == auspice_gift.gift_auspice_id  # ty:ignore[missing-attribute]

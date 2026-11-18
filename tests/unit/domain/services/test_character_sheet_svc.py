@@ -784,7 +784,7 @@ class TestCharacterSheetService:
 
             # And a werewolf of that tribe, loaded without any relations
             character = await character_factory(character_class="WEREWOLF")
-            await werewolf_attributes_factory(character=character, tribe_id=gift.gift_tribe_id)  # ty:ignore[unresolved-attribute]
+            await werewolf_attributes_factory(character=character, tribe_id=gift.gift_tribe_id)  # ty:ignore[missing-attribute]
             unloaded = await type(character).get(id=character.id)
 
             # When building the gift's category slice with available traits

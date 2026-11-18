@@ -154,7 +154,7 @@ class GlobalAdminUserService:
             # profile_field comes from PROVIDER_PROFILE_FIELDS, never from user input
             holder_exists = (
                 await User.filter(
-                    company_id=user.company_id,  # ty:ignore[unresolved-attribute]
+                    company_id=user.company_id,  # ty:ignore[missing-attribute]
                     is_archived=False,
                 )
                 .exclude(id=user.id)

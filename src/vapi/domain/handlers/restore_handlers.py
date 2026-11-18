@@ -32,8 +32,8 @@ _NOTE_AND_ASSET_PARENTS: tuple[str, ...] = ("campaign", "book", "chapter", "char
 def _parent_context(parent: Model) -> ArchiveContext:
     """Return an archive context that restores a row together with its archived parent."""
     return ArchiveContext(
-        batch_id=parent.archive_batch_id or new_uuid(),  # ty:ignore[unresolved-attribute]
-        now=parent.archive_date or time_now(),  # ty:ignore[unresolved-attribute]
+        batch_id=parent.archive_batch_id or new_uuid(),  # ty:ignore[missing-attribute]
+        now=parent.archive_date or time_now(),  # ty:ignore[missing-attribute]
     )
 
 

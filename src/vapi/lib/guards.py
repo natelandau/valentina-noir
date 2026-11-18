@@ -412,12 +412,12 @@ async def user_can_edit_character(*, character: Character, user: User) -> bool:
 
     # NPCs are ownerless, so the company's permission_manage_npc setting decides
     if character.type == CharacterType.NPC:
-        settings = await CompanySettings.filter(company_id=character.company_id).first()  # ty:ignore[unresolved-attribute]
+        settings = await CompanySettings.filter(company_id=character.company_id).first()  # ty:ignore[missing-attribute]
         return settings is not None and npc_management_permitted(
             settings.permission_manage_npc, user
         )
 
-    return character.user_player_id == user.id  # ty:ignore[unresolved-attribute]
+    return character.user_player_id == user.id  # ty:ignore[missing-attribute]
 
 
 async def user_can_manage_campaign(connection: "ASGIConnection", _: "BaseRouteHandler") -> None:

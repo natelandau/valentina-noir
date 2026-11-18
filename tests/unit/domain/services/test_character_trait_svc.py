@@ -4312,7 +4312,7 @@ class TestBulkAddConstantTraitsToCharacter:
         # Given a character with no XP or starting points and unused traits
         company, user, character = get_company_user_character
         existing_trait_ids = [
-            ct.trait_id  # ty:ignore[unresolved-attribute]
+            ct.trait_id  # ty:ignore[missing-attribute]
             for ct in await CharacterTrait.filter(character_id=character.id)
         ]
         traits = (

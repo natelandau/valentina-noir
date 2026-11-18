@@ -277,7 +277,7 @@ async def provide_acting_user(
         NotFoundError: If the user does not exist, is archived, or is not in the company.
     """
     cached: User | None = getattr(request.state, "acting_user", None)
-    if cached is not None and cached.company_id == company.id:  # ty:ignore[unresolved-attribute]
+    if cached is not None and cached.company_id == company.id:  # ty:ignore[missing-attribute]
         return cached
 
     user_id = parse_acting_user_id(on_behalf_of)

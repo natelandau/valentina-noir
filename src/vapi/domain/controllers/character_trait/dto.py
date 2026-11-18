@@ -150,7 +150,7 @@ def tracker_type_for(trait: "Trait", *, character: "Character") -> TrackerType |
     The character's game version picks the trait's configured type, and its class decides
     whether Humanity tracks stains. Custom traits never have a tracker.
     """
-    if trait.custom_for_character_id:  # ty:ignore[unresolved-attribute]
+    if trait.custom_for_character_id:  # ty:ignore[missing-attribute]
         return None
     return resolve_tracker_type(
         tracker_type_v4=trait.tracker_type_v4,
@@ -219,7 +219,7 @@ class CharacterTraitResponse(msgspec.Struct):
         """
         return cls(
             id=m.id,
-            character_id=m.character_id,  # ty:ignore[unresolved-attribute]
+            character_id=m.character_id,  # ty:ignore[missing-attribute]
             value=m.value,
             trait=TraitResponse.from_model(m.trait),
             specialties=[

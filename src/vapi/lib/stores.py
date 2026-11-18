@@ -252,8 +252,8 @@ async def delete_response_cache_for_company(request: Request, company_id: str) -
         company_id (str): The company whose cached routes to clear.
     """
     store = request.app.stores.get(settings.stores.response_cache_key)
-    await store.delete_indexed("company", company_id)  # ty:ignore[unresolved-attribute]
-    await store.delete_indexed("company_list", "all")  # ty:ignore[unresolved-attribute]
+    await store.delete_indexed("company", company_id)  # ty:ignore[missing-attribute]
+    await store.delete_indexed("company_list", "all")  # ty:ignore[missing-attribute]
 
 
 async def delete_response_cache_for_api_key(request: Request) -> None:
@@ -265,4 +265,4 @@ async def delete_response_cache_for_api_key(request: Request) -> None:
     fingerprint = hmac_sha256_hex(data=request.headers.get(AUTH_HEADER_KEY, ""))
 
     store = request.app.stores.get(settings.stores.response_cache_key)
-    await store.delete_indexed("developer", fingerprint)  # ty:ignore[unresolved-attribute]
+    await store.delete_indexed("developer", fingerprint)  # ty:ignore[missing-attribute]

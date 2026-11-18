@@ -135,8 +135,8 @@ class DiceRollResponse(msgspec.Struct):
             result=DiceRollResultResponse.from_model(roll_result) if roll_result else None,
             comment=m.comment,
             trait_ids=[t.id for t in m.traits],
-            user_id=m.user_id,  # ty:ignore[unresolved-attribute]
-            character_id=m.character_id,  # ty:ignore[unresolved-attribute]
-            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
-            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
+            user_id=m.user_id,  # ty:ignore[missing-attribute]
+            character_id=m.character_id,  # ty:ignore[missing-attribute]
+            campaign_id=m.campaign_id,  # ty:ignore[missing-attribute]
+            company_id=m.company_id,  # ty:ignore[missing-attribute]
         )

@@ -37,11 +37,11 @@ class S3AssetResponse(msgspec.Struct):
             mime_type=m.mime_type,
             original_filename=m.original_filename,
             public_url=m.public_url,
-            company_id=m.company_id,  # ty:ignore[unresolved-attribute]
-            uploaded_by_id=m.uploaded_by_id,  # ty:ignore[unresolved-attribute]
-            character_id=m.character_id,  # ty:ignore[unresolved-attribute]
-            campaign_id=m.campaign_id,  # ty:ignore[unresolved-attribute]
-            book_id=m.book_id,  # ty:ignore[unresolved-attribute]
-            chapter_id=m.chapter_id,  # ty:ignore[unresolved-attribute]
-            user_parent_id=m.user_parent_id,  # ty:ignore[unresolved-attribute]
+            company_id=m.company_id,  # ty:ignore[missing-attribute]
+            uploaded_by_id=m.uploaded_by_id,  # ty:ignore[missing-attribute]
+            character_id=m.character_id,  # ty:ignore[missing-attribute]
+            campaign_id=m.campaign_id,  # ty:ignore[missing-attribute]
+            book_id=m.book_id,  # ty:ignore[missing-attribute]
+            chapter_id=m.chapter_id,  # ty:ignore[missing-attribute]
+            user_parent_id=m.user_parent_id,  # ty:ignore[missing-attribute]
         )

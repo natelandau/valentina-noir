@@ -46,7 +46,7 @@ def is_derived_trait(*, trait: Trait, game_version: GameVersion) -> bool:
     """
     return (
         game_version == GameVersion.V5
-        and trait.custom_for_character_id is None  # ty:ignore[unresolved-attribute]
+        and trait.custom_for_character_id is None  # ty:ignore[missing-attribute]
         and trait.name == WILLPOWER_TRAIT_NAME
     )
 
@@ -161,7 +161,7 @@ class TrackerService:
         Lets the post-save hook skip `sync_character` for traits that feed nothing.
         """
         trait = await load_trait(character_trait)
-        return trait.custom_for_character_id is None and trait.name in _SYNC_TRIGGER_TRAIT_NAMES  # ty:ignore[unresolved-attribute]
+        return trait.custom_for_character_id is None and trait.name in _SYNC_TRIGGER_TRAIT_NAMES  # ty:ignore[missing-attribute]
 
     async def _tracker_type(
         self, *, character_trait: CharacterTrait, character: Character

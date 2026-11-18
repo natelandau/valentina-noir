@@ -137,7 +137,7 @@ class CampaignChapterController(Controller):
         sees_storyteller = acting_user_sees_storyteller_characters(request)
         characters = await service.validate_campaign_characters(
             character_ids=data.character_ids,
-            campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
+            campaign_id=book.campaign_id,  # ty:ignore[missing-attribute]
             include_storyteller=sees_storyteller,
         )
         number = await service.get_next_chapter_number(book)
@@ -188,7 +188,7 @@ class CampaignChapterController(Controller):
                 service = CampaignService()
                 characters = await service.validate_campaign_characters(
                     character_ids=data.character_ids,
-                    campaign_id=book.campaign_id,  # ty:ignore[unresolved-attribute]
+                    campaign_id=book.campaign_id,  # ty:ignore[missing-attribute]
                     include_storyteller=sees_storyteller,
                 )
                 previous = await service.replace_chapter_characters(
