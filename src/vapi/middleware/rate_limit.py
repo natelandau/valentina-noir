@@ -132,7 +132,7 @@ class TokenBucket(Struct):
         capacity (int): Maximum number of tokens the bucket can hold.
         refill_rate (float): Rate at which tokens are refilled (tokens per second).
         tokens (float): Current number of tokens in the bucket.
-        last_refill (float): Timestamp of the last refill. Defaults to time.monotonic().
+        last_refill (float): Unix timestamp of the last refill. Defaults to time.time().
         set_headers (bool): Whether to set the rate limit headers in the response.
         set_429_headers (bool): Whether to set the 429-related headers in the response.
     """
