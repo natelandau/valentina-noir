@@ -91,16 +91,18 @@ async def archive_single_asset(asset_id: UUID) -> ArchiveContext:
 async def _archive_character_children(character_id: UUID, ctx: ArchiveContext) -> None:
     """Archive everything owned by a character (dice rolls excluded, D4)."""
     await archive_s3_assets("character_id", [character_id], ctx)
+    # Character traits before their specialties and custom traits: the order trait
+    # deletes and specialty writes lock in, so they cannot deadlock against the cascade
+    character_trait_ids = await CharacterTrait.filter(character_id=character_id).values_list(
+        "id", flat=True
+    )
+    await _archive_where(CharacterTrait, ctx, character_id=character_id)
+    await _archive_where(CharacterTraitSpecialty, ctx, character_trait_id__in=character_trait_ids)
     custom_trait_ids = await Trait.filter(custom_for_character_id=character_id).values_list(
         "id", flat=True
     )
     await _archive_where(TraitPower, ctx, trait_id__in=custom_trait_ids)
     await _archive_where(Trait, ctx, custom_for_character_id=character_id)
-    character_trait_ids = await CharacterTrait.filter(character_id=character_id).values_list(
-        "id", flat=True
-    )
-    await _archive_where(CharacterTraitSpecialty, ctx, character_trait_id__in=character_trait_ids)
-    await _archive_where(CharacterTrait, ctx, character_id=character_id)
     await _archive_where(CharacterInventory, ctx, character_id=character_id)
     await _archive_where(Specialty, ctx, character_id=character_id)
     for attr_model in (
@@ -135,8 +137,9 @@ async def _archive_campaign_children(campaign_id: UUID, ctx: ArchiveContext) -> 
         c.id for c in await CampaignChapter.filter(book_id__in=book_ids, is_archived=False)
     ]
 
-    await _archive_where(CampaignChapter, ctx, book_id__in=book_ids)
+    # Books before chapters: the parent-then-child order book and chapter writes lock in
     await _archive_where(CampaignBook, ctx, campaign_id=campaign_id)
+    await _archive_where(CampaignChapter, ctx, book_id__in=book_ids)
 
     await archive_s3_assets("chapter_id", chapter_ids, ctx)
     await archive_s3_assets("book_id", book_ids, ctx)

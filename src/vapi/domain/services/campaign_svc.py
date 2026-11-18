@@ -1,18 +1,17 @@
 """Campaign service."""
 
-from typing import Protocol
+from dataclasses import dataclass
 from uuid import UUID
 
 from tortoise.expressions import F, Q
 from tortoise.functions import Count
-from tortoise.models import Model
 from tortoise.queryset import QuerySet
 from tortoise.transactions import in_transaction
 
 from vapi.constants import CharacterType
 from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
 from vapi.db.sql_models.character import Character
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import NotFoundError, ValidationError
 from vapi.lib.guards import visible_characters
 
 
@@ -61,58 +60,77 @@ def annotate_chapter_counts(qs: QuerySet[CampaignChapter]) -> QuerySet[CampaignC
     )
 
 
-class _NumberedItem(Protocol):
-    """Protocol for campaign items that have a numeric position field."""
+type _NumberedItem = CampaignBook | CampaignChapter
 
-    id: UUID
-    number: int
+
+@dataclass(frozen=True)
+class _Numbering:
+    """Where one kind of numbered item sits: its model, its parent, and its labels."""
+
+    model: type[CampaignBook] | type[CampaignChapter]
+    parent_model: type[Campaign] | type[CampaignBook]
+    parent_field: str
+    parent_label: str
+    label: str
+    plural: str
+
+    def parent_id(self, item: _NumberedItem) -> UUID:
+        """Return the id of the parent the item is numbered within."""
+        return getattr(item, self.parent_field)
+
+
+_BOOKS = _Numbering(
+    model=CampaignBook,
+    parent_model=Campaign,
+    parent_field="campaign_id",
+    parent_label="Campaign",
+    label="Book",
+    plural="books in the campaign",
+)
+_CHAPTERS = _Numbering(
+    model=CampaignChapter,
+    parent_model=CampaignBook,
+    parent_field="book_id",
+    parent_label="Book",
+    label="Chapter",
+    plural="chapters in the book",
+)
 
 
 class CampaignService:
     """Manage campaign structure: book/chapter ordering and character validation for assignments."""
 
     async def get_next_book_number(self, campaign: Campaign) -> int:
-        """Get the next sequential book number for a campaign."""
-        return await self._get_next_number(CampaignBook, "campaign_id", campaign.id)
+        """Lock the campaign and get its next book number. Call inside the book's create transaction.
+
+        Raises:
+            NotFoundError: If the campaign was archived after it was loaded.
+        """
+        return await self._get_next_number(_BOOKS, campaign.id)
 
     async def get_next_chapter_number(self, book: CampaignBook) -> int:
-        """Get the next sequential chapter number for a book."""
-        return await self._get_next_number(CampaignChapter, "book_id", book.id)
+        """Lock the book and get its next chapter number. Call inside the chapter's create transaction.
 
-    async def renumber_books(self, book: CampaignBook, new_number: int) -> CampaignBook:
-        """Move a book to a new position, shifting surrounding books to maintain a contiguous sequence."""
-        await self._renumber_item(
-            item=book,
-            model=CampaignBook,
-            parent_field="campaign_id",
-            parent_id=book.campaign_id,  # ty:ignore[missing-attribute]
-            new_number=new_number,
-            label="books in the campaign",
-        )
-        book.number = new_number
-        return book
+        Raises:
+            NotFoundError: If the book was archived after it was loaded.
+        """
+        return await self._get_next_number(_CHAPTERS, book.id)
 
-    async def renumber_chapters(self, chapter: CampaignChapter, new_number: int) -> CampaignChapter:
-        """Move a chapter to a new position, shifting surrounding chapters to maintain a contiguous sequence."""
-        await self._renumber_item(
-            item=chapter,
-            model=CampaignChapter,
-            parent_field="book_id",
-            parent_id=chapter.book_id,  # ty:ignore[missing-attribute]
-            new_number=new_number,
-            label="chapters in the book",
-        )
-        chapter.number = new_number
-        return chapter
+    async def renumber_books(self, book: CampaignBook, new_number: int) -> int:
+        """Move a book to a new position, shifting surrounding books to maintain a contiguous sequence.
 
-    @staticmethod
-    async def _renumber_after_delete(
-        *, model: type[Model], parent_field: str, parent_id: UUID, number: int
-    ) -> None:
-        """Shift siblings numbered above ``number`` down by one to fill a deleted item's slot."""
-        await model.filter(
-            **{parent_field: parent_id}, number__gt=number, is_archived=False
-        ).update(number=F("number") - 1)
+        Returns:
+            The book's number before the move, read under lock for the audit log.
+        """
+        return await self._renumber(item=book, numbering=_BOOKS, new_number=new_number)
+
+    async def renumber_chapters(self, chapter: CampaignChapter, new_number: int) -> int:
+        """Move a chapter to a new position, shifting surrounding chapters to maintain a contiguous sequence.
+
+        Returns:
+            The chapter's number before the move, read under lock for the audit log.
+        """
+        return await self._renumber(item=chapter, numbering=_CHAPTERS, new_number=new_number)
 
     async def delete_book_and_renumber(self, book: CampaignBook) -> None:
         """Soft-delete a book (cascading to its chapters, notes, and assets) and renumber siblings."""
@@ -121,27 +139,15 @@ class CampaignService:
         from vapi.domain.handlers import archive_book
 
         async with in_transaction():
-            await self._renumber_after_delete(
-                model=CampaignBook,
-                parent_field="campaign_id",
-                parent_id=book.campaign_id,  # ty:ignore[missing-attribute]
-                number=book.number,
-            )
+            await self._delete_and_renumber(item=book, numbering=_BOOKS)
             await archive_book(book=book)
 
     async def delete_chapter_and_renumber(self, chapter: CampaignChapter) -> None:
         """Soft-delete a chapter (cascading to its notes and assets) and renumber siblings."""
-        # Local import: campaign_svc is imported before character_trait_svc in
-        # services/__init__, so a top-level handlers import would cycle.
         from vapi.domain.handlers import archive_chapter
 
         async with in_transaction():
-            await self._renumber_after_delete(
-                model=CampaignChapter,
-                parent_field="book_id",
-                parent_id=chapter.book_id,  # ty:ignore[missing-attribute]
-                number=chapter.number,
-            )
+            await self._delete_and_renumber(item=chapter, numbering=_CHAPTERS)
             await archive_chapter(chapter=chapter)
 
     async def archive_campaign(self, campaign: Campaign) -> None:
@@ -230,58 +236,99 @@ class CampaignService:
         return previous
 
     @staticmethod
-    async def _get_next_number(model: type[Model], parent_field: str, parent_id: UUID) -> int:
-        """Derive the next position from count rather than MAX to avoid gaps from archived items."""
-        count = await model.filter(**{parent_field: parent_id}, is_archived=False).count()
+    async def _lock_parent(*, numbering: _Numbering, parent_id: UUID) -> None:
+        """Lock the active parent that numbers its children. Call inside a transaction.
+
+        Raises:
+            NotFoundError: If the parent is archived or gone.
+        """
+        if not await numbering.parent_model.lock_rows([parent_id], is_archived=False):
+            raise NotFoundError(detail=f"{numbering.parent_label} not found")
+
+    async def _get_next_number(self, numbering: _Numbering, parent_id: UUID) -> int:
+        """Derive the next position from count rather than MAX to avoid gaps from archived items.
+
+        The parent lock keeps a concurrent create, move, or delete from changing the count
+        before the new item is saved.
+        """
+        await self._lock_parent(numbering=numbering, parent_id=parent_id)
+        count = await numbering.model.filter(
+            **{numbering.parent_field: parent_id}, is_archived=False
+        ).count()
         return count + 1
 
     @staticmethod
-    async def _renumber_item(
-        *,
-        item: _NumberedItem,
-        model: type[Model],
-        parent_field: str,
-        parent_id: UUID,
-        new_number: int,
-        label: str,
-    ) -> None:
-        """Move an item to a new position and shift siblings to maintain contiguous numbering."""
-        original_number = item.number
-        if new_number == original_number:
-            return
+    async def _lock_numbered_item(*, item: _NumberedItem, numbering: _Numbering) -> None:
+        """Lock an item's parent, then the item, and reload the item. Call inside a transaction.
 
-        sibling_count = await model.filter(**{parent_field: parent_id}, is_archived=False).count()
+        Every number change in one parent takes the parent lock first, so concurrent moves
+        and deletes run one at a time against committed numbers instead of shifting
+        siblings from stale positions. Parent-then-child is the order an archive cascade
+        takes, so the two cannot deadlock.
 
-        if new_number > sibling_count:
-            msg = f"New number {new_number} is greater than the number of {label} ({sibling_count})"
-            raise ValidationError(msg)
-        if new_number < 1:
-            msg = f"New number {new_number} is less than 1"
-            raise ValidationError(msg)
+        Raises:
+            NotFoundError: If the parent or the item is archived or gone.
+        """
+        await CampaignService._lock_parent(numbering=numbering, parent_id=numbering.parent_id(item))
+        if not await item.lock_for_update(is_archived=False):
+            raise NotFoundError(detail=f"{numbering.label} not found")
 
-        if new_number > original_number:
-            # Moving forward: shift items in (old, new] down by 1
-            await (
-                model.filter(
-                    **{parent_field: parent_id},
-                    number__gt=original_number,
-                    number__lte=new_number,
-                    is_archived=False,
-                )
-                .exclude(id=item.id)
-                .update(number=F("number") - 1)
+    async def _delete_and_renumber(self, *, item: _NumberedItem, numbering: _Numbering) -> None:
+        """Lock the item and shift siblings above it down by one. Call inside a transaction.
+
+        Raises:
+            NotFoundError: If the item or its parent was archived after the item was loaded.
+        """
+        await self._lock_numbered_item(item=item, numbering=numbering)
+        await numbering.model.filter(
+            **{numbering.parent_field: numbering.parent_id(item)},
+            number__gt=item.number,
+            is_archived=False,
+        ).update(number=F("number") - 1)
+
+    async def _renumber(
+        self, *, item: _NumberedItem, numbering: _Numbering, new_number: int
+    ) -> int:
+        """Move an item to a new position and shift siblings to maintain contiguous numbering.
+
+        Returns:
+            The item's number before the move, read under lock.
+
+        Raises:
+            NotFoundError: If the item or its parent was archived after the item was loaded.
+            ValidationError: If the new number is outside the sequence.
+        """
+        async with in_transaction():
+            await self._lock_numbered_item(item=item, numbering=numbering)
+            original_number = item.number
+            if new_number == original_number:
+                return original_number
+
+            siblings = numbering.model.filter(
+                **{numbering.parent_field: numbering.parent_id(item)}, is_archived=False
             )
-        elif new_number < original_number:
-            # Moving backward: shift items in [new, old) up by 1
-            await (
-                model.filter(
-                    **{parent_field: parent_id},
-                    number__gte=new_number,
-                    number__lt=original_number,
-                    is_archived=False,
-                )
-                .exclude(id=item.id)
-                .update(number=F("number") + 1)
-            )
+            sibling_count = await siblings.count()
+            if new_number > sibling_count:
+                msg = f"New number {new_number} is greater than the number of {numbering.plural} ({sibling_count})"
+                raise ValidationError(msg)
+            if new_number < 1:
+                msg = f"New number {new_number} is less than 1"
+                raise ValidationError(msg)
 
-        await model.filter(id=item.id).update(number=new_number)
+            if new_number > original_number:
+                # Moving forward: shift items in (old, new] down by 1
+                await (
+                    siblings.filter(number__gt=original_number, number__lte=new_number)
+                    .exclude(id=item.id)
+                    .update(number=F("number") - 1)
+                )
+            else:
+                # Moving backward: shift items in [new, old) up by 1
+                await (
+                    siblings.filter(number__gte=new_number, number__lt=original_number)
+                    .exclude(id=item.id)
+                    .update(number=F("number") + 1)
+                )
+            await numbering.model.filter(id=item.id).update(number=new_number)
+        item.number = new_number
+        return original_number

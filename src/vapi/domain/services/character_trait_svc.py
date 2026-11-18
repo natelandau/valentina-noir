@@ -49,6 +49,7 @@ from vapi.domain.services.user_xp_svc import UserXPService
 from vapi.lib.exceptions import (
     ConflictError,
     NotEnoughXPError,
+    NotFoundError,
     PermissionDeniedError,
     ValidationError,
 )
@@ -1742,6 +1743,7 @@ class CharacterTraitService:
             PermissionDeniedError: If the user lacks required permissions, including
                 recoup-XP enforcement.
             ConflictError: If another request changed the trait value concurrently.
+            NotFoundError: If the character was archived after it was loaded.
         """
         if await self._is_derived(character=character, character_trait=character_trait):
             msg = "V5 Willpower follows Composure + Resolve and cannot be changed directly"
@@ -1750,6 +1752,7 @@ class CharacterTraitService:
             )
         self.removed_specialty_names = []
         async with in_transaction():
+            await self._lock_character(character)
             result = await self._modify_trait_value(
                 company=company,
                 user=user,
@@ -1881,6 +1884,7 @@ class CharacterTraitService:
         Raises:
             PermissionDeniedError: If the user does not have permissions to delete the trait.
             ValidationError: If the trait cannot be deleted.
+            NotFoundError: If the trait was deleted or archived after it was loaded.
         """
         self.removed_specialty_names = []
         await self.guard_user_can_manage_character(character, user)
@@ -1896,6 +1900,7 @@ class CharacterTraitService:
             )
 
         async with in_transaction():
+            await self._lock_character_trait(character=character, character_trait=character_trait)
             if not is_free_delete:
                 character_trait = await self.modify_trait_value(
                     company=company,
@@ -2038,23 +2043,38 @@ class CharacterTraitService:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def _lock_character_trait_value(self, character_trait: CharacterTrait) -> None:
-        """Lock the trait row and reload its value so specialty checks see committed state.
+    @staticmethod
+    async def _lock_character(character: Character) -> None:
+        """Lock and reload the active character row. Call inside a transaction, before any child row.
 
-        Value changes update this row, so holding the lock serializes specialty writes
-        against them and against each other, keeping the value and name-uniqueness checks
-        valid until the transaction commits. Call inside a transaction.
+        A character archive cascade locks the character first and its traits and
+        specialties after, and refunds write back to the character row, so every trait or
+        specialty write takes this lock first to keep one lock order and avoid deadlock.
+        The reload means charges and refunds go to the player and campaign the character
+        holds now, not the ones loaded earlier in the request.
+
+        Raises:
+            NotFoundError: If the character was archived after it was loaded.
         """
-        locked = (
-            await CharacterTrait.filter(id=character_trait.id)
-            .select_for_update()
-            .only("id", "value")
-            .first()
-        )
-        if locked is None:
-            msg = "Character trait not found"
-            raise ValidationError(detail=msg)
-        character_trait.value = locked.value
+        if not await character.lock_for_update(is_archived=False):
+            raise NotFoundError(detail="Character not found")
+
+    async def _lock_character_trait(
+        self, *, character: Character, character_trait: CharacterTrait
+    ) -> None:
+        """Lock the character, then the active trait row, and reload the trait.
+
+        Value changes update the trait row, so holding its lock serializes specialty writes
+        and trait deletes against them and against each other, keeping the value and
+        name-uniqueness checks valid until the transaction commits. Call inside a
+        transaction.
+
+        Raises:
+            NotFoundError: If the character or trait was archived after it was loaded.
+        """
+        await self._lock_character(character)
+        if not await character_trait.lock_for_update(is_archived=False):
+            raise NotFoundError(detail="Character trait not found")
 
     @staticmethod
     async def _active_specialty_names(
@@ -2126,7 +2146,7 @@ class CharacterTraitService:
         currency_paid = TraitModifyCurrency.NO_COST
 
         async with in_transaction():
-            await self._lock_character_trait_value(character_trait)
+            await self._lock_character_trait(character=character, character_trait=character_trait)
             self._guard_trait_accepts_specialties(
                 character_trait=character_trait, rules=rules, min_rating=min_rating
             )
@@ -2174,15 +2194,23 @@ class CharacterTraitService:
         character_trait: CharacterTrait,
         specialty: CharacterTraitSpecialty,
         name: str,
-    ) -> CharacterTrait:
+    ) -> tuple[CharacterTrait, str]:
         """Rename a specialty without changing what was paid for it.
 
         Returns:
-            The refetched character trait including its specialties.
+            The refetched character trait including its specialties, and the specialty's
+            name as it stood under lock, for the audit log.
+
+        Raises:
+            NotFoundError: If the trait or specialty was deleted or archived after it was
+                loaded.
         """
         await self.guard_user_can_manage_character(character, user)
         async with in_transaction():
-            await self._lock_character_trait_value(character_trait)
+            await self._lock_character_trait(character=character, character_trait=character_trait)
+            if not await specialty.lock_for_update(is_archived=False):
+                raise NotFoundError(detail="Specialty not found")
+            old_name = specialty.name
             specialty.name = self._clean_specialty_name(
                 name=name,
                 existing_names=await self._active_specialty_names(
@@ -2190,7 +2218,7 @@ class CharacterTraitService:
                 ),
             )
             await specialty.save(update_fields=["name"])
-        return await self._refetch_character_trait(character_trait.id)
+        return await self._refetch_character_trait(character_trait.id), old_name
 
     async def _refund_specialty(
         self,
@@ -2227,12 +2255,14 @@ class CharacterTraitService:
         """Delete a specialty and refund it only when this call removed the row.
 
         Gating the refund on the delete count stops concurrent removals of the same
-        specialty from refunding it twice. Call inside a transaction.
+        specialty from refunding it twice. An archived specialty is left alone, so a
+        concurrent archive cascade keeps it in the batch a restore brings back. Call
+        inside a transaction.
 
         Returns:
             True when this call deleted the specialty.
         """
-        deleted = await CharacterTraitSpecialty.filter(id=specialty.id).delete()
+        deleted = await CharacterTraitSpecialty.filter(id=specialty.id, is_archived=False).delete()
         if deleted != 1:
             return False
         await self._refund_specialty(
@@ -2248,14 +2278,20 @@ class CharacterTraitService:
         character: Character,
         specialty: CharacterTraitSpecialty,
     ) -> None:
-        """Delete a specialty and refund its cost according to the company's recoup setting."""
+        """Delete a specialty and refund its cost according to the company's recoup setting.
+
+        Raises:
+            NotFoundError: If the specialty was deleted or archived after it was loaded.
+        """
         await self.guard_user_can_manage_character(character, user)
         async with in_transaction():
-            await self._delete_and_refund_specialty(
+            await self._lock_character(character)
+            if not await self._delete_and_refund_specialty(
                 character=character,
                 specialty=specialty,
                 recoup_setting=company.settings.permission_recoup_xp,
-            )
+            ):
+                raise NotFoundError(detail="Specialty not found")
 
     async def remove_ineligible_specialties(
         self,
@@ -2292,25 +2328,31 @@ class CharacterTraitService:
         )
         if character is not None:
             query = query.filter(character_trait__character_id=character.id)
-        specialties = await query.prefetch_related(
-            "character_trait__trait__sheet_section", "character_trait__character"
-        )
 
         def owner(specialty: CharacterTraitSpecialty) -> Character:
             return character or specialty.character_trait.character
 
-        favored_by_concept: dict[UUID, frozenset[str]] = {}
-        if rules == SpecialtyRules.RATING_BASED:
-            favored_by_concept = await self._favored_names_by_concept(
-                {
-                    owner(specialty).concept_id  # ty:ignore[missing-attribute]
-                    for specialty in specialties
-                    if owner(specialty).concept_id  # ty:ignore[missing-attribute]
-                }
-            )
-
         removed: list[str] = []
         async with in_transaction():
+            # Lock the owners before reading what to sweep: every trait and specialty write
+            # takes the character lock first, so the read below sees committed values
+            owner_ids: list[UUID] = await query.values_list(  # ty:ignore[invalid-assignment]
+                "character_trait__character_id", flat=True
+            )
+            await Character.lock_rows(set(owner_ids), is_archived=False)
+            specialties = await query.prefetch_related(
+                "character_trait__trait__sheet_section", "character_trait__character"
+            )
+            favored_by_concept: dict[UUID, frozenset[str]] = {}
+            if rules == SpecialtyRules.RATING_BASED:
+                favored_by_concept = await self._favored_names_by_concept(
+                    {
+                        owner(specialty).concept_id  # ty:ignore[missing-attribute]
+                        for specialty in specialties
+                        if owner(specialty).concept_id  # ty:ignore[missing-attribute]
+                    }
+                )
+
             for specialty in specialties:
                 character_trait = specialty.character_trait
                 min_rating = self.specialty_min_rating(

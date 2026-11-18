@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
 
 from vapi.constants import CharacterType
+from vapi.db.sql_models.campaign import CampaignBook, CampaignChapter
 from vapi.domain.services import CampaignService
-from vapi.lib.exceptions import ValidationError
+from vapi.lib.exceptions import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from pytest_mock import MockerFixture
+
     from vapi.db.sql_models.aws import S3Asset
-    from vapi.db.sql_models.campaign import Campaign, CampaignBook, CampaignChapter
+    from vapi.db.sql_models.campaign import Campaign
     from vapi.db.sql_models.character import Character, Specialty
     from vapi.db.sql_models.company import Company
     from vapi.db.sql_models.diceroll import DiceRoll
@@ -43,6 +47,23 @@ class TestCampaignService:
 
         # Then the next book number should be 1
         assert next_book_number == 1
+
+    async def test_get_next_book_number_refused_after_campaign_archived(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+    ) -> None:
+        """Verify a book cannot be numbered into a campaign deleted after it was loaded."""
+        # Given a campaign loaded before it was deleted
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        service = CampaignService()
+        await service.archive_campaign(campaign)
+
+        # When the next book number is requested
+        # Then the campaign is not found
+        with pytest.raises(NotFoundError, match="Campaign not found"):
+            await service.get_next_book_number(campaign)
 
     async def test_get_next_book_number(
         self,
@@ -445,6 +466,141 @@ class TestCampaignService:
 
         # And the sibling chapter is renumbered down
         assert sibling.number == 1
+
+    async def test_concurrent_deletes_of_one_book_renumber_siblings_once(
+        self,
+        mocker: MockerFixture,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+    ) -> None:
+        """Verify two concurrent deletes of one book shift its siblings once, not twice."""
+        # Given a campaign with three books, and two requests that each loaded book 1
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book1 = await campaign_book_factory(campaign=campaign, number=1)
+        book2 = await campaign_book_factory(campaign=campaign, number=2)
+        book3 = await campaign_book_factory(campaign=campaign, number=3)
+        first_copy = await CampaignBook.get(id=book1.id)
+        second_copy = await CampaignBook.get(id=book1.id)
+
+        # And a first delete that pauses while it holds the locks
+        real_lock = CampaignService._lock_numbered_item
+        locked = asyncio.Event()
+        release = asyncio.Event()
+
+        async def _pause_after_first_lock(**kwargs: object) -> None:
+            await real_lock(**kwargs)
+            if not locked.is_set():
+                locked.set()
+                await release.wait()
+
+        mocker.patch.object(
+            CampaignService, "_lock_numbered_item", staticmethod(_pause_after_first_lock)
+        )
+
+        # When the second delete starts while the first is paused
+        service = CampaignService()
+        first = asyncio.create_task(service.delete_book_and_renumber(first_copy))
+        try:
+            await asyncio.wait_for(locked.wait(), timeout=5)
+            second = asyncio.create_task(service.delete_book_and_renumber(second_copy))
+            await asyncio.sleep(0.2)
+        finally:
+            release.set()
+        await asyncio.wait_for(first, timeout=5)
+
+        # Then the second delete finds the book gone
+        with pytest.raises(NotFoundError, match="Book not found"):
+            await asyncio.wait_for(second, timeout=5)
+
+        # And the siblings moved down by one
+        await book2.refresh_from_db()
+        await book3.refresh_from_db()
+        assert (book2.number, book3.number) == (1, 2)
+
+    async def test_delete_chapter_with_stale_copy_does_not_renumber_again(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+    ) -> None:
+        """Verify deleting an already-deleted chapter from a stale copy leaves siblings alone."""
+        # Given a book with three chapters, and a copy of chapter 1 loaded before it was deleted
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter1 = await campaign_chapter_factory(book=book, number=1)
+        chapter2 = await campaign_chapter_factory(book=book, number=2)
+        chapter3 = await campaign_chapter_factory(book=book, number=3)
+        stale_copy = await CampaignChapter.get(id=chapter1.id)
+        service = CampaignService()
+        await service.delete_chapter_and_renumber(chapter1)
+
+        # When the stale copy is deleted
+        # Then the chapter is not found
+        with pytest.raises(NotFoundError, match="Chapter not found"):
+            await service.delete_chapter_and_renumber(stale_copy)
+
+        # And the siblings moved down only once
+        await chapter2.refresh_from_db()
+        await chapter3.refresh_from_db()
+        assert (chapter2.number, chapter3.number) == (1, 2)
+
+    async def test_delete_chapter_refused_after_book_archived(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+        campaign_chapter_factory: Callable[..., CampaignChapter],
+    ) -> None:
+        """Verify a chapter loaded before its book was deleted cannot be deleted afterward."""
+        # Given a chapter loaded before its book was deleted
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book = await campaign_book_factory(campaign=campaign)
+        chapter = await campaign_chapter_factory(book=book)
+        service = CampaignService()
+        await service.delete_book_and_renumber(book)
+
+        # When the chapter is deleted
+        # Then its book is not found
+        with pytest.raises(NotFoundError, match="Book not found"):
+            await service.delete_chapter_and_renumber(chapter)
+
+        # And it keeps the book's archive batch
+        await book.refresh_from_db()
+        await chapter.refresh_from_db()
+        assert chapter.archive_batch_id == book.archive_batch_id
+
+    async def test_renumber_book_uses_committed_number(
+        self,
+        company_factory: Callable[..., Company],
+        campaign_factory: Callable[..., Campaign],
+        campaign_book_factory: Callable[..., CampaignBook],
+    ) -> None:
+        """Verify a renumber from a stale copy moves the book from its committed position."""
+        # Given four books, and a copy of book 4 loaded before book 1 was deleted
+        company = await company_factory()
+        campaign = await campaign_factory(company=company)
+        book1 = await campaign_book_factory(campaign=campaign, number=1)
+        book2 = await campaign_book_factory(campaign=campaign, number=2)
+        book3 = await campaign_book_factory(campaign=campaign, number=3)
+        book4 = await campaign_book_factory(campaign=campaign, number=4)
+        stale_copy = await CampaignBook.get(id=book4.id)
+        service = CampaignService()
+        await service.delete_book_and_renumber(book1)
+
+        # When the stale copy of book 4, now book 3, moves to position 1
+        old_number = await service.renumber_books(stale_copy, 1)
+
+        # Then the old number is the committed one and the sequence stays contiguous
+        await book2.refresh_from_db()
+        await book3.refresh_from_db()
+        await book4.refresh_from_db()
+        assert old_number == 3
+        assert (book4.number, book2.number, book3.number) == (1, 2, 3)
 
     async def test_archive_campaign(
         self,

@@ -320,8 +320,7 @@ class CharacterTraitController(Controller):
     ) -> CharacterTraitResponse:
         """Rename a specialty."""
         service = CharacterTraitService()
-        old_name = specialty.name
-        ct = await service.rename_specialty(
+        ct, old_name = await service.rename_specialty(
             user=acting_user,
             character=character,
             character_trait=character_trait,

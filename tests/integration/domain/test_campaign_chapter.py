@@ -521,6 +521,46 @@ async def test_chapter_rejects_cross_campaign_character(
     assert response.status_code == HTTP_400_BAD_REQUEST
 
 
+async def test_chapter_patch_rejected_character_list_saves_no_fields(
+    client: AsyncClient,
+    token_global_admin: dict[str, str],
+    on_behalf_of_header: dict[str, str],
+    session_company: Company,
+    session_global_admin,
+    session_user: User,
+    campaign_factory: Callable[..., Campaign],
+    campaign_book_factory: Callable[..., CampaignBook],
+    campaign_chapter_factory: Callable[..., CampaignChapter],
+    character_factory: Callable[..., Character],
+    build_url: Callable[..., str],
+) -> None:
+    """Verify a PATCH whose character list is rejected leaves the chapter's fields unchanged."""
+    # Given a chapter and a character from another campaign
+    campaign = await campaign_factory(company=session_company)
+    other_campaign = await campaign_factory(company=session_company)
+    book = await campaign_book_factory(campaign=campaign)
+    chapter = await campaign_chapter_factory(book=book, name="Original")
+    foreign = await character_factory(company=session_company, campaign=other_campaign)
+
+    # When we patch the name together with that foreign character
+    response = await client.patch(
+        build_url(
+            Campaigns.CHAPTER_UPDATE,
+            company_id=session_company.id,
+            campaign_id=campaign.id,
+            book_id=book.id,
+            chapter_id=chapter.id,
+        ),
+        headers=token_global_admin | on_behalf_of_header,
+        json={"name": "Renamed", "character_ids": [str(foreign.id)]},
+    )
+
+    # Then the request is rejected and the name is not saved
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    await chapter.refresh_from_db()
+    assert chapter.name == "Original"
+
+
 async def test_chapter_returns_multiple_characters_sorted(
     client: AsyncClient,
     token_global_admin: dict[str, str],
