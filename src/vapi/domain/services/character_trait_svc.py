@@ -11,6 +11,7 @@ from tortoise.transactions import in_transaction
 
 from vapi.constants import (
     CUSTOM_FLAW_MAX_VALUE,
+    CUSTOM_TRAIT_STARTING_VALUE,
     SPECIALTY_FAVORED_MIN_RATING,
     SPECIALTY_MIN_RATING,
     SPECIALTY_XP_COST,
@@ -1212,8 +1213,20 @@ class CharacterTraitService:
         if is_flaw:
             self._reject_caller_priced_flaw(data)
 
-        if data.min_value > data.max_value:
-            msg = f"min_value ({data.min_value}) cannot exceed max_value ({data.max_value})"
+        # Bracketing the starting value from both sides also guarantees min_value <= max_value.
+        if data.max_value < CUSTOM_TRAIT_STARTING_VALUE:
+            msg = (
+                f"max_value ({data.max_value}) cannot be less than the custom trait starting "
+                f"value of {CUSTOM_TRAIT_STARTING_VALUE}"
+            )
+            raise ValidationError(
+                detail=msg, invalid_parameters=[{"field": "max_value", "message": msg}]
+            )
+        if data.min_value > CUSTOM_TRAIT_STARTING_VALUE:
+            msg = (
+                f"min_value ({data.min_value}) cannot exceed the custom trait starting "
+                f"value of {CUSTOM_TRAIT_STARTING_VALUE}"
+            )
             raise ValidationError(
                 detail=msg, invalid_parameters=[{"field": "min_value", "message": msg}]
             )
@@ -1260,10 +1273,10 @@ class CharacterTraitService:
                 data.upgrade_cost if data.upgrade_cost is not None else parent_category.upgrade_cost
             )
 
-        # New custom traits always begin at value 1. Create the definition and the
-        # character trait at 0, then buy that first dot with the chosen currency so
-        # cost and permission handling match the assign and modify paths. Wrap it in a
-        # transaction so an unaffordable purchase rolls back the orphan trait rows.
+        # Create the definition and the character trait at 0, then buy the starting
+        # dots with the chosen currency so cost and permission handling match the
+        # assign and modify paths. Wrap it in a transaction so an unaffordable
+        # purchase rolls back the orphan trait rows.
         async with in_transaction():
             custom_trait = await Trait.create(
                 name=cleaned_name,
@@ -1281,7 +1294,10 @@ class CharacterTraitService:
 
             if currency != TraitModifyCurrency.NO_COST:
                 await self._guard_can_afford_new_trait(
-                    trait=custom_trait, character=character, value=1, currency=currency
+                    trait=custom_trait,
+                    character=character,
+                    value=CUSTOM_TRAIT_STARTING_VALUE,
+                    currency=currency,
                 )
 
             character_trait = await CharacterTrait.create(
@@ -1296,7 +1312,7 @@ class CharacterTraitService:
                 user=user,
                 character=character,
                 character_trait=character_trait,
-                num_dots=1,
+                num_dots=CUSTOM_TRAIT_STARTING_VALUE,
                 currency=currency,
             )
 

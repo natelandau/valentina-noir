@@ -2142,29 +2142,66 @@ class TestCreateCustomTrait:
         experience = await UserXPService().get_or_create_campaign_experience(player.id, campaign.id)
         assert experience.xp_current == 30
 
-    async def test_create_custom_trait_rejects_min_above_max(
+    @pytest.mark.parametrize(
+        ("max_value", "min_value", "field"),
+        [
+            pytest.param(3, 4, "min_value", id="min-above-max-and-starting-value"),
+            pytest.param(5, 2, "min_value", id="min-above-starting-value"),
+            pytest.param(0, 0, "max_value", id="max-below-starting-value"),
+        ],
+    )
+    async def test_create_custom_trait_rejects_range_excluding_starting_value(
         self,
         get_company_user_character: tuple[Company, User, Character],
+        max_value: int,
+        min_value: int,
+        field: str,
     ) -> None:
-        """Verify a custom trait whose min_value exceeds its max_value is rejected."""
+        """Verify a custom trait whose min/max range excludes the starting value is rejected."""
         # Given a character and a non-flaw trait category
         company, user, character = get_company_user_character
         trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
         dto = CharacterTraitCreateCustom(
-            name="Inverted Trait",
+            name="Invalid Floor Trait",
             category_id=trait_category.id,
             currency=TraitModifyCurrency.NO_COST,
-            max_value=3,
-            min_value=4,
+            max_value=max_value,
+            min_value=min_value,
         )
 
         # When the trait is created
         # Then the request is rejected and nothing is created
-        with pytest.raises(ValidationError, match="min_value"):
+        with pytest.raises(ValidationError, match=field) as exc_info:
             await CharacterTraitService().create_custom_trait(
                 company=company, user=user, character=character, data=dto
             )
-        assert not await Trait.filter(name="Inverted Trait").exists()
+        assert exc_info.value.extension["invalid_parameters"][0]["field"] == field
+        assert not await Trait.filter(name="Invalid Floor Trait").exists()
+
+    async def test_create_custom_trait_accepts_min_equal_to_starting_value(
+        self,
+        get_company_user_character: tuple[Company, User, Character],
+    ) -> None:
+        """Verify a custom trait may set min_value to its starting value of 1."""
+        # Given a character and a non-flaw trait category
+        company, user, character = get_company_user_character
+        trait_category = await TraitCategory.filter(is_archived=False).exclude(name="Flaws").first()
+        dto = CharacterTraitCreateCustom(
+            name="Floor One Trait",
+            category_id=trait_category.id,
+            currency=TraitModifyCurrency.NO_COST,
+            max_value=5,
+            min_value=1,
+        )
+
+        # When the trait is created
+        result = await CharacterTraitService().create_custom_trait(
+            company=company, user=user, character=character, data=dto
+        )
+
+        # Then it starts at its minimum
+        assert result.value == 1
+        assert result.trait.min_value == 1
 
     async def test_create_custom_trait_npc_rejects_non_no_cost_currency(
         self,
