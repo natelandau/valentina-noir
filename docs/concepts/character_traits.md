@@ -211,6 +211,8 @@ Modify trait values using one of three currencies.
 
     A value change is based on the trait's value when the request reads it, with any currency. If another request changes the same trait first, the API returns `409 Conflict`, keeps the value the other request set, and spends or refunds nothing. Fetch the trait again and retry.
 
+    If another request deletes the character, the trait, or the specialty first, a change to that trait or specialty returns `404 Not Found` and changes nothing.
+
 ### Starting Points
 
 Starting points are granted to a character at creation. Spend them to purchase initial trait values and receive refunds when decreasing traits. Starting points are tracked per character.
@@ -526,4 +528,4 @@ Rename a specialty. Send `{"name": "Long Range"}`. Returns the updated character
 
 ### DELETE `/traits/{character_trait_id}/specialties/{specialty_id}`
 
-Remove a specialty and refund its cost. Returns `204 No Content`. See [Refunds and Removal](#refunds-and-removal) above.
+Remove a specialty and refund its cost. Returns `204 No Content`. If the specialty is already removed, the request returns `404 Not Found` and refunds nothing. See [Refunds and Removal](#refunds-and-removal) above.

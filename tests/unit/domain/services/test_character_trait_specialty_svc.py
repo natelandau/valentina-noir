@@ -1,5 +1,6 @@
 """Test the specialty methods of the character trait service."""
 
+import asyncio
 from dataclasses import dataclass, replace
 
 import pytest
@@ -24,8 +25,14 @@ from vapi.domain.controllers.character_trait.dto import (
     CHARACTER_TRAIT_PREFETCH,
     CharacterTraitResponse,
 )
+from vapi.domain.handlers import archive_character
 from vapi.domain.services import CharacterService, CharacterTraitService
-from vapi.lib.exceptions import NotEnoughXPError, PermissionDeniedError, ValidationError
+from vapi.lib.exceptions import (
+    NotEnoughXPError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -360,7 +367,7 @@ class TestRenameSpecialty:
         )
 
         # When renaming
-        result = await s.svc.rename_specialty(
+        result, old_name = await s.svc.rename_specialty(
             user=s.user,
             character=s.character,
             character_trait=s.char_trait,
@@ -370,6 +377,7 @@ class TestRenameSpecialty:
 
         # Then the name changes and XP is untouched
         assert result.specialties[0].name == "Archery"
+        assert old_name == "Sniping"
         assert await _xp(s) == 5
 
     async def test_rename_rejects_duplicate(
@@ -395,7 +403,7 @@ class TestRenameSpecialty:
             )
 
         # And renaming to its own name in a different case succeeds
-        result = await s.svc.rename_specialty(
+        result, _ = await s.svc.rename_specialty(
             user=s.user,
             character=s.character,
             character_trait=s.char_trait,
@@ -403,6 +411,59 @@ class TestRenameSpecialty:
             name="SNIPING",
         )
         assert "SNIPING" in {sp.name for sp in result.specialties}
+
+    async def test_rename_reports_committed_old_name(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a rename from a stale copy reports the name it replaced, not the loaded one."""
+        # Given a specialty loaded before another request renamed it
+        s = await make_scenario()
+        spec = await character_trait_specialty_factory(character_trait=s.char_trait, name="Sniping")
+        stale = await CharacterTraitSpecialty.get(id=spec.id)
+        await s.svc.rename_specialty(
+            user=s.user,
+            character=s.character,
+            character_trait=s.char_trait,
+            specialty=spec,
+            name="Archery",
+        )
+
+        # When the stale copy is renamed
+        _, old_name = await s.svc.rename_specialty(
+            user=s.user,
+            character=s.character,
+            character_trait=s.char_trait,
+            specialty=stale,
+            name="Fencing",
+        )
+
+        # Then the reported old name is the committed one
+        assert old_name == "Archery"
+
+    async def test_rename_refused_after_character_archived(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a specialty loaded before its character was deleted cannot be renamed."""
+        # Given a specialty loaded before its character was deleted
+        s = await make_scenario()
+        spec = await character_trait_specialty_factory(character_trait=s.char_trait, name="Sniping")
+        await archive_character(s.character)
+
+        # When renaming it
+        # Then the character is not found
+        with pytest.raises(NotFoundError, match="Character not found"):
+            await s.svc.rename_specialty(
+                user=s.user,
+                character=s.character,
+                character_trait=s.char_trait,
+                specialty=spec,
+                name="Archery",
+            )
+
+        # And the archived specialty keeps its name
+        await spec.refresh_from_db()
+        assert spec.name == "Sniping"
+        assert spec.is_archived
 
 
 class TestRemoveSpecialty:
@@ -506,10 +567,32 @@ class TestRemoveSpecialty:
 
         # When both copies are removed
         await self._remove(s, spec)
-        await self._remove(s, stale)
 
-        # Then the cost is refunded only once
+        # Then the second removal finds nothing
+        with pytest.raises(NotFoundError, match="Specialty not found"):
+            await self._remove(s, stale)
+
+        # And the cost is refunded only once
         assert await _xp(s) == 5 + SPECIALTY_XP_COST
+
+    async def test_remove_refused_after_character_archived(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a specialty archived with its character is neither deleted nor refunded."""
+        # Given a paid specialty loaded before its character was deleted
+        s = await make_scenario()
+        spec = await _paid(character_trait_specialty_factory, s)
+        await archive_character(s.character)
+
+        # When removing it
+        # Then it is not found
+        with pytest.raises(NotFoundError, match="Character not found"):
+            await self._remove(s, spec)
+
+        # And it stays archived for a restore, with nothing refunded
+        await spec.refresh_from_db()
+        assert spec.is_archived
+        assert await _xp(s) == 5
 
     async def test_remove_starting_points_refund_uses_stored_balance(
         self, make_scenario, character_trait_specialty_factory
@@ -575,6 +658,25 @@ class TestSpecialtiesAtZeroValue:
 
         # Then only the specialty cost returns
         assert await _xp(s) == 5 + SPECIALTY_XP_COST
+
+    async def test_lowering_refused_after_character_archived(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a value change on a character deleted after it was loaded refunds nothing."""
+        # Given an ability with a paid specialty, loaded before its character was deleted
+        s = await make_scenario(value=1)
+        spec = await _paid(character_trait_specialty_factory, s)
+        await archive_character(s.character)
+
+        # When lowering it to 0 at no cost
+        # Then the character is not found
+        with pytest.raises(NotFoundError, match="Character not found"):
+            await self._lower_to_zero(s, TraitModifyCurrency.NO_COST)
+
+        # And the archived specialty stays, with nothing refunded
+        await spec.refresh_from_db()
+        assert spec.is_archived
+        assert await _xp(s) == 5
 
     async def test_lowering_to_zero_recoup_denied_xp_is_refused(
         self, make_scenario, character_trait_specialty_factory
@@ -648,6 +750,80 @@ class TestSpecialtiesAtZeroValue:
         assert await _xp(s) == 5 + SPECIALTY_XP_COST
         assert not await CharacterTrait.filter(id=s.char_trait.id).exists()
         assert not await CharacterTraitSpecialty.filter(character_trait_id=s.char_trait.id).exists()
+
+    async def test_delete_trait_refused_after_character_archived(
+        self, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a trait loaded before its character was deleted stays archived for restore."""
+        # Given an ability with a paid specialty, loaded before its character was deleted
+        s = await make_scenario(value=1)
+        spec = await _paid(character_trait_specialty_factory, s)
+        await archive_character(s.character)
+
+        # When deleting the trait with no currency
+        # Then it is not found
+        with pytest.raises(NotFoundError, match="Character not found"):
+            await s.svc.delete_trait(
+                company=s.company,
+                user=s.user,
+                character=s.character,
+                character_trait=s.char_trait,
+                currency=None,
+            )
+
+        # And the trait and specialty stay archived, with nothing refunded
+        await s.char_trait.refresh_from_db()
+        await spec.refresh_from_db()
+        assert s.char_trait.is_archived
+        assert spec.is_archived
+        assert await _xp(s) == 5
+
+    async def test_delete_trait_concurrent_with_character_archive(
+        self, mocker, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a trait delete and its character's archive cascade run in turn, not deadlock."""
+        # Given an ability with a paid specialty
+        s = await make_scenario(value=1)
+        await _paid(character_trait_specialty_factory, s)
+
+        # And a trait delete that pauses once it holds the character and trait locks
+        real_lock = s.svc._lock_character_trait
+        locked = asyncio.Event()
+        release = asyncio.Event()
+
+        async def _pause_after_lock(**kwargs: object) -> None:
+            await real_lock(**kwargs)
+            locked.set()
+            await release.wait()
+
+        mocker.patch.object(s.svc, "_lock_character_trait", _pause_after_lock)
+
+        # When the character is archived while the delete holds the lock
+        delete = asyncio.create_task(
+            s.svc.delete_trait(
+                company=s.company,
+                user=s.user,
+                character=s.character,
+                character_trait=s.char_trait,
+                currency=None,
+            )
+        )
+        try:
+            await asyncio.wait_for(locked.wait(), timeout=5)
+            cascade = asyncio.create_task(archive_character(s.character))
+            await asyncio.sleep(0.2)
+            cascade_blocked = not cascade.done()
+        finally:
+            release.set()
+        await asyncio.wait_for(delete, timeout=5)
+        await asyncio.wait_for(cascade, timeout=5)
+
+        # Then the cascade waited for the delete, which refunded the specialty once
+        assert cascade_blocked
+        assert not await CharacterTrait.filter(id=s.char_trait.id).exists()
+        assert await _xp(s) == 5 + SPECIALTY_XP_COST
+        await s.character.refresh_from_db()
+        assert s.character.is_archived
 
     async def test_value_options_include_specialty_refund_at_zero(
         self, make_scenario, character_trait_specialty_factory
@@ -1082,6 +1258,43 @@ class TestIneligibleSpecialtiesRemoved:
             target_value=target_value,
             currency=TraitModifyCurrency.NO_COST,
         )
+
+    async def test_rules_switch_waits_for_concurrent_value_change(
+        self, mocker, make_scenario, character_trait_specialty_factory
+    ) -> None:
+        """Verify a rules switch judges specialties by a value change that commits first."""
+        # Given Firearms at 3 with a specialty, allowed under the default rules
+        s = await make_scenario(trait=await _trait("Abilities", "Firearms"), value=3)
+        spec = await _paid(character_trait_specialty_factory, s, cost=3)
+
+        # And a raise to 4 that pauses once it holds the character lock
+        real_lock = s.svc._lock_character
+        locked = asyncio.Event()
+        release = asyncio.Event()
+
+        async def _pause_after_lock(character: Character) -> None:
+            await real_lock(character)
+            locked.set()
+            await release.wait()
+
+        mocker.patch.object(s.svc, "_lock_character", _pause_after_lock)
+
+        # When the company switches to RATING_BASED rules while the raise is paused
+        raise_task = asyncio.create_task(self._lower(s, 4))
+        try:
+            await asyncio.wait_for(locked.wait(), timeout=5)
+            switch = asyncio.create_task(self._switch_rules(s, SpecialtyRules.RATING_BASED))
+            await asyncio.sleep(0.2)
+            switch_blocked = not switch.done()
+        finally:
+            release.set()
+        await asyncio.wait_for(raise_task, timeout=5)
+        removed = await asyncio.wait_for(switch, timeout=5)
+
+        # Then the switch waited and kept the specialty the raised value allows
+        assert switch_blocked
+        assert removed == []
+        assert await CharacterTraitSpecialty.filter(id=spec.id).exists()
 
     async def test_lowering_below_min_rating_refunds_specialties(
         self, make_scenario, character_trait_specialty_factory
