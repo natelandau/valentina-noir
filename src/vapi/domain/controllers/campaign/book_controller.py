@@ -6,6 +6,7 @@ from litestar import Request
 from litestar.controller import Controller
 from litestar.di import Provide
 from litestar.handlers import delete, get, patch, post, put
+from tortoise.transactions import in_transaction
 
 from vapi.db.sql_models.campaign import Campaign, CampaignBook
 from vapi.db.sql_models.user import User
@@ -131,13 +132,14 @@ class CampaignBookController(Controller):
     ) -> CampaignBookResponse:
         """Create a book."""
         service = CampaignService()
-        number = await service.get_next_book_number(campaign)
-        book = await CampaignBook.create(
-            name=data.name,
-            description=data.description,
-            campaign=campaign,
-            number=number,
-        )
+        async with in_transaction():
+            number = await service.get_next_book_number(campaign)
+            book = await CampaignBook.create(
+                name=data.name,
+                description=data.description,
+                campaign=campaign,
+                number=number,
+            )
         request.state.audit_description = (
             f"Create book '{book.number}: {book.name}' for campaign '{campaign.name}'"
         )
@@ -218,9 +220,7 @@ class CampaignBookController(Controller):
         request: Request,
     ) -> CampaignBookResponse:
         """Renumber a book by ID."""
-        old_number = book.number
-        service = CampaignService()
-        book = await service.renumber_books(book=book, new_number=data.number)
+        old_number = await CampaignService().renumber_books(book=book, new_number=data.number)
         if old_number != data.number:
             request.state.audit_changes = {"number": {"old": old_number, "new": data.number}}
         request.state.audit_description = (

@@ -135,8 +135,9 @@ async def _archive_campaign_children(campaign_id: UUID, ctx: ArchiveContext) -> 
         c.id for c in await CampaignChapter.filter(book_id__in=book_ids, is_archived=False)
     ]
 
-    await _archive_where(CampaignChapter, ctx, book_id__in=book_ids)
+    # Books before chapters: the parent-then-child order book and chapter writes lock in
     await _archive_where(CampaignBook, ctx, campaign_id=campaign_id)
+    await _archive_where(CampaignChapter, ctx, book_id__in=book_ids)
 
     await archive_s3_assets("chapter_id", chapter_ids, ctx)
     await archive_s3_assets("book_id", book_ids, ctx)

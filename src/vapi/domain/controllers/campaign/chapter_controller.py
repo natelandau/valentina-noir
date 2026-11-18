@@ -140,15 +140,16 @@ class CampaignChapterController(Controller):
             campaign_id=book.campaign_id,  # ty:ignore[missing-attribute]
             include_storyteller=sees_storyteller,
         )
-        number = await service.get_next_chapter_number(book)
-        chapter = await CampaignChapter.create(
-            name=data.name,
-            description=data.description,
-            book=book,
-            number=number,
-        )
-        if characters:
-            await chapter.characters.add(*characters)
+        async with in_transaction():
+            number = await service.get_next_chapter_number(book)
+            chapter = await CampaignChapter.create(
+                name=data.name,
+                description=data.description,
+                book=book,
+                number=number,
+            )
+            if characters:
+                await chapter.characters.add(*characters)
         request.state.audit_description = f"Create chapter '{chapter.number}: {chapter.name}' for book '{book.number}: {book.name}'"
         annotated = (
             await annotate_chapter_counts(CampaignChapter.filter(id=chapter.id))
@@ -178,19 +179,22 @@ class CampaignChapterController(Controller):
     ) -> CampaignChapterResponse:
         """Update a chapter by ID."""
         sees_storyteller = acting_user_sees_storyteller_characters(request)
-        # One transaction so a rejected character list also rolls back the field edits
+        service = CampaignService()
+        characters = None
+        if not isinstance(data.character_ids, msgspec.UnsetType):
+            characters = await service.validate_campaign_characters(
+                character_ids=data.character_ids,
+                campaign_id=book.campaign_id,  # ty:ignore[missing-attribute]
+                include_storyteller=sees_storyteller,
+            )
+
+        # One transaction so the field edits and the character links commit together
         async with in_transaction():
             changes = await save_active_patch(
                 chapter, data, label="Chapter", exclude=frozenset({"character_ids"})
             )
 
-            if not isinstance(data.character_ids, msgspec.UnsetType):
-                service = CampaignService()
-                characters = await service.validate_campaign_characters(
-                    character_ids=data.character_ids,
-                    campaign_id=book.campaign_id,  # ty:ignore[missing-attribute]
-                    include_storyteller=sees_storyteller,
-                )
+            if characters is not None:
                 previous = await service.replace_chapter_characters(
                     chapter=chapter, characters=characters, include_storyteller=sees_storyteller
                 )
@@ -245,9 +249,9 @@ class CampaignChapterController(Controller):
         request: Request,
     ) -> CampaignChapterResponse:
         """Renumber a chapter by ID."""
-        old_number = chapter.number
-        service = CampaignService()
-        chapter = await service.renumber_chapters(chapter=chapter, new_number=data.number)
+        old_number = await CampaignService().renumber_chapters(
+            chapter=chapter, new_number=data.number
+        )
         if old_number != data.number:
             request.state.audit_changes = {"number": {"old": old_number, "new": data.number}}
         request.state.audit_description = (
