@@ -45,22 +45,17 @@ def _main_checkout() -> Path:
 
 MAIN_ROOT = _main_checkout()
 IN_WORKTREE = PROJECT_ROOT != MAIN_ROOT
-PY_SRC_LIST = tuple(_ for _ in ("src/", "tests/", "duties.py", "scripts/") if Path(_).exists())
-CI = ci_is_on(os.environ)
-_GATE_CACHE_DISABLE = os.environ.get("GATE_CACHE_DISABLE", "").strip().lower()
-# Matches gate-cache: GATE_CACHE_DISABLE decides when set, otherwise CI does
-GATE_CACHE_ON = _GATE_CACHE_DISABLE in {"0", "false"} or (not _GATE_CACHE_DISABLE and not CI)
-# Every file the test suite reads; a change anywhere else (docs, Dockerfile) skips the suite
-TEST_GATE_PATHS = (
-    "src/",
-    "tests/",
-    "scripts/",
-    "duties.py",
-    "pyproject.toml",
-    "uv.lock",
-    ".python-version",
-    "compose.yml",
+PY_SRC_LIST = tuple(
+    _ for _ in ("src/", "tests/", "duties.py", "scripts/") if (PROJECT_ROOT / _).exists()
 )
+CI = ci_is_on(os.environ)
+# Every file the Python linters read; a change anywhere else (docs, YAML) skips them.
+# .gitignore decides which files ruff and ty discover.
+PY_GATE_PATHS = (*PY_SRC_LIST, "pyproject.toml", "uv.lock", ".python-version", ".gitignore")
+# Every file the test suite reads; a change anywhere else (docs, Dockerfile) skips the suite
+TEST_GATE_PATHS = (*PY_GATE_PATHS, "compose.yml")
+# Git-ignored, so writing the report does not change the content the gate keys on
+TEST_JUNIT_REPORT = PROJECT_ROOT / ".cache" / "junit" / "test.xml"
 # Holds only disposable output; the rest of .dev/ (keys, generated secrets) must survive cleaning
 DEV_DIRECTORIES = [PROJECT_ROOT / ".dev" / "logs"]
 # Directories never descended into when cleaning, so a sweep skips the virtualenv, git internals,
@@ -72,45 +67,26 @@ def _gate_args(name: str, paths: Sequence[str]) -> list[str]:
     return ["--name", name, *(arg for path in paths for arg in ("--path", path))]
 
 
-def gated(name: str, cmd: list[str], paths: Sequence[str] = ()) -> list[str]:
+def gated(
+    name: str,
+    cmd: list[str],
+    paths: Sequence[str] = (),
+    *,
+    junit: Path | None = None,
+) -> list[str]:
     """Wrap a gate command in gate-cache so it skips on a tree where it already passed.
 
     Args:
         name (str): Marker name for the gate.
         cmd (list[str]): Command to run.
         paths (Sequence[str]): Git pathspecs the gate keys on. Empty keys on the whole tree.
+        junit (Path | None): JUnit XML report the command writes, recorded in gate-cache stats.
 
     Returns:
         list[str]: The command prefixed with the gate-cache invocation.
     """
-    return ["gate-cache", *_gate_args(name, paths), "--", *cmd]
-
-
-def gate_passed(name: str, paths: Sequence[str] = ()) -> bool:
-    """Report whether a gate would skip because it already passed on the current tree.
-
-    Use it to avoid setup, such as starting servers, that only a gate that runs needs. Pass the
-    same paths as the gated run, or the status check never matches its passes.
-
-    Args:
-        name (str): Marker name for the gate.
-        paths (Sequence[str]): Git pathspecs the gate keys on. Empty keys on the whole tree.
-
-    Returns:
-        bool: True when gate-cache is on and holds a pass for the current content of the paths,
-            or of the whole tree when no paths are given.
-    """
-    if not GATE_CACHE_ON:
-        return False
-    try:
-        result = subprocess.run(  # noqa: S603
-            ["gate-cache", "status", *_gate_args(name, paths)],  # noqa: S607
-            capture_output=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        return False
-    return result.returncode == 0
+    junit_args = ["--junit", str(junit)] if junit is not None else []
+    return ["gate-cache", *_gate_args(name, paths), *junit_args, "--", *cmd]
 
 
 def remove(path: Path) -> None:
@@ -155,7 +131,11 @@ def clean(ctx: Context) -> None:  # noqa: ARG001
 def ruff(ctx: Context) -> None:
     """Check the code quality with ruff."""
     ctx.run(
-        gated("ruff", ["ruff", "check", "--config", "pyproject.toml", "--no-fix", *PY_SRC_LIST]),
+        gated(
+            "ruff",
+            ["ruff", "check", "--config", "pyproject.toml", "--no-fix", *PY_SRC_LIST],
+            PY_GATE_PATHS,
+        ),
         title="code quality check",
     )
 
@@ -164,7 +144,11 @@ def ruff(ctx: Context) -> None:
 def format(ctx: Context) -> None:  # noqa: A001
     """Check the code formatting with ruff."""
     ctx.run(
-        gated("format", ["ruff", "format", "--check", "--config", "pyproject.toml", *PY_SRC_LIST]),
+        gated(
+            "format",
+            ["ruff", "format", "--check", "--config", "pyproject.toml", *PY_SRC_LIST],
+            PY_GATE_PATHS,
+        ),
         title="code formatting",
     )
 
@@ -172,7 +156,7 @@ def format(ctx: Context) -> None:  # noqa: A001
 @duty
 def ty(ctx: Context) -> None:
     """Type check the code with ty."""
-    ctx.run(gated("ty", ["ty", "check"]), title="ty check")
+    ctx.run(gated("ty", ["ty", "check"], PY_GATE_PATHS), title="ty check")
 
 
 @duty
@@ -236,16 +220,9 @@ def update(ctx: Context) -> None:
 @duty()
 def test(ctx: Context, *cli_args: str) -> None:
     """Start this checkout's test servers, then test the package and generate coverage reports."""
-    # A cached pass skips pytest, so a push on a tested tree needs neither Docker nor the servers
-    if cli_args or not gate_passed("test", TEST_GATE_PATHS):
-        ctx.run("docker info", title="Run `docker info` to check if docker is running")
-        # pytest inherits the environment, which points it at this checkout's slot
-        os.environ.update(
-            devstack.run_task(devstack.start_test_services, cwd=PROJECT_ROOT, claim=True)
-        )
-
     cmd = [
-        "pytest",
+        sys.executable,
+        str(PROJECT_ROOT / "scripts" / "devenv" / "run_tests.py"),
         "tests/",
         "-c",
         "pyproject.toml",
@@ -254,12 +231,18 @@ def test(ctx: Context, *cli_args: str) -> None:
         "--cov-config=pyproject.toml",
         "--cov-report=xml",
         "--cov-report=term",
-        *cli_args,
     ]
 
     # A marker covers the name, not the arguments, so a filtered pass must not skip the full suite
     ctx.run(
-        cmd if cli_args else gated("test", cmd, TEST_GATE_PATHS),
+        [*cmd, *cli_args]
+        if cli_args
+        else gated(
+            "test",
+            [*cmd, f"--junitxml={TEST_JUNIT_REPORT}"],
+            TEST_GATE_PATHS,
+            junit=TEST_JUNIT_REPORT,
+        ),
         title="Running tests - this may take a while",
         capture=CI,
     )

@@ -41,9 +41,10 @@ uv run duty format            # Check code formatting with ruff
 uv run duty test              # Start this checkout's test servers, run tests with coverage
 uv run duty test -- -n 0 -v -s -x  # Serial, verbose, show output, stop on first failure
 uv run duty check             # Run lint + full test suite (what the pre-push hook runs)
-# NOTE: lint/test checks run through gate-cache and skip when they already passed. Lint keys on
-#       the whole tree; `test` keys only on TEST_GATE_PATHS in duties.py. When tests start reading
-#       a file outside those paths, add it there. Force a re-run with GATE_CACHE_DISABLE=1
+# NOTE: lint/test checks run through gate-cache and skip when they already passed. ruff, format,
+#       and ty key on PY_GATE_PATHS, `test` on TEST_GATE_PATHS (duties.py), typos and prek on the
+#       whole tree. When a check starts reading a file outside its paths, add it there. Run
+#       `uv run gate-cache --skill` before changing a gate. Force a re-run with GATE_CACHE_DISABLE=1
 
 # Other
 uv run duty docs              # Serve the docs site at http://localhost:8100

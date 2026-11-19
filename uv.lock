@@ -125,6 +125,15 @@ wheels = [
 ]
 
 [[package]]
+name = "attrs"
+version = "26.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
+]
+
+[[package]]
 name = "boto3"
 version = "1.44.5"
 source = { registry = "https://pypi.org/simple" }
@@ -364,6 +373,21 @@ wheels = [
 ]
 
 [[package]]
+name = "cyclopts"
+version = "5.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "docstring-parser" },
+    { name = "rich" },
+    { name = "rich-rst" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/49/5d/cee0096dd8c5ad13ce516599c4823637d0107643666a03ddc43a9580391f/cyclopts-5.5.2.tar.gz", hash = "sha256:c0339b7ddd7b1c886f13bb8b68a6a65aa7144d3027f1d0e290be514b8fe1589b", size = 258336, upload-time = "2026-11-16T16:26:28.322Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7a/b2/be66b75ce0a3ccc7aa3601c9e7f9cd0fbad4301183fc7105c6b9faebeaeb/cyclopts-5.5.2-py3-none-any.whl", hash = "sha256:4fbe863ebace1c65dafc6520c82217915b103d27fbd1d8fcd168f2abcca3a12a", size = 301206, upload-time = "2026-11-16T16:26:26.615Z" },
+]
+
+[[package]]
 name = "debugpy"
 version = "1.8.22"
 source = { registry = "https://pypi.org/simple" }
@@ -404,6 +428,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/76/49/900383b471c645a3c397f47b3211d1fcecb3a540c98f683494cdf86b33de/dnspython-2.9.2.tar.gz", hash = "sha256:8d4d39a513e649d634004ce4d39ade2352efcea472a0247535a5c2d18a9d7ba9", size = 455484, upload-time = "2026-11-03T23:56:53.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/0c/5346358b3a20275d256978c35203ddc2c8617f78c1b23795b79ba22ced6d/dnspython-2.9.2-py3-none-any.whl", hash = "sha256:af15f7d385a6ae2fb35a796fde2138004c8c42c7389090e2addc83e3b3340fd8", size = 360455, upload-time = "2026-11-03T23:56:52.088Z" },
+]
+
+[[package]]
+name = "docstring-parser"
+version = "0.18.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz", hash = "sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015", size = 29341, upload-time = "2026-04-14T04:09:19.867Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/5f/ed01f9a3cdffbd5a008556fc7b2a08ddb1cc6ace7effa7340604b1d16699/docstring_parser-0.18.0-py3-none-any.whl", hash = "sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b", size = 22484, upload-time = "2026-04-14T04:09:18.638Z" },
 ]
 
 [[package]]
@@ -468,14 +501,16 @@ wheels = [
 
 [[package]]
 name = "gate-cache"
-version = "0.8.0"
+version = "0.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "cyclopts" },
     { name = "platformdirs" },
+    { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/30/a0323e65a7569c9b71aeb5ec4fe8c09c3cf0fcd3afe591824151f591eb3a/gate_cache-0.8.0.tar.gz", hash = "sha256:81ca76a193331bab09b021d848574e1b63491f2bc13831b3705fcd6c82164b6b", size = 301949, upload-time = "2026-11-18T00:48:54.783Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/f1/840adb3ae66a465a33a13d13c6d8691a77eaa720420233e93e264507b805/gate_cache-0.11.0.tar.gz", hash = "sha256:14d66da2e720e3eeec9bd232c356bb1c72f8f481bd4df342e5014030842f66ef", size = 364246, upload-time = "2026-11-19T15:24:36.266Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/f8/ba3412de319fef4b4b958d63f2e7f3d74b1213011b31bff643abad58e74e/gate_cache-0.8.0-py3-none-any.whl", hash = "sha256:8cdccde959fe43a78e6c511fa5baa8fb36d25d7d21ab3be1c2829cf785b7f72a", size = 312044, upload-time = "2026-11-18T00:48:53.778Z" },
+    { url = "https://files.pythonhosted.org/packages/62/85/1f8711be60bd68fd5c1d6d60016169a7d8938b03827c7b8d56931941d1fe/gate_cache-0.11.0-py3-none-any.whl", hash = "sha256:95bd223cef70440680488c5f6ac3861fb5893c0363c7e49296c047c8365d82c4", size = 390231, upload-time = "2026-11-19T15:24:34.904Z" },
 ]
 
 [[package]]
@@ -1292,6 +1327,19 @@ wheels = [
 ]
 
 [[package]]
+name = "rich-rst"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pygments" },
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cf/0e/faf7c7e36630561e3e9611730c47510cd972dd5fde8f95941ff78f76accd/rich_rst-2.2.0.tar.gz", hash = "sha256:b1e6a67f8f694a6f36035624bf73e2b1a0a4be13edaf3ba5e654d9758b61073a", size = 326270, upload-time = "2026-09-27T19:12:42.163Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/4e/716b42bf066e180c1235783b46f095a5d871d05dca7006d2295aac29c491/rich_rst-2.2.0-py3-none-any.whl", hash = "sha256:1ea1c43813dc4a8d86475fce27ffb74e0ada3d4656c9f8130ba2a59868055fe9", size = 279274, upload-time = "2026-09-27T19:12:40.548Z" },
+]
+
+[[package]]
 name = "ruff"
 version = "0.17.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1644,7 +1692,7 @@ dev = [
     { name = "debugpy", specifier = ">=1.8.22" },
     { name = "duty", specifier = ">=1.10.1" },
     { name = "faker", specifier = ">=40.54.0" },
-    { name = "gate-cache", specifier = ">=0.8.0" },
+    { name = "gate-cache", specifier = ">=0.11.0" },
     { name = "prek", specifier = ">=0.5.11" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-clarity", specifier = ">=1.0.1" },

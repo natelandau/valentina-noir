@@ -40,7 +40,7 @@
         "debugpy>=1.8.22",
         "duty>=1.10.1",
         "faker>=40.54.0",
-        "gate-cache>=0.8.0",
+        "gate-cache>=0.11.0",
         "prek>=0.5.11",
         "pytest-clarity>=1.0.1",
         "pytest-cov>=7.1.0",

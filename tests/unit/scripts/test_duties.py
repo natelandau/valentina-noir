@@ -1,42 +1,27 @@
 """Unit tests for the gate-cache helpers in duties.py."""
 
-import subprocess
+from pathlib import Path
 
 import duties
 import pytest
-from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
-    ("paths", "expected"),
+    ("paths", "junit", "expected"),
     [
-        ((), ["gate-cache", "--name", "t", "--", "pytest"]),
+        ((), None, ["gate-cache", "--name", "t", "--", "pytest"]),
         (
             ("src/", "uv.lock"),
+            None,
             ["gate-cache", "--name", "t", "--path", "src/", "--path", "uv.lock", "--", "pytest"],
         ),
+        ((), Path("r.xml"), ["gate-cache", "--name", "t", "--junit", "r.xml", "--", "pytest"]),
     ],
 )
-def test_gated(paths: tuple[str, ...], expected: list[str]) -> None:
-    """Verify each path becomes its own --path option before the command."""
+def test_gated(paths: tuple[str, ...], junit: Path | None, expected: list[str]) -> None:
+    """Verify each path and the JUnit report become gate-cache options before the command."""
     # Then
-    assert duties.gated("t", ["pytest"], paths) == expected
-
-
-def test_gate_passed_passes_paths(mocker: MockerFixture) -> None:
-    """Verify the status check scopes to the same paths as the run."""
-    # Given
-    mocker.patch.object(duties, "GATE_CACHE_ON", new=True)
-    run = mocker.patch.object(
-        duties.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
-    )
-
-    # When
-    passed = duties.gate_passed("t", ("src/",))
-
-    # Then
-    assert passed is True
-    assert run.call_args.args[0] == ["gate-cache", "status", "--name", "t", "--path", "src/"]
+    assert duties.gated("t", ["pytest"], paths, junit=junit) == expected
 
 
 def test_test_gate_paths_exist() -> None:
